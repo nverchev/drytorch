@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependencies]
+torch = ">=2.0.0+cu118"
+tqdm = ">=4.65.0"
+visdom = ">=0.2.4"
+
+[project]
+name = "custom_trainer"
+version = "0.1.0"
+authors = [
+  { name="Nicolas Vercheval", email="nicolas.vercheval@ugent.be" },
+]
+description = "This package helps you training, documenting, and evaluating a Pytorch model."
+keywords = ["pytorch", "training", "structured_data", "autoencoders"]
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE.txt"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = ["torch", "tqdm", "visdom"]
+
+[project.urls]
+Repository = "https://github.com/nverchev/custom_trainer"
+Issues = "https://github.com/nverchev/custom_trainer/issues"
+Changelog = "https://github.com/nverchev/custom_trainer/blob/master/CHANGELOG.md"

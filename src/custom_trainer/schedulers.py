@@ -1,0 +1,94 @@
+import numpy as np
+from abc import ABCMeta, abstractmethod
+
+
+def inherit_docstring(cls):
+    cls.__call__.__doc__ = Scheduler.__call__.__doc__
+    return cls
+
+
+class Scheduler(metaclass=ABCMeta):
+    """
+    Base class for a scheduler compatible with the Trainer class.
+    """
+
+    @abstractmethod
+    def __call__(self, base_lr: float, epoch: int) -> float:
+        """
+        It calls the scheduler for the decay of the learning rate
+
+        Args:
+            base_lr: returns this value when epoch is 0
+            epoch: the variable of decaying curve
+        Returns:
+            decayed value for the learning rate
+        """
+        ...
+
+    @abstractmethod
+    def __str__(self) -> str:
+        ...
+
+
+@inherit_docstring
+class ConstantScheduler(Scheduler):
+    """
+    This scheduler does not modify the learning rate
+    """
+
+    def __call__(self, base_lr: float, epoch: int) -> float:
+        return base_lr
+
+    def __str__(self) -> str:
+        return 'Fixed learning rate'
+
+
+@inherit_docstring
+class ExponentialScheduler(Scheduler):
+    """
+    This scheduler implements a decay with an exponential curve
+    """
+
+    def __init__(self, exp_decay: float = .975) -> None:
+        """
+        Args:
+            exp_decay: the exponential decay parameter d for the curve f(x) = Ce^(dx)
+        """
+        self.exp_decay = exp_decay
+
+    def __call__(self, base_lr: float, epoch: int) -> float:
+        return base_lr * self.exp_decay ** epoch
+
+    def __str__(self) -> str:
+        return 'Exponential schedule'
+
+
+@inherit_docstring
+class CosineScheduler(Scheduler):
+    """
+    This scheduler implements a decay with a cosine curve
+    """
+    def __init__(self, decay_steps: int = 250, min_decay: float = 0.01):
+        """
+        The curve follows the cosine curve of the type C0 + C1(1 + cos(C2x)) specified by the following parameters.
+        Args:
+            decay_steps: the epochs (C2 * pi) were the schedule follows a cosine curve until its minimum C0,
+             after which it returns C0 until the end
+            min_decay: the fraction of the initial value that it returned at the end (C0 + C1) / C0
+        """
+        self.decay_steps = decay_steps
+        self.min_decay = min_decay
+
+    def __call__(self, base_lr: float, epoch: int) -> float:
+        min_lr = self.min_decay * base_lr
+        if epoch >= self.decay_steps:
+            return min_lr
+        return min_lr + (base_lr - min_lr) * ((1 + np.cos(np.pi * epoch / self.decay_steps)) / 2)
+
+    def __str__(self):
+        return 'Cosine schedule'
+
+
+def get_scheduler(scheduler_name):
+    map_scheduler = {'Constant': ConstantScheduler, 'Exponential': ExponentialScheduler, 'Cosine': CosineScheduler}
+    return map_scheduler[scheduler_name]
