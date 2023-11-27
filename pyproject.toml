@@ -17,7 +17,7 @@ description = "This package helps you training, documenting, and evaluating a Py
 keywords = ["pytorch", "training", "structured_data", "autoencoders"]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {file = "LICENSE.txt"}
+license = {file = "LICENSE"}
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

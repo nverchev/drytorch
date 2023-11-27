@@ -11,8 +11,8 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 import sys
 from typing import Any, Literal
-from . import Scheduler, ConstantScheduler
-from . import DictList, apply, dict_repr, C
+from custom_trainer.schedulers import Scheduler, ConstantScheduler
+from custom_trainer.utils import DictList, apply, dict_repr, C
 
 
 class Trainer(metaclass=ABCMeta):
