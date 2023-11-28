@@ -422,7 +422,7 @@ class Trainer(metaclass=ABCMeta):
         """
         if not os.path.exists(self.model_pardir):
             os.mkdir(self.model_pardir)
-        if epoch is None
+        if epoch is None:
             epoch = self.epoch
         directory = os.path.join(self.model_pardir, new_exp_name or self.exp_name)
         if not os.path.exists(directory):
