@@ -60,7 +60,7 @@ class ExponentialScheduler(Scheduler):
         return base_lr * self.exp_decay ** epoch
 
     def __str__(self) -> str:
-        return 'Exponential schedule'
+        return f'Exponential schedule with exponential decay = {self.exp_decay}'
 
 
 @inherit_docstring
@@ -86,7 +86,7 @@ class CosineScheduler(Scheduler):
         return min_lr + (base_lr - min_lr) * ((1 + np.cos(np.pi * epoch / self.decay_steps)) / 2)
 
     def __str__(self):
-        return 'Cosine schedule'
+        return f'Cosine schedule with {self.decay_steps} decay steps and {self.min_decay} min_decay factor'
 
 
 def get_scheduler(scheduler_name):

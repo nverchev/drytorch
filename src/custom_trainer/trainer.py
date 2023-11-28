@@ -62,7 +62,7 @@ class Trainer(metaclass=ABCMeta):
     def __init__(self, model: torch.nn.Module, *, exp_name: str, device: torch.device,
                  optimizer_cls: type[torch.optim.Optimizer], optim_args: dict,
                  train_loader: DataLoader, val_loader: DataLoader = None, test_loader: DataLoader = None,
-                 model_pardir: str = './models', amp: bool = False, scheduler: Scheduler = ConstantScheduler,
+                 model_pardir: str = './models', amp: bool = False, scheduler: Scheduler = ConstantScheduler(),
                  **extra_config: dict) -> None:
         """
         Args:
@@ -179,6 +179,7 @@ class Trainer(metaclass=ABCMeta):
             self._run_session(partition='train')
             self.hook_after_training_epoch()
             if self.val_loader and val_after_train:  # check losses on val
+                print(end=('' if self.quiet_mode else '\n'))
                 self.model.eval()
                 with torch.inference_mode():
                     self._run_session(partition='val', use_metrics=False)
@@ -456,6 +457,8 @@ class Trainer(metaclass=ABCMeta):
             obj: a container (a combination of dict and list) of Tensors
             device: the target device. Alternatively detach_cpu for including detaching
         """
+
         def to_device(x: Tensor) -> Tensor:
             return x.detach().cpu() if device == 'detach_cpu' else x.to(device)
+
         return apply(obj, expected_type=Tensor, func=to_device)
