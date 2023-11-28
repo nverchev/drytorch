@@ -412,15 +412,18 @@ class Trainer(metaclass=ABCMeta):
         print('Loaded: ', paths['model'])
         return
 
-    def _paths(self, new_exp_name: str = None) -> dict[str, str]:
+    def _paths(self, new_exp_name: str = None, epoch: int = None) -> dict[str, str]:
         """
         It gets the paths for saving and loading the experiment.
 
         Args:
             new_exp_name: the alternative name for the folder (see self.save)
+            epoch: the epoch of the checkpoint for the model and optimizer  (default to self.epoch)
         """
         if not os.path.exists(self.model_pardir):
             os.mkdir(self.model_pardir)
+        if epoch is None
+            epoch = self.epoch
         directory = os.path.join(self.model_pardir, new_exp_name or self.exp_name)
         if not os.path.exists(directory):
             os.mkdir(directory)
@@ -430,7 +433,7 @@ class Trainer(metaclass=ABCMeta):
             paths[json_file] = os.path.join(directory, f'{json_file}.json')
         # paths for the model and the optimizer checkpoints
         for pt_file in ['model', 'optim']:
-            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{self.epoch}.pt')
+            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
         return paths
 
     def hook_before_training_epoch(self) -> None:
