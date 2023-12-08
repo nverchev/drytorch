@@ -24,7 +24,7 @@ class Trainer:
         I) Inheritance allows user defined class for complex models and / or training by only adding minimal code
             1) Compartmentalization - the methods can be easily extended and overriden
             2) Flexible containers - the trainer uses dictionaries that can handle complex inputs / outputs
-            3) Hooks that grant further customizability
+            3) Hooks that grant further possibilities of customization
         II) Already implemented complex functionalities during training:
             1) Scheduler for the learning rate decay and different learning rates for different parameters' groups
             2) Mixed precision training using torch.cuda.amp
@@ -114,13 +114,16 @@ class Trainer:
         self.test_outputs: DictList[torch.Tensor]  # store last test evaluation
 
         self.vis = None
+        _not_used = extra_config
         return
 
     @staticmethod
     def get_loader(dataset: Dataset, batch_size: int, partition: Literal['train', 'val', 'test'] = 'train', *_):
         if dataset is None:
             return None
-        dataset = StackDataset(dataset, TensorDataset(torch.arange(len(dataset))))  # adds indices
+        # noinspection PyTypeChecker
+        len_dataset: int = len(dataset)  # Dataset object must have a __len__ method
+        dataset = StackDataset(dataset, TensorDataset(torch.arange(len_dataset)))  # adds indices
         pin_memory = torch.cuda.is_available()
         drop_last = True if partition == 'train' else False
         return DataLoader(dataset, drop_last=drop_last, batch_size=batch_size, shuffle=True, pin_memory=pin_memory)
@@ -201,7 +204,7 @@ class Trainer:
         return
 
     @torch.inference_mode()
-    def test(self, partition: Literal['train', 'val', 'test'] = 'val', save_outputs: bool = False, *_) -> None:
+    def test(self, partition: Literal['train', 'val', 'test'] = 'val', save_outputs: bool = False) -> None:
         """
         It tests the current model in inference. It saves the metrics in saved_test_metrics
 
@@ -288,7 +291,7 @@ class Trainer:
 
         return
 
-    def loss_dict(self, outputs: C, inputs: C, targets: C, *_) -> dict[str, Tensor]:
+    def loss_dict(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
         """
         It must return a dictionary "dict" with dict['Criterion'] = loss to backprop.
 
@@ -301,9 +304,10 @@ class Trainer:
             loss: dictionary whose values must be tensors of shape (batch_size, 1)
 
         """
+        _not_used = inputs
         return {'Criterion': self.loss(outputs, targets)}
 
-    def metrics(self, outputs: C, inputs: C, targets: C, *_) -> dict[str, Tensor]:
+    def metrics(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
         """
         This method works similarly to the loss method and defaults to it. Override for complex metrics during testing.
 
@@ -467,8 +471,8 @@ class Trainer:
         It gets the paths for saving and loading the experiment.
 
         Args:
-            new_exp_name: the alternative name for the folder (see self.save)
-            epoch: the epoch of the checkpoint for the model and optimizer  (default to self.epoch)
+            new_exp_name: the alternative name for the folder (see save method)
+            epoch: the epoch of the checkpoint for the model and optimizer  (default to attribute epoch)
         """
         if not os.path.exists(self.model_pardir):
             os.mkdir(self.model_pardir)
