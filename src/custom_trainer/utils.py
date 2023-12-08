@@ -1,7 +1,10 @@
-from typing import TypeVar, Any, Callable, Union, Type, Iterable, Generic, Literal
+from typing import TypeVar, Any, Callable, Union, Type, Iterable, Generic
 from collections import UserDict
+import numpy
+import torch
 
 T = TypeVar('T')  # typically torch.Tensor
+IT = Iterable[T]  # again a torch.Tensor but stresses that it is iterable as tensor slices along the 0 dimension
 # mypy not currently handling recursive annotations reliably
 C = Union[list[T | 'C'], dict[Any, T | 'C'], T]  # nested list / dict that contains type T
 
@@ -45,18 +48,23 @@ def dict_repr(struc: Any, max_length: int = 10) -> Any:
     Returns:
         struc: a readable representation of an object
     """
-    if isinstance(struc, (type, type(lambda: ...))):  # no builtin variable for the function class!
+    if isinstance(struc, torch.Tensor):
+        struc = struc.cpu().numpy()
+    if isinstance(struc, numpy.ndarray):
+        with numpy.printoptions(precision=3, suppress=True, threshold=10):
+            struc = str(struc)
+    elif isinstance(struc, (type, type(lambda: ...))):  # no builtin variable for the function class!
         return struc.__name__
-    if isinstance(struc, (list, tuple)):
-        if len(struc) > max_length:
-            struc = struc[:max_length] + ['...']
+    elif isinstance(struc, (list, tuple, set)):
+        overflow = len(struc) > max_length
+        struc = [dict_repr(item, max_length) for item in struc[:max_length]]
+        if overflow:
+            struc.append('...')
     elif isinstance(struc, dict):
-        return {k: struc.get(k, '') for k in dict_repr(list(struc))}  # limits dictionary size
-    elif isinstance(struc, set):
-        return {k for k in dict_repr(list(struc))}  # limits set size
+        return {k: dict_repr(struc.get(k, ''), max_length) for k in dict_repr(list(struc))}  # limits dictionary size
     elif dct := getattr(struc, '__dict__', False):
         return {k: dict_repr(v, max_length) for k, v in ({'class': type(struc)} | dct).items()
-                if v not in ({}, [], set())}  # filters out uninitialized attributes
+                if v not in ({}, [], set(), '')}  # filters out uninitialized attributes
     return struc
 
 
@@ -65,14 +73,13 @@ class DictList(UserDict, Generic[T]):
     Dictionary with possibly nested lists of Iterables (specifically Tensors)
     """
 
-    def __init__(self, **kwargs: dict[str, list[list[Iterable[T]]] | list[Iterable[T]]]):
+    def __init__(self, **kwargs: dict[str, list[list[IT]] | list[IT]]):
         """
         Args: a dictionary that has strings as keys, and list (of lists) of objects of tipe T
         """
         super().__init__(**kwargs)
-        self.info: dict = {}
 
-    def __getitem__(self, key_or_index: int | str) -> list[list[Iterable[T]]] | list[Iterable[T]] | dict[Iterable[T]]:
+    def __getitem__(self, key_or_index: int | str) -> list[list[IT]] | list[IT] | dict[Any, IT | list[IT]]:
         """
         It allows indexing by overloading __getitem__
         Args:
@@ -84,7 +91,7 @@ class DictList(UserDict, Generic[T]):
             return self._index_dict_list(key_or_index)  # indexing inside dict
         return super().__getitem__(key_or_index)  # standard dict mapping
 
-    def _index_dict_list(self, ind: int) -> dict[T]:
+    def _index_dict_list(self, ind: int) -> dict[Any, T | list[T]]:
         out_dict = {}
         for k, v in self.items():
             # if the list contains sub-lists, it indexes those
@@ -95,7 +102,6 @@ class DictList(UserDict, Generic[T]):
             out_dict[k] = new_v
         return out_dict
 
-    #
     def extend_dict(self, new_dict: dict[str, list[list[Iterable[T]]] | list[Iterable[T]] | Iterable[T]]):
         """
         It appends (or creates) dict of (nested) lists
@@ -111,3 +117,27 @@ class DictList(UserDict, Generic[T]):
             else:
                 self.setdefault(key, []).extend(value)  # transforms Tensor in list of Tensors
 
+
+# Allows a temporary change using the with statement
+class UsuallyFalse:
+    """
+    Abuses the with statement for a temporary change
+    """
+    _value: bool = False
+
+    def __bool__(self):
+        """
+        Usually, it evaluates to False
+
+        Returns False when outside the with statement else True
+        """
+        return self._value
+
+    def __enter__(self):
+        self._value = True
+
+    def __exit__(self, *_):
+        self._value = False
+
+    def __repr__(self):
+        return self._value

@@ -1,21 +1,21 @@
-import os
-import warnings
 import json
-import torch
-from torch.cuda.amp import GradScaler
-from torch import autocast, Tensor
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-import visdom
-from abc import ABCMeta, abstractmethod
-from collections import defaultdict
+import os
 import sys
-from typing import Any, Literal
+import warnings
+from collections import defaultdict
+from typing import Any, Literal, Callable
+
+import pandas as pd
+import torch
 from custom_trainer.schedulers import Scheduler, ConstantScheduler
-from custom_trainer.utils import DictList, apply, dict_repr, C
+from custom_trainer.utils import DictList, UsuallyFalse, apply, dict_repr, C
+from torch import autocast, Tensor
+from torch.cuda.amp import GradScaler
+from torch.utils.data import DataLoader, Dataset, StackDataset, TensorDataset
+from tqdm.auto import tqdm
 
 
-class Trainer(metaclass=ABCMeta):
+class Trainer:
     """
     This abstract class manages training and general utilities for a Pytorch model.
     You need to subclass it and override the loss method.
@@ -35,7 +35,7 @@ class Trainer(metaclass=ABCMeta):
             3) DictList allows indexing of complex outputs for output exploration
 
     """
-    quiet_mode: bool = False  # less output
+    quiet = UsuallyFalse()  # less output
     max_stored_output: int = float('inf')  # maximum amount of stored evaluated test samples
     max_length_config: int = 20
     tqdm_update_frequency = 10
@@ -59,58 +59,71 @@ class Trainer(metaclass=ABCMeta):
         obj.settings = model_architecture | model_settings | kwargs
         return obj
 
-    def __init__(self, model: torch.nn.Module, *, exp_name: str, device: torch.device,
-                 optimizer_cls: type[torch.optim.Optimizer], optim_args: dict,
-                 train_loader: DataLoader, val_loader: DataLoader = None, test_loader: DataLoader = None,
-                 model_pardir: str = './models', amp: bool = False, scheduler: Scheduler = ConstantScheduler(),
-                 **extra_config: dict) -> None:
+    def __init__(self, model: torch.nn.Module, *, exp_name: str, model_pardir: str = './models', device: torch.device,
+                 batch_size: int, train_dataset: Dataset, val_dataset: Dataset = None, test_dataset: Dataset = None,
+                 optimizer_cls: type, optim_args: dict, scheduler: Scheduler = ConstantScheduler(), loss: Callable,
+                 amp: bool = False, **extra_config: dict) -> None:
         """
         Args:
             model: Pytorch model with a settings attribute which is a dictionary for extra details
             exp_name: name used for the folder containing the checkpoints and the metadata
             device: only gpu and cpu are supported
+            train_dataset: dataset for training used in the train method
+            val_dataset: dataset for validation used both in the train method and in the test method
+            test_dataset: dataset for testing only used in the test method
             optimizer_cls: a Pytorch optimizer class
             optim_args: arguments for the optimizer (see the optimizer_settings setter for more details)
-            train_loader: loader for the dataset for training used in the train method
-            val_loader: loader for dataset for validation used both in the train method and in the test method
-            test_loader: loader for the dataset for testing only used in the test method
-            scheduler: instance of a Scheduler class that modifies the learning rate depending on the epoch
             model_pardir: parent directory for the folders with the model checkpoints
             amp: mixed precision computing from torch.cuda.amp (works only with cuda)
-            extra_config: extraneous settings for logging (see __new__)
+                        scheduler: instance of a Scheduler class that modifies the learning rate depending on the epoch
+            loss_fun: this function may be a callable torch.nn.Module object (with reduction='none') or any function
+                    that returns a tensor of shape (batch_size, ) with the loss evaluation of individual samples.
+                    By default, its arguments are the model outputs and the targets. For more complex losses, and to
+                    compute metrics during training, read the documentation on the loss method and override it
+            extra_config: extraneous settings for logging (see the __new__ method)
 
             Important!
-            The loaders should be compatible with the torch.utils.data.dataloader.DataLoader class.
-            They must yield (inputs, targets, indices) where:
+            Indexing the dataset must return a tuple (inputs, targets) where:
             inputs: inputs for the model. Either a tensor, or a structured container of tensors that uses list and dict
-            targets: arguments only used by the loss function. It can be structured as wll
-            indices: indices of the sampled rows of the dataset (set to 0 if it does not apply)
-
+            targets: arguments only used by the loss function. It can be structured as well or can be None
             The handling of the inputs and outputs can be specified overriding the helper_inputs and loss methods
 
         """
         self.device = device
         self.model = model.to(device)
         self.exp_name = exp_name
-        self.scheduler = scheduler
+        self.model_pardir = model_pardir
+
+        self.train_loader = self.get_loader(train_dataset, batch_size, partition='train')
+        self.val_loader = self.get_loader(val_dataset, batch_size, partition='val')
+        self.test_loader = self.get_loader(test_dataset, batch_size, partition='test')
+
         self.epoch = 0
-        # this is a property that updates the learning rate according to the epoch and the scheduler
-        self.optimizer_settings = optim_args.copy()
+        self.scheduler = scheduler
+        self.optimizer_settings = optim_args.copy()  # property that updates the learning rate according to the epoch
         self.optimizer = optimizer_cls(**self.optimizer_settings)
         self.scaler = GradScaler(enabled=amp and self.device.type == 'cuda')
         self.amp = amp
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.test_loader = test_loader
-        self.train_log: dict[int: dict[str, float]] = defaultdict(dict)
-        self.val_log: dict[int: dict[str, float]] = defaultdict(dict)
+        self.loss = loss
+
+        self.train_log = pd.DataFrame()
+        self.val_log = pd.DataFrame()
+        self.saved_test_metrics = pd.DataFrame()  # saves metrics of last evaluation
         self.test_indices: list[int]
         self.test_metadata: dict[str: int | str]
         self.test_outputs: DictList[torch.Tensor]  # store last test evaluation
-        self.saved_test_metrics: dict[str, float] = {}  # saves metrics of last evaluation
-        self.model_pardir = model_pardir
+
         self.vis = None
         return
+
+    @staticmethod
+    def get_loader(dataset: Dataset, batch_size: int, partition: Literal['train', 'val', 'test'] = 'train'):
+        if dataset is None:
+            return None
+        dataset = StackDataset(dataset, TensorDataset(torch.arange(len(dataset))))  # adds indices
+        pin_memory = torch.cuda.is_available()
+        drop_last = True if partition == 'train' else False
+        return DataLoader(dataset, drop_last=drop_last, batch_size=batch_size, shuffle=True, pin_memory=pin_memory)
 
     @property
     def optimizer_settings(self) -> dict:  # settings depend on the epoch
@@ -165,29 +178,30 @@ class Trainer(metaclass=ABCMeta):
             num_epoch: a global learning rate for all the parameters or a list of dict with a 'lr' as a key
             val_after_train: run inference on the validation dataset after each epoch and calculates the loss
         """
-        if not self.quiet_mode:
-            print('Training {}'.format(self.exp_name), end='')
+        if not self.quiet:
+            print('\rTraining {}'.format(self.exp_name))  # \r corrects asynchronous stderr/stdout printouts
         for _ in range(num_epoch):
             self.update_learning_rate(self.optimizer_settings['params'])
             self.epoch += 1
-            if self.quiet_mode:
-                print('\r====> Epoch:{:4d}'.format(self.epoch), end=' ... ')
-            else:
-                print('\n====> Epoch:{:4d}'.format(self.epoch))
+            print('\r====> Epoch:{:4d}'.format(self.epoch), end=' ...  :' if self.quiet else '\n')
             self.model.train()
             self.hook_before_training_epoch()
             self._run_session(partition='train')
             self.hook_after_training_epoch()
-            if self.val_loader and val_after_train:  # check losses on val
-                print(end=('' if self.quiet_mode else '\n'))
+            if not self.quiet:
+                print()
+            if val_after_train:  # check losses on val
                 self.model.eval()
                 with torch.inference_mode():
                     self._run_session(partition='val', use_metrics=False)
-        print()
+                if not self.quiet:
+                    print()
+        if self.quiet:
+            print()
         return
 
     @torch.inference_mode()
-    def test(self, partition: Literal['train', 'val', 'test'], save_outputs: bool = False, **kwargs) -> None:
+    def test(self, partition: Literal['train', 'val', 'test'] = 'val', save_outputs: bool = False) -> None:
         """
         It tests the current model in inference. It saves the metrics in saved_test_metrics
 
@@ -209,20 +223,24 @@ class Trainer(metaclass=ABCMeta):
         Args:
             partition: the dataset used for the session
             save_outputs: if True, it stores the outputs of the model
-            use_metrics: whether to use self.loss or self.metrics
+            use_metrics: whether to use the loss method or the metrics method
         """
         match partition:
             case 'train':
                 loader = self.train_loader
-                dict_log = self.train_log[self.epoch]
+                log = self.train_log
             case 'val':
                 loader = self.val_loader
-                dict_log = self.val_log[self.epoch]
+                log = self.val_log
             case 'test':
                 loader = self.test_loader
-                dict_log = self.saved_test_metrics
+                log = self.saved_test_metrics
             case _:
                 raise ValueError('partition should be "train", "val" or "test"')
+
+        if loader is None:
+            warnings.warn(f' Impossible to run session on the {partition}_dataset: dataset not found.')
+            return
 
         if save_outputs:
             self.test_indices, self.test_outputs = [], DictList()
@@ -230,18 +248,18 @@ class Trainer(metaclass=ABCMeta):
 
         epoch_log = defaultdict(float)
         num_batch = len(loader)
-        with tqdm(enumerate(loader), total=num_batch, disable=self.quiet_mode, file=sys.stderr) as tqdm_loader:
+        with tqdm(enumerate(loader), total=num_batch, disable=bool(self.quiet), file=sys.stderr) as tqdm_loader:
             epoch_seen = 0
-            for batch_idx, (inputs, targets, indices) in tqdm_loader:
+            for batch_idx, ((inputs, targets), (indices, )) in tqdm_loader:
                 epoch_seen += indices.shape[0]
                 inputs, targets = self.recursive_to([inputs, targets], self.device)
-                inputs_aux = self.helper_inputs(inputs)
+                iter_inputs, named_inputs = self.helper_inputs(inputs)
                 with autocast(device_type=self.device.type, enabled=self.amp):
-                    outputs = self.model(**inputs_aux)
+                    outputs = self.model(*iter_inputs, **named_inputs)
                     if use_metrics:
                         batch_log = self.metrics(outputs, inputs, targets)
                     else:
-                        batch_log = self.loss(outputs, inputs, targets)
+                        batch_log = self.loss_dict(outputs, inputs, targets)
                         criterion = batch_log['Criterion'].mean(0)
                     for loss_or_metric, value in batch_log.items():
                         epoch_log[loss_or_metric] += value.sum(0).item()
@@ -261,19 +279,18 @@ class Trainer(metaclass=ABCMeta):
                 if save_outputs and self.max_stored_output >= epoch_seen:
                     self.test_outputs.extend_dict(self.recursive_to(outputs, 'detach_cpu'))
                     self.test_indices.extend(map(int, indices))
-
-        print(f'Average {partition} {"metric(s)" if torch.is_inference_mode_enabled() else "loss(es)"}:', end=' ')
+        print(f'\rAverage {partition} {"metric(s)" if torch.is_inference_mode_enabled() else "loss(es)"}:', end=' ')
         for loss_or_metric, value in epoch_log.items():
             value /= epoch_seen
             if torch.is_inference_mode_enabled() ^ (partition == 'train'):  # Evaluating train does not overwrite log
-                dict_log[loss_or_metric] = value
+                log.loc[self.epoch, loss_or_metric] = value
             print('{}: {:.4e}'.format(loss_or_metric, value), end='\t')
+
         return
 
-    @abstractmethod
-    def loss(self, outputs: C, inputs: C, targets: C) -> dict[str, Tensor]:
+    def loss_dict(self, outputs: C, inputs: C, targets: C) -> dict[str, Tensor]:
         """
-        You must override this method and return a dictionary "dict" with dict['Criterion'] = loss to backprop.
+        It must return a dictionary "dict" with dict['Criterion'] = loss to backprop.
 
         Args:
             outputs: the outputs of the model
@@ -284,11 +301,11 @@ class Trainer(metaclass=ABCMeta):
             loss: dictionary whose values must be tensors of shape (batch_size, 1)
 
         """
-        return {'Criterion': torch.FloatTensor([[0], ])}
+        return {'Criterion': self.loss(outputs, targets)}
 
     def metrics(self, outputs: C, inputs: C, targets: C) -> dict[str, Tensor]:
         """
-        This method works similarly to self.loss and defaults to it. Override for complex metrics during testing.
+        This method works similarly to the loss method and defaults to it. Override for complex metrics during testing.
 
         Args:
             outputs: the outputs of the model
@@ -299,9 +316,10 @@ class Trainer(metaclass=ABCMeta):
             metrics: dictionary whose values must be tensors of shape (batch_size, 1)
 
         """
-        return self.loss(outputs, inputs, targets)
+        return self.loss_dict(outputs, inputs, targets)
 
-    def helper_inputs(self, inputs: C) -> dict[str, Any]:
+    @staticmethod
+    def helper_inputs(inputs: C) -> tuple[iter, dict[str, Any]]:
         """
         This method is a hook that rearranges the inputs following the model's named arguments.
 
@@ -311,7 +329,18 @@ class Trainer(metaclass=ABCMeta):
         Returns:
             dictionary of the form {named_argument: input}
         """
-        return {'x': inputs}
+        return (inputs,), {}
+
+    def set_up_plotly(self):
+        if self.vis is None or str(self.vis) != 'plotly.express':
+            import plotly.express
+            self.vis = plotly.express
+
+    def set_up_visdom_connection(self):
+        if self.vis is None or str(self.vis) == 'plotly.express':
+            import visdom
+            print('visdom: ', end='', file=sys.stderr)
+            self.vis = visdom.Visdom(env=self.exp_name)
 
     def check_visdom_connection(self) -> bool:
         """
@@ -320,37 +349,58 @@ class Trainer(metaclass=ABCMeta):
         Returns:
             True if there is an active connection, False otherwise
         """
-        if self.vis is None:
-            self.vis = visdom.Visdom(env=self.exp_name)
+        self.set_up_visdom_connection()
         return self.vis.check_connection()
 
     def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
-                             win: str = 'Learning Curves') -> None:
+                             title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
         """
-        This method is a hook that rearranges the inputs following the model's named arguments.
+        This method plots the learning curves using either plotly or visdom as backends.
 
         Args:
             loss_or_metric: the loss or the metric to visualize
             start: the epoch from where you want to display the curve
-            win: the name of the window (and title) of the plot in the visdom interface
-
+            title: the name of the window (and title) of the plot in the visdom interface
+            lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
         """
-        if not self.check_visdom_connection():
-            warnings.warn('Impossible to display the learning curves on the server. Check the connection.')
-            return
-        epochs_train = sorted(self.train_log.keys())[start:]
-        values_train = [self.train_log[epoch][loss_or_metric] for epoch in self.train_log.keys()][start:]
-        layout = dict(xlabel='Epoch', ylabel=loss_or_metric, title=win, update='replace', showlegend=True)
-        self.vis.line(X=epochs_train, Y=values_train, win=win, opts=layout, name='Training')
-        if self.val_log:
-            epochs_val = []
-            values_val = []
-            for str_epoch in self.val_log.keys():
-                int_epoch = int(str_epoch)
-                if int_epoch >= start:
-                    epochs_val.append(int_epoch)
-                    values_val.append(self.val_log[str_epoch][loss_or_metric])
-            self.vis.line(X=epochs_val, Y=values_val, win=win, opts=layout, update='append', name='Validation')
+        jupyter = os.path.basename(os.environ['_']) == 'jupyter'  # True when calling from a jupyter notebook
+        if lib == 'plotly' or jupyter:
+            self._plot_learning_curves_plotly(loss_or_metric, start, title)
+        elif lib == 'auto':
+            if self.check_visdom_connection():
+                self._plot_learning_curves_visdom(loss_or_metric, start, title)
+            else:
+                self._plot_learning_curves_plotly(loss_or_metric, start, title)
+        elif lib == 'visdom':
+            if self.check_visdom_connection():
+                self._plot_learning_curves_visdom(loss_or_metric, start, title)
+            else:
+                warnings.warn('Impossible to display the learning curves on the server. Check the connection.')
+        else:
+            raise ValueError(f'Library {lib} not supported.')
+
+    def _plot_learning_curves_visdom(self, loss_or_metric: str = 'Criterion', start: int = 0,
+                                     title: str = 'Learning Curves') -> None:
+
+        train_log = self.train_log[self.train_log.index > start][loss_or_metric]
+        val_log = self.val_log[self.val_log.index > start][loss_or_metric]
+        layout = dict(xlabel='Epoch', ylabel=loss_or_metric, title=title, update='replace', showlegend=True)
+        self.vis.line(X=train_log.index, Y=train_log, win=title, opts=layout, name='Training')
+        if not self.val_log.empty:
+            self.vis.line(X=val_log.index, Y=val_log, win=title, opts=layout, update='append', name='Validation')
+        return
+
+    def _plot_learning_curves_plotly(self, loss_or_metric: str = 'Criterion', start: int = 0,
+                                     title: str = 'Learning Curves') -> None:
+        self.set_up_plotly()
+        train_log = self.train_log.copy()
+        train_log['Dataset'] = "Training"
+        val_log = self.val_log.copy()
+        val_log['Dataset'] = "Validation"
+        log = pd.concat([train_log, val_log])
+        log = log[log.index >= start].reset_index().rename(columns={'index': 'Epoch'})
+        fig = self.vis.line(log, x="Epoch", y=loss_or_metric, color="Dataset", title=title)
+        fig.show()
         return
 
     def save(self, new_exp_name: str = None) -> None:
@@ -368,11 +418,10 @@ class Trainer(metaclass=ABCMeta):
         torch.save(self.model.state_dict(), paths['model'])
         torch.save(self.optimizer.state_dict(), paths['optim'])
         # Write instead of append to be but safe from bugs
-        for json_file_name in ['train_log', 'val_log', 'saved_test_metrics', 'settings']:
-            with open(paths[json_file_name], 'w') as json_file:
-                file_content = self.__getattribute__(json_file_name)
-                if file_content:
-                    json.dump(file_content, json_file, default=str, indent=4)
+        for df_name in ['train_log', 'val_log', 'saved_test_metrics']:
+            self.__getattribute__(df_name).to_csv(paths[df_name])
+        with open(paths['settings'], 'w') as json_file:
+            json.dump(self.settings, json_file, default=str, indent=4)
         print('\rModel saved at: ', paths['model'])
         return
 
@@ -390,7 +439,7 @@ class Trainer(metaclass=ABCMeta):
             if os.path.exists(local_path):
                 for file in os.listdir(local_path):
                     if file[:5] == 'model':
-                        past_epochs.append(int(''.join(filter(str.isdigit, file))))  # available epochs
+                        past_epochs.append(int(''.join(filter(lambda c: c.isdigit(), file))))  # available epochs
             if not past_epochs:
                 warnings.warn('No saved models found. Training from scratch.', UserWarning)
                 return
@@ -402,13 +451,14 @@ class Trainer(metaclass=ABCMeta):
         except ValueError as err:
             warnings.warn('Optimizer has not been correctly loaded:')
             print(err)
-        for json_file_name in ['train_log', 'val_log']:
-            with open(paths[json_file_name], 'r') as log_file:
-                file_str = log_file.read()
-                json_file = json.loads(file_str) if file_str else {}
-            # converts keys back to int and filter out future epochs from the logs
-            json_file = {int_key: value for key, value in json_file.items() if (int_key := int(key)) <= self.epoch}
-            self.__setattr__(json_file_name, defaultdict(dict, json_file))
+        for df_name in ['train_log', 'val_log']:
+            try:
+                df = pd.read_csv(paths[df_name], index_col=0)
+            except FileNotFoundError:
+                df = pd.DataFrame()
+            # filter out future epochs from the logs
+            df = df[df.index <= self.epoch]
+            self.__setattr__(df_name, df)
         print('Loaded: ', paths['model'])
         return
 
@@ -427,10 +477,10 @@ class Trainer(metaclass=ABCMeta):
         directory = os.path.join(self.model_pardir, new_exp_name or self.exp_name)
         if not os.path.exists(directory):
             os.mkdir(directory)
-        paths: dict[str, str] = {}
-        # paths for settings, results and learning curves
-        for json_file in ['settings', 'train_log', 'val_log', 'saved_test_metrics']:
-            paths[json_file] = os.path.join(directory, f'{json_file}.json')
+        paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
+        # paths for results and learning curves
+        for df_name in ['train_log', 'val_log', 'saved_test_metrics']:
+            paths[df_name] = os.path.join(directory, f'{df_name}.csv')
         # paths for the model and the optimizer checkpoints
         for pt_file in ['model', 'optim']:
             paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
