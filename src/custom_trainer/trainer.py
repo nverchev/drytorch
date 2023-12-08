@@ -117,7 +117,7 @@ class Trainer:
         return
 
     @staticmethod
-    def get_loader(dataset: Dataset, batch_size: int, partition: Literal['train', 'val', 'test'] = 'train'):
+    def get_loader(dataset: Dataset, batch_size: int, partition: Literal['train', 'val', 'test'] = 'train', *_):
         if dataset is None:
             return None
         dataset = StackDataset(dataset, TensorDataset(torch.arange(len(dataset))))  # adds indices
@@ -201,7 +201,7 @@ class Trainer:
         return
 
     @torch.inference_mode()
-    def test(self, partition: Literal['train', 'val', 'test'] = 'val', save_outputs: bool = False) -> None:
+    def test(self, partition: Literal['train', 'val', 'test'] = 'val', save_outputs: bool = False, *_) -> None:
         """
         It tests the current model in inference. It saves the metrics in saved_test_metrics
 
@@ -288,7 +288,7 @@ class Trainer:
 
         return
 
-    def loss_dict(self, outputs: C, inputs: C, targets: C) -> dict[str, Tensor]:
+    def loss_dict(self, outputs: C, inputs: C, targets: C, *_) -> dict[str, Tensor]:
         """
         It must return a dictionary "dict" with dict['Criterion'] = loss to backprop.
 
@@ -303,7 +303,7 @@ class Trainer:
         """
         return {'Criterion': self.loss(outputs, targets)}
 
-    def metrics(self, outputs: C, inputs: C, targets: C) -> dict[str, Tensor]:
+    def metrics(self, outputs: C, inputs: C, targets: C, *_) -> dict[str, Tensor]:
         """
         This method works similarly to the loss method and defaults to it. Override for complex metrics during testing.
 
