@@ -5,7 +5,7 @@ from torch.optim import Adam
 from torch.nn import MSELoss
 
 uniform = torch.linspace(0, 1, 1000).unsqueeze(1)
-dset = TensorDataset(uniform, uniform)
+dset = TensorDataset(uniform, uniform)  # x == y
 trainer = Trainer(torch.nn.Linear(1, 1), exp_name='test_trainer', device=torch.device('cpu'),
                   batch_size=64, optimizer_cls=Adam, optim_args={'lr': 0.1}, loss=MSELoss(reduction='none'),
                   train_dataset=dset, val_dataset=dset, test_dataset=dset, amp=False)
