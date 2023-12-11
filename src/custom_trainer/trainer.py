@@ -503,7 +503,7 @@ class Trainer:
         return apply(obj, expected_type=Tensor, func=to_device)
 
     @classmethod
-    def paths(cls, model_pardir: str, exp_name: str, epoch: int) -> dict[str, str]:
+    def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:
         """
         It gets the paths for saving and loading the experiment.
 
