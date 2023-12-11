@@ -3,7 +3,7 @@ import os
 import sys
 import warnings
 from collections import defaultdict
-from typing import Any, Literal, Callable
+from typing import Any, Literal, Callable, Iterable
 
 import pandas as pd
 import torch
@@ -14,11 +14,12 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset, StackDataset, TensorDataset
 from tqdm.auto import tqdm
 
+px = visdom = None
+
 
 class Trainer:
     """
-    This abstract class manages training and general utilities for a Pytorch model.
-    You need to subclass it and override the loss method.
+    This class manages training and general utilities for a Pytorch model.
 
     The motivation for using this class is the following:
         I) Inheritance allows user defined class for complex models and / or training by only adding minimal code
@@ -59,10 +60,10 @@ class Trainer:
         obj.settings = model_architecture | model_settings | kwargs
         return obj
 
-    def __init__(self, model: torch.nn.Module, *, exp_name: str, model_pardir: str = './models', device: torch.device,
+    def __init__(self, model: torch.nn.Module, *, exp_name: str, model_pardir: str = 'models', device: torch.device,
                  batch_size: int, train_dataset: Dataset, val_dataset: Dataset = None, test_dataset: Dataset = None,
-                 optimizer_cls: type, optim_args: dict, scheduler: Scheduler = ConstantScheduler(), loss: Callable,
-                 amp: bool = False, **extra_config: dict) -> None:
+                 optimizer_cls: type, optim_args: dict, scheduler: Scheduler = ConstantScheduler(),
+                 loss: Callable, amp: bool = False, **extra_config: dict) -> None:
         """
         Args:
             model: Pytorch model with a settings attribute which is a dictionary for extra details
@@ -76,7 +77,7 @@ class Trainer:
             model_pardir: parent directory for the folders with the model checkpoints
             amp: mixed precision computing from torch.cuda.amp (works only with cuda)
                         scheduler: instance of a Scheduler class that modifies the learning rate depending on the epoch
-            loss_fun: this function may be a callable torch.nn.Module object (with reduction='none') or any function
+            loss: this function may be a callable torch.nn.Module object (with reduction='none') or any function
                     that returns a tensor of shape (batch_size, ) with the loss evaluation of individual samples.
                     By default, its arguments are the model outputs and the targets. For more complex losses, and to
                     compute metrics during training, read the documentation on the loss method and override it
@@ -110,7 +111,7 @@ class Trainer:
         self.val_log = pd.DataFrame()
         self.saved_test_metrics = pd.DataFrame()  # saves metrics of last evaluation
         self.test_indices: list[int]
-        self.test_metadata: dict[str: int | str]
+        self.test_metadata: dict[str, str]
         self.test_outputs: DictList[torch.Tensor]  # store last test evaluation
 
         self.vis = None
@@ -118,7 +119,7 @@ class Trainer:
         return
 
     @staticmethod
-    def get_loader(dataset: Dataset, batch_size: int, partition: Literal['train', 'val', 'test'] = 'train', *_):
+    def get_loader(dataset: Dataset, batch_size: int, partition: Literal['train', 'val', 'test'] = 'train', **_):
         if dataset is None:
             return None
         # noinspection PyTypeChecker
@@ -246,21 +247,22 @@ class Trainer:
             return
 
         if save_outputs:
-            self.test_indices, self.test_outputs = [], DictList()
-            self.test_metadata = dict(partition=partition, max_ouputs=self.max_stored_output)
+            self.test_indices: list[int] = []
+            self.test_outputs: DictList[torch.Tensor] = DictList()
+            self.test_metadata: dict[str, str] = dict(partition=partition)
 
-        epoch_log = defaultdict(float)
+        epoch_log: defaultdict[str, float] = defaultdict(float)
         num_batch = len(loader)
         with tqdm(enumerate(loader), total=num_batch, disable=bool(self.quiet), file=sys.stderr) as tqdm_loader:
             epoch_seen = 0
-            for batch_idx, ((inputs, targets), (indices, )) in tqdm_loader:
+            for batch_idx, ((inputs, targets), (indices,)) in tqdm_loader:
                 epoch_seen += indices.shape[0]
                 inputs, targets = self.recursive_to([inputs, targets], self.device)
                 iter_inputs, named_inputs = self.helper_inputs(inputs)
                 with autocast(device_type=self.device.type, enabled=self.amp):
                     outputs = self.model(*iter_inputs, **named_inputs)
                     if use_metrics:
-                        batch_log = self.metrics(outputs, inputs, targets)
+                        batch_log = self.metric_dict(outputs, inputs, targets)
                     else:
                         batch_log = self.loss_dict(outputs, inputs, targets)
                         criterion = batch_log['Criterion'].mean(0)
@@ -307,9 +309,10 @@ class Trainer:
         _not_used = inputs
         return {'Criterion': self.loss(outputs, targets)}
 
-    def metrics(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
+    def metric_dict(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
         """
-        This method works similarly to the loss method and defaults to it. Override for complex metrics during testing.
+        This method works similarly to the loss_dict method and defaults to it.
+        Override for complex metrics during testing.
 
         Args:
             outputs: the outputs of the model
@@ -323,7 +326,7 @@ class Trainer:
         return self.loss_dict(outputs, inputs, targets)
 
     @staticmethod
-    def helper_inputs(inputs: C) -> tuple[iter, dict[str, Any]]:
+    def helper_inputs(inputs: C) -> tuple[Iterable, dict[str, Any]]:
         """
         This method is a hook that rearranges the inputs following the model's named arguments.
 
@@ -336,13 +339,16 @@ class Trainer:
         return (inputs,), {}
 
     def set_up_plotly(self):
-        if self.vis is None or str(self.vis) != 'plotly.express':
-            import plotly.express
-            self.vis = plotly.express
+        global px
+        if 'plotly.express' not in sys.modules.keys():
+            import plotly.express as px
+        self.vis = px
 
     def set_up_visdom_connection(self):
-        if self.vis is None or str(self.vis) == 'plotly.express':
+        global visdom
+        if 'visdom' not in sys.modules.keys():
             import visdom
+        if not isinstance(self.vis, visdom.Visdom):
             print('visdom: ', end='', file=sys.stderr)
             self.vis = visdom.Visdom(env=self.exp_name)
 
@@ -411,14 +417,14 @@ class Trainer:
         """
         It saves a checkpoint for the model and the optimizer with the settings of the experiments, the results,
         and the training and validation learning curves. The folder has the name of the experiment and is located in
-        {self.model_pardir}/models
+        {attribute model_pardir}/models
 
         Args:
             new_exp_name: optionally save the model in a folder with this name to branch the model.
              The Trainer object won't modify self.exp_name
         """
         self.model.eval()
-        paths = self._paths(new_exp_name)
+        paths = self.paths(model_pardir=self.model_pardir, exp_name=new_exp_name or self.exp_name, epoch=self.epoch)
         torch.save(self.model.state_dict(), paths['model'])
         torch.save(self.optimizer.state_dict(), paths['optim'])
         # Write instead of append to be but safe from bugs
@@ -448,7 +454,7 @@ class Trainer:
                 warnings.warn('No saved models found. Training from scratch.', UserWarning)
                 return
             self.epoch = max(past_epochs)
-        paths = self._paths()
+        paths = self.paths(model_pardir=self.model_pardir, exp_name=self.exp_name, epoch=self.epoch)
         self.model.load_state_dict(torch.load(paths['model'], map_location=torch.device(self.device)))
         try:
             self.optimizer.load_state_dict(torch.load(paths['optim'], map_location=torch.device(self.device)))
@@ -465,30 +471,6 @@ class Trainer:
             self.__setattr__(df_name, df)
         print('Loaded: ', paths['model'])
         return
-
-    def _paths(self, new_exp_name: str = None, epoch: int = None) -> dict[str, str]:
-        """
-        It gets the paths for saving and loading the experiment.
-
-        Args:
-            new_exp_name: the alternative name for the folder (see save method)
-            epoch: the epoch of the checkpoint for the model and optimizer  (default to attribute epoch)
-        """
-        if not os.path.exists(self.model_pardir):
-            os.mkdir(self.model_pardir)
-        if epoch is None:
-            epoch = self.epoch
-        directory = os.path.join(self.model_pardir, new_exp_name or self.exp_name)
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-        paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
-        # paths for results and learning curves
-        for df_name in ['train_log', 'val_log', 'saved_test_metrics']:
-            paths[df_name] = os.path.join(directory, f'{df_name}.csv')
-        # paths for the model and the optimizer checkpoints
-        for pt_file in ['model', 'optim']:
-            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
-        return paths
 
     def hook_before_training_epoch(self) -> None:
         """
@@ -519,3 +501,27 @@ class Trainer:
             return x.detach().cpu() if device == 'detach_cpu' else x.to(device)
 
         return apply(obj, expected_type=Tensor, func=to_device)
+
+    @classmethod
+    def paths(cls, model_pardir: str, exp_name: str, epoch: int) -> dict[str, str]:
+        """
+        It gets the paths for saving and loading the experiment.
+
+        Args:
+            model_pardir: the path to the folder where to save experiments
+            exp_name: the name of the folder of the experiment
+            epoch: the epoch of the checkpoint for the model and optimizer
+        """
+        if not os.path.exists(model_pardir):
+            os.mkdir(model_pardir)
+        directory = os.path.join(model_pardir, exp_name)
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
+        # paths for results and learning curves
+        for df_name in ['train_log', 'val_log', 'saved_test_metrics']:
+            paths[df_name] = os.path.join(directory, f'{df_name}.csv')
+        # paths for the model and the optimizer checkpoints
+        for pt_file in ['model', 'optim']:
+            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
+        return paths

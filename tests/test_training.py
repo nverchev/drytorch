@@ -4,6 +4,7 @@ import torch
 from torch.optim import Adam
 from torch.nn import MSELoss
 
+
 uniform = torch.linspace(0, 1, 1000).unsqueeze(1)
 dset = TensorDataset(uniform, uniform)  # x == y
 trainer = Trainer(torch.nn.Linear(1, 1), exp_name='test_trainer', device=torch.device('cpu'),
@@ -15,5 +16,5 @@ trainer.save()
 with trainer.quiet:
     trainer.train(10, val_after_train=True)
 trainer.test('test')
-trainer.plot_learning_curves()
+trainer.plot_learning_curves(lib='auto')
 trainer.load(10)
