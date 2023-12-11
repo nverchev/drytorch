@@ -14,7 +14,16 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset, StackDataset, TensorDataset
 from tqdm.auto import tqdm
 
-px = visdom = None
+try:
+    import visdom
+except ImportError:
+    print("Plotting on visdom is disabled")
+    visdom = None
+try:
+    import plotly.express as px
+except ImportError:
+    print("Plotting on plotly is disabled")
+    px = None
 
 
 class Trainer:
@@ -40,6 +49,7 @@ class Trainer:
     max_stored_output: int = float('inf')  # maximum amount of stored evaluated test samples
     max_length_config: int = 20
     tqdm_update_frequency = 10
+    vis = None
 
     def __new__(cls, model, **kwargs):
         """
@@ -114,7 +124,6 @@ class Trainer:
         self.test_metadata: dict[str, str]
         self.test_outputs: DictList[torch.Tensor]  # store last test evaluation
 
-        self.vis = None
         _not_used = extra_config
         return
 
@@ -197,7 +206,7 @@ class Trainer:
             if val_after_train:  # check losses on val
                 self.model.eval()
                 with torch.inference_mode():
-                    self._run_session(partition='val', use_metrics=False)
+                    self._run_session(partition='val', use_test_metrics=False)
                 if not self.quiet:
                     print()
         if self.quiet:
@@ -214,20 +223,20 @@ class Trainer:
             save_outputs: if True, it stores the outputs of the model
         """
         self.model.eval()
-        self._run_session(partition=partition, save_outputs=save_outputs, use_metrics=True)
+        self._run_session(partition=partition, save_outputs=save_outputs, use_test_metrics=True)
         print()
         return
 
     def _run_session(self, partition: Literal['train', 'val', 'test'],
                      save_outputs: bool = False,
-                     use_metrics: bool = False) -> None:
+                     use_test_metrics: bool = False) -> None:
         """
         It implements batching, backpropagation, printing and storage of the outputs
 
         Args:
             partition: the dataset used for the session
             save_outputs: if True, it stores the outputs of the model
-            use_metrics: whether to use the loss method or the metrics method
+            use_test_metrics: whether to use possibly computationally expensive test_metrics
         """
         match partition:
             case 'train':
@@ -261,10 +270,10 @@ class Trainer:
                 iter_inputs, named_inputs = self.helper_inputs(inputs)
                 with autocast(device_type=self.device.type, enabled=self.amp):
                     outputs = self.model(*iter_inputs, **named_inputs)
-                    if use_metrics:
-                        batch_log = self.metric_dict(outputs, inputs, targets)
+                    if use_test_metrics:
+                        batch_log = self.test_metrics(outputs, inputs, targets)
                     else:
-                        batch_log = self.loss_dict(outputs, inputs, targets)
+                        batch_log = self.loss_and_metrics(outputs, inputs, targets)
                         criterion = batch_log['Criterion'].mean(0)
                     for loss_or_metric, value in batch_log.items():
                         epoch_log[loss_or_metric] += value.sum(0).item()
@@ -293,9 +302,9 @@ class Trainer:
 
         return
 
-    def loss_dict(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
+    def loss_and_metrics(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
         """
-        It must return a dictionary "dict" with dict['Criterion'] = loss to backprop.
+        It must return a dictionary "dict" with dict['Criterion'] = loss to backprop and other optional metrics.
 
         Args:
             outputs: the outputs of the model
@@ -309,9 +318,9 @@ class Trainer:
         _not_used = inputs
         return {'Criterion': self.loss(outputs, targets)}
 
-    def metric_dict(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
+    def test_metrics(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
         """
-        This method works similarly to the loss_dict method and defaults to it.
+        This method works similarly to the loss_and_metrics method and defaults to it.
         Override for complex metrics during testing.
 
         Args:
@@ -323,10 +332,9 @@ class Trainer:
             metrics: dictionary whose values must be tensors of shape (batch_size, 1)
 
         """
-        return self.loss_dict(outputs, inputs, targets)
+        return self.loss_and_metrics(outputs, inputs, targets)
 
-    @staticmethod
-    def helper_inputs(inputs: C) -> tuple[Iterable, dict[str, Any]]:
+    def helper_inputs(self, inputs: C) -> tuple[Iterable, dict[str, Any]]:
         """
         This method is a hook that rearranges the inputs following the model's named arguments.
 
@@ -336,36 +344,38 @@ class Trainer:
         Returns:
             dictionary of the form {named_argument: input}
         """
+        _not_used = self
         return (inputs,), {}
 
-    def set_up_plotly(self):
-        global px
-        if 'plotly.express' not in sys.modules.keys():
-            import plotly.express as px
-        self.vis = px
+    @classmethod
+    def set_up_visdom_connection(cls, env) -> bool:
+        """
+        It initializes a visdom environment with the name of the experiment (if it does not exist already)
 
-    def set_up_visdom_connection(self):
-        global visdom
-        if 'visdom' not in sys.modules.keys():
-            import visdom
-        if not isinstance(self.vis, visdom.Visdom):
+        Returns:
+            True visdom is available, False otherwise
+        """
+        if visdom is None:
+            return False
+        if cls.vis is None:
             print('visdom: ', end='', file=sys.stderr)
-            self.vis = visdom.Visdom(env=self.exp_name)
+            cls.vis = visdom.Visdom(env=env)
+        return True
 
-    def check_visdom_connection(self) -> bool:
+    @classmethod
+    def check_visdom_connection(cls, env) -> bool:
         """
         It activates and check the connection to the visdom server https://github.com/fossasia/visdom
 
         Returns:
             True if there is an active connection, False otherwise
         """
-        self.set_up_visdom_connection()
-        return self.vis.check_connection()
+        return cls.set_up_visdom_connection(env) and cls.vis.check_connection()
 
     def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
                              title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
         """
-        This method plots the learning curves using either plotly or visdom as backends.
+        This method plots the learning curves using either plotly or visdom as backends
 
         Args:
             loss_or_metric: the loss or the metric to visualize
@@ -373,43 +383,68 @@ class Trainer:
             title: the name of the window (and title) of the plot in the visdom interface
             lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
         """
+        plot_args = (self.train_log, self.val_log, loss_or_metric, start, title)
         jupyter = os.path.basename(os.environ['_']) == 'jupyter'  # True when calling from a jupyter notebook
         if lib == 'plotly' or jupyter:
-            self._plot_learning_curves_plotly(loss_or_metric, start, title)
+            self.plot_learning_curves_plotly(*plot_args)
         elif lib == 'auto':
-            if self.check_visdom_connection():
-                self._plot_learning_curves_visdom(loss_or_metric, start, title)
+            if self.check_visdom_connection(self.exp_name):
+                self.plot_learning_curves_visdom(*plot_args)
             else:
-                self._plot_learning_curves_plotly(loss_or_metric, start, title)
+                self.plot_learning_curves_plotly(*plot_args)
         elif lib == 'visdom':
-            if self.check_visdom_connection():
-                self._plot_learning_curves_visdom(loss_or_metric, start, title)
+            if self.check_visdom_connection(self.exp_name):
+                self.plot_learning_curves_visdom(*plot_args)
             else:
                 warnings.warn('Impossible to display the learning curves on the server. Check the connection.')
         else:
             raise ValueError(f'Library {lib} not supported.')
 
-    def _plot_learning_curves_visdom(self, loss_or_metric: str = 'Criterion', start: int = 0,
-                                     title: str = 'Learning Curves') -> None:
+    @classmethod
+    def plot_learning_curves_visdom(cls, train_log: pd.DataFrame,  val_log: pd.DataFrame,
+                                    loss_or_metric: str = 'Criterion', start: int = 0,
+                                    title: str = 'Learning Curves') -> None:
+        """
+        This class method plots the learning curves using visdom as backend. You need first to initialize an environment
+        within the class attribute vis (see check_visdom_connection)
 
-        train_log = self.train_log[self.train_log.index > start][loss_or_metric]
-        val_log = self.val_log[self.val_log.index > start][loss_or_metric]
+        Args:
+            train_log: pandas Dataframe with the loss and metrics calculated during training on the training dataset
+            val_log: pandas Dataframe with the loss and metrics calculated during training on the validation dataset
+            loss_or_metric: the loss or the metric to visualize
+            start: the epoch from where you want to display the curve
+            title: the name of the window (and title) of the plot in the visdom interface
+        """
+
+        train_log = train_log[train_log.index > start][loss_or_metric]
+        val_log = val_log[val_log.index > start][loss_or_metric]
         layout = dict(xlabel='Epoch', ylabel=loss_or_metric, title=title, update='replace', showlegend=True)
-        self.vis.line(X=train_log.index, Y=train_log, win=title, opts=layout, name='Training')
-        if not self.val_log.empty:
-            self.vis.line(X=val_log.index, Y=val_log, win=title, opts=layout, update='append', name='Validation')
+        cls.vis.line(X=train_log.index, Y=train_log, win=title, opts=layout, name='Training')
+        if not val_log.empty:
+            cls.vis.line(X=val_log.index, Y=val_log, win=title, opts=layout, update='append', name='Validation')
         return
 
-    def _plot_learning_curves_plotly(self, loss_or_metric: str = 'Criterion', start: int = 0,
-                                     title: str = 'Learning Curves') -> None:
-        self.set_up_plotly()
-        train_log = self.train_log.copy()
+    @classmethod
+    def plot_learning_curves_plotly(cls, train_log: pd.DataFrame,  val_log: pd.DataFrame,
+                                    loss_or_metric: str = 'Criterion', start: int = 0,
+                                    title: str = 'Learning Curves') -> None:
+        """
+        This class method plots the learning curves using plotly as backend.
+
+        Args:
+            train_log: pandas Dataframe with the loss and metrics calculated during training on the training dataset
+            val_log: pandas Dataframe with the loss and metrics calculated during training on the validation dataset
+            loss_or_metric: the loss or the metric to visualize
+            start: the epoch from where you want to display the curve
+            title: the name of the window (and title) of the plot in the visdom interface
+        """
+        train_log = train_log.copy()
         train_log['Dataset'] = "Training"
-        val_log = self.val_log.copy()
+        val_log = val_log.copy()
         val_log['Dataset'] = "Validation"
         log = pd.concat([train_log, val_log])
         log = log[log.index >= start].reset_index().rename(columns={'index': 'Epoch'})
-        fig = self.vis.line(log, x="Epoch", y=loss_or_metric, color="Dataset", title=title)
+        fig = px.line(log, x="Epoch", y=loss_or_metric, color="Dataset", title=title)
         fig.show()
         return
 
