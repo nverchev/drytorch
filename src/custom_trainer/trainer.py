@@ -238,18 +238,17 @@ class Trainer:
             save_outputs: if True, it stores the outputs of the model
             use_test_metrics: whether to use possibly computationally expensive test_metrics
         """
-        match partition:
-            case 'train':
-                loader = self.train_loader
-                log = self.train_log
-            case 'val':
-                loader = self.val_loader
-                log = self.val_log
-            case 'test':
-                loader = self.test_loader
-                log = self.saved_test_metrics
-            case _:
-                raise ValueError('partition should be "train", "val" or "test"')
+        if partition == 'train':
+            loader = self.train_loader
+            log = self.train_log
+        elif partition == 'val':
+            loader = self.val_loader
+            log = self.val_log
+        elif partition == 'test':
+            loader = self.test_loader
+            log = self.saved_test_metrics
+        else:
+            raise ValueError('partition should be "train", "val" or "test"')
 
         if loader is None:
             warnings.warn(f' Impossible to run session on the {partition}_dataset: dataset not found.')
@@ -359,7 +358,11 @@ class Trainer:
             return False
         if cls.vis is None:
             print('visdom: ', end='', file=sys.stderr)
-            cls.vis = visdom.Visdom(env=env)
+            try:
+                cls.vis = visdom.Visdom(env=env, raise_exceptions=True)
+            except ConnectionError:
+                print('Connection refused by server', file=sys.stderr)
+                return False
         return True
 
     @classmethod
@@ -383,6 +386,9 @@ class Trainer:
             title: the name of the window (and title) of the plot in the visdom interface
             lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
         """
+        if self.train_log.empty:
+            print('Learning curves not available. Did you train the model?')
+            return
         plot_args = (self.train_log, self.val_log, loss_or_metric, start, title)
         jupyter = os.path.basename(os.environ['_']) == 'jupyter'  # True when calling from a jupyter notebook
         if lib == 'plotly' or jupyter:
@@ -396,12 +402,12 @@ class Trainer:
             if self.check_visdom_connection(self.exp_name):
                 self.plot_learning_curves_visdom(*plot_args)
             else:
-                warnings.warn('Impossible to display the learning curves on the server. Check the connection.')
+                warnings.warn('Impossible to display the learning curves on the visdom server. Check the connection.')
         else:
             raise ValueError(f'Library {lib} not supported.')
 
     @classmethod
-    def plot_learning_curves_visdom(cls, train_log: pd.DataFrame,  val_log: pd.DataFrame,
+    def plot_learning_curves_visdom(cls, train_log: pd.DataFrame, val_log: pd.DataFrame,
                                     loss_or_metric: str = 'Criterion', start: int = 0,
                                     title: str = 'Learning Curves') -> None:
         """
@@ -424,8 +430,8 @@ class Trainer:
             cls.vis.line(X=val_log.index, Y=val_log, win=title, opts=layout, update='append', name='Validation')
         return
 
-    @classmethod
-    def plot_learning_curves_plotly(cls, train_log: pd.DataFrame,  val_log: pd.DataFrame,
+    @staticmethod
+    def plot_learning_curves_plotly(train_log: pd.DataFrame, val_log: pd.DataFrame,
                                     loss_or_metric: str = 'Criterion', start: int = 0,
                                     title: str = 'Learning Curves') -> None:
         """

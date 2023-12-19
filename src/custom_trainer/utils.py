@@ -55,15 +55,15 @@ def dict_repr(struc: Any, max_length: int = 10) -> Any:
     elif isinstance(struc, (type, type(lambda: ...))):  # no builtin variable for the function class!
         return struc.__name__
     elif isinstance(struc, (list, tuple, set)):
-        overflow = len(struc) > max_length
-        struc = [dict_repr(item, max_length) for item in list(struc)[:max_length]]
-        if overflow:
-            struc.append('...')
+        if len(struc) > max_length:
+            struc = list(struc)
+            struc = struc[:max_length // 2] + ['...'] + struc[-max_length // 2:]
+        struc = [dict_repr(item, max_length) for item in struc]
     elif isinstance(struc, dict):
         return {k: dict_repr(struc.get(k, ''), max_length) for k in dict_repr(list(struc))}  # limits dictionary size
     elif dct := getattr(struc, '__dict__', {}):
         return {k: dict_repr(v, max_length) for k, v in ({'class': type(struc)} | dct).items()
-                if v not in ({}, [], set(), '')}  # filters out uninitialized attributes
+                if v not in ({}, [], set(), '', None)}  # filters out uninitialized attributes (keeps 0 values)
     return struc
 
 
