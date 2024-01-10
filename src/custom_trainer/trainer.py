@@ -492,7 +492,7 @@ class Trainer:
                     if file[:5] == 'model':
                         past_epochs.append(int(''.join(filter(lambda c: c.isdigit(), file))))  # available epochs
             if not past_epochs:
-                warnings.warn('No saved models found. Training from scratch.', UserWarning)
+                warnings.warn(f'No saved models found in {local_path}. Training from scratch.', UserWarning)
                 return
             self.epoch = max(past_epochs)
         paths = self.paths(model_pardir=self.model_pardir, exp_name=self.exp_name, epoch=self.epoch)
