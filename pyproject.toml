@@ -24,11 +24,17 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = ["torch >= 2.1", "tqdm", "pandas"]
+
 [project.optional-dependencies]
 plot_local = ["pyplot"]
 plot_server = ["visdom"]
 all = ["plotly", "visdom"]
+dev = ["pytest"]
+
 [project.urls]
 Repository = "https://github.com/nverchev/custom_trainer"
 Issues = "https://github.com/nverchev/custom_trainer/issues"
 Changelog = "https://github.com/nverchev/custom_trainer/blob/master/CHANGELOG.md"
+
+[pytest]
+testpaths = "src/tests"
