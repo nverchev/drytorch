@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 import numpy as np
 import torch
-from custom_trainer.recursive_ops import recursive_apply, recursive_repr
-from typing import Iterator
+from custom_trainer.recursive_ops import recursive_apply, struc_repr
+from typing import Iterator, Iterable
 
 
 def test_recursive_apply() -> None:
@@ -22,7 +22,7 @@ def test_recursive_apply() -> None:
     assert out == {'list': [2., (2., 4.)]}
 
 
-def test_recursive_repr() -> None:
+def test_struc_repr() -> None:
     # class with slots
     class OneSlot:
         __slots__ = ['single_slot']
@@ -79,19 +79,24 @@ def test_recursive_repr() -> None:
             return expected
 
     complex_instance = ComplexClass()
-    out = recursive_repr(complex_instance, max_length=complex_instance.max_length)
+    out = struc_repr(complex_instance, max_length=complex_instance.max_length)
     assert out == complex_instance.expected_dict_repr()
 
 
 def test_break_recursive() -> None:
-    # contains self but should not break the function
-    recursive_apply('b', float, func=print)
+    # struc_repr should be protected from simple recursive objects
+    class ContainSelf:
+
+        def __init__(self):
+            self.self = self
+
+    struc_repr(ContainSelf())
 
     # should lead to recursion error
-    class BreakRecursive:
+    class BreakRecursive(Iterable):
 
         def __iter__(self) -> Iterator[tuple[BreakRecursive]]:
             return zip(self)
 
     with pytest.raises(RecursionError):
-        recursive_apply(BreakRecursive(), float, func=print)
+        struc_repr(BreakRecursive())
