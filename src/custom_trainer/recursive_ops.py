@@ -7,13 +7,13 @@ import warnings
 
 from .context_managers import PandasPrintOptions
 
-T1 = TypeVar('T1')
-C1 = TypeVar('C1', dict, list, set, tuple)
+T = TypeVar('T')
+C = TypeVar('C', dict, list, set, tuple)
 
-C = dict | list | set | tuple
+BaseContainer = dict | list | set | tuple
 
 
-def recursive_apply_any(struc: C1 | T1, expected_type: Type[T1], func: Callable[[T1], Any]) -> Any:
+def recursive_apply_any(struc: BaseContainer | T, expected_type: Type[T], func: Callable[[T], Any]) -> Any:
     """
     It recursively looks for type T in dictionary, lists, tuples and sets and applies func.
     It can be used for changing device in structured (nested) formats.
@@ -27,7 +27,7 @@ def recursive_apply_any(struc: C1 | T1, expected_type: Type[T1], func: Callable[
         struc: a copy of the structure in the argument with the modified objects
 
     Raises:
-        TypeError: struc stores objects of a different type than T
+        TypeError: struc stores objects of a different type than T, dict, list, set or tuple
     """
     if isinstance(struc, expected_type):
         return func(struc)
@@ -38,12 +38,11 @@ def recursive_apply_any(struc: C1 | T1, expected_type: Type[T1], func: Callable[
     raise TypeError(f' Cannot apply {func} on Datatype {type(struc).__name__}')
 
 
-def recursive_apply(struc: C1, expected_type: Type[T1], func: Callable[[T1], T1]) -> C1:
+def recursive_apply(struc: C, expected_type: Type[T], func: Callable[[T], T]) -> C:
     """
     Better annotation only possible when callable does not modify the type
     """
-    out: C1 = recursive_apply_any(struc, expected_type, func)
-    return out
+    return recursive_apply_any(struc, expected_type, func)
 
 
 def struc_repr(struc: Any, max_length: int = 10) -> Any:
