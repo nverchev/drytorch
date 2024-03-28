@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 import pytest
 import numpy as np
 import torch
 from custom_trainer.recursive_ops import recursive_apply, struc_repr
-from typing import Iterator, Iterable
+from typing import Iterator, Iterable, Self
 
 
 def test_recursive_apply() -> None:
@@ -95,7 +93,7 @@ def test_break_recursive() -> None:
     # should lead to recursion error
     class BreakRecursive(Iterable):
 
-        def __iter__(self) -> Iterator[tuple[BreakRecursive]]:
+        def __iter__(self) -> Iterator[tuple[Self]]:
             return zip(self)
 
     with pytest.raises(RecursionError):
