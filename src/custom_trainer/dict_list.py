@@ -1,286 +1,192 @@
 from __future__ import annotations
+from typing import Generic, TypeVar, Iterable, SupportsIndex, Self, Optional, overload
+from typing_extensions import override
+from collections import UserList
+from collections.abc import KeysView
 
-from typing import Any, Generic, TypeVar, Iterable, Optional
+K = TypeVar('K')  # Type variable for keys
+V = TypeVar('V')  # Type variable for values
 
-T = TypeVar('T', bound=Iterable)  # typically torch.Tensor
 
+class ListKeyError(KeyError):
 
-class DifferentLengthsError(ValueError):
-
-    def __init__(self, lengths_set: list[int]) -> None:
-        self.lengths_set = lengths_set
-        message = 'Lists do not have the same lengths'
+    def __init__(self, input_keys: Iterable[K], current_keys: Iterable[K]) -> None:
+        self.input_keys = input_keys
+        self.current_keys = current_keys
+        iter_keys = iter(input_keys)
+        try:
+            key = next(iter_keys)
+        except StopIteration:
+            raise ValueError('This exception should not be raised when input_keys is empty')
+        try:
+            next(iter_keys)
+            message = f'Input key {key} does not match the keys already present in the list {current_keys}'
+        except StopIteration:
+            message = f'Input keys {input_keys} do not match the keys already present in the list {current_keys}'
         super().__init__(message)
 
 
-class DifferentNestedError(ValueError):
-
-    def __init__(self, message) -> None:
-        super().__init__(message)
-
-
-class PartiallyNestedError(ValueError):
-
-    def __init__(self, type_list: list[type]) -> None:
-        self.type_list = type_list
-        message = 'List contains mixture of lists and no lists'
-        super().__init__(message)
-
-
-def buildDictList(names: list[str]):
-    class DictList(list, Generic[T]):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.names = names
-
-    return DictList
-
-
-
-class DictList(dict, Generic[T]):
+class DictList(UserList, Generic[K, V]):
     """
-    Dictionary with possibly nested lists of objects (specifically Tensors).
-    It ensures that the lists keep their index reference.
-    Objects should not be lists
+    A list-like data structure that stores dictionaries with a fixed set of keys.
+
+    Args:
+        iterable: An iterable of dictionaries to initialize the list with.
+
+    Attributes:
+        list_keys: A tuple of the keys that are present in the list.
+
+    Raises:
+        ListKeyError if the input dictionaries have keys that are not present in the list.
+
     """
 
-    def __init__(self, **kwargs: list[T] | list[list[T]]) -> None:
-        """
-        Args: a dictionary mapping to list and list of lists of objects of tipe T
-        """
-        super().__init__(**kwargs)
-        self.simple_list_keys, self.nested_list_keys = self.which_nested(self)
-        self.len = self.list_len(self)
+    def __init__(self, iterable: Iterable[dict[K, V]] = zip(), /) -> None:
+        self.list_keys: tuple[K, ...] = ()
+        super().__init__(self.validate_iterable(iterable))
 
-    def __setitem__(self, key: Any, value: list[T] | list[list[T]]):
-        """
-        It performs various checks before adding an item
-        Side Effect:
-            A key - value pair is added
-        Raises:
-           PartiallyNestedError if value contains both lists and non-list
-           DifferentLengthsError if value has a length incompatible with self
-        """
-        len_list = [len(elem) for elem in value if isinstance(elem, list)]
-        if len(len_list) == 0:
-            len_value = len(value)
-        elif len(len_list) == len(value):
-            len_value, *other_len = set(len_list)
-            if other_len:
-                raise DifferentLengthsError([*len_list])
-        else:
-            raise PartiallyNestedError([type(elem) for elem in value])
-        if len_value == len(self):
-            super().__setitem__(key, value)
-        else:
-            raise DifferentLengthsError([len_value, self.len])
-        return
+    @override
+    def __add__(self, other: Iterable[dict[K, V]], /) -> Self:
+        out = self.copy()
+        out.extend(other)
+        return out
 
-    def setdefault(self, key: Any, default: Optional[T | list[T]] = None) -> list[T] | list[list[T]]:
+    @override
+    @overload
+    def __getitem__(self, index: SupportsIndex, /) -> dict[K, V]:
+        ...
+
+    @override
+    @overload
+    def __getitem__(self, input_slice: slice, /) -> Self:
+        ...
+
+    @override
+    def __getitem__(self, index_or_slice: SupportsIndex | slice, /) -> dict[K, V] | Self:
         """
-        It sets a default value.
+        Standard __getitem__ implementation that converts stored values back into dictionaries.
+        """
+        if isinstance(index_or_slice, slice):
+            return self.__class__(map(self.item_to_dict, super().__getitem__(index_or_slice)))
+        return self.item_to_dict(super().__getitem__(index_or_slice))
+
+    @override
+    def __setitem__(self, key, value):
+        """
+        Standard __setitem__ implementation that validates the input.
+        """
+        super().__setitem__(key, self.validate_dict(value))
+
+    @override
+    def __repr__(self) -> str:
+        return f'DictList({self.to_dict().__repr__()}'
+
+    @override
+    def append(self, input_dict: dict[K, V], /) -> None:
+        """
+        Standard append implementation that validates the input.
+        """
+        super().append(self.validate_dict(input_dict))
+
+    @override
+    def extend(self, iterable: Iterable[dict[K, V]], /) -> None:
+        """
+        Standard extend implementation that validates the input.
+        """
+        if isinstance(iterable, self.__class__):  # prevents self-alimenting extension
+            if self.list_keys == iterable.list_keys:  # more efficient implementation for the common case
+                self.data.extend(iterable.data)
+                return
+        super().extend(self.validate_iterable(iterable))
+
+    @override
+    def insert(self, index: int, input_dict: dict[K, V], /):
+        """
+        Standard insert implementation that validates the input.
+        """
+        super().insert(index, self.validate_dict(input_dict))
+
+    @override
+    def pop(self, index: int = -1, /) -> dict[K, V]:
+        """
+        Standard pop implementation that converts stored values back into dictionaries.
+        """
+        return self.item_to_dict(super().pop(index))
+
+    def keys(self) -> KeysView[K]:
+        """
+        Usual syntax for keys in a dictionary.
+        """
+        return {key: None for key in self.list_keys}.keys()
+
+    def get(self, key: K, /, default: Optional[V] = None) -> list[V] | list[None]:
+        """
+        Analogous to the get method in dictionaries.
+
         Args:
-             key: the key to get or to create
-             default: a default value in case the key is missing.
+            key: The key for which to retrieve the values.
+            default: The default value to return if the key is not present in the list.
+
         Returns:
-            the value for the key
+            The values for the key in the list or a list of default values.
+        """
+        try:
+            return [item[key] for item in self]
+        except KeyError:
+            if default is None:
+                return [None] * len(self)
+            return [default for _ in range(len(self))]  # make sure items are not the same object
+
+    def validate_dict(self, input_dict: dict[K, V], /) -> tuple[V, ...]:
+        """
+        Validate an input dictionary's keys.
+
+        Args:
+            input_dict: The input dictionary to validate.
+
         Side Effects:
-            set key to default if it does not exist
+            creates self.list_keys if it does not already exist.
+
+        Returns:
+            The values from the input dictionary ordered consistently with the existing keys.
+
         Raises:
-            ValueError if default is None
+            ListKeyError if the input dictionary has keys that are not present in the list.
+
         """
-        if default is None:
-            raise ValueError('Default value must be specified')
-        # this check to help type checking
-        elif isinstance(default, list):
-            self[key] = [default for _ in range(len(self))]
+        if self.list_keys:
+            if set(self.list_keys) != set(input_dict.keys()):
+                raise ListKeyError(input_dict.keys(), self.list_keys)
         else:
-            self[key] = [default for _ in range(len(self))]
-        return self[key]
+            self.list_keys = tuple(input_dict.keys())
+        return tuple(input_dict[key] for key in self.list_keys)
 
-    def extract(self, ind: int) -> dict[Any, T | list[T]]:
+    def validate_iterable(self, iterable: Iterable[dict[K, V]], /) -> Iterable[tuple[V, ...]]:
         """
-        It extracts an index element from the (nested) lists
+        Validate an iterable of input dictionaries.
+
         Args:
-             ind: the value of the index
+            iterable: The input iterable of dictionaries to validate.
+
         Returns:
-            out_dict: a dct with an element for normal lists, a list of elements for nested lists
+            an Iterable with validated dictionaries.
         """
-        out_dict: dict[str, T | list[T]] = {}
+        return map(self.validate_dict, iterable)
 
-        for key in self.simple_list_keys:
-            out_dict[key] = self[key][ind]
-
-        for key in self.nested_list_keys:
-            out_dict[key] = [elem[ind] for elem in self[key]]
-
-        return out_dict
-
-    def append_dict(self, dct: dict[Any, T | list[T]]) -> None:
+    def item_to_dict(self, item: tuple) -> dict[K, V]:
         """
-        It appends (or creates) dict of tensor or list of tensors
-        Args:
-            dct: a dictionary to append.
-        Side Effect:
-            the lists in self are extended by 1 element
-        """
-        dict_list = DictList(**self.enlist_dict(dct))
+        Convert a stored item back into a dictionary.
 
-        if not self:
-            self._init_like(dict_list)
-        else:
-            self._check_nested(dict_list)
-
-        for key in self.simple_list_keys:
-            self[key].append(dct[key])
-
-        for key in self.nested_list_keys:
-            for elem, new_elem in zip(self[key], dct[key]):
-                elem.append(new_elem)
-
-        self.len += 1
-
-    def extend_dict(self, dict_list: DictList[T]) -> None:
-        """
-        It extends (or creates) dict of tensor or list of tensors
-        Args:
-            dict_list: the DictList that will extend self.
-        Side Effect:
-            the lists in self are extended
-        Raises:
-            DifferentLengthsError if lists and sub-lists (in case of nested lists) have different lengths
-        """
-        if not self:
-            self._init_like(dict_list)
-        else:
-            self._check_nested(dict_list)
-
-        for key in self.simple_list_keys:
-            self[key].extend(dict_list[key])
-
-        for key in self.nested_list_keys:
-            for elem, new_elem in zip(self[key], dict_list[key]):
-                elem.extend(new_elem)
-
-        self.len += dict_list.len
-
-    def reset(self) -> None:
-        """
-        Reset self but keeping the nested structure
-        """
-        self._init_like(self)
-
-    def _check_nested(self, other: DictList[T]) -> None:
-        """
-        It checks that the structure of other matches the one of self
-        Args:
-            other: the DictList whose structure we want to check.
-        Raises:
-            DifferentNestedError is other has a different structure.
-        """
-        unmatched_simple = self.simple_list_keys.symmetric_difference(other.simple_list_keys)
-        unmatched_nested = self.nested_list_keys.symmetric_difference(other.nested_list_keys)
-        if unmatched_simple or unmatched_nested:
-            raise DifferentNestedError(f'Unmatched keys: {unmatched_simple | unmatched_nested}')
-        for key in self.nested_list_keys:
-            if len(self[key] != len(other[key])):
-                raise DifferentNestedError(f'Different number of elements for key {key}: {self[key]} and {other[key]}')
-
-    def _init_like(self, dict_list: DictList[T]) -> None:
-        """
-        It initializes self with the keys and the nested structure of another DictList
-        Args:
-            dict_list: the DictList whose structure we want to replicate.
-        Side Effect:
-            self is initialized
-        """
-
-        for key in dict_list.simple_list_keys:
-            empty_list: list[T] = []
-            self[key] = empty_list
-
-        for key in dict_list.nested_list_keys:
-            empty_lists: list[list[T]] = [[] for _ in dict_list[key]]
-            self[key] = empty_lists
-
-        self.len = dict_list.len
-        self.simple_list_keys = dict_list.simple_list_keys
-        self.nested_list_keys = dict_list.nested_list_keys
-
-    def __len__(self) -> int:
-        """
-        The length corresponds to the available indexes in the extract method.
         Returns:
-            the length of all the (nested) lists
+            The dictionary corresponding to the item.
         """
-        return self.len
+        return dict(zip(self.list_keys, item))
 
-    @staticmethod
-    def enlist_dict(dct: dict[Any, T | list[T]]) -> dict[Any, list[T] | list[list[T]]]:
+    def to_dict(self) -> dict[K, list[V]]:
         """
-        Instantiate class from a dictionary by adding elements in a list
+        Convert the list into a dictionary.
+
         Returns:
-            the instantiated object
+            The dictionary representation of the list.
         """
-        out_dict: dict[Any, list[T] | list[list[T]]] = {}
-        for key, value in dct.items():
-            if isinstance(value, list):
-                out_dict[key] = [[elem] for elem in value]
-            else:
-                out_dict[key] = [value]
-        return out_dict
-
-    @staticmethod
-    def which_nested(dict_list: DictList[T]) -> tuple[set[Any], set[Any]]:
-        """
-        It initializes self with the keys and the nested structure of another DictList
-        Args:
-            dict_list: a target DictList
-        Raises:
-           PartiallyNestedError if a mapped list contains both lists and non-list
-        Returns:
-            simple_list_keys: a list of the keys mapping to simple lists
-            nested_list_keys: a list of the keys mapping to nested lists
-
-        """
-        simple_list_keys: set[Any] = set()
-        nested_list_keys: set[Any] = set()
-
-        for key, value in dict_list.items():
-            if all(isinstance(elem, list) for elem in value):
-                nested_list_keys.add(key)
-            elif any(isinstance(elem, list) for elem in value):
-                raise PartiallyNestedError([type(elem) for elem in value])
-            else:
-                simple_list_keys.add(key)
-
-        return simple_list_keys, nested_list_keys
-
-    @staticmethod
-    def list_len(dict_list: DictList[T]) -> int:
-        """
-        It checks that all the mapped simple lists and the sub-lists of the nested lists have the same length.
-        It returns its value
-        Args:
-            dict_list: a target DictList
-        Raises:
-           DifferentLengthsError if the length of the lists and of the sub-lists is not the same
-        Returns:
-            only_len: the length of all the list and sub-lists
-        """
-        if not dict_list.keys():
-            return 0
-
-        # this set should only have at most one element
-        list_len_set: set[int] = set()
-
-        for key in dict_list.simple_list_keys:
-            list_len_set.add(len(dict_list[key]))
-
-        for key in dict_list.nested_list_keys:
-            list_len_set.update({len(elem) for elem in dict_list[key]})
-
-        only_len, *other_len = list_len_set
-        if other_len:
-            raise DifferentLengthsError(list(list_len_set))
-        return only_len
+        return {key: [item[index] for item in self.data] for index, key in enumerate(self.list_keys)}
