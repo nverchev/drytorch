@@ -17,29 +17,32 @@ class PandasPrintOptions:
             'display.max_rows': max_rows,
             'display.max_columns': max_columns
         }
-        self.original_options = {}
+        self.original_options: dict[str, float] = {}
 
     def __enter__(self):
         self.original_options = {key: pd.get_option(key) for key in self.options}
         for key, value in self.options.items():
             pd.set_option(key, value)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *_):
         for key, value in self.original_options.items():
             pd.set_option(key, value)
 
 
 class UsuallyFalse:
     """
-    Abuses the with statement for a temporary change
+    Abuse the with statement for a temporary change.
     """
-    _value: bool = False
 
-    def __bool__(self):
+    def __init__(self) -> None:
+        self._value: bool = False
+
+    def __bool__(self) -> bool:
         """
-        Usually, it evaluates to False
+        Usually, evaluate to False.
 
-        Returns False when outside the with statement else True
+        Returns:
+             False when outside the with statement else True.
         """
         return self._value
 
@@ -49,5 +52,5 @@ class UsuallyFalse:
     def __exit__(self, *_):
         self._value = False
 
-    def __repr__(self):
-        return self._value
+    def __repr__(self) -> str:
+        return self._value.__repr__()
