@@ -1,10 +1,7 @@
-from typing import Any, TypeVar, Callable, Type, Union, Generic
+from typing import Any, TypeVar, Callable, Type
 import numpy as np
 import pandas as pd
 import torch
-
-import warnings
-
 from .context_managers import PandasPrintOptions
 
 T = TypeVar('T')
@@ -19,15 +16,15 @@ def recursive_apply_any(struc: BaseContainer | T, expected_type: Type[T], func: 
     It can be used for changing device in structured (nested) formats.
 
     Args:
-        struc: an object that stores or is an object of type T. Can only contain dictionaries, list, sets, tuples or T
-        expected_type: the type T that struc stores
-        func: the function that we want to apply to objects of type T
+        struc: an object that stores or is an object of type T. Can only contain dictionaries, list, sets, tuples or T.
+        expected_type: the type T that struc stores.
+        func: the function that we want to apply to objects of type T.
 
     Returns:
-        struc: a copy of the structure in the argument with the modified objects
+        Any: a copy of the structure in the argument with the modified objects.
 
     Raises:
-        TypeError: struc stores objects of a different type than T, dict, list, set or tuple
+        TypeError: if struc stores objects of a different type than T, dict, list, set or tuple.
     """
     if isinstance(struc, expected_type):
         return func(struc)
@@ -40,7 +37,7 @@ def recursive_apply_any(struc: BaseContainer | T, expected_type: Type[T], func: 
 
 def recursive_apply(struc: C, expected_type: Type[T], func: Callable[[T], T]) -> C:
     """
-    Better annotation only possible when callable does not modify the type
+    Better annotation when callable does not modify the type.
     """
     return recursive_apply_any(struc, expected_type, func)
 
@@ -53,11 +50,11 @@ def struc_repr(struc: Any, max_length: int = 10) -> Any:
     The readable representation contains only strings and numbers
 
     Args:
-        struc: a complex object with that may contain other objects
-        max_length: limits the size of iterators and arrays
+        struc: a complex object with that may contain other objects.
+        max_length: limits the size of iterators and arrays.
 
     Returns:
-        a readable representation of the object
+        a readable representation of the object.
     """
 
     if isinstance(struc, (int, float, complex, str)):
