@@ -1,22 +1,30 @@
 import pytest
+from typing import Iterator, Iterable, Self, reveal_type
 import numpy as np
 import torch
 from custom_trainer.recursive_ops import recursive_apply, struc_repr
-from typing import Iterator, Iterable, Self
 
 
 def test_recursive_apply() -> None:
     expected_type = float
-    list_data = [1., (1, 2)]
-    dict_data = {'list': list_data}
+    tuple_data = (1., [1, 2])
+    dict_data = {'list': tuple_data}
 
     # fail because it expects floats and not int
     with pytest.raises(TypeError):
-        recursive_apply(dict_data, expected_type=expected_type, func=lambda x: 2 * x)
+        recursive_apply(struc=dict_data, expected_type=expected_type, func=lambda x: 2 * x)
+
+    def str_torch(x: torch.Tensor) -> float:
+        return x.item()
 
     # change int into floats
-    list_data[-1] = (1., 2.)
-    out = recursive_apply(dict_data, expected_type=expected_type, func=lambda x: 2 * x)
+    new_tuple_data = (torch.tensor(1.), [torch.tensor(1.), torch.tensor(2.)])
+    new_dict_data = {'list': new_tuple_data}
+    out = recursive_apply(struc=new_dict_data, expected_type=torch.Tensor, func=str_torch)
+    a = list(out.values())[0][1]
+    out2 = recursive_apply(struc=1, expected_type=int, func=str)
+    reveal_type(out2)
+
     assert out == {'list': [2., (2., 4.)]}
 
 

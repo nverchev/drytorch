@@ -7,8 +7,10 @@ from typing import Any, Literal, Callable, Iterable
 
 import pandas as pd
 import torch
-from custom_trainer.schedulers import Scheduler, ConstantScheduler
-from custom_trainer.utils import DictList, UsuallyFalse, apply, dict_repr, C
+from .schedulers import Scheduler, ConstantScheduler
+from .dict_list import DictList
+from .context_managers import UsuallyFalse
+from .recursive_ops import recursive_apply_any, struc_repr
 from torch import autocast, Tensor
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset, StackDataset, TensorDataset
@@ -47,7 +49,7 @@ class Trainer:
     """
     quiet = UsuallyFalse()  # less output
     max_stored_output: int = float('inf')  # maximum amount of stored evaluated test samples
-    max_length_config: int = 20
+    max_length_string_repr: int = 10
     tqdm_update_frequency = 10
     vis = None
 
@@ -64,7 +66,7 @@ class Trainer:
         obj = super().__new__(cls)
 
         # tries to get the most informative representation of the settings.
-        kwargs = {k: dict_repr(v, max_length=cls.max_length_config) for k, v in kwargs.items()}
+        kwargs = {k: struc_repr(v, max_length=cls.max_length_string_repr) for k, v in kwargs.items()}
         model_architecture = {'model': model}  # JSON files do not allow strings on multiple lines
         model_settings: dict = getattr(model, 'settings', {})
         obj.settings = model_architecture | model_settings | kwargs
@@ -301,7 +303,7 @@ class Trainer:
 
         return
 
-    def loss_and_metrics(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
+    def loss_and_metrics(self, outputs, inputs, targets, **_) -> dict[str, Tensor]:
         """
         It must return a dictionary "dict" with dict['Criterion'] = loss to backprop and other optional metrics.
 
@@ -317,7 +319,7 @@ class Trainer:
         _not_used = inputs
         return {'Criterion': self.loss(outputs, targets)}
 
-    def test_metrics(self, outputs: C, inputs: C, targets: C, **_) -> dict[str, Tensor]:
+    def test_metrics(self, outputs, inputs: Any, targets: Any, **_) -> dict[str, Tensor]:
         """
         This method works similarly to the loss_and_metrics method and defaults to it.
         Override for complex metrics during testing.
@@ -333,7 +335,7 @@ class Trainer:
         """
         return self.loss_and_metrics(outputs, inputs, targets)
 
-    def helper_inputs(self, inputs: C) -> tuple[Iterable, dict[str, Any]]:
+    def helper_inputs(self, inputs: Any) -> tuple[Iterable, dict[str, Any]]:
         """
         This method is a hook that rearranges the inputs following the model's named arguments.
 
@@ -344,7 +346,7 @@ class Trainer:
             dictionary of the form {named_argument: input}
         """
         _not_used = self
-        return (inputs,), {}
+        return (inputs, ), {}
 
     @classmethod
     def set_up_visdom_connection(cls, env) -> bool:
@@ -435,7 +437,7 @@ class Trainer:
                                     loss_or_metric: str = 'Criterion', start: int = 0,
                                     title: str = 'Learning Curves') -> None:
         """
-        This class method plots the learning curves using plotly as backend.
+        This static method plots the learning curves using plotly as backend.
 
         Args:
             train_log: pandas Dataframe with the loss and metrics calculated during training on the training dataset
@@ -529,7 +531,7 @@ class Trainer:
         return 'Trainer for experiment: ' + self.exp_name
 
     @staticmethod
-    def recursive_to(obj: C[torch.Tensor], device: Literal['detach_cpu'] | torch.device) -> C[torch.Tensor]:
+    def recursive_to(obj, device: Literal['detach_cpu'] | torch.device) -> Any:
         """
         It changes device recursively to tensors inside a container
 
@@ -541,7 +543,7 @@ class Trainer:
         def to_device(x: Tensor) -> Tensor:
             return x.detach().cpu() if device == 'detach_cpu' else x.to(device)
 
-        return apply(obj, expected_type=Tensor, func=to_device)
+        return recursive_apply_any(obj, expected_type=Tensor, func=to_device)
 
     @classmethod
     def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:

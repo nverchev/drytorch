@@ -1,16 +1,32 @@
-from typing import Any, TypeVar, Callable, Type
+from typing import Any, TypeVar, Callable, Type, overload
 import numpy as np
 import pandas as pd
 import torch
 from .context_managers import PandasPrintOptions
 
+BaseArray = torch.Tensor | pd.DataFrame | pd.Series | np.ndarray | pd.Index
+Atomic = TypeVar('Atomic', int, float, complex, str)
+Array = TypeVar('Array', int, float, torch.Tensor, pd.DataFrame, pd.Series, np.ndarray, pd.Index)
 T = TypeVar('T')
 C = TypeVar('C', dict, list, set, tuple)
 
-BaseContainer = dict | list | set | tuple
+
+@overload
+def recursive_apply(struc: Array, expected_type: Type[Array], func: Callable[[Array], T]) -> T:
+    ...
 
 
-def recursive_apply_any(struc: BaseContainer | T, expected_type: Type[T], func: Callable[[T], Any]) -> Any:
+@overload
+def recursive_apply(struc: C, expected_type: Type[Array], func: Callable[[Array], Array]) -> C:
+    ...
+
+
+@overload
+def recursive_apply(struc: C, expected_type: Type[Array], func: Callable[[Array], T]) -> Any:
+    ...  # mypy do not support TypeVar with higher kinds
+
+
+def recursive_apply(struc, expected_type, func):
     """
     It recursively looks for type T in dictionary, lists, tuples and sets and applies func.
     It can be used for changing device in structured (nested) formats.
@@ -29,20 +45,30 @@ def recursive_apply_any(struc: BaseContainer | T, expected_type: Type[T], func: 
     if isinstance(struc, expected_type):
         return func(struc)
     if isinstance(struc, dict):
-        return {k: recursive_apply_any(v, expected_type, func) for (k, v) in struc.items()}
+        return {k: recursive_apply(v, expected_type, func) for (k, v) in struc.items()}
     if isinstance(struc, (list, set, tuple)):
-        return type(struc)(recursive_apply_any(item, expected_type, func) for item in struc)
+        return type(struc)(recursive_apply(item, expected_type, func) for item in struc)
+    if isinstance(struc, expected_type):
+        return func(struc)
     raise TypeError(f' Cannot apply {func} on Datatype {type(struc).__name__}')
 
 
-def recursive_apply(struc: C, expected_type: Type[T], func: Callable[[T], T]) -> C:
-    """
-    Better annotation when callable does not modify the type.
-    """
-    return recursive_apply_any(struc, expected_type, func)
+@overload
+def struc_repr(struc: Atomic, max_length: int) -> Atomic:
+    ...
 
 
-def struc_repr(struc: Any, max_length: int = 10) -> Any:
+@overload
+def struc_repr(struc: Array | Type, max_length: int) -> str:
+    ...
+
+
+@overload
+def struc_repr(struc: Any, max_length: int) -> Any:
+    ...
+
+
+def struc_repr(struc, max_length=10):
     """
     It attempts full documentation of a complex object.
     It recursively represents each attribute or element of the object.
@@ -63,7 +89,7 @@ def struc_repr(struc: Any, max_length: int = 10) -> Any:
     if isinstance(struc, (type, type(lambda: ...))):  # no builtin variable for the function class!
         return struc.__name__
 
-    if isinstance(struc, (pd.DataFrame, pd.Series)):
+    if isinstance(struc, (pd.DataFrame, pd.Series, pd.Index)):
         with PandasPrintOptions(precision=3, max_rows=max_length, max_columns=max_length):
             return str(struc)
 

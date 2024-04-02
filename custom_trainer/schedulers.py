@@ -1,8 +1,11 @@
-import numpy as np
+from typing import TypeVar, Type
 from abc import ABCMeta, abstractmethod
+import numpy as np
+
+T = TypeVar('T', bound=Type)
 
 
-def inherit_docstring(cls):
+def inherit_docstring(cls: T) -> T:
     cls.__call__.__doc__ = Scheduler.__call__.__doc__
     return cls
 
@@ -15,13 +18,13 @@ class Scheduler(metaclass=ABCMeta):
     @abstractmethod
     def __call__(self, base_lr: float, epoch: int) -> float:
         """
-        It calls the scheduler for the decay of the learning rate
+        Call the scheduler for the decay of the learning rate.
 
         Args:
-            base_lr: returns this value when epoch is 0
-            epoch: the variable of decaying curve
+            base_lr: initial learning rate when epoch is 0.
+            epoch: the variable of decaying curve.
         Returns:
-            decayed value for the learning rate
+            decayed value for the learning rate.
         """
         ...
 
@@ -33,14 +36,14 @@ class Scheduler(metaclass=ABCMeta):
 @inherit_docstring
 class ConstantScheduler(Scheduler):
     """
-    This scheduler does not modify the learning rate
+    Constant learning rate.
     """
 
     def __call__(self, base_lr: float, epoch: int) -> float:
         return base_lr
 
     def __str__(self) -> str:
-        return 'Fixed learning rate'
+        return 'Constant learning rate'
 
 
 @inherit_docstring
@@ -68,13 +71,14 @@ class CosineScheduler(Scheduler):
     """
     This scheduler implements a decay with a cosine curve
     """
+
     def __init__(self, decay_steps: int = 250, min_decay: float = 0.01):
         """
-        The curve follows the cosine curve of the type C0 + C1(1 + cos(C2x)) specified by the following parameters.
+        The curve follows the cosine curve of the type C0 + C(1 + cos(C2x)) specified by the following parameters.
         Args:
             decay_steps: the epochs (C2 * pi) were the schedule follows a cosine curve until its minimum C0,
              after which it returns C0 until the end
-            min_decay: the fraction of the initial value that it returned at the end (C0 + C1) / C0
+            min_decay: the fraction of the initial value that it returned at the end (C0 + C) / C0
         """
         self.decay_steps = decay_steps
         self.min_decay = min_decay
@@ -89,6 +93,8 @@ class CosineScheduler(Scheduler):
         return f'Cosine schedule with {self.decay_steps} decay steps and {self.min_decay} min_decay factor'
 
 
-def get_scheduler(scheduler_name):
-    map_scheduler = {'Constant': ConstantScheduler, 'Exponential': ExponentialScheduler, 'Cosine': CosineScheduler}
+def get_scheduler(scheduler_name: str) -> Type[Scheduler]:
+    map_scheduler: dict[str, Type[Scheduler]] = {'Constant': ConstantScheduler,
+                                                 'Exponential': ExponentialScheduler,
+                                                 'Cosine': CosineScheduler}
     return map_scheduler[scheduler_name]

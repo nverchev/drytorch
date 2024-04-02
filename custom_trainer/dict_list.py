@@ -190,3 +190,8 @@ class DictList(UserList, Generic[K, V]):
             The dictionary representation of the list.
         """
         return {key: [item[index] for item in self.data] for index, key in enumerate(self.list_keys)}
+
+import torch
+
+def dict_to_list(dict_batch: dict[K, torch.Tensor | list[torch.Tensor]], /) -> dict[K, list[torch.Tensor] | list[list[torch.Tensor]]]:
+    return {key: [list(item) for item in value] if isinstance(value, list) else list(value) for key, value in dict_batch.items()}

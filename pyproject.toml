@@ -9,11 +9,11 @@ visdom = ">=0.2.4"
 
 [project]
 name = "custom_trainer"
-version = "0.1.2"
+version = "0.0.1"
 authors = [
   {name="Nicolas Vercheval", email="nicolas.vercheval@ugent.be" },
 ]
-description = "This package helps you training, documenting, and evaluating a Pytorch model."
+description = "This package helps you train, document and evaluate a Pytorch model."
 keywords = ["pytorch", "training", "structured_data", "autoencoders"]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,4 +37,4 @@ Issues = "https://github.com/nverchev/custom_trainer/issues"
 Changelog = "https://github.com/nverchev/custom_trainer/blob/master/CHANGELOG.md"
 
 [pytest]
-testpaths = "src/tests"
+testpaths = "tests"
