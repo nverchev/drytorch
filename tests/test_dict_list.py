@@ -19,4 +19,3 @@ def test_DictList() -> None:
     tensor_dict_list2 = tensor_dict_list.copy()
     tensor_dict_list.extend(tensor_dict_list)
     assert tensor_dict_list == tensor_dict_list2 + tensor_dict_list2
-

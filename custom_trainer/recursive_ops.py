@@ -54,21 +54,21 @@ def recursive_apply(struc, expected_type, func):
 
 
 @overload
-def struc_repr(struc: Atomic, max_length: int) -> Atomic:
+def struc_repr(struc: Atomic, *, max_length: int = ...) -> Atomic:
     ...
 
 
 @overload
-def struc_repr(struc: Array | Type, max_length: int) -> str:
+def struc_repr(struc: Array | Type, *, max_length: int = ...) -> str:
     ...
 
 
 @overload
-def struc_repr(struc: Any, max_length: int) -> Any:
+def struc_repr(struc: Any, *, max_length: int = ...) -> Any:
     ...
 
 
-def struc_repr(struc, max_length=10):
+def struc_repr(struc, *, max_length=10):
     """
     It attempts full documentation of a complex object.
     It recursively represents each attribute or element of the object.
@@ -102,16 +102,16 @@ def struc_repr(struc, max_length=10):
 
     if hasattr(struc, 'numpy'):
         try:
-            return struc_repr(struc.numpy(), max_length)
+            return struc_repr(struc.numpy(), max_length=max_length)
         except TypeError as te:
             raise AttributeError('numpy should be a method without additional parameters') from te
 
     if hasattr(struc, '__iter__'):
         struc_list = list(struc)
         struc_list = struc_list[:max_length // 2] + ['...'] + struc_list[-max_length // 2:]
-        struc_list = [struc_repr(item, max_length) for item in struc_list]
+        struc_list = [struc_repr(item, max_length=max_length) for item in struc_list]
         if hasattr(struc, 'get'):  # assume that the iterable contains keys
-            return {k: struc_repr(struc.get(k, ''), max_length) for k in struc_list}
+            return {k: struc_repr(struc.get(k, ''), max_length=max_length) for k in struc_list}
         if isinstance(struc, (list, set, tuple)):
             return type(struc)(struc_list)
         return struc_list
@@ -120,7 +120,7 @@ def struc_repr(struc, max_length=10):
     dict_attr = getattr(struc, '__dict__', {})
     if slots or dict_attr:
         dict_attr |= {name: getattr(struc, name) for name in slots}
-        dict_attr = {k: struc_repr(v, max_length) for k, v in dict_attr.items()
+        dict_attr = {k: struc_repr(v, max_length=max_length) for k, v in dict_attr.items()
                      if v not in ({}, [], set(), '', None, struc)}
         return {'class': type(struc).__name__} | dict_attr
 

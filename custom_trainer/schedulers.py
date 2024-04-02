@@ -49,14 +49,12 @@ class ConstantScheduler(Scheduler):
 @inherit_docstring
 class ExponentialScheduler(Scheduler):
     """
-    This scheduler implements a decay with an exponential curve
+    Learning rate with exponential decay.
+    Args:
+        exp_decay: the exponential decay parameter d for the curve f(x) = Ce^(dx).
     """
 
     def __init__(self, exp_decay: float = .975) -> None:
-        """
-        Args:
-            exp_decay: the exponential decay parameter d for the curve f(x) = Ce^(dx)
-        """
         self.exp_decay = exp_decay
 
     def __call__(self, base_lr: float, epoch: int) -> float:
@@ -69,16 +67,17 @@ class ExponentialScheduler(Scheduler):
 @inherit_docstring
 class CosineScheduler(Scheduler):
     """
-    This scheduler implements a decay with a cosine curve
+    Learning rate with cosine decay. It remains constant after reaching the minimum value.
+    The cosine function is f(x) = C0 + C(1 + cos(C2x)) specified by the following parameters.
+
+    Args:
+        decay_steps: the epochs (C2 * pi) were the schedule follows a cosine curve until its minimum C0.
+        min_decay: the fraction of the initial value that it returned at the end (C0 + C) / C0.
     """
 
     def __init__(self, decay_steps: int = 250, min_decay: float = 0.01):
         """
-        The curve follows the cosine curve of the type C0 + C(1 + cos(C2x)) specified by the following parameters.
-        Args:
-            decay_steps: the epochs (C2 * pi) were the schedule follows a cosine curve until its minimum C0,
-             after which it returns C0 until the end
-            min_decay: the fraction of the initial value that it returned at the end (C0 + C) / C0
+
         """
         self.decay_steps = decay_steps
         self.min_decay = min_decay
@@ -89,7 +88,7 @@ class CosineScheduler(Scheduler):
             return min_lr
         return min_lr + (base_lr - min_lr) * ((1 + np.cos(np.pi * epoch / self.decay_steps)) / 2)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Cosine schedule with {self.decay_steps} decay steps and {self.min_decay} min_decay factor'
 
 

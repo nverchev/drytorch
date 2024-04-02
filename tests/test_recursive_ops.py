@@ -1,5 +1,5 @@
 import pytest
-from typing import Iterator, Iterable, Self, reveal_type
+from typing import Iterator, Iterable, Self
 import numpy as np
 import torch
 from custom_trainer.recursive_ops import recursive_apply, struc_repr
@@ -14,18 +14,14 @@ def test_recursive_apply() -> None:
     with pytest.raises(TypeError):
         recursive_apply(struc=dict_data, expected_type=expected_type, func=lambda x: 2 * x)
 
-    def str_torch(x: torch.Tensor) -> float:
-        return x.item()
-
-    # change int into floats
-    new_tuple_data = (torch.tensor(1.), [torch.tensor(1.), torch.tensor(2.)])
+    new_tuple_data = (1., [1., 2.])
     new_dict_data = {'list': new_tuple_data}
-    out = recursive_apply(struc=new_dict_data, expected_type=torch.Tensor, func=str_torch)
-    a = list(out.values())[0][1]
-    out2 = recursive_apply(struc=1, expected_type=int, func=str)
-    reveal_type(out2)
-
+    out = recursive_apply(struc=new_dict_data, expected_type=float, func=lambda x: 2 * x)
     assert out == {'list': [2., (2., 4.)]}
+
+    # check annotations (limited support from mypy for functions that change the type)
+    _out2 = recursive_apply(struc=1, expected_type=int, func=str)
+    _out3 = recursive_apply(struc=new_dict_data, expected_type=float, func=str)
 
 
 def test_struc_repr() -> None:
@@ -53,7 +49,7 @@ def test_struc_repr() -> None:
             self.zero_attr = 0
 
             # keep strings as they are
-            self.lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit"
+            self.lorem = "Lorem ipsum dolor sit amet"
 
             # transform tensors and arrays into strings
             self.torch_tensor = np.pi * torch.ones(4, 4)
@@ -90,7 +86,7 @@ def test_struc_repr() -> None:
 
 
 def test_break_recursive() -> None:
-    # struc_repr should be protected from simple recursive objects
+    # struc_repr should be safe from simple recursive objects
     class ContainSelf:
 
         def __init__(self):
@@ -98,7 +94,7 @@ def test_break_recursive() -> None:
 
     struc_repr(ContainSelf())
 
-    # should lead to recursion error
+    # this should lead to recursion error
     class BreakRecursive(Iterable):
 
         def __iter__(self) -> Iterator[tuple[Self]]:
