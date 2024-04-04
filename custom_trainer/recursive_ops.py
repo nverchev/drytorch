@@ -2,11 +2,10 @@ from typing import Any, TypeVar, Callable, Type, overload
 import numpy as np
 import pandas as pd
 import torch
-from .context_managers import PandasPrintOptions
+from custom_trainer.context_managers import PandasPrintOptions
 
-BaseArray = torch.Tensor | pd.DataFrame | pd.Series | np.ndarray | pd.Index
 Atomic = TypeVar('Atomic', int, float, complex, str)
-Array = TypeVar('Array', int, float, torch.Tensor, pd.DataFrame, pd.Series, np.ndarray, pd.Index)
+Array = TypeVar('Array', torch.Tensor, np.ndarray)
 T = TypeVar('T')
 C = TypeVar('C', dict, list, set, tuple)
 
@@ -64,11 +63,11 @@ def struc_repr(struc: Array | Type, *, max_length: int = ...) -> str:
 
 
 @overload
-def struc_repr(struc: Any, *, max_length: int = ...) -> Any:
+def struc_repr(struc: Any, *, max_length: int = ...):
     ...
 
 
-def struc_repr(struc, *, max_length=10):
+def struc_repr(struc: Any, *, max_length: int = 10) -> Any:
     """
     It attempts full documentation of a complex object.
     It recursively represents each attribute or element of the object.
