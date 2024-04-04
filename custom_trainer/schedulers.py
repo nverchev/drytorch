@@ -1,13 +1,45 @@
-from typing import TypeVar, Type
+from typing import TypeVar, Type, Callable
 from abc import ABCMeta, abstractmethod
+from textwrap import dedent
 import numpy as np
 
-T = TypeVar('T', bound=Type)
+CallableVar = TypeVar('CallableVar', bound=Callable)
 
 
-def inherit_docstring(cls: T) -> T:
-    cls.__call__.__doc__ = Scheduler.__call__.__doc__
-    return cls
+def add_docstring(doc: str) -> Callable[[CallableVar], CallableVar]:
+    """
+    Decorator factory that builds a decorator for a given docstring.
+
+    Args:
+        doc: the docstring to add.
+    Returns:
+        the decorator responsible for adding the docstring.
+    """
+
+    def wrapper(method: CallableVar) -> CallableVar:
+        """
+        Add a docstring to a callable (a method usually).
+
+        Args:
+            method: the docstring to be added to the callable
+        Returns:
+            the callable with the added docstring
+        """
+        method.__doc__ = doc
+        return method
+
+    return wrapper
+
+
+call_docstring: str = dedent("""
+    Call the scheduler for the decay of the learning rate.
+    
+    Args:
+        base_lr: initial learning rate when epoch is 0.
+        epoch: the variable of decaying curve.
+    Returns:
+        decayed value for the learning rate.
+    """)
 
 
 class Scheduler(metaclass=ABCMeta):
@@ -17,15 +49,6 @@ class Scheduler(metaclass=ABCMeta):
 
     @abstractmethod
     def __call__(self, base_lr: float, epoch: int) -> float:
-        """
-        Call the scheduler for the decay of the learning rate.
-
-        Args:
-            base_lr: initial learning rate when epoch is 0.
-            epoch: the variable of decaying curve.
-        Returns:
-            decayed value for the learning rate.
-        """
         ...
 
     @abstractmethod
@@ -33,12 +56,12 @@ class Scheduler(metaclass=ABCMeta):
         ...
 
 
-@inherit_docstring
 class ConstantScheduler(Scheduler):
     """
     Constant learning rate.
     """
 
+    @add_docstring(call_docstring)
     def __call__(self, base_lr: float, epoch: int) -> float:
         return base_lr
 
@@ -46,7 +69,6 @@ class ConstantScheduler(Scheduler):
         return 'Constant learning rate'
 
 
-@inherit_docstring
 class ExponentialScheduler(Scheduler):
     """
     Learning rate with exponential decay.
@@ -57,6 +79,7 @@ class ExponentialScheduler(Scheduler):
     def __init__(self, exp_decay: float = .975) -> None:
         self.exp_decay = exp_decay
 
+    @add_docstring(call_docstring)
     def __call__(self, base_lr: float, epoch: int) -> float:
         return base_lr * self.exp_decay ** epoch
 
@@ -64,7 +87,6 @@ class ExponentialScheduler(Scheduler):
         return f'Exponential schedule with exponential decay = {self.exp_decay}'
 
 
-@inherit_docstring
 class CosineScheduler(Scheduler):
     """
     Learning rate with cosine decay. It remains constant after reaching the minimum value.
@@ -82,6 +104,7 @@ class CosineScheduler(Scheduler):
         self.decay_steps = decay_steps
         self.min_decay = min_decay
 
+    @add_docstring(call_docstring)
     def __call__(self, base_lr: float, epoch: int) -> float:
         min_lr = self.min_decay * base_lr
         if epoch >= self.decay_steps:
