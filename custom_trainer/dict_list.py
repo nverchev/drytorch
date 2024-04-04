@@ -1,8 +1,10 @@
 from __future__ import annotations
-from typing import Generic, TypeVar, Iterable, SupportsIndex, Self, Optional, overload
+from typing import Generic, TypeVar, Iterable, SupportsIndex, Self, Optional, NoReturn, overload
 from typing_extensions import override
 from collections import UserList
 from collections.abc import KeysView
+
+from torch import Tensor
 
 K = TypeVar('K')  # Type variable for keys
 V = TypeVar('V')  # Type variable for values
@@ -17,13 +19,30 @@ class ListKeyError(KeyError):
         try:
             key = next(iter_keys)
         except StopIteration:
-            raise ValueError('This exception should not be raised when input_keys is empty')
+            raise ValueError('This exception should not be raised when input_keys is empty.')
         try:
             next(iter_keys)
-            message = f'Input key {key} does not match the keys already present in the list {current_keys}'
+            message = f'Input key {key} does not match the keys already present in the list {current_keys}.'
         except StopIteration:
-            message = f'Input keys {input_keys} do not match the keys already present in the list {current_keys}'
+            message = f'Input keys {input_keys} do not match the keys already present in the list {current_keys}.'
         super().__init__(message)
+
+
+class DifferentValueError(ValueError):
+    def __init__(self, iterable: Iterable[int]) -> None:
+        self.list = list(iterable)
+        if len(self.list) < 2:
+            raise ValueError('This exception should not be raised when when the iterable has less than 2 elements.')
+        else:
+            message = f'Iterable with values {list(self.list)} contains different values.'
+        super().__init__(message)
+
+
+class NotATensorError(TypeError):
+
+    def __init__(self, not_a_tensor) -> None:
+        self.not_a_tensor = not_a_tensor
+        super().__init__(f' Object of type {type(not_a_tensor)} is not a Tensor.')
 
 
 class DictList(UserList, Generic[K, V]):
@@ -42,8 +61,24 @@ class DictList(UserList, Generic[K, V]):
     """
 
     def __init__(self, iterable: Iterable[dict[K, V]] = zip(), /) -> None:
-        self.list_keys: tuple[K, ...] = ()
+        self._list_keys: tuple[K, ...] = ()
         super().__init__(self.validate_iterable(iterable))
+
+    @property
+    def list_keys(self) -> tuple[K, ...]:
+        return self._list_keys
+
+    @list_keys.setter
+    def list_keys(self, value=Iterable[K]):
+        if self._list_keys:
+            raise ListKeyError(self._list_keys, value)
+        else:
+            self._list_keys = tuple(value)
+        return
+
+    @list_keys.deleter
+    def list_keys(self) -> NoReturn:
+        raise AttributeError('Keys should never be deleted.')
 
     @override
     def __add__(self, other: Iterable[dict[K, V]], /) -> Self:
@@ -117,6 +152,7 @@ class DictList(UserList, Generic[K, V]):
         """
         Usual syntax for keys in a dictionary.
         """
+        # workaround to produce a KeysView object
         return {key: None for key in self.list_keys}.keys()
 
     def get(self, key: K, /, default: Optional[V] = None) -> list[V] | list[None]:
@@ -154,11 +190,8 @@ class DictList(UserList, Generic[K, V]):
             ListKeyError if the input dictionary has keys that are not present in the list.
 
         """
-        if self.list_keys:
-            if set(self.list_keys) != set(input_dict.keys()):
-                raise ListKeyError(input_dict.keys(), self.list_keys)
-        else:
-            self.list_keys = tuple(input_dict.keys())
+        if set(self.list_keys) != set(input_dict.keys()):
+            self.list_keys = tuple(input_dict.keys())  # throws a ListKeyError if keys are already present.
         return tuple(input_dict[key] for key in self.list_keys)
 
     def validate_iterable(self, iterable: Iterable[dict[K, V]], /) -> Iterable[tuple[V, ...]]:
@@ -189,9 +222,67 @@ class DictList(UserList, Generic[K, V]):
         Returns:
             The dictionary representation of the list.
         """
+        # more efficient than self.get
         return {key: [item[index] for item in self.data] for index, key in enumerate(self.list_keys)}
 
-import torch
 
-def dict_to_list(dict_batch: dict[K, torch.Tensor | list[torch.Tensor]], /) -> dict[K, list[torch.Tensor] | list[list[torch.Tensor]]]:
-    return {key: [list(item) for item in value] if isinstance(value, list) else list(value) for key, value in dict_batch.items()}
+class TorchDictList(DictList[str, Tensor | list[Tensor]]):
+    """
+    Add support to a Dict List with Tensor and Tensor list values.
+    """
+
+    @classmethod
+    def from_batch(cls, tensor_dict: dict[str, Tensor | list[Tensor]]):
+        instance = cls()
+        instance.list_keys = tuple(tensor_dict.keys())
+        instance.data = cls.enlist(tensor_dict.values())
+        return instance
+
+    @classmethod
+    def enlist(cls, tensor_iterable: Iterable[Tensor | list[Tensor]], /) -> list[tuple[Tensor | list[Tensor], ...]]:
+        """
+        Changes the structure of batched Tensors and lists of Tensors.
+        Args:
+            tensor_iterable: an Iterable containing bathed tensors or lists of batched tensors.
+
+        Returns:
+            a list containing a tuple of tensors and list of tensors for each element of the batch.
+        """
+
+        tensor_length = cls.tensors_len(tensor_iterable)
+        return [tuple([item[i] for item in value] if isinstance(value, list) else value[i]
+                      for value in tensor_iterable) for i in range(tensor_length)]
+
+    @staticmethod
+    def tensors_len(tensor_iterable=Iterable[Tensor | list[Tensor]], /) -> int:
+        """
+        Check that all the contained tensors have the same length and return its value.
+        Args:
+            tensor_iterable: a di
+        Raises:
+           DifferentLengthsError if the length of the lists and of the sub-lists is not the same
+        Returns:
+            only_len: the length of all the list and sub-lists
+        """
+        if not tensor_iterable:
+            return 0
+
+        # this set should only have at most one element
+        tensor_len_set: set[int] = set()
+
+        for value in tensor_iterable:
+            if isinstance(value, Tensor):
+                tensor_len_set.add(len(value))
+            elif isinstance(value, list):
+                for elem in value:
+                    if isinstance(elem, Tensor):
+                        tensor_len_set.add(len(elem))
+                    else:
+                        raise NotATensorError(elem)
+            else:
+                raise NotATensorError(value)
+
+        only_len, *other_len = tensor_len_set
+        if other_len:
+            raise DifferentValueError(tensor_len_set)
+        return only_len
