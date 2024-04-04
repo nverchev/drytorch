@@ -3,29 +3,29 @@ import os
 import sys
 import warnings
 from collections import defaultdict
-from typing import Any, Literal, Callable, Iterable
+from typing import Any, Literal, Callable, Iterable, Optional
 
 import pandas as pd
 import torch
-from .schedulers import Scheduler, ConstantScheduler
-from .dict_list import DictList
-from .context_managers import UsuallyFalse
-from .recursive_ops import recursive_apply_any, struc_repr
 from torch import autocast, Tensor
 from torch.cuda.amp import GradScaler
-from torch.utils.data import DataLoader, Dataset, StackDataset, TensorDataset
+from torch.utils.data import DataLoader, Dataset, StackDataset
 from tqdm.auto import tqdm
 
-try:
-    import visdom
-except ImportError:
-    print("Plotting on visdom is disabled")
-    visdom = None
-try:
-    import plotly.express as px
-except ImportError:
-    print("Plotting on plotly is disabled")
-    px = None
+from custom_trainer.schedulers import Scheduler, ConstantScheduler
+from custom_trainer.dict_list import TorchDictList
+from custom_trainer.context_managers import UsuallyFalse
+from custom_trainer.recursive_ops import recursive_apply, struc_repr
+from custom_trainer.plotters import get_plotter, Plotter
+
+
+class IndexDataset(Dataset):
+    """
+    This class is used to create a dataset that can be used in a DataLoader.
+    """
+
+    def __getitem__(self, index):
+        return index
 
 
 class Trainer:
@@ -34,7 +34,7 @@ class Trainer:
 
     The motivation for using this class is the following:
         I) Inheritance allows user defined class for complex models and / or training by only adding minimal code
-            1) Compartmentalization - the methods can be easily extended and overriden
+            1) Compartmentalization - the methods can be easily extended and overridden
             2) Flexible containers - the trainer uses dictionaries that can handle complex inputs / outputs
             3) Hooks that grant further possibilities of customization
         II) Already implemented complex functionalities during training:
@@ -48,12 +48,12 @@ class Trainer:
 
     """
     quiet = UsuallyFalse()  # less output
-    max_stored_output: int = float('inf')  # maximum amount of stored evaluated test samples
+    max_stored_output: int = sys.maxsize  # maximum amount of stored evaluated test samples
     max_length_string_repr: int = 10
     tqdm_update_frequency = 10
     vis = None
 
-    def __new__(cls, model, **kwargs):
+    def __new__(cls, model: torch.nn.Module, **kwargs):
         """
         Overridden to register init keyword arguments. It tries to document the settings as much as possible.
         Settings will be dumped in a JSON file when saving the model.
@@ -68,12 +68,13 @@ class Trainer:
         # tries to get the most informative representation of the settings.
         kwargs = {k: struc_repr(v, max_length=cls.max_length_string_repr) for k, v in kwargs.items()}
         model_architecture = {'model': model}  # JSON files do not allow strings on multiple lines
-        model_settings: dict = getattr(model, 'settings', {})
+        model_settings: dict[str, Any] = getattr(model, 'settings', {})
         obj.settings = model_architecture | model_settings | kwargs
         return obj
 
     def __init__(self, model: torch.nn.Module, *, exp_name: str, model_pardir: str = 'models', device: torch.device,
-                 batch_size: int, train_dataset: Dataset, val_dataset: Dataset = None, test_dataset: Dataset = None,
+                 batch_size: int, train_dataset: Dataset, val_dataset: Optional[Dataset] = None,
+                 test_dataset: Optional[Dataset] = None,
                  optimizer_cls: type, optim_args: dict, scheduler: Scheduler = ConstantScheduler(),
                  loss: Callable, amp: bool = False, **extra_config: dict) -> None:
         """
@@ -119,23 +120,24 @@ class Trainer:
         self.amp = amp
         self.loss = loss
 
-        self.train_log = pd.DataFrame()
-        self.val_log = pd.DataFrame()
-        self.saved_test_metrics = pd.DataFrame()  # saves metrics of last evaluation
-        self.test_indices: list[int]
+        self.train_log: pd.DataFrame = pd.DataFrame()
+        self.val_log: pd.DataFrame = pd.DataFrame()
+        self.saved_test_metrics = pd.DataFrame()  # save metrics of last evaluation
+        self.plotter: Optional[Plotter] = None
+        self.test_indices: list[int] = []
         self.test_metadata: dict[str, str]
-        self.test_outputs: DictList[torch.Tensor]  # store last test evaluation
+        self.test_outputs: TorchDictList  # store last test evaluation
 
+        self.settings: dict[str, Any]
         _not_used = extra_config
         return
 
     @staticmethod
-    def get_loader(dataset: Dataset, batch_size: int, partition: Literal['train', 'val', 'test'] = 'train', **_):
+    def get_loader(dataset: Optional[Dataset], batch_size: int, partition: Literal['train', 'val', 'test'] = 'train',
+                   **_):
         if dataset is None:
             return None
-        # noinspection PyTypeChecker
-        len_dataset: int = len(dataset)  # Dataset object must have a __len__ method
-        dataset = StackDataset(dataset, TensorDataset(torch.arange(len_dataset)))  # adds indices
+        dataset = StackDataset(dataset, IndexDataset())  # add indices
         pin_memory = torch.cuda.is_available()
         drop_last = True if partition == 'train' else False
         return DataLoader(dataset, drop_last=drop_last, batch_size=batch_size, shuffle=True, pin_memory=pin_memory)
@@ -257,9 +259,9 @@ class Trainer:
             return
 
         if save_outputs:
-            self.test_indices: list[int] = []
-            self.test_outputs: DictList[torch.Tensor] = DictList()
-            self.test_metadata: dict[str, str] = dict(partition=partition)
+            self.test_indices = []
+            self.test_outputs = TorchDictList()
+            self.test_metadata = dict(partition=partition)
 
         epoch_log: defaultdict[str, float] = defaultdict(float)
         num_batch = len(loader)
@@ -276,8 +278,8 @@ class Trainer:
                     else:
                         batch_log = self.loss_and_metrics(outputs, inputs, targets)
                         criterion = batch_log['Criterion'].mean(0)
-                    for loss_or_metric, value in batch_log.items():
-                        epoch_log[loss_or_metric] += value.sum(0).item()
+                    for loss_or_metric, batched_value in batch_log.items():
+                        epoch_log[loss_or_metric] += batched_value.sum(0).item()
                 if not torch.is_inference_mode_enabled():
                     if torch.isnan(criterion):
                         raise ValueError('Criterion is nan')
@@ -292,7 +294,7 @@ class Trainer:
                                                  'Loss': criterion.item()})
                 # if you get memory error, limit max_stored_output
                 if save_outputs and self.max_stored_output >= epoch_seen:
-                    self.test_outputs.extend_dict(self.recursive_to(outputs, 'detach_cpu'))
+                    self.test_outputs.extend(TorchDictList.from_batch(outputs))
                     self.test_indices.extend(map(int, indices))
         print(f'\rAverage {partition} {"metric(s)" if torch.is_inference_mode_enabled() else "loss(es)"}:', end=' ')
         for loss_or_metric, value in epoch_log.items():
@@ -346,36 +348,7 @@ class Trainer:
             dictionary of the form {named_argument: input}
         """
         _not_used = self
-        return (inputs, ), {}
-
-    @classmethod
-    def set_up_visdom_connection(cls, env) -> bool:
-        """
-        It initializes a visdom environment with the name of the experiment (if it does not exist already)
-
-        Returns:
-            True visdom is available, False otherwise
-        """
-        if visdom is None:
-            return False
-        if cls.vis is None:
-            print('visdom: ', end='', file=sys.stderr)
-            try:
-                cls.vis = visdom.Visdom(env=env, raise_exceptions=True)
-            except ConnectionError:
-                print('Connection refused by server', file=sys.stderr)
-                return False
-        return True
-
-    @classmethod
-    def check_visdom_connection(cls, env) -> bool:
-        """
-        It activates and check the connection to the visdom server https://github.com/fossasia/visdom
-
-        Returns:
-            True if there is an active connection, False otherwise
-        """
-        return cls.set_up_visdom_connection(env) and cls.vis.check_connection()
+        return (inputs,), {}
 
     def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
                              title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
@@ -389,74 +362,14 @@ class Trainer:
             lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
         """
         if self.train_log.empty:
-            print('Learning curves not available. Did you train the model?')
+            warnings.warn('Plotting learning curves is not possible because data is missing.')
             return
-        plot_args = (self.train_log, self.val_log, loss_or_metric, start, title)
-        jupyter = os.path.basename(os.environ['_']) == 'jupyter'  # True when calling from a jupyter notebook
-        if lib == 'plotly' or jupyter:
-            self.plot_learning_curves_plotly(*plot_args)
-        elif lib == 'auto':
-            if self.check_visdom_connection(self.exp_name):
-                self.plot_learning_curves_visdom(*plot_args)
-            else:
-                self.plot_learning_curves_plotly(*plot_args)
-        elif lib == 'visdom':
-            if self.check_visdom_connection(self.exp_name):
-                self.plot_learning_curves_visdom(*plot_args)
-            else:
-                warnings.warn('Impossible to display the learning curves on the visdom server. Check the connection.')
-        else:
-            raise ValueError(f'Library {lib} not supported.')
-
-    @classmethod
-    def plot_learning_curves_visdom(cls, train_log: pd.DataFrame, val_log: pd.DataFrame,
-                                    loss_or_metric: str = 'Criterion', start: int = 0,
-                                    title: str = 'Learning Curves') -> None:
-        """
-        This class method plots the learning curves using visdom as backend. You need first to initialize an environment
-        within the class attribute vis (see check_visdom_connection)
-
-        Args:
-            train_log: pandas Dataframe with the loss and metrics calculated during training on the training dataset
-            val_log: pandas Dataframe with the loss and metrics calculated during training on the validation dataset
-            loss_or_metric: the loss or the metric to visualize
-            start: the epoch from where you want to display the curve
-            title: the name of the window (and title) of the plot in the visdom interface
-        """
-
-        train_log = train_log[train_log.index > start][loss_or_metric]
-        val_log = val_log[val_log.index > start][loss_or_metric]
-        layout = dict(xlabel='Epoch', ylabel=loss_or_metric, title=title, update='replace', showlegend=True)
-        cls.vis.line(X=train_log.index, Y=train_log, win=title, opts=layout, name='Training')
-        if not val_log.empty:
-            cls.vis.line(X=val_log.index, Y=val_log, win=title, opts=layout, update='append', name='Validation')
+        if self.plotter is None:
+            self.plotter = get_plotter(lib, self.exp_name)
+        self.plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
         return
 
-    @staticmethod
-    def plot_learning_curves_plotly(train_log: pd.DataFrame, val_log: pd.DataFrame,
-                                    loss_or_metric: str = 'Criterion', start: int = 0,
-                                    title: str = 'Learning Curves') -> None:
-        """
-        This static method plots the learning curves using plotly as backend.
-
-        Args:
-            train_log: pandas Dataframe with the loss and metrics calculated during training on the training dataset
-            val_log: pandas Dataframe with the loss and metrics calculated during training on the validation dataset
-            loss_or_metric: the loss or the metric to visualize
-            start: the epoch from where you want to display the curve
-            title: the name of the window (and title) of the plot in the visdom interface
-        """
-        train_log = train_log.copy()
-        train_log['Dataset'] = "Training"
-        val_log = val_log.copy()
-        val_log['Dataset'] = "Validation"
-        log = pd.concat([train_log, val_log])
-        log = log[log.index >= start].reset_index().rename(columns={'index': 'Epoch'})
-        fig = px.line(log, x="Epoch", y=loss_or_metric, color="Dataset", title=title)
-        fig.show()
-        return
-
-    def save(self, new_exp_name: str = None) -> None:
+    def save(self, new_exp_name: Optional[str] = None) -> None:
         """
         It saves a checkpoint for the model and the optimizer with the settings of the experiments, the results,
         and the training and validation learning curves. The folder has the name of the experiment and is located in
@@ -471,7 +384,7 @@ class Trainer:
         torch.save(self.model.state_dict(), paths['model'])
         torch.save(self.optimizer.state_dict(), paths['optim'])
         # Write instead of append to be but safe from bugs
-        for df_name in ['train_log', 'val_log', 'saved_test_metrics']:
+        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
             self.__getattribute__(df_name).to_csv(paths[df_name])
         with open(paths['settings'], 'w') as json_file:
             json.dump(self.settings, json_file, default=str, indent=4)
@@ -504,7 +417,7 @@ class Trainer:
         except ValueError as err:
             warnings.warn('Optimizer has not been correctly loaded:')
             print(err)
-        for df_name in ['train_log', 'val_log']:
+        for df_name in ['train_log_metric', 'val_log']:
             try:
                 df = pd.read_csv(paths[df_name], index_col=0)
             except FileNotFoundError:
@@ -531,19 +444,15 @@ class Trainer:
         return 'Trainer for experiment: ' + self.exp_name
 
     @staticmethod
-    def recursive_to(obj, device: Literal['detach_cpu'] | torch.device) -> Any:
+    def recursive_to(obj, device: torch.device) -> Any:
         """
         It changes device recursively to tensors inside a container
 
         Args:
             obj: a container (a combination of dict and list) of Tensors
-            device: the target device. Alternatively detach_cpu for including detaching
+            device: the target device
         """
-
-        def to_device(x: Tensor) -> Tensor:
-            return x.detach().cpu() if device == 'detach_cpu' else x.to(device)
-
-        return recursive_apply_any(obj, expected_type=Tensor, func=to_device)
+        return recursive_apply(obj, expected_type=Tensor, func=lambda x: x.to(device))
 
     @classmethod
     def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:
@@ -562,7 +471,7 @@ class Trainer:
             os.mkdir(directory)
         paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
         # paths for results and learning curves
-        for df_name in ['train_log', 'val_log', 'saved_test_metrics']:
+        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
             paths[df_name] = os.path.join(directory, f'{df_name}.csv')
         # paths for the model and the optimizer checkpoints
         for pt_file in ['model', 'optim']:
