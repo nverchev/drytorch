@@ -16,7 +16,7 @@ from custom_trainer.schedulers import Scheduler, ConstantScheduler
 from custom_trainer.dict_list import TorchDictList
 from custom_trainer.context_managers import UsuallyFalse
 from custom_trainer.recursive_ops import recursive_apply, struc_repr
-from custom_trainer.plotters import get_plotter, Plotter
+from custom_trainer.plotters import plotter_backend, GetPlotterProtocol, Plotter
 
 
 class IndexDataset(Dataset):
@@ -123,7 +123,7 @@ class Trainer:
         self.train_log: pd.DataFrame = pd.DataFrame()
         self.val_log: pd.DataFrame = pd.DataFrame()
         self.saved_test_metrics = pd.DataFrame()  # save metrics of last evaluation
-        self.plotter: Optional[Plotter] = None
+        self.get_plotter: GetPlotterProtocol = plotter_backend()
         self.test_indices: list[int] = []
         self.test_metadata: dict[str, str]
         self.test_outputs: TorchDictList  # store last test evaluation
@@ -364,9 +364,8 @@ class Trainer:
         if self.train_log.empty:
             warnings.warn('Plotting learning curves is not possible because data is missing.')
             return
-        if self.plotter is None:
-            self.plotter = get_plotter(lib, self.exp_name)
-        self.plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
+        plotter: Plotter = self.get_plotter(backend=lib, env=self.exp_name)
+        plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
         return
 
     def save(self, new_exp_name: Optional[str] = None) -> None:
