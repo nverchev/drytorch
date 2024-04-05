@@ -1,35 +1,9 @@
-from typing import TypeVar, Type, Callable
-from abc import ABCMeta, abstractmethod
+from typing import Type
 from textwrap import dedent
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
-
-CallableVar = TypeVar('CallableVar', bound=Callable)
-
-
-def add_docstring(doc: str) -> Callable[[CallableVar], CallableVar]:
-    """
-    Decorator factory that builds a decorator for a given docstring.
-
-    Args:
-        doc: the docstring to add.
-    Returns:
-        the decorator responsible for adding the docstring.
-    """
-
-    def wrapper(method: CallableVar) -> CallableVar:
-        """
-        Add a docstring to a callable (a method usually).
-
-        Args:
-            method: the docstring to be added to the callable
-        Returns:
-            the callable with the added docstring
-        """
-        method.__doc__ = doc
-        return method
-
-    return wrapper
-
+from custom_trainer.doc_utils import add_docstring
 
 call_docstring: str = dedent("""
     Call the scheduler for the decay of the learning rate.
