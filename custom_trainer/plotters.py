@@ -1,16 +1,41 @@
 import os
-import sys
 from types import ModuleType
 from abc import ABCMeta, abstractmethod
+from typing import Literal, Protocol
+import warnings
+from textwrap import dedent
 
 import pandas as pd
+from custom_trainer.doc_utils import add_docstring
+
+Backend = Literal['visdom', 'plotly', 'auto', 'none']
+DEFAULT_BACKEND: Backend = 'auto'
+
+plot_docstring: str = dedent("""
+        Plot the learning curves.
+
+        Args:
+            train_log: DataFrame with the loss and metrics calculated during training on the training dataset.
+            val_log: Dataframe with the loss and metrics calculated during training on the validation dataset.
+            loss_or_metric: the metric to visualize. Defaults to 'Criterion'.
+            start: the epoch from where you want to display the curve. Defaults to 0.
+            title: the name of the window of the plot in the visdom interface. Defaults to 'Learning Curves'.
+        """)
 
 
 class Plotter(metaclass=ABCMeta):
-    def __init__(self, env: str = ''):
+    """
+    Abstract base class for plotting learning curves.
+
+    Args:
+        env: the name of the environment (useful to some backends).
+    """
+
+    def __init__(self, env: str = '') -> None:
         self.env = env
 
     @abstractmethod
+    @add_docstring(plot_docstring)
     def plot(self, train_log: pd.DataFrame, val_log: pd.DataFrame,
              loss_or_metric: str = 'Criterion', start: int = 0,
              title: str = 'Learning Curves') -> None:
@@ -18,6 +43,9 @@ class Plotter(metaclass=ABCMeta):
 
 
 class NoPlotter(Plotter):
+    """
+    Fallback class when no backend is available. Plotting is silently ignored.
+    """
 
     def plot(self, train_log: pd.DataFrame, val_log: pd.DataFrame,
              loss_or_metric: str = 'Criterion', start: int = 0,
@@ -28,79 +56,54 @@ class NoPlotter(Plotter):
 try:
     import visdom
 
+    VISDOM_AVAILABLE: bool = True
+
 
     class VisdomPlotter(Plotter):
+        """
+        Initialize a visdom environment with the specified environment name and uses it as backend.
 
-        def __init__(self, env: str = ''):
+        Args:
+            env: The name of the visdom environment.
+        """
+
+        def __init__(self, env: str = '') -> None:
             super().__init__(env)
             self.env = env
             self.vis: visdom.Visdom = visdom.Visdom(env=env, raise_exceptions=True)
 
-        def check_visdom_connection(self) -> bool:
-            """
-            It initializes a visdom environment with the name of the experiment (if it does not exist already)
-
-            Returns:
-                True visdom is available, False otherwise
-
-            It activates and check the connection to the visdom server https://github.com/fossasia/visdom
-
-            Returns:
-                True if there is an active connection, False otherwise
-            """
+        def check_connection(self) -> bool:
             return self.vis.check_connection()
 
+        @add_docstring(plot_docstring)
         def plot(self, train_log: pd.DataFrame, val_log: pd.DataFrame,
                  loss_or_metric: str = 'Criterion', start: int = 0,
                  title: str = 'Learning Curves') -> None:
-            """
-            This class method plots the learning curves using visdom as backend. You need first to initialize an
-            environment within the class attribute vis (see check_visdom_connection)
-
-            Args:
-                train_log: pandas Series with the loss and metrics calculated during training on the training dataset
-                val_log: pandas Dataframe with the loss and metrics calculated during training on the validation dataset
-                loss_or_metric: the Series or the metric to visualize
-                start: the epoch from where you want to display the curve
-                title: the name of the window (and title) of the plot in the visdom interface
-            """
-
             train_log_metric: pd.Series[float] = train_log[train_log.index > start][loss_or_metric]
-            val_log_metric: pd.Series[float] = val_log[val_log.index > start][loss_or_metric]
+            val_log_metric: pd.Series[float] = val_log[val_log.index >= start][loss_or_metric]
             layout = dict(xlabel='Epoch', ylabel=loss_or_metric, title=title, update='replace', showlegend=True)
-            if self.check_visdom_connection():
-                self.vis.line(X=train_log_metric.index, Y=train_log_metric, win=title, opts=layout, name='Training')
+            self.vis.line(X=train_log_metric.index, Y=train_log_metric, win=title, opts=layout, name='Training')
             if not val_log.empty:
-                self.vis.line(X=val_log_metric.index, Y=val_log, win=title, opts=layout, update='append',
+                self.vis.line(X=val_log_metric.index, Y=val_log_metric, win=title, opts=layout, update='append',
                               name='Validation')
             return
 
 
-    VISDOM_AVAILABLE: bool = True
-
 except ImportError:
-    print("Plotting on visdom is disabled")
     VISDOM_AVAILABLE = False
     visdom = ModuleType('Unreachable module')
 
 try:
-    import plotly.graph_objects as px  # type: ignore
+    import plotly.express as px  # type: ignore
+
+    PLOTLY_AVAILABLE: bool = True
 
 
     class PlotlyPlotter(Plotter):
+        @add_docstring(plot_docstring)
         def plot(self, train_log: pd.DataFrame, val_log: pd.DataFrame,
                  loss_or_metric: str = 'Criterion', start: int = 0,
                  title: str = 'Learning Curves') -> None:
-            """
-            This static method plots the learning curves using plotly as backend.
-
-            Args:
-                train_log: pandas Dataframe with the loss and metrics calculated during training on the training dataset
-                val_log: pandas Dataframe with the loss and metrics calculated during training on the validation dataset
-                loss_or_metric: the loss or the metric to visualize
-                start: the epoch from where you want to display the curve
-                title: the name of the window (and title) of the plot in the visdom interface
-            """
             train_log = train_log.copy()
             train_log['Dataset'] = "Training"
             val_log = val_log.copy()
@@ -112,42 +115,93 @@ try:
             return
 
 
-    PLOTLY_AVAILABLE: bool = True
 except ImportError:
-    print("Plotting on plotly is disabled")
     PLOTLY_AVAILABLE = False
     px = ModuleType('Unreachable module')
 
 
-def get_plotter(backend: str = 'auto', env: str = '') -> Plotter:
-    jupyter = os.path.basename(os.environ['_']) == 'jupyter'  # True when calling from a jupyter notebook
-    if backend == 'plotly' or jupyter:
-        if PLOTLY_AVAILABLE:
-            return PlotlyPlotter(env)
-        else:
-            raise ImportError(f'Library plotly not installed.')
-    elif backend == 'auto':
-        if VISDOM_AVAILABLE:
+class GetPlotterProtocol(Protocol):
+    """
+    This protocol is a Callable with named parameters.
+    """
+    def __call__(self, backend: Backend, env: str) -> Plotter:
+        ...
+
+
+def plotter_backend() -> GetPlotterProtocol:
+    """
+    Closure that returns a plotter backend and caches the last used plotter.
+
+    Return:
+        A function that returns a new plotter backend or the last used plotter.
+    """
+
+    plotter: Plotter = NoPlotter('')
+
+    def get_plotter(backend: Backend = DEFAULT_BACKEND, env: str = '') -> Plotter:
+        """
+        Returns a plotter object based on the specified backend.
+
+        Args:
+            backend:
+                auto:
+                    from a Jupiter notebook: use plotly and return ImportError if plotly is not installed.
+                    otherwise: if visdom is installed use visdom else plotly. If neither are installed return NoPlotter.
+                plotly: plotly backend. Return ImportError if plotly is not installed.
+                visdom: visdom backend. Return ImportError if visdom is not installed.
+            env: The optional environment name for the backend.
+
+        Return:
+            A plotter backend based on the specified backend and environment.
+
+        Raise:
+            ImportError if the specified backend is not available.
+            warning if the visdom connection is refused by the server.
+        """
+        nonlocal plotter
+        jupyter = os.path.basename(os.environ['_']) == 'jupyter'  # True when calling from a jupyter notebook
+        if backend == 'auto':
+            if jupyter:
+                return get_plotter('plotly', '')
             try:
-                plotter: VisdomPlotter = VisdomPlotter(env)
-            except ConnectionError:
-                print('Visdom connection refused by server', file=sys.stderr)
-            else:
-                if plotter.check_visdom_connection():
+                return get_plotter('visdom', env)
+            except ImportError:
+                pass
+            try:
+                return get_plotter('plotly', '')
+            except ImportError:
+                return get_plotter('none', '')
+
+        if backend == 'plotly':
+            if not PLOTLY_AVAILABLE:
+                raise ImportError(f'Library plotly not installed.')
+
+            if not isinstance(plotter, PlotlyPlotter):
+                plotter = PlotlyPlotter()
+
+            return plotter
+
+        if backend == 'visdom':
+            if not VISDOM_AVAILABLE:
+                raise ImportError(f'Library visdom not installed.')
+
+            if isinstance(plotter, VisdomPlotter):
+                if plotter.check_connection():
                     return plotter
-        if PLOTLY_AVAILABLE:
-            return PlotlyPlotter('')
-        else:
-            return NoPlotter('')
-    elif backend == 'visdom' and VISDOM_AVAILABLE:
-        if VISDOM_AVAILABLE:
-            plotter = VisdomPlotter(env)
-            if plotter.check_visdom_connection():
+
+            try:
+                plotter = VisdomPlotter(env)
                 return plotter
-            else:
-                print('Visdom connection refused by server', file=sys.stderr)
-                return NoPlotter('')
-        else:
-            raise ImportError(f'Library visdom not installed.')
-    else:
+            except ConnectionError:
+                warnings.warn('Visdom connection refused by server.')
+                return get_plotter('none', '')
+
+        if backend == 'none':
+            if not isinstance(plotter, NoPlotter):
+                plotter = NoPlotter()
+
+            return plotter
+
         raise ValueError(f'Library {backend} not supported.')
+
+    return get_plotter
