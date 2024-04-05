@@ -121,6 +121,6 @@ def struc_repr(struc: Any, *, max_length: int = 10) -> Any:
         dict_attr |= {name: getattr(struc, name) for name in slots}
         dict_attr = {k: struc_repr(v, max_length=max_length) for k, v in dict_attr.items()
                      if v not in ({}, [], set(), '', None, struc)}
-        return {'class': type(struc).__name__} | dict_attr
+        return {'class': type(struc).__name__, 'repr': struc.__repr__()} | dict_attr
 
     return repr(struc)
