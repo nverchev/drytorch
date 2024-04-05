@@ -124,6 +124,7 @@ class GetPlotterProtocol(Protocol):
     """
     This protocol is a Callable with named parameters.
     """
+
     def __call__(self, backend: Backend, env: str) -> Plotter:
         ...
 
