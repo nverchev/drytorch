@@ -52,6 +52,17 @@ def recursive_apply(struc, expected_type, func):
     raise TypeError(f' Cannot apply {func} on Datatype {type(struc).__name__}')
 
 
+def recursive_to(container: C, device: torch.device) -> C:
+    """
+    Change the devices of tensor inside a container.
+
+    Args:
+        container: a container made of dict, list, set or tuples that contains Tensors.
+        device: the target device
+    """
+    return recursive_apply(container, expected_type=torch.Tensor, func=lambda x: x.to(device))
+
+
 @overload
 def struc_repr(struc: Atomic, *, max_length: int = ...) -> Atomic:
     ...

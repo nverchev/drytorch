@@ -15,7 +15,7 @@ from tqdm.auto import tqdm
 from custom_trainer.schedulers import Scheduler, ConstantScheduler
 from custom_trainer.dict_list import TorchDictList
 from custom_trainer.context_managers import UsuallyFalse
-from custom_trainer.recursive_ops import recursive_apply, struc_repr
+from custom_trainer.recursive_ops import recursive_to, struc_repr
 from custom_trainer.plotters import plotter_backend, GetPlotterProtocol, Plotter
 
 
@@ -269,7 +269,7 @@ class Trainer:
             epoch_seen = 0
             for batch_idx, ((inputs, targets), (indices,)) in tqdm_loader:
                 epoch_seen += indices.shape[0]
-                inputs, targets = self.recursive_to([inputs, targets], self.device)
+                inputs, targets = recursive_to([inputs, targets], self.device)
                 iter_inputs, named_inputs = self.helper_inputs(inputs)
                 with autocast(device_type=self.device.type, enabled=self.amp):
                     outputs = self.model(*iter_inputs, **named_inputs)
@@ -442,16 +442,6 @@ class Trainer:
     def __repr__(self) -> str:
         return 'Trainer for experiment: ' + self.exp_name
 
-    @staticmethod
-    def recursive_to(obj, device: torch.device) -> Any:
-        """
-        It changes device recursively to tensors inside a container
-
-        Args:
-            obj: a container (a combination of dict and list) of Tensors
-            device: the target device
-        """
-        return recursive_apply(obj, expected_type=Tensor, func=lambda x: x.to(device))
 
     @classmethod
     def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:
