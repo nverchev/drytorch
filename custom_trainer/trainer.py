@@ -4,11 +4,13 @@ import os
 import sys
 import warnings
 from collections import defaultdict
-from typing import Any, Literal, Callable, Optional, Generic, TypeVar, overload, Self, Protocol, Iterable
+from typing import Any, Literal, Callable, Optional, Generic, TypeVar, overload, Self, Protocol, Iterable, TypedDict, \
+    Iterator
 
 import pandas as pd
 import torch
 from torch import autocast, Tensor
+from torch.nn.parameter import Parameter
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset, StackDataset
 from tqdm.auto import tqdm
@@ -50,6 +52,143 @@ class LossAndMetricsProtocol(Protocol):
 
 MetricFunction = Callable[[TensorOutputs, TensorTargets], MetricsProtocol]
 LossFunction = Callable[[TensorOutputs, TensorTargets], LossAndMetricsProtocol]
+
+
+class OptParams(TypedDict):
+    params: Iterator[Parameter]
+    lr: float
+
+
+class ModelHandler:
+
+    def __init__(self, model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module,
+                 exp_name: str,
+                 model_pardir: str,
+                 device: torch.device,
+                 optimizer) -> None:
+
+        self.device: torch.device = device
+        self.model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module = model.to(device)
+        self.exp_name: str = exp_name
+        self.model_pardir: str = model_pardir
+
+        self.epoch: int = 0
+        self.optimizer = optimizer
+
+        self.train_log: pd.DataFrame = pd.DataFrame()
+        self.val_log: pd.DataFrame = pd.DataFrame()
+        self.saved_test_metrics = pd.DataFrame()  # save metrics of last evaluation
+        self.get_plotter: GetPlotterProtocol = plotter_backend()
+        self.test_indices: list[int] = []
+        self.test_metadata: dict[str, str]
+        self.test_outputs: TorchDictList  # store last test evaluation
+
+        self.quiet = UsuallyFalse()  # less output
+        self.settings: dict[str, Any] = {}
+
+    def save(self, new_exp_name: Optional[str] = None) -> None:
+        """
+        It saves a checkpoint for the model and the optimizer with the settings of the experiments, the results,
+        and the training and validation learning curves. The folder has the name of the experiment and is located in
+        {attribute model_pardir}/models
+
+        Args:
+            new_exp_name: optionally save the model in a folder with this name to branch the model.
+             The Trainer object won't modify self.exp_name
+        """
+        self.model.eval()
+        paths = self.paths(model_pardir=self.model_pardir, exp_name=new_exp_name or self.exp_name, epoch=self.epoch)
+        torch.save(self.model.state_dict(), paths['model'])
+        torch.save(self.optimizer.state_dict(), paths['optim'])
+        # Write instead of append to be but safe from bugs
+        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
+            self.__getattribute__(df_name).to_csv(paths[df_name])
+        with open(paths['settings'], 'w') as json_file:
+            json.dump(self.settings, json_file, default=str, indent=4)
+        print('\rModel saved at: ', paths['model'])
+        return
+
+    def load(self, epoch: int = -1) -> None:
+        """
+        It loads a checkpoint for the model and the optimizer, and the training and validation learning curves.
+        Args:
+            epoch: the epoch of the checkpoint to load, -1 if last
+        """
+        if epoch >= 0:
+            self.epoch = epoch
+        else:
+            past_epochs = []  # here it looks for the most recent model
+            local_path = os.path.join(self.model_pardir, self.exp_name)
+            if os.path.exists(local_path):
+                for file in os.listdir(local_path):
+                    if file[:5] == 'model':
+                        past_epochs.append(int(''.join(filter(lambda c: c.isdigit(), file))))  # available epochs
+            if not past_epochs:
+                warnings.warn(f'No saved models found in {local_path}. Training from scratch.', UserWarning)
+                return
+            self.epoch = max(past_epochs)
+        paths = self.paths(model_pardir=self.model_pardir, exp_name=self.exp_name, epoch=self.epoch)
+        self.model.load_state_dict(torch.load(paths['model'], map_location=torch.device(self.device)))
+        try:
+            self.optimizer.load_state_dict(torch.load(paths['optim'], map_location=torch.device(self.device)))
+        except ValueError as err:
+            warnings.warn('Optimizer has not been correctly loaded:')
+            print(err)
+        for df_name in ['train_log_metric', 'val_log']:
+            try:
+                df = pd.read_csv(paths[df_name], index_col=0)
+            except FileNotFoundError:
+                df = pd.DataFrame()
+            # filter out future epochs from the logs
+            df = df[df.index <= self.epoch]
+            self.__setattr__(df_name, df)
+        print('Loaded: ', paths['model'])
+        return
+
+    @classmethod
+    def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:
+        """
+        It gets the paths for saving and loading the experiment.
+
+        Args:
+            model_pardir: the path to the folder where to save experiments
+            exp_name: the name of the folder of the experiment
+            epoch: the epoch of the checkpoint for the model and optimizer
+        """
+        if not os.path.exists(model_pardir):
+            os.mkdir(model_pardir)
+        directory = os.path.join(model_pardir, exp_name)
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
+        # paths for results and learning curves
+        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
+            paths[df_name] = os.path.join(directory, f'{df_name}.csv')
+        # paths for the model and the optimizer checkpoints
+        for pt_file in ['model', 'optim']:
+            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
+        return paths
+
+    def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
+                             title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
+        """
+        This method plots the learning curves using either plotly or visdom as backends
+
+        Args:
+            loss_or_metric: the loss or the metric to visualize
+            start: the epoch from where you want to display the curve
+            title: the name of the window (and title) of the plot in the visdom interface
+            lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
+        """
+        if self.train_log.empty:
+            warnings.warn('Plotting learning curves is not possible because data is missing.')
+            return
+        plotter: Plotter = self.get_plotter(backend=lib, env=self.exp_name)
+        plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
+        return
+
+    def __repr__(self) -> str:
+        return f'model: {self.exp_name}'
 
 
 class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
@@ -119,10 +258,10 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
                  amp: bool = False,
                  **extra_config: dict) -> None:
 
-        self.device: torch.device = device
-        self.model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module = model.to(device)
-        self.exp_name: str = exp_name
-        self.model_pardir: str = model_pardir
+        self.optimizer_settings: dict[str, Any] = optim_args.copy()  # property that updates the learning rate
+
+        optimizer: torch.optim.Optimizer = optimizer_cls(**self.optimizer_settings)
+        self.model_handler = ModelHandler(model, exp_name, model_pardir, device, optimizer)
 
         self.train_loader: DataLoader[tuple[TensorData, int]] = (
             self.get_loader(train_dataset, batch_size, partition='train'))
@@ -133,9 +272,8 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
 
         self.epoch: int = 0
         self.scheduler: Scheduler = scheduler
-        self.optimizer_settings: dict[str, Any] = optim_args.copy()  # property that updates the learning rate
-        self.optimizer: torch.optim.Optimizer = optimizer_cls(**self.optimizer_settings)
-        self.scaler = GradScaler(enabled=amp and self.device.type == 'cuda')
+
+        self.scaler = GradScaler(enabled=amp and device.type == 'cuda')
         self.amp: bool = amp
         self.loss: LossFunction = loss
         self.test_metrics: MetricFunction = test_metrics if test_metrics is not None else loss
@@ -194,7 +332,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         return {'params': params, **self._optimizer_settings[1]}
 
     @optimizer_settings.setter
-    def optimizer_settings(self, optim_args: dict) -> None:
+    def optimizer_settings(self, optim_args: dict[str, Any]) -> None:
         """
         It pairs the learning rates to the parameter groups.
         If only one number for the learning rate is given, it uses its value for each parameter
@@ -205,10 +343,10 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         """
         lr: float | dict[str, float] = optim_args.pop('lr')  # removes 'lr' as setting, we move it inside 'params'
         if isinstance(lr, dict):  # support individual lr for each parameter (for fine-tuning for example)
-            self._optimizer_settings = \
-                [{'params': getattr(self.model, k).parameters(), 'lr': v} for k, v in lr.items()], optim_args
+            params = [OptParams(params=getattr(self.model_handler.model, k).parameters(), lr=v) for k, v in lr.items()]
+            self._optimizer_settings: tuple[list[OptParams], dict[str, Any]] = params, optim_args
         else:
-            self._optimizer_settings = [{'params': self.model.parameters(), 'lr': lr}], optim_args
+            self._optimizer_settings = [OptParams(params=self.model_handler.model.parameters(), lr=lr)], optim_args
         return
 
     def update_learning_rate(self, new_lr: float | list[dict[str, float]]) -> None:
@@ -220,8 +358,8 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             If you call it externally, make sure the list has the same order as in self.optimizer_settings
         """
         if isinstance(new_lr, float):  # transforms to list
-            new_lr = [{'lr': new_lr} for _ in self.optimizer.param_groups]
-        for g, up_g in zip(self.optimizer.param_groups, new_lr):
+            new_lr = [{'lr': new_lr} for _ in self.model_handler.optimizer.param_groups]
+        for g, up_g in zip(self.model_handler.optimizer.param_groups, new_lr):
             g['lr'] = up_g['lr']
         return
 
@@ -234,19 +372,19 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             val_after_train: run inference on the validation dataset after each epoch and calculates the loss
         """
         if not self.quiet:
-            print('\rTraining {}'.format(self.exp_name))  # \r corrects asynchronous stderr/stdout printouts
+            print('\rTraining {}'.format(self.model_handler.exp_name))  # \r solves asynchronous stderr/stdout printouts
         for _ in range(num_epoch):
             self.update_learning_rate(self.optimizer_settings['params'])
             self.epoch += 1
             print('\r====> Epoch:{:4d}'.format(self.epoch), end=' ...  :' if self.quiet else '\n')
-            self.model.train()
+            self.model_handler.model.train()
             self.hook_before_training_epoch()
             self._run_epoch(partition='train')
             self.hook_after_training_epoch()
             if not self.quiet:
                 print()
             if val_after_train:  # check losses on val
-                self.model.eval()
+                self.model_handler.model.eval()
                 with torch.inference_mode():
                     self._run_epoch(partition='val', use_test_metrics=False)
                 if not self.quiet:
@@ -264,7 +402,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             partition: the dataset used for testing
             save_outputs: if True, it stores the outputs of the model
         """
-        self.model.eval()
+        self.model_handler.model.eval()
         self._run_epoch(partition=partition, save_outputs=save_outputs, use_test_metrics=True)
         print()
         return
@@ -331,9 +469,9 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
 
     def _run_batch(self, inputs: TensorInputs, targets: TensorTargets, use_test_metrics: bool = False) \
             -> tuple[dict[str, float], TensorOutputs, float]:
-        inputs, targets = recursive_to([inputs, targets], self.device)
-        with autocast(device_type=self.device.type, enabled=self.amp):
-            outputs: TensorOutputs = self.model(inputs)
+        inputs, targets = recursive_to([inputs, targets], self.model_handler.device)
+        with autocast(device_type=self.model_handler.device.type, enabled=self.amp):
+            outputs: TensorOutputs = self.model_handler.model(inputs)
             if use_test_metrics:
                 batched_performance = self.test_metrics(outputs, targets)
             else:
@@ -348,87 +486,10 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             if torch.isinf(criterion):
                 raise ValueError('Criterion is inf')
             self.scaler.scale(criterion).backward()
-            self.scaler.step(self.optimizer)
+            self.scaler.step(self.model_handler.optimizer)
             self.scaler.update()
-            self.optimizer.zero_grad()
+            self.model_handler.optimizer.zero_grad()
         return batch_log, outputs, criterion.item()
-
-    def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
-                             title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
-        """
-        This method plots the learning curves using either plotly or visdom as backends
-
-        Args:
-            loss_or_metric: the loss or the metric to visualize
-            start: the epoch from where you want to display the curve
-            title: the name of the window (and title) of the plot in the visdom interface
-            lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
-        """
-        if self.train_log.empty:
-            warnings.warn('Plotting learning curves is not possible because data is missing.')
-            return
-        plotter: Plotter = self.get_plotter(backend=lib, env=self.exp_name)
-        plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
-        return
-
-    def save(self, new_exp_name: Optional[str] = None) -> None:
-        """
-        It saves a checkpoint for the model and the optimizer with the settings of the experiments, the results,
-        and the training and validation learning curves. The folder has the name of the experiment and is located in
-        {attribute model_pardir}/models
-
-        Args:
-            new_exp_name: optionally save the model in a folder with this name to branch the model.
-             The Trainer object won't modify self.exp_name
-        """
-        self.model.eval()
-        paths = self.paths(model_pardir=self.model_pardir, exp_name=new_exp_name or self.exp_name, epoch=self.epoch)
-        torch.save(self.model.state_dict(), paths['model'])
-        torch.save(self.optimizer.state_dict(), paths['optim'])
-        # Write instead of append to be but safe from bugs
-        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
-            self.__getattribute__(df_name).to_csv(paths[df_name])
-        with open(paths['settings'], 'w') as json_file:
-            json.dump(self.settings, json_file, default=str, indent=4)
-        print('\rModel saved at: ', paths['model'])
-        return
-
-    def load(self, epoch: int = -1) -> None:
-        """
-        It loads a checkpoint for the model and the optimizer, and the training and validation learning curves.
-        Args:
-            epoch: the epoch of the checkpoint to load, -1 if last
-        """
-        if epoch >= 0:
-            self.epoch = epoch
-        else:
-            past_epochs = []  # here it looks for the most recent model
-            local_path = os.path.join(self.model_pardir, self.exp_name)
-            if os.path.exists(local_path):
-                for file in os.listdir(local_path):
-                    if file[:5] == 'model':
-                        past_epochs.append(int(''.join(filter(lambda c: c.isdigit(), file))))  # available epochs
-            if not past_epochs:
-                warnings.warn(f'No saved models found in {local_path}. Training from scratch.', UserWarning)
-                return
-            self.epoch = max(past_epochs)
-        paths = self.paths(model_pardir=self.model_pardir, exp_name=self.exp_name, epoch=self.epoch)
-        self.model.load_state_dict(torch.load(paths['model'], map_location=torch.device(self.device)))
-        try:
-            self.optimizer.load_state_dict(torch.load(paths['optim'], map_location=torch.device(self.device)))
-        except ValueError as err:
-            warnings.warn('Optimizer has not been correctly loaded:')
-            print(err)
-        for df_name in ['train_log_metric', 'val_log']:
-            try:
-                df = pd.read_csv(paths[df_name], index_col=0)
-            except FileNotFoundError:
-                df = pd.DataFrame()
-            # filter out future epochs from the logs
-            df = df[df.index <= self.epoch]
-            self.__setattr__(df_name, df)
-        print('Loaded: ', paths['model'])
-        return
 
     @property
     def hook_before_training_epoch(self) -> Callable[[], None]:
@@ -455,28 +516,4 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         return
 
     def __str__(self) -> str:
-        return f'Trainer for experiment: {self.exp_name}.'
-
-    @classmethod
-    def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:
-        """
-        It gets the paths for saving and loading the experiment.
-
-        Args:
-            model_pardir: the path to the folder where to save experiments
-            exp_name: the name of the folder of the experiment
-            epoch: the epoch of the checkpoint for the model and optimizer
-        """
-        if not os.path.exists(model_pardir):
-            os.mkdir(model_pardir)
-        directory = os.path.join(model_pardir, exp_name)
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-        paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
-        # paths for results and learning curves
-        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
-            paths[df_name] = os.path.join(directory, f'{df_name}.csv')
-        # paths for the model and the optimizer checkpoints
-        for pt_file in ['model', 'optim']:
-            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
-        return paths
+        return f'Trainer for {self.model_handler}.'
