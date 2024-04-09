@@ -13,13 +13,13 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset, StackDataset
 from tqdm.auto import tqdm
 
-from custom_trainer.schedulers import Scheduler, ConstantScheduler
-from custom_trainer.dict_list import TorchDictList
-from custom_trainer.context_managers import UsuallyFalse
-from custom_trainer.recursive_ops import recursive_to, struc_repr
-from custom_trainer.plotters import plotter_backend, GetPlotterProtocol, Plotter
-from custom_trainer.dataset_utils import IndexDataset
-from custom_trainer.module_interface import TypedModule
+from .schedulers import Scheduler, ConstantScheduler
+from .dict_list import TorchDictList
+from .context_managers import UsuallyFalse
+from .recursive_ops import recursive_to, struc_repr
+from .plotters import plotter_backend, GetPlotterProtocol, Plotter
+from .dataset_utils import IndexDataset
+from .module_interface import TypedModule
 
 TensorInputs = TypeVar('TensorInputs', bound=Tensor | list[Tensor] | tuple[Tensor, ...])
 TensorTargets = TypeVar('TensorTargets', bound=Tensor | list[Tensor] | tuple[Tensor, ...])
@@ -31,7 +31,7 @@ BatchData = tuple[int, IndexData]
 Outputs = dict[str, Tensor | list[Tensor]]
 
 
-class Metrics(Protocol):
+class MetricsProtocol(Protocol):
 
     # noinspection PyPropertyDefinition
     @property
@@ -39,12 +39,17 @@ class Metrics(Protocol):
         ...
 
 
-class LossAndMetrics(Metrics):
+class LossAndMetricsProtocol(Protocol):
     criterion: torch.FloatTensor
 
+    # noinspection PyPropertyDefinition
+    @property
+    def metrics(self) -> dict[str, Tensor]:
+        ...
 
-MetricFunction = Callable[[TensorOutputs, TensorTargets], Metrics]
-LossFunction = Callable[[TensorOutputs, TensorTargets], LossAndMetrics]
+
+MetricFunction = Callable[[TensorOutputs, TensorTargets], MetricsProtocol]
+LossFunction = Callable[[TensorOutputs, TensorTargets], LossAndMetricsProtocol]
 
 
 class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
