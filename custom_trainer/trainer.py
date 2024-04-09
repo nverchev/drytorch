@@ -59,7 +59,7 @@ class OptParams(TypedDict):
     lr: float
 
 
-class ModelHandler:
+class ModelHandler(Generic[TensorInputs, TensorOutputs]):
 
     def __init__(self, model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module,
                  exp_name: str,
@@ -261,7 +261,11 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         self.optimizer_settings: dict[str, Any] = optim_args.copy()  # property that updates the learning rate
 
         optimizer: torch.optim.Optimizer = optimizer_cls(**self.optimizer_settings)
-        self.model_handler = ModelHandler(model, exp_name, model_pardir, device, optimizer)
+        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = ModelHandler(model,
+                                                                                     exp_name,
+                                                                                     model_pardir,
+                                                                                     device,
+                                                                                     optimizer)
 
         self.train_loader: DataLoader[tuple[TensorData, int]] = (
             self.get_loader(train_dataset, batch_size, partition='train'))
