@@ -1,6 +1,7 @@
 import pytest
 import torch
-from custom_trainer.dict_list import DictList, TorchDictList, ListKeyError, DifferentValueError
+from custom_trainer.dict_list import DictList, TorchDictList
+from custom_trainer.exceptions import ListKeyError, DifferentValueError
 
 
 def test_DictList() -> None:

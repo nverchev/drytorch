@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Generic, TypeVar, Iterable, SupportsIndex, Self, Optional, NoReturn, overload
 from typing_extensions import override
 from collections import UserList
@@ -6,43 +7,10 @@ from collections.abc import KeysView
 
 from torch import Tensor
 
+from custom_trainer.exceptions import ListKeyError, DifferentValueError, NotATensorError
+
 K = TypeVar('K')  # Type variable for keys
 V = TypeVar('V')  # Type variable for values
-
-
-class ListKeyError(KeyError):
-
-    def __init__(self, input_keys: Iterable[K], current_keys: Iterable[K]) -> None:
-        self.input_keys = input_keys
-        self.current_keys = current_keys
-        iter_keys = iter(input_keys)
-        try:
-            key = next(iter_keys)
-        except StopIteration:
-            raise ValueError('This exception should not be raised when input_keys is empty.')
-        try:
-            next(iter_keys)
-            message = f'Input key {key} does not match the keys already present in the list {current_keys}.'
-        except StopIteration:
-            message = f'Input keys {input_keys} do not match the keys already present in the list {current_keys}.'
-        super().__init__(message)
-
-
-class DifferentValueError(ValueError):
-    def __init__(self, iterable: Iterable[int]) -> None:
-        self.list = list(iterable)
-        if len(self.list) < 2:
-            raise ValueError('This exception should not be raised when when the iterable has less than 2 elements.')
-        else:
-            message = f'Iterable with values {list(self.list)} contains different values.'
-        super().__init__(message)
-
-
-class NotATensorError(TypeError):
-
-    def __init__(self, not_a_tensor) -> None:
-        self.not_a_tensor = not_a_tensor
-        super().__init__(f' Object of type {type(not_a_tensor)} is not a Tensor.')
 
 
 class DictList(UserList, Generic[K, V]):
@@ -232,8 +200,9 @@ class TorchDictList(DictList[str, Tensor | list[Tensor]]):
     """
 
     @classmethod
-    def from_batch(cls, tensor_dict: dict[str, Tensor | list[Tensor]]):
+    def from_batch(cls, tensor_dict_like: Iterable[tuple[str, Tensor | list[Tensor]]]) -> TorchDictList:
         instance = cls()
+        tensor_dict = dict(tensor_dict_like)
         instance.list_keys = tuple(tensor_dict.keys())
         instance.data = cls.enlist(tensor_dict.values())
         return instance
