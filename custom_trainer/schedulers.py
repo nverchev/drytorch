@@ -3,7 +3,7 @@ from textwrap import dedent
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
-from custom_trainer.doc_utils import add_docstring
+from .doc_utils import add_docstring
 
 call_docstring: str = dedent("""
     Call the scheduler for the decay of the learning rate.

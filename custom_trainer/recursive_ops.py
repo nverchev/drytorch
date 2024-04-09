@@ -2,7 +2,7 @@ from typing import Any, TypeVar, Callable, Type, overload
 import numpy as np
 import pandas as pd
 import torch
-from custom_trainer.context_managers import PandasPrintOptions
+from .context_managers import PandasPrintOptions
 
 Atomic = TypeVar('Atomic', int, float, complex, str)
 Array = TypeVar('Array', torch.Tensor, np.ndarray)

@@ -6,7 +6,7 @@ import warnings
 from textwrap import dedent
 
 import pandas as pd
-from custom_trainer.doc_utils import add_docstring
+from .doc_utils import add_docstring
 
 Backend = Literal['visdom', 'plotly', 'auto', 'none']
 DEFAULT_BACKEND: Backend = 'auto'

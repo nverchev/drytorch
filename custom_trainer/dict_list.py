@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar, Iterable, SupportsIndex, Self, Optional, NoReturn, overload
+from typing import Generic, TypeVar, Iterable, SupportsIndex, Self, Optional, NoReturn, overload, Hashable
 from typing_extensions import override
 from collections import UserList
 from collections.abc import KeysView
 
 from torch import Tensor
 
-from custom_trainer.exceptions import ListKeyError, DifferentValueError, NotATensorError
+from .exceptions import ListKeyError, DifferentValueError, NotATensorError
 
-K = TypeVar('K')  # Type variable for keys
+K = TypeVar('K', bound=Hashable)  # Type variable for keys
 V = TypeVar('V')  # Type variable for values
 
 
@@ -200,7 +200,8 @@ class TorchDictList(DictList[str, Tensor | list[Tensor]]):
     """
 
     @classmethod
-    def from_batch(cls, tensor_dict_like: Iterable[tuple[str, Tensor | list[Tensor]]]) -> TorchDictList:
+    def from_batch(cls, tensor_dict_like: Iterable[tuple[str, Tensor | list[Tensor]]] | dict[str, Tensor | list[Tensor]]
+                   ) -> TorchDictList:
         instance = cls()
         tensor_dict = dict(tensor_dict_like)
         instance.list_keys = tuple(tensor_dict.keys())

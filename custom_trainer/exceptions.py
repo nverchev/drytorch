@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import TypeVar, Iterable, Hashable, Any
 
-from custom_trainer.dict_list import K
+K = TypeVar('K', bound=Hashable)
 
 
 class ListKeyError(KeyError):
@@ -35,7 +35,7 @@ class DifferentValueError(ValueError):
 
 class NotATensorError(TypeError):
 
-    def __init__(self, not_a_tensor, name='') -> None:
+    def __init__(self, not_a_tensor: Any, name: str = '') -> None:
         self.name = name
         self.not_a_tensor = not_a_tensor
         super().__init__(f' Object {name} of type {type(not_a_tensor)} is not a Tensor.')
