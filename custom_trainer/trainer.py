@@ -116,9 +116,9 @@ class ExperimentTracker(object):
         self.settings: dict[str, Any] = model_architecture | model_settings | kwargs
 
         self.exp_name: str = kwargs['exp_name']
-        self.train_log: pd.DataFrame = pd.DataFrame()
-        self.val_log: pd.DataFrame = pd.DataFrame()
-        self.saved_test_metrics = pd.DataFrame()  # save metrics of last evaluation
+        self.log: dict[str, pd.DataFrame] = {'train': pd.DataFrame(),
+                                             'val': pd.DataFrame(),
+                                             'test_metrics': pd.DataFrame()}  # save metrics of last evaluation
         self.get_plotter: GetPlotterProtocol = plotter_backend()
 
     def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
@@ -132,11 +132,11 @@ class ExperimentTracker(object):
             title: the name of the window (and title) of the plot in the visdom interface
             lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
         """
-        if self.train_log.empty:
+        if self.log['train'].empty:
             warnings.warn('Plotting learning curves is not possible because data is missing.')
             return
         plotter: Plotter = self.get_plotter(backend=lib, env=self.exp_name)
-        plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
+        plotter.plot(self.log['train'], self.log['val'], loss_or_metric, start, title)
         return
 
     def overwrite(self, df_name, df):
@@ -181,8 +181,8 @@ class CheckpointManager:
         torch.save(self.model_handler.model.state_dict(), paths['model'])
         torch.save(self.model_handler.optimizer.state_dict(), paths['optim'])
         # Write instead of append to be but safe from bugs
-        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
-            getattr(self.exp_tracker, df_name).to_csv(paths[df_name])
+        for df_name, df in self.exp_tracker.log.items():
+            df.to_csv(paths[df_name])
         with open(paths['settings'], 'w') as json_file:
             json.dump(self.settings, json_file, default=str, indent=4)
         print('\rModel saved at: ', paths['model'])
@@ -215,14 +215,14 @@ class CheckpointManager:
         except ValueError as err:
             warnings.warn('Optimizer has not been correctly loaded:')
             print(err)
-        for df_name in ['train_log_metric', 'val_log']:
+        for df_name in self.exp_tracker.log:
             try:
                 df = pd.read_csv(paths[df_name], index_col=0)
             except FileNotFoundError:
                 df = pd.DataFrame()
             # filter out future epochs from the logs
             df = df[df.index <= self.epoch]
-            self.exp_tracker.overwrite(df_name, df)
+            self.exp_tracker.log[df_name] = df
         print('Loaded: ', paths['model'])
         return
 
