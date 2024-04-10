@@ -19,7 +19,7 @@ from .context_managers import UsuallyFalse
 from .recursive_ops import recursive_to, struc_repr
 from .plotters import plotter_backend, GetPlotterProtocol, Plotter
 from .dataset_utils import get_indexed_loader
-from .protocols import TypedModule, MetricsProtocol, LossAndMetricsProtocol, OptParams
+from .protocols import TypedModule, MetricsProtocol, LossAndMetricsProtocol, OptParams, LogMetrics
 
 TensorOutputs = TypeVar('TensorOutputs',
                         bound=Iterable[tuple[str, Tensor | list[Tensor]]] | dict[str, Tensor | list[Tensor]])
@@ -116,9 +116,7 @@ class ExperimentTracker(object):
         self.settings: dict[str, Any] = model_architecture | model_settings | kwargs
 
         self.exp_name: str = kwargs['exp_name']
-        self.log: dict[str, pd.DataFrame] = {'train': pd.DataFrame(),
-                                             'val': pd.DataFrame(),
-                                             'test_metrics': pd.DataFrame()}  # save metrics of last evaluation
+        self.log: LogMetrics = {'train': pd.DataFrame(), 'val': pd.DataFrame(), 'test_metrics': pd.DataFrame()}
         self.get_plotter: GetPlotterProtocol = plotter_backend()
 
     def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
@@ -148,11 +146,11 @@ class ExperimentTracker(object):
 
 class CheckpointManager:
 
-    def __init__(self, model_handler: ModelHandler[TensorInputs, TensorOutputs],
+    def __init__(self, model_handler: ModelHandler,
                  exp_tracker: ExperimentTracker,
                  model_pardir: str) -> None:
 
-        self.model_handler = model_handler
+        self.model_handler: ModelHandler = model_handler
         self.exp_tracker: ExperimentTracker = exp_tracker
         self.model_pardir: str = model_pardir
         self.settings: dict[str, Any] = {}
@@ -180,8 +178,8 @@ class CheckpointManager:
         paths = self.paths(model_pardir=self.model_pardir, exp_name=new_exp_name or self.exp_name, epoch=self.epoch)
         torch.save(self.model_handler.model.state_dict(), paths['model'])
         torch.save(self.model_handler.optimizer.state_dict(), paths['optim'])
-        # Write instead of append to be but safe from bugs
         for df_name, df in self.exp_tracker.log.items():
+            # write instead of append to be safe from bugs
             df.to_csv(paths[df_name])
         with open(paths['settings'], 'w') as json_file:
             json.dump(self.settings, json_file, default=str, indent=4)
@@ -215,13 +213,14 @@ class CheckpointManager:
         except ValueError as err:
             warnings.warn('Optimizer has not been correctly loaded:')
             print(err)
-        for df_name in self.exp_tracker.log:
+        for df_name in self.exp_tracker.log.keys():
             try:
                 df = pd.read_csv(paths[df_name], index_col=0)
             except FileNotFoundError:
                 df = pd.DataFrame()
             # filter out future epochs from the logs
             df = df[df.index <= self.epoch]
+            # currently MyTypedDict.keys() returns string instead of LiteralString
             self.exp_tracker.log[df_name] = df
         print('Loaded: ', paths['model'])
         return
@@ -311,8 +310,8 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
                  amp: bool = False,
                  **extra_config: dict) -> None:
 
-        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = \
-            ModelHandler(model, optimizer_cls, optim_args, scheduler, device)
+        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = (
+            ModelHandler(model, optimizer_cls, optim_args, scheduler, device))
 
         self.exp_tracker: ExperimentTracker
         self.checkpoint = CheckpointManager(self.model_handler, self.exp_tracker, model_pardir)
@@ -396,13 +395,13 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         """
         if partition == 'train':
             loader: Optional[DataLoader[IndexData]] = self.train_loader
-            log = self.exp_tracker.train_log
+            log = self.exp_tracker.log['train']
         elif partition == 'val':
             loader = self.val_loader
-            log = self.exp_tracker.val_log
+            log = self.exp_tracker.log['val']
         elif partition == 'test':
             loader = self.test_loader
-            log = self.exp_tracker.saved_test_metrics
+            log = self.exp_tracker.log['test_metrics']
         else:
             raise ValueError('partition should be "train", "val" or "test"')
 
