@@ -1,5 +1,6 @@
-from typing import TypeVar, Protocol, TypedDict, Iterator
+from typing import TypeVar, Protocol, TypedDict, Iterator, Literal
 
+import pandas as pd
 import torch
 from torch.nn.parameter import Parameter
 
@@ -46,3 +47,12 @@ class LossAndMetricsProtocol(Protocol):
 class OptParams(TypedDict):
     params: Iterator[Parameter]
     lr: float
+
+
+# class LogMetrics(TypedDict):
+#     train: pd.DataFrame
+#     val: pd.DataFrame
+#     test_metrics: pd.DataFrame
+
+# TypedDict currently not able to correctly infer type of keys and values.
+LogMetrics = dict[Literal['train', 'val', 'test_metrics'], pd.DataFrame]
