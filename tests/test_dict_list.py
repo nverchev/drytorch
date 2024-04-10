@@ -1,7 +1,7 @@
 import pytest
 import torch
-from custom_trainer.dict_list import DictList, TorchDictList
-from custom_trainer.exceptions import ListKeyError, DifferentValueError
+from dry_torch.dict_list import DictList, TorchDictList
+from dry_torch.exceptions import ListKeyError, DifferentValueError
 
 
 def test_DictList() -> None:
@@ -45,7 +45,7 @@ def test_TorchDictList() -> None:
 
     # test enlist
     expected_result = 2 * [(torch.tensor(1), [torch.tensor(0)])]
-    assert TorchDictList.enlist(input_dict_torch.values()) == expected_result
+    assert TorchDictList._enlist(input_dict_torch.values()) == expected_result
 
     # test DifferentValueError
     wrong_input_dict_torch: dict[str, torch.Tensor | list[torch.Tensor]] = {'tensor1': torch.ones(2, 2),

@@ -1,11 +1,11 @@
 import pytest
 
-from custom_trainer.dict_list import TorchDictList
-from custom_trainer.optional_containers import (PreferablySlotted, BaseLossAndMetricsContainer,
-                                                BaseMetricsContainer, OutputsContainer)
+from dry_torch.dict_list import TorchDictList
+from dry_torch.optional_containers import (PreferablySlotted, BaseLossAndMetricsContainer,
+                                           BaseMetricsContainer, OutputsContainer)
 import torch
 
-from custom_trainer.trainer import LossAndMetricsProtocol, MetricsProtocol
+from dry_torch.trainer import LossAndMetricsProtocol, MetricsProtocol
 
 
 def print_metrics(loss_and_metrics: MetricsProtocol) -> None:

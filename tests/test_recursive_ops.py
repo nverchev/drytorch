@@ -2,7 +2,7 @@ import pytest
 from typing import Iterator, Iterable, Self
 import numpy as np
 import torch
-from custom_trainer.recursive_ops import recursive_apply, struc_repr
+from dry_torch.recursive_ops import recursive_apply, struc_repr
 
 
 def test_recursive_apply() -> None:

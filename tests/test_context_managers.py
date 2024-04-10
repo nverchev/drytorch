@@ -1,5 +1,5 @@
 import pandas as pd
-from custom_trainer.context_managers import PandasPrintOptions, UsuallyFalse
+from dry_torch.context_managers import PandasPrintOptions, UsuallyFalse
 
 
 def test_usually_false() -> None:

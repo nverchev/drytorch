@@ -8,7 +8,7 @@ tqdm = ">=4.65.0"
 visdom = ">=0.2.4"
 
 [project]
-name = "custom_trainer"
+name = "dry_torch"
 version = "0.0.1"
 authors = [
   {name="Nicolas Vercheval", email="nicolas.vercheval@ugent.be" },
@@ -32,9 +32,9 @@ all = ["plotly", "visdom"]
 dev = ["pytest"]
 
 [project.urls]
-Repository = "https://github.com/nverchev/custom_trainer"
-Issues = "https://github.com/nverchev/custom_trainer/issues"
-Changelog = "https://github.com/nverchev/custom_trainer/blob/master/CHANGELOG.md"
+Repository = "https://github.com/nverchev/dry_torch"
+Issues = "https://github.com/nverchev/dry_torch/issues"
+Changelog = "https://github.com/nverchev/dry_torch/blob/master/CHANGELOG.md"
 
 [pytest]
 testpaths = "tests"
