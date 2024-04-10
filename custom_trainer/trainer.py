@@ -1,25 +1,22 @@
 import functools
-import json
-import os
 import sys
 import warnings
 from collections import defaultdict
-from typing import Any, Literal, Callable, Optional, Generic, TypeVar, Self, Iterable
+from typing import Literal, Callable, Optional, Generic, TypeVar, Self, Iterable
 
-import pandas as pd
 import torch
 from torch import autocast, Tensor
 from torch.cuda.amp import GradScaler
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from .schedulers import Scheduler, ConstantScheduler
+from .experiment_tracker import ExperimentTracker
+from .model_handler import ModelHandler
 from .dict_list import TorchDictList
 from .context_managers import UsuallyFalse
-from .recursive_ops import recursive_to, struc_repr
-from .plotters import plotter_backend, GetPlotterProtocol, Plotter
-from .dataset_utils import get_indexed_loader
-from .protocols import TypedModule, MetricsProtocol, LossAndMetricsProtocol, OptParams, LogMetrics
+from .recursive_ops import recursive_to
+from .data_manager import DataManager
+from .protocols import MetricsProtocol, LossAndMetricsProtocol
 
 TensorOutputs = TypeVar('TensorOutputs',
                         bound=Iterable[tuple[str, Tensor | list[Tensor]]] | dict[str, Tensor | list[Tensor]])
@@ -33,297 +30,37 @@ MetricFunction = Callable[[TensorOutputs, TensorTargets], MetricsProtocol]
 LossFunction = Callable[[TensorOutputs, TensorTargets], LossAndMetricsProtocol]
 
 
-class ModelHandler(Generic[TensorInputs, TensorOutputs]):
-
-    def __init__(self, model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module,
-                 optimizer_cls: type[torch.optim.Optimizer],
-                 optim_args: dict[str, Any],
-                 scheduler: Scheduler = ConstantScheduler(),
-                 device: Optional[torch.device] = None,
-                 epoch: int = 0,
-                 ) -> None:
-
-        self.device: torch.device = torch.device('cuda:0') if device is None else device
-        self.model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module = model.to(device)
-        self.optimizer_settings: dict[str, Any] = optim_args.copy()  # property that updates the learning rate
-        self.optimizer: torch.optim.Optimizer = optimizer_cls(**self.optimizer_settings)
-        self.scheduler: Scheduler = scheduler
-        self.epoch: int = epoch
-
-    @property
-    def optimizer_settings(self) -> dict:  # settings depend on the epoch
-        """
-        It implements the scheduler and separate learning rates for the parameter groups.
-        If the optimizer is correctly updated, it should be a copy of its params groups
-
-        Returns:
-            list of dictionaries with parameters and their updated learning rates plus the other fixed settings
-        """
-        optim_groups = self._optimizer_settings[0]
-        params = [{'params': group['params'], 'lr': self.scheduler(group['lr'], self.epoch)} for group in optim_groups]
-        return {'params': params, **self._optimizer_settings[1]}
-
-    @optimizer_settings.setter
-    def optimizer_settings(self, optim_args: dict[str, Any]) -> None:
-        """
-        It pairs the learning rates to the parameter groups.
-        If only one number for the learning rate is given, it uses its value for each parameter
-
-        Args:
-            optim_args are similar to the default for the optimizer, a dictionary with a required lr key
-            The only difference is that lr can be a dict of the form {parameter_name: learning_rate}
-        """
-        lr: float | dict[str, float] = optim_args.pop('lr')  # removes 'lr' as setting, we move it inside 'params'
-        if isinstance(lr, dict):  # support individual lr for each parameter (for fine-tuning for example)
-            params = [OptParams(params=getattr(self.model, k).parameters(), lr=v) for k, v in lr.items()]
-            self._optimizer_settings: tuple[list[OptParams], dict[str, Any]] = params, optim_args
-        else:
-            self._optimizer_settings = [OptParams(params=self.model.parameters(), lr=lr)], optim_args
-        return
-
-    def update_learning_rate(self, new_lr: Optional[float | list[dict[str, float]]] = None) -> None:
-        """
-        It updates the learning rates of the optimizer.
-
-        Args:
-            new_lr: a global learning rate for all the parameters or a list of dict with a 'lr' as a key
-            If you call it externally, make sure the list has the same order as in self.optimizer_settings
-        """
-        if isinstance(new_lr, float):  # transforms to list
-            lr: list[dict[str, float]] = [{'lr': new_lr} for _ in self.optimizer.param_groups]
-        elif new_lr is None:
-            lr = self.optimizer_settings['params']
-        else:
-            lr = new_lr
-        for g, up_g in zip(self.optimizer.param_groups, lr):
-            g['lr'] = up_g['lr']
-        return
-
-
-class ExperimentTracker(object):
-    max_length_string_repr: int = 10
-
-    def __init__(self, **kwargs) -> None:
-
-        # tries to get the most informative representation of the settings.
-        try:
-            kwargs = {k: struc_repr(v, max_length=self.max_length_string_repr) for k, v in kwargs.items()}
-        except RecursionError:
-            warnings.warn(f'Could not provide a hierarchical representation of the settings.')
-            kwargs = {}
-        model_architecture = {'model': kwargs['model']}  # JSON files do not allow strings on multiple lines
-        model_settings: dict[str, Any] = getattr(kwargs['model'], 'settings', {})
-        self.settings: dict[str, Any] = model_architecture | model_settings | kwargs
-
-        self.exp_name: str = kwargs['exp_name']
-        self.log: LogMetrics = {'train': pd.DataFrame(), 'val': pd.DataFrame(), 'test_metrics': pd.DataFrame()}
-        self.get_plotter: GetPlotterProtocol = plotter_backend()
-
-    def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
-                             title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
-        """
-        This method plots the learning curves using either plotly or visdom as backends
-
-        Args:
-            loss_or_metric: the loss or the metric to visualize
-            start: the epoch from where you want to display the curve
-            title: the name of the window (and title) of the plot in the visdom interface
-            lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
-        """
-        if self.log['train'].empty:
-            warnings.warn('Plotting learning curves is not possible because data is missing.')
-            return
-        plotter: Plotter = self.get_plotter(backend=lib, env=self.exp_name)
-        plotter.plot(self.log['train'], self.log['val'], loss_or_metric, start, title)
-        return
-
-    def overwrite(self, df_name, df):
-        self.__setattr__(df_name, df)
-
-    def __str__(self):
-        return self.exp_name
-
-
-class CheckpointManager:
-
-    def __init__(self, model_handler: ModelHandler,
-                 exp_tracker: ExperimentTracker,
-                 model_pardir: str) -> None:
-
-        self.model_handler: ModelHandler = model_handler
-        self.exp_tracker: ExperimentTracker = exp_tracker
-        self.model_pardir: str = model_pardir
-        self.settings: dict[str, Any] = {}
-        self.exp_name = exp_tracker.exp_name
-
-    @property
-    def epoch(self) -> int:
-        return self.model_handler.epoch
-
-    @epoch.setter
-    def epoch(self, value: int) -> None:
-        self.model_handler.epoch = value
-
-    def save(self, new_exp_name: Optional[str] = None) -> None:
-        """
-        It saves a checkpoint for the model and the optimizer with the settings of the experiments, the results,
-        and the training and validation learning curves. The folder has the name of the experiment and is located in
-        {attribute model_pardir}/models
-
-        Args:
-            new_exp_name: optionally save the model in a folder with this name to branch the model.
-             The Trainer object won't modify self.exp_name
-        """
-        self.model_handler.model.eval()
-        paths = self.paths(model_pardir=self.model_pardir, exp_name=new_exp_name or self.exp_name, epoch=self.epoch)
-        torch.save(self.model_handler.model.state_dict(), paths['model'])
-        torch.save(self.model_handler.optimizer.state_dict(), paths['optim'])
-        for df_name, df in self.exp_tracker.log.items():
-            # write instead of append to be safe from bugs
-            df.to_csv(paths[df_name])
-        with open(paths['settings'], 'w') as json_file:
-            json.dump(self.settings, json_file, default=str, indent=4)
-        print('\rModel saved at: ', paths['model'])
-        return
-
-    def load(self, epoch: int = -1) -> None:
-        """
-        It loads a checkpoint for the model and the optimizer, and the training and validation learning curves.
-        Args:
-            epoch: the epoch of the checkpoint to load, -1 if last
-        """
-        if epoch >= 0:
-            self.epoch = epoch
-        else:
-            past_epochs = []  # here it looks for the most recent model
-            local_path = os.path.join(self.model_pardir, self.exp_name)
-            if os.path.exists(local_path):
-                for file in os.listdir(local_path):
-                    if file[:5] == 'model':
-                        past_epochs.append(int(''.join(filter(lambda c: c.isdigit(), file))))  # available epochs
-            if not past_epochs:
-                warnings.warn(f'No saved models found in {local_path}. Training from scratch.', UserWarning)
-                return
-            self.epoch = max(past_epochs)
-        paths = self.paths(model_pardir=self.model_pardir, exp_name=self.exp_name, epoch=self.epoch)
-        device = self.model_handler.device
-        self.model_handler.model.load_state_dict(torch.load(paths['model'], map_location=device))
-        try:
-            self.model_handler.optimizer.load_state_dict(torch.load(paths['optim'], map_location=device))
-        except ValueError as err:
-            warnings.warn('Optimizer has not been correctly loaded:')
-            print(err)
-        for df_name in self.exp_tracker.log.keys():
-            try:
-                df = pd.read_csv(paths[df_name], index_col=0)
-            except FileNotFoundError:
-                df = pd.DataFrame()
-            # filter out future epochs from the logs
-            df = df[df.index <= self.epoch]
-            # currently MyTypedDict.keys() returns string instead of LiteralString
-            self.exp_tracker.log[df_name] = df
-        print('Loaded: ', paths['model'])
-        return
-
-    @classmethod
-    def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:
-        """
-        It gets the paths for saving and loading the experiment.
-
-        Args:
-            model_pardir: the path to the folder where to save experiments
-            exp_name: the name of the folder of the experiment
-            epoch: the epoch of the checkpoint for the model and optimizer
-        """
-        if not os.path.exists(model_pardir):
-            os.mkdir(model_pardir)
-        directory = os.path.join(model_pardir, exp_name)
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-        paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
-        # paths for results and learning curves
-        for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
-            paths[df_name] = os.path.join(directory, f'{df_name}.csv')
-        # paths for the model and the optimizer checkpoints
-        for pt_file in ['model', 'optim']:
-            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
-        return paths
-
-
 class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
     """
     Args:
-        model: Pytorch model with a settings attribute which is a dictionary for extra details
-        exp_name: name used for the folder containing the checkpoints and the metadata
-        device: only gpu and cpu are supported
-        train_dataset: dataset for training used in the train method
-        val_dataset: dataset for validation used both in the train method and in the test method
-        test_dataset: dataset for testing only used in the test method
-        optimizer_cls: a Pytorch optimizer class
-        optim_args: arguments for the optimizer (see the optimizer_settings setter for more details)
-        model_pardir: parent directory for the folders with the model checkpoints
+
+
         amp: mixed precision computing from torch.cuda.amp (works only with cuda)
                     scheduler: instance of a Scheduler class that modifies the learning rate depending on the epoch
         loss: this function may be a callable torch.nn.Module object (with reduction='none') or any function
                 that returns a tensor of shape (batch_size, ) with the loss evaluation of individual samples.
                 By default, its arguments are the model outputs and the targets. For more complex losses, and to
                 compute metrics during training, read the documentation on the loss method and override it
-        extra_config: extraneous settings for logging (see the __new__ method)
 
-        Important!
-        Indexing the dataset must return a tuple (inputs, targets) where:
-        inputs: inputs for the model. Either a tensor, or a structured container of tensors that uses list and dict
-        targets: arguments only used by the loss function. It can be structured as well or can be None
-        The handling of the inputs and outputs can be specified overriding the helper_inputs and loss methods
 
     """
     max_stored_output: int = sys.maxsize  # maximum amount of stored evaluated test samples
     tqdm_update_frequency = 10
 
-    def __new__(cls, model: torch.nn.Module, **kwargs):
-        """
-        Overridden to register init keyword arguments. It tries to document the settings as much as possible.
-        Settings will be dumped in a JSON file when saving the model.
-        Warning:
-        If you load and save a model, you will overwrite the previous settings.
-
-        Args:
-            model: Pytorch nn.Module with an optional attribute (settings: dict) for extra documentation
-        """
-        obj = super().__new__(cls)
-        obj.exp_tracker = ExperimentTracker(model=model, **kwargs)
-        return obj
-
-    def __init__(self, model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module,
-                 *,
-                 model_pardir: str = 'models',
-                 scheduler: Scheduler = ConstantScheduler(),
-                 optimizer_cls: type[torch.optim.Optimizer],
-                 optim_args: dict[str, Any],
-                 device: torch.device,
-                 batch_size: int,
-                 train_dataset: Dataset[TensorData],
-                 val_dataset: Optional[Dataset[TensorData]] = None,
-                 test_dataset: Optional[Dataset[TensorData]] = None,
+    def __init__(self,
+                 model_handler: ModelHandler[TensorInputs, TensorOutputs],
+                 exp_tracker: ExperimentTracker,
+                 data_manager: DataManager[TensorData],
                  loss: LossFunction,
                  test_metrics: Optional[MetricFunction] = None,
                  amp: bool = False,
-                 **extra_config: dict) -> None:
+                 ) -> None:
 
-        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = (
-            ModelHandler(model, optimizer_cls, optim_args, scheduler, device))
+        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = model_handler
+        self.exp_tracker: ExperimentTracker = exp_tracker
+        self.loaders = data_manager.loaders
 
-        self.exp_tracker: ExperimentTracker
-        self.checkpoint = CheckpointManager(self.model_handler, self.exp_tracker, model_pardir)
-
-        self.train_loader: DataLoader[IndexData] = (
-            get_indexed_loader(train_dataset, batch_size, partition='train'))
-        self.val_loader: Optional[DataLoader[IndexData]] = (
-            get_indexed_loader(val_dataset, batch_size, partition='val'))
-        self.test_loader: Optional[DataLoader[IndexData]] = (
-            get_indexed_loader(test_dataset, batch_size, partition='test'))
-
-        self.scaler = GradScaler(enabled=amp and device.type == 'cuda')
+        self.scaler = GradScaler(enabled=amp and model_handler.device.type == 'cuda')
         self.amp: bool = amp
         self.loss: LossFunction = loss
         self.test_metrics: MetricFunction = test_metrics if test_metrics is not None else loss
@@ -335,7 +72,6 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         self.quiet = UsuallyFalse()  # less output
         self._hook_before_training_epoch: Callable[[Self], None] = lambda instance: None
         self._hook_after_training_epoch: Callable[[Self], None] = lambda instance: None
-        _not_used = extra_config
         return
 
     def train(self, num_epoch: int, val_after_train: bool = False) -> None:
@@ -393,19 +129,12 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             save_outputs: if True, it stores the outputs of the model
             use_test_metrics: whether to use possibly computationally expensive test_metrics
         """
-        if partition == 'train':
-            loader: Optional[DataLoader[IndexData]] = self.train_loader
-            log = self.exp_tracker.log['train']
-        elif partition == 'val':
-            loader = self.val_loader
-            log = self.exp_tracker.log['val']
-        elif partition == 'test':
-            loader = self.test_loader
-            log = self.exp_tracker.log['test_metrics']
-        else:
-            raise ValueError('partition should be "train", "val" or "test"')
 
-        if loader is None:
+        loader: DataLoader[IndexData] = self.loaders[partition]
+        log = self.exp_tracker.log[partition]
+
+        num_batch: int = len(loader)
+        if not num_batch:
             warnings.warn(f'Impossible to run model on the {partition} dataset: dataset not found.')
             return
 
@@ -415,7 +144,6 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             self.test_metadata = dict(partition=partition)
 
         epoch_log: defaultdict[str, float] = defaultdict(float)
-        num_batch: int = len(loader)
         with tqdm(enumerate(loader), total=num_batch, disable=bool(self.quiet), file=sys.stderr) as tqdm_loader:
             epoch_seen = 0
             batch_data: BatchData
