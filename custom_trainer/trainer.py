@@ -146,7 +146,7 @@ class ExperimentTracker(object):
         return self.exp_name
 
 
-class ModelCheckpointManager:
+class CheckpointManager:
 
     def __init__(self, model_handler: ModelHandler[TensorInputs, TensorOutputs],
                  exp_tracker: ExperimentTracker,
@@ -315,7 +315,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             ModelHandler(model, optimizer_cls, optim_args, scheduler, device)
 
         self.exp_tracker: ExperimentTracker
-        self.checkpoint = ModelCheckpointManager(self.model_handler, self.exp_tracker, model_pardir)
+        self.checkpoint = CheckpointManager(self.model_handler, self.exp_tracker, model_pardir)
 
         self.train_loader: DataLoader[IndexData] = (
             get_indexed_loader(train_dataset, batch_size, partition='train'))
