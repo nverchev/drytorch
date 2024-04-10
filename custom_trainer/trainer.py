@@ -4,15 +4,13 @@ import os
 import sys
 import warnings
 from collections import defaultdict
-from typing import Any, Literal, Callable, Optional, Generic, TypeVar, overload, Self, Protocol, Iterable, TypedDict, \
-    Iterator
+from typing import Any, Literal, Callable, Optional, Generic, TypeVar, Self, Iterable
 
 import pandas as pd
 import torch
 from torch import autocast, Tensor
-from torch.nn.parameter import Parameter
 from torch.cuda.amp import GradScaler
-from torch.utils.data import DataLoader, Dataset, StackDataset
+from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
 from .schedulers import Scheduler, ConstantScheduler
@@ -20,71 +18,153 @@ from .dict_list import TorchDictList
 from .context_managers import UsuallyFalse
 from .recursive_ops import recursive_to, struc_repr
 from .plotters import plotter_backend, GetPlotterProtocol, Plotter
-from .dataset_utils import IndexDataset
-from .module_interface import TypedModule
+from .dataset_utils import get_indexed_loader
+from .protocols import TypedModule, MetricsProtocol, LossAndMetricsProtocol, OptParams
+
+TensorOutputs = TypeVar('TensorOutputs',
+                        bound=Iterable[tuple[str, Tensor | list[Tensor]]] | dict[str, Tensor | list[Tensor]])
 
 TensorInputs = TypeVar('TensorInputs', bound=Tensor | list[Tensor] | tuple[Tensor, ...])
 TensorTargets = TypeVar('TensorTargets', bound=Tensor | list[Tensor] | tuple[Tensor, ...])
-TensorOutputs = TypeVar('TensorOutputs', bound=Iterable[tuple[str, Tensor | list[Tensor]]])
-
 TensorData = tuple[TensorInputs, TensorTargets]
 IndexData = tuple[TensorData, tuple[torch.LongTensor,]]
 BatchData = tuple[int, IndexData]
-Outputs = dict[str, Tensor | list[Tensor]]
-
-
-class MetricsProtocol(Protocol):
-
-    # noinspection PyPropertyDefinition
-    @property
-    def metrics(self) -> dict[str, Tensor]:
-        ...
-
-
-class LossAndMetricsProtocol(Protocol):
-    criterion: torch.FloatTensor
-
-    # noinspection PyPropertyDefinition
-    @property
-    def metrics(self) -> dict[str, Tensor]:
-        ...
-
-
 MetricFunction = Callable[[TensorOutputs, TensorTargets], MetricsProtocol]
 LossFunction = Callable[[TensorOutputs, TensorTargets], LossAndMetricsProtocol]
-
-
-class OptParams(TypedDict):
-    params: Iterator[Parameter]
-    lr: float
 
 
 class ModelHandler(Generic[TensorInputs, TensorOutputs]):
 
     def __init__(self, model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module,
-                 exp_name: str,
-                 model_pardir: str,
-                 device: torch.device,
-                 optimizer) -> None:
+                 optimizer_cls: type[torch.optim.Optimizer],
+                 optim_args: dict[str, Any],
+                 scheduler: Scheduler = ConstantScheduler(),
+                 device: Optional[torch.device] = None,
+                 epoch: int = 0,
+                 ) -> None:
 
-        self.device: torch.device = device
+        self.device: torch.device = torch.device('cuda:0') if device is None else device
         self.model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module = model.to(device)
-        self.exp_name: str = exp_name
-        self.model_pardir: str = model_pardir
+        self.optimizer_settings: dict[str, Any] = optim_args.copy()  # property that updates the learning rate
+        self.optimizer: torch.optim.Optimizer = optimizer_cls(**self.optimizer_settings)
+        self.scheduler: Scheduler = scheduler
+        self.epoch: int = epoch
 
-        self.epoch: int = 0
-        self.optimizer = optimizer
+    @property
+    def optimizer_settings(self) -> dict:  # settings depend on the epoch
+        """
+        It implements the scheduler and separate learning rates for the parameter groups.
+        If the optimizer is correctly updated, it should be a copy of its params groups
 
+        Returns:
+            list of dictionaries with parameters and their updated learning rates plus the other fixed settings
+        """
+        optim_groups = self._optimizer_settings[0]
+        params = [{'params': group['params'], 'lr': self.scheduler(group['lr'], self.epoch)} for group in optim_groups]
+        return {'params': params, **self._optimizer_settings[1]}
+
+    @optimizer_settings.setter
+    def optimizer_settings(self, optim_args: dict[str, Any]) -> None:
+        """
+        It pairs the learning rates to the parameter groups.
+        If only one number for the learning rate is given, it uses its value for each parameter
+
+        Args:
+            optim_args are similar to the default for the optimizer, a dictionary with a required lr key
+            The only difference is that lr can be a dict of the form {parameter_name: learning_rate}
+        """
+        lr: float | dict[str, float] = optim_args.pop('lr')  # removes 'lr' as setting, we move it inside 'params'
+        if isinstance(lr, dict):  # support individual lr for each parameter (for fine-tuning for example)
+            params = [OptParams(params=getattr(self.model, k).parameters(), lr=v) for k, v in lr.items()]
+            self._optimizer_settings: tuple[list[OptParams], dict[str, Any]] = params, optim_args
+        else:
+            self._optimizer_settings = [OptParams(params=self.model.parameters(), lr=lr)], optim_args
+        return
+
+    def update_learning_rate(self, new_lr: Optional[float | list[dict[str, float]]] = None) -> None:
+        """
+        It updates the learning rates of the optimizer.
+
+        Args:
+            new_lr: a global learning rate for all the parameters or a list of dict with a 'lr' as a key
+            If you call it externally, make sure the list has the same order as in self.optimizer_settings
+        """
+        if isinstance(new_lr, float):  # transforms to list
+            lr: list[dict[str, float]] = [{'lr': new_lr} for _ in self.optimizer.param_groups]
+        elif new_lr is None:
+            lr = self.optimizer_settings['params']
+        else:
+            lr = new_lr
+        for g, up_g in zip(self.optimizer.param_groups, lr):
+            g['lr'] = up_g['lr']
+        return
+
+
+class ExperimentTracker(object):
+    max_length_string_repr: int = 10
+
+    def __init__(self, **kwargs) -> None:
+
+        # tries to get the most informative representation of the settings.
+        try:
+            kwargs = {k: struc_repr(v, max_length=self.max_length_string_repr) for k, v in kwargs.items()}
+        except RecursionError:
+            warnings.warn(f'Could not provide a hierarchical representation of the settings.')
+            kwargs = {}
+        model_architecture = {'model': kwargs['model']}  # JSON files do not allow strings on multiple lines
+        model_settings: dict[str, Any] = getattr(kwargs['model'], 'settings', {})
+        self.settings: dict[str, Any] = model_architecture | model_settings | kwargs
+
+        self.exp_name: str = kwargs['exp_name']
         self.train_log: pd.DataFrame = pd.DataFrame()
         self.val_log: pd.DataFrame = pd.DataFrame()
         self.saved_test_metrics = pd.DataFrame()  # save metrics of last evaluation
         self.get_plotter: GetPlotterProtocol = plotter_backend()
-        self.test_indices: list[int] = []
-        self.test_metadata: dict[str, str]
-        self.test_outputs: TorchDictList  # store last test evaluation
 
-        self.quiet = UsuallyFalse()  # less output
+    def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
+                             title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
+        """
+        This method plots the learning curves using either plotly or visdom as backends
+
+        Args:
+            loss_or_metric: the loss or the metric to visualize
+            start: the epoch from where you want to display the curve
+            title: the name of the window (and title) of the plot in the visdom interface
+            lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
+        """
+        if self.train_log.empty:
+            warnings.warn('Plotting learning curves is not possible because data is missing.')
+            return
+        plotter: Plotter = self.get_plotter(backend=lib, env=self.exp_name)
+        plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
+        return
+
+    def overwrite(self, df_name, df):
+        self.__setattr__(df_name, df)
+
+    def __str__(self):
+        return self.exp_name
+
+
+class ModelCheckpointManager:
+
+    def __init__(self, model_handler: ModelHandler[TensorInputs, TensorOutputs],
+                 exp_tracker: ExperimentTracker,
+                 model_pardir: str) -> None:
+
+        self.model_handler = model_handler
+        self.exp_tracker: ExperimentTracker = exp_tracker
+        self.model_pardir: str = model_pardir
         self.settings: dict[str, Any] = {}
+        self.exp_name = exp_tracker.exp_name
+
+    @property
+    def epoch(self) -> int:
+        return self.model_handler.epoch
+
+    @epoch.setter
+    def epoch(self, value: int) -> None:
+        self.model_handler.epoch = value
 
     def save(self, new_exp_name: Optional[str] = None) -> None:
         """
@@ -96,13 +176,13 @@ class ModelHandler(Generic[TensorInputs, TensorOutputs]):
             new_exp_name: optionally save the model in a folder with this name to branch the model.
              The Trainer object won't modify self.exp_name
         """
-        self.model.eval()
+        self.model_handler.model.eval()
         paths = self.paths(model_pardir=self.model_pardir, exp_name=new_exp_name or self.exp_name, epoch=self.epoch)
-        torch.save(self.model.state_dict(), paths['model'])
-        torch.save(self.optimizer.state_dict(), paths['optim'])
+        torch.save(self.model_handler.model.state_dict(), paths['model'])
+        torch.save(self.model_handler.optimizer.state_dict(), paths['optim'])
         # Write instead of append to be but safe from bugs
         for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
-            self.__getattribute__(df_name).to_csv(paths[df_name])
+            getattr(self.exp_tracker, df_name).to_csv(paths[df_name])
         with open(paths['settings'], 'w') as json_file:
             json.dump(self.settings, json_file, default=str, indent=4)
         print('\rModel saved at: ', paths['model'])
@@ -128,9 +208,10 @@ class ModelHandler(Generic[TensorInputs, TensorOutputs]):
                 return
             self.epoch = max(past_epochs)
         paths = self.paths(model_pardir=self.model_pardir, exp_name=self.exp_name, epoch=self.epoch)
-        self.model.load_state_dict(torch.load(paths['model'], map_location=torch.device(self.device)))
+        device = self.model_handler.device
+        self.model_handler.model.load_state_dict(torch.load(paths['model'], map_location=device))
         try:
-            self.optimizer.load_state_dict(torch.load(paths['optim'], map_location=torch.device(self.device)))
+            self.model_handler.optimizer.load_state_dict(torch.load(paths['optim'], map_location=device))
         except ValueError as err:
             warnings.warn('Optimizer has not been correctly loaded:')
             print(err)
@@ -141,7 +222,7 @@ class ModelHandler(Generic[TensorInputs, TensorOutputs]):
                 df = pd.DataFrame()
             # filter out future epochs from the logs
             df = df[df.index <= self.epoch]
-            self.__setattr__(df_name, df)
+            self.exp_tracker.overwrite(df_name, df)
         print('Loaded: ', paths['model'])
         return
 
@@ -168,27 +249,6 @@ class ModelHandler(Generic[TensorInputs, TensorOutputs]):
         for pt_file in ['model', 'optim']:
             paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
         return paths
-
-    def plot_learning_curves(self, loss_or_metric: str = 'Criterion', start: int = 0,
-                             title: str = 'Learning Curves', lib: Literal['visdom', 'plotly', 'auto'] = 'auto') -> None:
-        """
-        This method plots the learning curves using either plotly or visdom as backends
-
-        Args:
-            loss_or_metric: the loss or the metric to visualize
-            start: the epoch from where you want to display the curve
-            title: the name of the window (and title) of the plot in the visdom interface
-            lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
-        """
-        if self.train_log.empty:
-            warnings.warn('Plotting learning curves is not possible because data is missing.')
-            return
-        plotter: Plotter = self.get_plotter(backend=lib, env=self.exp_name)
-        plotter.plot(self.train_log, self.val_log, loss_or_metric, start, title)
-        return
-
-    def __repr__(self) -> str:
-        return f'model: {self.exp_name}'
 
 
 class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
@@ -219,7 +279,6 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
 
     """
     max_stored_output: int = sys.maxsize  # maximum amount of stored evaluated test samples
-    max_length_string_repr: int = 10
     tqdm_update_frequency = 10
 
     def __new__(cls, model: torch.nn.Module, **kwargs):
@@ -233,138 +292,51 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             model: Pytorch nn.Module with an optional attribute (settings: dict) for extra documentation
         """
         obj = super().__new__(cls)
-
-        # tries to get the most informative representation of the settings.
-        kwargs = {k: struc_repr(v, max_length=cls.max_length_string_repr) for k, v in kwargs.items()}
-        model_architecture = {'model': model}  # JSON files do not allow strings on multiple lines
-        model_settings: dict[str, Any] = getattr(model, 'settings', {})
-        obj.settings = model_architecture | model_settings | kwargs
+        obj.exp_tracker = ExperimentTracker(model=model, **kwargs)
         return obj
 
     def __init__(self, model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module,
                  *,
-                 exp_name: str,
                  model_pardir: str = 'models',
+                 scheduler: Scheduler = ConstantScheduler(),
+                 optimizer_cls: type[torch.optim.Optimizer],
+                 optim_args: dict[str, Any],
                  device: torch.device,
                  batch_size: int,
                  train_dataset: Dataset[TensorData],
                  val_dataset: Optional[Dataset[TensorData]] = None,
                  test_dataset: Optional[Dataset[TensorData]] = None,
-                 optimizer_cls: type[torch.optim.Optimizer],
-                 optim_args: dict[str, Any],
-                 scheduler: Scheduler = ConstantScheduler(),
                  loss: LossFunction,
                  test_metrics: Optional[MetricFunction] = None,
                  amp: bool = False,
                  **extra_config: dict) -> None:
 
-        self.optimizer_settings: dict[str, Any] = optim_args.copy()  # property that updates the learning rate
+        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = \
+            ModelHandler(model, optimizer_cls, optim_args, scheduler, device)
 
-        optimizer: torch.optim.Optimizer = optimizer_cls(**self.optimizer_settings)
-        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = ModelHandler(model,
-                                                                                     exp_name,
-                                                                                     model_pardir,
-                                                                                     device,
-                                                                                     optimizer)
+        self.exp_tracker: ExperimentTracker
+        self.checkpoint = ModelCheckpointManager(self.model_handler, self.exp_tracker, model_pardir)
 
-        self.train_loader: DataLoader[tuple[TensorData, int]] = (
-            self.get_loader(train_dataset, batch_size, partition='train'))
-        self.val_loader: Optional[DataLoader[tuple[TensorData, int]]] = (
-            self.get_loader(val_dataset, batch_size, partition='val'))
-        self.test_loader: Optional[DataLoader[tuple[TensorData, int]]] = (
-            self.get_loader(test_dataset, batch_size, partition='test'))
-
-        self.epoch: int = 0
-        self.scheduler: Scheduler = scheduler
+        self.train_loader: DataLoader[IndexData] = (
+            get_indexed_loader(train_dataset, batch_size, partition='train'))
+        self.val_loader: Optional[DataLoader[IndexData]] = (
+            get_indexed_loader(val_dataset, batch_size, partition='val'))
+        self.test_loader: Optional[DataLoader[IndexData]] = (
+            get_indexed_loader(test_dataset, batch_size, partition='test'))
 
         self.scaler = GradScaler(enabled=amp and device.type == 'cuda')
         self.amp: bool = amp
         self.loss: LossFunction = loss
         self.test_metrics: MetricFunction = test_metrics if test_metrics is not None else loss
 
-        self.train_log: pd.DataFrame = pd.DataFrame()
-        self.val_log: pd.DataFrame = pd.DataFrame()
-        self.saved_test_metrics = pd.DataFrame()  # save metrics of last evaluation
-        self.get_plotter: GetPlotterProtocol = plotter_backend()
         self.test_indices: list[int] = []
         self.test_metadata: dict[str, str]
         self.test_outputs: TorchDictList  # store last test evaluation
 
         self.quiet = UsuallyFalse()  # less output
-        self.settings: dict[str, Any]
         self._hook_before_training_epoch: Callable[[Self], None] = lambda instance: None
         self._hook_after_training_epoch: Callable[[Self], None] = lambda instance: None
         _not_used = extra_config
-        return
-
-    @staticmethod
-    @overload
-    def get_loader(dataset: None, batch_size: int, partition: Literal['train', 'val', 'test'] = ...) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def get_loader(dataset: Dataset[TensorData], batch_size: int, partition: Literal['train', 'val', 'test'] = ...
-                   ) -> DataLoader[tuple[TensorData, int]]:
-        ...
-
-    @staticmethod
-    def get_loader(dataset: Optional[Dataset[TensorData]],
-                   batch_size: int,
-                   partition: Literal['train', 'val', 'test'] = 'train'
-                   ) -> Optional[DataLoader[tuple[TensorData, int]]]:
-        if dataset is None:
-            return None
-        indexed_dataset = StackDataset(dataset, IndexDataset())  # add indices
-        pin_memory: bool = torch.cuda.is_available()
-        drop_last: bool = True if partition == 'train' else False
-        shuffle: bool = True if partition == 'train' else False
-        return DataLoader(indexed_dataset, drop_last=drop_last, batch_size=batch_size, shuffle=shuffle,
-                          pin_memory=pin_memory)
-
-    @property
-    def optimizer_settings(self) -> dict:  # settings depend on the epoch
-        """
-        It implements the scheduler and separate learning rates for the parameter groups.
-        If the optimizer is correctly updated, it should be a copy of its params groups
-
-        Returns:
-            list of dictionaries with parameters and their updated learning rates plus the other fixed settings
-        """
-        optim_groups = self._optimizer_settings[0]
-        params = [{'params': group['params'], 'lr': self.scheduler(group['lr'], self.epoch)} for group in optim_groups]
-        return {'params': params, **self._optimizer_settings[1]}
-
-    @optimizer_settings.setter
-    def optimizer_settings(self, optim_args: dict[str, Any]) -> None:
-        """
-        It pairs the learning rates to the parameter groups.
-        If only one number for the learning rate is given, it uses its value for each parameter
-
-        Args:
-            optim_args are similar to the default for the optimizer, a dictionary with a required lr key
-            The only difference is that lr can be a dict of the form {parameter_name: learning_rate}
-        """
-        lr: float | dict[str, float] = optim_args.pop('lr')  # removes 'lr' as setting, we move it inside 'params'
-        if isinstance(lr, dict):  # support individual lr for each parameter (for fine-tuning for example)
-            params = [OptParams(params=getattr(self.model_handler.model, k).parameters(), lr=v) for k, v in lr.items()]
-            self._optimizer_settings: tuple[list[OptParams], dict[str, Any]] = params, optim_args
-        else:
-            self._optimizer_settings = [OptParams(params=self.model_handler.model.parameters(), lr=lr)], optim_args
-        return
-
-    def update_learning_rate(self, new_lr: float | list[dict[str, float]]) -> None:
-        """
-        It updates the learning rates of the optimizer.
-
-        Args:
-            new_lr: a global learning rate for all the parameters or a list of dict with a 'lr' as a key
-            If you call it externally, make sure the list has the same order as in self.optimizer_settings
-        """
-        if isinstance(new_lr, float):  # transforms to list
-            new_lr = [{'lr': new_lr} for _ in self.model_handler.optimizer.param_groups]
-        for g, up_g in zip(self.model_handler.optimizer.param_groups, new_lr):
-            g['lr'] = up_g['lr']
         return
 
     def train(self, num_epoch: int, val_after_train: bool = False) -> None:
@@ -376,11 +348,11 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             val_after_train: run inference on the validation dataset after each epoch and calculates the loss
         """
         if not self.quiet:
-            print('\rTraining {}'.format(self.model_handler.exp_name))  # \r solves asynchronous stderr/stdout printouts
+            print('\rTraining {}'.format(self.model_handler))  # \r solves asynchronous stderr/stdout printouts
         for _ in range(num_epoch):
-            self.update_learning_rate(self.optimizer_settings['params'])
-            self.epoch += 1
-            print('\r====> Epoch:{:4d}'.format(self.epoch), end=' ...  :' if self.quiet else '\n')
+            self.model_handler.update_learning_rate()
+            self.model_handler.epoch += 1
+            print('\r====> Epoch:{:4d}'.format(self.model_handler.epoch), end=' ...  :' if self.quiet else '\n')
             self.model_handler.model.train()
             self.hook_before_training_epoch()
             self._run_epoch(partition='train')
@@ -423,14 +395,14 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             use_test_metrics: whether to use possibly computationally expensive test_metrics
         """
         if partition == 'train':
-            loader: Optional[DataLoader[tuple[TensorData, int]]] = self.train_loader
-            log = self.train_log
+            loader: Optional[DataLoader[IndexData]] = self.train_loader
+            log = self.exp_tracker.train_log
         elif partition == 'val':
             loader = self.val_loader
-            log = self.val_log
+            log = self.exp_tracker.val_log
         elif partition == 'test':
             loader = self.test_loader
-            log = self.saved_test_metrics
+            log = self.exp_tracker.saved_test_metrics
         else:
             raise ValueError('partition should be "train", "val" or "test"')
 
@@ -466,7 +438,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         for loss_or_metric, value in epoch_log.items():
             value /= epoch_seen
             if torch.is_inference_mode_enabled() ^ (partition == 'train'):  # Evaluating train does not overwrite log
-                log.loc[self.epoch, loss_or_metric] = value
+                log.loc[self.model_handler.epoch, loss_or_metric] = value
             print('{}: {:.4e}'.format(loss_or_metric, value), end='\t')
 
         return
