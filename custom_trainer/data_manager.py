@@ -1,13 +1,10 @@
-from typing import TypeVar, Optional, Literal, overload, Generic
+from typing import TypeVar, Optional, Literal, Generic
 
 import torch
 from torch.utils.data import Dataset, DataLoader, StackDataset
 
-Inputs = TypeVar('Inputs')
-Targets = TypeVar('Targets')
-Data = tuple[Inputs, Targets]
-IndexData = tuple[Data, tuple[torch.LongTensor,]]
-
+Data_co = TypeVar('Data_co', covariant=True)
+IndexData = tuple[Data_co, tuple[torch.LongTensor,]]
 DatasetName = Literal['train', 'val', 'test']
 
 
@@ -20,23 +17,23 @@ class IndexDataset(Dataset):
         return torch.LongTensor(index)
 
 
-class DataManager(Generic[Inputs, Targets]):
+class IndexedDataLoader(Generic[Data_co]):
 
     def __init__(self,
-                 train_dataset: Dataset[Data],
-                 val_dataset: Optional[Dataset[Data]],
-                 test_dataset: Optional[Dataset[Data]],
+                 train_dataset: Dataset[Data_co],
+                 val_dataset: Optional[Dataset[Data_co]],
+                 test_dataset: Optional[Dataset[Data_co]],
                  batch_size: int) -> None:
         self.loaders: dict[DatasetName, DataLoader[IndexData]] = {}
         self.batch_size = batch_size
         dataset_names: tuple[DatasetName, ...] = ('train', 'val', 'test')
         for dataset, dataset_name in zip((train_dataset, val_dataset, test_dataset), dataset_names):
-            self.set_loader(dataset, dataset_name)
+            self.set_indexed_loader(dataset, dataset_name)
 
-    def set_loader(self,
-                   dataset: Optional[Dataset[Data]],
-                   dataset_name: DatasetName = 'train'
-                   ):
+    def set_indexed_loader(self,
+                           dataset: Optional[Dataset[Data_co]],
+                           dataset_name: DatasetName = 'train'
+                           ):
         if dataset is None:
             return None
         indexed_dataset = StackDataset(dataset, IndexDataset())  # add indices

@@ -3,11 +3,10 @@ from typing import Generic, Any, Optional
 import torch
 
 from custom_trainer import Scheduler, ConstantScheduler
-from custom_trainer.protocols import TypedModule, OptParams
-from custom_trainer.trainer import TensorInputs, TensorOutputs
+from custom_trainer.protocols import TypedModule, OptParams, ModuleInput, ModuleOutput
 
 
-class ModelHandler(Generic[TensorInputs, TensorOutputs]):
+class ModelHandler(Generic[ModuleInput, ModuleOutput]):
     """
     Args:
             model: Pytorch model with a settings attribute which is a dictionary for extra details
@@ -16,7 +15,7 @@ class ModelHandler(Generic[TensorInputs, TensorOutputs]):
             optim_args: arguments for the optimizer (see the optimizer_settings setter for more details)
     """
 
-    def __init__(self, model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module,
+    def __init__(self, model: TypedModule[ModuleInput, ModuleOutput] | torch.nn.Module,
                  optimizer_cls: type[torch.optim.Optimizer],
                  optim_args: dict[str, Any],
                  scheduler: Scheduler = ConstantScheduler(),
@@ -25,7 +24,7 @@ class ModelHandler(Generic[TensorInputs, TensorOutputs]):
                  ) -> None:
 
         self.device: torch.device = torch.device('cuda:0') if device is None else device
-        self.model: TypedModule[TensorInputs, TensorOutputs] | torch.nn.Module = model.to(device)
+        self.model: TypedModule[ModuleInput, ModuleOutput] | torch.nn.Module = model.to(device)
         self.optimizer_settings: dict[str, Any] = optim_args.copy()  # property that updates the learning rate
         self.optimizer: torch.optim.Optimizer = optimizer_cls(**self.optimizer_settings)
         self.scheduler: Scheduler = scheduler

@@ -15,7 +15,7 @@ from .model_handler import ModelHandler
 from .dict_list import TorchDictList
 from .context_managers import UsuallyFalse
 from .recursive_ops import recursive_to
-from .data_manager import DataManager
+from .data_manager import IndexedDataLoader
 from .protocols import MetricsProtocol, LossAndMetricsProtocol
 
 TensorOutputs = TypeVar('TensorOutputs',
@@ -50,7 +50,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
     def __init__(self,
                  model_handler: ModelHandler[TensorInputs, TensorOutputs],
                  exp_tracker: ExperimentTracker,
-                 data_manager: DataManager[TensorData],
+                 data_manager: IndexedDataLoader[TensorData],
                  loss: LossFunction,
                  test_metrics: Optional[MetricFunction] = None,
                  amp: bool = False,
