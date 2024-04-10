@@ -32,18 +32,27 @@ LossFunction = Callable[[TensorOutputs, TensorTargets], LossAndMetricsProtocol]
 
 class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
     """
+    Implement the standard Pytorch training and evaluation loop.
+
     Args:
+        model_handler: contain the model and the optimizing strategy.
+        exp_tracker: track of the metrics and setting of the experiment.
+        data_manager: contain the training dataset, and, optionally, the validation and test datasets.
+        loss_fun: the _loss function, which needs to return batched values as in LossAndMetricsProtocol.
+        metrics_fun: the test metrics function, returning TestMetricsProtocol. If None, _loss will be used instead.
+        amp: whether to use mixed precision computing
 
+    Attributes:
+        test_outputs (TorchDictList): An instance of TorchDictList that stores the last test evaluation.
+        quiet (UsuallyFalse): A flag that controls the amount of output during training.
 
-        amp: mixed precision computing from torch.cuda.amp (works only with cuda)
-                    scheduler: instance of a Scheduler class that modifies the learning rate depending on the epoch
-        loss: this function may be a callable torch.nn.Module object (with reduction='none') or any function
-                that returns a tensor of shape (batch_size, ) with the loss evaluation of individual samples.
-                By default, its arguments are the model outputs and the targets. For more complex losses, and to
-                compute metrics during training, read the documentation on the loss method and override it
-
-
+    Methods:
+        train: run the training session, optionally quickly evaluate on the validation dataset.
+        test: evaluate on the specified partition of the dataset.
+        hook_before_training_epoch: property for adding a hook before running the training session.
+        hook_after_training_epoch: property for adding a hook after running the training session.
     """
+
     max_stored_output: int = sys.maxsize  # maximum amount of stored evaluated test samples
     tqdm_update_frequency = 10
 
@@ -51,51 +60,50 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
                  model_handler: ModelHandler[TensorInputs, TensorOutputs],
                  exp_tracker: ExperimentTracker,
                  data_manager: IndexedDataLoader[TensorData],
-                 loss: LossFunction,
-                 test_metrics: Optional[MetricFunction] = None,
+                 loss_fun: LossFunction,
+                 metrics_fun: Optional[MetricFunction] = None,
                  amp: bool = False,
                  ) -> None:
 
-        self.model_handler: ModelHandler[TensorInputs, TensorOutputs] = model_handler
-        self.exp_tracker: ExperimentTracker = exp_tracker
-        self.loaders = data_manager.loaders
+        self._model_handler: ModelHandler[TensorInputs, TensorOutputs] = model_handler
+        self._exp_tracker: ExperimentTracker = exp_tracker
+        self._data_manager = data_manager
 
-        self.scaler = GradScaler(enabled=amp and model_handler.device.type == 'cuda')
-        self.amp: bool = amp
-        self.loss: LossFunction = loss
-        self.test_metrics: MetricFunction = test_metrics if test_metrics is not None else loss
-
-        self.test_indices: list[int] = []
-        self.test_metadata: dict[str, str]
-        self.test_outputs: TorchDictList  # store last test evaluation
+        self._scaler = GradScaler(enabled=amp and model_handler.device.type == 'cuda')
+        self._amp: bool = amp
+        self._loss: LossFunction = loss_fun
+        self._test_metrics: MetricFunction = metrics_fun if metrics_fun is not None else loss_fun
 
         self.quiet = UsuallyFalse()  # less output
         self._hook_before_training_epoch: Callable[[Self], None] = lambda instance: None
         self._hook_after_training_epoch: Callable[[Self], None] = lambda instance: None
+
+        self.test_outputs: TorchDictList  # store last test evaluation
         return
 
     def train(self, num_epoch: int, val_after_train: bool = False) -> None:
         """
-        It trains the model for the given epochs
+        Train the model for the specified number of epochs.
 
-        Args:
-            num_epoch: a global learning rate for all the parameters or a list of dict with a 'lr' as a key
-            val_after_train: run inference on the validation dataset after each epoch and calculates the loss
+        Parameters:
+            num_epoch: the number of epochs for which train the model.
+            val_after_train: if the flag is active, also evaluate loss function on the validation dataset.
         """
+
         if not self.quiet:
-            print('\rTraining {}'.format(self.model_handler))  # \r solves asynchronous stderr/stdout printouts
+            print('\rTraining {}'.format(self._model_handler))  # \r solves asynchronous stderr/stdout printouts
         for _ in range(num_epoch):
-            self.model_handler.update_learning_rate()
-            self.model_handler.epoch += 1
-            print('\r====> Epoch:{:4d}'.format(self.model_handler.epoch), end=' ...  :' if self.quiet else '\n')
-            self.model_handler.model.train()
+            self._model_handler.update_learning_rate()
+            self._model_handler.epoch += 1
+            print('\r====> Epoch:{:4d}'.format(self._model_handler.epoch), end=' ...  :' if self.quiet else '\n')
+            self._model_handler.model.train()
             self.hook_before_training_epoch()
             self._run_epoch(partition='train')
             self.hook_after_training_epoch()
             if not self.quiet:
                 print()
             if val_after_train:  # check losses on val
-                self.model_handler.model.eval()
+                self._model_handler.model.eval()
                 with torch.inference_mode():
                     self._run_epoch(partition='val', use_test_metrics=False)
                 if not self.quiet:
@@ -107,13 +115,14 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
     @torch.inference_mode()
     def test(self, partition: Literal['train', 'val', 'test'] = 'val', save_outputs: bool = False) -> None:
         """
-        It tests the current model in inference. It saves the metrics in saved_test_metrics
+        Evaluates the model's performance on the specified partition of the dataset.
 
-        Args:
-            partition: the dataset used for testing
-            save_outputs: if True, it stores the outputs of the model
+        Parameters:
+            partition: The partition of the dataset on which to evaluate the model's performance.
+            save_outputs: if the flag is active store the model outputs in the test_outputs attribute.
+
         """
-        self.model_handler.model.eval()
+        self._model_handler.model.eval()
         self._run_epoch(partition=partition, save_outputs=save_outputs, use_test_metrics=True)
         print()
         return
@@ -122,26 +131,26 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
                    save_outputs: bool = False,
                    use_test_metrics: bool = False) -> None:
         """
-        It implements batching, backpropagation, printing and storage of the outputs
+           Run a single epoch of training or evaluation.
 
-        Args:
-            partition: the dataset used for the session
-            save_outputs: if True, it stores the outputs of the model
-            use_test_metrics: whether to use possibly computationally expensive test_metrics
-        """
+           Parameters:
+               partition: The partition of the dataset on which to evaluate the model's performance.
+               save_outputs: if the flag is active store the model outputs in the test_outputs attribute.
+               use_test_metrics: if the flag is active use the metrics function instead of the loss function.
 
-        loader: DataLoader[IndexData] = self.loaders[partition]
-        log = self.exp_tracker.log[partition]
-
-        num_batch: int = len(loader)
-        if not num_batch:
-            warnings.warn(f'Impossible to run model on the {partition} dataset: dataset not found.')
+           """
+        try:
+            loader: DataLoader[IndexData] = self._data_manager.loaders[partition]
+        except KeyError:
+            warnings.warn(f'Impossible to run model on the {partition} dataset: Dataset not found.')
             return
-
+        log = self._exp_tracker.log[partition]
+        try:
+            num_batch: int = len(loader)
+        except TypeError:
+            num_batch = self._data_manager.max_num_batch
         if save_outputs:
-            self.test_indices = []
             self.test_outputs = TorchDictList()
-            self.test_metadata = dict(partition=partition)
 
         epoch_log: defaultdict[str, float] = defaultdict(float)
         with tqdm(enumerate(loader), total=num_batch, disable=bool(self.quiet), file=sys.stderr) as tqdm_loader:
@@ -153,32 +162,31 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
                 batch_log, outputs, criterion = self._run_batch(inputs, targets, use_test_metrics)
                 # if you get memory error, limit max_stored_output
                 if save_outputs and self.max_stored_output >= epoch_seen:
-                    self.test_outputs.extend(TorchDictList.from_batch(outputs))
-                    self.test_indices.extend(map(int, indices))
+                    self.test_outputs.extend(TorchDictList.from_batch(outputs, indices=(partition, indices)))
                 for loss_or_metric, value in batch_log.items():
                     epoch_log[loss_or_metric] += value
                 if batch_idx % (num_batch // self.tqdm_update_frequency or 1) == 0:  # or 1 prevents division by 0
                     tqdm_loader.set_postfix({'Seen': epoch_seen,
                                              'Loss': criterion})
 
-        print(f'\rAverage {partition} {"metric(s)" if torch.is_inference_mode_enabled() else "loss(es)"}:', end=' ')
+        print(f'\rAverage {partition} {"metric(s)" if torch.is_inference_mode_enabled() else "loss_fun(es)"}:', end=' ')
         for loss_or_metric, value in epoch_log.items():
             value /= epoch_seen
             if torch.is_inference_mode_enabled() ^ (partition == 'train'):  # Evaluating train does not overwrite log
-                log.loc[self.model_handler.epoch, loss_or_metric] = value
+                log.loc[self._model_handler.epoch, loss_or_metric] = value
             print('{}: {:.4e}'.format(loss_or_metric, value), end='\t')
 
         return
 
     def _run_batch(self, inputs: TensorInputs, targets: TensorTargets, use_test_metrics: bool = False) \
             -> tuple[dict[str, float], TensorOutputs, float]:
-        inputs, targets = recursive_to([inputs, targets], self.model_handler.device)
-        with autocast(device_type=self.model_handler.device.type, enabled=self.amp):
-            outputs: TensorOutputs = self.model_handler.model(inputs)
+        inputs, targets = recursive_to([inputs, targets], self._model_handler.device)
+        with autocast(device_type=self._model_handler.device.type, enabled=self._amp):
+            outputs: TensorOutputs = self._model_handler.model(inputs)
             if use_test_metrics:
-                batched_performance = self.test_metrics(outputs, targets)
+                batched_performance = self._test_metrics(outputs, targets)
             else:
-                batched_performance = self.loss(outputs, targets)
+                batched_performance = self._loss(outputs, targets)
                 criterion = batched_performance.criterion.mean(0)
         batch_log: dict[str, float] = {}
         for loss_or_metric, batched_value in batched_performance.metrics.items():
@@ -188,10 +196,10 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
                 raise ValueError('Criterion is nan')
             if torch.isinf(criterion):
                 raise ValueError('Criterion is inf')
-            self.scaler.scale(criterion).backward()
-            self.scaler.step(self.model_handler.optimizer)
-            self.scaler.update()
-            self.model_handler.optimizer.zero_grad()
+            self._scaler.scale(criterion).backward()
+            self._scaler.step(self._model_handler.optimizer)
+            self._scaler.update()
+            self._model_handler.optimizer.zero_grad()
         return batch_log, outputs, criterion.item()
 
     @property
@@ -219,4 +227,4 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         return
 
     def __str__(self) -> str:
-        return f'Trainer for {self.model_handler}.'
+        return f'Trainer for {self._exp_tracker.exp_name}.'

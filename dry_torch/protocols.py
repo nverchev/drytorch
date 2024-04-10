@@ -1,4 +1,4 @@
-from typing import TypeVar, Protocol, TypedDict, Iterator, Literal
+from typing import TypeVar, Protocol, TypedDict, Iterator
 
 import torch
 from torch.nn.parameter import Parameter

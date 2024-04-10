@@ -2,14 +2,14 @@ from typing import Generic, Any, Optional
 
 import torch
 
-from custom_trainer import Scheduler, ConstantScheduler
-from custom_trainer.protocols import TypedModule, OptParams, ModuleInput, ModuleOutput
+from dry_torch import Scheduler, ConstantScheduler
+from dry_torch.protocols import TypedModule, OptParams, ModuleInput, ModuleOutput
 
 
 class ModelHandler(Generic[ModuleInput, ModuleOutput]):
     """
     Args:
-            model: Pytorch model with a settings attribute which is a dictionary for extra details
+            model: Pytorch model with a metadata attribute which is a dictionary for extra details
             device: only gpu and cpu are supported
             optimizer_cls: a Pytorch optimizer class
             optim_args: arguments for the optimizer (see the optimizer_settings setter for more details)
@@ -31,13 +31,13 @@ class ModelHandler(Generic[ModuleInput, ModuleOutput]):
         self.epoch: int = epoch
 
     @property
-    def optimizer_settings(self) -> dict:  # settings depend on the epoch
+    def optimizer_settings(self) -> dict:  # metadata depend on the epoch
         """
         It implements the scheduler and separate learning rates for the parameter groups.
         If the optimizer is correctly updated, it should be a copy of its params groups
 
         Returns:
-            list of dictionaries with parameters and their updated learning rates plus the other fixed settings
+            list of dictionaries with parameters and their updated learning rates plus the other fixed metadata
         """
         optim_groups = self._optimizer_settings[0]
         params = [{'params': group['params'], 'lr': self.scheduler(group['lr'], self.epoch)} for group in optim_groups]

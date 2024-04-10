@@ -15,8 +15,8 @@ plot_docstring: str = dedent("""
         Plot the learning curves.
 
         Args:
-            train_log: DataFrame with the loss and metrics calculated during training on the training dataset.
-            val_log: Dataframe with the loss and metrics calculated during training on the validation dataset.
+            train_log: DataFrame with the loss_fun and metrics_fun calculated during training on the training dataset.
+            val_log: Dataframe with the loss_fun and metrics_fun calculated during training on the validation dataset.
             loss_or_metric: the metric to visualize. Defaults to 'Criterion'.
             start: the epoch from where you want to display the curve. Defaults to 0.
             title: the name of the window of the plot in the visdom interface. Defaults to 'Learning Curves'.

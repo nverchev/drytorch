@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Generic, TypeVar, Iterable, SupportsIndex, Self, Optional, NoReturn, overload, Hashable
+
+import torch
 from typing_extensions import override
 from collections import UserList
 from collections.abc import KeysView
@@ -23,6 +25,11 @@ class DictList(UserList, Generic[K, V]):
     Attributes:
         list_keys: A tuple of the keys that are present in the list.
 
+    Methods:
+        keys(): analogue of the keys method in dictionaries.
+        get(key): analogue of the get method in dictionaries.
+        to_dict(key): create a dictionary of list values.
+
     Raises:
         ListKeyError if the input dictionaries have keys that are not present in the list.
 
@@ -30,7 +37,7 @@ class DictList(UserList, Generic[K, V]):
 
     def __init__(self, iterable: Iterable[dict[K, V]] = zip(), /) -> None:
         self._list_keys: tuple[K, ...] = ()
-        super().__init__(self.validate_iterable(iterable))
+        super().__init__(self._validate_iterable(iterable))
 
     @property
     def list_keys(self) -> tuple[K, ...]:
@@ -70,15 +77,15 @@ class DictList(UserList, Generic[K, V]):
         Standard __getitem__ implementation that converts stored values back into dictionaries.
         """
         if isinstance(index_or_slice, slice):
-            return self.__class__(map(self.item_to_dict, super().__getitem__(index_or_slice)))
-        return self.item_to_dict(super().__getitem__(index_or_slice))
+            return self.__class__(map(self._item_to_dict, super().__getitem__(index_or_slice)))
+        return self._item_to_dict(super().__getitem__(index_or_slice))
 
     @override
     def __setitem__(self, key, value):
         """
         Standard __setitem__ implementation that validates the input.
         """
-        super().__setitem__(key, self.validate_dict(value))
+        super().__setitem__(key, self._validate_dict(value))
 
     @override
     def __repr__(self) -> str:
@@ -89,7 +96,7 @@ class DictList(UserList, Generic[K, V]):
         """
         Standard append implementation that validates the input.
         """
-        super().append(self.validate_dict(input_dict))
+        super().append(self._validate_dict(input_dict))
 
     @override
     def extend(self, iterable: Iterable[dict[K, V]], /) -> None:
@@ -100,21 +107,21 @@ class DictList(UserList, Generic[K, V]):
             if self.list_keys == iterable.list_keys:  # more efficient implementation for the common case
                 self.data.extend(iterable.data)
                 return
-        super().extend(self.validate_iterable(iterable))
+        super().extend(self._validate_iterable(iterable))
 
     @override
     def insert(self, index: int, input_dict: dict[K, V], /):
         """
         Standard insert implementation that validates the input.
         """
-        super().insert(index, self.validate_dict(input_dict))
+        super().insert(index, self._validate_dict(input_dict))
 
     @override
     def pop(self, index: int = -1, /) -> dict[K, V]:
         """
         Standard pop implementation that converts stored values back into dictionaries.
         """
-        return self.item_to_dict(super().pop(index))
+        return self._item_to_dict(super().pop(index))
 
     def keys(self) -> KeysView[K]:
         """
@@ -141,7 +148,7 @@ class DictList(UserList, Generic[K, V]):
                 return [None] * len(self)
             return [default for _ in range(len(self))]  # make sure items are not the same object
 
-    def validate_dict(self, input_dict: dict[K, V], /) -> tuple[V, ...]:
+    def _validate_dict(self, input_dict: dict[K, V], /) -> tuple[V, ...]:
         """
         Validate an input dictionary's keys.
 
@@ -162,7 +169,7 @@ class DictList(UserList, Generic[K, V]):
             self.list_keys = tuple(input_dict.keys())  # throws a ListKeyError if keys are already present.
         return tuple(input_dict[key] for key in self.list_keys)
 
-    def validate_iterable(self, iterable: Iterable[dict[K, V]], /) -> Iterable[tuple[V, ...]]:
+    def _validate_iterable(self, iterable: Iterable[dict[K, V]], /) -> Iterable[tuple[V, ...]]:
         """
         Validate an iterable of input dictionaries.
 
@@ -172,9 +179,9 @@ class DictList(UserList, Generic[K, V]):
         Returns:
             an Iterable with validated dictionaries.
         """
-        return map(self.validate_dict, iterable)
+        return map(self._validate_dict, iterable)
 
-    def item_to_dict(self, item: tuple) -> dict[K, V]:
+    def _item_to_dict(self, item: tuple) -> dict[K, V]:
         """
         Convert a stored item back into a dictionary.
 
@@ -197,42 +204,57 @@ class DictList(UserList, Generic[K, V]):
 class TorchDictList(DictList[str, Tensor | list[Tensor]]):
     """
     Add support to a Dict List with Tensor and Tensor list values.
+
+    Methods:
+        from_batch: transforms batched Tensors into lists of Tensors referring to the same sample.
     """
 
     @classmethod
-    def from_batch(cls, tensor_dict_like: Iterable[tuple[str, Tensor | list[Tensor]]] | dict[str, Tensor | list[Tensor]]
+    def from_batch(cls,
+                   tensor_dict_like: Iterable[tuple[str, Tensor | list[Tensor]]] | dict[str, Tensor | list[Tensor]],
+                   indices: Optional[tuple[str, torch.LongTensor]] = None,
                    ) -> TorchDictList:
+        """
+        Instantiate the class so that each element has named tensor referring to the same sample.
+
+        Args:
+            tensor_dict_like: a dictionary or an iterable of named batched tensors.
+            indices: a tuple containing the name of the dataset and the sampled indices.
+        """
+
         instance = cls()
         tensor_dict = dict(tensor_dict_like)
+        if indices is not None:
+            tensor_dict[indices[0] + "_indices"] = indices[1]
         instance.list_keys = tuple(tensor_dict.keys())
-        instance.data = cls.enlist(tensor_dict.values())
+        instance.data = cls._enlist(tensor_dict.values())
         return instance
 
     @classmethod
-    def enlist(cls, tensor_iterable: Iterable[Tensor | list[Tensor]], /) -> list[tuple[Tensor | list[Tensor], ...]]:
+    def _enlist(cls, tensor_iterable: Iterable[Tensor | list[Tensor]], /) -> list[tuple[Tensor | list[Tensor], ...]]:
         """
-        Changes the structure of batched Tensors and lists of Tensors.
+        Change the structure of batched Tensors and lists of Tensors.
         Args:
             tensor_iterable: an Iterable containing bathed tensors or lists of batched tensors.
 
-        Returns:
+        Return:
             a list containing a tuple of tensors and list of tensors for each element of the batch.
         """
 
-        tensor_length = cls.tensors_len(tensor_iterable)
+        tensor_length = cls._tensors_len(tensor_iterable)
         return [tuple([item[i] for item in value] if isinstance(value, list) else value[i]
                       for value in tensor_iterable) for i in range(tensor_length)]
 
     @staticmethod
-    def tensors_len(tensor_iterable=Iterable[Tensor | list[Tensor]], /) -> int:
+    def _tensors_len(tensor_iterable=Iterable[Tensor | list[Tensor]], /) -> int:
         """
         Check that all the contained tensors have the same length and return its value.
         Args:
-            tensor_iterable: a di
+            tensor_iterable: an Iterable containing bathed tensors or lists of batched tensors.
         Raises:
-           DifferentLengthsError if the length of the lists and of the sub-lists is not the same
+           DifferentLengthsError if the length of the lists and of the sub-lists is not the same.
         Returns:
-            only_len: the length of all the list and sub-lists
+            only_len: the length of all the list and sub-lists.
         """
         if not tensor_iterable:
             return 0

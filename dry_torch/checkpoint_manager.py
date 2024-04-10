@@ -1,19 +1,29 @@
 import json
 import os
 import warnings
-from typing import Any, Optional
+from typing import Optional
 
 import pandas as pd
 import torch
 
-from custom_trainer.experiment_tracker import ExperimentTracker
-from custom_trainer.model_handler import ModelHandler
+from dry_torch.experiment_tracker import ExperimentTracker
+from dry_torch.model_handler import ModelHandler
 
 
 class CheckpointManager:
     """
-            model_pardir: parent directory for the folders with the model checkpoints
+    Save and load checkpoints. The folder with the savings has the address of the form: model_pardir/exp_name.
 
+    Args:
+        model_handler: contain the model and the optimizing strategy.
+        exp_tracker: track of the metrics and setting of the experiment.
+        model_pardir: parent directory for the folders with the model checkpoints
+
+    Methods:
+        save: save a checkpoint.
+        load: load a checkpoint.
+        exp_name: property with the name of the experiment.
+        epoch: property with the current epoch.
     """
 
     def __init__(self, model_handler: ModelHandler,
@@ -23,7 +33,6 @@ class CheckpointManager:
         self.model_handler: ModelHandler = model_handler
         self.exp_tracker: ExperimentTracker = exp_tracker
         self.model_pardir: str = model_pardir
-        self.settings: dict[str, Any] = {}
 
     @property
     def exp_name(self) -> str:
@@ -39,31 +48,31 @@ class CheckpointManager:
 
     def save(self, new_exp_name: Optional[str] = None) -> None:
         """
-        It saves a checkpoint for the model and the optimizer with the settings of the experiments, the results,
-        and the training and validation learning curves. The folder has the name of the experiment and is located in
-        {attribute model_pardir}/models
+        Save a checkpoint for the model and the optimizer with the metadata of the experiments, the test results,
+        and the training and validation learning curves.
 
         Args:
-            new_exp_name: optionally save the model in a folder with this name to branch the model.
-             The Trainer object won't modify self.exp_name
+            new_exp_name: save the model in a folder with this name to create a new branch for the experiment, optional.
         """
         self.model_handler.model.eval()
-        paths = self.paths(model_pardir=self.model_pardir, exp_name=new_exp_name or self.exp_name, epoch=self.epoch)
+        paths = self._paths(exp_name=new_exp_name or self.exp_name)
+
         torch.save(self.model_handler.model.state_dict(), paths['model'])
         torch.save(self.model_handler.optimizer.state_dict(), paths['optim'])
         for df_name, df in self.exp_tracker.log.items():
             # write instead of append to be safe from bugs
             df.to_csv(paths[df_name])
-        with open(paths['settings'], 'w') as json_file:
-            json.dump(self.settings, json_file, default=str, indent=4)
+        with open(paths['metadata'], 'w') as json_file:
+            json.dump(self.exp_tracker.metadata, json_file, default=str, indent=4)
         print('\rModel saved at: ', paths['model'])
         return
 
     def load(self, epoch: int = -1) -> None:
         """
-        It loads a checkpoint for the model and the optimizer, and the training and validation learning curves.
+        Load a checkpoint for the model and the optimizer, the training and validation metrics and the test results.
+
         Args:
-            epoch: the epoch of the checkpoint to load, -1 if last
+            epoch: the epoch of the checkpoint to load, -1 if last.
         """
         if epoch >= 0:
             self.epoch = epoch
@@ -78,7 +87,7 @@ class CheckpointManager:
                 warnings.warn(f'No saved models found in {local_path}. Training from scratch.', UserWarning)
                 return
             self.epoch = max(past_epochs)
-        paths = self.paths(model_pardir=self.model_pardir, exp_name=self.exp_name, epoch=self.epoch)
+        paths = self._paths(self.exp_name)
         device = self.model_handler.device
         self.model_handler.model.load_state_dict(torch.load(paths['model'], map_location=device))
         try:
@@ -97,26 +106,17 @@ class CheckpointManager:
         print('Loaded: ', paths['model'])
         return
 
-    @classmethod
-    def paths(cls, exp_name: str, epoch: int, model_pardir: str = 'models') -> dict[str, str]:
-        """
-        It gets the paths for saving and loading the experiment.
-
-        Args:
-            model_pardir: the path to the folder where to save experiments
-            exp_name: the name of the folder of the experiment
-            epoch: the epoch of the checkpoint for the model and optimizer
-        """
-        if not os.path.exists(model_pardir):
-            os.mkdir(model_pardir)
-        directory = os.path.join(model_pardir, exp_name)
+    def _paths(self, exp_name) -> dict[str, str]:
+        if not os.path.exists(self.model_pardir):
+            os.mkdir(self.model_pardir)
+        directory = os.path.join(self.model_pardir, exp_name)
         if not os.path.exists(directory):
             os.mkdir(directory)
-        paths: dict[str, str] = {'settings': os.path.join(directory, 'settings.json')}
+        paths: dict[str, str] = {'metadata': os.path.join(directory, 'metadata.json')}
         # paths for results and learning curves
         for df_name in ['train_log_metric', 'val_log', 'saved_test_metrics']:
             paths[df_name] = os.path.join(directory, f'{df_name}.csv')
         # paths for the model and the optimizer checkpoints
         for pt_file in ['model', 'optim']:
-            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{epoch}.pt')
+            paths[pt_file] = os.path.join(directory, f'{pt_file}_epoch{self.epoch}.pt')
         return paths

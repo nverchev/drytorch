@@ -5,15 +5,13 @@ from typing import Any, Iterator
 import torch
 from torch import Tensor
 
-from .exceptions import NotATensorError
-
 
 class PreferablySlotted:
     """
-    A base TypedDict-like class that leverages slots.
-    This class provides a mechanism to define the slots for its subclasses,
-    in case the user did not define them.
-    It also defines a reset value for the slots and a clear method.
+    A base TypedDict-like class that leverages slots whenever possible.
+
+    Methods:
+        clear(): reset values of the slots.
     """
     __slots__: tuple[str, ...] = tuple()
     reset_value: Any = None
@@ -38,7 +36,7 @@ class PreferablySlotted:
 
 class BaseMetricsContainer(PreferablySlotted):
     """
-    A base class to store batched values of the metrics as torch Tensors. Needs to be subclassed.
+    A base class to store batched values of the metrics_fun as torch Tensors.
     To improve performance, define __slots__ with the metrics' names.
     """
     __slots__: tuple[str, ...] = tuple()
@@ -54,7 +52,7 @@ class BaseMetricsContainer(PreferablySlotted):
 
 class BaseLossAndMetricsContainer(BaseMetricsContainer):
     """
-    A base class to store the batched values of the loss and other metrics as torch Tensors. Needs to be subclassed.
+    A base class to store the batched values of the loss_fun and other metrics_fun as torch Tensors.
     To improve performance, define __slots__ with the 'criterion' and the other metrics' names.
     """
     __slots__: tuple[str, ...] = ('criterion',)
@@ -67,7 +65,7 @@ class BaseLossAndMetricsContainer(BaseMetricsContainer):
 
 class OutputsContainer(PreferablySlotted):
     """
-    A base TypedDict-like base class to store the outputs values. Needs to be subclassed.
+    A base TypedDict-like base class to store the outputs values.
     To improve performance, define __slots__ with the 'outputs' names.
     """
     __slots__: tuple[str, ...] = tuple()
