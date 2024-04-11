@@ -2,26 +2,37 @@ import pytest
 from typing import Iterator, Iterable, Self
 import numpy as np
 import torch
-from dry_torch.recursive_ops import recursive_apply, struc_repr
+from dry_torch.recursive_ops import recursive_apply, recursive_to, struc_repr
 
 
 def test_recursive_apply() -> None:
-    expected_type = float
-    tuple_data = (1., [1, 2])
+    expected_type = torch.Tensor
+    tuple_data = (torch.tensor(1.), [1, 2])
     dict_data = {'list': tuple_data}
 
-    # fail because it expects floats and not int
-    with pytest.raises(TypeError):
-        recursive_apply(struc=dict_data, expected_type=expected_type, func=lambda x: 2 * x)
+    def times_two(x: torch.Tensor) -> torch.Tensor:
+        return 2 * x
 
-    new_tuple_data = (1., [1., 2.])
+    # fail because it expects torch.Tensors and not int
+    with pytest.raises(TypeError):
+        recursive_apply(struc=dict_data, expected_type=expected_type, func=times_two)
+
+    new_tuple_data = [torch.tensor(1.), (torch.tensor(1.), torch.tensor(2.))]
     new_dict_data = {'list': new_tuple_data}
-    out = recursive_apply(struc=new_dict_data, expected_type=float, func=lambda x: 2 * x)
-    assert out == {'list': [2., (2., 4.)]}
+    out = recursive_apply(struc=new_dict_data, expected_type=expected_type, func=times_two)
+    assert out == {'list': [torch.tensor(2.), (torch.tensor(2.), torch.tensor(4.))]}
 
     # check annotations (limited support from mypy for functions that change the type)
-    _out2 = recursive_apply(struc=1, expected_type=int, func=str)
-    _out3 = recursive_apply(struc=new_dict_data, expected_type=float, func=str)
+    _out2 = recursive_apply(struc=torch.tensor(1.), expected_type=expected_type, func=str)
+    _out3 = recursive_apply(struc=torch.tensor(1.), expected_type=expected_type, func=str)
+
+
+def test_recursive_to() -> None:
+    list_data = [torch.tensor(1.), (torch.tensor(1.), torch.tensor(2.))]
+    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+    list_data = recursive_to(list_data, device=device)
+    assert list_data[0].device == device
+    assert list_data[1][0].device == device
 
 
 def test_struc_repr() -> None:
