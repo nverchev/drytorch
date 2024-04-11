@@ -9,7 +9,6 @@ import pandas as pd
 from .doc_utils import add_docstring
 
 Backend = Literal['visdom', 'plotly', 'auto', 'none']
-DEFAULT_BACKEND: Backend = 'auto'
 
 plot_docstring: str = dedent("""
         Plot the learning curves.
@@ -28,7 +27,7 @@ class Plotter(metaclass=ABCMeta):
     Abstract base class for plotting learning curves.
 
     Args:
-        env: the name of the environment (useful to some backends).
+        env: the name of the environment (useful to some backends). Default to ''.
     """
 
     def __init__(self, env: str = '') -> None:
@@ -64,7 +63,7 @@ try:
         Initialize a visdom environment with the specified environment name and uses it as backend.
 
         Args:
-            env: The name of the visdom environment.
+            env: The name of the visdom environment. Default to ''.
         """
 
         def __init__(self, env: str = '') -> None:
@@ -129,9 +128,9 @@ class GetPlotterProtocol(Protocol):
         ...
 
 
-def plotter_backend() -> GetPlotterProtocol:
+def plotter_closure() -> GetPlotterProtocol:
     """
-    Closure that returns a plotter backend and caches the last used plotter.
+    Cache the last used plotter.
 
     Return:
         A function that returns a new plotter backend or the last used plotter.
@@ -139,18 +138,18 @@ def plotter_backend() -> GetPlotterProtocol:
 
     plotter: Plotter = NoPlotter('')
 
-    def get_plotter(backend: Backend = DEFAULT_BACKEND, env: str = '') -> Plotter:
+    def get_plotter(backend: Backend = 'auto', env: str = '') -> Plotter:
         """
         Returns a plotter object based on the specified backend.
 
         Args:
             backend:
-                auto:
+                auto (default):
                     from a Jupiter notebook: use plotly and return ImportError if plotly is not installed.
                     otherwise: if visdom is installed use visdom else plotly. If neither are installed return NoPlotter.
                 plotly: plotly backend. Return ImportError if plotly is not installed.
                 visdom: visdom backend. Return ImportError if visdom is not installed.
-            env: The optional environment name for the backend.
+            env: The optional environment name for the backend. Default ''.
 
         Return:
             A plotter backend based on the specified backend and environment.

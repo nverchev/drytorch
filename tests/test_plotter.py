@@ -1,4 +1,4 @@
-from dry_torch.plotters import Plotter, VisdomPlotter, PlotlyPlotter, GetPlotterProtocol, plotter_backend
+from dry_torch.plotters import Plotter, VisdomPlotter, PlotlyPlotter, GetPlotterProtocol, plotter_closure
 
 import pandas as pd
 
@@ -16,7 +16,7 @@ def test_VisdomPlotter():
 
 
 def test_plotter_backend():
-    get_plotter = plotter_backend()
+    get_plotter = plotter_closure()
 
     # this tests depends on the system metadata
     plotter = get_plotter(backend='auto', env='')
