@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 
 from dry_torch.experiment_tracker import ExperimentTracker
-from dry_torch.model_handler import ModelHandler
+from dry_torch.model_optimizer import ModelOptimizer
 
 
 class CheckpointManager:
@@ -17,7 +17,7 @@ class CheckpointManager:
     Args:
         model_handler: contain the model and the optimizing strategy.
         exp_tracker: track of the metrics and setting of the experiment.
-        model_pardir: parent directory for the folders with the model checkpoints
+        model_pardir: parent directory for the folders with the model checkpoints. Defaults to models.
 
     Methods:
         save: save a checkpoint.
@@ -26,11 +26,11 @@ class CheckpointManager:
         epoch: property with the current epoch.
     """
 
-    def __init__(self, model_handler: ModelHandler,
+    def __init__(self, model_handler: ModelOptimizer,
                  exp_tracker: ExperimentTracker,
                  model_pardir: str = 'models') -> None:
 
-        self.model_handler: ModelHandler = model_handler
+        self.model_optimizer: ModelOptimizer = model_handler
         self.exp_tracker: ExperimentTracker = exp_tracker
         self.model_pardir: str = model_pardir
 
@@ -40,11 +40,11 @@ class CheckpointManager:
 
     @property
     def epoch(self) -> int:
-        return self.model_handler.epoch
+        return self.model_optimizer.epoch
 
     @epoch.setter
     def epoch(self, value: int) -> None:
-        self.model_handler.epoch = value
+        self.model_optimizer.epoch = value
 
     def save(self, new_exp_name: Optional[str] = None) -> None:
         """
@@ -54,11 +54,11 @@ class CheckpointManager:
         Args:
             new_exp_name: save the model in a folder with this name to create a new branch for the experiment, optional.
         """
-        self.model_handler.model.eval()
+        self.model_optimizer.model.eval()
         paths = self._paths(exp_name=new_exp_name or self.exp_name)
 
-        torch.save(self.model_handler.model.state_dict(), paths['model'])
-        torch.save(self.model_handler.optimizer.state_dict(), paths['optim'])
+        torch.save(self.model_optimizer.model.state_dict(), paths['model'])
+        torch.save(self.model_optimizer.optimizer.state_dict(), paths['optim'])
         for df_name, df in self.exp_tracker.log.items():
             # write instead of append to be safe from bugs
             df.to_csv(paths[df_name])
@@ -88,10 +88,10 @@ class CheckpointManager:
                 return
             self.epoch = max(past_epochs)
         paths = self._paths(self.exp_name)
-        device = self.model_handler.device
-        self.model_handler.model.load_state_dict(torch.load(paths['model'], map_location=device))
+        device = self.model_optimizer.device
+        self.model_optimizer.model.load_state_dict(torch.load(paths['model'], map_location=device))
         try:
-            self.model_handler.optimizer.load_state_dict(torch.load(paths['optim'], map_location=device))
+            self.model_optimizer.optimizer.load_state_dict(torch.load(paths['optim'], map_location=device))
         except ValueError as err:
             warnings.warn('Optimizer has not been correctly loaded:')
             print(err)
