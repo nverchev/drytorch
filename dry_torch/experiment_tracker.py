@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
-from dry_torch.plotters import GetPlotterProtocol, plotter_backend, Plotter, Backend
+from dry_torch.plotters import GetPlotterProtocol, plotter_closure, Plotter, Backend
 from dry_torch.recursive_ops import struc_repr
 from dry_torch.data_manager import DatasetName
 
@@ -30,7 +30,7 @@ class ExperimentTracker:
         self.metadata: dict[str, Any] = self.extract_metadata(**kwargs)
 
         self.log: LogMetrics = {'train': pd.DataFrame(), 'val': pd.DataFrame(), 'test': pd.DataFrame()}
-        self.get_plotter: GetPlotterProtocol = plotter_backend()
+        self.get_plotter: GetPlotterProtocol = plotter_closure()
 
     def extract_metadata(self, **kwargs) -> dict[str, Any]:
 
@@ -50,9 +50,9 @@ class ExperimentTracker:
         This method plots the learning curves using either plotly or visdom as backends
 
         Args:
-            loss_or_metric: the loss_fun or the metric to visualize
-            start: the epoch from where you want to display the curve
-            title: the name of the window (and title) of the plot in the visdom interface
+            loss_or_metric: the loss_fun or the metric to visualize.
+            start: the epoch from where you want to display the curve.
+            title: the name of the window (and title) of the plot in the visdom interface.
             lib: which library to use between visdom and plotly. 'auto' selects plotly if the visdom connection failed.
         """
         if self.log['train'].empty:
