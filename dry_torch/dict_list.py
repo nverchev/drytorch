@@ -139,7 +139,7 @@ class DictList(UserList, Generic[K, V]):
             default: The default value to return if the key is not present in the list.
 
         Returns:
-            The values for the key in the list or a list of default values.
+            the values for the key in the list or a list of default values.
         """
         try:
             return [item[key] for item in self]
@@ -159,7 +159,7 @@ class DictList(UserList, Generic[K, V]):
             creates self.list_keys if it does not already exist.
 
         Returns:
-            The values from the input dictionary ordered consistently with the existing keys.
+            the values from the input dictionary ordered consistently with the existing keys.
 
         Raises:
             ListKeyError if the input dictionary has keys that are not present in the list.
@@ -174,10 +174,10 @@ class DictList(UserList, Generic[K, V]):
         Validate an iterable of input dictionaries.
 
         Args:
-            iterable: The input iterable of dictionaries to validate.
+            iterable: the input iterable of dictionaries to validate.
 
         Returns:
-            an Iterable with validated dictionaries.
+            an iterable with validated dictionaries.
         """
         return map(self._validate_dict, iterable)
 
@@ -186,7 +186,7 @@ class DictList(UserList, Generic[K, V]):
         Convert a stored item back into a dictionary.
 
         Returns:
-            The dictionary corresponding to the item.
+            the dictionary corresponding to the item.
         """
         return dict(zip(self.list_keys, item))
 
@@ -195,7 +195,7 @@ class DictList(UserList, Generic[K, V]):
         Convert the list into a dictionary.
 
         Returns:
-            The dictionary representation of the list.
+            the dictionary representation of the list.
         """
         # more efficient than self.get
         return {key: [item[index] for item in self.data] for index, key in enumerate(self.list_keys)}
@@ -219,7 +219,7 @@ class TorchDictList(DictList[str, Tensor | list[Tensor]]):
 
         Args:
             tensor_dict_like: a dictionary or an iterable of named batched tensors.
-            indices: a tuple containing the name of the dataset and the sampled indices.
+            indices: a tuple containing the name of the dataset and the sampled indices, optional.
         """
 
         instance = cls()
@@ -253,6 +253,7 @@ class TorchDictList(DictList[str, Tensor | list[Tensor]]):
             tensor_iterable: an Iterable containing bathed tensors or lists of batched tensors.
         Raises:
            DifferentLengthsError if the length of the lists and of the sub-lists is not the same.
+           NotATensorError if items are note tensors or lists of tensors.
         Returns:
             only_len: the length of all the list and sub-lists.
         """
