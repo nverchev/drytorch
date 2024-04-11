@@ -44,6 +44,8 @@ class LossAndMetricsProtocol(Protocol):
 
 
 class OptParams(TypedDict):
+    """
+    TypedDict with keys: params and lr.
+    """
     params: Iterator[Parameter]
     lr: float
-
