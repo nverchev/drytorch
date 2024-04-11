@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 from .experiment_tracker import ExperimentTracker
-from .model_handler import ModelHandler
+from .model_optimizer import ModelOptimizer
 from .dict_list import TorchDictList
 from .context_managers import UsuallyFalse
 from .recursive_ops import recursive_to
@@ -40,7 +40,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         data_manager: contain the training dataset, and, optionally, the validation and test datasets.
         loss_fun: the _loss function, which needs to return batched values as in LossAndMetricsProtocol.
         metrics_fun: the test metrics function, returning TestMetricsProtocol. If None, _loss will be used instead.
-        amp: whether to use mixed precision computing
+        amp: whether to use mixed precision computing. Optional, default to False.
 
     Attributes:
         test_outputs (TorchDictList): An instance of TorchDictList that stores the last test evaluation.
@@ -57,7 +57,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
     tqdm_update_frequency = 10
 
     def __init__(self,
-                 model_handler: ModelHandler[TensorInputs, TensorOutputs],
+                 model_handler: ModelOptimizer[TensorInputs, TensorOutputs],
                  exp_tracker: ExperimentTracker,
                  data_manager: IndexedDataLoader[TensorData],
                  loss_fun: LossFunction,
@@ -65,7 +65,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
                  amp: bool = False,
                  ) -> None:
 
-        self._model_handler: ModelHandler[TensorInputs, TensorOutputs] = model_handler
+        self._model_optimizer: ModelOptimizer[TensorInputs, TensorOutputs] = model_handler
         self._exp_tracker: ExperimentTracker = exp_tracker
         self._data_manager = data_manager
 
@@ -87,23 +87,23 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
 
         Parameters:
             num_epoch: the number of epochs for which train the model.
-            val_after_train: if the flag is active, also evaluate loss function on the validation dataset.
+            val_after_train: if the flag is active, evaluate loss function on the validation dataset. Default to False.
         """
 
         if not self.quiet:
-            print('\rTraining {}'.format(self._model_handler))  # \r solves asynchronous stderr/stdout printouts
+            print('\rTraining {}'.format(self._model_optimizer))  # \r solves asynchronous stderr/stdout printouts
         for _ in range(num_epoch):
-            self._model_handler.update_learning_rate()
-            self._model_handler.epoch += 1
-            print('\r====> Epoch:{:4d}'.format(self._model_handler.epoch), end=' ...  :' if self.quiet else '\n')
-            self._model_handler.model.train()
+            self._model_optimizer.update_learning_rate()
+            self._model_optimizer.epoch += 1
+            print('\r====> Epoch:{:4d}'.format(self._model_optimizer.epoch), end=' ...  :' if self.quiet else '\n')
+            self._model_optimizer.model.train()
             self.hook_before_training_epoch()
             self._run_epoch(partition='train')
             self.hook_after_training_epoch()
             if not self.quiet:
                 print()
             if val_after_train:  # check losses on val
-                self._model_handler.model.eval()
+                self._model_optimizer.model.eval()
                 with torch.inference_mode():
                     self._run_epoch(partition='val', use_test_metrics=False)
                 if not self.quiet:
@@ -118,11 +118,11 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         Evaluates the model's performance on the specified partition of the dataset.
 
         Parameters:
-            partition: The partition of the dataset on which to evaluate the model's performance.
-            save_outputs: if the flag is active store the model outputs in the test_outputs attribute.
+            partition: The partition of the dataset on which to evaluate the model's performance.  Default to 'val'.
+            save_outputs: if the flag is active store the model outputs in the test_outputs attribute. Default to False.
 
         """
-        self._model_handler.model.eval()
+        self._model_optimizer.model.eval()
         self._run_epoch(partition=partition, save_outputs=save_outputs, use_test_metrics=True)
         print()
         return
@@ -135,7 +135,7 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
 
            Parameters:
                partition: The partition of the dataset on which to evaluate the model's performance.
-               save_outputs: if the flag is active store the model outputs in the test_outputs attribute.
+               save_outputs: if the flag is active, store the model outputs. Default to False.
                use_test_metrics: if the flag is active use the metrics function instead of the loss function.
 
            """
@@ -173,16 +173,16 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
         for loss_or_metric, value in epoch_log.items():
             value /= epoch_seen
             if torch.is_inference_mode_enabled() ^ (partition == 'train'):  # Evaluating train does not overwrite log
-                log.loc[self._model_handler.epoch, loss_or_metric] = value
+                log.loc[self._model_optimizer.epoch, loss_or_metric] = value
             print('{}: {:.4e}'.format(loss_or_metric, value), end='\t')
 
         return
 
     def _run_batch(self, inputs: TensorInputs, targets: TensorTargets, use_test_metrics: bool = False) \
             -> tuple[dict[str, float], TensorOutputs, float]:
-        inputs, targets = recursive_to([inputs, targets], self._model_handler.device)
-        with autocast(device_type=self._model_handler.device.type, enabled=self._amp):
-            outputs: TensorOutputs = self._model_handler.model(inputs)
+        inputs, targets = recursive_to([inputs, targets], self._model_optimizer.device)
+        with autocast(device_type=self._model_optimizer.device.type, enabled=self._amp):
+            outputs: TensorOutputs = self._model_optimizer.model(inputs)
             if use_test_metrics:
                 batched_performance = self._test_metrics(outputs, targets)
             else:
@@ -197,9 +197,9 @@ class Trainer(Generic[TensorInputs, TensorTargets, TensorOutputs]):
             if torch.isinf(criterion):
                 raise ValueError('Criterion is inf')
             self._scaler.scale(criterion).backward()
-            self._scaler.step(self._model_handler.optimizer)
+            self._scaler.step(self._model_optimizer.optimizer)
             self._scaler.update()
-            self._model_handler.optimizer.zero_grad()
+            self._model_optimizer.optimizer.zero_grad()
         return batch_log, outputs, criterion.item()
 
     @property
