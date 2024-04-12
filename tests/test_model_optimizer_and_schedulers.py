@@ -23,10 +23,9 @@ def complex_model() -> TypedModule[torch.Tensor, torch.Tensor]:
     return ComplexModel()
 
 
-def test_ModelOptimizer_float_lr():
-    model = torch.nn.Linear(1, 1)
+def test_ModelOptimizer_float_lr(complex_model):
     init_lr = 0.01
-    model_optim: ModelOptimizer = ModelOptimizer(model, lr=init_lr, other_optimizer_args={'weight_decay': 0.000001})
+    model_optim: ModelOptimizer = ModelOptimizer(complex_model, lr=init_lr, other_optimizer_args={'weight_decay': 0.01})
     params = model_optim.optimizer.param_groups
     assert params[0]['lr'] == init_lr
     new_lr = 0.0001
@@ -85,3 +84,20 @@ def test_CosineScheduler(complex_model):
     model_optim.update_learning_rate()
     assert params[0]['lr'] == init_lr * min_decay
     assert params[1]['lr'] == init_lr / 10 * min_decay
+
+
+@pytest.mark.parametrize("clone", [False, True])
+def test_model_optimizer(complex_model, clone):
+    init_lr = 0.01
+    model_optim = ModelOptimizer(complex_model, lr=0.01)
+    if clone:
+        model_optim = model_optim.clone()
+    model_params = {id(param) for param in model_optim.model.parameters()}
+    optimizer_params = {id(param) for group in model_optim.optimizer.param_groups for param in group['params']}
+    assert model_params == optimizer_params
+    assert model_optim.optimizer.param_groups[0]['lr'] == init_lr
+
+
+
+
+

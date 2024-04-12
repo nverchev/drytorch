@@ -1,9 +1,10 @@
-from typing import Generic, Optional, Any
+from typing import Generic, Optional, Any, Self
+import copy
 
 import torch
 
 from dry_torch import Scheduler, ConstantScheduler
-from dry_torch.protocols import TypedModule,  OptParams, ModuleInput, ModuleOutput
+from dry_torch.protocols import TypedModule, OptParams, ModuleInput, ModuleOutput
 
 
 class ModelOptimizer(Generic[ModuleInput, ModuleOutput]):
@@ -27,6 +28,7 @@ class ModelOptimizer(Generic[ModuleInput, ModuleOutput]):
         epoch: the current epoch, that is, the number of epochs the model has been trainer plus one.
 
     Methods:
+        clone(): return a deepcopy of the instance.
         params_lr: property for the updated learning rates for the optimizer.
         update_learning_rate(): update the optimizer with the updated settings or with an input learning rate.
     """
@@ -47,6 +49,17 @@ class ModelOptimizer(Generic[ModuleInput, ModuleOutput]):
         self.epoch: int = epoch
         optimizer_args: dict[str, Any] = {} if other_optimizer_args is None else other_optimizer_args
         self.optimizer: torch.optim.Optimizer = optimizer_cls(params=self.params_lr, **optimizer_args)
+
+    def clone(self) -> Self:
+        """
+        Return a copy of the deepcopy of the object.
+        """
+        cloned_self = self.__class__(model=copy.deepcopy(self.model), optimizer_cls=self.optimizer.__class__,
+                                     other_optimizer_args=self.optimizer.defaults, scheduler=self.scheduler,
+                                     device=self.device, epoch=self.epoch)
+        cloned_self._params_lr = self._params_lr
+        cloned_self.update_learning_rate()
+        return cloned_self
 
     @property
     def params_lr(self) -> list[OptParams]:  # metadata depend on the epoch
@@ -77,10 +90,14 @@ class ModelOptimizer(Generic[ModuleInput, ModuleOutput]):
 
         Args:
             lr: a dictionary of learning rates for the named parameters or a float for a global value.
-                If None (default), the scheduled learning rates are used.
+               If None (default), the scheduled original learning rates are used. Else, the scheduler is deactivated.
         """
         if lr is not None:
             self.params_lr = lr
+            self.scheduler = ConstantScheduler()
         for g, up_g in zip(self.optimizer.param_groups, self.params_lr):
             g['lr'] = up_g['lr']
         return
+
+    def __repr__(self):
+        return f'ModelOptimizer(model={self.model}, optimizer={self.optimizer}, epoch={self.epoch})'
