@@ -23,7 +23,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["torch >= 2.1", "tqdm", "pandas"]
+dependencies = ["torch >= 2.1", "tqdm", "pandas", "PyYAML >= 6.0"]
 
 [project.optional-dependencies]
 plot_local = ["pyplot"]
@@ -38,3 +38,8 @@ Changelog = "https://github.com/nverchev/dry_torch/blob/master/CHANGELOG.md"
 
 [pytest]
 testpaths = "tests"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
