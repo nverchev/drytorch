@@ -1,7 +1,9 @@
 from typing import Any, TypeVar, Callable, Type, overload
+
 import numpy as np
 import pandas as pd
 import torch
+
 from .context_managers import PandasPrintOptions
 
 Atomic = TypeVar('Atomic', int, float, complex, str)
@@ -63,22 +65,46 @@ def recursive_to(container: C, device: torch.device) -> C:
     return recursive_apply(container, expected_type=torch.Tensor, func=lambda x: x.to(device))
 
 
+def has_own_repr(obj: Any) -> bool:
+    return not obj.__repr__().endswith(str(hex(id(obj))) + '>')
+
+
+def limit_size(container: C, max_size: int) -> list:
+    # prevents infinite iterators
+    if hasattr(container, '__len__'):
+        listed = list(container)
+        if len(listed) > max_size:
+            listed = listed[:max_size // 2] + ['...'] + listed[-max_size // 2:]
+    else:
+        listed = []
+        iter_container = container.__iter__()
+        for _ in range(max_size):
+            try:
+                value = next(iter_container)
+                listed.append(value)
+            except StopIteration:
+                break
+        else:
+            listed.append(['...'])
+    return listed
+
+
 @overload
-def struc_repr(struc: Atomic, *, max_length: int = ...) -> Atomic:
+def struc_repr(struc: Atomic, *, max_size: int = ...) -> Atomic:
     ...
 
 
 @overload
-def struc_repr(struc: Array | Type, *, max_length: int = ...) -> str:
+def struc_repr(struc: Array | Type, *, max_size: int = ...) -> str:
     ...
 
 
 @overload
-def struc_repr(struc: Any, *, max_length: int = ...):
+def struc_repr(struc: Any, *, max_size: int = ...) -> Any:
     ...
 
 
-def struc_repr(struc: Any, *, max_length: int = 10) -> Any:
+def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
     """
     It attempts full documentation of a complex object.
     It recursively represents each attribute or element of the object.
@@ -87,7 +113,7 @@ def struc_repr(struc: Any, *, max_length: int = 10) -> Any:
 
     Args:
         struc: a complex object with that may contain other objects.
-        max_length: limits the size of iterators and arrays.
+        max_size: limits the size of iterators and arrays.
 
     Returns:
         a readable representation of the object.
@@ -100,11 +126,11 @@ def struc_repr(struc: Any, *, max_length: int = 10) -> Any:
         return struc.__name__
 
     if isinstance(struc, (pd.DataFrame, pd.Series, pd.Index)):
-        with PandasPrintOptions(precision=3, max_rows=max_length, max_columns=max_length):
+        with PandasPrintOptions(precision=3, max_rows=max_size, max_columns=max_size):
             return str(struc)
 
     if isinstance(struc, np.ndarray):
-        with np.printoptions(precision=3, suppress=True, threshold=max_length, edgeitems=max_length // 2):
+        with np.printoptions(precision=3, suppress=True, threshold=max_size, edgeitems=max_size // 2):
             return str(struc)
 
     if isinstance(struc, torch.Tensor):
@@ -112,27 +138,24 @@ def struc_repr(struc: Any, *, max_length: int = 10) -> Any:
 
     if hasattr(struc, 'numpy'):
         try:
-            return struc_repr(struc.numpy(), max_length=max_length)
+            return struc_repr(struc.numpy(), max_size=max_size)
         except TypeError as te:
             raise AttributeError('numpy should be a method without additional parameters') from te
 
     if hasattr(struc, '__iter__'):
-        struc_list = list(struc)
-        struc_list = struc_list[:max_length // 2] + ['...'] + struc_list[-max_length // 2:]
-        struc_list = [struc_repr(item, max_length=max_length) for item in struc_list]
+        struc_list = [struc_repr(item, max_size=max_size) for item in limit_size(struc, max_size=max_size)]
         if hasattr(struc, 'get'):  # assume that the iterable contains keys
-            return {k: struc_repr(struc.get(k, ''), max_length=max_length) for k in struc_list}
+            return {k: struc_repr(struc.get(k, ''), max_size=max_size) for k in struc_list}
         if isinstance(struc, (list, set, tuple)):
-            return type(struc)(struc_list)
-        return struc_list
+            return str(type(struc)(struc_list)).replace("'...'", '...')
+        return str(struc_list)
 
     slots = getattr(struc, '__slots__', [])
     dict_attr = getattr(struc, '__dict__', {})
     if slots or dict_attr:
         dict_attr |= {name: getattr(struc, name) for name in slots}
-        dict_attr = {k: struc_repr(v, max_length=max_length) for k, v in dict_attr.items()
+        dict_attr = {k: struc_repr(v, max_size=max_size) for k, v in dict_attr.items()
                      if v not in ({}, [], set(), '', None, struc)}
-        useful_repr = not struc.__repr__().endswith(str(hex(id(struc))) + '>')
-        return {'repr': struc.__repr__()} if useful_repr else {} | {'class': type(struc).__name__} | dict_attr
+        return {'repr': struc.__repr__()} if has_own_repr(struc) else {'class': type(struc).__name__} | dict_attr
 
-    return repr(struc)
+    return repr(struc) if has_own_repr(struc) else struc.__class__.__name__
