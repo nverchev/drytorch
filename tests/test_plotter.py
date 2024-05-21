@@ -1,6 +1,8 @@
-from dry_torch.plotters import Plotter, VisdomPlotter, PlotlyPlotter, GetPlotterProtocol, plotter_closure
-
+import pytest
 import pandas as pd
+from dry_torch.plotting import VisdomPlotter
+from dry_torch.plotting import PlotlyPlotter
+from dry_torch.plotting import plotter_closure
 
 DEFAULT_DATAFRAME = pd.DataFrame({'Criterion': [0, 1]})
 

@@ -23,13 +23,25 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["torch >= 2.1", "tqdm", "pandas", "PyYAML >= 6.0"]
+dependencies = [
+    "torch >= 2.1",
+    "numpy",
+    "tqdm",
+    "pandas",
+    "PyYAML >= 6.0",
+]
 
 [project.optional-dependencies]
 plot_local = ["pyplot"]
 plot_server = ["visdom"]
 all = ["plotly", "visdom"]
 dev = ["pytest"]
+
+[tool.setuptools.package-data]
+"dry_torch" = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [project.urls]
 Repository = "https://github.com/nverchev/dry_torch"
@@ -38,8 +50,14 @@ Changelog = "https://github.com/nverchev/dry_torch/blob/master/CHANGELOG.md"
 
 [pytest]
 testpaths = "tests"
+addopts = ["-v"]
+disable_assert_rewriting = false
 
 [tool.pytest.ini_options]
-addopts = [
-    "--import-mode=importlib",
-]
+addopts = ["--import-mode=importlib", "--ignore=tests/test_plotter.py"]
+log_cli = true
+log_cli_level = "DEBUG"
+
+[mypy]
+namespace-packages = false
+explicit-packages = true

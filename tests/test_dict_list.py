@@ -1,7 +1,10 @@
 import pytest
 import torch
-from dry_torch.dict_list import DictList, TorchDictList
-from dry_torch.exceptions import ListKeyError, DifferentValueError
+from dry_torch import TorchDictList
+from dry_torch.structures import DictList
+from dry_torch.exceptions import KeysAlreadySet
+from dry_torch.exceptions import DifferentBatchSizeError
+from dry_torch.data_types import Tensors
 
 
 def test_DictList() -> None:
@@ -14,15 +17,16 @@ def test_DictList() -> None:
     dict_list[1] = {'list1': torch.ones(2, 2)}
 
     # test append and __getitem__
-    assert torch.allclose(dict_list[1]['list1'], DictList(input_dict_list)[1]['list1'])
+    assert torch.allclose(dict_list[1]['list1'],
+                          DictList(input_dict_list)[1]['list1'])
     dict_list.append({'list1': torch.ones(2, 2)})
 
-    # test ListKeyError
-    with pytest.raises(ListKeyError):
+    # test KeysAlreadySet
+    with pytest.raises(KeysAlreadySet):
         dict_list.extend([{'list2': torch.ones(2, 2) for _ in range(5)}])
-    with pytest.raises(ListKeyError):
+    with pytest.raises(KeysAlreadySet):
         dict_list[0] = {'list2': torch.ones(2, 2)}
-    with pytest.raises(ListKeyError):
+    with pytest.raises(KeysAlreadySet):
         dict_list.insert(0, {'list2': torch.ones(2, 2)})
 
     # test __add__ and extend
@@ -40,15 +44,19 @@ def test_DictList() -> None:
 
 
 def test_TorchDictList() -> None:
-    input_dict_torch: dict[str, torch.Tensor | list[torch.Tensor]] = {'tensor1': torch.ones(2),
-                                                                      'list_tensor': [torch.zeros(2)]}
+    input_dict_torch: dict[str, Tensors] = {
+        'tensor1': torch.ones(2),
+        'list_tensor': [torch.zeros(2)]
+    }
 
     # test enlist
-    expected_result = 2 * [(torch.tensor(1), [torch.tensor(0)])]
+    expected_result = 2 * [(torch.tensor(1), (torch.tensor(0), ))]
     assert TorchDictList._enlist(input_dict_torch.values()) == expected_result
 
-    # test DifferentValueError
-    wrong_input_dict_torch: dict[str, torch.Tensor | list[torch.Tensor]] = {'tensor1': torch.ones(2, 2),
-                                                                            'list_tensor': [torch.zeros(1, 2)]}
-    with pytest.raises(DifferentValueError):
+    # test DifferentBatchSizeError
+    wrong_input_dict_torch: dict[str, Tensors] = {
+        'tensor1': torch.ones(2, 2),
+        'list_tensor': [torch.zeros(1, 2)]
+    }
+    with pytest.raises(DifferentBatchSizeError):
         TorchDictList.from_batch(wrong_input_dict_torch)
