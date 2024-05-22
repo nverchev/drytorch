@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Generic, Iterable, SupportsIndex, Self, Optional, Iterator
+from typing import Generic, Iterable, SupportsIndex, Optional, Iterator, \
+    ValuesView
 from typing import KeysView
 from typing import TypeVar, Hashable, overload
 import torch
@@ -262,7 +263,7 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
     @classmethod
     def _enlist(
             cls,
-            tensor_iterable: Iterable[data_types.Tensors],
+            tensor_values: ValuesView[data_types.Tensors],
             /,
     ) -> list[tuple[torch.Tensor | tuple[torch.Tensor, ...], ...]]:
         """
@@ -275,8 +276,8 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
              each element of the batch.
         """
 
-        _check_tensor_have_same_length(tensor_iterable)
-        return list(zip(*map(_conditional_zip, tensor_iterable)))
+        _check_tensor_have_same_length(tensor_values)
+        return list(zip(*map(_conditional_zip, tensor_values)))
 
 
 def _conditional_zip(
@@ -286,13 +287,13 @@ def _conditional_zip(
 
 
 def _check_tensor_have_same_length(
-        tensor_iterable=Iterable[torch.Tensor | Iterable[torch.Tensor]]
+        tensor_values=ValuesView[data_types.Tensors]
 ) -> None:
     """
     Check that all the contained tensors have the same length and return
      its value.
     Args:
-        tensor_iterable: an Iterable containing bathed tensors or lists of
+        tensor_values: an Iterable containing bathed tensors or lists of
          batched tensors.
     Raises:
        DifferentBatchSizeError if the length of the lists and of the
@@ -302,13 +303,13 @@ def _check_tensor_have_same_length(
         only_len: the length of all the list and sub-lists.
     """
 
-    if not len(tensor_iterable):
+    if not len(tensor_values):
         return
 
     # this set should only have at most one element
     tensor_len_set: set[int] = set()
 
-    for value in tensor_iterable:
+    for value in tensor_values:
         if isinstance(value, torch.Tensor):
             tensor_len_set.add(len(value))
         elif isinstance(value, (list, tuple)):
