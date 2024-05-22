@@ -42,7 +42,7 @@ class DictList(Generic[_K, _V]):
     def clear(self) -> None:
         self._tuple_list.clear()
 
-    def copy(self):
+    def copy(self) -> DictList[_K, _V]:
         cloned_self = self.__class__()
         cloned_self.set_keys(self._keys)
         cloned_self._tuple_list = self._tuple_list.copy()
@@ -67,7 +67,7 @@ class DictList(Generic[_K, _V]):
         # workaround to produce a KeysView object
         return {key: None for key in self._keys}.keys()
 
-    def insert(self, index: SupportsIndex, input_dict: dict[_K, _V], /):
+    def insert(self, index: SupportsIndex, input_dict: dict[_K, _V], /) -> None:
         """
         Standard insert implementation that validates the input.
         """
@@ -103,7 +103,7 @@ class DictList(Generic[_K, _V]):
             # make sure items are not the same object
             return [default for _ in range(len(self))]
 
-    def set_keys(self, value=Iterable[_K]):
+    def set_keys(self, value=Iterable[_K]) -> None:
         if self._keys:
             raise exceptions.KeysAlreadySet(self._keys, value)
         else:
@@ -170,7 +170,7 @@ class DictList(Generic[_K, _V]):
         return {key: [item[index] for item in self._tuple_list]
                 for index, key in enumerate(self._keys)}
 
-    def __add__(self, other: Iterable[dict[_K, _V]], /) -> Self:
+    def __add__(self, other: Iterable[dict[_K, _V]], /) -> DictList[_K, _V]:
         out = self.copy()
         out.extend(other)
         return out
@@ -194,14 +194,14 @@ class DictList(Generic[_K, _V]):
         ...
 
     @overload
-    def __getitem__(self, input_slice: slice, /) -> Self:
+    def __getitem__(self, input_slice: slice, /) -> DictList[_K, _V]:
         ...
 
     def __getitem__(
             self,
             index_or_slice: SupportsIndex | slice,
             /,
-    ) -> dict[_K, _V] | Self:
+    ) -> dict[_K, _V] | DictList[_K, _V]:
         """
         Standard __getitem__ implementation that converts stored values back
         into dictionaries.
@@ -220,7 +220,7 @@ class DictList(Generic[_K, _V]):
         for item in self_iter:
             yield self._item_to_dict(item)
 
-    def __setitem__(self, index: SupportsIndex, value: dict[_K, _V]):
+    def __setitem__(self, index: SupportsIndex, value: dict[_K, _V]) -> None:
         """
         Standard __setitem__ implementation that validates the input.
         """
@@ -286,7 +286,7 @@ def _conditional_zip(
 
 
 def _check_tensor_have_same_length(
-        tensor_iterable=Iterable[torch.Tensor | list[torch.Tensor]]
+        tensor_iterable=Iterable[torch.Tensor | Iterable[torch.Tensor]]
 ) -> None:
     """
     Check that all the contained tensors have the same length and return
@@ -301,7 +301,8 @@ def _check_tensor_have_same_length(
     Returns:
         only_len: the length of all the list and sub-lists.
     """
-    if not tensor_iterable:
+
+    if not len(tensor_iterable):
         return
 
     # this set should only have at most one element
@@ -310,7 +311,7 @@ def _check_tensor_have_same_length(
     for value in tensor_iterable:
         if isinstance(value, torch.Tensor):
             tensor_len_set.add(len(value))
-        elif isinstance(value, list):
+        elif isinstance(value, (list, tuple)):
             for elem in value:
                 if isinstance(elem, torch.Tensor):
                     tensor_len_set.add(len(elem))
