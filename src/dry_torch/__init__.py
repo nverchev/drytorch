@@ -3,7 +3,7 @@
 __all__ = [
     'CheckpointIO',
     'Experiment',
-    'Loaders',
+    'StandardLoader',
     'LossAndMetricsCalculator',
     'MetricsCalculator',
     'ModelOptimizer',
@@ -14,7 +14,7 @@ __all__ = [
 
 from dry_torch.checkpoint_utils import CheckpointIO
 from dry_torch.data_types import Split
-from dry_torch.loading import Loaders
+from dry_torch.loading import StandardLoader
 from dry_torch.loss_and_metrics import LossAndMetricsCalculator
 from dry_torch.loss_and_metrics import MetricsCalculator
 from dry_torch.model_binding import ModelOptimizer

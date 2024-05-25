@@ -30,14 +30,14 @@ class OptParams(TypedDict):
     lr: float
 
 
-class LoadersProtocol(Protocol[_Input_co, _Target_co]):
+class LoaderProtocol(Protocol[_Input_co, _Target_co]):
     batch_size: int
-    datasets_length: data_types.PartitionsLength
+    dataset_len: int
 
-    def get_loader(
-            self,
-            partition: data_types.Split,
-    ) -> data.DataLoader[tuple[_Input_co, _Target_co]]:
+    def __iter__(self) -> Iterator[tuple[_Input_co, _Target_co]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
 
@@ -123,29 +123,24 @@ class LossCallable(Protocol[_Output_contra, _Target_contra]):
 
 class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     _model_optimizer: ModelOptimizerProtocol[_Input, _Output]
-    _data_loaders: LoadersProtocol[_Input, _Target]
+    _loader: LoaderProtocol[_Input, _Target]
     _loss_calc: Callable[[_Output, _Target], LossAndMetricsProtocol]
 
     def train(self, num_epoch: int, val_after_train: bool) -> None:
         ...
 
-    def test(self, partition: data_types.Split, save_outputs: bool) -> None:
-        ...
-
     def _run_epoch(self,
                    partition: data_types.Split,
-                   save_outputs: bool,
-                   use_test_metrics: bool) -> None: ...
-
-    def _run_batch(self,
-                   inputs: _Input,
-                   targets: _Target,
-                   use_test_metrics: bool) -> (
-            tuple[LossAndMetricsProtocol | MetricsProtocol, _Output]):
+                   save_outputs: bool) -> None:
         ...
 
-    def exec_hooks_before_epoch_training(self) -> None:
+    def _run_batch(self, inputs: _Input, targets: _Target) -> (
+            tuple[LossAndMetricsProtocol, _Output]
+    ):
         ...
 
-    def exec_hooks_after_epoch_training(self) -> None:
+    def exec_hooks_before_training_epoch(self) -> None:
+        ...
+
+    def exec_hooks_after_training_epoch(self) -> None:
         ...

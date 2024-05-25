@@ -1,89 +1,110 @@
-from typing import Optional, TypeVar, TypeAlias
+import sys
+import logging
+from typing import TypeVar, Iterator, Generator, Generic, Optional
 import torch
 from torch.utils import data
-from dry_torch import exceptions
 from dry_torch import protocols
 from dry_torch import data_types
+from dry_torch import default_logging
+from tqdm import auto
 
 _Input_co = TypeVar('_Input_co', bound=data_types.InputType, covariant=True)
 _Target_co = TypeVar('_Target_co', bound=data_types.InputType, covariant=True)
 
+logger = logging.getLogger('dry_torch')
 
-class Loaders(protocols.LoadersProtocol[_Input_co, _Target_co]):
+
+class StandardLoader(protocols.LoaderProtocol[_Input_co, _Target_co]):
     """
     A container for the data _static_loaders.
     Args:
-        train_dataset: dataset used for training
-        val_dataset: dataset used for validation
-        test_dataset: dataset used for testing
+        dataset: dataset
         batch_size: the batch size.
-        runtime_build: whether to build the data _static_loaders at runtime, with
-        settings based on the inference model.
-                       Defaults to False.
     """
 
     def __init__(
             self,
-            batch_size: int,
-            train_dataset: (
-                    Optional[data.Dataset[tuple[_Input_co, _Target_co]]]
-            ) = None,
-            val_dataset: (
-                    Optional[data.Dataset[tuple[_Input_co, _Target_co]]]
-            ) = None,
-            test_dataset: (
-                    Optional[data.Dataset[tuple[_Input_co, _Target_co]]]
-            ) = None,
-            runtime_build: bool = True,
-    ) -> None:
-        self.batch_size = batch_size
-        self._runtime_build = runtime_build
-        datasets = (train_dataset, val_dataset, test_dataset)
-        self.datasets: (
-            dict[data_types.Split, data.Dataset[tuple[_Input_co, _Target_co]]]
-        ) = {}
-        for split, dataset in zip(data_types.Split, datasets):
-            if dataset is not None:
-                self.datasets[split] = dataset
-
-        self.datasets_length: data_types.PartitionsLength = {}
-        for split, dataset in self.datasets.items():
-            if hasattr(dataset, '__len__'):
-                self.datasets_length[split] = dataset.__len__()
-            else:
-                raise exceptions.PartitionNotFoundError(split.name)
-        self._static_loaders: data_types.LoadersDict = {}
-
-    def get_loader(
-            self,
-            partition: data_types.Split,
-    ) -> data.DataLoader[tuple[_Input_co, _Target_co]]:
-
-        if partition not in self.datasets:
-            raise exceptions.PartitionNotFoundError(partition.name)
-        if self._runtime_build:
-            return self._get_loader(self.datasets[partition],
-                                    self.batch_size,
-                                    torch.is_inference_mode_enabled())
-        if partition not in self._static_loaders:
-            inference: bool = partition != data_types.Split.TRAIN
-            loader = self._get_loader(self.datasets[partition],
-                                      self.batch_size,
-                                      inference)
-            self._static_loaders[partition] = loader
-        return self._static_loaders[partition]
-
-    @staticmethod
-    def _get_loader(
             dataset: data.Dataset[tuple[_Input_co, _Target_co]],
             batch_size: int,
-            inference: bool,
-    ) -> data.DataLoader[tuple[_Input_co, _Target_co]]:
+    ) -> None:
+        self.batch_size = batch_size
+        self.dataset = dataset
+        if hasattr(dataset, '__len__'):
+            self.dataset_len = dataset.__len__()
+        else:
+            raise AttributeError('Dataset does not implement __len__ method.')
+        self._loader: Optional[data.DataLoader[tuple[_Input_co, _Target_co]]]
+        self._loader = None
+
+    def get_loader(self) -> data.DataLoader[tuple[_Input_co, _Target_co]]:
+
+        inference = torch.is_inference_mode_enabled()
         pin_memory: bool = torch.cuda.is_available()
         drop_last: bool = not inference
         shuffle: bool = not inference
-        return data.DataLoader(dataset,
-                               batch_size=batch_size,
-                               drop_last=drop_last,
-                               shuffle=shuffle,
-                               pin_memory=pin_memory)
+        loader = data.DataLoader(self.dataset,
+                                 batch_size=self.batch_size,
+                                 drop_last=drop_last,
+                                 shuffle=shuffle,
+                                 pin_memory=pin_memory)
+        return loader
+
+    def __iter__(self) -> Iterator[tuple[_Input_co, _Target_co]]:
+        if self._loader is None:
+            self._loader = self.get_loader()
+        return self._loader.__iter__()
+
+    def __len__(self) -> int:
+        num_full_batches, last_batch_size = divmod(self.dataset_len,
+                                                   self.batch_size)
+        if last_batch_size > 0:
+            return num_full_batches + 1
+        return num_full_batches
+
+
+class TqdmLoader(Generic[_Input_co, _Target_co]):
+
+    def __init__(
+            self,
+            loader: protocols.LoaderProtocol[_Input_co, _Target_co],
+            update_frequency: int = 10):
+        self.loader = loader
+        self.update_frequency = update_frequency
+        self.batch_size = loader.batch_size
+        self.dataset_len = loader.dataset_len
+        display_epoch_info = logger.level > default_logging.INFO_LEVELS.epoch
+        self.disable_bar = display_epoch_info and sys.stdout.isatty()
+        self._monitor_gen = _monitor()
+        next(self._monitor_gen)
+
+    def __iter__(self) -> Iterator[tuple[_Input_co, _Target_co]]:
+        num_batch = len(self.loader)
+        with auto.tqdm(enumerate(self.loader),
+                       total=num_batch,
+                       disable=self.disable_bar,
+                       file=sys.stdout) as tqdm_loader:
+
+            epoch_seen: int = 0
+            batch_data: tuple[int, tuple[_Input_co, _Target_co]]
+            for batch_data in tqdm_loader:
+                (batch_idx, (inputs, targets)) = batch_data
+                yield inputs, targets
+                epoch_seen += self.batch_size
+                epoch_seen = min(epoch_seen, self.dataset_len)
+                update_interval = min(num_batch // self.update_frequency, 1)
+                monitor_dict = {'Seen': epoch_seen} | next(self._monitor_gen)
+                if batch_idx % update_interval == 0:
+                    tqdm_loader.set_postfix(monitor_dict)
+
+    def send(self, monitor_dict: dict[str, float]) -> None:
+        self._monitor_gen.send(monitor_dict)
+        return
+
+    def __len__(self) -> int:
+        return len(self.loader)
+
+
+def _monitor() -> Generator[dict[str, float], dict[str, float], None]:
+    while True:
+        monitor_dict = yield {}
+        yield monitor_dict or {}

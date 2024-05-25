@@ -8,7 +8,6 @@ from typing import Callable, Optional, Self, TypeVar
 import pandas as pd
 import torch
 from torch.cuda import amp
-from tqdm.auto import tqdm
 
 from dry_torch import exceptions
 from dry_torch import tracking
@@ -18,12 +17,151 @@ from dry_torch import recursive_ops
 from dry_torch import protocols
 from dry_torch import data_types
 from dry_torch import default_logging
+from dry_torch import loading
 
 _Input = TypeVar('_Input', bound=data_types.InputType)
 _Target = TypeVar('_Target', bound=data_types.TargetType)
 _Output = TypeVar('_Output', bound=data_types.OutputType)
 
 logger = logging.getLogger('dry_torch')
+
+
+class Test:
+    max_stored_output: int = sys.maxsize
+
+    """
+    Implement the standard Pytorch training and evaluation loop.
+
+    Args:
+        model_optimizer: contain the model and the optimizing strategy.
+        loaders: dictionary with loaders for the training, and optionally,
+         the validation and test datasets.
+        loss_calc: the _loss_calc function, which needs to return batched values
+         as in LossAndMetricsProtocol.
+        metrics_calc: the test metrics function, returning TestMetricsProtocol.
+         If None, _loss_calc will be used instead.
+        mixed_precision: whether to use mixed precision computing.
+         Optional, default to False.
+
+    Attributes:
+        max_stored_output:
+        the maximum number of outputs to store when testing.
+        update_frequency:
+        number of times the progress bar updates in one epoch.
+        test_outputs:
+        An instance of TorchDictList that stores the last test evaluation.
+
+    Methods:
+        train:
+        run the training session,
+        optionally quickly evaluate on the validation dataset.
+        test: evaluate on the specified partition of the dataset.
+        hook_before_training_epoch:
+        property for adding a hook before running the training session.
+        hook_after_training_epoch:
+        property for adding a hook after running the training session.
+    """
+
+    def __init__(
+            self,
+            model_optimizer: protocols.ModelOptimizerProtocol[_Input, _Target],
+            /,
+            *,
+            loader: protocols.LoaderProtocol[_Input, _Target],
+            metrics_calc: protocols.MetricsCallable[_Output, _Target]
+    ) -> None:
+
+        self._model_optimizer = model_optimizer
+        self._loader = loading.TqdmLoader[_Input, _Target](loader)
+        self._metrics_calc = metrics_calc
+        self.test_outputs = structures.TorchDictList()
+        return
+
+    @property
+    def model_info(self) -> tracking.ModelTracking:
+        exp = tracking.Experiment.get_active_environment()
+        return exp.model[self._model_optimizer.name]
+
+    @torch.inference_mode()
+    def __call__(self,
+                 partition: data_types.Split = data_types.Split.VAL,
+                 save_outputs: bool = False) -> None:
+        """
+        Evaluates the model's performance on the specified partition of the
+        dataset.
+
+        Parameters:
+            partition: The partition of the dataset on which to evaluate the
+            model's performance.  Default to 'val'.
+            save_outputs: if the flag is active store the model outputs in the
+            test_outputs attribute. Default to False.
+
+        """
+        if save_outputs:
+            self.test_outputs.clear()
+        self._model_optimizer.model.eval()
+        self._run_epoch(partition=partition,
+                        save_outputs=save_outputs,
+                        use_test_metrics=True)
+        return
+
+    def _run_epoch(self,
+                   partition: data_types.Split,
+                   save_outputs: bool = False) -> None:
+        """
+           Run a single epoch of training or evaluation.
+
+           Parameters:
+               save_outputs: if the flag is active, store the model outputs.
+                Default to False.
+
+           """
+        num_batch: int = len(self._loader)
+        partition_log: pd.DataFrame = self.model_info.log[partition]
+        epoch_log: defaultdict[str, float] = defaultdict(float)
+
+        for inputs, targets in self._loader:
+            batched_perf, outputs = self._run_batch(inputs, targets)
+            # if you get a memory error, decrease max_stored_output
+            # if save_outputs and self.max_stored_output >= epoch_seen:
+            #     self.test_outputs.extend(
+            #         structures.TorchDictList.from_batch(outputs)
+            #     )
+            for metric, batched_value in batched_perf.metrics.items():
+                epoch_log[metric] += batched_value.sum(0).item()
+                #self._tqdm_loader.send({'Loss': batched_perf.criterion.mean(0).item()}
+
+        inference_flag = torch.is_inference_mode_enabled()
+        log_msg_list: list[str] = ['Average %(split)s metric(s):']
+        log_args: dict[str, str | float] = {'split': partition.name.lower()}
+        for metric, value in epoch_log.items():
+            value /= self._loader.loader.dataset_len
+            if inference_flag ^ (partition == data_types.Split.TRAIN):
+                # Evaluating train does not overwrite log
+                partition_log.loc[self.model_info.epoch, metric] = value
+            log_msg_list.append(f'%({metric})s: %({metric}_value)4e')
+            log_args.update({metric: metric, f'{metric}_value': value})
+        logger.log(default_logging.INFO_LEVELS.metrics,
+                   '\t'.join(log_msg_list),
+                   log_args)
+        return
+
+    def _run_batch(
+            self,
+            inputs: _Input,
+            targets: _Target,
+    ) -> tuple[protocols.MetricsProtocol, _Output]:
+        inputs, targets = (
+            recursive_ops.recursive_to(
+                [inputs, targets], self._model_optimizer.device
+            )
+        )
+        outputs = self._model_optimizer(inputs)
+        batched_performance = self._metrics_calc(outputs, targets)
+        return batched_performance, outputs
+
+    def __str__(self) -> str:
+        return f'Trainer for {self._model_optimizer.name}.'
 
 
 class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
@@ -59,38 +197,29 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
         hook_after_training_epoch:
         property for adding a hook after running the training session.
     """
-    tqdm_update_frequency = 10
-    max_stored_output: int = sys.maxsize
 
     @model_binding.bind_to_model
     def __init__(
             self,
-            model_optimizer: (
-                    protocols.ModelOptimizerProtocol[_Input, _Output]
-            ),
+            model_optimizer: protocols.ModelOptimizerProtocol[_Input, _Output],
             /,
             *,
-            loaders: protocols.LoadersProtocol[_Input, _Target],
+            loader: protocols.LoaderProtocol[_Input, _Target],
             loss_calc: protocols.LossCallable[_Output, _Target],
-            metrics_calc: (
-                    Optional[protocols.MetricsCallable[_Output, _Target]]
-            ) = None,
             mixed_precision: bool = False,
     ) -> None:
 
         self._model_optimizer = model_optimizer
-        self._data_loaders = loaders
+        self._loader = loader
+        self._tqdm_loader = loading.TqdmLoader[_Input, _Target](loader)
         device_is_cuda = model_optimizer.device.type == 'cuda'
         enable_mixed_precision = mixed_precision and device_is_cuda
         self._scaler = amp.GradScaler(enabled=enable_mixed_precision)
         self._mixed_precision = mixed_precision
 
         self._loss_calc = loss_calc
-        self._metrics_calc = loss_calc if metrics_calc is None else metrics_calc
-
         self._hooks_before_training_epoch: list[Callable[[Self], None]] = []
         self._hooks_after_training_epoch: list[Callable[[Self], None]] = []
-        self.test_outputs = structures.TorchDictList()
 
         display_epoch_info = logger.level > default_logging.INFO_LEVELS.epoch
         self.disable_bar = display_epoch_info and sys.stdout.isatty()
@@ -130,36 +259,12 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
             if val_after_train:  # check losses on val
                 self._model_optimizer.model.eval()
                 with torch.inference_mode():
-                    self._run_epoch(partition=data_types.Split.VAL,
-                                    use_test_metrics=False)
-        return
-
-    @torch.inference_mode()
-    def test(self,
-             partition: data_types.Split = data_types.Split.VAL,
-             save_outputs: bool = False) -> None:
-        """
-        Evaluates the model's performance on the specified partition of the
-        dataset.
-
-        Parameters:
-            partition: The partition of the dataset on which to evaluate the
-            model's performance.  Default to 'val'.
-            save_outputs: if the flag is active store the model outputs in the
-            test_outputs attribute. Default to False.
-
-        """
-        self._model_optimizer.model.eval()
-        self._run_epoch(partition=partition,
-                        save_outputs=save_outputs,
-                        use_test_metrics=True)
-        print()
+                    self._run_epoch(partition=data_types.Split.VAL)
         return
 
     def _run_epoch(self,
                    partition: data_types.Split,
-                   save_outputs: bool = False,
-                   use_test_metrics: bool = False) -> None:
+                   save_outputs: bool = False) -> None:
         """
            Run a single epoch of training or evaluation.
 
@@ -168,56 +273,25 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
                 the model's performance.
                save_outputs: if the flag is active, store the model outputs.
                 Default to False.
-               use_test_metrics: if the flag is active use the metrics function
-               instead of the loss function.
 
            """
-        loader = self._data_loaders.get_loader(partition)
-        num_batch: int = len(loader)
-        dataset_length: int = self._data_loaders.datasets_length[partition]
-        if use_test_metrics and not torch.is_inference_mode_enabled():
-            msg = 'Cannot use test metrics when inference mode is not enabled.'
-            raise ValueError(msg)
-        if save_outputs:
-            self.test_outputs.clear()
         partition_log: pd.DataFrame = self.model_info.log[partition]
         epoch_log: defaultdict[str, float] = defaultdict(float)
 
-        with tqdm(enumerate(loader),
-                  total=num_batch,
-                  disable=self.disable_bar,
-                  file=sys.stdout) as tqdm_loader:
-            epoch_seen: int = 0
-            batch_data: tuple[int, tuple[_Input, _Target]]
-            for batch_data in tqdm_loader:
-                (batch_idx, (inputs, targets)) = batch_data
-                epoch_seen += self._data_loaders.batch_size
-                batched_perf, outputs = self._run_batch(inputs,
-                                                        targets,
-                                                        use_test_metrics)
-                # if you get a memory error, decrease max_stored_output
-                if save_outputs and self.max_stored_output >= epoch_seen:
-                    self.test_outputs.extend(
-                        structures.TorchDictList.from_batch(outputs)
-                    )
-                for metric, batched_value in batched_perf.metrics.items():
-                    epoch_log[metric] += batched_value.sum(0).item()
+        for inputs, targets in self._tqdm_loader:
+            batched_perf, outputs = self._run_batch(inputs, targets)
 
-                update_interval = num_batch // self.tqdm_update_frequency or 1
-                # or 1 needed for small batches
-                if batch_idx % update_interval == 0:
-                    monitor: dict[str, int | float] = {
-                        'Seen': min(epoch_seen, dataset_length),
-                    }
-                    if hasattr(batched_perf, 'criterion'):
-                        monitor['Loss'] = batched_perf.criterion.mean(0).item()
-                    tqdm_loader.set_postfix(monitor)
+            for metric, batched_value in batched_perf.metrics.items():
+                epoch_log[metric] += batched_value.sum(0).item()
+            self._tqdm_loader.send(
+                {'Loss': batched_perf.criterion.mean(0).item()}
+            )
 
         inference_flag = torch.is_inference_mode_enabled()
         log_msg_list: list[str] = ['Average %(split)s metric(s):']
         log_args: dict[str, str | float] = {'split': partition.name.lower()}
         for metric, value in epoch_log.items():
-            value /= epoch_seen
+            value /= self._tqdm_loader.dataset_len
             if inference_flag ^ (partition == data_types.Split.TRAIN):
                 # Evaluating train does not overwrite log
                 partition_log.loc[self.model_info.epoch, metric] = value
@@ -228,12 +302,9 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
                    log_args)
         return
 
-    def _run_batch(
-            self,
-            inputs: _Input,
-            targets: _Target,
-            use_test_metrics: bool,
-    ) -> tuple[protocols.MetricsProtocol, _Output]:
+    def _run_batch(self, inputs: _Input, targets: _Target) -> tuple[
+        protocols.LossAndMetricsProtocol, _Output
+    ]:
         inputs, targets = (
             recursive_ops.recursive_to(
                 [inputs, targets], self._model_optimizer.device
@@ -242,11 +313,8 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
         with torch.autocast(device_type=self._model_optimizer.device.type,
                             enabled=self._mixed_precision):
             outputs = self._model_optimizer(inputs)
-            if use_test_metrics:
-                batched_performance = self._metrics_calc(outputs, targets)
-            else:
-                batched_performance = self._loss_calc(outputs, targets)
-                criterion: torch.Tensor = batched_performance.criterion.mean(0)
+            batched_performance = self._loss_calc(outputs, targets)
+            criterion: torch.Tensor = batched_performance.criterion.mean(0)
         if not torch.is_inference_mode_enabled():
             try:
                 self._scaler.scale(criterion).backward()

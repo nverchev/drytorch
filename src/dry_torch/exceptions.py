@@ -52,13 +52,6 @@ class ModelAlreadyRegisteredError(ValueError):
         super().__init__(self.msg.format(name, exp_name))
 
 
-class UndefinedPartitionLengthError(AttributeError):
-    msg = 'Partition {} does not implement a __len__ method.'
-
-    def __init__(self, partition: str) -> None:
-        self.partition = partition
-        super().__init__(self.msg.format(partition))
-
 
 class PartitionNotFoundError(ValueError):
     msg = 'Impossible to load {} dataset: partition {} not found.'

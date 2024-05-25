@@ -3,12 +3,13 @@ import torch
 from torch.utils.data import Dataset
 from dry_torch import Trainer
 from dry_torch import Split
-from dry_torch import Loaders
+from dry_torch import StandardLoader
 from dry_torch import Experiment
 from dry_torch import ModelOptimizer
 from dry_torch import CheckpointIO
 from dry_torch import LossAndMetricsCalculator
 from dry_torch import exceptions
+import time
 
 
 class IndexDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -17,6 +18,7 @@ class IndexDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         return torch.Tensor([index]), torch.Tensor([index])
 
     def __len__(self) -> int:
+        time.sleep(1)
         return 1600
 
 
@@ -43,14 +45,14 @@ def test_all() -> None:
     checkpoint = CheckpointIO(model_opt, exp_pardir=exp_pardir)
     loss_calc = LossAndMetricsCalculator(simple_fun)
     dataset = IndexDataset()
-    loaders = Loaders(train_dataset=dataset,
-                      test_dataset=dataset,
-                      batch_size=4)
-
-    trainer = Trainer(cloned_model_opt, loss_calc=loss_calc, loaders=loaders)
+    loader = StandardLoader(dataset=dataset, batch_size=4)
+    trainer = Trainer(cloned_model_opt, loss_calc=loss_calc, loader=loader)
     trainer.train(2)
-    trainer.test(partition=Split.TEST, save_outputs=True)
     checkpoint.save()
-    Trainer(model_opt, loss_calc=loss_calc, loaders=loaders)
+    Trainer(model_opt, loss_calc=loss_calc, loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
-        Trainer(model_opt, loss_calc=loss_calc, loaders=loaders)
+        Trainer(model_opt, loss_calc=loss_calc, loader=loader)
+
+
+if __name__ == '__main__':
+    test_all()
