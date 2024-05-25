@@ -218,8 +218,9 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
         self._mixed_precision = mixed_precision
 
         self._loss_calc = loss_calc
-        self._hooks_before_training_epoch: list[Callable[[Self], None]] = []
-        self._hooks_after_training_epoch: list[Callable[[Self], None]] = []
+        self._pre_training_hooks: list[Callable[[], None]] = []
+        self._post_training_hooks: list[Callable[[], None]] = []
+        self._post_training_hooks.append(self.validate)
 
         display_epoch_info = logger.level > default_logging.INFO_LEVELS.epoch
         self.disable_bar = display_epoch_info and sys.stdout.isatty()
@@ -249,18 +250,19 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
             logger.log(default_logging.INFO_LEVELS.epoch,
                        epoch_msg, {'epoch': self.model_info.epoch})
             self._model_optimizer.model.train()
-            self.exec_hooks_before_training_epoch()
+            self.exec_pre_training_hooks()
             try:
                 self._run_epoch(partition=data_types.Split.TRAIN)
             except exceptions.ConvergenceError as ce:
                 logger.error(ce)
                 return
-            self.exec_hooks_after_training_epoch()
-            if val_after_train:  # check losses on val
-                self._model_optimizer.model.eval()
-                with torch.inference_mode():
-                    self._run_epoch(partition=data_types.Split.VAL)
+            self.exec_post_training_hooks()
         return
+
+    def validate(self) -> None:
+        self._model_optimizer.model.eval()
+        with torch.inference_mode():
+            self._run_epoch(partition=data_types.Split.VAL)
 
     def _run_epoch(self,
                    partition: data_types.Split,
@@ -280,21 +282,18 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
 
         for inputs, targets in self._tqdm_loader:
             batched_perf, outputs = self._run_batch(inputs, targets)
-
-            for metric, batched_value in batched_perf.metrics.items():
-                epoch_log[metric] += batched_value.sum(0).item()
             self._tqdm_loader.send(
                 {'Loss': batched_perf.criterion.mean(0).item()}
             )
 
-        inference_flag = torch.is_inference_mode_enabled()
+            for metric, batched_value in batched_perf.metrics.items():
+                epoch_log[metric] += batched_value.sum(0).item()
+
         log_msg_list: list[str] = ['Average %(split)s metric(s):']
         log_args: dict[str, str | float] = {'split': partition.name.lower()}
         for metric, value in epoch_log.items():
             value /= self._tqdm_loader.dataset_len
-            if inference_flag ^ (partition == data_types.Split.TRAIN):
-                # Evaluating train does not overwrite log
-                partition_log.loc[self.model_info.epoch, metric] = value
+            partition_log.loc[self.model_info.epoch, metric] = value
             log_msg_list.append(f'%({metric})s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
         logger.log(default_logging.INFO_LEVELS.metrics,
@@ -327,32 +326,28 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
             self._model_optimizer.optimizer.zero_grad()
         return batched_performance, outputs
 
-    def add_hook_before_training_epoch(
-            self,
-            hook: Callable[[Trainer[_Input, _Target, _Output]], None]
-    ) -> None:
-        return self._hooks_before_training_epoch.append(hook)
-
-    def add_hook_after_training_epoch(
-            self,
-            hook: Callable[[Trainer[_Input, _Target, _Output]], None]
-    ) -> None:
-        return self._hooks_before_training_epoch.append(hook)
-
-    def exec_hooks_before_training_epoch(self: Self) -> None:
-        """
-        This hook is called before running the training session.
-        """
-        for hook in self._hooks_before_training_epoch:
-            hook(self)
+    def add_pre_training_hook(self, hook: Callable[[], None]) -> None:
+        self._pre_training_hooks.append(hook)
         return
 
-    def exec_hooks_after_training_epoch(self: Self) -> None:
+    def add_post_training_hook(self, hook: Callable[[], None]) -> None:
+        self._post_training_hooks.append(hook)
+        return
+
+    def exec_pre_training_hooks(self: Self) -> None:
         """
         This hook is called before running the training session.
         """
-        for hook in self._hooks_after_training_epoch:
-            hook(self)
+        for hook in self._pre_training_hooks:
+            hook()
+        return
+
+    def exec_post_training_hooks(self: Self) -> None:
+        """
+        This hook is called before running the training session.
+        """
+        for hook in self._post_training_hooks:
+            hook()
         return
 
     def __str__(self) -> str:

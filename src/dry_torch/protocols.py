@@ -129,18 +129,8 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     def train(self, num_epoch: int, val_after_train: bool) -> None:
         ...
 
-    def _run_epoch(self,
-                   partition: data_types.Split,
-                   save_outputs: bool) -> None:
+    def add_pre_training_hook(self, hook: Callable[[], None]) -> None:
         ...
 
-    def _run_batch(self, inputs: _Input, targets: _Target) -> (
-            tuple[LossAndMetricsProtocol, _Output]
-    ):
-        ...
-
-    def exec_hooks_before_training_epoch(self) -> None:
-        ...
-
-    def exec_hooks_after_training_epoch(self) -> None:
+    def add_post_training_hook(self, hook: Callable[[], None]) -> None:
         ...
