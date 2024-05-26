@@ -121,12 +121,15 @@ class LossCallable(Protocol[_Output_contra, _Target_contra]):
         ...
 
 
-class TrainerProtocol(Protocol[_Input, _Target, _Output]):
-    _model_optimizer: ModelOptimizerProtocol[_Input, _Output]
-    _loader: LoaderProtocol[_Input, _Target]
-    _loss_calc: Callable[[_Output, _Target], LossAndMetricsProtocol]
+class TrainerProtocol(Protocol):
 
     def train(self, num_epoch: int, val_after_train: bool) -> None:
+        ...
+
+    def validate(self) -> None:
+        ...
+
+    def terminate_training(self) -> None:
         ...
 
     def add_pre_training_hook(self, hook: Callable[[], None]) -> None:
@@ -134,3 +137,4 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
 
     def add_post_training_hook(self, hook: Callable[[], None]) -> None:
         ...
+

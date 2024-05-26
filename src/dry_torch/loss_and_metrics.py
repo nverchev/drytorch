@@ -4,6 +4,8 @@ import torch
 from dry_torch import protocols
 from dry_torch import data_types
 
+import protocols
+
 _V = TypeVar('_V')
 
 _Output_contra = TypeVar('_Output_contra',
@@ -18,7 +20,7 @@ def _capitalize_keys(str_dict: dict[str, _V]) -> dict[str, _V]:
     return {key[0].upper() + key[1:]: value for key, value in str_dict.items()}
 
 
-class Metrics:
+class Metrics(protocols.MetricsProtocol):
     """
     A base class to store batched values of the metrics_fun as Tensors.
     """
@@ -28,7 +30,7 @@ class Metrics:
         self.metrics = _capitalize_keys(metrics)
 
 
-class LossAndMetrics:
+class LossAndMetrics(protocols.LossAndMetricsProtocol):
     """
     Stores the batched values of the loss_fun and other metrics_fun as torch 
     Tensors.

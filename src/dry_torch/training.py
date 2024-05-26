@@ -4,7 +4,7 @@ import sys
 import logging
 
 from collections import defaultdict
-from typing import Callable, Optional, Self, TypeVar
+from typing import Callable, Optional, Self, TypeVar, Generic
 import pandas as pd
 import torch
 from torch.cuda import amp
@@ -164,7 +164,7 @@ class Test:
         return f'Trainer for {self._model_optimizer.name}.'
 
 
-class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
+class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
     """
     Implement the standard Pytorch training and evaluation loop.
 
@@ -218,18 +218,25 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
         self._mixed_precision = mixed_precision
 
         self._loss_calc = loss_calc
-        self._pre_training_hooks: list[Callable[[], None]] = []
-        self._post_training_hooks: list[Callable[[], None]] = []
-        self._post_training_hooks.append(self.validate)
+        self._pre_epoch_hooks: list[
+            Callable[[protocols.TrainerProtocol], None]] = []
+        self._post_epoch_hooks: list[
+            Callable[[protocols.TrainerProtocol], None]] = []
+        self._post_epoch_hooks.append(validation_hook)
 
         display_epoch_info = logger.level > default_logging.INFO_LEVELS.epoch
         self.disable_bar = display_epoch_info and sys.stdout.isatty()
+
+        self.early_termination = False
         return
 
     @property
     def model_info(self) -> tracking.ModelTracking:
         exp = tracking.Experiment.get_active_environment()
         return exp.model[self._model_optimizer.name]
+
+    def terminate_training(self) -> None:
+        self.early_termination = True
 
     def train(self, num_epoch: int, val_after_train: bool = False) -> None:
         """
@@ -243,23 +250,34 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
         logger.log(default_logging.INFO_LEVELS.training,
                    'Training %(model_name)s:',
                    {'model_name': self._model_optimizer.name})
+
+        if self.early_termination:
+            logger.warning('Training has been terminated.')
         for _ in range(num_epoch):
+            if self.early_termination:
+                return
             self._model_optimizer.update_learning_rate()
             self.model_info.epoch += 1
+
+            # Logging
             epoch_msg = '====> Epoch %(epoch)4d:' + ' ...' * self.disable_bar
             logger.log(default_logging.INFO_LEVELS.epoch,
                        epoch_msg, {'epoch': self.model_info.epoch})
+
             self._model_optimizer.model.train()
-            self.exec_pre_training_hooks()
+            self.exec_pre_epoch_hooks()
             try:
                 self._run_epoch(partition=data_types.Split.TRAIN)
             except exceptions.ConvergenceError as ce:
+
+                # Logging
                 logger.error(ce)
-                return
-            self.exec_post_training_hooks()
+                self.terminate_training()
+
+            self.exec_post_epoch_hooks()
         return
 
-    def validate(self) -> None:
+    def validate(self):
         self._model_optimizer.model.eval()
         with torch.inference_mode():
             self._run_epoch(partition=data_types.Split.VAL)
@@ -281,18 +299,20 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
         epoch_log: defaultdict[str, float] = defaultdict(float)
 
         for inputs, targets in self._tqdm_loader:
-            batched_perf, outputs = self._run_batch(inputs, targets)
-            self._tqdm_loader.send(
-                {'Loss': batched_perf.criterion.mean(0).item()}
-            )
+            batched_perf = self._run_batch(inputs, targets)
 
+            # Averaging
             for metric, batched_value in batched_perf.metrics.items():
                 epoch_log[metric] += batched_value.sum(0).item()
 
         log_msg_list: list[str] = ['Average %(split)s metric(s):']
         log_args: dict[str, str | float] = {'split': partition.name.lower()}
+
         for metric, value in epoch_log.items():
+            # Averaging
             value /= self._tqdm_loader.dataset_len
+
+            # Logging
             partition_log.loc[self.model_info.epoch, metric] = value
             log_msg_list.append(f'%({metric})s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
@@ -301,9 +321,8 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
                    log_args)
         return
 
-    def _run_batch(self, inputs: _Input, targets: _Target) -> tuple[
-        protocols.LossAndMetricsProtocol, _Output
-    ]:
+    def _run_batch(self, inputs: _Input, targets: _Target) -> (
+            protocols.LossAndMetricsProtocol):
         inputs, targets = (
             recursive_ops.recursive_to(
                 [inputs, targets], self._model_optimizer.device
@@ -314,6 +333,7 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
             outputs = self._model_optimizer(inputs)
             batched_performance = self._loss_calc(outputs, targets)
             criterion: torch.Tensor = batched_performance.criterion.mean(0)
+        self._tqdm_loader.send({'Loss': criterion.item()})
         if not torch.is_inference_mode_enabled():
             try:
                 self._scaler.scale(criterion).backward()
@@ -324,31 +344,41 @@ class Trainer(protocols.TrainerProtocol[_Input, _Target, _Output]):
             self._scaler.step(self._model_optimizer.optimizer)
             self._scaler.update()
             self._model_optimizer.optimizer.zero_grad()
-        return batched_performance, outputs
+        return batched_performance
 
-    def add_pre_training_hook(self, hook: Callable[[], None]) -> None:
-        self._pre_training_hooks.append(hook)
+    def add_pre_epoch_hook(
+            self,
+            hook: Callable[[protocols.TrainerProtocol], None]
+    ) -> None:
+        self._pre_epoch_hooks.append(hook)
         return
 
-    def add_post_training_hook(self, hook: Callable[[], None]) -> None:
-        self._post_training_hooks.append(hook)
+    def add_post_epoch_hook(
+            self,
+            hook: Callable[[protocols.TrainerProtocol], None]
+    ) -> None:
+        self._post_epoch_hooks.append(hook)
         return
 
-    def exec_pre_training_hooks(self: Self) -> None:
+    def exec_pre_epoch_hooks(self: Self) -> None:
         """
         This hook is called before running the training session.
         """
-        for hook in self._pre_training_hooks:
-            hook()
+        for hook in self._pre_epoch_hooks:
+            hook(self)
         return
 
-    def exec_post_training_hooks(self: Self) -> None:
+    def exec_post_epoch_hooks(self: Self) -> None:
         """
         This hook is called before running the training session.
         """
-        for hook in self._post_training_hooks:
-            hook()
+        for hook in self._post_epoch_hooks:
+            hook(self)
         return
 
     def __str__(self) -> str:
         return f'Trainer for {self._model_optimizer.name}.'
+
+
+def validation_hook(trainer: protocols.TrainerProtocol) -> None:
+    return trainer.validate()
