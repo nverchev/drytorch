@@ -164,7 +164,7 @@ class Test:
         return f'Trainer for {self._model_optimizer.name}.'
 
 
-class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
+class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
     """
     Implement the standard Pytorch training and evaluation loop.
 
@@ -218,16 +218,17 @@ class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
         self._mixed_precision = mixed_precision
 
         self._loss_calc = loss_calc
-        self._pre_epoch_hooks: list[
-            Callable[[protocols.TrainerProtocol], None]] = []
-        self._post_epoch_hooks: list[
-            Callable[[protocols.TrainerProtocol], None]] = []
-        self._post_epoch_hooks.append(validation_hook)
-
-        display_epoch_info = logger.level > default_logging.INFO_LEVELS.epoch
-        self.disable_bar = display_epoch_info and sys.stdout.isatty()
+        self._pre_epoch_hooks: list[Callable[[Self], None]] = []
+        self._post_epoch_hooks: list[Callable[[Self], None]] = []
 
         self.early_termination = False
+        return
+
+    def _activate_validation(self: Self) -> None:
+        def validate_self(instance: Self) -> None:
+            instance.validate()
+            return
+        self._post_epoch_hooks.append(validate_self)
         return
 
     @property
@@ -237,6 +238,8 @@ class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
 
     def terminate_training(self) -> None:
         self.early_termination = True
+        logger.log(default_logging.INFO_LEVELS.training,
+                   'Training has been terminated.')
 
     def train(self, num_epoch: int, val_after_train: bool = False) -> None:
         """
@@ -252,7 +255,7 @@ class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
                    {'model_name': self._model_optimizer.name})
 
         if self.early_termination:
-            logger.warning('Training has been terminated.')
+            logger.warning('Attempted to train model after termination.')
         for _ in range(num_epoch):
             if self.early_termination:
                 return
@@ -260,7 +263,7 @@ class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
             self.model_info.epoch += 1
 
             # Logging
-            epoch_msg = '====> Epoch %(epoch)4d:' + ' ...' * self.disable_bar
+            epoch_msg = '====> Epoch %(epoch)4d:'
             logger.log(default_logging.INFO_LEVELS.epoch,
                        epoch_msg, {'epoch': self.model_info.epoch})
 
@@ -347,15 +350,15 @@ class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
         return batched_performance
 
     def add_pre_epoch_hook(
-            self,
-            hook: Callable[[protocols.TrainerProtocol], None]
+            self: Self,
+            hook: Callable[[Self], None]
     ) -> None:
         self._pre_epoch_hooks.append(hook)
         return
 
     def add_post_epoch_hook(
-            self,
-            hook: Callable[[protocols.TrainerProtocol], None]
+            self: Self,
+            hook: Callable[[Self], None]
     ) -> None:
         self._post_epoch_hooks.append(hook)
         return
@@ -378,7 +381,3 @@ class Trainer(Generic[_Input, _Target, _Output], protocols.TrainerProtocol):
 
     def __str__(self) -> str:
         return f'Trainer for {self._model_optimizer.name}.'
-
-
-def validation_hook(trainer: protocols.TrainerProtocol) -> None:
-    return trainer.validate()
