@@ -58,6 +58,6 @@ addopts = ["--import-mode=importlib", "--ignore=tests/test_plotter.py"]
 log_cli = true
 log_cli_level = "DEBUG"
 
-[mypy]
-namespace-packages = false
-explicit-packages = true
+[tool.mypy]
+namespace_packages = false
+files = ["src/", "tests/"]
