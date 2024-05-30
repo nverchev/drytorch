@@ -1,24 +1,25 @@
+import logging
+
 import pytest
 import torch
 from torch.utils.data import Dataset
 from dry_torch import Trainer
-from dry_torch import Split
 from dry_torch import StandardLoader
 from dry_torch import Experiment
 from dry_torch import ModelOptimizer
 from dry_torch import CheckpointIO
 from dry_torch import LossAndMetricsCalculator
 from dry_torch import exceptions
-import time
+from dry_torch import default_logging
 
 
-class IndexDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
+class IdentityDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        return torch.Tensor([index]), torch.Tensor([index])
+        x = torch.FloatTensor([index]) / len(self)
+        return x, x
 
     def __len__(self) -> int:
-        time.sleep(1)
         return 1600
 
 
@@ -32,26 +33,33 @@ class Linear(torch.nn.Module):
         return self.linear(inputs)
 
 
-def simple_fun(tensor: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
-    return tensor + second
+def square_error(tensor: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
+    return (tensor - second) ** 2
+
+
+logger = logging.getLogger('dry_torch')
+logger.setLevel(default_logging.INFO_LEVELS.progress_bar)
 
 
 def test_all() -> None:
     Experiment('test_simple_training', config={'answer': 42}).run()
     exp_pardir = 'test_experiments'
     model = Linear(1, 1)
-    model_opt = ModelOptimizer(model)
+    model_opt = ModelOptimizer(model, lr=0.1)
     cloned_model_opt = model_opt.clone('cloned_model')
     checkpoint = CheckpointIO(model_opt, exp_pardir=exp_pardir)
-    loss_calc = LossAndMetricsCalculator(simple_fun)
-    dataset = IndexDataset()
+    loss_calc = LossAndMetricsCalculator(square_error)
+    dataset = IdentityDataset()
     loader = StandardLoader(dataset=dataset, batch_size=4)
-    trainer = Trainer(cloned_model_opt, loss_calc=loss_calc, loader=loader)
-    trainer.train(2)
+    trainer = Trainer(cloned_model_opt,
+                      loss_calc=loss_calc,
+                      train_loader=loader)
+    trainer.train(10)
     checkpoint.save()
-    Trainer(model_opt, loss_calc=loss_calc, loader=loader)
+    Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
-        Trainer(model_opt, loss_calc=loss_calc, loader=loader)
+        Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)
+    assert cloned_model_opt.model(torch.FloatTensor([.2]).to(model_opt.device)) == .2
 
 
 if __name__ == '__main__':
