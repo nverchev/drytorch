@@ -49,9 +49,6 @@ class SchedulerProtocol(Protocol):
     def __call__(self, base_lr: float, epoch: int) -> float:
         ...
 
-    def __str__(self) -> str:
-        ...
-
 
 class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
 
