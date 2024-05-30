@@ -1,9 +1,9 @@
-from pathlib import Path
+from collections import abc
+import pathlib
 from typing import Protocol, TypedDict, Optional, Iterator, Callable, TypeVar
-from typing import runtime_checkable
+from typing import Self, runtime_checkable
 import torch
 from torch.nn.parameter import Parameter
-from torch.utils import data
 from dry_torch import data_types
 
 _Input_co = TypeVar('_Input_co', bound=data_types.InputType, covariant=True)
@@ -75,26 +75,46 @@ class ModelOptimizerProtocol(
 
     def update_learning_rate(
             self,
-            lr: Optional[float | dict[str, float]] = None) -> None:
+            lr: Optional[float | dict[str, float]] = None
+    ) -> None:
         ...
 
-    def __call__(self,
-                 inputs: _Input_contra) -> _Output_co:
+    def __call__(self, inputs: _Input_contra) -> _Output_co:
         ...
 
 
 class CheckpointPath(TypedDict):
-    model: Path
-    optimizer: Path
+    model: pathlib.Path
+    optimizer: pathlib.Path
+
+
+class AggregateMapping(Protocol):
+
+    def __add__(self, other: Self) -> Self:
+        ...
+
+    def __iadd__(self, other: Self) -> Self:
+        ...
+
+    def items(self) -> abc.ItemsView[str, float]:
+        ...
 
 
 class MetricsProtocol(Protocol):
-    metrics: dict[str, torch.Tensor]
+    metrics: AggregateMapping
+
+    @staticmethod
+    def reduce_metrics(metrics: AggregateMapping) -> dict[str, float]:
+        ...
 
 
 class LossAndMetricsProtocol(Protocol):
     criterion: torch.Tensor
-    metrics: dict[str, torch.Tensor]
+    metrics: AggregateMapping
+
+    @staticmethod
+    def reduce_metrics(metrics: AggregateMapping) -> dict[str, float]:
+        ...
 
 
 class TensorCallable(Protocol[_Output_contra, _Target_contra]):
@@ -106,6 +126,7 @@ class TensorCallable(Protocol[_Output_contra, _Target_contra]):
 
 
 class MetricsCallable(Protocol[_Output_contra, _Target_contra]):
+    output_class: MetricsProtocol
 
     def __call__(self,
                  outputs: _Output_contra,
@@ -114,6 +135,7 @@ class MetricsCallable(Protocol[_Output_contra, _Target_contra]):
 
 
 class LossCallable(Protocol[_Output_contra, _Target_contra]):
+    output_class: type[MetricsProtocol]
 
     def __call__(self,
                  outputs: _Output_contra,
@@ -132,9 +154,8 @@ class TrainerProtocol(Protocol):
     def terminate_training(self) -> None:
         ...
 
-    def add_pre_training_hook(self, hook: Callable[[], None]) -> None:
+    def add_pre_epoch_hook(self, hook: Callable[[Self], None]) -> None:
         ...
 
-    def add_post_training_hook(self, hook: Callable[[], None]) -> None:
+    def add_post_epoch_hook(self, hook: Callable[[Self], None]) -> None:
         ...
-
