@@ -26,7 +26,7 @@ _Output = TypeVar('_Output', bound=data_types.OutputType)
 logger = logging.getLogger('dry_torch')
 
 
-class Test:
+class Test(Generic[_Input, _Target, _Output]):
     max_stored_output: int = sys.maxsize
 
     """
@@ -64,7 +64,7 @@ class Test:
 
     def __init__(
             self,
-            model_optimizer: protocols.ModelOptimizerProtocol[_Input, _Target],
+            model_optimizer: protocols.ModelOptimizerProtocol[_Input, _Output],
             /,
             *,
             loader: protocols.LoaderProtocol[_Input, _Target],
@@ -102,21 +102,17 @@ class Test:
         if save_outputs:
             self.test_outputs.clear()
         self._model_optimizer.model.eval()
-        self._run_epoch(partition=partition,
-                        save_outputs=save_outputs)
+        self._run_epoch(partition=partition)
         return
 
     def _run_epoch(self,
-                   partition: data_types.Split,
-                   save_outputs: bool = False) -> None:
+                   partition: data_types.Split) -> None:
         """
            Run a single epoch of training or evaluation.
 
            Parameters:
                partition: The partition of the dataset on which to evaluate
                 the model's performance.
-               save_outputs: if the flag is active, store the model outputs.
-                Default to False.
 
            """
         metrics = loss_and_metrics.MetricsAggregate(float)
@@ -164,7 +160,7 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
 
     Args:
         model_optimizer: contain the model and the optimizing strategy.
-        loader: dictionary with loaders for the training, and optionally,
+        train_loader: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
          as in LossAndMetricsProtocol.
