@@ -3,12 +3,12 @@ from __future__ import annotations
 import sys
 import logging
 
-from collections import defaultdict
 from typing import Callable, Optional, Self, TypeVar, Generic
 import pandas as pd
 import torch
 from torch.cuda import amp
 
+from dry_torch import loss_and_metrics
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import model_binding
@@ -75,6 +75,8 @@ class Test:
         self._loader = loading.TqdmLoader[_Input, _Target](loader)
         self._metrics_calc = metrics_calc
         self.test_outputs = structures.TorchDictList()
+        self._reduce_metrics = metrics_calc.output_class.reduce_metrics
+
         return
 
     @property
@@ -101,8 +103,7 @@ class Test:
             self.test_outputs.clear()
         self._model_optimizer.model.eval()
         self._run_epoch(partition=partition,
-                        save_outputs=save_outputs,
-                        use_test_metrics=True)
+                        save_outputs=save_outputs)
         return
 
     def _run_epoch(self,
@@ -112,45 +113,38 @@ class Test:
            Run a single epoch of training or evaluation.
 
            Parameters:
+               partition: The partition of the dataset on which to evaluate
+                the model's performance.
                save_outputs: if the flag is active, store the model outputs.
                 Default to False.
 
            """
-        num_batch: int = len(self._loader)
-        partition_log: pd.DataFrame = self.model_info.log[partition]
-        epoch_log: defaultdict[str, float] = defaultdict(float)
-
+        metrics = loss_and_metrics.MetricsAggregate(float)
         for inputs, targets in self._loader:
-            batched_perf, outputs = self._run_batch(inputs, targets)
-            # if you get a memory error, decrease max_stored_output
-            # if save_outputs and self.max_stored_output >= epoch_seen:
-            #     self.test_outputs.extend(
-            #         structures.TorchDictList.from_batch(outputs)
-            #     )
-            for metric, batched_value in batched_perf.metrics.items():
-                epoch_log[metric] += batched_value.sum(0).item()
-                #self._tqdm_loader.send({'Loss': batched_perf.criterion.mean(0).item()}
+            metrics += self._run_batch(inputs, targets)
+        self._log_metrics(partition, self._reduce_metrics(metrics))
+        return
 
-        inference_flag = torch.is_inference_mode_enabled()
+    def _log_metrics(self,
+                     partition: data_types.Split,
+                     metrics: dict[str, float]) -> None:
         log_msg_list: list[str] = ['Average %(split)s metric(s):']
         log_args: dict[str, str | float] = {'split': partition.name.lower()}
-        for metric, value in epoch_log.items():
-            value /= self._loader.loader.dataset_len
-            if inference_flag ^ (partition == data_types.Split.TRAIN):
-                # Evaluating train does not overwrite log
-                partition_log.loc[self.model_info.epoch, metric] = value
+
+        partition_log: pd.DataFrame = self.model_info.log[partition]
+        for metric, value in metrics.items():
+            partition_log.loc[self.model_info.epoch, metric] = value
             log_msg_list.append(f'%({metric})s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
         logger.log(default_logging.INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
                    log_args)
-        return
 
     def _run_batch(
             self,
             inputs: _Input,
             targets: _Target,
-    ) -> tuple[protocols.MetricsProtocol, _Output]:
+    ) -> protocols.AggregateMapping:
         inputs, targets = (
             recursive_ops.recursive_to(
                 [inputs, targets], self._model_optimizer.device
@@ -158,7 +152,7 @@ class Test:
         )
         outputs = self._model_optimizer(inputs)
         batched_performance = self._metrics_calc(outputs, targets)
-        return batched_performance, outputs
+        return batched_performance.metrics
 
     def __str__(self) -> str:
         return f'Trainer for {self._model_optimizer.name}.'
@@ -170,28 +164,18 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
 
     Args:
         model_optimizer: contain the model and the optimizing strategy.
-        loaders: dictionary with loaders for the training, and optionally,
+        loader: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
          as in LossAndMetricsProtocol.
-        metrics_calc: the test metrics function, returning TestMetricsProtocol.
-         If None, _loss_calc will be used instead.
         mixed_precision: whether to use mixed precision computing.
          Optional, default to False.
-
-    Attributes:
-        max_stored_output:
-        the maximum number of outputs to store when testing.
-        tqdm_update_frequency:
-        number of times the progress bar updates in one epoch.
-        test_outputs:
-        An instance of TorchDictList that stores the last test evaluation.
 
     Methods:
         train:
         run the training session,
         optionally quickly evaluate on the validation dataset.
-        test: evaluate on the specified partition of the dataset.
+
         hook_before_training_epoch:
         property for adding a hook before running the training session.
         hook_after_training_epoch:
@@ -204,22 +188,31 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
             model_optimizer: protocols.ModelOptimizerProtocol[_Input, _Output],
             /,
             *,
-            loader: protocols.LoaderProtocol[_Input, _Target],
+            train_loader: protocols.LoaderProtocol[_Input, _Target],
+            val_loader: Optional[
+                protocols.LoaderProtocol[_Input, _Target]
+            ] = None,
             loss_calc: protocols.LossCallable[_Output, _Target],
             mixed_precision: bool = False,
     ) -> None:
 
         self._model_optimizer = model_optimizer
-        self._loader = loader
-        self._tqdm_loader = loading.TqdmLoader[_Input, _Target](loader)
+        self._loader = loading.TqdmLoader[_Input, _Target](train_loader)
         device_is_cuda = model_optimizer.device.type == 'cuda'
         enable_mixed_precision = mixed_precision and device_is_cuda
         self._scaler = amp.GradScaler(enabled=enable_mixed_precision)
         self._mixed_precision = mixed_precision
 
         self._loss_calc = loss_calc
+        self._reduce_metrics = loss_calc.output_class.reduce_metrics
         self._pre_epoch_hooks: list[Callable[[Self], None]] = []
         self._post_epoch_hooks: list[Callable[[Self], None]] = []
+
+        if val_loader is None:
+            self._val_loader = None
+        else:
+            self._val_loader = loading.TqdmLoader[_Input, _Target](val_loader)
+            self._activate_validation()
 
         self.early_termination = False
         return
@@ -228,6 +221,7 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
         def validate_self(instance: Self) -> None:
             instance.validate()
             return
+
         self._post_epoch_hooks.append(validate_self)
         return
 
@@ -251,9 +245,8 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
             on the validation dataset. Default to False.
         """
         logger.log(default_logging.INFO_LEVELS.training,
-                   'Training %(model_name)s:',
+                   'Training %(model_name)s.',
                    {'model_name': self._model_optimizer.name})
-
         if self.early_termination:
             logger.warning('Attempted to train model after termination.')
         for _ in range(num_epoch):
@@ -278,7 +271,7 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
                 self.terminate_training()
 
             self.exec_post_epoch_hooks()
-        return
+        logger.log(default_logging.INFO_LEVELS.training, 'End of training.')
 
     def validate(self):
         self._model_optimizer.model.eval()
@@ -286,57 +279,49 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
             self._run_epoch(partition=data_types.Split.VAL)
 
     def _run_epoch(self,
-                   partition: data_types.Split,
-                   save_outputs: bool = False) -> None:
+                   partition: data_types.Split) -> None:
         """
            Run a single epoch of training or evaluation.
 
            Parameters:
                partition: The partition of the dataset on which to evaluate
                 the model's performance.
-               save_outputs: if the flag is active, store the model outputs.
-                Default to False.
+
 
            """
-        partition_log: pd.DataFrame = self.model_info.log[partition]
-        epoch_log: defaultdict[str, float] = defaultdict(float)
+        metrics = loss_and_metrics.MetricsAggregate(float)
+        for inputs, targets in self._loader:
+            metrics += self._run_batch(inputs, targets)
+        self._log_metrics(partition, self._reduce_metrics(metrics))
+        return
 
-        for inputs, targets in self._tqdm_loader:
-            batched_perf = self._run_batch(inputs, targets)
-
-            # Averaging
-            for metric, batched_value in batched_perf.metrics.items():
-                epoch_log[metric] += batched_value.sum(0).item()
-
+    def _log_metrics(self,
+                     partition: data_types.Split,
+                     metrics: dict[str, float]) -> None:
         log_msg_list: list[str] = ['Average %(split)s metric(s):']
         log_args: dict[str, str | float] = {'split': partition.name.lower()}
 
-        for metric, value in epoch_log.items():
-            # Averaging
-            value /= self._tqdm_loader.dataset_len
-
-            # Logging
+        partition_log: pd.DataFrame = self.model_info.log[partition]
+        for metric, value in metrics.items():
             partition_log.loc[self.model_info.epoch, metric] = value
             log_msg_list.append(f'%({metric})s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
         logger.log(default_logging.INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
                    log_args)
-        return
 
-    def _run_batch(self, inputs: _Input, targets: _Target) -> (
-            protocols.LossAndMetricsProtocol):
-        inputs, targets = (
-            recursive_ops.recursive_to(
-                [inputs, targets], self._model_optimizer.device
-            )
-        )
+    def _run_batch(self,
+                   inputs: _Input,
+                   targets: _Target) -> protocols.AggregateMapping:
+        device = self._model_optimizer.device
+        inputs, targets = recursive_ops.recursive_to([inputs, targets], device)
+
         with torch.autocast(device_type=self._model_optimizer.device.type,
                             enabled=self._mixed_precision):
             outputs = self._model_optimizer(inputs)
             batched_performance = self._loss_calc(outputs, targets)
-            criterion: torch.Tensor = batched_performance.criterion.mean(0)
-        self._tqdm_loader.send({'Loss': criterion.item()})
+            criterion: torch.Tensor = batched_performance.criterion
+        self._loader.send({'Loss': criterion.item()})
         if not torch.is_inference_mode_enabled():
             try:
                 self._scaler.scale(criterion).backward()
@@ -347,7 +332,7 @@ class Trainer(protocols.TrainerProtocol, Generic[_Input, _Target, _Output]):
             self._scaler.step(self._model_optimizer.optimizer)
             self._scaler.update()
             self._model_optimizer.optimizer.zero_grad()
-        return batched_performance
+        return batched_performance.metrics
 
     def add_pre_epoch_hook(
             self: Self,

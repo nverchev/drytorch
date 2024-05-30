@@ -1,11 +1,12 @@
-from collections.abc import Callable
-from typing import Generic, TypeVar
+import collections
+import itertools
+from typing import Generic, TypeVar, Callable, Self, Hashable
+
 import torch
 from dry_torch import protocols
 from dry_torch import data_types
 
-import protocols
-
+_K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')
 
 _Output_contra = TypeVar('_Output_contra',
@@ -16,8 +17,22 @@ _Target_contra = TypeVar('_Target_contra',
                          contravariant=True)
 
 
-def _capitalize_keys(str_dict: dict[str, _V]) -> dict[str, _V]:
-    return {key[0].upper() + key[1:]: value for key, value in str_dict.items()}
+class MetricsAggregate(
+    collections.defaultdict[str, float],
+    protocols.AggregateMapping
+):
+
+    def __add__(self, other: Self) -> Self:
+        new_group = self.__class__()
+        new_group.update(
+            (key, self[key] + value) for key, value in other.items()
+        )
+        return new_group
+
+    def __iadd__(self, other: protocols.AggregateMapping) -> Self:
+        for key, value in other.items():
+            self[key] += value
+        return self
 
 
 class Metrics(protocols.MetricsProtocol):
@@ -27,10 +42,27 @@ class Metrics(protocols.MetricsProtocol):
     __slots__ = 'metrics'
 
     def __init__(self, **metrics: torch.Tensor) -> None:
-        self.metrics = _capitalize_keys(metrics)
+        self.metrics: MetricsAggregate = MetricsAggregate(float)
+        renamed_metrics = map(_capitalize_keys, metrics.items())
+        duplicated_metrics = itertools.tee(renamed_metrics)
+        aggregated_metrics = map(_mean_value, duplicated_metrics[0])
+        count_metrics = map(_get_sample_count, duplicated_metrics[1])
+        self.metrics.update(itertools.chain(aggregated_metrics, count_metrics))
+        self.metrics.update({})
+
+    @staticmethod
+    def reduce_metrics(metrics: protocols.AggregateMapping) -> dict[str, float]:
+        counts: dict[str, float] = {}
+        aggregates: dict[str, float] = {}
+        for metric, value in metrics.items():
+            if metric.startswith('count'):
+                counts[metric.removeprefix('count_')] = value
+            else:
+                aggregates[metric] = value
+        return {key: value / counts[key] for key, value in aggregates.items()}
 
 
-class LossAndMetrics(protocols.LossAndMetricsProtocol):
+class LossAndMetrics(Metrics, protocols.LossAndMetricsProtocol):
     """
     Stores the batched values of the loss_fun and other metrics_fun as torch 
     Tensors.
@@ -40,11 +72,13 @@ class LossAndMetrics(protocols.LossAndMetricsProtocol):
     def __init__(self,
                  criterion: torch.Tensor,
                  **metrics: torch.Tensor) -> None:
-        self.criterion = criterion
-        self.metrics = dict(Criterion=criterion) | _capitalize_keys(metrics)
+        self.criterion = criterion.mean()
+        self.metrics: MetricsAggregate
+        super().__init__(criterion=criterion, **metrics)
 
 
 class MetricsCalculator(Generic[_Output_contra, _Target_contra]):
+    output_class: type[protocols.MetricsProtocol] = Metrics
 
     def __init__(
             self,
@@ -57,7 +91,7 @@ class MetricsCalculator(Generic[_Output_contra, _Target_contra]):
     def __call__(self,
                  outputs: _Output_contra,
                  targets: _Target_contra) -> protocols.MetricsProtocol:
-        metrics = Metrics(**self._apply_fun(outputs, targets))
+        metrics = self.output_class(**self._apply_fun(outputs, targets))
         return metrics
 
     def _apply_fun(self,
@@ -86,8 +120,25 @@ class LossAndMetricsCalculator(
             outputs: _Output_contra,
             targets: _Target_contra
     ) -> protocols.LossAndMetricsProtocol:
-        calculated_loss = LossAndMetrics(
+        return LossAndMetrics(
             criterion=self.loss_fun(outputs, targets),
             **self._apply_fun(outputs, targets)
         )
-        return calculated_loss
+
+
+def _capitalize_keys(mapped_tuple: tuple[str, _V]) -> tuple[str, _V]:
+    key = mapped_tuple[0]
+    value = mapped_tuple[1]
+    return key[0].upper() + key[1:], value
+
+
+def _mean_value(mapped_tuple: tuple[_K, torch.Tensor]) -> tuple[_K, float]:
+    key = mapped_tuple[0]
+    value = mapped_tuple[1]
+    return key, value.sum(0).item()
+
+
+def _get_sample_count(mapped_tuple: tuple[str, _V]) -> tuple[str, int]:
+    key = mapped_tuple[0]
+    value = mapped_tuple[1]
+    return 'count_' + key, len(value) if hasattr(value, '__len__') else 1
