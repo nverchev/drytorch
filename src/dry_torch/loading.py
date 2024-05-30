@@ -1,5 +1,5 @@
-import sys
 import logging
+import sys
 from typing import TypeVar, Iterator, Generator, Generic, Optional
 import torch
 from torch.utils import data
@@ -72,8 +72,9 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
         self.update_frequency = update_frequency
         self.batch_size = loader.batch_size
         self.dataset_len = loader.dataset_len
-        display_epoch_info = logger.level > default_logging.INFO_LEVELS.epoch
-        self.disable_bar = display_epoch_info and sys.stdout.isatty()
+        self.disable_bar = (
+            logger.level > default_logging.INFO_LEVELS.progress_bar
+        )
         self._monitor_gen = _monitor()
         next(self._monitor_gen)
 
