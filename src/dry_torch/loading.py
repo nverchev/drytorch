@@ -92,7 +92,7 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
                 yield inputs, targets
                 epoch_seen += self.batch_size
                 epoch_seen = min(epoch_seen, self.dataset_len)
-                update_interval = min(num_batch // self.update_frequency, 1)
+                update_interval = max(num_batch // self.update_frequency, 1)
                 monitor_dict = {'Seen': epoch_seen} | next(self._monitor_gen)
                 if batch_idx % update_interval == 0:
                     tqdm_loader.set_postfix(monitor_dict)
