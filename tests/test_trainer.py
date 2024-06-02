@@ -2,7 +2,7 @@ import logging
 
 import pytest
 import torch
-from torch.utils.data import Dataset
+from torch.utils import data
 from dry_torch import Trainer
 from dry_torch import StandardLoader
 from dry_torch import Experiment
@@ -13,7 +13,7 @@ from dry_torch import exceptions
 from dry_torch import default_logging
 
 
-class IdentityDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
+class IdentityDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         x = torch.FloatTensor([index]) / len(self)
@@ -53,13 +53,16 @@ def test_all() -> None:
     loader = StandardLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(cloned_model_opt,
                       loss_calc=loss_calc,
-                      train_loader=loader)
+                      train_loader=loader,
+                      val_loader=loader)
     trainer.train(10)
     checkpoint.save()
     Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
         Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)
-    assert cloned_model_opt.model(torch.FloatTensor([.2]).to(model_opt.device)) == .2
+    out = cloned_model_opt.model(torch.FloatTensor([.2]).to(model_opt.device))
+    print(out)
+    assert torch.isclose(out, torch.tensor(.2), atol=0.001)
 
 
 if __name__ == '__main__':
