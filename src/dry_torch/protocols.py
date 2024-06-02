@@ -1,4 +1,3 @@
-from collections import abc
 import pathlib
 from typing import Protocol, TypedDict, Optional, Iterator, Callable, TypeVar
 from typing import Self, runtime_checkable
@@ -85,33 +84,13 @@ class CheckpointPath(TypedDict):
     optimizer: pathlib.Path
 
 
-class AggregateMapping(Protocol):
-
-    def __add__(self, other: Self) -> Self:
-        ...
-
-    def __iadd__(self, other: Self) -> Self:
-        ...
-
-    def items(self) -> abc.ItemsView[str, float]:
-        ...
-
-
 class MetricsProtocol(Protocol):
-    metrics: AggregateMapping
-
-    @staticmethod
-    def reduce_metrics(metrics: AggregateMapping) -> dict[str, float]:
-        ...
+    metrics: dict[str, torch.Tensor]
 
 
 class LossAndMetricsProtocol(Protocol):
     criterion: torch.Tensor
-    metrics: AggregateMapping
-
-    @staticmethod
-    def reduce_metrics(metrics: AggregateMapping) -> dict[str, float]:
-        ...
+    metrics: dict[str, torch.Tensor]
 
 
 class TensorCallable(Protocol[_Output_contra, _Target_contra]):
@@ -123,7 +102,6 @@ class TensorCallable(Protocol[_Output_contra, _Target_contra]):
 
 
 class MetricsCallable(Protocol[_Output_contra, _Target_contra]):
-    output_class: MetricsProtocol
 
     def __call__(self,
                  outputs: _Output_contra,
@@ -132,7 +110,6 @@ class MetricsCallable(Protocol[_Output_contra, _Target_contra]):
 
 
 class LossCallable(Protocol[_Output_contra, _Target_contra]):
-    output_class: type[MetricsProtocol]
 
     def __call__(self,
                  outputs: _Output_contra,
