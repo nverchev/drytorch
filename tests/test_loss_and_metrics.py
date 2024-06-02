@@ -2,34 +2,36 @@ import pytest
 import torch
 from dry_torch import LossAndMetricsCalculator
 from dry_torch import MetricsCalculator
-from dry_torch.loss_and_metrics import Metrics
-from dry_torch.loss_and_metrics import LossAndMetrics
+from dry_torch import structures
 
 
-def test_SlottedMetrics():
-    slotted_metrics = Metrics(test=torch.tensor(1))
-    assert slotted_metrics.metrics == {'Test': torch.tensor(1.0)}
-
-
-def test_SlottedCriterion():
-    slotted_criterion = LossAndMetrics(criterion=torch.tensor(2.0),
-                                       test=torch.tensor(1.0))
-    assert slotted_criterion.metrics == {'Criterion': torch.tensor(2.0),
-                                         'Test': torch.tensor(1.0)}
+def test_aggregate_dict():
+    unit_tensor = torch.tensor(1)
+    aggregate_metrics = structures.TorchAggregate()
+    aggregate_metrics['key'] = unit_tensor
+    assert (aggregate_metrics + aggregate_metrics).reduce()['Key'] == 1
+    aggregate_metrics += aggregate_metrics
+    assert aggregate_metrics.reduce()['Key'] == 1
+    other_aggregate = structures.TorchAggregate()
+    other_aggregate['key2'] = .5 * unit_tensor
+    resulting_aggregate = aggregate_metrics + other_aggregate
+    assert resulting_aggregate.reduce()['Key'] == 1
+    assert resulting_aggregate.reduce()['Key2'] == 0.5
 
 
 def test_MetricsFunction():
-    metrics_fun = MetricsCalculator(CrossEntropy=torch.nn.CrossEntropyLoss())
-    metrics = metrics_fun(torch.FloatTensor([1.0]), torch.FloatTensor([2.0]))
-    assert metrics.metrics == dict(CrossEntropy=torch.tensor(0.))
+    metrics_fun = MetricsCalculator(BCE=torch.nn.BCELoss(reduction='none'))
+    metrics = metrics_fun(torch.FloatTensor([1.0]), torch.FloatTensor([0.0]))
+    expected = dict(BCE=torch.tensor(100.))
+    assert metrics.metrics == expected
 
 
 def test_LossFunction():
     loss_fun = LossAndMetricsCalculator(
-        loss_fun=torch.nn.MSELoss(),
-        CrossEntropy=torch.nn.CrossEntropyLoss()
+        loss_fun=torch.nn.MSELoss(reduction='none'),
+        BCE=torch.nn.BCELoss(reduction='none')
     )
-    loss = loss_fun(torch.FloatTensor([1.0]), torch.FloatTensor([2.0]))
+    loss = loss_fun(torch.FloatTensor([1.0]), torch.FloatTensor([0.0]))
     assert loss.criterion == torch.tensor(1.0)
-    assert loss.metrics == dict(Criterion=torch.tensor(1.0),
-                                CrossEntropy=torch.tensor(0.))
+    expected = dict(criterion=torch.tensor(1.0), BCE=torch.tensor(100.))
+    assert loss.metrics == expected
