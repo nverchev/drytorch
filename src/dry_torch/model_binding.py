@@ -6,6 +6,8 @@ from typing import ParamSpec, Final, TypeVar, Any, cast
 import copy
 import torch
 from torch import cuda
+
+from dry_torch import checkpoint_utils
 from dry_torch import exceptions
 from dry_torch import schedulers
 from dry_torch import protocols
@@ -97,6 +99,7 @@ class ModelOptimizer(
             params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
             **({} if other_optimizer_args is None else other_optimizer_args),
         )
+        self.checkpoint_io = checkpoint_utils.CheckpointIO(self)
 
     def get_base_lr(self) -> list[protocols.OptParams]:
         return self._params_lr
@@ -186,6 +189,12 @@ class ModelOptimizer(
         cloned._params_lr = self.get_base_lr()
         cloned.update_learning_rate()
         return cloned
+
+    def save(self):
+        self.checkpoint_io.save()
+
+    def load(self, epoch=-1):
+        self.checkpoint_io.load(epoch=epoch)
 
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(self.count_params(elem['params'])

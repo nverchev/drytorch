@@ -7,7 +7,6 @@ from dry_torch import Trainer
 from dry_torch import StandardLoader
 from dry_torch import Experiment
 from dry_torch import ModelOptimizer
-from dry_torch import CheckpointIO
 from dry_torch import LossAndMetricsCalculator
 from dry_torch import exceptions
 from dry_torch import default_logging
@@ -42,12 +41,13 @@ logger.setLevel(default_logging.INFO_LEVELS.progress_bar)
 
 
 def test_all() -> None:
-    Experiment('test_simple_training', config={'answer': 42}).run()
     exp_pardir = 'test_experiments'
+    Experiment('test_simple_training',
+               exp_pardir=exp_pardir,
+               config={'answer': 42}).run()
     model = Linear(1, 1)
     model_opt = ModelOptimizer(model, lr=0.1)
     cloned_model_opt = model_opt.clone('cloned_model')
-    checkpoint = CheckpointIO(model_opt, exp_pardir=exp_pardir)
     loss_calc = LossAndMetricsCalculator(square_error)
     dataset = IdentityDataset()
     loader = StandardLoader(dataset=dataset, batch_size=4)
@@ -56,7 +56,7 @@ def test_all() -> None:
                       train_loader=loader,
                       val_loader=loader)
     trainer.train(10)
-    checkpoint.save()
+    cloned_model_opt.save()
     Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
         Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)

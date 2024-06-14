@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 import warnings
 from typing import Any, Optional, Type, Final
 import pandas as pd
@@ -65,6 +66,7 @@ class Experiment:
     Args:
         exp_name: the name of the experiment.
         config: configuration for the experiment.
+        exp_pardir: parent directory for the folders with the model checkpoints
         allow_extract_metadata: whether to extract metadata from classes that 
         implement the allow_extract_metadata decorator
         max_string_repr: limits the size of iterators and arrays.
@@ -82,10 +84,12 @@ class Experiment:
     def __init__(self,
                  exp_name: str,
                  config: Optional[dict[str, Any]] = None,
+                 exp_pardir: str | pathlib.Path = pathlib.Path('experiments'),
                  allow_extract_metadata: bool = True,
                  max_string_repr: int = 9) -> None:
         self.exp_name: Final = exp_name
         self.config = config
+        self.exp_pardir = pathlib.Path(exp_pardir)
         self.allow_extract_metadata = allow_extract_metadata
         self.max_string_repr = max_string_repr
         self.model = ModelTrackingDict(exp_name=exp_name)

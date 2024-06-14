@@ -20,12 +20,9 @@ class PathManager:
 
     Args:
         model_name (str): The name of the model.
-        exp_pardir (Path): The parent directory for the folders with the model
-        checkpoints.
 
     Attributes:
         model_name (str): The name of the model.
-        exp_pardir (Path): The parent directory for the folders with the model
         checkpoints.
     Properties:
         exp (Experiment): The active environment of the experiment.
@@ -43,9 +40,8 @@ class PathManager:
         get_last_saved_epoch(self) -> int: Get the last saved epoch.
     """
 
-    def __init__(self, model_name: str, exp_pardir: pathlib.Path) -> None:
+    def __init__(self, model_name: str) -> None:
         self.model_name: Final = model_name
-        self.exp_pardir: Final = exp_pardir
 
     @property
     def exp(self) -> tracking.Experiment:
@@ -57,7 +53,7 @@ class PathManager:
 
     @property
     def directory(self) -> pathlib.Path:
-        directory = self.exp_pardir / self.exp.exp_name
+        directory = self.exp.exp_pardir / self.exp.exp_name
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
@@ -128,7 +124,6 @@ class CheckpointIO:
 
     Args:
         model_optimizer: contain the model and the optimizing strategy.
-        exp_pardir: parent directory for the folders with the model checkpoints
         . Defaults to model.
 
 
@@ -141,13 +136,11 @@ class CheckpointIO:
 
     def __init__(
             self,
-            model_optimizer: protocols.ModelOptimizerProtocol,
-            exp_pardir: str | pathlib.Path = pathlib.Path('experiments')
+            model_optimizer: protocols.ModelOptimizerProtocol
     ) -> None:
 
         self.model = model_optimizer
-        self.paths = PathManager(model_name=self.model.name,
-                                 exp_pardir=pathlib.Path(exp_pardir))
+        self.paths = PathManager(model_name=self.model.name)
 
     @property
     def model_info(self) -> tracking.ModelTracking:
