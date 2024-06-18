@@ -6,7 +6,7 @@ from torch.utils import data
 from dry_torch import Trainer
 from dry_torch import StandardLoader
 from dry_torch import Experiment
-from dry_torch import ModelOptimizer
+from dry_torch import Network
 from dry_torch import LossAndMetricsCalculator
 from dry_torch import exceptions
 from dry_torch import default_logging
@@ -44,24 +44,23 @@ def test_all() -> None:
     exp_pardir = 'test_experiments'
     Experiment('test_simple_training',
                exp_pardir=exp_pardir,
-               config={'answer': 42}).run()
-    model = Linear(1, 1)
-    model_opt = ModelOptimizer(model, lr=0.1)
-    cloned_model_opt = model_opt.clone('cloned_model')
+               config={'answer': 42})
+    module = Linear(1, 1)
     loss_calc = LossAndMetricsCalculator(square_error)
+    network = Network(module, name='original_model')
+    model = network.compile(lr=0.01, loss_calc=loss_calc)
     dataset = IdentityDataset()
     loader = StandardLoader(dataset=dataset, batch_size=4)
-    trainer = Trainer(cloned_model_opt,
-                      loss_calc=loss_calc,
+    trainer = Trainer(model,
                       train_loader=loader,
                       val_loader=loader)
     trainer.train(10)
-    cloned_model_opt.save()
-    Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)
+    model.save()
+    cloned_model = model.clone('cloned_model')
+    Trainer(cloned_model, train_loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
-        Trainer(model_opt, loss_calc=loss_calc, train_loader=loader)
-    out = cloned_model_opt.model(torch.FloatTensor([.2]).to(model_opt.device))
-    print(out)
+        Trainer(model, train_loader=loader)
+    out = cloned_model.network(torch.FloatTensor([.2]).to(network.device))
     assert torch.isclose(out, torch.tensor(.2), atol=0.001)
 
 
