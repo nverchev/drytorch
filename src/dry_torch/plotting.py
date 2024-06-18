@@ -271,7 +271,7 @@ class Plotter:
         backend.
     """
 
-    def __init__(self, model_name: str = 'model') -> None:
+    def __init__(self, model_name: str = 'module') -> None:
         self.model_name = model_name
         self.get_plotter = plotter_closure()
 
@@ -292,7 +292,7 @@ class Plotter:
             lib: which library to use as backend. 'auto' default to visdom or
             plotly if from a jupyter notebook.
         """
-        log = Experiment.get_active_environment().model[self.model_name].log
+        log = Experiment.current().model[self.model_name].log
         if log[data_types.Split.TRAIN].empty:
             msg = 'Plotting learning curves failed because data is missing.'
             warnings.warn(msg)

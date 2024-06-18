@@ -42,7 +42,7 @@ class LoaderProtocol(Protocol[_Input_co, _Target_co]):
 
 class SchedulerProtocol(Protocol):
     """
-    Protocol of a scheduler compatible with the ModelOptimizer class.
+    Protocol of a scheduler compatible with the Network class.
     """
 
     def __call__(self, base_lr: float, epoch: int) -> float:
@@ -56,31 +56,8 @@ class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
         ...
 
 
-@runtime_checkable
-class ModelOptimizerProtocol(
-    Protocol[_Input_contra, _Output_co]
-):
-    name: str
-    device: torch.device
-    model: torch.nn.Module
-    scheduler: SchedulerProtocol
-    optimizer: torch.optim.Optimizer
-
-    def get_base_lr(self) -> list[OptParams]:
-        ...
-
-    def update_learning_rate(
-            self,
-            lr: Optional[float | dict[str, float]] = None
-    ) -> None:
-        ...
-
-    def __call__(self, inputs: _Input_contra) -> _Output_co:
-        ...
-
-
 class CheckpointPath(TypedDict):
-    model: pathlib.Path
+    module: pathlib.Path
     optimizer: pathlib.Path
 
 
@@ -114,6 +91,42 @@ class LossCallable(Protocol[_Output_contra, _Target_contra]):
     def __call__(self,
                  outputs: _Output_contra,
                  targets: _Target_contra) -> LossAndMetricsProtocol:
+        ...
+
+
+@runtime_checkable
+class NetworkProtocol(
+    Protocol[_Input_contra, _Output_co]
+):
+    name: str
+    device: torch.device
+    module: torch.nn.Module
+    epoch: int
+    log: data_types.LogsDict
+
+    def __call__(self, inputs: _Input_contra) -> _Output_co:
+        ...
+
+    def clone(self, new_name: str) -> Self:
+        ...
+
+
+@runtime_checkable
+class ModelProtocol(
+    Protocol[_Input, _Target, _Output]
+):
+    network: NetworkProtocol[_Input, _Output]
+    optimizer: torch.optim.Optimizer
+    scheduler: SchedulerProtocol
+    loss_calc: LossCallable[_Output, _Target]
+
+    def get_base_lr(self) -> list[OptParams]:
+        ...
+
+    def update_learning_rate(
+            self,
+            lr: Optional[float | dict[str, float]] = None
+    ) -> None:
         ...
 
 

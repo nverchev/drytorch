@@ -24,9 +24,6 @@ class ModelTracking:
             name: repr_utils.LiteralStr(model_repr)
         }
         self.metadata |= model_settings
-        self.log: data_types.LogsDict = {
-            split: pd.DataFrame() for split in data_types.Split
-        }
         self.epoch = 0
         self.bindings: dict[Type, Any] = {}
 
@@ -66,7 +63,7 @@ class Experiment:
     Args:
         exp_name: the name of the experiment.
         config: configuration for the experiment.
-        exp_pardir: parent directory for the folders with the model checkpoints
+        exp_pardir: parent directory for the folders with the module checkpoints
         allow_extract_metadata: whether to extract metadata from classes that 
         implement the allow_extract_metadata decorator
         max_string_repr: limits the size of iterators and arrays.
@@ -75,7 +72,7 @@ class Experiment:
 
     Attributes:
         metric_logger: contains the saved metric and a plotting function
-        epoch: the current epoch, that is, the number of epochs the model has 
+        epoch: the current epoch, that is, the number of epochs the module has 
         been trainer plus one.
 
 
@@ -94,13 +91,14 @@ class Experiment:
         self.max_string_repr = max_string_repr
         self.model = ModelTrackingDict(exp_name=exp_name)
         self.__class__.environment_set.add(self)
+        self.activate()
 
-    def register_model(self, model, name):
+    def register_module(self, model, name):
         self.model[name] = ModelTracking(
             name, model_repr=model.__repr__(),
             model_settings=getattr(model, 'settings', {}))
 
-    def run(self):
+    def activate(self):
         if self.active_environment is not None:
             self.stop()
         self.__class__.active_environment = self
@@ -118,11 +116,11 @@ class Experiment:
         return self.__class__.__name__ + f'(exp_name={self.exp_name})'
 
     @classmethod
-    def get_active_environment(cls) -> Experiment:
+    def current(cls) -> Experiment:
         if cls.active_environment is not None:
             return cls.active_environment
         unnamed_experiment = cls.new_default_environment()
-        unnamed_experiment.run()
+        unnamed_experiment.activate()
         return unnamed_experiment
 
     @classmethod

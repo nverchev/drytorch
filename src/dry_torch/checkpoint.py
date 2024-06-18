@@ -2,7 +2,7 @@ import warnings
 import pathlib
 import datetime
 import yaml  # type: ignore
-from typing import Final
+from typing import Optional
 import logging
 import pandas as pd
 import torch
@@ -19,17 +19,17 @@ class PathManager:
     Manages the paths for the experiment.
 
     Args:
-        model_name (str): The name of the model.
+        network: The name of the module.
 
     Attributes:
-        model_name (str): The name of the model.
+        network  The name of the module.
         checkpoints.
     Properties:
         exp (Experiment): The active environment of the experiment.
-        model_tracking (ModelTracking): The tracking information of the model.
+        model_tracking (ModelTracking): The tracking information of the module.
         directory (Path): The directory for the experiment.
         config (Path): The configuration file path.
-        model_directory (Path): The directory for the model.
+        model_directory (Path): The directory for the module.
         checkpoint_directory (Path): The directory for the checkpoints.
         logs_directory (Path): The directory for the logs.
         metadata (Path): The metadata file path.
@@ -40,16 +40,16 @@ class PathManager:
         get_last_saved_epoch(self) -> int: Get the last saved epoch.
     """
 
-    def __init__(self, model_name: str) -> None:
-        self.model_name: Final = model_name
+    def __init__(self, network: protocols.NetworkProtocol) -> None:
+        self.network = network
 
     @property
     def exp(self) -> tracking.Experiment:
-        return tracking.Experiment.get_active_environment()
+        return tracking.Experiment.current()
 
     @property
     def model_tracking(self) -> tracking.ModelTracking:
-        return self.exp.model[self.model_name]
+        return self.exp.model[self.network.name]
 
     @property
     def directory(self) -> pathlib.Path:
@@ -92,9 +92,9 @@ class PathManager:
     @property
     def checkpoint(self) -> protocols.CheckpointPath:
         checkpoint_directory = self.checkpoint_directory
-        epoch = self.model_tracking.epoch
+        epoch = self.network.epoch
         return dict(
-            model=checkpoint_directory / f'model_epoch_{epoch}.pt',
+            module=checkpoint_directory / f'module_epoch_{epoch}.pt',
             optimizer=checkpoint_directory / f'optimizer_epoch_{epoch}.pt',
         )
 
@@ -109,11 +109,11 @@ class PathManager:
         past_epochs: list[int] = []
         for path in checkpoint_directory.iterdir():
             checkpoint_desc, epoch_str = path.stem.rsplit("_", 1)
-            if checkpoint_desc.startswith('model'):
+            if checkpoint_desc.startswith('module'):
                 past_epochs.append(int(epoch_str))
         if not past_epochs:
             raise FileNotFoundError(
-                f'No saved model found in {checkpoint_directory}.')
+                f'No saved module found in {checkpoint_directory}.')
         return max(past_epochs)
 
 
@@ -123,8 +123,8 @@ class CheckpointIO:
     of the form: exp_pardir/exp_name.
 
     Args:
-        model_optimizer: contain the model and the optimizing strategy.
-        . Defaults to model.
+        network: contain the module and the optimizing strategy.
+        . Defaults to module.
 
 
     Methods:
@@ -136,32 +136,35 @@ class CheckpointIO:
 
     def __init__(
             self,
-            model_optimizer: protocols.ModelOptimizerProtocol
+            network: protocols.NetworkProtocol,
+            optimizer: Optional[torch.optim.Optimizer] = None,
     ) -> None:
 
-        self.model = model_optimizer
-        self.paths = PathManager(model_name=self.model.name)
+        self.network = network
+        self.optimizer = optimizer
+        self.paths = PathManager(network=network)
 
     @property
     def model_info(self) -> tracking.ModelTracking:
-        exp = tracking.Experiment.get_active_environment()
-        return exp.model[self.model.name]
+        exp = tracking.Experiment.current()
+        return exp.model[self.network.name]
 
     def save(self) -> None:
         """
-        Save a checkpoint for the model and the optimizer with the metadata of
+        Save a checkpoint for the module and the optimizer with the metadata of
         the experiments, the test results,
         and the training and validation learning curves.
         """
-        self.model.model.eval()
-        torch.save(self.model.model.state_dict(),
-                   self.paths.checkpoint['model'])
-        torch.save(self.model.optimizer.state_dict(),
-                   self.paths.checkpoint['optimizer'])
+        self.network.module.eval()
+        torch.save(self.network.module.state_dict(),
+                   self.paths.checkpoint['module'])
+        if self.optimizer is not None:
+            torch.save(self.optimizer.state_dict(),
+                       self.paths.checkpoint['optimizer'])
         for df_name, path in self.paths.log.items():
             # write instead of append to be safe from bugs
-            self.model_info.log[df_name].to_csv(path)
-        exp = tracking.Experiment.get_active_environment()
+            self.network.log[df_name].to_csv(path)
+        exp = tracking.Experiment.current()
         config = exp.config
         if config:
             with self.paths.config.open('w') as config_file:
@@ -172,43 +175,44 @@ class CheckpointIO:
             yaml.dump(metadata, metadata_file, sort_keys=False)
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"Model saved in: %(model_path)s",
-                   {'model_path': self.paths.checkpoint['model']})
+                   {'model_path': self.paths.checkpoint['module']})
         return
 
     def load(self, epoch: int = -1) -> None:
         """
-        Load a checkpoint for the model and the optimizer, the training and
+        Load a checkpoint for the module and the optimizer, the training and
         validation metrics and the test results.
 
         Args:
             epoch: the epoch of the checkpoint to load, the last checkpoint is
             loaded if a negative value is given.
         """
-        device = self.model.device
         epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
-        self.model_info.epoch = epoch
-        self.model.model.load_state_dict(
-            torch.load(self.paths.checkpoint['model'], map_location=device),
+        self.network.epoch = epoch
+        self.network.module.load_state_dict(
+            torch.load(self.paths.checkpoint['module'],
+                       map_location=self.network.device),
         )
-        try:
-            self.model.optimizer.load_state_dict(
-                torch.load(self.paths.checkpoint['optimizer'],
-                           map_location=device),
-            )
-        except ValueError as ve:
-            message = f'The optimizer has not been correctly loaded:\n{ve}'
-            warnings.warn(message, RuntimeWarning)
+        if self.optimizer is not None:
+            try:
+                self.optimizer.load_state_dict(
+                    torch.load(self.paths.checkpoint['optimizer'],
+                               map_location=self.network.device),
+                )
+            except ValueError as ve:
+                message = f'The optimizer has not been correctly loaded:\n{ve}'
+                warnings.warn(message, RuntimeWarning)
         for df_name, path in self.paths.log.items():
             try:
                 df = pd.read_csv(path, index_col=0)
             except FileNotFoundError:
                 df = pd.DataFrame()
             df = df[df.index <= epoch]  # filter out future epochs from logs
-            self.model_info.log[df_name] = df
+            self.network.log[df_name] = df
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"Loaded: %(model_path)s",
-                   {'model_path': self.paths.checkpoint['model']})
+                   {'model_path': self.paths.checkpoint['module']})
         return
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(model={self.model})'
+        return self.__class__.__name__ + f'(module={self.network})'

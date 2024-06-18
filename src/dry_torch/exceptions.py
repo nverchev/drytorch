@@ -35,8 +35,8 @@ class NotATensorError(TypeError):
 
 
 class ModelNotFoundError(ValueError):
-    msg = ('Accessing model {} was unsuccessful:'
-           ' model not registered in experiment {}.')
+    msg = ('Accessing module {} was unsuccessful:'
+           ' module not registered in experiment {}.')
 
     def __init__(self, name: str, exp_name: str) -> None:
         self.name = name
@@ -62,7 +62,7 @@ class PartitionNotFoundError(ValueError):
 
 
 class BoundedModelTypeError(TypeError):
-    msg = 'First argument of type {} does not follow ModelOptimizerProtocol'
+    msg = 'First argument of type {} does not follow NetworkProtocol'
 
     def __init__(self, not_a_model: Any) -> None:
         self.not_a_model = not_a_model
@@ -71,7 +71,7 @@ class BoundedModelTypeError(TypeError):
 
 class MissingParamError(ValueError):
     msg = ('Parameter groups {} in input learning rate'
-           ' do not contain all model parameters.')
+           ' do not contain all module parameters.')
 
     def __init__(self,
                  model_architecture: str,
@@ -82,7 +82,7 @@ class MissingParamError(ValueError):
 
 
 class AlreadyBoundedError(RuntimeError):
-    msg = 'There is already an object of class {} bounded to model {}'
+    msg = 'There is already an object of class {} bounded to module {}'
 
     def __init__(self, model_name: str, cls: str) -> None:
         self.model_name = model_name
@@ -91,7 +91,7 @@ class AlreadyBoundedError(RuntimeError):
 
 
 class ConvergenceError(ValueError):
-    msg = 'The model did not converge (criterion is {}).'
+    msg = 'The module did not converge (criterion is {}).'
 
     def __init__(self, criterion: float) -> None:
         self.criterion = criterion
