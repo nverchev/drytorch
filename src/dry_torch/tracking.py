@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
+from collections import defaultdict
 from typing import Any, Optional, Type, Final
 import pandas as pd
 from dry_torch import exceptions
 from dry_torch import default_logging
-from dry_torch import data_types
 from dry_torch import repr_utils
 
 logger = logging.getLogger('dry_torch')
@@ -26,6 +26,7 @@ class ModelTracking:
         self.metadata |= model_settings
         self.epoch = 0
         self.bindings: dict[Type, Any] = {}
+        self.log: dict[str, pd.DataFrame] = defaultdict(lambda: pd.DataFrame())
 
 
 class ModelTrackingDict:
@@ -93,7 +94,7 @@ class Experiment:
         self.__class__.environment_set.add(self)
         self.activate()
 
-    def register_module(self, model, name):
+    def register_model(self, model, name):
         self.model[name] = ModelTracking(
             name, model_repr=model.__repr__(),
             model_settings=getattr(model, 'settings', {}))

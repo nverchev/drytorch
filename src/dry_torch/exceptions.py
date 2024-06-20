@@ -62,7 +62,7 @@ class PartitionNotFoundError(ValueError):
 
 
 class BoundedModelTypeError(TypeError):
-    msg = 'First argument of type {} does not follow NetworkProtocol'
+    msg = 'First argument of type {} does not follow ModelProtocol'
 
     def __init__(self, not_a_model: Any) -> None:
         self.not_a_model = not_a_model

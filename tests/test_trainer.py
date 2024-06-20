@@ -6,10 +6,11 @@ from torch.utils import data
 from dry_torch import Trainer
 from dry_torch import StandardLoader
 from dry_torch import Experiment
-from dry_torch import Network
-from dry_torch import LossAndMetricsCalculator
+from dry_torch import Model
+from dry_torch import LossCalculator
 from dry_torch import exceptions
 from dry_torch import default_logging
+from dry_torch import LearningScheme
 
 
 class IdentityDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -46,22 +47,31 @@ def test_all() -> None:
                exp_pardir=exp_pardir,
                config={'answer': 42})
     module = Linear(1, 1)
-    loss_calc = LossAndMetricsCalculator(square_error)
-    network = Network(module, name='original_model')
-    model = network.compile(lr=0.01, loss_calc=loss_calc)
+    loss_calc = LossCalculator(square_error)
+    model = Model(module, name='original_model')
     dataset = IdentityDataset()
     loader = StandardLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
+                      learning_scheme=LearningScheme(lr=0.01),
+                      loss_calc=loss_calc,
                       train_loader=loader,
                       val_loader=loader)
     trainer.train(10)
-    model.save()
+    trainer.save_checkpoint()
     cloned_model = model.clone('cloned_model')
-    Trainer(cloned_model, train_loader=loader)
+    Trainer(cloned_model,
+            learning_scheme=LearningScheme(lr=0.01),
+            loss_calc=loss_calc,
+            train_loader=loader,
+            val_loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
-        Trainer(model, train_loader=loader)
-    out = cloned_model.network(torch.FloatTensor([.2]).to(network.device))
-    assert torch.isclose(out, torch.tensor(.2), atol=0.001)
+        Trainer(cloned_model,
+                learning_scheme=LearningScheme(lr=0.01),
+                loss_calc=loss_calc,
+                train_loader=loader,
+                val_loader=loader)
+    out = cloned_model(torch.FloatTensor([.2]).to(cloned_model.device))
+    assert torch.isclose(out, torch.tensor(.2), atol=0.01)
 
 
 if __name__ == '__main__':

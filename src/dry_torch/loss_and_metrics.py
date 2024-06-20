@@ -13,22 +13,13 @@ _Output_contra = TypeVar('_Output_contra',
 _Target_contra = TypeVar('_Target_contra',
                          bound=data_types.TargetType,
                          contravariant=True)
+_Target = TypeVar('_Target', bound=data_types.TargetType)
+_Output = TypeVar('_Output', bound=data_types.OutputType)
 
 
-class Metrics(protocols.MetricsProtocol):
+class LossAndMetrics(protocols.LossAndMetricsProtocol):
     """
-    A base class to store batched values of the metrics_fun as Tensors.
-    """
-    __slots__ = 'metrics'
-
-    def __init__(self, **metrics: torch.Tensor) -> None:
-        self.metrics = metrics
-
-
-class LossAndMetrics(Metrics, protocols.LossAndMetricsProtocol):
-    """
-    Stores the batched values of the loss_fun and other metrics_fun as torch 
-    Tensors.
+    Stores the values of the average loss and batched metrics as torch Tensors.
     """
     __slots__ = ('criterion', 'metrics')
 
@@ -36,7 +27,7 @@ class LossAndMetrics(Metrics, protocols.LossAndMetricsProtocol):
                  criterion: torch.Tensor,
                  **metrics: torch.Tensor) -> None:
         self.criterion = criterion.mean()
-        super().__init__(criterion=criterion, **metrics)
+        self.metrics = dict(criterion=criterion) | metrics
 
 
 class MetricsCalculator(Generic[_Output_contra, _Target_contra]):
@@ -51,38 +42,28 @@ class MetricsCalculator(Generic[_Output_contra, _Target_contra]):
 
     def __call__(self,
                  outputs: _Output_contra,
-                 targets: _Target_contra) -> protocols.MetricsProtocol:
-        metrics = Metrics(**self._apply_fun(outputs, targets))
-        return metrics
-
-    def _apply_fun(self,
-                   outputs: _Output_contra,
-                   targets: _Target_contra) -> dict[str, torch.Tensor]:
+                 targets: _Target_contra) -> dict[str, torch.Tensor]:
         return {name: function(outputs, targets)
                 for name, function in self.named_metric_fun.items()}
 
 
-class LossAndMetricsCalculator(
-    MetricsCalculator[_Output_contra, _Target_contra]
-):
+class LossCalculator(Generic[_Output, _Target]):
 
     def __init__(
             self,
-            loss_fun: Callable[[_Output_contra, _Target_contra], torch.Tensor],
-            **named_metric_fun: (
-                    Callable[[_Output_contra, _Target_contra], torch.Tensor]
-            ),
+            loss_fun: Callable[[_Output, _Target], torch.Tensor],
+            **named_metric_fun: Callable[[_Output, _Target], torch.Tensor],
     ) -> None:
         self.loss_fun = loss_fun
-        super().__init__(**named_metric_fun)
+        self.metrics_calc: protocols.MetricsCallable[_Output, _Target] = MetricsCalculator(**named_metric_fun)
 
     def __call__(
             self,
-            outputs: _Output_contra,
-            targets: _Target_contra
+            outputs: _Output,
+            targets: _Target
     ) -> protocols.LossAndMetricsProtocol:
         out = LossAndMetrics(
             criterion=self.loss_fun(outputs, targets),
-            **self._apply_fun(outputs, targets),
+            **self.metrics_calc(outputs, targets)
         )
         return out

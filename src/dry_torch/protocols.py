@@ -1,5 +1,6 @@
 import pathlib
-from typing import Protocol, TypedDict, Optional, Iterator, Callable, TypeVar
+from typing import Protocol, TypedDict, Optional, Iterator, Callable, TypeVar, \
+    Any, Type, Iterable
 from typing import Self, runtime_checkable
 import torch
 from torch.nn.parameter import Parameter
@@ -42,7 +43,7 @@ class LoaderProtocol(Protocol[_Input_co, _Target_co]):
 
 class SchedulerProtocol(Protocol):
     """
-    Protocol of a scheduler compatible with the Network class.
+    Protocol of a scheduler compatible with the Model class.
     """
 
     def __call__(self, base_lr: float, epoch: int) -> float:
@@ -51,18 +52,13 @@ class SchedulerProtocol(Protocol):
 
 class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
 
-    def forward(self,
-                inputs: _Input_contra) -> _Output_co:
+    def forward(self, inputs: _Input_contra) -> _Output_co:
         ...
 
 
-class CheckpointPath(TypedDict):
-    module: pathlib.Path
+class StatePath(TypedDict):
+    state: pathlib.Path
     optimizer: pathlib.Path
-
-
-class MetricsProtocol(Protocol):
-    metrics: dict[str, torch.Tensor]
 
 
 class LossAndMetricsProtocol(Protocol):
@@ -82,51 +78,43 @@ class MetricsCallable(Protocol[_Output_contra, _Target_contra]):
 
     def __call__(self,
                  outputs: _Output_contra,
-                 targets: _Target_contra) -> MetricsProtocol:
+                 targets: _Target_contra) -> dict[str, torch.Tensor]:
         ...
 
 
-class LossCallable(Protocol[_Output_contra, _Target_contra]):
+class LossCallable(Protocol[_Output, _Target]):
+    metrics_calc: MetricsCallable[_Output, _Target]
 
     def __call__(self,
-                 outputs: _Output_contra,
-                 targets: _Target_contra) -> LossAndMetricsProtocol:
+                 outputs: _Output,
+                 targets: _Target) -> LossAndMetricsProtocol:
         ...
+
+
+class LearningProtocol(Protocol):
+    """
+        optimizer_cls: the optimizer class to bind to the module.
+         Defaults to torch.optim.Adam.
+        lr: a dictionary of learning rates for the named parameters or a float
+        for a global value.
+        other_optimizer_args: optional arguments for the optimizer
+        (same for all the parameters).
+        scheduler: modifies the learning rate given the current epoch. Default
+        value does not implement a scheduler.
+    """
+    optimizer_cls: Type[torch.optim.Optimizer]
+    lr: float | dict[str, float]
+    other_optimizer_args: dict[str, Any]
+    scheduler: SchedulerProtocol
 
 
 @runtime_checkable
-class NetworkProtocol(
-    Protocol[_Input_contra, _Output_co]
-):
+class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     name: str
     device: torch.device
     module: torch.nn.Module
-    epoch: int
-    log: data_types.LogsDict
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
-        ...
-
-    def clone(self, new_name: str) -> Self:
-        ...
-
-
-@runtime_checkable
-class ModelProtocol(
-    Protocol[_Input, _Target, _Output]
-):
-    network: NetworkProtocol[_Input, _Output]
-    optimizer: torch.optim.Optimizer
-    scheduler: SchedulerProtocol
-    loss_calc: LossCallable[_Output, _Target]
-
-    def get_base_lr(self) -> list[OptParams]:
-        ...
-
-    def update_learning_rate(
-            self,
-            lr: Optional[float | dict[str, float]] = None
-    ) -> None:
         ...
 
 

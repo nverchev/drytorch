@@ -1,6 +1,6 @@
 import pytest
 import torch
-from dry_torch import LossAndMetricsCalculator
+from dry_torch import LossCalculator
 from dry_torch import MetricsCalculator
 from dry_torch import structures
 
@@ -23,11 +23,11 @@ def test_MetricsFunction():
     metrics_fun = MetricsCalculator(BCE=torch.nn.BCELoss(reduction='none'))
     metrics = metrics_fun(torch.FloatTensor([1.0]), torch.FloatTensor([0.0]))
     expected = dict(BCE=torch.tensor(100.))
-    assert metrics.metrics == expected
+    assert metrics == expected
 
 
 def test_LossFunction():
-    loss_fun = LossAndMetricsCalculator(
+    loss_fun = LossCalculator(
         loss_fun=torch.nn.MSELoss(reduction='none'),
         BCE=torch.nn.BCELoss(reduction='none')
     )

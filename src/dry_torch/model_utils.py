@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from functools import wraps
 from typing import Optional, Callable, Concatenate, Self, Iterable, Iterator
-from typing import ParamSpec, Final, TypeVar, Any, cast
+from typing import Type
+from typing import ParamSpec, TypeVar, Any, cast
 import copy
 
-import pandas as pd
 import torch
 from torch import cuda
 
@@ -22,6 +22,10 @@ _Input_contra = TypeVar('_Input_contra',
 _Target_contra = TypeVar('_Target_contra',
                          bound=data_types.InputType,
                          contravariant=True)
+_Output_co = TypeVar('_Output_co',
+                     bound=data_types.OutputType,
+                     covariant=True)
+
 _Input = TypeVar('_Input', bound=data_types.InputType)
 _Target = TypeVar('_Target', bound=data_types.TargetType)
 _Output = TypeVar('_Output', bound=data_types.OutputType)
@@ -30,7 +34,34 @@ _P = ParamSpec('_P')
 _RT = TypeVar('_RT')
 
 
-class Network(protocols.NetworkProtocol[_Input_contra, _Output]):
+class LearningScheme(protocols.LearningProtocol):
+    """
+        optimizer_cls: the optimizer class to bind to the module.
+         Defaults to torch.optim.Adam.
+        lr: a dictionary of learning rates for the named parameters or a float
+        for a global value.
+        other_optimizer_args: optional arguments for the optimizer
+        (same for all the parameters).
+        scheduler: modifies the learning rate given the current epoch. Default
+        value does not implement a scheduler.
+    """
+
+    def __init__(
+            self,
+            optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adam,
+            lr: float | dict[str, float] = 0.001,
+            scheduler: protocols.SchedulerProtocol = (
+                    schedulers.ConstantScheduler()
+            ),
+            **other_optimizer_args: Any,
+    ) -> None:
+        self.optimizer_cls = optimizer_cls
+        self.lr = lr
+        self.scheduler = scheduler
+        self.other_optimizer_args = other_optimizer_args
+
+
+class Model(protocols.ModelProtocol[_Input_contra, _Output_co]):
     """
     Bundle the module and its optimizer.
     Support different learning rates and separate parameters groups.
@@ -60,22 +91,18 @@ class Network(protocols.NetworkProtocol[_Input_contra, _Output]):
 
     def __init__(
             self,
-            torch_module: protocols.ModuleProtocol[_Input_contra, _Output],
+            torch_module: protocols.ModuleProtocol[_Input_contra, _Output_co],
             /,
-            name: str = 'network',
+            name: str = 'model',
             device: Optional[torch.device] = None,
     ) -> None:
-        self.name: Final = name
+        self.name: str = name
         self.device = self.default_device() if device is None else device
         self.module = self.validate_module(torch_module).to(self.device)
-        self.checkpoint_io = checkpoint.CheckpointIO(self)
-        self.epoch = 0
-        self.log: data_types.LogsDict = {
-            split: pd.DataFrame() for split in data_types.Split
-        }
-
+        self.optimizer: Optional[torch.optim.Optimizer] = None
+        self.checkpoint = checkpoint.CheckpointIO(self)
         exp = tracking.Experiment.current()
-        exp.register_module(torch_module, name)
+        exp.register_model(torch_module, name)
 
     @staticmethod
     def validate_module(torch_model) -> torch.nn.Module:
@@ -84,31 +111,12 @@ class Network(protocols.NetworkProtocol[_Input_contra, _Output]):
         return torch_model
 
     @staticmethod
-    def default_device():
+    def default_device() -> torch.device:
         return torch.device('cuda:0' if cuda.is_available() else 'cpu')
 
-    def compile(
-            self,
-            loss_calc: protocols.LossCallable[_Output, _Target_contra],
-            optimizer_cls: type[torch.optim.Optimizer] = torch.optim.Adam,
-            lr: float | dict[str, float] = 0.001,
-            other_optimizer_args: Optional[dict[str, Any]] = None,
-            scheduler: protocols.SchedulerProtocol = (
-                    schedulers.ConstantScheduler()
-            ),
-    ) -> Model[_Input_contra, _Target_contra, _Output]:
-        return Model(
-            self,
-            loss_calc=loss_calc,
-            optimizer_cls=optimizer_cls,
-            lr=lr,
-            other_optimizer_args=other_optimizer_args,
-            scheduler=scheduler,
-        )
-
-    def _copy_module(  # type: ignore
+    def _copy_module(
             self
-    ) -> protocols.ModuleProtocol[_Input_contra, _Output]:
+    ) -> protocols.ModuleProtocol[_Input_contra, _Output_co]:
         return copy.deepcopy(self.module)
 
     def clone(self, new_name: str) -> Self:
@@ -123,32 +131,27 @@ class Network(protocols.NetworkProtocol[_Input_contra, _Output]):
         )
         return cloned
 
-    def save(self):
-        self.checkpoint_io.save()
+    def save_state(self) -> None:
+        self.checkpoint.save()
 
-    def load(self, epoch=-1):
-        self.checkpoint_io.load(epoch=epoch)
+    def load_state(self, epoch=-1) -> None:
+        self.checkpoint.load(epoch=epoch)
 
-    def __call__(self, inputs: _Input_contra) -> _Output:
+    def to(self, device: torch.device) -> None:
+        self.device = device
+        self.module.to(device)
+
+    def __call__(self, inputs: _Input_contra) -> _Output_co:
+        # recursive_ops.recursive_to(inputs, self.device)
         return self.module(inputs)
 
 
-class Model(protocols.ModelProtocol[_Input, _Target, _Output]):
+class ModelOptimizer:
     """
     Bundle the module and its optimizer.
     Support different learning rates and separate parameters groups.
 
     Args:
-        match the class type variables.
-        optimizer_cls: the optimizer class to bind to the module.
-         Defaults to torch.optim.Adam.
-        lr: a dictionary of learning rates for the named parameters or a float
-        for a global value.
-        other_optimizer_args: optional arguments for the optimizer
-        (same for all the parameters).
-        scheduler: modifies the learning rate given the current epoch. Default
-        value does not implement a scheduler.
-
 
     Attributes:
 
@@ -163,46 +166,30 @@ class Model(protocols.ModelProtocol[_Input, _Target, _Output]):
 
     def __init__(
             self,
-            network: protocols.NetworkProtocol[_Input, _Output],
-            /,
-            *,
-            loss_calc: protocols.LossCallable[_Output, _Target],
-            optimizer_cls: type[torch.optim.Optimizer] = torch.optim.Adam,
-            lr: float | dict[str, float] = 0.001,
-            other_optimizer_args: Optional[dict[str, Any]] = None,
-            scheduler: protocols.SchedulerProtocol = (
-                    schedulers.ConstantScheduler()
-            ),
+            model: protocols.ModelProtocol[_Input_contra, _Output_co],
+            learning_scheme: protocols.LearningProtocol = LearningScheme()
     ) -> None:
-        self.network = network
-        self.loss_calc = loss_calc
+        self.model = model
+        self.module = self.model.module
+        self.learning_scheme = learning_scheme
         self._params_lr: list[protocols.OptParams] = []
-        self.set_lr(lr)
-        self.scheduler = scheduler
-        self.optimizer = optimizer_cls(
+        self.set_lr(learning_scheme.lr)
+        self.scheduler = learning_scheme.scheduler
+        self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
-            **({} if other_optimizer_args is None else other_optimizer_args),
+            **learning_scheme.other_optimizer_args,
         )
-        self.checkpoint_io = checkpoint.CheckpointIO(network, self.optimizer)
-
-    def get_base_lr(self) -> list[protocols.OptParams]:
-        return self._params_lr
 
     def get_scheduled_lr(self) -> list[protocols.OptParams]:
         """
         Learning rates for each parameter updated according to the scheduler
         and the current epoch.
         """
-        exp = tracking.Experiment.current()
-        epoch = exp.model[self.network.name].epoch
+        epoch = self.get_epoch()
         return [
             dict(params=g['params'], lr=self.scheduler(g['lr'], epoch))
             for g in self._params_lr
         ]
-
-    def to(self, device: torch.device):
-        self.network.device = device
-        self.network.module.to(device)
 
     # params_lr.setter does not implement typing suggestion
     def set_lr(self, lr: float | dict[str, float]) -> None:
@@ -215,16 +202,16 @@ class Model(protocols.ModelProtocol[_Input, _Target, _Output]):
         """
         if isinstance(lr, (float, int)):
             self._params_lr = [
-                dict(params=self.network.module.parameters(), lr=lr),
+                dict(params=self.module.parameters(), lr=lr),
             ]
         else:
             self._params_lr = [
-                dict(params=getattr(self.network.module, k).parameters(), lr=v)
+                dict(params=getattr(self.module, k).parameters(), lr=v)
                 for k, v in lr.items()
             ]
             if not self._params_lr_contains_all_params():
                 raise exceptions.MissingParamError(
-                    repr(self.network.module), list(lr)
+                    repr(self.module), list(lr)
                 )
         return
 
@@ -250,49 +237,43 @@ class Model(protocols.ModelProtocol[_Input, _Target, _Output]):
             g['lr'] = up_g['lr']
         return
 
-    def clone(self, new_name: str) -> Self:
-        """
-        Return a copy of the deepcopy of the object.
-        """
-        cloned = self.__class__(
-            self.network.clone(new_name),
-            loss_calc=self.loss_calc,
-            optimizer_cls=type(self.optimizer),
-            other_optimizer_args=self.optimizer.defaults,
-            scheduler=self.scheduler,
-        )
-        cloned._params_lr = self.get_base_lr()
-        cloned.update_learning_rate()
-        return cloned
-
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(self.count_params(elem['params'])
                               for elem in self._params_lr)
-        total_params_model = self.count_params(self.network.module.parameters())
+        total_params_model = self.count_params(self.module.parameters())
         return total_params_lr == total_params_model
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         desc = '{}(module={}, optimizer={})'
         return desc.format(self.__class__.__name__,
-                           self.network.module.name,
                            self.optimizer.__class__.__name__)
+
+    # def clone(self, new_name: str) -> Self:
+    #     """
+    #     Return a deepcopy of the object.
+    #     """
+    #     cloned_model = self._copy_module()
+    #     cloned = self.__class__(
+    #         cloned_model,
+    #         name=new_name,
+    #         device=self.device,
+    #         learning_scheme=self.learning_scheme
+    #     )
+    #     return cloned
 
     @staticmethod
     def count_params(params: Iterator) -> int:
         return sum(1 for _ in params)
 
-    def save(self):
-        self.checkpoint_io.save()
-
-    def load(self, epoch=-1):
-        self.checkpoint_io.load(epoch=epoch)
+    def get_epoch(self) -> int:
+        return tracking.Experiment.current().model[self.model.name].epoch
 
 
 def bind_to_model(
         func: Callable[
             Concatenate[
                 Any,
-                protocols.ModelProtocol[_Input, _Target, _Output],
+                protocols.ModelProtocol[_Input_contra, _Output_co],
                 _P
             ],
             _RT
@@ -300,7 +281,7 @@ def bind_to_model(
 ) -> Callable[
     Concatenate[
         Any,
-        protocols.ModelProtocol[_Input, _Target, _Output],
+        protocols.ModelProtocol[_Input_contra, _Output_co],
         _P],
     _RT
 ]:
@@ -315,18 +296,17 @@ def bind_to_model(
 
     @wraps(func)
     def wrapper(instance: Any,
-                compiled: protocols.ModelProtocol,
+                model: protocols.ModelProtocol[_Input_contra, _Output_co],
                 *args: _P.args,
                 **kwargs: _P.kwargs) -> _RT:
-        network = compiled.network
-        if not isinstance(network, protocols.NetworkProtocol):
-            raise exceptions.BoundedModelTypeError(network)
+        if not isinstance(model, protocols.ModelProtocol):
+            raise exceptions.BoundedModelTypeError(model)
         exp = tracking.Experiment.current()
         cls = instance.__class__
-        if cls in exp.model[network.name].bindings:
-            raise exceptions.AlreadyBoundedError(network.name, cls)
-        exp.model[network.name].bindings[cls] = instance
-        tracking.add_metadata(exp, network.name, kwargs)
-        return func(instance, compiled, *args, **kwargs)
+        if cls in exp.model[model.name].bindings:
+            raise exceptions.AlreadyBoundedError(model.name, cls)
+        exp.model[model.name].bindings[cls] = instance
+        tracking.add_metadata(exp, model.name, kwargs)
+        return func(instance, model, *args, **kwargs)
 
     return wrapper
