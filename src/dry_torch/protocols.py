@@ -1,7 +1,6 @@
 import pathlib
-from typing import Protocol, TypedDict, Optional, Iterator, Callable, TypeVar, \
-    Any, Type, Iterable
-from typing import Self, runtime_checkable
+from typing import Protocol, TypedDict, Iterator, Callable, TypeVar
+from typing import Any, Type, Self, runtime_checkable
 import torch
 from torch.nn.parameter import Parameter
 from dry_torch import data_types
@@ -93,7 +92,7 @@ class LossCallable(Protocol[_Output, _Target]):
 
 class LearningProtocol(Protocol):
     """
-        optimizer_cls: the optimizer class to bind to the module.
+        optimizer_cls: the optimizer class to bind_to_model to the module.
          Defaults to torch.optim.Adam.
         lr: a dictionary of learning rates for the named parameters or a float
         for a global value.
@@ -120,7 +119,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
 class TrainerProtocol(Protocol):
 
-    def train(self, num_epoch: int, val_after_train: bool) -> None:
+    def train(self, num_epoch: int) -> None:
         ...
 
     def validate(self) -> None:

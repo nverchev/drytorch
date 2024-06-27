@@ -58,7 +58,7 @@ class ComplexClass:
             'list': list(long_generator),
         }
 
-        # write the name of the function
+        # write the model_name of the function
         self.fun = int
 
         # object with slots

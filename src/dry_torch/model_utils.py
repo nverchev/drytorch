@@ -36,7 +36,7 @@ _RT = TypeVar('_RT')
 
 class LearningScheme(protocols.LearningProtocol):
     """
-        optimizer_cls: the optimizer class to bind to the module.
+        optimizer_cls: the optimizer class to bind_to_model to the module.
          Defaults to torch.optim.Adam.
         lr: a dictionary of learning rates for the named parameters or a float
         for a global value.
@@ -62,6 +62,7 @@ class LearningScheme(protocols.LearningProtocol):
 
 
 class Model(protocols.ModelProtocol[_Input_contra, _Output_co]):
+    default_model_name = tracking.default_name('Model_')
     """
     Bundle the module and its optimizer.
     Support different learning rates and separate parameters groups.
@@ -93,16 +94,17 @@ class Model(protocols.ModelProtocol[_Input_contra, _Output_co]):
             self,
             torch_module: protocols.ModuleProtocol[_Input_contra, _Output_co],
             /,
-            name: str = 'model',
+            name: Optional[str] = None,
             device: Optional[torch.device] = None,
     ) -> None:
-        self.name: str = name
+        self.name: str = name or self.__class__.default_model_name()
         self.device = self.default_device() if device is None else device
         self.module = self.validate_module(torch_module).to(self.device)
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.checkpoint = checkpoint.CheckpointIO(self)
-        exp = tracking.Experiment.current()
-        exp.register_model(torch_module, name)
+        self.exp = tracking.Experiment.current()
+        self.exp.register_model(torch_module, name)
+        self.info: tracking.ModelTracking = self.exp.model[self.name]
 
     @staticmethod
     def validate_module(torch_model) -> torch.nn.Module:
@@ -255,7 +257,7 @@ class ModelOptimizer:
     #     cloned_model = self._copy_module()
     #     cloned = self.__class__(
     #         cloned_model,
-    #         name=new_name,
+    #         model_name=new_name,
     #         device=self.device,
     #         learning_scheme=self.learning_scheme
     #     )
@@ -269,44 +271,81 @@ class ModelOptimizer:
         return tracking.Experiment.current().model[self.model.name].epoch
 
 
-def bind_to_model(
-        func: Callable[
-            Concatenate[
-                Any,
-                protocols.ModelProtocol[_Input_contra, _Output_co],
-                _P
-            ],
-            _RT
+def log_kwargs(bind_to_model: bool = False) -> (
+        Callable[
+            [Callable[
+                 Concatenate[
+                     Any,
+                     protocols.ModelProtocol[_Input_contra, _Output_co],
+                     _P
+                 ],
+                 _RT
+             ]
+             ],
+            Callable[
+                Concatenate[
+                    Any,
+                    protocols.ModelProtocol[_Input_contra, _Output_co],
+                    _P],
+                _RT
+            ]
         ]
-) -> Callable[
-    Concatenate[
-        Any,
-        protocols.ModelProtocol[_Input_contra, _Output_co],
-        _P],
-    _RT
-]:
-    """
-    Decorator that extracts metadata from a function named arguments.
+):
+    def _log_kwargs(
+            func: Callable[
+                Concatenate[
+                    Any,
+                    protocols.ModelProtocol[_Input_contra, _Output_co],
+                    _P
+                ],
+                _RT
+            ]
+    ) -> Callable[
+        Concatenate[
+            Any,
+            protocols.ModelProtocol[_Input_contra, _Output_co],
+            _P],
+        _RT
+    ]:
+        """
+        Decorator that extracts metadata from a function named arguments.
 
-    Args:
-        func: the function that we want to extract metadata from.
-    Returns:
-        Callable: the same input function.
-    """
+        Args:
+            func: the function that we want to extract metadata from.
+        Returns:
+            Callable: the same input function.
+        """
 
-    @wraps(func)
-    def wrapper(instance: Any,
-                model: protocols.ModelProtocol[_Input_contra, _Output_co],
-                *args: _P.args,
-                **kwargs: _P.kwargs) -> _RT:
-        if not isinstance(model, protocols.ModelProtocol):
-            raise exceptions.BoundedModelTypeError(model)
-        exp = tracking.Experiment.current()
-        cls = instance.__class__
-        if cls in exp.model[model.name].bindings:
-            raise exceptions.AlreadyBoundedError(model.name, cls)
-        exp.model[model.name].bindings[cls] = instance
-        tracking.add_metadata(exp, model.name, kwargs)
-        return func(instance, model, *args, **kwargs)
+        @wraps(func)
+        def wrapper(instance: Any,
+                    model: protocols.ModelProtocol[_Input_contra, _Output_co],
+                    *args: _P.args,
+                    **kwargs: _P.kwargs) -> _RT:
+            if not isinstance(model, protocols.ModelProtocol):
+                raise exceptions.BoundedModelTypeError(model)
+            exp = tracking.Experiment.current()
+            cls = instance.__class__
+            if bind_to_model:
+                if cls in exp.model[model.name].bindings:
+                    raise exceptions.AlreadyBoundedError(model.name, cls)
+                exp.model[model.name].bindings[cls] = instance
+            tracking.add_metadata(exp, model.name, cls.__name__, kwargs)
+            return func(instance, model, *args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    return _log_kwargs
+
+
+def unbind(instance: Any,
+           model: protocols.ModelProtocol[_Input_contra, _Output_co]) -> None:
+    if not isinstance(model, protocols.ModelProtocol):
+        raise exceptions.BoundedModelTypeError(model)
+    exp = tracking.Experiment.current()
+    cls = instance.__class__
+    if cls not in exp.model[model.name].bindings:
+        raise exceptions.NotBoundedError(model.name, cls)
+    exp.model[model.name].bindings.pop(cls)
+    metadata = exp.model[model.name].metadata
+    metadata['archived_' + exp.model[model.name].epoch] = metadata
+    return

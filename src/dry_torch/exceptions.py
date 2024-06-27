@@ -44,13 +44,12 @@ class ModelNotFoundError(ValueError):
 
 
 class ModelAlreadyRegisteredError(ValueError):
-    msg = ('Registering name {} was unsuccessful:'
-           ' name already registered in experiment {}.')
+    msg = ('Registering model_name {} was unsuccessful:'
+           ' model_name already registered in experiment {}.')
 
     def __init__(self, name: str, exp_name: str) -> None:
         self.name = name
         super().__init__(self.msg.format(name, exp_name))
-
 
 
 class PartitionNotFoundError(ValueError):
@@ -83,6 +82,15 @@ class MissingParamError(ValueError):
 
 class AlreadyBoundedError(RuntimeError):
     msg = 'There is already an object of class {} bounded to module {}'
+
+    def __init__(self, model_name: str, cls: str) -> None:
+        self.model_name = model_name
+        self.cls = cls
+        super().__init__(self.msg.format(cls, model_name))
+
+
+class NotBoundedError(RuntimeError):
+    msg = 'There is no object of class {} bounded to module {}'
 
     def __init__(self, model_name: str, cls: str) -> None:
         self.model_name = model_name

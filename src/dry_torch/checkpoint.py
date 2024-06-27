@@ -20,10 +20,10 @@ class PathManager:
     Manages the paths for the experiment.
 
     Args:
-        model: The name of the module.
+        model: The model_name of the module.
 
     Attributes:
-        model  The name of the module.
+        model  The model_name of the module.
         checkpoints.
     Properties:
         exp (Experiment): The active environment of the experiment.
@@ -131,7 +131,7 @@ class CheckpointIO:
     Methods:
         save: save a checkpoint.
         load: load a checkpoint.
-        exp_name: property with the name of the experiment.
+        exp_name: property with the model_name of the experiment.
         epoch: property with the current epoch.
     """
 
@@ -164,7 +164,7 @@ class CheckpointIO:
                        self.paths.checkpoint['optimizer'])
         for split, path in self.paths.log.items():
             # write instead of append to be safe from bugs
-            self.model_tracking.log[split.name].to_csv(path)
+            self.model_tracking.log[split].to_csv(path)
         exp = tracking.Experiment.current()
         config = exp.config
         if config:
@@ -209,7 +209,7 @@ class CheckpointIO:
             except FileNotFoundError:
                 df = pd.DataFrame()
             df = df[df.index <= epoch]  # filter out future epochs from logs
-            self.model_tracking.log[split.name] = df
+            self.model_tracking.log[split] = df
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"Loaded: %(model_path)s",
                    {'model_path': self.paths.checkpoint['state']})

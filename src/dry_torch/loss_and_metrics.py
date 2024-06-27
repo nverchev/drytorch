@@ -55,7 +55,9 @@ class LossCalculator(Generic[_Output, _Target]):
             **named_metric_fun: Callable[[_Output, _Target], torch.Tensor],
     ) -> None:
         self.loss_fun = loss_fun
-        self.metrics_calc: protocols.MetricsCallable[_Output, _Target] = MetricsCalculator(**named_metric_fun)
+        self.metrics_calc: protocols.MetricsCallable
+        self.metrics_calc = MetricsCalculator(criterion=loss_fun,
+                                              **named_metric_fun)
 
     def __call__(
             self,
@@ -63,7 +65,6 @@ class LossCalculator(Generic[_Output, _Target]):
             targets: _Target
     ) -> protocols.LossAndMetricsProtocol:
         out = LossAndMetrics(
-            criterion=self.loss_fun(outputs, targets),
             **self.metrics_calc(outputs, targets)
         )
         return out

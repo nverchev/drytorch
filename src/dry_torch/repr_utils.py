@@ -133,17 +133,6 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
             msg = 'numpy should be a method without additional parameters'
             raise AttributeError(msg) from te
 
-    if hasattr(struc, '__iter__'):
-        limit_struc = limit_size(struc, max_size=max_size)
-        if hasattr(struc, 'get'):  # assume that the iterable contains keys
-            return {str(k): struc_repr(struc.get(k), max_size=max_size)
-                    for k in limit_struc}
-        struc_list = [struc_repr(item, max_size=max_size)
-                      for item in limit_struc]
-        if isinstance(struc, (list, set, tuple)):
-            return LiteralStr(type(struc)(struc_list))
-        return LiteralStr(struc_list)
-
     dict_attr = getattr(struc, '__dict__', {})
     dict_attr |= {name: getattr(struc, name)
                   for name in getattr(struc, '__slots__', [])}
@@ -155,5 +144,16 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
             return {'repr': struc.__repr__()} | dict_attr
         else:
             return {'class': type(struc).__name__} | dict_attr
+
+    if hasattr(struc, '__iter__'):
+        limit_struc = limit_size(struc, max_size=max_size)
+        if hasattr(struc, 'get'):  # assume that the iterable contains keys
+            return {str(k): struc_repr(struc.get(k), max_size=max_size)
+                    for k in limit_struc}
+        struc_list = [struc_repr(item, max_size=max_size)
+                      for item in limit_struc]
+        if isinstance(struc, (list, set, tuple)):
+            return LiteralStr(type(struc)(struc_list))
+        return LiteralStr(struc_list)
 
     return repr(struc) if has_own_repr(struc) else struc.__class__.__name__

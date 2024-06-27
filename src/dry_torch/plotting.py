@@ -16,7 +16,7 @@ class BackendPlotter(metaclass=ABCMeta):
     Abstract base class for plotting learning curves.
 
     Args:
-        env: the name of the environment (useful to some backends).
+        env: the model_name of the environment (useful to some backends).
         Default to ''.
     """
 
@@ -40,7 +40,7 @@ class BackendPlotter(metaclass=ABCMeta):
             loss_or_metric: the metric to visualize. Defaults to 'Criterion'.
             start: the epoch from where you want to display the curve.
              Defaults to 0.
-            title: the name of the window of the plot in the visdom interface.
+            title: the model_name of the window of the plot in the visdom interface.
             Defaults to 'Learning Curves'.
         """
         self._plot(train_log, val_log, loss_or_metric, start, title)
@@ -80,11 +80,11 @@ try:
 
     class VisdomPlotter(BackendPlotter):
         """
-        Initialize a visdom environment with the specified environment name
+        Initialize a visdom environment with the specified environment model_name
          and uses it as backend.
 
         Args:
-            env: The name of the visdom environment. Default to ''.
+            env: The model_name of the visdom environment. Default to ''.
         """
 
         def __init__(self, env: str = '') -> None:
@@ -199,7 +199,7 @@ def plotter_closure() -> GetPlotterProtocol:
                 plotly is not installed.
                 visdom: visdom backend. Return ImportError if
                 visdom is not installed.
-            env: The optional environment name for the backend. Default ''.
+            env: The optional environment model_name for the backend. Default ''.
 
         Return:
             A plotter backend based on the specified backend and environment.
@@ -263,7 +263,7 @@ class Plotter:
     Keep track of metrics and provide a plotting interface.
 
     Args:
-         model_name: The name of the experiment.
+         model_name: The model_name of the experiment.
 
     Methods:
         allow_extract_metadata: attempt to fully document the experiment.
@@ -287,7 +287,7 @@ class Plotter:
         Args:
             metric: the loss_fun or the metric to visualize.
             start: the epoch from where you want to display the curve.
-            title: the name of the window (and title) of the plot in the visdom
+            title: the model_name of the window (and title) of the plot in the visdom
             interface.
             lib: which library to use as backend. 'auto' default to visdom or
             plotly if from a jupyter notebook.

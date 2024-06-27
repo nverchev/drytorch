@@ -15,6 +15,10 @@ from dry_torch import LearningScheme
 
 class IdentityDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
 
+    def __init__(self):
+        self.tensors = torch.rand(7, 7, 7)
+        super().__init__()
+
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         x = torch.FloatTensor([index]) / len(self)
         return x, x
