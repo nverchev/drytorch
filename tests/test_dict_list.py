@@ -2,7 +2,7 @@ import pytest
 import torch
 from dry_torch import TorchDictList
 from dry_torch.structures import DictList
-from dry_torch.exceptions import KeysAlreadySet
+from dry_torch.exceptions import KeysAlreadySetError
 from dry_torch.exceptions import DifferentBatchSizeError
 from dry_torch.data_types import Tensors
 
@@ -22,11 +22,11 @@ def test_DictList() -> None:
     dict_list.append({'list1': torch.ones(2, 2)})
 
     # test KeysAlreadySet
-    with pytest.raises(KeysAlreadySet):
+    with pytest.raises(KeysAlreadySetError):
         dict_list.extend([{'list2': torch.ones(2, 2) for _ in range(5)}])
-    with pytest.raises(KeysAlreadySet):
+    with pytest.raises(KeysAlreadySetError):
         dict_list[0] = {'list2': torch.ones(2, 2)}
-    with pytest.raises(KeysAlreadySet):
+    with pytest.raises(KeysAlreadySetError):
         dict_list.insert(0, {'list2': torch.ones(2, 2)})
 
     # test __add__ and extend

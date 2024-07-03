@@ -4,7 +4,8 @@ import pytest
 import torch
 from torch.utils import data
 from dry_torch import Trainer
-from dry_torch import StandardLoader
+from dry_torch import Test
+from dry_torch import DataLoader
 from dry_torch import Experiment
 from dry_torch import Model
 from dry_torch import LossCalculator
@@ -37,8 +38,8 @@ class Linear(torch.nn.Module):
         return self.linear(inputs)
 
 
-def square_error(tensor: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
-    return (tensor - second) ** 2
+def square_error(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    return (outputs - targets) ** 2
 
 
 logger = logging.getLogger('dry_torch')
@@ -51,31 +52,33 @@ def test_all() -> None:
                exp_pardir=exp_pardir,
                config={'answer': 42})
     module = Linear(1, 1)
-    loss_calc = LossCalculator(square_error)
+    loss_calc = LossCalculator(loss_fun=square_error)
     model = Model(module, name='original_model')
     dataset = IdentityDataset()
-    loader = StandardLoader(dataset=dataset, batch_size=4)
+    loader = DataLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
                       learning_scheme=LearningScheme(lr=0.01),
-                      loss_calc=loss_calc,
-                      train_loader=loader,
+                      calculator=loss_calc,
+                      loader=loader,
                       val_loader=loader)
     trainer.train(10)
     trainer.save_checkpoint()
     cloned_model = model.clone('cloned_model')
     Trainer(cloned_model,
             learning_scheme=LearningScheme(lr=0.01),
-            loss_calc=loss_calc,
-            train_loader=loader,
+            calculator=loss_calc,
+            loader=loader,
             val_loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
         Trainer(cloned_model,
                 learning_scheme=LearningScheme(lr=0.01),
-                loss_calc=loss_calc,
-                train_loader=loader,
+                calculator=loss_calc,
+                loader=loader,
                 val_loader=loader)
     out = cloned_model(torch.FloatTensor([.2]).to(cloned_model.device))
     assert torch.isclose(out, torch.tensor(.2), atol=0.01)
+
+    Test(model, calculator=loss_calc, loader=loader)()
 
 
 if __name__ == '__main__':

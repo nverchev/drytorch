@@ -57,9 +57,8 @@ class ComplexClass:
             'set': set(long_generator),
             'list': list(long_generator),
         }
-
         # write the model_name of the function
-        self.fun = int
+        self.fun = lambda: None
 
         # object with slots
         self.object_with_one_slot = OneSlot()
@@ -74,7 +73,7 @@ class ComplexClass:
                               '...': None,
                               'list': "[1, '...', 3]"},
             'torch_tensor': '[[3.142 ... 3.142]\n ...\n [3.142 ... 3.142]]',
-            'fun': self.fun.__name__,
+            'fun': '<lambda>',
             'object_with_one_slot': {'class': 'OneSlot',
                                      'single_slot': 'only value'},
             'df': self.expected_df
