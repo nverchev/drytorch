@@ -106,7 +106,7 @@ class DictList(Generic[_K, _V]):
 
     def set_keys(self, value=Iterable[_K]) -> None:
         if self._keys:
-            raise exceptions.KeysAlreadySet(self._keys, value)
+            raise exceptions.KeysAlreadySetError(self._keys, value)
         else:
             self._keys = tuple(value)
         return

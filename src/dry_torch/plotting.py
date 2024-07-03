@@ -6,7 +6,8 @@ import warnings
 import pandas as pd
 from pandas import DataFrame
 from dry_torch import data_types
-from dry_torch.tracking import Experiment
+from dry_torch import tracking
+from dry_torch import exceptions
 
 Backend = Literal['visdom', 'plotly', 'auto', 'none']
 
@@ -225,7 +226,7 @@ def plotter_closure() -> GetPlotterProtocol:
 
         if backend == 'plotly':
             if not PLOTLY_AVAILABLE:
-                raise ImportError(f'Library plotly not installed.')
+                raise exceptions.LibraryNotAvailableError('plotly')
 
             if not isinstance(plotter, PlotlyPlotter):
                 plotter = PlotlyPlotter()
@@ -234,7 +235,7 @@ def plotter_closure() -> GetPlotterProtocol:
 
         if backend == 'visdom':
             if not VISDOM_AVAILABLE:
-                raise ImportError(f'Library visdom not installed.')
+                raise exceptions.LibraryNotAvailableError('visdom')
 
             if isinstance(plotter, VisdomPlotter):
                 if plotter.check_connection():
@@ -244,7 +245,7 @@ def plotter_closure() -> GetPlotterProtocol:
                 plotter = VisdomPlotter(env)
                 return plotter
             except ConnectionError:
-                warnings.warn('Visdom connection refused by server.')
+                warnings.warn(exceptions.VisdomConnectionWarning())
                 return get_plotter('none', '')
 
         if backend == 'none':
@@ -253,7 +254,7 @@ def plotter_closure() -> GetPlotterProtocol:
 
             return plotter
 
-        raise ValueError(f'Library {backend} not supported.')
+        raise exceptions.LibraryNotSupportedError(backend)
 
     return get_plotter
 
@@ -292,11 +293,7 @@ class Plotter:
             lib: which library to use as backend. 'auto' default to visdom or
             plotly if from a jupyter notebook.
         """
-        log = Experiment.current().model[self.model_name].log
-        if log[data_types.Split.TRAIN].empty:
-            msg = 'Plotting learning curves failed because data is missing.'
-            warnings.warn(msg)
-            return
+        log = tracking.Experiment.current().model_dict[self.model_name].log
         plotter = self.get_plotter(backend=lib, env=self.model_name)
         plotter.plot(log[data_types.Split.TRAIN],
                      log[data_types.Split.VAL],

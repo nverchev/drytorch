@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
-from typing import Any, Optional, Type, Final, Callable
+from typing import Any, Optional, Final, Callable
 
 import pandas as pd
 from dry_torch import exceptions
@@ -14,34 +14,30 @@ from dry_torch import data_types
 logger = logging.getLogger('dry_torch')
 
 
-def default_name(prefix: str) -> Callable[[], str]:
-    prefix = prefix
-    count_defaults = 0
+class DefaultName:
+    def __init__(self, prefix: str):
+        self.prefix = prefix
+        self.count_defaults = -1
 
-    def default() -> str:
-        nonlocal count_defaults
-        count_defaults += 1
-        return prefix + str(count_defaults)
+    def __call__(self) -> str:
+        self.count_defaults += 1
+        return repr(self)
 
-    return default
+    def __repr__(self):
+        if not self.count_defaults:
+            return self.prefix
+        return f"{self.prefix}_{self.count_defaults}"
 
 
 class ModelTracking:
 
-    def __init__(self,
-                 name: str,
-                 model_repr: str,
-                 model_settings: dict[str, Any]) -> None:
+    def __init__(self, name: str, model_repr: str) -> None:
         self.name: Final = name
-        self.metadata: dict[str, Any] = {
-            name: repr_utils.LiteralStr(model_repr)
-        }
-        self.metadata |= model_settings
         self.epoch = 0
-        self.bindings: dict[Type, Any] = {}
-        self.log: dict[data_types.Split, pd.DataFrame] = {
-            split: pd.DataFrame() for split in data_types.Split
-        }
+        model_literal = repr_utils.LiteralStr(model_repr)
+        self.metadata: dict[str, Any] = {'Model': {name: model_literal}}
+        self.bindings: dict[str, DefaultName] = {}
+        self.log = {split: pd.DataFrame() for split in data_types.Split}
 
 
 class ModelTrackingDict:
@@ -55,7 +51,7 @@ class ModelTrackingDict:
 
     def __getitem__(self, key: str):
         if key not in self:
-            raise exceptions.ModelNotFoundError(key, self.exp_name)
+            raise exceptions.ModelNotExistingError(key, self.exp_name)
         return self._models.__getitem__(key)
 
     def __setitem__(self, key: str, value: ModelTracking):
@@ -66,11 +62,14 @@ class ModelTrackingDict:
     def __delitem__(self, key: str):
         self._models.__delitem__(key)
 
+    def __iter__(self):
+        return self._models.__iter__()
+
 
 class Experiment:
     past_experiments: set[Experiment] = set()
     _current: Optional[Experiment] = None
-    default_exp_name = default_name('Experiment_')
+    default_exp_name = DefaultName('Experiment')
     """
     This class is used to describe the experiment.
 
@@ -93,7 +92,7 @@ class Experiment:
     """
 
     def __init__(self,
-                 exp_name: Optional[str] = None,
+                 exp_name: str = '',
                  config: Optional[dict[str, Any]] = None,
                  exp_pardir: str | pathlib.Path = pathlib.Path('experiments'),
                  allow_extract_metadata: bool = True,
@@ -104,14 +103,12 @@ class Experiment:
         self.exp_pardir = pathlib.Path(exp_pardir)
         self.allow_extract_metadata = allow_extract_metadata
         self.max_item_repr = max_item_repr
-        self.model = ModelTrackingDict(exp_name=self.exp_name)
+        self.model_dict = ModelTrackingDict(exp_name=self.exp_name)
         self.__class__.past_experiments.add(self)
         self.activate()
 
     def register_model(self, model, name):
-        self.model[name] = ModelTracking(
-            name, model_repr=model.__repr__(),
-            model_settings=getattr(model, 'settings', {}))
+        self.model_dict[name] = ModelTracking(name, model_repr=model.__repr__())
 
     def activate(self):
         if self._current is not None:
@@ -159,4 +156,4 @@ def add_metadata(exp: Experiment,
     if exp.allow_extract_metadata:
         # tries to get the most informative representation of the metadata.
         metadata = extract_metadata(attr_dict, exp.max_item_repr)
-        exp.model[model_name].metadata[object_name] = metadata
+        exp.model_dict[model_name].metadata[object_name] = metadata

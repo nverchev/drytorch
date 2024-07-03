@@ -1,9 +1,10 @@
 import logging
 import sys
-from typing import TypeVar, Iterator, Generator, Generic, Optional
+from typing import TypeVar, Iterator, Generator, Generic
 import torch
 from torch.utils import data
-from dry_torch import protocols
+from dry_torch import protocols as p
+from dry_torch import exceptions
 from dry_torch import data_types
 from dry_torch import default_logging
 from tqdm import auto
@@ -14,7 +15,7 @@ _Target_co = TypeVar('_Target_co', bound=data_types.InputType, covariant=True)
 logger = logging.getLogger('dry_torch')
 
 
-class StandardLoader(protocols.LoaderProtocol[_Input_co, _Target_co]):
+class DataLoader(p.LoaderProtocol[_Input_co, _Target_co]):
     """
     A container for the data _static_loaders.
     Args:
@@ -32,9 +33,7 @@ class StandardLoader(protocols.LoaderProtocol[_Input_co, _Target_co]):
         if hasattr(dataset, '__len__'):
             self.dataset_len = dataset.__len__()
         else:
-            raise AttributeError('Dataset does not implement __len__ method.')
-        self._loader: Optional[data.DataLoader[tuple[_Input_co, _Target_co]]]
-        self._loader = None
+            raise exceptions.NoLengthError()
 
     def get_loader(self) -> data.DataLoader[tuple[_Input_co, _Target_co]]:
 
@@ -50,31 +49,25 @@ class StandardLoader(protocols.LoaderProtocol[_Input_co, _Target_co]):
         return loader
 
     def __iter__(self) -> Iterator[tuple[_Input_co, _Target_co]]:
-        if self._loader is None:
-            self._loader = self.get_loader()
-        return self._loader.__iter__()
+        return self.get_loader().__iter__()
 
     def __len__(self) -> int:
         num_full_batches, last_batch_size = divmod(self.dataset_len,
                                                    self.batch_size)
-        if last_batch_size > 0:
-            return num_full_batches + 1
-        return num_full_batches
+        return num_full_batches + bool(last_batch_size)
 
 
 class TqdmLoader(Generic[_Input_co, _Target_co]):
 
     def __init__(
             self,
-            loader: protocols.LoaderProtocol[_Input_co, _Target_co],
+            loader: p.LoaderProtocol[_Input_co, _Target_co],
             update_frequency: int = 10):
         self.loader = loader
         self.update_frequency = update_frequency
         self.batch_size = loader.batch_size
         self.dataset_len = loader.dataset_len
-        self.disable_bar = (
-            logger.level > default_logging.INFO_LEVELS.progress_bar
-        )
+        self.disable_bar = logger.level > default_logging.INFO_LEVELS.progress_bar
         self._monitor_gen = _monitor()
         next(self._monitor_gen)
 

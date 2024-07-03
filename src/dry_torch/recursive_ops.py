@@ -2,6 +2,7 @@ from typing import Any, Callable, Type, overload, TypeVar
 import numpy as np
 import pandas as pd
 import torch
+from dry_torch import exceptions
 
 _T = TypeVar('_T')
 _C = TypeVar('_C', dict, list, set, tuple)
@@ -66,7 +67,7 @@ def recursive_apply(struc, expected_type, func):
         )
     if isinstance(struc, expected_type):
         return func(struc)
-    raise TypeError(f' Cannot apply {func} on Datatype {type(struc).__name__}')
+    raise exceptions.FuncNotApplicableError(func, struc.__class__)
 
 
 def recursive_to(container: _C, device: torch.device) -> _C:

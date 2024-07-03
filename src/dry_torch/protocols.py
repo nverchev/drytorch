@@ -60,11 +60,6 @@ class StatePath(TypedDict):
     optimizer: pathlib.Path
 
 
-class LossAndMetricsProtocol(Protocol):
-    criterion: torch.Tensor
-    metrics: dict[str, torch.Tensor]
-
-
 class TensorCallable(Protocol[_Output_contra, _Target_contra]):
 
     def __call__(self,
@@ -73,20 +68,39 @@ class TensorCallable(Protocol[_Output_contra, _Target_contra]):
         ...
 
 
-class MetricsCallable(Protocol[_Output_contra, _Target_contra]):
+class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
 
-    def __call__(self,
-                 outputs: _Output_contra,
-                 targets: _Target_contra) -> dict[str, torch.Tensor]:
+    def calculate(self,
+                  outputs: _Output_contra,
+                  targets: _Target_contra) -> None:
+        ...
+
+    @property
+    def metrics(self) -> dict[str, torch.Tensor]:
+        ...
+
+    def reset_calculated(self) -> None:
         ...
 
 
-class LossCallable(Protocol[_Output, _Target]):
-    metrics_calc: MetricsCallable[_Output, _Target]
+class LossCalculatorProtocol(
+    Protocol[_Output_contra, _Target_contra]
+):
 
-    def __call__(self,
-                 outputs: _Output,
-                 targets: _Target) -> LossAndMetricsProtocol:
+    def calculate(self,
+                  outputs: _Output_contra,
+                  targets: _Target_contra) -> None:
+        ...
+
+    @property
+    def metrics(self) -> dict[str, torch.Tensor]:
+        ...
+
+    @property
+    def criterion(self) -> torch.Tensor:
+        ...
+
+    def reset_calculated(self) -> None:
         ...
 
 
@@ -119,10 +133,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
 class TrainerProtocol(Protocol):
 
-    def train(self, num_epoch: int) -> None:
-        ...
-
-    def validate(self) -> None:
+    def train(self, num_epochs: int) -> None:
         ...
 
     def terminate_training(self) -> None:

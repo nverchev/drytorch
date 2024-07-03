@@ -1,5 +1,6 @@
-from typing import Any, Iterable
-
+from typing import Any, Iterable, Optional
+from functools import singledispatch
+import types
 import yaml  # type: ignore
 import numpy as np
 import pandas as pd
@@ -12,8 +13,8 @@ def represent_literal_str(dumper, data):
     return scalar
 
 
-def represent_none(self, _):
-    return self.represent_scalar('tag:yaml.org,2002:null', '')
+def represent_none(dumper, _):
+    return dumper.represent_scalar('tag:yaml.org,2002:null', '')
 
 
 class LiteralStr(str):
@@ -85,6 +86,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
     return listed
 
 
+@singledispatch
 def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
     """
     It attempts full documentation of a complex object.
@@ -100,29 +102,6 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
     Returns:
         a readable representation of the object.
     """
-    if struc is None:
-        return None
-
-    if isinstance(struc, (int, float, complex, str)):
-        return struc
-
-    if isinstance(struc, (type, type(lambda: ...))):
-        # no builtin variable for the function class!
-        return struc.__name__
-
-    if isinstance(struc, (pd.DataFrame, pd.Series, pd.Index)):
-        with PandasPrintOptions(precision=3,
-                                max_rows=max_size,
-                                max_columns=max_size):
-            return LiteralStr(struc)
-
-    if isinstance(struc, np.ndarray):
-        with np.printoptions(precision=3,
-                             suppress=True,
-                             threshold=max_size,
-                             edgeitems=max_size // 2):
-            return LiteralStr(struc)
-
     if isinstance(struc, torch.Tensor):
         struc = struc.detach().cpu()
 
@@ -133,12 +112,13 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
             msg = 'numpy should be a method without additional parameters'
             raise AttributeError(msg) from te
 
+    null_attr: tuple = (struc, {}, [], set(), None)
     dict_attr = getattr(struc, '__dict__', {})
     dict_attr |= {name: getattr(struc, name)
                   for name in getattr(struc, '__slots__', [])}
     dict_attr = {k: struc_repr(v, max_size=max_size)
                  for k, v in dict_attr.items()
-                 if k[0] != '_' and v is not struc}
+                 if k[0] != '_' and all(v is not item for item in null_attr)}
     if dict_attr:
         if has_own_repr(struc):
             return {'repr': struc.__repr__()} | dict_attr
@@ -157,3 +137,35 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
         return LiteralStr(struc_list)
 
     return repr(struc) if has_own_repr(struc) else struc.__class__.__name__
+
+
+@struc_repr.register
+def _(struc: Optional[int | float | complex | str], *, max_size: int = 10):
+    return struc
+
+
+@struc_repr.register
+def _(struc: pd.DataFrame | pd.Series | pd.Index, *, max_size: int = 10):
+    with PandasPrintOptions(precision=3,
+                            max_rows=max_size,
+                            max_columns=max_size):
+        return LiteralStr(struc)
+
+
+@struc_repr.register
+def _(struc: np.ndarray, *, max_size: int = 10):
+    with np.printoptions(precision=3,
+                         suppress=True,
+                         threshold=max_size,
+                         edgeitems=max_size // 2):
+        return LiteralStr(struc)
+
+
+@struc_repr.register(type)
+def _(struc, *, max_size: int = 10):
+    return struc.__name__
+
+
+@struc_repr.register(types.FunctionType)
+def _(struc, *, max_size: int = 10):
+    return struc.__name__

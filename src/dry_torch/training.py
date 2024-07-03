@@ -5,15 +5,14 @@ from typing import Callable, Optional, Self, TypeVar
 import torch
 from torch.cuda import amp
 
-from dry_torch import checkpoint
+from dry_torch import saving_loading
 from dry_torch import exceptions
 from dry_torch import tracking
-from dry_torch import model_utils
-from dry_torch import protocols
+from dry_torch import modelling
+from dry_torch import protocols as p
 from dry_torch import data_types
 from dry_torch import default_logging
-from dry_torch import loading
-from dry_torch import testing
+from dry_torch import evaluating
 
 _Input = TypeVar('_Input', bound=data_types.InputType)
 _Target = TypeVar('_Target', bound=data_types.TargetType)
@@ -23,16 +22,16 @@ logger = logging.getLogger('dry_torch')
 
 
 class Trainer(
-    testing.Evaluator[_Input, _Target, _Output],
-    protocols.TrainerProtocol,
+    evaluating.Evaluation[_Input, _Target, _Output],
+    p.TrainerProtocol,
 ):
     partition = data_types.Split.TRAIN
     """
     Implement the standard Pytorch training and evaluation loop.
 
     Args:
-        model: contain the module and the optimizing strategy.
-        train_loader: dictionary with loaders for the training, and optionally,
+        model_dict: contain the module and the optimizing strategy.
+        loader: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
          as in LossAndMetricsProtocol.
@@ -50,54 +49,54 @@ class Trainer(
         property for adding a hook after running the training session.
     """
 
-    @model_utils.log_kwargs(bind_to_model=True)
+    @modelling.bind_to_model
     def __init__(
             self,
-            model: protocols.ModelProtocol[_Input, _Output],
+            model: p.ModelProtocol[_Input, _Output],
             /,
             *,
-            learning_scheme: protocols.LearningProtocol,
-            loss_calc: protocols.LossCallable[_Output, _Target],
-            train_loader: protocols.LoaderProtocol[_Input, _Target],
-            val_loader: Optional[
-                protocols.LoaderProtocol[_Input, _Target]
-            ] = None,
+            learning_scheme: p.LearningProtocol,
+            calculator: p.LossCalculatorProtocol[_Output, _Target],
+            loader: p.LoaderProtocol[_Input, _Target],
+            val_loader: Optional[p.LoaderProtocol[_Input, _Target]] = None,
             mixed_precision: bool = False,
     ) -> None:
-        super().__init__(model, loader=train_loader)
-        self.model = model
-        self.model_optimizer = model_utils.ModelOptimizer(model,
-                                                          learning_scheme)
-        self._loader = loading.TqdmLoader[_Input, _Target](train_loader)
-        device_is_cuda = self.model.device.type == 'cuda'
-        enable_mixed_precision = mixed_precision and device_is_cuda
-        self._scaler = amp.GradScaler(enabled=enable_mixed_precision)
-        self._mixed_precision = mixed_precision
+        super().__init__(model,
+                         loader=loader,
+                         calculator=calculator,
+                         mixed_precision=mixed_precision)
+        self._early_termination = False
 
-        self._loss_calc = loss_calc
+        self._model_optimizer = modelling.ModelOptimizer(model, learning_scheme)
+        self._optimizer = self._model_optimizer.optimizer
+        self._checkpoint = saving_loading.CheckpointIO(model, self._optimizer)
+        self._scaler = amp.GradScaler(enabled=self._mixed_precision)
         self._pre_epoch_hooks: list[Callable[[Self], None]] = []
         self._post_epoch_hooks: list[Callable[[Self], None]] = []
-
-        if val_loader is None:
-            self.validate: Callable[[], None] = lambda: None
-        else:
-            self.validate = testing.Validator(
-                model,
-                loader=val_loader,
-                metrics_calc=self._loss_calc.metrics_calc
-            )
-            self._activate_validation()
-
-        self.early_termination = False
-        self.checkpoint = checkpoint.CheckpointIO(
-            model,
-            self.model_optimizer.optimizer,
-        )
+        self._validation = self._set_validation(val_loader)
+        self._early_termination = False
         return
 
     @property
     def model_tracking(self) -> tracking.ModelTracking:
-        return tracking.Experiment.current().model[self.model.name]
+        return tracking.Experiment.current().model_dict[self.model.name]
+
+    def _set_validation(
+            self,
+            val_loader: Optional[p.LoaderProtocol[_Input, _Target]]
+    ) -> Callable[[], None]:
+        if val_loader is None:
+            def validation() -> None:
+                return
+        else:
+            validation = evaluating.Validation(self.model,
+                                               loader=val_loader,
+                                               calculator=self._calculator)
+            self._activate_validation()
+        return validation
+
+    def validate(self):
+        return self._validation()
 
     def _activate_validation(self: Self) -> None:
         def validate(instance: Self) -> None:
@@ -108,8 +107,12 @@ class Trainer(
         return
 
     def terminate_training(self) -> None:
-        model_utils.unbind(self, self.model)
-        self.early_termination = True
+        modelling.unbind(self, self.model)
+        self._early_termination = True
+        return
+
+    def __call__(self) -> None:
+        self.train(1)
         return
 
     def train(self, num_epochs: int) -> None:
@@ -122,41 +125,31 @@ class Trainer(
         logger.log(default_logging.INFO_LEVELS.training,
                    'Training %(model_name)s.',
                    {'model_name': self.model.name})
-        if self.early_termination:
+        if self._early_termination:
             logger.warning('Attempted to train module after termination.')
         for _ in range(num_epochs):
+            if self._early_termination:
+                return
+            self.exec_pre_epoch_hooks()
             self.model_tracking.epoch += 1
             epoch_msg = '====> Epoch %(epoch)4d:'
             logger.log(default_logging.INFO_LEVELS.epoch,
                        epoch_msg, {'epoch': self.model_tracking.epoch})
+            self._model_optimizer.update_learning_rate()
+            self.model.module.train()
             try:
-                self._train()
+                self._run_epoch()
             except exceptions.ConvergenceError as ce:
-                logger.error(ce)
+                logger.error(ce, exc_info=True)
+            self.exec_post_epoch_hooks()
 
         logger.log(default_logging.INFO_LEVELS.training, 'End of training.')
         return
 
-    def _train(self) -> None:
-        """
-        Train the module for the specified number of epochs.
-        """
-        if self.early_termination:
-            return
-        self.model_optimizer.update_learning_rate()
-        self.model.module.train()
-        self.exec_pre_epoch_hooks()
-        self._run_epoch()
-        self.exec_post_epoch_hooks()
-        return
-
-    def _run_batch(self, batch: tuple[_Input, _Target]) -> None:
-        inputs, targets = batch
-        with torch.autocast(device_type=self.model.device.type,
-                            enabled=self._mixed_precision):
-            outputs = self.model(inputs)
-            batched_performance = self._loss_calc(outputs, targets)
-        criterion: torch.Tensor = batched_performance.criterion
+    def _run_batch(self, inputs: _Input, targets: _Target) -> None:
+        super()._run_batch(inputs, targets)
+        self._calculator: p.LossCalculatorProtocol
+        criterion = self._calculator.criterion
         self._loader.send({'Loss': criterion.item()})
         try:
             self._scaler.scale(criterion).backward()
@@ -164,28 +157,21 @@ class Trainer(
             if torch.isinf(criterion) or torch.isnan(criterion):
                 raise exceptions.ConvergenceError(criterion.item())
             raise ve
-        self._scaler.step(self.model_optimizer.optimizer)
+        self._scaler.step(self._optimizer)
         self._scaler.update()
-        self.model_optimizer.optimizer.zero_grad()
-        self.register_metrics(batched_performance.metrics)
+        self._optimizer.zero_grad()
 
     def save_checkpoint(self) -> None:
-        self.checkpoint.save()
+        self._checkpoint.save()
 
     def load_checkpoint(self, epoch=-1) -> None:
-        self.checkpoint.load(epoch=epoch)
+        self._checkpoint.load(epoch=epoch)
 
-    def add_pre_epoch_hook(
-            self: Self,
-            hook: Callable[[Self], None]
-    ) -> None:
+    def add_pre_epoch_hook(self: Self, hook: Callable[[Self], None]) -> None:
         self._pre_epoch_hooks.append(hook)
         return
 
-    def add_post_epoch_hook(
-            self: Self,
-            hook: Callable[[Self], None]
-    ) -> None:
+    def add_post_epoch_hook(self: Self, hook: Callable[[Self], None]) -> None:
         self._post_epoch_hooks.append(hook)
         return
 

@@ -9,10 +9,10 @@ import copy
 import torch
 from torch import cuda
 
-from dry_torch import checkpoint
+from dry_torch import saving_loading
 from dry_torch import exceptions
 from dry_torch import schedulers
-from dry_torch import protocols
+from dry_torch import protocols as p
 from dry_torch import data_types
 from dry_torch import tracking
 
@@ -34,7 +34,7 @@ _P = ParamSpec('_P')
 _RT = TypeVar('_RT')
 
 
-class LearningScheme(protocols.LearningProtocol):
+class LearningScheme(p.LearningProtocol):
     """
         optimizer_cls: the optimizer class to bind_to_model to the module.
          Defaults to torch.optim.Adam.
@@ -50,7 +50,7 @@ class LearningScheme(protocols.LearningProtocol):
             self,
             optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adam,
             lr: float | dict[str, float] = 0.001,
-            scheduler: protocols.SchedulerProtocol = (
+            scheduler: p.SchedulerProtocol = (
                     schedulers.ConstantScheduler()
             ),
             **other_optimizer_args: Any,
@@ -61,8 +61,8 @@ class LearningScheme(protocols.LearningProtocol):
         self.other_optimizer_args = other_optimizer_args
 
 
-class Model(protocols.ModelProtocol[_Input_contra, _Output_co]):
-    default_model_name = tracking.default_name('Model_')
+class Model(p.ModelProtocol[_Input_contra, _Output_co]):
+    default_model_name = tracking.DefaultName('Model')
     """
     Bundle the module and its optimizer.
     Support different learning rates and separate parameters groups.
@@ -92,7 +92,7 @@ class Model(protocols.ModelProtocol[_Input_contra, _Output_co]):
 
     def __init__(
             self,
-            torch_module: protocols.ModuleProtocol[_Input_contra, _Output_co],
+            torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
             /,
             name: Optional[str] = None,
             device: Optional[torch.device] = None,
@@ -101,10 +101,10 @@ class Model(protocols.ModelProtocol[_Input_contra, _Output_co]):
         self.device = self.default_device() if device is None else device
         self.module = self.validate_module(torch_module).to(self.device)
         self.optimizer: Optional[torch.optim.Optimizer] = None
-        self.checkpoint = checkpoint.CheckpointIO(self)
+        self.checkpoint = saving_loading.ModelStateIO(self)
         self.exp = tracking.Experiment.current()
         self.exp.register_model(torch_module, name)
-        self.info: tracking.ModelTracking = self.exp.model[self.name]
+        self.info: tracking.ModelTracking = self.exp.model_dict[self.name]
 
     @staticmethod
     def validate_module(torch_model) -> torch.nn.Module:
@@ -118,7 +118,7 @@ class Model(protocols.ModelProtocol[_Input_contra, _Output_co]):
 
     def _copy_module(
             self
-    ) -> protocols.ModuleProtocol[_Input_contra, _Output_co]:
+    ) -> p.ModuleProtocol[_Input_contra, _Output_co]:
         return copy.deepcopy(self.module)
 
     def clone(self, new_name: str) -> Self:
@@ -168,13 +168,13 @@ class ModelOptimizer:
 
     def __init__(
             self,
-            model: protocols.ModelProtocol[_Input_contra, _Output_co],
-            learning_scheme: protocols.LearningProtocol = LearningScheme()
+            model: p.ModelProtocol[_Input_contra, _Output_co],
+            learning_scheme: p.LearningProtocol = LearningScheme()
     ) -> None:
         self.model = model
         self.module = self.model.module
         self.learning_scheme = learning_scheme
-        self._params_lr: list[protocols.OptParams] = []
+        self._params_lr: list[p.OptParams] = []
         self.set_lr(learning_scheme.lr)
         self.scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
@@ -182,7 +182,7 @@ class ModelOptimizer:
             **learning_scheme.other_optimizer_args,
         )
 
-    def get_scheduled_lr(self) -> list[protocols.OptParams]:
+    def get_scheduled_lr(self) -> list[p.OptParams]:
         """
         Learning rates for each parameter updated according to the scheduler
         and the current epoch.
@@ -250,102 +250,60 @@ class ModelOptimizer:
         return desc.format(self.__class__.__name__,
                            self.optimizer.__class__.__name__)
 
-    # def clone(self, new_name: str) -> Self:
-    #     """
-    #     Return a deepcopy of the object.
-    #     """
-    #     cloned_model = self._copy_module()
-    #     cloned = self.__class__(
-    #         cloned_model,
-    #         model_name=new_name,
-    #         device=self.device,
-    #         learning_scheme=self.learning_scheme
-    #     )
-    #     return cloned
-
     @staticmethod
     def count_params(params: Iterator) -> int:
         return sum(1 for _ in params)
 
     def get_epoch(self) -> int:
-        return tracking.Experiment.current().model[self.model.name].epoch
+        return tracking.Experiment.current().model_dict[self.model.name].epoch
 
 
-def log_kwargs(bind_to_model: bool = False) -> (
-        Callable[
-            [Callable[
-                 Concatenate[
-                     Any,
-                     protocols.ModelProtocol[_Input_contra, _Output_co],
-                     _P
-                 ],
-                 _RT
-             ]
-             ],
-            Callable[
-                Concatenate[
-                    Any,
-                    protocols.ModelProtocol[_Input_contra, _Output_co],
-                    _P],
-                _RT
-            ]
-        ]
-):
-    def _log_kwargs(
-            func: Callable[
-                Concatenate[
-                    Any,
-                    protocols.ModelProtocol[_Input_contra, _Output_co],
-                    _P
-                ],
-                _RT
-            ]
-    ) -> Callable[
-        Concatenate[
-            Any,
-            protocols.ModelProtocol[_Input_contra, _Output_co],
-            _P],
-        _RT
-    ]:
-        """
-        Decorator that extracts metadata from a function named arguments.
+def bind_to_model(
+        func: Callable[
+            Concatenate[Any, p.ModelProtocol[_Input_contra, _Output_co], _P],
+            _RT],
+) -> Callable[
+    Concatenate[Any, p.ModelProtocol[_Input_contra, _Output_co], _P],
+    _RT,
+]:
+    """
+    Decorator that extracts metadata from a function named arguments.
 
-        Args:
-            func: the function that we want to extract metadata from.
-        Returns:
-            Callable: the same input function.
-        """
+    Args:
+        func: the function that we want to extract metadata from.
+    Returns:
+        Callable: the same input function.
+    """
 
-        @wraps(func)
-        def wrapper(instance: Any,
-                    model: protocols.ModelProtocol[_Input_contra, _Output_co],
-                    *args: _P.args,
-                    **kwargs: _P.kwargs) -> _RT:
-            if not isinstance(model, protocols.ModelProtocol):
-                raise exceptions.BoundedModelTypeError(model)
-            exp = tracking.Experiment.current()
-            cls = instance.__class__
-            if bind_to_model:
-                if cls in exp.model[model.name].bindings:
-                    raise exceptions.AlreadyBoundedError(model.name, cls)
-                exp.model[model.name].bindings[cls] = instance
-            tracking.add_metadata(exp, model.name, cls.__name__, kwargs)
-            return func(instance, model, *args, **kwargs)
+    @wraps(func)
+    def wrapper(instance: Any,
+                model: p.ModelProtocol[_Input_contra, _Output_co],
+                *args: _P.args,
+                **kwargs: _P.kwargs) -> _RT:
+        if not isinstance(model, p.ModelProtocol):
+            raise exceptions.BoundedModelTypeError(model)
+        exp = tracking.Experiment.current()
+        model_tracking = exp.model_dict[model.name]
+        bindings = model_tracking.bindings
+        cls_str = instance.__class__.__name__
+        if cls_str in bindings:
+            raise exceptions.AlreadyBoundedError(model.name, cls_str)
+        cls_count = bindings.setdefault(cls_str, tracking.DefaultName(cls_str))
+        tracking.add_metadata(exp, model.name, cls_count(), kwargs)
+        return func(instance, model, *args, **kwargs)
 
-        return wrapper
-
-    return _log_kwargs
+    return wrapper
 
 
 def unbind(instance: Any,
-           model: protocols.ModelProtocol[_Input_contra, _Output_co]) -> None:
-    if not isinstance(model, protocols.ModelProtocol):
+           model: p.ModelProtocol[_Input_contra, _Output_co]) -> None:
+    if not isinstance(model, p.ModelProtocol):
         raise exceptions.BoundedModelTypeError(model)
-    exp = tracking.Experiment.current()
-    cls = instance.__class__
-    if cls not in exp.model[model.name].bindings:
-        raise exceptions.NotBoundedError(model.name, cls)
-    exp.model[model.name].bindings.pop(cls)
-    metadata = exp.model[model.name].metadata
-    metadata['archived_' + exp.model[model.name].epoch] = metadata
+    model_tracking = tracking.Experiment.current().model_dict[model.name]
+    metadata = model_tracking.metadata
+    cls_str = instance.__class__.__name__
+    if cls_str not in model_tracking.bindings:
+        raise exceptions.NotBoundedError(model.name, cls_str)
+    cls_str_counter = repr(model_tracking.bindings.pop(cls_str))
+    metadata[cls_str_counter]['model_final_epoch'] = model_tracking.epoch
     return
