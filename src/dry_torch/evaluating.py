@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import logging
 import abc
+import warnings
 from typing import TypeVar, Generic
 import torch
 
@@ -230,7 +231,8 @@ class Test(Evaluation[_Input, _Target, _Output]):
         try:
             modelling.unbind(self, self.model)
         except exceptions.NotBoundedError:
-            logger.error('Test has already been executed.', exc_info=True)
+            warnings.warn(exceptions.AlreadyTestedWarning())
+            return
 
         logger.log(default_logging.INFO_LEVELS.experiment,
                    '%(test_name)s:',

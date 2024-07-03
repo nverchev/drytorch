@@ -7,12 +7,12 @@ _K = TypeVar('_K', bound=Hashable)
 class DryTorchException(BaseException):
     msg: str
 
-    def __init__(self, message: str = '') -> None:
-        super().__init__(message or self.msg)
-
 
 class AccessBeforeCalculateError(AttributeError, DryTorchException):
     msg = 'Results must be precomputed with the calculate method'
+
+    def __init__(self) -> None:
+        super().__init__(self.msg)
 
 
 class AlreadyBoundedError(RuntimeError, DryTorchException):
@@ -126,6 +126,9 @@ class ModelNotFoundError(FileNotFoundError, DryTorchException):
 class NoLengthError(AttributeError, DryTorchException):
     msg = 'Dataset does not implement __len__ method.'
 
+    def __init__(self) -> None:
+        super().__init__(self.msg)
+
 
 class NotATensorError(TypeError, DryTorchException):
     msg = 'Object {} of type {} is not a Tensor.'
@@ -153,6 +156,13 @@ class PartitionNotFoundError(ValueError, DryTorchException):
         super().__init__(self.msg.format(partition, partition))
 
 
+class AlreadyTestedWarning(RuntimeWarning, DryTorchException):
+    msg = 'Test has already been executed.'
+
+    def __init__(self) -> None:
+        super().__init__(self.msg)
+
+
 class OptimizerNotLoadedWarning(RuntimeWarning, DryTorchException):
     msg = 'The optimizer has not been correctly loaded:\n{}'
 
@@ -163,3 +173,5 @@ class OptimizerNotLoadedWarning(RuntimeWarning, DryTorchException):
 class VisdomConnectionWarning(RuntimeWarning, DryTorchException):
     msg = 'Visdom connection refused by server.'
 
+    def __init__(self) -> None:
+        super().__init__(self.msg)

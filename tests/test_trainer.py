@@ -4,7 +4,7 @@ import pytest
 import torch
 from torch.utils import data
 from dry_torch import Trainer
-from dry_torch import Test
+from dry_torch import Test as ClassTest  # pytest interpret the class as a test
 from dry_torch import DataLoader
 from dry_torch import Experiment
 from dry_torch import Model
@@ -78,7 +78,9 @@ def test_all() -> None:
     out = cloned_model(torch.FloatTensor([.2]).to(cloned_model.device))
     assert torch.isclose(out, torch.tensor(.2), atol=0.01)
 
-    Test(model, calculator=loss_calc, loader=loader)()
+    test = ClassTest(model, calculator=loss_calc, loader=loader)
+    test()
+    test()
 
 
 if __name__ == '__main__':
