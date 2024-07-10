@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import collections
-from typing import Generic, Iterable, SupportsIndex, Optional, Iterator
-from typing import KeysView, ValuesView, Self, TypeVar, Hashable, overload
+from typing import Generic, Iterable, SupportsIndex, Optional, Iterator, TypeVar
+from typing import KeysView, ValuesView, Self, Hashable, overload
+from typing import MutableSequence
 import torch
 
 from dry_torch import exceptions
@@ -12,7 +13,7 @@ _K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')
 
 
-class DictList(Generic[_K, _V]):
+class DictList(MutableSequence, Generic[_K, _V]):
     """
     A list-like data structure that stores dictionaries with a fixed set of
     keys.
@@ -176,10 +177,10 @@ class DictList(Generic[_K, _V]):
         out.extend(other)
         return out
 
-    def __contains__(self, item):
+    def __contains__(self, item) -> bool:
         return self._keys.__contains__(item)
 
-    def __delitem__(self, index: SupportsIndex):
+    def __delitem__(self, index: SupportsIndex | slice) -> None:
         """
         Standard __setitem__ implementation that validates the input.
         """
@@ -221,11 +222,41 @@ class DictList(Generic[_K, _V]):
         for item in self_iter:
             yield self._item_to_dict(item)
 
-    def __setitem__(self, index: SupportsIndex, value: dict[_K, _V]) -> None:
+    @overload
+    def __setitem__(
+            self,
+            index_or_slice: SupportsIndex,
+            value: dict[_K, _V],
+            /
+    ) -> None:
+        ...
+
+    @overload
+    def __setitem__(
+            self,
+            index_or_slice: slice,
+            value: Iterable[dict[_K, _V]],
+            /
+    ) -> None:
+        ...
+
+    def __setitem__(
+            self,
+            index_or_slice: SupportsIndex | slice,
+            value: dict[_K, _V] | Iterable[dict[_K, _V]],
+            /,
+    ) -> None:
         """
         Standard __setitem__ implementation that validates the input.
         """
-        self._tuple_list.__setitem__(index, self._validate_dict(value))
+        if isinstance(value, dict):
+            assert isinstance(index_or_slice, SupportsIndex)
+            tuple_value = self._validate_dict(value)
+            self._tuple_list.__setitem__(index_or_slice, tuple_value)
+        else:
+            assert isinstance(index_or_slice, slice)
+            iterable_value = self._validate_iterable(value)
+            self._tuple_list.__setitem__(index_or_slice, iterable_value)
 
     def __repr__(self) -> str:
         return f'DictList({self.to_dict().__repr__()}'
