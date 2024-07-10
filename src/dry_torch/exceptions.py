@@ -123,11 +123,34 @@ class ModelNotFoundError(FileNotFoundError, DryTorchException):
         super().__init__(self.msg.format(checkpoint_directory))
 
 
+class MustSupportIndex(TypeError, DryTorchException):
+    msg = "Object of type {} has not a '__index__' method."
+
+    def __init__(self, not_supporting_index: Any) -> None:
+        self.not_supporting_index = not_supporting_index
+        super().__init__(self.msg.format(type(not_supporting_index)))
+
+
 class NoLengthError(AttributeError, DryTorchException):
     msg = 'Dataset does not implement __len__ method.'
 
     def __init__(self) -> None:
         super().__init__(self.msg)
+
+
+class NoConfigError(AttributeError, DryTorchException):
+    msg = 'No config found in experiment.'
+
+    def __init__(self) -> None:
+        super().__init__(self.msg)
+
+
+class NotASlice(TypeError, DryTorchException):
+    msg = 'Expected slice. Got object of type {}.'
+
+    def __init__(self, not_a_slice: Any) -> None:
+        self.not_a_slice = not_a_slice
+        super().__init__(self.msg.format(type(not_a_slice)))
 
 
 class NotATensorError(TypeError, DryTorchException):
