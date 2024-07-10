@@ -250,11 +250,14 @@ class DictList(MutableSequence, Generic[_K, _V]):
         Standard __setitem__ implementation that validates the input.
         """
         if isinstance(value, dict):
-            assert isinstance(index_or_slice, SupportsIndex)
+            if not isinstance(index_or_slice, SupportsIndex):
+                raise exceptions.MustSupportIndex(index_or_slice)
+
             tuple_value = self._validate_dict(value)
             self._tuple_list.__setitem__(index_or_slice, tuple_value)
         else:
-            assert isinstance(index_or_slice, slice)
+            if not isinstance(index_or_slice, slice):
+                raise exceptions.NotASlice(index_or_slice)
             iterable_value = self._validate_iterable(value)
             self._tuple_list.__setitem__(index_or_slice, iterable_value)
 
