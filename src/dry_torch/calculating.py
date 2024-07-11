@@ -3,19 +3,18 @@ from typing import TypeVar, Hashable, Optional, Self
 import torch
 from dry_torch import protocols as p
 from dry_torch import exceptions
-from dry_torch import data_types
 
 _K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')
 
 _Output_contra = TypeVar('_Output_contra',
-                         bound=data_types.OutputType,
+                         bound=p.OutputType,
                          contravariant=True)
 _Target_contra = TypeVar('_Target_contra',
-                         bound=data_types.TargetType,
+                         bound=p.TargetType,
                          contravariant=True)
-_Target = TypeVar('_Target', bound=data_types.TargetType)
-_Output = TypeVar('_Output', bound=data_types.OutputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class MetricsCalculator(

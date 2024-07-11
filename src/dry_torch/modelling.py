@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from functools import wraps
 from typing import Optional, Callable, Concatenate, Self, Iterable, Iterator
-from typing import Type
-from typing import ParamSpec, TypeVar, Any, cast
+from typing import ParamSpec, TypeVar, Any, cast, Generic, Type
 import copy
-
 import torch
 from torch import cuda
 
@@ -13,22 +11,21 @@ from dry_torch import saving_loading
 from dry_torch import exceptions
 from dry_torch import schedulers
 from dry_torch import protocols as p
-from dry_torch import data_types
 from dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
-                        bound=data_types.InputType,
+                        bound=p.InputType,
                         contravariant=True)
 _Target_contra = TypeVar('_Target_contra',
-                         bound=data_types.InputType,
+                         bound=p.InputType,
                          contravariant=True)
 _Output_co = TypeVar('_Output_co',
-                     bound=data_types.OutputType,
+                     bound=p.OutputType,
                      covariant=True)
 
-_Input = TypeVar('_Input', bound=data_types.InputType)
-_Target = TypeVar('_Target', bound=data_types.TargetType)
-_Output = TypeVar('_Output', bound=data_types.OutputType)
+_Input = TypeVar('_Input', bound=p.InputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 
 _P = ParamSpec('_P')
 _RT = TypeVar('_RT')
@@ -61,7 +58,7 @@ class LearningScheme(p.LearningProtocol):
         self.other_optimizer_args = other_optimizer_args
 
 
-class Model(p.ModelProtocol[_Input_contra, _Output_co]):
+class Model(Generic[_Input_contra, _Output_co]):
     default_model_name = tracking.DefaultName('Model')
     """
     Bundle the module and its optimizer.
@@ -144,7 +141,6 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
         self.module.to(device)
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
-        # recursive_ops.recursive_to(inputs, self.device)
         return self.module(inputs)
 
 

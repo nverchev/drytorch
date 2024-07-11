@@ -4,7 +4,7 @@ from typing import NamedTuple, Optional
 
 
 class InfoLevels(NamedTuple):
-    progress_bar: int
+    tqdm_bar: int
     metrics: int
     epoch: int
     checkpoint: int

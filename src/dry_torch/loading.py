@@ -1,16 +1,16 @@
 import logging
 import sys
 from typing import TypeVar, Iterator, Generator, Generic
+
 import torch
 from torch.utils import data
 from dry_torch import protocols as p
 from dry_torch import exceptions
-from dry_torch import data_types
 from dry_torch import default_logging
 from tqdm import auto
 
-_Input_co = TypeVar('_Input_co', bound=data_types.InputType, covariant=True)
-_Target_co = TypeVar('_Target_co', bound=data_types.InputType, covariant=True)
+_Input_co = TypeVar('_Input_co', bound=p.InputType, covariant=True)
+_Target_co = TypeVar('_Target_co', bound=p.InputType, covariant=True)
 
 logger = logging.getLogger('dry_torch')
 
@@ -67,7 +67,7 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
         self.update_frequency = update_frequency
         self.batch_size = loader.batch_size
         self.dataset_len = loader.dataset_len
-        self.disable_bar = logger.level > default_logging.INFO_LEVELS.progress_bar
+        self.disable_bar = logger.level > default_logging.INFO_LEVELS.tqdm_bar
         self._monitor_gen = _monitor()
         next(self._monitor_gen)
 

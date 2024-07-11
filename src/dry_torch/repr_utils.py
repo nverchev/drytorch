@@ -1,5 +1,5 @@
 from typing import Any, Iterable, Optional
-from functools import singledispatch
+import functools
 import types
 import yaml  # type: ignore
 import numpy as np
@@ -86,7 +86,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
     return listed
 
 
-@singledispatch
+@functools.singledispatch
 def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
     """
     It attempts full documentation of a complex object.

@@ -4,10 +4,11 @@ import collections
 from typing import Generic, Iterable, SupportsIndex, Optional, Iterator, TypeVar
 from typing import KeysView, ValuesView, Self, Hashable, overload
 from typing import MutableSequence
+
+import dry_torch.protocols as p
 import torch
 
 from dry_torch import exceptions
-from dry_torch import data_types
 
 _K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')
@@ -275,7 +276,7 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
     """
 
     @classmethod
-    def from_batch(cls, tensor_batch: data_types.OutputType) -> TorchDictList:
+    def from_batch(cls, tensor_batch: p.OutputType) -> TorchDictList:
         """
         Instantiate the class so that each element has named tensor referring
         to the same sample.
@@ -284,10 +285,10 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
             tensor_batch: a batched tensor, or a list or dictionary of batched
             tensors.
         """
-
         instance = cls()
-        if isinstance(tensor_batch, dict):
-            tensor_dict: dict[str, data_types.Tensors] = tensor_batch
+        if isinstance(tensor_batch, p.NamedTupleProtocol):
+            # noinspection PyProtectedMember
+            tensor_dict: dict[str, p.Tensors] = tensor_batch._asdict()
         else:
             tensor_dict = dict(outputs=tensor_batch)
         instance.set_keys(tuple(tensor_dict.keys()))
@@ -297,7 +298,7 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
     @classmethod
     def _enlist(
             cls,
-            tensor_values: ValuesView[data_types.Tensors],
+            tensor_values: ValuesView[p.Tensors],
             /,
     ) -> list[tuple[torch.Tensor | tuple[torch.Tensor, ...], ...]]:
         """
@@ -315,13 +316,13 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
 
 
 def _conditional_zip(
-        elem: data_types.Tensors,
+        elem: p.Tensors,
 ) -> torch.Tensor | Iterator[tuple[torch.Tensor, ...]]:
     return zip(*elem) if isinstance(elem, (list, tuple)) else elem
 
 
 def _check_tensor_have_same_length(
-        tensor_values=ValuesView[data_types.Tensors]
+        tensor_values=ValuesView[p.Tensors]
 ) -> None:
     """
     Check that all the contained tensors have the same length and return

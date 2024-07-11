@@ -2,14 +2,14 @@ import warnings
 import pathlib
 import datetime
 
+import dry_torch.protocols
 import yaml  # type: ignore
 import logging
 import pandas as pd
 import torch
 from dry_torch import default_logging, exceptions
 from dry_torch import tracking
-from dry_torch import protocols
-from dry_torch import data_types
+from dry_torch import protocols as p
 
 logger = logging.getLogger('dry_torch')
 
@@ -84,13 +84,13 @@ class PathManager:
         return self.model_directory / 'metadata.yml'
 
     @property
-    def log(self) -> data_types.PathDict:
+    def log(self) -> p.PathDict:
         logs_directory = self.logs_directory
         return {split: logs_directory / f'{split.name.lower()}_log.csv'
-                for split in data_types.Split}
+                for split in dry_torch.protocols.Split}
 
     @property
-    def checkpoint(self) -> protocols.StatePath:
+    def checkpoint(self) -> p.StatePath:
         epoch = self.model_tracking.epoch
         epoch_directory = self.checkpoint_directory / f'epoch_{epoch}'
         epoch_directory.mkdir(parents=True, exist_ok=True)
@@ -155,7 +155,7 @@ class MetadataIO:
         """
         exp = tracking.Experiment.current()
         config = exp.config
-        if config:
+        if config is not None:
             with self.paths.config.open('w') as config_file:
                 yaml.dump(config, config_file, sort_keys=False)
         with self.paths.metadata.open('w') as metadata_file:
@@ -215,7 +215,7 @@ class ModelStateIO(MetadataIO):
     """
     definition = 'state'
 
-    def __init__(self, model: protocols.ModelProtocol) -> None:
+    def __init__(self, model: p.ModelProtocol) -> None:
         self.model = model
         super().__init__(model.name)
 
@@ -270,7 +270,7 @@ class CheckpointIO(ModelStateIO):
     definition = '_checkpoint'
 
     def __init__(self,
-                 model: protocols.ModelProtocol,
+                 model: p.ModelProtocol,
                  optimizer: torch.optim.Optimizer) -> None:
         super().__init__(model)
         self.optimizer = optimizer

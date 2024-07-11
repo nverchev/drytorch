@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 from dry_torch import exceptions
+from dry_torch import protocols as p
 
 _T = TypeVar('_T')
 _C = TypeVar('_C', dict, list, set, tuple)
@@ -61,6 +62,12 @@ def recursive_apply(struc, expected_type, func):
         return {
             k: recursive_apply(v, expected_type, func) for k, v in struc.items()
         }
+    if isinstance(struc, p.NamedTupleProtocol):
+        # noinspection PyProtectedMember
+        return struc._make(
+            recursive_apply(item, expected_type, func) for item in struc
+        )
+
     if isinstance(struc, (list, set, tuple)):
         return type(struc)(
             recursive_apply(item, expected_type, func) for item in struc

@@ -1,27 +1,93 @@
+from __future__ import annotations
+
 import pathlib
-from typing import Protocol, TypedDict, Iterator, Callable, TypeVar
-from typing import Any, Type, Self, runtime_checkable
+from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias, \
+    Iterable
+from typing import Any, Union, Type, Self, runtime_checkable, SupportsIndex
+import enum
+
+import pandas as pd
 import torch
 from torch.nn.parameter import Parameter
-from dry_torch import data_types
+from torch.utils import data
 
-_Input_co = TypeVar('_Input_co', bound=data_types.InputType, covariant=True)
-_Target_co = TypeVar('_Target_co', bound=data_types.InputType, covariant=True)
-_Output_co = TypeVar('_Output_co', bound=data_types.OutputType, covariant=True)
+
+class Split(enum.Enum):
+    TRAIN = enum.auto()
+    VAL = enum.auto()
+    TEST = enum.auto()
+
+
+PartitionsLength: TypeAlias = dict[Split, int]
+LoadersDict: TypeAlias = dict[Split, data.DataLoader]
+LogsDict: TypeAlias = dict[Split, pd.DataFrame]
+PathDict: TypeAlias = dict[Split, pathlib.Path]
+
+Tensors: TypeAlias = Union[
+    torch.Tensor,
+    tuple[torch.Tensor, ...],
+    list[torch.Tensor],
+]
+
+_T = TypeVar('_T')
+
+"""
+NamedTuples with different values are interpreted as Generic of Any type.
+Therefore, usage is restricted to NamedTuples to either Tensor type or list of.
+"""
+
+
+@runtime_checkable
+class NamedTupleProtocol(Protocol[_T]):
+
+    def __getitem__(self, index: SupportsIndex) -> _T:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def _asdict(self) -> dict[str, _T]:
+        ...
+
+    @property
+    def _fields(self) -> tuple[str, ...]:
+        ...
+
+    @classmethod
+    def _make(cls: Type[NamedTupleProtocol],
+              *args: Any,
+              **kwargs: Any) -> NamedTupleProtocol:
+        ...
+
+
+ExtendedTensors = Union[
+    Tensors,
+    NamedTupleProtocol[Tensors],
+]
+
+InputType: TypeAlias = ExtendedTensors
+OutputType: TypeAlias = ExtendedTensors
+TargetType: TypeAlias = ExtendedTensors
+
+_Input_co = TypeVar('_Input_co', bound=InputType, covariant=True)
+_Target_co = TypeVar('_Target_co', bound=TargetType, covariant=True)
+
+_Output_co = TypeVar('_Output_co', bound=OutputType, covariant=True)
 
 _Input_contra = TypeVar('_Input_contra',
-                        bound=data_types.InputType,
+                        bound=InputType,
                         contravariant=True)
+
 _Target_contra = TypeVar('_Target_contra',
-                         bound=data_types.TargetType,
+                         bound=TargetType,
                          contravariant=True)
 _Output_contra = TypeVar('_Output_contra',
-                         bound=data_types.OutputType,
+                         bound=OutputType,
                          contravariant=True)
 
-_Input = TypeVar('_Input', bound=data_types.InputType)
-_Target = TypeVar('_Target', bound=data_types.TargetType)
-_Output = TypeVar('_Output', bound=data_types.OutputType)
+_Input = TypeVar('_Input', bound=InputType)
+_Target = TypeVar('_Target', bound=TargetType)
+_Output = TypeVar('_Output', bound=OutputType)
 
 
 class OptParams(TypedDict):

@@ -10,7 +10,6 @@ __all__ = [
     'MetricsCalculator',
     'LearningScheme',
     'Model',
-    'Split',
     'TorchDictList',
     'Trainer',
     'Evaluation',
@@ -20,7 +19,6 @@ __all__ = [
 from dry_torch.saving_loading import MetadataIO
 from dry_torch.saving_loading import ModelStateIO
 from dry_torch.saving_loading import CheckpointIO
-from dry_torch.data_types import Split
 from dry_torch.loading import DataLoader
 from dry_torch.calculating import LossCalculator
 from dry_torch.calculating import MetricsCalculator

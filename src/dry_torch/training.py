@@ -2,6 +2,7 @@ from __future__ import annotations
 import logging
 
 from typing import Callable, Optional, Self, TypeVar
+
 import torch
 from torch.cuda import amp
 
@@ -10,13 +11,12 @@ from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import modelling
 from dry_torch import protocols as p
-from dry_torch import data_types
 from dry_torch import default_logging
 from dry_torch import evaluating
 
-_Input = TypeVar('_Input', bound=data_types.InputType)
-_Target = TypeVar('_Target', bound=data_types.TargetType)
-_Output = TypeVar('_Output', bound=data_types.OutputType)
+_Input = TypeVar('_Input', bound=p.InputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 
 logger = logging.getLogger('dry_torch')
 
@@ -25,7 +25,7 @@ class Trainer(
     evaluating.Evaluation[_Input, _Target, _Output],
     p.TrainerProtocol,
 ):
-    partition = data_types.Split.TRAIN
+    partition = p.Split.TRAIN
     """
     Implement the standard Pytorch training and evaluation loop.
 

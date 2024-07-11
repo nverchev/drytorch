@@ -3,9 +3,10 @@ from types import ModuleType
 from abc import ABCMeta, abstractmethod
 from typing import Literal, Protocol
 import warnings
+
+import dry_torch.protocols
 import pandas as pd
 from pandas import DataFrame
-from dry_torch import data_types
 from dry_torch import tracking
 from dry_torch import exceptions
 
@@ -295,8 +296,8 @@ class Plotter:
         """
         log = tracking.Experiment.current().model_dict[self.model_name].log
         plotter = self.get_plotter(backend=lib, env=self.model_name)
-        plotter.plot(log[data_types.Split.TRAIN],
-                     log[data_types.Split.VAL],
+        plotter.plot(log[dry_torch.protocols.Split.TRAIN],
+                     log[dry_torch.protocols.Split.VAL],
                      metric,
                      start,
                      title)

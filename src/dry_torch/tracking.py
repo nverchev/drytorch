@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
-from typing import Any, Optional, Final, Callable
+from typing import Any, Optional, Final
 
 import pandas as pd
 from dry_torch import exceptions
 from dry_torch import default_logging
 from dry_torch import repr_utils
-from dry_torch import data_types
+from dry_torch import protocols as p
 
 logger = logging.getLogger('dry_torch')
 
@@ -37,7 +37,7 @@ class ModelTracking:
         model_literal = repr_utils.LiteralStr(model_repr)
         self.metadata: dict[str, Any] = {'Model': {name: model_literal}}
         self.bindings: dict[str, DefaultName] = {}
-        self.log = {split: pd.DataFrame() for split in data_types.Split}
+        self.log = {split: pd.DataFrame() for split in p.Split}
 
 
 class ModelTrackingDict:
@@ -93,7 +93,7 @@ class Experiment:
 
     def __init__(self,
                  exp_name: str = '',
-                 config: Optional[dict[str, Any]] = None,
+                 config: Optional[Any] = None,
                  exp_pardir: str | pathlib.Path = pathlib.Path('experiments'),
                  allow_extract_metadata: bool = True,
                  max_item_repr: int = 3) -> None:
@@ -134,6 +134,13 @@ class Experiment:
         unnamed_experiment = cls(cls.default_exp_name())
         unnamed_experiment.activate()
         return unnamed_experiment
+
+    @classmethod
+    def current_cfg(cls) -> Any:
+        cfg = cls.current().config
+        if cfg is None:
+            raise exceptions.NoConfigError()
+        return cfg
 
 
 def extract_metadata(attr_dict: dict[str, Any],

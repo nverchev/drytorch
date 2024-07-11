@@ -1,10 +1,10 @@
 from abc import abstractmethod
 import numpy as np
 
-from dry_torch import protocols
+from dry_torch import protocols as p
 
 
-class AbstractScheduler(protocols.SchedulerProtocol):
+class AbstractScheduler(p.SchedulerProtocol):
 
     def __call__(self, base_lr: float, epoch: int) -> float:
         """

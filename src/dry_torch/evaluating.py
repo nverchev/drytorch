@@ -5,6 +5,8 @@ import logging
 import abc
 import warnings
 from typing import TypeVar, Generic
+
+import dry_torch.protocols
 import torch
 
 from dry_torch import exceptions
@@ -14,20 +16,19 @@ from dry_torch import modelling
 from dry_torch import structures
 from dry_torch import recursive_ops
 from dry_torch import protocols as p
-from dry_torch import data_types
 from dry_torch import default_logging
 from dry_torch import loading
 
-_Input = TypeVar('_Input', bound=data_types.InputType)
-_Target = TypeVar('_Target', bound=data_types.TargetType)
-_Output = TypeVar('_Output', bound=data_types.OutputType)
+_Input = TypeVar('_Input', bound=p.InputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 
 logger = logging.getLogger('dry_torch')
 
 
 class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     max_stored_output: int = sys.maxsize
-    partition: data_types.Split
+    partition: dry_torch.protocols.Split
     """
     Implement the standard Pytorch training and evaluation loop.
 
@@ -49,7 +50,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         number of times the progress bar updates in one epoch.
         test_outputs:
             An instance of TorchDictList that stores the last test evaluation.
-        save_outputs: if the flag is active store the module outputs in the
+        store_outputs: if the flag is active store the module outputs in the
             test_outputs attribute. Default to False.
 
     Methods:
@@ -70,7 +71,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
             *,
             loader: p.LoaderProtocol[_Input, _Target],
             calculator: p.MetricsCalculatorProtocol[_Output, _Target],
-            save_outputs: bool = False,
+            store_outputs: bool = False,
             mixed_precision: bool = False,
     ) -> None:
         self.model = model
@@ -78,7 +79,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         self._calculator = calculator
         self.test_outputs = structures.TorchDictList()
         self._metrics = structures.TorchAggregate()
-        self.save_outputs = save_outputs
+        self.save_outputs = store_outputs
         device_is_cuda = self.model.device.type == 'cuda'
         self._mixed_precision = mixed_precision and device_is_cuda
         return
@@ -129,6 +130,10 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
                             enabled=self._mixed_precision):
             outputs = self.model(inputs)
             self._calculator.calculate(outputs, targets)
+            if self.save_outputs:
+                self.test_outputs.extend(
+                    structures.TorchDictList.from_batch(outputs)
+                )
         self._metrics += self._calculator.metrics
 
     def _update_partition_log(self, metric: str, value: float) -> None:
@@ -140,7 +145,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
 
 class Validation(Evaluation[_Input, _Target, _Output]):
-    partition = data_types.Split.VAL
+    partition = dry_torch.protocols.Split.VAL
 
     @torch.inference_mode()
     def __call__(self) -> None:
@@ -160,7 +165,7 @@ class Validation(Evaluation[_Input, _Target, _Output]):
 
 
 class Test(Evaluation[_Input, _Target, _Output]):
-    partition = data_types.Split.TEST
+    partition = dry_torch.protocols.Split.TEST
 
     """
     Implement the standard Pytorch training and evaluation loop.
@@ -183,7 +188,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
         number of times the progress bar updates in one epoch.
         test_outputs:
             An instance of TorchDictList that stores the last test evaluation.
-        save_outputs: if the flag is active store the module outputs in the
+        store_outputs: if the flag is active store the module outputs in the
             test_outputs attribute. Default to False.
 
     Methods:
@@ -206,12 +211,12 @@ class Test(Evaluation[_Input, _Target, _Output]):
             loader: p.LoaderProtocol[_Input, _Target],
             calculator: p.MetricsCalculatorProtocol[_Output, _Target],
             name: str = '',
-            save_outputs: bool = False,
+            store_outputs: bool = False,
     ) -> None:
         super().__init__(model,
                          loader=loader,
                          calculator=calculator,
-                         save_outputs=save_outputs)
+                         store_outputs=store_outputs)
         self.test_name = name or self._get_default_name()
         self._checkpoint = saving_loading.MetadataIO(model.name)
         return
