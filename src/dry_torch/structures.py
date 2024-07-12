@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import warnings
 from typing import Generic, Iterable, SupportsIndex, Optional, Iterator, TypeVar
 from typing import KeysView, ValuesView, Self, Hashable, overload
 from typing import MutableSequence
@@ -258,7 +259,7 @@ class DictList(MutableSequence, Generic[_K, _V]):
             self._tuple_list.__setitem__(index_or_slice, tuple_value)
         else:
             if not isinstance(index_or_slice, slice):
-                raise exceptions.NotASlice(index_or_slice)
+                raise exceptions.NotASliceError(index_or_slice)
             iterable_value = self._validate_iterable(value)
             self._tuple_list.__setitem__(index_or_slice, iterable_value)
 
@@ -286,11 +287,13 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
             tensors.
         """
         instance = cls()
-        if isinstance(tensor_batch, p.NamedTupleProtocol):
-            # noinspection PyProtectedMember
-            tensor_dict: dict[str, p.Tensors] = tensor_batch._asdict()
-        else:
+        TensorDict: dict[str, torch.Tensor | Iterable[torch.Tensor]]
+        if isinstance(tensor_batch, (torch.Tensor, list, tuple)):
             tensor_dict = dict(outputs=tensor_batch)
+        elif hasattr(tensor_batch, 'to_dict'):
+            tensor_dict = tensor_batch.to_dict()
+        else:
+            raise exceptions.NoToDictMethodError(tensor_batch)
         instance.set_keys(tuple(tensor_dict.keys()))
         instance._tuple_list = cls._enlist(tensor_dict.values())
         return instance
@@ -298,7 +301,7 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
     @classmethod
     def _enlist(
             cls,
-            tensor_values: ValuesView[p.Tensors],
+            tensor_values: ValuesView[torch.Tensor | Iterable[torch.Tensor]],
             /,
     ) -> list[tuple[torch.Tensor | tuple[torch.Tensor, ...], ...]]:
         """
@@ -316,9 +319,9 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
 
 
 def _conditional_zip(
-        elem: p.Tensors,
+        elem: torch.Tensor | Iterable[torch.Tensor],
 ) -> torch.Tensor | Iterator[tuple[torch.Tensor, ...]]:
-    return zip(*elem) if isinstance(elem, (list, tuple)) else elem
+    return elem if isinstance(elem, torch.Tensor) else zip(*elem)
 
 
 def _check_tensor_have_same_length(

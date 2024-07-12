@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias, \
-    Iterable
+import abc
+from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias
 from typing import Any, Union, Type, Self, runtime_checkable, SupportsIndex
+from typing import Iterable
 import enum
 
 import pandas as pd
@@ -32,9 +33,9 @@ Tensors: TypeAlias = Union[
 _T = TypeVar('_T')
 
 """
-NamedTuples with different values are interpreted as Generic of Any type.
-Therefore, usage is restricted to NamedTuples to either Tensor type or list of.
-"""
+NamedTuples are correctly handled by the default collate function.
+NamedTuples with different values are currently interpreted as Generic of Any.
+At the moment, this protocols won't support these interfaces' """
 
 
 @runtime_checkable
@@ -60,14 +61,15 @@ class NamedTupleProtocol(Protocol[_T]):
         ...
 
 
-ExtendedTensors = Union[
-    Tensors,
-    NamedTupleProtocol[Tensors],
-]
+class HasToDict(Protocol):
+    @abc.abstractmethod
+    def to_dict(self) -> dict[str, torch.Tensor | Iterable[torch.Tensor]]:
+        ...
 
-InputType: TypeAlias = ExtendedTensors
-OutputType: TypeAlias = ExtendedTensors
-TargetType: TypeAlias = ExtendedTensors
+
+InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
+OutputType: TypeAlias = Any
+TargetType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
 
 _Input_co = TypeVar('_Input_co', bound=InputType, covariant=True)
 _Target_co = TypeVar('_Target_co', bound=TargetType, covariant=True)
@@ -135,16 +137,18 @@ class TensorCallable(Protocol[_Output_contra, _Target_contra]):
 
 
 class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
-
+    @abc.abstractmethod
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
         ...
 
     @property
+    @abc.abstractmethod
     def metrics(self) -> dict[str, torch.Tensor]:
         ...
 
+    @abc.abstractmethod
     def reset_calculated(self) -> None:
         ...
 
@@ -153,19 +157,23 @@ class LossCalculatorProtocol(
     Protocol[_Output_contra, _Target_contra]
 ):
 
+    @abc.abstractmethod
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
         ...
 
     @property
+    @abc.abstractmethod
     def metrics(self) -> dict[str, torch.Tensor]:
         ...
 
     @property
+    @abc.abstractmethod
     def criterion(self) -> torch.Tensor:
         ...
 
+    @abc.abstractmethod
     def reset_calculated(self) -> None:
         ...
 
@@ -193,6 +201,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     device: torch.device
     module: torch.nn.Module
 
+    @abc.abstractmethod
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         ...
 

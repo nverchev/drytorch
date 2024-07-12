@@ -12,12 +12,23 @@ from dry_torch import LossCalculator
 from dry_torch import exceptions
 from dry_torch import default_logging
 from dry_torch import LearningScheme
+from dry_torch import protocols as p
+from typing import NamedTuple, Iterable
 
-from typing import NamedTuple
+import dataclasses
 
 
 class TorchTuple(NamedTuple):
     input: torch.Tensor
+
+
+@dataclasses.dataclass()
+class TorchData(p.HasToDict):
+    output: torch.Tensor
+    output2: tuple[torch.Tensor, ...] = (torch.empty(0),)
+
+    def to_dict(self) -> dict[str, torch.Tensor | Iterable[torch.Tensor]]:
+        return self.__dict__
 
 
 class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
@@ -42,13 +53,13 @@ class Linear(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(in_features, out_features)
 
-    def forward(self, inputs: TorchTuple) -> torch.Tensor:
-        return self.linear(inputs.input)
+    def forward(self, inputs: TorchTuple) -> TorchData:
+        return TorchData(self.linear(inputs.input))
 
 
-def square_error(outputs: torch.Tensor,
+def square_error(outputs: TorchData,
                  targets: torch.Tensor) -> torch.Tensor:
-    return (outputs - targets) ** 2
+    return (outputs.output - targets) ** 2
 
 
 logger = logging.getLogger('dry_torch')
@@ -88,13 +99,14 @@ def test_all() -> None:
         input=torch.FloatTensor([.2]).to(cloned_model.device)
     )
     out = cloned_model(sample_in)
-    assert torch.isclose(out, torch.tensor(.2), atol=0.01)
+    assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
 
     test = _Test(model,
                  calculator=loss_calc,
                  loader=loader,
                  store_outputs=True)
-    test()
+    with pytest.warns(exceptions.CannotStoreOutputWarning):
+        test()
     with pytest.warns(exceptions.AlreadyTestedWarning):
         test()
 

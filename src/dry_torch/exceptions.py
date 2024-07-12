@@ -145,7 +145,7 @@ class NoConfigError(AttributeError, DryTorchException):
         super().__init__(self.msg)
 
 
-class NotASlice(TypeError, DryTorchException):
+class NotASliceError(TypeError, DryTorchException):
     msg = 'Expected slice. Got object of type {}.'
 
     def __init__(self, not_a_slice: Any) -> None:
@@ -171,6 +171,14 @@ class NotBoundedError(RuntimeError, DryTorchException):
         super().__init__(self.msg.format(cls_str, model_name))
 
 
+class NoToDictMethodError(AttributeError, DryTorchException):
+    msg = 'Object of type {} does not have a to_dict() method.'
+
+    def __init__(self, no_to_dict: Any) -> None:
+        self.no_to_dict = no_to_dict
+        super().__init__(self.msg.format(type(no_to_dict)))
+
+
 class PartitionNotFoundError(ValueError, DryTorchException):
     msg = 'Impossible to load {} dataset: partition {} not found.'
 
@@ -184,6 +192,13 @@ class AlreadyTestedWarning(RuntimeWarning, DryTorchException):
 
     def __init__(self) -> None:
         super().__init__(self.msg)
+
+
+class CannotStoreOutputWarning(RuntimeWarning, DryTorchException):
+    msg = 'Impossible to store output because the following error.\n{}'
+
+    def __init__(self, err_msg: str) -> None:
+        super().__init__(self.msg.format(err_msg))
 
 
 class OptimizerNotLoadedWarning(RuntimeWarning, DryTorchException):

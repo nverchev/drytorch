@@ -1,25 +1,48 @@
 import pytest
 import torch
-from typing import NamedTuple, Sequence
+from typing import Sequence
+import dataclasses
 
 from dry_torch import TorchDictList
-from dry_torch.structures import DictList
-from dry_torch.exceptions import KeysAlreadySetError
-from dry_torch.exceptions import DifferentBatchSizeError
+from dry_torch import structures
+from dry_torch import exceptions
 
 
-class BatchTuple(NamedTuple):
+@dataclasses.dataclass(slots=True)
+class BatchOutput:
     output1: torch.Tensor
-    output2: torch.Tensor
+    output2: list[torch.Tensor]
+
+    def to_dict(self) -> dict[str, torch.Tensor | list[torch.Tensor]]:
+        return {'output1': self.output1, 'output2': self.output2}
 
 
-class ListedBatchTuple(NamedTuple):
-    output1: list[torch.Tensor]
+@dataclasses.dataclass(slots=True)
+class WrongTypeBatch:
+    output1: int
+    output2: list[torch.Tensor]
+
+    def to_dict(self) -> dict[str, int | list[torch.Tensor]]:
+        return {'output1': self.output1, 'output2': self.output2}
+
+
+@dataclasses.dataclass(slots=True)
+class WrongListedTypeBatch:
+    output1: torch.Tensor
+    output2: list[int]
+
+    def to_dict(self) -> dict[str, torch.Tensor | list[int]]:
+        return {'output1': self.output1, 'output2': self.output2}
+
+
+@dataclasses.dataclass(slots=True)
+class NoToDictBatch:
+    output1: torch.Tensor
     output2: list[torch.Tensor]
 
 
 def test_DictList() -> None:
-    dict_list: DictList[str, torch.Tensor] = DictList()
+    dict_list: structures.DictList[str, torch.Tensor] = structures.DictList()
     input_dict_list = [{'list1': torch.ones(2, 2)} for _ in range(2)]
 
     # test __init__ and extend
@@ -29,15 +52,15 @@ def test_DictList() -> None:
 
     # test append and __getitem__
     assert torch.allclose(dict_list[1]['list1'],
-                          DictList(input_dict_list)[1]['list1'])
+                          structures.DictList(input_dict_list)[1]['list1'])
     dict_list.append({'list1': torch.ones(2, 2)})
 
     # test KeysAlreadySet
-    with pytest.raises(KeysAlreadySetError):
+    with pytest.raises(exceptions.KeysAlreadySetError):
         dict_list.extend([{'list2': torch.ones(2, 2) for _ in range(5)}])
-    with pytest.raises(KeysAlreadySetError):
+    with pytest.raises(exceptions.KeysAlreadySetError):
         dict_list[0] = {'list2': torch.ones(2, 2)}
-    with pytest.raises(KeysAlreadySetError):
+    with pytest.raises(exceptions.KeysAlreadySetError):
         dict_list.insert(0, {'list2': torch.ones(2, 2)})
 
     # test __add__ and extend
@@ -75,24 +98,27 @@ def check_equal(tuple_list: tuple_list_type,
 
 
 def test_TorchDictList() -> None:
-    batch_tuple = BatchTuple(torch.ones(2, 2), torch.zeros(2, 2))
+    batch_batch = BatchOutput(torch.ones(2, 2), [torch.zeros(2, 2)])
     expected_result: tuple_list_type = 2 * [
-        (torch.tensor(1.), torch.tensor(0.))
+        (torch.tensor(1.), (torch.tensor(0.),))
     ]
-    tuple_list = TorchDictList.from_batch(batch_tuple)._tuple_list
-
-    check_equal(tuple_list, expected_result)
-
-    listed_batch_tuple = ListedBatchTuple(
-        [torch.ones(2, 2)], [torch.zeros(2, 2)]
-    )
-    expected_result = 2 * [((torch.ones(2),), (torch.zeros(2),))]
-    tuple_list = TorchDictList.from_batch(listed_batch_tuple)._tuple_list
+    tuple_list = TorchDictList.from_batch(batch_batch)._tuple_list
 
     check_equal(tuple_list, expected_result)
     # test DifferentBatchSizeError
-    wrong_batch_tuple = ListedBatchTuple(
-        [torch.ones(2, 2)], [torch.zeros(1, 2)]
-    )
-    with pytest.raises(DifferentBatchSizeError):
+    wrong_batch_tuple = BatchOutput(torch.ones(2, 2), [torch.zeros(1, 2)])
+    with pytest.raises(exceptions.DifferentBatchSizeError):
         TorchDictList.from_batch(wrong_batch_tuple)
+
+    # test NotATensorError
+    wrong_type_batch = WrongTypeBatch(2, [torch.zeros(2, 2)])
+    with pytest.raises(exceptions.NotATensorError):
+        TorchDictList.from_batch(wrong_type_batch)
+    wrong_listed_type_batch = WrongListedTypeBatch(torch.ones(2, 2), [2, 2])
+    with pytest.raises(exceptions.NotATensorError):
+        TorchDictList.from_batch(wrong_listed_type_batch)
+
+    # test NoToDictMethodError
+    no_to_dict_batch = NoToDictBatch(torch.ones(2, 2), [torch.zeros(2, 2)])
+    with pytest.raises(exceptions.NoToDictMethodError):
+        TorchDictList.from_batch(no_to_dict_batch)
