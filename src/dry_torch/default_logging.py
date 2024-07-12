@@ -13,6 +13,7 @@ class InfoLevels(NamedTuple):
 
 
 class InfoFormatter(logging.Formatter):
+    default_msec_format = ''
 
     def format(self, record: logging.LogRecord) -> str:
         self._style._fmt = self._info_fmt(record.levelno)

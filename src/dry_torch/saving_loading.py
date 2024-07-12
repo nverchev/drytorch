@@ -159,7 +159,7 @@ class MetadataIO:
             with self.paths.config.open('w') as config_file:
                 yaml.dump(config, config_file, sort_keys=False)
         with self.paths.metadata.open('w') as metadata_file:
-            now: str = datetime.datetime.now().strftime('%H:%M:%S %d/%m/%Y')
+            now: str = datetime.datetime.now().isoformat(' ', 'seconds')
             metadata = {'timestamp': now} | self.model_tracking.metadata
             yaml.dump(metadata, metadata_file, sort_keys=False)
         logger.log(default_logging.INFO_LEVELS.checkpoint,

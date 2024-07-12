@@ -19,6 +19,16 @@ class Split(enum.Enum):
     TEST = enum.auto()
 
 
+class OptParams(TypedDict):
+    params: Iterator[Parameter]
+    lr: float
+
+
+class StatePath(TypedDict):
+    state: pathlib.Path
+    optimizer: pathlib.Path
+
+
 PartitionsLength: TypeAlias = dict[Split, int]
 LoadersDict: TypeAlias = dict[Split, data.DataLoader]
 LogsDict: TypeAlias = dict[Split, pd.DataFrame]
@@ -33,9 +43,10 @@ Tensors: TypeAlias = Union[
 _T = TypeVar('_T')
 
 """
-NamedTuples are correctly handled by the default collate function.
+Correctly handled by the default collate function.
 NamedTuples with different values are currently interpreted as Generic of Any.
-At the moment, this protocols won't support these interfaces' """
+At the moment, this protocol won't support these interfaces
+"""
 
 
 @runtime_checkable
@@ -92,11 +103,6 @@ _Target = TypeVar('_Target', bound=TargetType)
 _Output = TypeVar('_Output', bound=OutputType)
 
 
-class OptParams(TypedDict):
-    params: Iterator[Parameter]
-    lr: float
-
-
 class LoaderProtocol(Protocol[_Input_co, _Target_co]):
     batch_size: int
     dataset_len: int
@@ -121,11 +127,6 @@ class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
 
     def forward(self, inputs: _Input_contra) -> _Output_co:
         ...
-
-
-class StatePath(TypedDict):
-    state: pathlib.Path
-    optimizer: pathlib.Path
 
 
 class TensorCallable(Protocol[_Output_contra, _Target_contra]):

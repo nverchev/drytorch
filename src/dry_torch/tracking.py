@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
+import datetime
 from typing import Any, Optional, Final
 
 import pandas as pd
@@ -49,7 +50,7 @@ class ModelTrackingDict:
     def __contains__(self, item) -> bool:
         return self._models.__contains__(item)
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: str) -> ModelTracking:
         if key not in self:
             raise exceptions.ModelNotExistingError(key, self.exp_name)
         return self._models.__getitem__(key)
@@ -98,7 +99,7 @@ class Experiment:
                  allow_extract_metadata: bool = True,
                  max_item_repr: int = 3) -> None:
 
-        self.exp_name: Final = exp_name or self.__class__.default_exp_name()
+        self.exp_name: Final = exp_name or datetime.date.today().isoformat()
         self.config = config
         self.exp_pardir = pathlib.Path(exp_pardir)
         self.allow_extract_metadata = allow_extract_metadata
