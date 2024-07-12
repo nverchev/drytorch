@@ -77,7 +77,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         self.model = model
         self._loader = loading.TqdmLoader[_Input, _Target](loader)
         self._calculator = calculator
-        self.test_outputs = structures.TorchDictList()
+        self.test_outputs = structures.NumpyDictList()
         self._metrics = structures.TorchAggregate()
         self.store_outputs = store_outputs
         device_is_cuda = self.model.device.type == 'cuda'
@@ -136,7 +136,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     def _store(self, outputs: _Output) -> None:
         try:
-            dict_batch = structures.TorchDictList.from_batch(outputs)
+            dict_batch = structures.NumpyDictList.from_batch(outputs)
             self.test_outputs.extend(dict_batch)
         except exceptions.NotATensorError as type_err:
             warnings.warn(exceptions.CannotStoreOutputWarning(str(type_err)))

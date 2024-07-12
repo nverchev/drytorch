@@ -10,7 +10,7 @@ __all__ = [
     'MetricsCalculator',
     'LearningScheme',
     'Model',
-    'TorchDictList',
+    'NumpyDictList',
     'Trainer',
     'Evaluation',
     'Validation',
@@ -24,7 +24,7 @@ from dry_torch.calculating import LossCalculator
 from dry_torch.calculating import MetricsCalculator
 from dry_torch.modelling import LearningScheme
 from dry_torch.modelling import Model
-from dry_torch.structures import TorchDictList
+from dry_torch.structures import NumpyDictList
 from dry_torch.tracking import Experiment
 from dry_torch.training import Trainer
 from dry_torch.evaluating import Evaluation

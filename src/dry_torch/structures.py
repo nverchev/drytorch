@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import collections
-import warnings
 from typing import Generic, Iterable, SupportsIndex, Optional, Iterator, TypeVar
 from typing import KeysView, ValuesView, Self, Hashable, overload
 from typing import MutableSequence
 
+import numpy as np
+
 import dry_torch.protocols as p
 import torch
-
+import numpy.typing as npt
 from dry_torch import exceptions
 
 _K = TypeVar('_K', bound=Hashable)
@@ -267,7 +268,7 @@ class DictList(MutableSequence, Generic[_K, _V]):
         return f'DictList({self.to_dict().__repr__()}'
 
 
-class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
+class NumpyDictList(DictList[str, npt.NDArray | tuple[npt.NDArray, ...]]):
     """
     Add support to a Dict List with Tensor and Tensor list values.
 
@@ -277,7 +278,7 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
     """
 
     @classmethod
-    def from_batch(cls, tensor_batch: p.OutputType) -> TorchDictList:
+    def from_batch(cls, tensor_batch: p.OutputType) -> NumpyDictList:
         """
         Instantiate the class so that each element has named tensor referring
         to the same sample.
@@ -303,7 +304,7 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
             cls,
             tensor_values: ValuesView[torch.Tensor | Iterable[torch.Tensor]],
             /,
-    ) -> list[tuple[torch.Tensor | tuple[torch.Tensor, ...], ...]]:
+    ) -> list[tuple[npt.NDArray | tuple[npt.NDArray, ...], ...]]:
         """
         Change the structure of batched Tensors and lists of Tensors. Args:
         tensor_iterable: an Iterable containing bathed tensors or lists of
@@ -315,13 +316,23 @@ class TorchDictList(DictList[str, torch.Tensor | tuple[torch.Tensor, ...]]):
         """
 
         _check_tensor_have_same_length(tensor_values)
-        return list(zip(*map(_conditional_zip, tensor_values)))
+        numpy_values = map(_to_numpy, tensor_values)
+        return list(zip(*map(_conditional_zip, numpy_values)))
+
+
+def _to_numpy(
+        elem: torch.Tensor | Iterable[torch.Tensor],
+) -> npt.NDArray | Iterable[npt.NDArray]:
+    if isinstance(elem, torch.Tensor):
+        return elem.detach().numpy()
+    else:
+        return (item.detach().numpy() for item in elem)
 
 
 def _conditional_zip(
-        elem: torch.Tensor | Iterable[torch.Tensor],
-) -> torch.Tensor | Iterator[tuple[torch.Tensor, ...]]:
-    return elem if isinstance(elem, torch.Tensor) else zip(*elem)
+        elem: npt.NDArray | Iterable[npt.NDArray],
+) -> npt.NDArray | Iterator[tuple[npt.NDArray, ...]]:
+    return elem if isinstance(elem, np.ndarray) else zip(*elem)
 
 
 def _check_tensor_have_same_length(
