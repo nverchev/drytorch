@@ -4,7 +4,7 @@ import pathlib
 import abc
 from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias
 from typing import Any, Union, Type, Self, runtime_checkable, SupportsIndex
-from typing import Iterable
+from typing import Iterable, Mapping
 import enum
 
 import pandas as pd
@@ -61,9 +61,9 @@ class NamedTupleProtocol(Protocol[_T]):
         ...
 
 
-class HasToDict(Protocol):
+class HasToDictProtocol(Protocol):
     @abc.abstractmethod
-    def to_dict(self) -> dict[str, torch.Tensor | Iterable[torch.Tensor]]:
+    def to_dict(self) -> Mapping[str, torch.Tensor | Iterable[torch.Tensor]]:
         ...
 
 
@@ -145,7 +145,7 @@ class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
 
     @property
     @abc.abstractmethod
-    def metrics(self) -> dict[str, torch.Tensor]:
+    def metrics(self) -> Mapping[str, torch.Tensor]:
         ...
 
     @abc.abstractmethod
@@ -165,7 +165,7 @@ class LossCalculatorProtocol(
 
     @property
     @abc.abstractmethod
-    def metrics(self) -> dict[str, torch.Tensor]:
+    def metrics(self) -> Mapping[str, torch.Tensor]:
         ...
 
     @property

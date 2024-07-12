@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import collections
-from typing import Generic, Iterable, SupportsIndex, Optional, Iterator, TypeVar
+from typing import Generic, Iterable, SupportsIndex, Optional, Iterator
 from typing import KeysView, ValuesView, Self, Hashable, overload
-from typing import MutableSequence
+from typing import MutableSequence, TypeVar, Mapping
 
 import numpy as np
 
@@ -288,7 +288,7 @@ class NumpyDictList(DictList[str, npt.NDArray | tuple[npt.NDArray, ...]]):
             tensors.
         """
         instance = cls()
-        TensorDict: dict[str, torch.Tensor | Iterable[torch.Tensor]]
+        TensorDict: Mapping[str, torch.Tensor | Iterable[torch.Tensor]]
         if isinstance(tensor_batch, (torch.Tensor, list, tuple)):
             tensor_dict = dict(outputs=tensor_batch)
         elif hasattr(tensor_batch, 'to_dict'):
@@ -324,9 +324,13 @@ def _to_numpy(
         elem: torch.Tensor | Iterable[torch.Tensor],
 ) -> npt.NDArray | Iterable[npt.NDArray]:
     if isinstance(elem, torch.Tensor):
-        return elem.detach().numpy()
+        return _tensor_to_numpy(elem)
     else:
-        return (item.detach().numpy() for item in elem)
+        return (_tensor_to_numpy(item) for item in elem)
+
+
+def _tensor_to_numpy(elem: torch.Tensor) -> npt.NDArray:
+    return elem.detach().cpu().numpy()
 
 
 def _conditional_zip(
