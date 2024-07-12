@@ -163,8 +163,8 @@ class MetadataIO:
             metadata = {'timestamp': now} | self.model_tracking.metadata
             yaml.dump(metadata, metadata_file, sort_keys=False)
         logger.log(default_logging.INFO_LEVELS.checkpoint,
-                   f"Model %(definition)s saved in: %(model_dir)s",
-                   {'definition': self.definition,
+                   f"%(definition)s saved in: %(model_dir)s",
+                   {'definition': self.definition.capitalize(),
                     'model_dir': self.paths.model_directory}
                    )
         return
@@ -267,7 +267,7 @@ class CheckpointIO(ModelStateIO):
         epoch: property with the current epoch.
     """
 
-    definition = '_checkpoint'
+    definition = 'checkpoint'
 
     def __init__(self,
                  model: p.ModelProtocol,
