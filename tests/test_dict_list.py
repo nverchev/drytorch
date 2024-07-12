@@ -1,9 +1,11 @@
+import numpy as np
+import numpy.typing as npt
 import pytest
 import torch
 from typing import Sequence
 import dataclasses
 
-from dry_torch import TorchDictList
+from dry_torch import NumpyDictList
 from dry_torch import structures
 from dry_torch import exceptions
 
@@ -78,7 +80,7 @@ def test_DictList() -> None:
 
 
 tuple_list_type = Sequence[
-    tuple[torch.Tensor | tuple[torch.Tensor, ...], ...]
+    tuple[npt.NDArray | tuple[npt.NDArray, ...], ...]
 ]
 
 
@@ -86,39 +88,34 @@ def check_equal(tuple_list: tuple_list_type,
                 expected_result: tuple_list_type) -> None:
     for t1, t2 in zip(tuple_list, expected_result):
         for t11, t22 in zip(t1, t2):
-            if isinstance(t11, torch.Tensor):
-                assert isinstance(t22, torch.Tensor)
-                assert torch.allclose(t11, t22)
+            if isinstance(t11, np.ndarray):
+                assert np.allclose(t11, t22)
             else:
                 for t111, t222 in zip(t11, t22):
-                    assert isinstance(t111, torch.Tensor)
-                    assert isinstance(t222, torch.Tensor)
-                    assert torch.allclose(t111, t222)
+                    assert np.allclose(t111, t222)
     return
 
 
-def test_TorchDictList() -> None:
+def test_NumpyDictList() -> None:
     batch_batch = BatchOutput(torch.ones(2, 2), [torch.zeros(2, 2)])
-    expected_result: tuple_list_type = 2 * [
-        (torch.tensor(1.), (torch.tensor(0.),))
-    ]
-    tuple_list = TorchDictList.from_batch(batch_batch)._tuple_list
+    expected_result: tuple_list_type = 2 * [(np.array(1), (np.array(0),))]
+    tuple_list = NumpyDictList.from_batch(batch_batch)._tuple_list
 
     check_equal(tuple_list, expected_result)
     # test DifferentBatchSizeError
     wrong_batch_tuple = BatchOutput(torch.ones(2, 2), [torch.zeros(1, 2)])
     with pytest.raises(exceptions.DifferentBatchSizeError):
-        TorchDictList.from_batch(wrong_batch_tuple)
+        NumpyDictList.from_batch(wrong_batch_tuple)
 
     # test NotATensorError
     wrong_type_batch = WrongTypeBatch(2, [torch.zeros(2, 2)])
     with pytest.raises(exceptions.NotATensorError):
-        TorchDictList.from_batch(wrong_type_batch)
+        NumpyDictList.from_batch(wrong_type_batch)
     wrong_listed_type_batch = WrongListedTypeBatch(torch.ones(2, 2), [2, 2])
     with pytest.raises(exceptions.NotATensorError):
-        TorchDictList.from_batch(wrong_listed_type_batch)
+        NumpyDictList.from_batch(wrong_listed_type_batch)
 
     # test NoToDictMethodError
     no_to_dict_batch = NoToDictBatch(torch.ones(2, 2), [torch.zeros(2, 2)])
     with pytest.raises(exceptions.NoToDictMethodError):
-        TorchDictList.from_batch(no_to_dict_batch)
+        NumpyDictList.from_batch(no_to_dict_batch)

@@ -23,7 +23,7 @@ class TorchTuple(NamedTuple):
 
 
 @dataclasses.dataclass()
-class TorchData(p.HasToDict):
+class TorchData(p.HasToDictProtocol):
     output: torch.Tensor
     output2: tuple[torch.Tensor, ...] = (torch.empty(0),)
 
