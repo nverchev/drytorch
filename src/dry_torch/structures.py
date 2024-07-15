@@ -411,10 +411,8 @@ class TorchAggregate:
 
     def __setitem__(self, key: str, value: torch.Tensor) -> None:
         key = self._format_key(key)
-        count = self._count(value)
-        value = self._aggregate(value)
-        self.aggregate[key] = value.item()
-        self.counts[key] = count
+        self.aggregate[key] = self._aggregate(value).item()
+        self.counts[key] = self._count(value)
         return
 
     def __eq__(self, other: object) -> bool:
