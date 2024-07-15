@@ -142,21 +142,24 @@ class Trainer(
             except exceptions.ConvergenceError as ce:
                 logger.error(ce, exc_info=True)
             self.exec_post_epoch_hooks()
-
         logger.log(default_logging.INFO_LEVELS.training, 'End of training.')
         return
 
     def _run_batch(self, inputs: _Input, targets: _Target) -> None:
         super()._run_batch(inputs, targets)
         self._calculator: p.LossCalculatorProtocol
-        criterion = self._calculator.criterion
-        self._loader.send({'Loss': criterion.item()})
+        criterion = self._calculator.criterion.mean(0)
         try:
             self._scaler.scale(criterion).backward()
+        except RuntimeError as re:
+            if criterion.numel != 1:
+                raise exceptions.NotBatchedError(list(criterion.shape))
+            raise re
         except ValueError as ve:
             if torch.isinf(criterion) or torch.isnan(criterion):
                 raise exceptions.ConvergenceError(criterion.item())
             raise ve
+        self._loader.send({'Loss': criterion.item()})
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()

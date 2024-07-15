@@ -131,15 +131,15 @@ class MustSupportIndex(TypeError, DryTorchException):
         super().__init__(self.msg.format(type(not_supporting_index)))
 
 
-class NoLengthError(AttributeError, DryTorchException):
-    msg = 'Dataset does not implement __len__ method.'
+class NoConfigError(AttributeError, DryTorchException):
+    msg = 'No config found in experiment.'
 
     def __init__(self) -> None:
         super().__init__(self.msg)
 
 
-class NoConfigError(AttributeError, DryTorchException):
-    msg = 'No config found in experiment.'
+class NoLengthError(AttributeError, DryTorchException):
+    msg = 'Dataset does not implement __len__ method.'
 
     def __init__(self) -> None:
         super().__init__(self.msg)
@@ -160,6 +160,14 @@ class NotATensorError(TypeError, DryTorchException):
         self.name = name
         self.not_a_tensor = not_a_tensor
         super().__init__(self.msg.format(name, type(not_a_tensor)))
+
+
+class NotBatchedError(ValueError, DryTorchException):
+    msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
+
+    def __init__(self, shapes: list[int]) -> None:
+        self.shapes = shapes
+        super().__init__(self.msg.format(shapes))
 
 
 class NotBoundedError(RuntimeError, DryTorchException):

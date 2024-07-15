@@ -65,7 +65,7 @@ class LossCalculator(
         criterion = self.loss_fun(outputs, targets)
         self._metrics: dict[str, torch.Tensor]
         self._metrics.update(criterion=criterion)
-        self._criterion = criterion.mean()
+        self._criterion = criterion
 
         return
 

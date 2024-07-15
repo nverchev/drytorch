@@ -320,6 +320,73 @@ class NumpyDictList(DictList[str, npt.NDArray | tuple[npt.NDArray, ...]]):
         return list(zip(*map(_conditional_zip, numpy_values)))
 
 
+class TorchAggregate:
+    __slots__ = ('aggregate', 'counts')
+
+    def __init__(self,
+                 iterable: Iterable[tuple[str, torch.Tensor]] = (),
+                 /,
+                 **kwargs: torch.Tensor):
+        self.aggregate = collections.defaultdict[str, float](float)
+        self.counts = collections.defaultdict[str, int](int)
+        for key, value in iterable:
+            self[key] = value
+        for key, value in kwargs.items():
+            self[key] = value
+
+    def __add__(self, other: Self | Mapping[str, torch.Tensor]) -> Self:
+        if isinstance(other, Mapping):
+            other = self.__class__(**other)
+        out = self.__copy__()
+        out += other
+        return out
+
+    def __iadd__(self, other: Self | Mapping[str, torch.Tensor]) -> Self:
+        if isinstance(other, Mapping):
+            other = self.__class__(**other)
+        for key, value in other.aggregate.items():
+            self.aggregate[key] += value
+        for key, count in other.counts.items():
+            self.counts[key] += count
+        return self
+
+    def __setitem__(self, key: str, value: torch.Tensor) -> None:
+        key = self._format_key(key)
+        self.aggregate[key] = self._aggregate(value)
+        self.counts[key] = self._count(value)
+        return
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self.aggregate == other.aggregate and self.counts == other.counts
+
+    def reduce(self) -> dict[str, float]:
+        return {key: value / self.counts[key]
+                for key, value in self.aggregate.items()}
+
+    def __copy__(self) -> Self:
+        copied = self.__class__()
+        copied.aggregate = self.aggregate.copy()
+        copied.counts = self.counts.copy()
+        return copied
+
+    @staticmethod
+    def _format_key(key: str) -> str:
+        return key[0].upper() + key[1:]  # Better than capitalize for acronyms
+
+    @staticmethod
+    def _count(value: torch.Tensor) -> int:
+        return value.numel()
+
+    @staticmethod
+    def _aggregate(value: torch.Tensor) -> float:
+        try:
+            return value.sum(0).item()
+        except RuntimeError:
+            raise exceptions.NotBatchedError(list(value.shape))
+
+
 def _to_numpy(
         elem: torch.Tensor | Iterable[torch.Tensor],
 ) -> npt.NDArray | Iterable[npt.NDArray]:
@@ -377,67 +444,3 @@ def _check_tensor_have_same_length(
         if len(tensor_len_set) > 1:
             raise exceptions.DifferentBatchSizeError(tensor_len_set)
     return
-
-
-class TorchAggregate:
-    __slots__ = ('aggregate', 'counts')
-
-    def __init__(self,
-                 iterable: Iterable[tuple[str, torch.Tensor]] = (),
-                 /,
-                 **kwargs: torch.Tensor):
-        self.aggregate = collections.defaultdict[str, float](float)
-        self.counts = collections.defaultdict[str, int](int)
-        for key, value in iterable:
-            self[key] = value
-        for key, value in kwargs.items():
-            self[key] = value
-
-    def __add__(self, other: Self | dict[str, torch.Tensor]) -> Self:
-        if isinstance(other, dict):
-            other = self.__class__(**other)
-        out = self.__copy__()
-        out += other
-        return out
-
-    def __iadd__(self, other: Self | dict[str, torch.Tensor]) -> Self:
-        if isinstance(other, dict):
-            other = self.__class__(**other)
-        for key, value in other.aggregate.items():
-            self.aggregate[key] += value
-        for key, count in other.counts.items():
-            self.counts[key] += count
-        return self
-
-    def __setitem__(self, key: str, value: torch.Tensor) -> None:
-        key = self._format_key(key)
-        self.aggregate[key] = self._aggregate(value).item()
-        self.counts[key] = self._count(value)
-        return
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self.aggregate == other.aggregate and self.counts == other.counts
-
-    def reduce(self) -> dict[str, float]:
-        return {key: value / self.counts[key]
-                for key, value in self.aggregate.items()}
-
-    def __copy__(self) -> Self:
-        copied = self.__class__()
-        copied.aggregate = self.aggregate.copy()
-        copied.counts = self.counts.copy()
-        return copied
-
-    @staticmethod
-    def _format_key(key: str) -> str:
-        return key[0].upper() + key[1:]  # Better than capitalize for acronyms
-
-    @staticmethod
-    def _count(value: torch.Tensor) -> int:
-        return value.numel()
-
-    @staticmethod
-    def _aggregate(value: torch.Tensor) -> torch.Tensor:
-        return value.sum()
