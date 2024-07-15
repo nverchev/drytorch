@@ -25,7 +25,10 @@ class ComplexModel(torch.nn.Module):
 
 @pytest.fixture(scope='module')
 def _complex_model() -> Model[torch.Tensor, torch.Tensor]:
-    return Model(ComplexModel(), name='complex_model')
+    complex_model = Model(ComplexModel(), name='complex_model')
+    Experiment.current().register_model(complex_model)
+    return complex_model
+
 
 
 @pytest.fixture()

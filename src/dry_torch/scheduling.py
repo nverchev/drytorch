@@ -44,7 +44,7 @@ class ExponentialScheduler(AbstractScheduler):
 
     def __init__(self,
                  exp_decay: float = .975,
-                 min_decay: float = 0.01) -> None:
+                 min_decay: float = 0.00) -> None:
         self.exp_decay = exp_decay
         self.min_decay = min_decay
 

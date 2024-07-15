@@ -108,8 +108,10 @@ class Experiment:
         self.__class__.past_experiments.add(self)
         self.activate()
 
-    def register_model(self, model, name):
-        self.model_dict[name] = ModelTracking(name, model_repr=model.__repr__())
+    def register_model(self, model: p.ModelProtocol):
+        name = model.name
+        architecture = model.module.__repr__()
+        self.model_dict[name] = ModelTracking(name, model_repr=architecture)
 
     def activate(self):
         if self._current is not None:

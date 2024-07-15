@@ -25,6 +25,7 @@ class TorchTuple(NamedTuple):
 @dataclasses.dataclass()
 class TorchData(p.HasToDictProtocol):
     output: torch.Tensor
+    output2: tuple[torch.Tensor, ...] = (torch.empty(0),)
 
     def to_dict(self) -> dict[str, torch.Tensor | Iterable[torch.Tensor]]:
         return self.__dict__
@@ -67,12 +68,13 @@ logger.setLevel(default_logging.INFO_LEVELS.tqdm_bar)
 
 def test_all() -> None:
     exp_pardir = 'test_experiments'
-    Experiment('test_simple_training',
-               exp_pardir=exp_pardir,
-               config={'answer': 42})
+    experiment = Experiment('test_simple_training',
+                            exp_pardir=exp_pardir,
+                            config={'answer': 42})
     module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     model = Model(module, name='original_model')
+    experiment.register_model(model)
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
@@ -83,6 +85,7 @@ def test_all() -> None:
     trainer.train(10)
     trainer.save_checkpoint()
     cloned_model = model.clone('cloned_model')
+    experiment.register_model(cloned_model)
     Trainer(cloned_model,
             learning_scheme=LearningScheme(lr=0.01),
             loss_calc=loss_calc,

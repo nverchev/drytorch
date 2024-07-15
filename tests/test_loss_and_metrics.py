@@ -1,6 +1,6 @@
 import pytest
 import torch
-from dry_torch import LossCalculator
+from dry_torch import SimpleLossCalculator
 from dry_torch import MetricsCalculator
 from dry_torch import structures
 
@@ -29,7 +29,7 @@ def test_MetricsFunction() -> None:
 
 
 def test_LossFunction() -> None:
-    loss_calc = LossCalculator(
+    loss_calc = SimpleLossCalculator(
         loss_fun=torch.nn.MSELoss(reduction='none'),
         BCE=torch.nn.BCELoss(reduction='none')
     )

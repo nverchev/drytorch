@@ -47,7 +47,7 @@ class LearningScheme(p.LearningProtocol):
 
     optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adam
     lr: float | dict[str, float] = 0.001
-    scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+    scheduler: p.SchedulerProtocol = scheduling.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
@@ -92,9 +92,6 @@ class Model(Generic[_Input_contra, _Output_co]):
         self.module = self.validate_module(torch_module).to(self.device)
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.checkpoint = saving_loading.ModelStateIO(self)
-        self.exp = tracking.Experiment.current()
-        self.exp.register_model(torch_module, name)
-        self.info: tracking.ModelTracking = self.exp.model_dict[self.name]
 
     @staticmethod
     def validate_module(torch_model) -> torch.nn.Module:
@@ -222,7 +219,7 @@ class ModelOptimizer:
         """
         if lr is not None:
             self.set_lr(lr)
-            self.scheduler = schedulers.ConstantScheduler()
+            self.scheduler = scheduling.ConstantScheduler()
         for g, up_g in zip(self.optimizer.param_groups,
                            self.get_scheduled_lr()):
             g['lr'] = up_g['lr']
