@@ -59,7 +59,7 @@ class Linear(torch.nn.Module):
 
 def square_error(outputs: TorchData,
                  targets: torch.Tensor) -> torch.Tensor:
-    return (outputs.output - targets) ** 2
+    return torch.stack(2 * [(outputs.output - targets) ** 2]).mean()
 
 
 logger = logging.getLogger('dry_torch')
