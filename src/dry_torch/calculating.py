@@ -73,7 +73,7 @@ class LossCalculatorBase(
         self._criterion = None
 
 
-class LossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
+class SimpleLossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
 
     def __init__(
             self,
@@ -87,10 +87,45 @@ class LossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
+        criterion = self.loss_fun(outputs, targets)
+        self._criterion = criterion
         self._metrics = {name: function(outputs, targets)
                          for name, function in self.named_metric_fun.items()}
-        criterion = self.loss_fun(outputs, targets)
-        self._metrics: dict[str, torch.Tensor]
         self._metrics.update(criterion=criterion)
+        return
+
+
+# TODO: Test this
+class CompositeLossCalculator(
+    LossCalculatorBase[_Output_contra, _Target_contra]
+):
+
+    def __init__(
+            self,
+            *components: tuple[
+                str,
+                float,
+                p.TensorCallable[_Output_contra, _Target_contra]
+            ],
+            **metric_fun: p.TensorCallable[_Output_contra, _Target_contra],
+
+    ) -> None:
+        super().__init__()
+        self.components = components
+        self.named_metric_fun = metric_fun
+
+    def calculate(self,
+                  outputs: _Output_contra,
+                  targets: _Target_contra) -> None:
+        criterion = torch.tensor(0.)
+        metrics: dict[str, torch.Tensor] = {}
+        for name, weight, function in self.components:
+            value = function(outputs, targets)
+            if weight:
+                criterion += weight * value
+            metrics[name] = value
+        for name, function in self.named_metric_fun.items():
+            metrics[name] = function(outputs, targets)
         self._criterion = criterion
+        self._metrics = dict(criterion=criterion) | metrics
         return
