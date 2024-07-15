@@ -1,3 +1,4 @@
+import abc
 from typing import TypeVar, Hashable, Optional, Self
 
 import torch
@@ -17,22 +18,19 @@ _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class MetricsCalculator(
-    p.MetricsCalculatorProtocol[_Output_contra, _Target_contra]
+class MetricsCalculatorBase(
+    p.MetricsCalculatorProtocol[_Output_contra, _Target_contra],
+    metaclass=abc.ABCMeta
 ):
 
-    def __init__(
-            self,
-            **metric_fun: p.TensorCallable[_Output_contra, _Target_contra],
-    ) -> None:
-        self.named_metric_fun = metric_fun
+    def __init__(self) -> None:
         self._metrics: Optional[dict[str, torch.Tensor]] = None
 
+    @abc.abstractmethod
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
-        self._metrics = {name: function(outputs, targets)
-                         for name, function in self.named_metric_fun.items()}
+        ...
 
     @property
     def metrics(self: Self) -> dict[str, torch.Tensor]:
@@ -44,30 +42,31 @@ class MetricsCalculator(
         self._metrics = None
 
 
-class LossCalculator(
-    MetricsCalculator[_Output_contra, _Target_contra],
-    p.LossCalculatorProtocol[_Output_contra, _Target_contra],
-):
+class MetricsCalculator(MetricsCalculatorBase[_Output_contra, _Target_contra]):
 
     def __init__(
             self,
-            loss_fun: p.TensorCallable[_Output_contra, _Target_contra],
             **metric_fun: p.TensorCallable[_Output_contra, _Target_contra],
     ) -> None:
-        super().__init__(**metric_fun)
-        self.loss_fun = loss_fun
-        self._criterion: Optional[torch.Tensor] = None
+        super().__init__()
+        self.named_metric_fun = metric_fun
 
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
-        super().calculate(outputs, targets)
-        criterion = self.loss_fun(outputs, targets)
-        self._metrics: dict[str, torch.Tensor]
-        self._metrics.update(criterion=criterion)
-        self._criterion = criterion
+        self._metrics = {name: function(outputs, targets)
+                         for name, function in self.named_metric_fun.items()}
 
-        return
+
+class LossCalculatorBase(
+    MetricsCalculatorBase[_Output_contra, _Target_contra],
+    p.LossCalculatorProtocol[_Output_contra, _Target_contra],
+    metaclass=abc.ABCMeta
+):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._criterion: Optional[torch.Tensor] = None
 
     @property
     def criterion(self) -> torch.Tensor:
@@ -78,3 +77,26 @@ class LossCalculator(
     def reset_calculated(self) -> None:
         super().reset_calculated()
         self._criterion = None
+
+
+class LossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
+
+    def __init__(
+            self,
+            loss_fun: p.TensorCallable[_Output_contra, _Target_contra],
+            **metric_fun: p.TensorCallable[_Output_contra, _Target_contra],
+    ) -> None:
+        super().__init__()
+        self.loss_fun = loss_fun
+        self.named_metric_fun = metric_fun
+
+    def calculate(self,
+                  outputs: _Output_contra,
+                  targets: _Target_contra) -> None:
+        self._metrics = {name: function(outputs, targets)
+                         for name, function in self.named_metric_fun.items()}
+        criterion = self.loss_fun(outputs, targets)
+        self._metrics: dict[str, torch.Tensor]
+        self._metrics.update(criterion=criterion)
+        self._criterion = criterion
+        return
