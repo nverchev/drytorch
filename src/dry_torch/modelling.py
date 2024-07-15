@@ -10,7 +10,7 @@ import dataclasses
 
 from dry_torch import saving_loading
 from dry_torch import exceptions
-from dry_torch import schedulers
+from dry_torch import scheduling
 from dry_torch import protocols as p
 from dry_torch import tracking
 

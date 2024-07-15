@@ -42,11 +42,14 @@ class ExponentialScheduler(AbstractScheduler):
         exp_decay: exponential decay parameter d for the curve f(x) = Ce^(dx).
     """
 
-    def __init__(self, exp_decay: float = .975) -> None:
+    def __init__(self,
+                 exp_decay: float = .975,
+                 min_decay: float = 0.01) -> None:
         self.exp_decay = exp_decay
+        self.min_decay = min_decay
 
     def _compute(self, base_lr: float, epoch: int) -> float:
-        return base_lr * self.exp_decay ** epoch
+        return max(base_lr * self.exp_decay ** epoch, self.min_decay)
 
     def __repr__(self) -> str:
         desc = 'Exponential schedule with exponential decay = {}.'

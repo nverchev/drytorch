@@ -25,7 +25,6 @@ class TorchTuple(NamedTuple):
 @dataclasses.dataclass()
 class TorchData(p.HasToDictProtocol):
     output: torch.Tensor
-    output2: tuple[torch.Tensor, ...] = (torch.empty(0),)
 
     def to_dict(self) -> dict[str, torch.Tensor | Iterable[torch.Tensor]]:
         return self.__dict__
@@ -109,7 +108,3 @@ def test_all() -> None:
         test()
     with pytest.warns(exceptions.AlreadyTestedWarning):
         test()
-
-
-if __name__ == '__main__':
-    test_all()
