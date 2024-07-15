@@ -78,7 +78,7 @@ def test_all() -> None:
     loader = DataLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
                       learning_scheme=LearningScheme(lr=0.01),
-                      calculator=loss_calc,
+                      loss_calc=loss_calc,
                       loader=loader,
                       val_loader=loader)
     trainer.train(10)
@@ -86,13 +86,13 @@ def test_all() -> None:
     cloned_model = model.clone('cloned_model')
     Trainer(cloned_model,
             learning_scheme=LearningScheme(lr=0.01),
-            calculator=loss_calc,
+            loss_calc=loss_calc,
             loader=loader,
             val_loader=loader)
     with pytest.raises(exceptions.AlreadyBoundedError):
         Trainer(cloned_model,
                 learning_scheme=LearningScheme(lr=0.01),
-                calculator=loss_calc,
+                loss_calc=loss_calc,
                 loader=loader,
                 val_loader=loader)
     sample_in = TorchTuple(
@@ -102,7 +102,7 @@ def test_all() -> None:
     assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
 
     test = _Test(model,
-                 calculator=loss_calc,
+                 metrics_calc=loss_calc,
                  loader=loader,
                  store_outputs=True)
     with pytest.warns(exceptions.CannotStoreOutputWarning):
