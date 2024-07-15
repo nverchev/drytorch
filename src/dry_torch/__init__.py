@@ -6,7 +6,7 @@ __all__ = [
     'CheckpointIO',
     'Experiment',
     'DataLoader',
-    'LossCalculator',
+    'SimpleLossCalculator',
     'MetricsCalculator',
     'LearningScheme',
     'Model',
