@@ -48,8 +48,8 @@ class MetricsCalculator(MetricsCalculatorBase[_Output_contra, _Target_contra]):
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
-        self._metrics = {name: function(outputs, targets)
-                         for name, function in self.named_metric_fun.items()}
+        self._metrics = dict_apply(self.named_metric_fun, outputs, targets)
+        return
 
 
 class LossCalculatorBase(
@@ -89,8 +89,7 @@ class SimpleLossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
                   targets: _Target_contra) -> None:
         criterion = self.loss_fun(outputs, targets)
         self._criterion = criterion
-        self._metrics = {name: function(outputs, targets)
-                         for name, function in self.named_metric_fun.items()}
+        self._metrics = dict_apply(self.named_metric_fun, outputs, targets)
         self._metrics.update(criterion=criterion)
         return
 
@@ -124,8 +123,16 @@ class CompositeLossCalculator(
             if weight:
                 criterion += weight * value
             metrics[name] = value
-        for name, function in self.named_metric_fun.items():
-            metrics[name] = function(outputs, targets)
+        other_metrics = dict_apply(self.named_metric_fun, outputs, targets)
         self._criterion = criterion
-        self._metrics = dict(criterion=criterion) | metrics
+        self._metrics = dict(criterion=criterion) | metrics | other_metrics
         return
+
+
+def dict_apply(
+        dict_fun: dict[str, p.TensorCallable[_Output_contra, _Target_contra]],
+        outputs: _Output_contra,
+        targets: _Target_contra,
+) -> dict[str, torch.Tensor]:
+    return {name: function(outputs, targets)
+            for name, function in dict_fun.items()}

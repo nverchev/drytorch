@@ -185,14 +185,14 @@ class LearningProtocol(Protocol):
          Defaults to torch.optim.Adam.
         lr: a dictionary of learning rates for the named parameters or a float
         for a global value.
-        other_optimizer_args: optional arguments for the optimizer
+        optimizer_defaults: optional arguments for the optimizer
         (same for all the parameters).
         scheduler: modifies the learning rate given the current epoch. Default
         value does not implement a scheduler.
     """
     optimizer_cls: Type[torch.optim.Optimizer]
     lr: float | dict[str, float]
-    other_optimizer_args: dict[str, Any]
+    optimizer_defaults: dict[str, Any]
     scheduler: SchedulerProtocol
 
 

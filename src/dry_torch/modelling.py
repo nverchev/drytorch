@@ -6,6 +6,7 @@ from typing import ParamSpec, TypeVar, Any, cast, Generic, Type
 import copy
 import torch
 from torch import cuda
+import dataclasses
 
 from dry_torch import saving_loading
 from dry_torch import exceptions
@@ -31,31 +32,23 @@ _P = ParamSpec('_P')
 _RT = TypeVar('_RT')
 
 
+@dataclasses.dataclass
 class LearningScheme(p.LearningProtocol):
     """
         optimizer_cls: the optimizer class to bind_to_model to the module.
          Defaults to torch.optim.Adam.
         lr: a dictionary of learning rates for the named parameters or a float
         for a global value.
-        other_optimizer_args: optional arguments for the optimizer
+        optimizer_defaults: optional arguments for the optimizer
         (same for all the parameters).
         scheduler: modifies the learning rate given the current epoch. Default
         value does not implement a scheduler.
     """
 
-    def __init__(
-            self,
-            optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adam,
-            lr: float | dict[str, float] = 0.001,
-            scheduler: p.SchedulerProtocol = (
-                    schedulers.ConstantScheduler()
-            ),
-            **other_optimizer_args: Any,
-    ) -> None:
-        self.optimizer_cls = optimizer_cls
-        self.lr = lr
-        self.scheduler = scheduler
-        self.other_optimizer_args = other_optimizer_args
+    optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adam
+    lr: float | dict[str, float] = 0.001
+    scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+    optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 class Model(Generic[_Input_contra, _Output_co]):
@@ -175,7 +168,7 @@ class ModelOptimizer:
         self.scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
-            **learning_scheme.other_optimizer_args,
+            **learning_scheme.optimizer_defaults,
         )
 
     def get_scheduled_lr(self) -> list[p.OptParams]:
