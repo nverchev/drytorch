@@ -56,14 +56,14 @@ class Trainer(
             /,
             *,
             learning_scheme: p.LearningProtocol,
-            calculator: p.LossCalculatorProtocol[_Output, _Target],
+            loss_calc: p.LossCalculatorProtocol[_Output, _Target],
             loader: p.LoaderProtocol[_Input, _Target],
             val_loader: Optional[p.LoaderProtocol[_Input, _Target]] = None,
             mixed_precision: bool = False,
     ) -> None:
         super().__init__(model,
                          loader=loader,
-                         calculator=calculator,
+                         metrics_calc=loss_calc,
                          mixed_precision=mixed_precision)
         self._early_termination = False
 
@@ -91,7 +91,7 @@ class Trainer(
         else:
             validation = evaluating.Validation(self.model,
                                                loader=val_loader,
-                                               calculator=self._calculator)
+                                               metrics_calc=self._calculator)
             self._activate_validation()
         return validation
 

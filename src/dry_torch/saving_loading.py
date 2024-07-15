@@ -163,7 +163,7 @@ class MetadataIO:
             metadata = {'timestamp': now} | self.model_tracking.metadata
             yaml.dump(metadata, metadata_file, sort_keys=False)
         logger.log(default_logging.INFO_LEVELS.checkpoint,
-                   f"%(definition)s saved in: %(model_dir)s",
+                   f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
                     'model_dir': self.paths.model_directory}
                    )

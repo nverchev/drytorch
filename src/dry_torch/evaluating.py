@@ -70,13 +70,13 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
             /,
             *,
             loader: p.LoaderProtocol[_Input, _Target],
-            calculator: p.MetricsCalculatorProtocol[_Output, _Target],
+            metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
             store_outputs: bool = False,
             mixed_precision: bool = False,
     ) -> None:
         self.model = model
         self._loader = loading.TqdmLoader[_Input, _Target](loader)
-        self._calculator = calculator
+        self._calculator = metrics_calc
         self.test_outputs = structures.NumpyDictList()
         self._metrics = structures.TorchAggregate()
         self.store_outputs = store_outputs
@@ -219,13 +219,13 @@ class Test(Evaluation[_Input, _Target, _Output]):
             /,
             *,
             loader: p.LoaderProtocol[_Input, _Target],
-            calculator: p.MetricsCalculatorProtocol[_Output, _Target],
+            metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
             name: str = '',
             store_outputs: bool = False,
     ) -> None:
         super().__init__(model,
                          loader=loader,
-                         calculator=calculator,
+                         metrics_calc=metrics_calc,
                          store_outputs=store_outputs)
         self.test_name = name or self._get_default_name()
         self._checkpoint = saving_loading.MetadataIO(model.name)
