@@ -8,7 +8,7 @@ from dry_torch import Test as _Test  # other pytest interprets it as a test
 from dry_torch import DataLoader
 from dry_torch import Experiment
 from dry_torch import Model
-from dry_torch import LossCalculator
+from dry_torch import SimpleLossCalculator
 from dry_torch import exceptions
 from dry_torch import default_logging
 from dry_torch import LearningScheme
@@ -72,7 +72,7 @@ def test_all() -> None:
                exp_pardir=exp_pardir,
                config={'answer': 42})
     module = Linear(1, 1)
-    loss_calc = LossCalculator(loss_fun=square_error)
+    loss_calc = SimpleLossCalculator(loss_fun=square_error)
     model = Model(module, name='original_model')
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)

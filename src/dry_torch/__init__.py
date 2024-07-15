@@ -20,7 +20,7 @@ from dry_torch.saving_loading import MetadataIO
 from dry_torch.saving_loading import ModelStateIO
 from dry_torch.saving_loading import CheckpointIO
 from dry_torch.loading import DataLoader
-from dry_torch.calculating import LossCalculator
+from dry_torch.calculating import SimpleLossCalculator
 from dry_torch.calculating import MetricsCalculator
 from dry_torch.modelling import LearningScheme
 from dry_torch.modelling import Model
