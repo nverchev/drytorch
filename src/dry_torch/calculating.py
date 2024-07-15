@@ -26,12 +26,6 @@ class MetricsCalculatorBase(
     def __init__(self) -> None:
         self._metrics: Optional[dict[str, torch.Tensor]] = None
 
-    @abc.abstractmethod
-    def calculate(self,
-                  outputs: _Output_contra,
-                  targets: _Target_contra) -> None:
-        ...
-
     @property
     def metrics(self: Self) -> dict[str, torch.Tensor]:
         if self._metrics is None:
