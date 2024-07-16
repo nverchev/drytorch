@@ -30,7 +30,7 @@ class Trainer(
     Implement the standard Pytorch training and evaluation loop.
 
     Args:
-        model_dict: contain the module and the optimizing strategy.
+        tracking: contain the module and the optimizing strategy.
         loader: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
@@ -79,7 +79,7 @@ class Trainer(
 
     @property
     def model_tracking(self) -> tracking.ModelTracking:
-        return tracking.Experiment.current().model_dict[self.model.name]
+        return tracking.Experiment.current().tracking[self.model.name]
 
     def _set_validation(
             self,

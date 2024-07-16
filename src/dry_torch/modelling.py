@@ -241,7 +241,7 @@ class ModelOptimizer:
         return sum(1 for _ in params)
 
     def get_epoch(self) -> int:
-        return tracking.Experiment.current().model_dict[self.model.name].epoch
+        return tracking.Experiment.current().tracking[self.model.name].epoch
 
 
 def bind_to_model(
@@ -269,7 +269,7 @@ def bind_to_model(
         if not isinstance(model, p.ModelProtocol):
             raise exceptions.BoundedModelTypeError(model)
         exp = tracking.Experiment.current()
-        model_tracking = exp.model_dict[model.name]
+        model_tracking = exp.tracking[model.name]
         bindings = model_tracking.bindings
         cls_str = instance.__class__.__name__
         if cls_str in bindings:
@@ -285,7 +285,7 @@ def unbind(instance: Any,
            model: p.ModelProtocol[_Input_contra, _Output_co]) -> None:
     if not isinstance(model, p.ModelProtocol):
         raise exceptions.BoundedModelTypeError(model)
-    model_tracking = tracking.Experiment.current().model_dict[model.name]
+    model_tracking = tracking.Experiment.current().tracking[model.name]
     metadata = model_tracking.metadata
     cls_str = instance.__class__.__name__
     if cls_str not in model_tracking.bindings:

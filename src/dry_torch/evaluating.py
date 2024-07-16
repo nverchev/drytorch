@@ -33,7 +33,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     Implement the standard Pytorch training and evaluation loop.
 
     Args:
-        model_dict: contain the module and the optimizing strategy.
+        tracking: contain the module and the optimizing strategy.
         loaders: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
@@ -48,10 +48,10 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         the maximum number of outputs to store when testing.
         update_frequency:
         number of times the progress bar updates in one epoch.
-        test_outputs:
+        stored_outputs:
             An instance of TorchDictList that stores the last test evaluation.
-        store_outputs: if the flag is active store the module outputs in the
-            test_outputs attribute. Default to False.
+        _store_outputs: if the flag is active store the module outputs in the
+            stored_outputs attribute. Default to False.
 
     Methods:
         train:
@@ -77,16 +77,16 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         self.model = model
         self._loader = loading.TqdmLoader[_Input, _Target](loader)
         self._calculator = metrics_calc
-        self.test_outputs = structures.NumpyDictList()
-        self._metrics = structures.TorchAggregate()
-        self.store_outputs = store_outputs
+        self._store_outputs = store_outputs
         device_is_cuda = self.model.device.type == 'cuda'
         self._mixed_precision = mixed_precision and device_is_cuda
+        self._metrics = structures.TorchAggregate()
+        self.stored_outputs = structures.NumpyDictList()
         return
 
     @property
     def model_tracking(self) -> tracking.ModelTracking:
-        return tracking.Experiment.current().model_dict[self.model.name]
+        return tracking.Experiment.current().tracking[self.model.name]
 
     @property
     def partition_log(self):
@@ -117,8 +117,8 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         return
 
     def _run_epoch(self):
-        if self.store_outputs:
-            self.test_outputs.clear()
+        if self._store_outputs:
+            self.stored_outputs.clear()
         for batch in self._loader:
             batch = recursive_ops.recursive_to(batch, self.model.device)
             self._run_batch(*batch)
@@ -130,14 +130,14 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
                             enabled=self._mixed_precision):
             outputs = self.model(inputs)
             self._calculator.calculate(outputs, targets)
-            if self.store_outputs:
+            if self._store_outputs:
                 self._store(outputs)
         self._metrics += self._calculator.metrics
 
     def _store(self, outputs: _Output) -> None:
         try:
             dict_batch = structures.NumpyDictList.from_batch(outputs)
-            self.test_outputs.extend(dict_batch)
+            self.stored_outputs.extend(dict_batch)
         except exceptions.NotATensorError as type_err:
             warnings.warn(exceptions.CannotStoreOutputWarning(str(type_err)))
         except exceptions.NoToDictMethodError as attr_err:
@@ -152,6 +152,26 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     def __str__(self) -> str:
         return f'Base Evaluator for {self.model.name}.'
+
+
+class Diagnostic(Evaluation):
+    partition = dry_torch.protocols.Split.TRAIN
+
+    @torch.inference_mode()
+    def __call__(self) -> None:
+        """
+        Evaluates the module's performance on the specified partition of the
+        dataset.
+
+        Parameters:
+
+        """
+        self.model.module.eval()
+        self._run_epoch()
+        return
+
+    def _update_partition_log(self, metric: str, value: float) -> None:
+        return
 
 
 class Validation(Evaluation[_Input, _Target, _Output]):
@@ -181,7 +201,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
     Implement the standard Pytorch training and evaluation loop.
 
     Args:
-        model_dict: contain the module and the optimizing strategy.
+        tracking: contain the module and the optimizing strategy.
         loaders: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
@@ -196,10 +216,10 @@ class Test(Evaluation[_Input, _Target, _Output]):
         the maximum number of outputs to store when testing.
         update_frequency:
         number of times the progress bar updates in one epoch.
-        test_outputs:
+        stored_outputs:
             An instance of TorchDictList that stores the last test evaluation.
-        store_outputs: if the flag is active store the module outputs in the
-            test_outputs attribute. Default to False.
+        _store_outputs: if the flag is active store the module outputs in the
+            stored_outputs attribute. Default to False.
 
     Methods:
         train:
@@ -262,4 +282,4 @@ class Test(Evaluation[_Input, _Target, _Output]):
         return
 
     def __str__(self) -> str:
-        return f'Test {self.test_name} for model_dict {self.model.name}.'
+        return f'Test {self.test_name} for tracking {self.model.name}.'

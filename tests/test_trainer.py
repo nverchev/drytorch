@@ -1,4 +1,5 @@
 import logging
+import pathlib
 
 import pytest
 import torch
@@ -67,7 +68,7 @@ logger.setLevel(default_logging.INFO_LEVELS.tqdm_bar)
 
 
 def test_all() -> None:
-    exp_pardir = 'test_experiments'
+    exp_pardir = pathlib.Path(__file__).parent / 'experiments'
     experiment = Experiment('test_simple_training',
                             exp_pardir=exp_pardir,
                             config={'answer': 42})
@@ -97,10 +98,8 @@ def test_all() -> None:
                 loss_calc=loss_calc,
                 loader=loader,
                 val_loader=loader)
-    sample_in = TorchTuple(
-        input=torch.FloatTensor([.2]).to(cloned_model.device)
-    )
-    out = cloned_model(sample_in)
+    tuple_in = TorchTuple(input=torch.FloatTensor([.2]).to(cloned_model.device))
+    out = cloned_model(tuple_in)
     assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
 
     test = _Test(model,

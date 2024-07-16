@@ -22,7 +22,7 @@ class PathManager:
         model_name: The model_name of the module.
 
     Attributes:
-        model_dict  The model_name of the module.
+        tracking  The model_name of the module.
         checkpoints.
     Properties:
         exp (Experiment): The active environment of the experiment.
@@ -49,7 +49,7 @@ class PathManager:
 
     @property
     def model_tracking(self) -> tracking.ModelTracking:
-        return self.exp.model_dict[self.model_name]
+        return self.exp.tracking[self.model_name]
 
     @property
     def directory(self) -> pathlib.Path:
@@ -141,7 +141,7 @@ class MetadataIO:
     @property
     def model_tracking(self) -> tracking.ModelTracking:
         exp = tracking.Experiment.current()
-        return exp.model_dict[self.model_name]
+        return exp.tracking[self.model_name]
 
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
@@ -162,6 +162,9 @@ class MetadataIO:
             now: str = datetime.datetime.now().isoformat(' ', 'seconds')
             metadata = {'timestamp': now} | self.model_tracking.metadata
             yaml.dump(metadata, metadata_file, sort_keys=False)
+        for split, path in self.paths.log.items():
+            # write instead of append to be safe from bugs
+            self.model_tracking.log[split].to_csv(path)
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
@@ -307,6 +310,6 @@ class CheckpointIO(ModelStateIO):
 
 
 def save_all_metadata() -> None:
-    for model_name in tracking.Experiment.current().model_dict:
+    for model_name in tracking.Experiment.current().tracking:
         checkpoint = MetadataIO(model_name)
         checkpoint.save()

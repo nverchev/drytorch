@@ -12,10 +12,12 @@ __all__ = [
     'Model',
     'NumpyDictList',
     'Trainer',
-    'Evaluation',
+    'Diagnostic',
     'Validation',
     'Test',
+    'Plotter',
 ]
+from dry_torch.plotting import Plotter
 from dry_torch.saving_loading import MetadataIO
 from dry_torch.saving_loading import ModelStateIO
 from dry_torch.saving_loading import CheckpointIO
@@ -27,6 +29,6 @@ from dry_torch.modelling import Model
 from dry_torch.structures import NumpyDictList
 from dry_torch.tracking import Experiment
 from dry_torch.training import Trainer
-from dry_torch.evaluating import Evaluation
+from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Validation
 from dry_torch.evaluating import Test

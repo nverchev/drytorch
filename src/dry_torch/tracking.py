@@ -104,14 +104,14 @@ class Experiment:
         self.exp_pardir = pathlib.Path(exp_pardir)
         self.allow_extract_metadata = allow_extract_metadata
         self.max_item_repr = max_item_repr
-        self.model_dict = ModelTrackingDict(exp_name=self.exp_name)
+        self.tracking = ModelTrackingDict(exp_name=self.exp_name)
         self.__class__.past_experiments.add(self)
         self.activate()
 
     def register_model(self, model: p.ModelProtocol):
         name = model.name
         architecture = model.module.__repr__()
-        self.model_dict[name] = ModelTracking(name, model_repr=architecture)
+        self.tracking[name] = ModelTracking(name, model_repr=architecture)
 
     def activate(self):
         if self._current is not None:
@@ -166,4 +166,4 @@ def add_metadata(exp: Experiment,
     if exp.allow_extract_metadata:
         # tries to get the most informative representation of the metadata.
         metadata = extract_metadata(attr_dict, exp.max_item_repr)
-        exp.model_dict[model_name].metadata[object_name] = metadata
+        exp.tracking[model_name].metadata[object_name] = metadata

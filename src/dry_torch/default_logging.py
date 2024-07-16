@@ -37,7 +37,7 @@ def set_default_logging() -> None:
     stdout_handler.terminator = ''
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
-    logger.setLevel(INFO_LEVELS.checkpoint)
+    logger.setLevel(INFO_LEVELS.tqdm_bar)
     logger.propagate = False
 
 

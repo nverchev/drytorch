@@ -1,3 +1,4 @@
+import pathlib
 import pytest
 import torch
 from dry_torch import Model
@@ -10,7 +11,7 @@ from dry_torch.saving_loading import save_all_metadata
 
 
 def test_checkpoint():
-    exp_pardir = 'test_experiments'
+    exp_pardir = pathlib.Path(__file__).parent / 'experiments'
     model = torch.nn.Linear(1, 1)
     experiment = Experiment('test_checkpoint', exp_pardir=exp_pardir)
     model = Model(model, name='first_model')
