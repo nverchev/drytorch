@@ -159,7 +159,7 @@ class Trainer(
             if torch.isinf(criterion) or torch.isnan(criterion):
                 raise exceptions.ConvergenceError(criterion.item())
             raise ve
-        self._loader.send({'Loss': criterion.item()})
+        self._loader.send(criterion.item())
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()

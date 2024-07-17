@@ -69,7 +69,8 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
         self.dataset_len = loader.dataset_len
         self.disable_bar = logger.level > default_logging.INFO_LEVELS.tqdm_bar
         self._monitor_gen = _monitor()
-        next(self._monitor_gen)
+        self.seen_str = 'Seen'
+        self.loss_str = 'Loss'
 
     def __iter__(self) -> Iterator[tuple[_Input_co, _Target_co]]:
         num_batch = len(self.loader)
@@ -77,21 +78,22 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
                        total=num_batch,
                        disable=self.disable_bar,
                        file=sys.stdout) as tqdm_loader:
-
             epoch_seen: int = 0
             batch_data: tuple[int, tuple[_Input_co, _Target_co]]
+            next(self._monitor_gen)
             for batch_data in tqdm_loader:
                 (batch_idx, (inputs, targets)) = batch_data
                 yield inputs, targets
                 epoch_seen += self.batch_size
                 epoch_seen = min(epoch_seen, self.dataset_len)
                 update_interval = max(num_batch // self.update_frequency, 1)
-                monitor_dict = {'Seen': epoch_seen} | next(self._monitor_gen)
+                loss_monitor = next(self._monitor_gen)
+                monitor_dict = {self.seen_str: epoch_seen} | loss_monitor
                 if batch_idx % update_interval == 0:
                     tqdm_loader.set_postfix(monitor_dict)
 
-    def send(self, monitor_dict: dict[str, float]) -> None:
-        self._monitor_gen.send(monitor_dict)
+    def send(self, loss_value: float) -> None:
+        self._monitor_gen.send({self.loss_str: loss_value})
         return
 
     def __len__(self) -> int:
@@ -99,6 +101,8 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
 
 
 def _monitor() -> Generator[dict[str, float], dict[str, float], None]:
+    monitor_dict: dict[str, float] = {}
     while True:
-        monitor_dict = yield {}
-        yield monitor_dict or {}
+        monitor_dict = yield monitor_dict
+        yield {}
+
