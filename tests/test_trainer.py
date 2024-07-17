@@ -15,7 +15,7 @@ from dry_torch import default_logging
 from dry_torch import LearningScheme
 from dry_torch import protocols as p
 from typing import NamedTuple, Iterable
-
+import time
 import dataclasses
 
 
@@ -41,6 +41,7 @@ class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
     def __getitem__(self, index: int) -> tuple[
         TorchTuple, torch.Tensor
     ]:
+        time.sleep(.1)
         x = torch.FloatTensor([index]) / len(self)
         return TorchTuple(x), x
 
@@ -112,3 +113,7 @@ def test_all() -> None:
         test()
     with pytest.warns(exceptions.AlreadyTestedWarning):
         test()
+
+
+if __name__ == "__main__":
+    test_all()
