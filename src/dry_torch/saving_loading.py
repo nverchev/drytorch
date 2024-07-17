@@ -52,48 +52,53 @@ class PathManager:
         return self.exp.tracking[self.model_name]
 
     @property
-    def directory(self) -> pathlib.Path:
+    def exp_dir(self) -> pathlib.Path:
         directory = self.exp.exp_pardir / self.exp.exp_name
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @property
     def config(self) -> pathlib.Path:
-        return self.directory / 'config.yml'
+        return self.exp_dir / 'config.yml'
 
     @property
-    def model_directory(self) -> pathlib.Path:
-        directory = self.directory / self.model_tracking.name
+    def model_dir(self) -> pathlib.Path:
+        directory = self.exp_dir / self.model_tracking.name
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @property
-    def checkpoint_directory(self) -> pathlib.Path:
-        checkpoint_directory = self.model_directory / 'checkpoints'
-        checkpoint_directory.mkdir(parents=True, exist_ok=True)
-        return checkpoint_directory
-
-    @property
-    def logs_directory(self) -> pathlib.Path:
-        checkpoint_directory = self.model_directory / 'logs'
+    def logs_dir(self) -> pathlib.Path:
+        checkpoint_directory = self.model_dir / 'logs'
         checkpoint_directory.mkdir(parents=True, exist_ok=True)
         return checkpoint_directory
 
     @property
     def metadata(self) -> pathlib.Path:
-        return self.model_directory / 'metadata.yml'
+        return self.model_dir / 'metadata.yml'
 
     @property
     def log(self) -> p.PathDict:
-        logs_directory = self.logs_directory
+        logs_directory = self.logs_dir
         return {split: logs_directory / f'{split.name.lower()}_log.csv'
                 for split in dry_torch.protocols.Split}
 
     @property
-    def checkpoint(self) -> p.StatePath:
+    def checkpoint_dir(self) -> pathlib.Path:
+        checkpoint_directory = self.model_dir / 'checkpoints'
+        checkpoint_directory.mkdir(parents=True, exist_ok=True)
+        return checkpoint_directory
+
+    @property
+    def epoch_dir(self) -> pathlib.Path:
         epoch = self.model_tracking.epoch
-        epoch_directory = self.checkpoint_directory / f'epoch_{epoch}'
+        epoch_directory = self.checkpoint_dir / f'epoch_{epoch}'
         epoch_directory.mkdir(parents=True, exist_ok=True)
+        return epoch_directory
+
+    @property
+    def checkpoint(self) -> p.StatePath:
+        epoch_directory = self.epoch_dir
         return dict(
             state=epoch_directory / 'state.pt',
             optimizer=epoch_directory / 'optimizer.pt',
@@ -106,7 +111,7 @@ class PathManager:
         Returns:
             int: The last saved epoch.
         """
-        checkpoint_directory = self.checkpoint_directory
+        checkpoint_directory = self.checkpoint_dir
         past_epochs: list[int] = []
         for path in checkpoint_directory.iterdir():
             checkpoint_desc, epoch_str = path.stem.rsplit("_", 1)
@@ -116,7 +121,7 @@ class PathManager:
         return max(past_epochs)
 
 
-class MetadataIO:
+class TrackingIO:
     definition = 'metadata'
     """
     Save and load checkpoints. The folder with the savings has the address
@@ -168,7 +173,7 @@ class MetadataIO:
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
-                    'model_dir': self.paths.model_directory}
+                    'model_dir': self.paths.model_dir}
                    )
         return
 
@@ -200,7 +205,7 @@ class MetadataIO:
         return self.__class__.__name__ + f'(module={self.model_name})'
 
 
-class ModelStateIO(MetadataIO):
+class ModelStateIO(TrackingIO):
     """
     Save and load checkpoints. The folder with the savings has the address
     of the form: exp_pardir/exp_name.
@@ -228,12 +233,9 @@ class ModelStateIO(MetadataIO):
         the experiments, the test results,
         and the training and validation learning curves.
         """
-        super().save()
-        if self.model is not None:
-            self.model.module.eval()
-            torch.save(self.model.module.state_dict(),
-                       self.paths.checkpoint['state'])
-        return
+        torch.save(self.model.module.state_dict(),
+                   self.paths.checkpoint['state'])
+        return super().save()
 
     def load(self, epoch: int = -1) -> None:
         """
@@ -244,13 +246,12 @@ class ModelStateIO(MetadataIO):
             epoch: the epoch of the _checkpoint to load, the last _checkpoint is
             loaded if a negative value is given.
         """
-        self._update_epoch(epoch)
-        if self.model is not None:
-            self.model.module.load_state_dict(
-                torch.load(self.paths.checkpoint['state'],
-                           map_location=self.model.device),
-            )
-        return super().load(epoch)
+        super().load(epoch)
+        self.model.module.load_state_dict(
+            torch.load(self.paths.checkpoint['state'],
+                       map_location=self.model.device),
+        )
+        return
 
 
 class CheckpointIO(ModelStateIO):
@@ -278,16 +279,21 @@ class CheckpointIO(ModelStateIO):
         super().__init__(model)
         self.optimizer = optimizer
 
-    def save(self) -> None:
+    def save(self, replace_previous: bool = False) -> None:
         """
         Save a _checkpoint for the module and the optimizer with the metadata of
         the experiments, the test results,
         and the training and validation learning curves.
         """
-
+        if replace_previous:
+            epoch_dirs = list(self.paths.checkpoint_dir.iterdir())
+            if epoch_dirs:
+                last_epoch_dir = sorted(epoch_dirs)[-1]
+                pathlib.Path(last_epoch_dir).rename(self.paths.epoch_dir)
+        super().save()
         torch.save(self.optimizer.state_dict(),
                    self.paths.checkpoint['optimizer'])
-        return super().save()
+        return
 
     def load(self, epoch: int = -1) -> None:
         """
@@ -298,7 +304,7 @@ class CheckpointIO(ModelStateIO):
             epoch: the epoch of the _checkpoint to load, the last _checkpoint is
             loaded if a negative value is given.
         """
-        self._update_epoch(epoch)
+        super().load(epoch)
         try:
             self.optimizer.load_state_dict(
                 torch.load(self.paths.checkpoint['optimizer'],
@@ -306,10 +312,10 @@ class CheckpointIO(ModelStateIO):
             )
         except ValueError as ve:
             warnings.warn(exceptions.OptimizerNotLoadedWarning(ve))
-        return super().load(epoch)
+        return
 
 
 def save_all_metadata() -> None:
     for model_name in tracking.Experiment.current().tracking:
-        checkpoint = MetadataIO(model_name)
-        checkpoint.save()
+        tracking_io = TrackingIO(model_name)
+        tracking_io.save()

@@ -1,7 +1,7 @@
 """Init file for dry_torch module."""
 
 __all__ = [
-    'MetadataIO',
+    'TrackingIO',
     'ModelStateIO',
     'CheckpointIO',
     'Experiment',
@@ -18,7 +18,7 @@ __all__ = [
     'Plotter',
 ]
 from dry_torch.plotting import Plotter
-from dry_torch.saving_loading import MetadataIO
+from dry_torch.saving_loading import TrackingIO
 from dry_torch.saving_loading import ModelStateIO
 from dry_torch.saving_loading import CheckpointIO
 from dry_torch.loading import DataLoader

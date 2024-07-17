@@ -83,8 +83,10 @@ def test_all() -> None:
                       loss_calc=loss_calc,
                       loader=loader,
                       val_loader=loader)
-    trainer.train(10)
-    trainer.save_checkpoint()
+    trainer.train(5)
+    trainer.save_checkpoint(replace_previous=True)
+    trainer.train(5)
+    trainer._checkpoint.save(replace_previous=True)
     cloned_model = model.clone('cloned_model')
     experiment.register_model(cloned_model)
     Trainer(cloned_model,

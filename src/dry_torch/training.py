@@ -164,8 +164,8 @@ class Trainer(
         self._scaler.update()
         self._optimizer.zero_grad()
 
-    def save_checkpoint(self) -> None:
-        self._checkpoint.save()
+    def save_checkpoint(self, replace_previous: bool = False) -> None:
+        self._checkpoint.save(replace_previous)
 
     def load_checkpoint(self, epoch=-1) -> None:
         self._checkpoint.load(epoch=epoch)
