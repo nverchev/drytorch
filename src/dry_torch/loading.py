@@ -1,6 +1,6 @@
 import logging
 import sys
-from typing import TypeVar, Iterator, Generator, Generic
+from typing import TypeVar, Iterator, Generator, Generic, Optional
 
 import torch
 from torch.utils import data
@@ -101,7 +101,7 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
 
 
 def _monitor() -> Generator[dict[str, float], dict[str, float], None]:
-    monitor_dict = None
+    monitor_dict: Optional[dict[str, float]] = None
     while True:
         # if nothing is sent monitor_dict is None
         monitor_dict = yield monitor_dict or {}
