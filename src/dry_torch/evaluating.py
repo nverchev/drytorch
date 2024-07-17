@@ -248,7 +248,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
                          metrics_calc=metrics_calc,
                          store_outputs=store_outputs)
         self.test_name = name or self._get_default_name()
-        self._checkpoint = saving_loading.MetadataIO(model.name)
+        self._checkpoint = saving_loading.TrackingIO(model.name)
         return
 
     def _get_default_name(self) -> str:
