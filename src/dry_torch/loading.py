@@ -101,8 +101,9 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
 
 
 def _monitor() -> Generator[dict[str, float], dict[str, float], None]:
-    monitor_dict: dict[str, float] = {}
+    monitor_dict = None
     while True:
+        # if nothing is sent monitor_dict is None
         monitor_dict = yield monitor_dict or {}
         yield {}
 
