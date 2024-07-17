@@ -69,6 +69,7 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
         self.dataset_len = loader.dataset_len
         self.disable_bar = logger.level > default_logging.INFO_LEVELS.tqdm_bar
         self._monitor_gen = _monitor()
+        next(self._monitor_gen)
         self.seen_str = 'Seen'
         self.loss_str = 'Loss'
 
@@ -80,7 +81,6 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
                        file=sys.stdout) as tqdm_loader:
             epoch_seen: int = 0
             batch_data: tuple[int, tuple[_Input_co, _Target_co]]
-            next(self._monitor_gen)
             for batch_data in tqdm_loader:
                 (batch_idx, (inputs, targets)) = batch_data
                 yield inputs, targets
@@ -103,6 +103,6 @@ class TqdmLoader(Generic[_Input_co, _Target_co]):
 def _monitor() -> Generator[dict[str, float], dict[str, float], None]:
     monitor_dict: dict[str, float] = {}
     while True:
-        monitor_dict = yield monitor_dict
+        monitor_dict = yield monitor_dict or {}
         yield {}
 

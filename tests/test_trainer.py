@@ -41,7 +41,7 @@ class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
     def __getitem__(self, index: int) -> tuple[
         TorchTuple, torch.Tensor
     ]:
-        time.sleep(.1)
+        time.sleep(.001)
         x = torch.FloatTensor([index]) / len(self)
         return TorchTuple(x), x
 
