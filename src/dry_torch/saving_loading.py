@@ -192,8 +192,9 @@ class TrackingIO:
                 df = pd.read_csv(path, index_col=0)
             except FileNotFoundError:
                 df = pd.DataFrame()
-            # filter out future epochs from logs
-            df = df[df.index <= self.model_tracking.epoch]
+            if split is not p.Split.TEST:
+                # filter out future epochs from logs
+                df = df[df.index <= self.model_tracking.epoch]
             self.model_tracking.log[split] = df
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"Loaded %(definition)s at epoch %(epoch)d.",
