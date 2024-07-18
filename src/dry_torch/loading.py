@@ -58,10 +58,8 @@ class TqdmLoader(Generic[_Data_co]):
 
     def __init__(
             self,
-            loader: p.LoaderProtocol[_Data_co],
-            update_frequency: int = 10):
+            loader: p.LoaderProtocol[_Data_co]) -> None:
         self.loader = loader
-        self.update_frequency = update_frequency
         self.batch_size = loader.batch_size or 0
         self.dataset_len = check_dataset_length(loader.dataset)
         self.disable_bar = logger.level > default_logging.INFO_LEVELS.tqdm_bar
@@ -83,12 +81,10 @@ class TqdmLoader(Generic[_Data_co]):
                 yield batch
                 epoch_seen += self.batch_size
                 epoch_seen = min(epoch_seen, self.dataset_len)
-                update_interval = max(num_batch // self.update_frequency, 1)
-                loss_monitor = next(self._monitor_gen)
-                monitor_dict = {self.seen_str: epoch_seen} | loss_monitor
-                if (batch_idx % update_interval == 0 or
-                        batch_idx == len(self) - 1):
-                    tqdm_loader.set_postfix(monitor_dict)
+                monitor_seen: dict[str, int] = {self.seen_str: epoch_seen}
+                monitor_loss = next(self._monitor_gen)
+                monitor_dict = monitor_seen | monitor_loss
+                tqdm_loader.set_postfix(monitor_dict, refresh=False)
 
     def send(self, loss_value: float) -> None:
         self._monitor_gen.send({self.loss_str: loss_value})
