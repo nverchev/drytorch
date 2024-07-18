@@ -11,7 +11,7 @@ import torch
 
 from dry_torch import exceptions
 from dry_torch import tracking
-from dry_torch import saving_loading
+from dry_torch import io
 from dry_torch import modelling
 from dry_torch import structures
 from dry_torch import recursive_ops
@@ -248,7 +248,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
                          metrics_calc=metrics_calc,
                          store_outputs=store_outputs)
         self.test_name = name or self._get_default_name()
-        self._checkpoint = saving_loading.TrackingIO(model.name)
+        self._checkpoint = io.TrackingIO(model.name)
         return
 
     def _get_default_name(self) -> str:

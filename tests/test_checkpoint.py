@@ -7,7 +7,7 @@ from dry_torch import CheckpointIO
 from dry_torch import Experiment
 from dry_torch import LearningScheme
 from dry_torch.modelling import ModelOptimizer
-from dry_torch.saving_loading import save_all_metadata
+from dry_torch.io import save_all_metadata
 
 
 def test_checkpoint():

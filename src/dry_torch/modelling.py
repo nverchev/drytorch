@@ -8,7 +8,7 @@ import torch
 from torch import cuda
 import dataclasses
 
-from dry_torch import saving_loading
+from dry_torch import io
 from dry_torch import exceptions
 from dry_torch import scheduling
 from dry_torch import protocols as p
@@ -91,7 +91,7 @@ class Model(Generic[_Input_contra, _Output_co]):
         self.device = self.default_device() if device is None else device
         self.module = self.validate_module(torch_module).to(self.device)
         self.optimizer: Optional[torch.optim.Optimizer] = None
-        self.checkpoint = saving_loading.ModelStateIO(self)
+        self.checkpoint = io.ModelStateIO(self)
 
     @staticmethod
     def validate_module(torch_model) -> torch.nn.Module:

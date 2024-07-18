@@ -6,7 +6,7 @@ from typing import Callable, Optional, Self, TypeVar
 import torch
 from torch.cuda import amp
 
-from dry_torch import saving_loading
+from dry_torch import io
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import modelling
@@ -71,7 +71,7 @@ class Trainer(
 
         self._model_optimizer = modelling.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
-        self._checkpoint = saving_loading.CheckpointIO(model, self._optimizer)
+        self._checkpoint = io.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=self._mixed_precision)
         self._pre_epoch_hooks: list[Callable[[Self], None]] = []
         self._post_epoch_hooks: list[Callable[[Self], None]] = []
