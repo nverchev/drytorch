@@ -105,7 +105,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
         log_msg_list: list[str] = ['%(desc)-24s']
         desc = f'Average {self.partition.name.lower()} metrics:'
-        log_args: dict[str, str | float] = {'split': desc}
+        log_args: dict[str, str | float] = {'desc': desc}
         for metric, value in self.metrics.items():
             self._update_partition_log(metric, value)
             log_msg_list.append(f'%({metric})16s: %({metric}_value)4e')
