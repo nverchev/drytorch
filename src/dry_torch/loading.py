@@ -49,6 +49,8 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         return self.get_loader().__iter__()
 
     def __len__(self) -> int:
+        if torch.is_inference_mode_enabled():
+            return self.dataset_len // self.batch_size
         return num_batches(self.dataset_len, self.batch_size)
 
 
@@ -60,7 +62,7 @@ class TqdmLoader(Generic[_Data_co]):
             update_frequency: int = 10):
         self.loader = loader
         self.update_frequency = update_frequency
-        self.batch_size = loader.batch_size or float('inf')
+        self.batch_size = loader.batch_size or 0
         self.dataset_len = check_dataset_length(loader.dataset)
         self.disable_bar = logger.level > default_logging.INFO_LEVELS.tqdm_bar
         self._monitor_gen = _monitor()
@@ -77,8 +79,8 @@ class TqdmLoader(Generic[_Data_co]):
             epoch_seen: int = 0
             batch_data: tuple[int, _Data_co]
             for batch_data in tqdm_loader:
-                (batch_idx, (inputs, targets)) = batch_data
-                yield inputs, targets
+                (batch_idx, batch) = batch_data
+                yield batch
                 epoch_seen += self.batch_size
                 epoch_seen = min(epoch_seen, self.dataset_len)
                 update_interval = max(num_batch // self.update_frequency, 1)
