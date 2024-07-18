@@ -103,12 +103,12 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     def log_metrics(self) -> None:
 
-        log_msg_list: list[str] = ['Average %(split)s metric(s):']
-        split_str = self.partition.name.lower()
-        log_args: dict[str, str | float] = {'split': split_str}
+        log_msg_list: list[str] = ['%(desc)-24s']
+        desc = f'Average {self.partition.name.lower()} metrics:'
+        log_args: dict[str, str | float] = {'split': desc}
         for metric, value in self.metrics.items():
             self._update_partition_log(metric, value)
-            log_msg_list.append(f'%({metric})s: %({metric}_value)4e')
+            log_msg_list.append(f'%({metric})16s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
         logger.log(default_logging.INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
