@@ -15,7 +15,6 @@ from dry_torch import default_logging
 from dry_torch import LearningScheme
 from dry_torch import protocols as p
 from typing import NamedTuple, Iterable
-import time
 import dataclasses
 
 

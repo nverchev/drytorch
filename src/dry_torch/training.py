@@ -57,8 +57,10 @@ class Trainer(
             *,
             learning_scheme: p.LearningProtocol,
             loss_calc: p.LossCalculatorProtocol[_Output, _Target],
-            loader: p.LoaderProtocol[_Input, _Target],
-            val_loader: Optional[p.LoaderProtocol[_Input, _Target]] = None,
+            loader: p.LoaderProtocol[tuple[_Input, _Target]],
+            val_loader: Optional[
+                p.LoaderProtocol[tuple[_Input, _Target]]
+            ] = None,
             mixed_precision: bool = False,
     ) -> None:
         super().__init__(model,
@@ -83,7 +85,7 @@ class Trainer(
 
     def _set_validation(
             self,
-            val_loader: Optional[p.LoaderProtocol[_Input, _Target]]
+            val_loader: Optional[p.LoaderProtocol[tuple[_Input, _Target]]]
     ) -> Callable[[], None]:
         if val_loader is None:
             def validation() -> None:

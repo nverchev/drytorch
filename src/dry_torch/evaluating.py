@@ -69,13 +69,13 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
             model: p.ModelProtocol[_Input, _Output],
             /,
             *,
-            loader: p.LoaderProtocol[_Input, _Target],
+            loader: p.LoaderProtocol[tuple[_Input, _Target]],
             metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
             store_outputs: bool = False,
             mixed_precision: bool = False,
     ) -> None:
         self.model = model
-        self._loader = loading.TqdmLoader[_Input, _Target](loader)
+        self._loader = loading.TqdmLoader[tuple[_Input, _Target]](loader)
         self._calculator = metrics_calc
         self._store_outputs = store_outputs
         device_is_cuda = self.model.device.type == 'cuda'
@@ -238,7 +238,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
             model: p.ModelProtocol[_Input, _Output],
             /,
             *,
-            loader: p.LoaderProtocol[_Input, _Target],
+            loader: p.LoaderProtocol[tuple[_Input, _Target]],
             metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
             name: str = '',
             store_outputs: bool = False,

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pathlib
 import abc
-from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias
+from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias, \
+    Optional
 from typing import Any, Union, Type, Self, runtime_checkable, SupportsIndex
 from typing import Iterable, Mapping
 import enum
@@ -30,7 +31,6 @@ class StatePath(TypedDict):
 
 
 PartitionsLength: TypeAlias = dict[Split, int]
-LoadersDict: TypeAlias = dict[Split, data.DataLoader]
 LogsDict: TypeAlias = dict[Split, pd.DataFrame]
 PathDict: TypeAlias = dict[Split, pathlib.Path]
 
@@ -87,6 +87,10 @@ _Target_co = TypeVar('_Target_co', bound=TargetType, covariant=True)
 
 _Output_co = TypeVar('_Output_co', bound=OutputType, covariant=True)
 
+_Data_co = TypeVar('_Data_co',
+                   bound=tuple[InputType, TargetType],
+                   covariant=True)
+
 _Input_contra = TypeVar('_Input_contra',
                         bound=InputType,
                         contravariant=True)
@@ -103,11 +107,11 @@ _Target = TypeVar('_Target', bound=TargetType)
 _Output = TypeVar('_Output', bound=OutputType)
 
 
-class LoaderProtocol(Protocol[_Input_co, _Target_co]):
-    batch_size: int
-    dataset_len: int
+class LoaderProtocol(Protocol[_Data_co]):
+    batch_size: Optional[int]
+    dataset: data.Dataset
 
-    def __iter__(self) -> Iterator[tuple[_Input_co, _Target_co]]:
+    def __iter__(self) -> Iterator[_Data_co]:
         ...
 
     def __len__(self) -> int:
