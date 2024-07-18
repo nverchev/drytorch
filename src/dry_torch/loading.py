@@ -52,9 +52,7 @@ class DataLoader(p.LoaderProtocol[_Input_co, _Target_co]):
         return self.get_loader().__iter__()
 
     def __len__(self) -> int:
-        num_full_batches, last_batch_size = divmod(self.dataset_len,
-                                                   self.batch_size)
-        return num_full_batches + bool(last_batch_size)
+        return num_batches(self.dataset_len, self.batch_size)
 
 
 class TqdmLoader(Generic[_Input_co, _Target_co]):
@@ -106,4 +104,9 @@ def _monitor() -> Generator[dict[str, float], dict[str, float], None]:
         # if nothing is sent monitor_dict is None
         monitor_dict = yield monitor_dict or {}
         yield {}
+
+
+def num_batches(dataset_len: int, batch_size: int) -> int:
+    num_full_batches, last_batch_size = divmod(dataset_len, batch_size)
+    return num_full_batches + bool(last_batch_size)
 
