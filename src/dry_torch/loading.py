@@ -49,7 +49,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         return self.get_loader().__iter__()
 
     def __len__(self) -> int:
-        if torch.is_inference_mode_enabled():
+        if torch.is_inference_mode_enabled():  # drop_last is true
             return self.dataset_len // self.batch_size
         return num_batches(self.dataset_len, self.batch_size)
 
