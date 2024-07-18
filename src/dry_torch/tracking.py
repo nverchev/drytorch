@@ -30,7 +30,7 @@ class DefaultName:
         return f"{self.prefix}_{self.count_defaults}"
 
 
-class ModelTracking:
+class ModelTracker:
 
     def __init__(self, name: str, model_repr: str) -> None:
         self.name: Final = name
@@ -41,21 +41,21 @@ class ModelTracking:
         self.log = {split: pd.DataFrame() for split in p.Split}
 
 
-class ModelTrackingDict:
+class ModelTrackerDict:
 
     def __init__(self, exp_name: str) -> None:
         self.exp_name: Final = exp_name
-        self._models: dict[str, ModelTracking] = {}
+        self._models: dict[str, ModelTracker] = {}
 
     def __contains__(self, item) -> bool:
         return self._models.__contains__(item)
 
-    def __getitem__(self, key: str) -> ModelTracking:
+    def __getitem__(self, key: str) -> ModelTracker:
         if key not in self:
             raise exceptions.ModelNotExistingError(key, self.exp_name)
         return self._models.__getitem__(key)
 
-    def __setitem__(self, key: str, value: ModelTracking):
+    def __setitem__(self, key: str, value: ModelTracker):
         if key in self:
             raise exceptions.ModelAlreadyRegisteredError(key, self.exp_name)
         self._models.__setitem__(key, value)
@@ -104,14 +104,14 @@ class Experiment:
         self.exp_pardir = pathlib.Path(exp_pardir)
         self.allow_extract_metadata = allow_extract_metadata
         self.max_item_repr = max_item_repr
-        self.tracking = ModelTrackingDict(exp_name=self.exp_name)
+        self.tracking = ModelTrackerDict(exp_name=self.exp_name)
         self.__class__.past_experiments.add(self)
         self.activate()
 
     def register_model(self, model: p.ModelProtocol):
         name = model.name
         architecture = model.module.__repr__()
-        self.tracking[name] = ModelTracking(name, model_repr=architecture)
+        self.tracking[name] = ModelTracker(name, model_repr=architecture)
 
     def activate(self):
         if self._current is not None:

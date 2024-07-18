@@ -12,7 +12,7 @@ import torch
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import io
-from dry_torch import modelling
+from dry_torch import learning
 from dry_torch import structures
 from dry_torch import recursive_ops
 from dry_torch import protocols as p
@@ -85,7 +85,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         return
 
     @property
-    def model_tracking(self) -> tracking.ModelTracking:
+    def model_tracking(self) -> tracking.ModelTracker:
         return tracking.Experiment.current().tracking[self.model.name]
 
     @property
@@ -232,7 +232,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
         property for adding a hook after running the training session.
     """
 
-    @modelling.bind_to_model
+    @learning.bind_to_model
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -264,7 +264,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
 
         """
         try:
-            modelling.unbind(self, self.model)
+            learning.unbind(self, self.model)
         except exceptions.NotBoundedError:
             warnings.warn(exceptions.AlreadyTestedWarning())
             return

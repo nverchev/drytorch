@@ -26,7 +26,7 @@ class PathManager:
         checkpoints.
     Properties:
         exp (Experiment): The active environment of the experiment.
-        model_tracking (ModelTracking): The tracking information of the module.
+        model_tracking (ModelTracker): The tracking information of the module.
         directory (Path): The directory for the experiment.
         config (Path): The configuration file path.
         model_directory (Path): The directory for the module.
@@ -48,7 +48,7 @@ class PathManager:
         return tracking.Experiment.current()
 
     @property
-    def model_tracking(self) -> tracking.ModelTracking:
+    def model_tracking(self) -> tracking.ModelTracker:
         return self.exp.tracking[self.model_name]
 
     @property
@@ -144,7 +144,7 @@ class TrackingIO:
         self.paths = PathManager(model_name=model_name)
 
     @property
-    def model_tracking(self) -> tracking.ModelTracking:
+    def model_tracking(self) -> tracking.ModelTracker:
         exp = tracking.Experiment.current()
         return exp.tracking[self.model_name]
 

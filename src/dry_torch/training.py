@@ -9,7 +9,7 @@ from torch.cuda import amp
 from dry_torch import io
 from dry_torch import exceptions
 from dry_torch import tracking
-from dry_torch import modelling
+from dry_torch import learning
 from dry_torch import protocols as p
 from dry_torch import default_logging
 from dry_torch import evaluating
@@ -49,7 +49,7 @@ class Trainer(
         property for adding a hook after running the training session.
     """
 
-    @modelling.bind_to_model
+    @learning.bind_to_model
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -69,7 +69,7 @@ class Trainer(
                          mixed_precision=mixed_precision)
         self._early_termination = False
 
-        self._model_optimizer = modelling.ModelOptimizer(model, learning_scheme)
+        self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
         self._checkpoint = io.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=self._mixed_precision)
@@ -80,7 +80,7 @@ class Trainer(
         return
 
     @property
-    def model_tracking(self) -> tracking.ModelTracking:
+    def model_tracking(self) -> tracking.ModelTracker:
         return tracking.Experiment.current().tracking[self.model.name]
 
     def _set_validation(
@@ -109,7 +109,7 @@ class Trainer(
         return
 
     def terminate_training(self) -> None:
-        modelling.unbind(self, self.model)
+        learning.unbind(self, self.model)
         self._early_termination = True
         return
 

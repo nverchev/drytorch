@@ -6,7 +6,7 @@ from dry_torch import ModelStateIO
 from dry_torch import CheckpointIO
 from dry_torch import Experiment
 from dry_torch import LearningScheme
-from dry_torch.modelling import ModelOptimizer
+from dry_torch.learning import ModelOptimizer
 from dry_torch.io import save_all_metadata
 
 

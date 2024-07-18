@@ -9,7 +9,7 @@ from dry_torch import Experiment
 from dry_torch.scheduling import CosineScheduler
 from dry_torch.scheduling import ExponentialScheduler
 from dry_torch.exceptions import MissingParamError
-from dry_torch.modelling import ModelOptimizer
+from dry_torch.learning import ModelOptimizer
 
 
 class ComplexModel(torch.nn.Module):

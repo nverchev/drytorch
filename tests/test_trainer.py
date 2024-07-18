@@ -5,7 +5,7 @@ import pytest
 import torch
 from torch.utils import data
 from dry_torch import Trainer
-from dry_torch import Test as _Test  # other pytest interprets it as a test
+from dry_torch import Test as _Test  # otherwise pytest interprets it as a test
 from dry_torch import DataLoader
 from dry_torch import Experiment
 from dry_torch import Model
