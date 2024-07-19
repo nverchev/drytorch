@@ -69,9 +69,9 @@ class ComplexClass:
             'class': self.__class__.__name__,
             'zero_attr': self.zero_attr,
             'lorem': self.lorem,
-            'complex_struc': {'tuple': "(1, '...', 3)",
+            'complex_struc': {'tuple': (1, '...', 3),
                               '...': None,
-                              'list': "[1, '...', 3]"},
+                              'list': [1, '...', 3]},
             'torch_tensor': '[[3.142 ... 3.142]\n ...\n [3.142 ... 3.142]]',
             'fun': '<lambda>',
             'object_with_one_slot': {'class': 'OneSlot',
@@ -90,6 +90,7 @@ def test_pandas_print_options() -> None:
 def test_struc_repr() -> None:
     complex_instance = ComplexClass()
     out = struc_repr(complex_instance, max_size=complex_instance.max_size)
+    print(out)
     assert out == complex_instance.expected_struc_repr()
     with open('test.yml', 'w') as yaml_file:
         yaml.dump(out, yaml_file, sort_keys=False)

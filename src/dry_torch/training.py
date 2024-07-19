@@ -3,6 +3,7 @@ import logging
 
 from typing import Callable, Optional, Self, TypeVar
 
+import dry_torch.model_bindings
 import torch
 from torch.cuda import amp
 
@@ -49,7 +50,7 @@ class Trainer(
         property for adding a hook after running the training session.
     """
 
-    @learning.bind_to_model
+    @dry_torch.model_bindings.bind_to_model
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -109,7 +110,7 @@ class Trainer(
         return
 
     def terminate_training(self) -> None:
-        learning.unbind(self, self.model)
+        dry_torch.model_bindings.unbind(self, self.model)
         self._early_termination = True
         return
 

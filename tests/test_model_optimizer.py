@@ -6,6 +6,7 @@ import torch
 from dry_torch import Model
 from dry_torch import LearningScheme
 from dry_torch import Experiment
+from dry_torch import register_model
 from dry_torch.scheduling import CosineScheduler
 from dry_torch.scheduling import ExponentialScheduler
 from dry_torch.exceptions import MissingParamError
@@ -26,9 +27,8 @@ class ComplexModel(torch.nn.Module):
 @pytest.fixture(scope='module')
 def _complex_model() -> Model[torch.Tensor, torch.Tensor]:
     complex_model = Model(ComplexModel(), name='complex_model')
-    Experiment.current().register_model(complex_model)
+    register_model(complex_model)
     return complex_model
-
 
 
 @pytest.fixture()
@@ -112,18 +112,3 @@ def test_CosineScheduler(complex_model) -> None:
     assert np.isclose(params[0]['lr'], init_lr * min_decay)
     assert np.isclose(params[1]['lr'], init_lr / 10 * min_decay)
 
-# @pytest.mark.parametrize("clone", [False, True])
-# def test_Model(complex_model, clone) -> None:
-#     init_lr = 0.01
-#     if clone:
-#         _model_optimizer = ModelOptimizer(complex_model.clone('clone'),
-#                                          LearningScheme())
-#     else:
-#         _model_optimizer = ModelOptimizer(complex_model, LearningScheme())
-#
-#     model_params = {id(param) for param in _model_optimizer.module.parameters()}
-#     optimizer_params = {id(param) for group in
-#                         _model_optimizer.optimizer.param_groups for param in
-#                         group['params']}
-#     assert model_params == optimizer_params
-#     assert _model_optimizer.optimizer.param_groups[0]['lr'] == init_lr

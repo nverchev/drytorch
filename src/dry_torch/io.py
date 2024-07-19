@@ -1,7 +1,7 @@
 import warnings
 import pathlib
 import datetime
-
+from typing import Any
 import dry_torch.protocols
 import yaml  # type: ignore
 import logging
@@ -48,29 +48,28 @@ class PathManager:
         return tracking.Experiment.current()
 
     @property
+    def exp_dir(self) -> pathlib.Path:
+        exp = tracking.Experiment.current()
+        return exp.exp_dir
+
+    @property
     def model_tracking(self) -> tracking.ModelTracker:
         return self.exp.tracking[self.model_name]
 
     @property
-    def exp_dir(self) -> pathlib.Path:
-        directory = self.exp.exp_pardir / self.exp.exp_name
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
-
-    @property
     def config(self) -> pathlib.Path:
-        return self.exp_dir / 'config.yml'
+        return self.exp.config_path
 
     @property
     def model_dir(self) -> pathlib.Path:
         directory = self.exp_dir / self.model_tracking.name
-        directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(exist_ok=True)
         return directory
 
     @property
     def logs_dir(self) -> pathlib.Path:
         checkpoint_directory = self.model_dir / 'logs'
-        checkpoint_directory.mkdir(parents=True, exist_ok=True)
+        checkpoint_directory.mkdir(exist_ok=True)
         return checkpoint_directory
 
     @property
@@ -86,14 +85,14 @@ class PathManager:
     @property
     def checkpoint_dir(self) -> pathlib.Path:
         checkpoint_directory = self.model_dir / 'checkpoints'
-        checkpoint_directory.mkdir(parents=True, exist_ok=True)
+        checkpoint_directory.mkdir(exist_ok=True)
         return checkpoint_directory
 
     @property
     def epoch_dir(self) -> pathlib.Path:
         epoch = self.model_tracking.epoch
         epoch_directory = self.checkpoint_dir / f'epoch_{epoch}'
-        epoch_directory.mkdir(parents=True, exist_ok=True)
+        epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
     @property
@@ -121,8 +120,8 @@ class PathManager:
         return max(past_epochs)
 
 
-class TrackingIO:
-    definition = 'metadata'
+class LogIO:
+    definition = 'logs'
     """
     Save and load checkpoints. The folder with the savings has the address
     of the form: exp_pardir/exp_name.
@@ -141,16 +140,15 @@ class TrackingIO:
 
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
-        self.paths = PathManager(model_name=model_name)
+        self.paths = PathManager(model_name)
 
     @property
-    def model_tracking(self) -> tracking.ModelTracker:
-        exp = tracking.Experiment.current()
-        return exp.tracking[self.model_name]
+    def model_tracker(self) -> tracking.ModelTracker:
+        return tracking.Experiment.current().tracking[self.model_name]
 
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
-        self.model_tracking.epoch = epoch
+        self.model_tracker.epoch = epoch
 
     def save(self) -> None:
         """
@@ -158,20 +156,9 @@ class TrackingIO:
         the experiments, the test results,
         and the training and validation learning curves.
         """
-        exp = tracking.Experiment.current()
-        config = exp.config
-        if config is not None:
-            with self.paths.config.open('w') as config_file:
-                yaml.dump(config, config_file, sort_keys=False)
-
-        with self.paths.metadata.open('w') as metadata_file:
-            now = datetime.datetime.now().replace(microsecond=0)
-            metadata = {'timestamp': now} | self.model_tracking.metadata
-            yaml.dump(metadata, metadata_file, sort_keys=False,
-                      default_flow_style=False)
         for split, path in self.paths.log.items():
             # write instead of append to be safe from bugs
-            self.model_tracking.log[split].to_csv(path)
+            self.model_tracker.log[split].to_csv(path)
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
@@ -196,20 +183,20 @@ class TrackingIO:
                 df = pd.DataFrame()
             if split is not p.Split.TEST:
                 # filter out future epochs from logs
-                df = df[df.index <= self.model_tracking.epoch]
-            self.model_tracking.log[split] = df
+                df = df[df.index <= self.model_tracker.epoch]
+            self.model_tracker.log[split] = df
         logger.log(default_logging.INFO_LEVELS.checkpoint,
                    f"Loaded %(definition)s at epoch %(epoch)d.",
                    {'definition': self.definition,
-                    'epoch': self.model_tracking.epoch}
+                    'epoch': self.model_tracker.epoch}
                    )
         return
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(module={self.model_name})'
+        return self.__class__.__name__ + f'(module={self.model_tracker.name})'
 
 
-class ModelStateIO(TrackingIO):
+class ModelStateIO(LogIO):
     """
     Save and load checkpoints. The folder with the savings has the address
     of the form: exp_pardir/exp_name.
@@ -227,9 +214,10 @@ class ModelStateIO(TrackingIO):
     """
     definition = 'state'
 
-    def __init__(self, model: p.ModelProtocol) -> None:
-        self.model = model
+    def __init__(self,
+                 model: p.ModelProtocol) -> None:
         super().__init__(model.name)
+        self.model = model
 
     def save(self) -> None:
         """
@@ -319,7 +307,10 @@ class CheckpointIO(ModelStateIO):
         return
 
 
-def save_all_metadata() -> None:
-    for model_name in tracking.Experiment.current().tracking:
-        tracking_io = TrackingIO(model_name)
-        tracking_io.save()
+def dump_metadata(model_name: str, metadata: dict[str, Any]) -> None:
+    with PathManager(model_name).metadata.open('w') as metadata_file:
+        now = datetime.datetime.now().replace(microsecond=0)
+        metadata = {'timestamp': now} | metadata
+        yaml.dump(metadata, metadata_file, sort_keys=False,
+                  default_flow_style=False)
+    return

@@ -24,12 +24,30 @@ class AlreadyBoundedError(RuntimeError, DryTorchException):
         super().__init__(self.msg.format(cls_str, model_name))
 
 
+class AlreadyRegisteredError(ValueError, DryTorchException):
+    msg = ('Registering model_name {} was unsuccessful:'
+           ' model_name already registered in experiment {}.')
+
+    def __init__(self, name: str, exp_name: str) -> None:
+        self.name = name
+        super().__init__(self.msg.format(name, exp_name))
+
+
 class BoundedModelTypeError(TypeError, DryTorchException):
     msg = 'First argument of type {} does not follow ModelProtocol'
 
     def __init__(self, not_a_model: Any) -> None:
         self.not_a_model = not_a_model
         super().__init__(self.msg.format(type(not_a_model)))
+
+
+class ConfigNotMatchingError(ValueError, DryTorchException):
+    msg = 'Config file is different from existing config.'
+
+    def __init__(self, new_config: Any, existing_config: Any) -> None:
+        self.new_config = new_config
+        self.existing_config = existing_config
+        super().__init__(self.msg.format)
 
 
 class ConvergenceError(ValueError, DryTorchException):
@@ -95,15 +113,6 @@ class MissingParamError(ValueError, DryTorchException):
         self.model_architecture = model_architecture
         self.lr_param_groups = lr_param_groups
         super().__init__(self.msg.format(lr_param_groups))
-
-
-class ModelAlreadyRegisteredError(ValueError, DryTorchException):
-    msg = ('Registering model_name {} was unsuccessful:'
-           ' model_name already registered in experiment {}.')
-
-    def __init__(self, name: str, exp_name: str) -> None:
-        self.name = name
-        super().__init__(self.msg.format(name, exp_name))
 
 
 class ModelNotExistingError(ValueError, DryTorchException):

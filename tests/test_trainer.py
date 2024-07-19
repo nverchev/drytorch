@@ -14,6 +14,7 @@ from dry_torch import exceptions
 from dry_torch import default_logging
 from dry_torch import LearningScheme
 from dry_torch import protocols as p
+from dry_torch import register_model
 from typing import NamedTuple, Iterable
 import dataclasses
 
@@ -68,13 +69,13 @@ logger.setLevel(default_logging.INFO_LEVELS.tqdm_bar)
 
 def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
-    experiment = Experiment('test_simple_training',
-                            exp_pardir=exp_pardir,
-                            config={'answer': 42})
+    Experiment('test_simple_training',
+               exp_pardir=exp_pardir,
+               config={'answer': 42})
     module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     model = Model(module, name='original_model')
-    experiment.register_model(model)
+    register_model(model)
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
@@ -87,7 +88,7 @@ def test_all() -> None:
     trainer.train(5)
     trainer._checkpoint.save(replace_previous=True)
     cloned_model = model.clone('cloned_model')
-    experiment.register_model(cloned_model)
+    register_model(cloned_model)
     Trainer(cloned_model,
             learning_scheme=LearningScheme(lr=0.01),
             loss_calc=loss_calc,

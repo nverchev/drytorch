@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 import pathlib
-import warnings
 import datetime
 from typing import Any, Optional, Final
 
 import pandas as pd
+import yaml  # type: ignore
 from dry_torch import exceptions
 from dry_torch import default_logging
 from dry_torch import repr_utils
@@ -57,7 +57,7 @@ class ModelTrackerDict:
 
     def __setitem__(self, key: str, value: ModelTracker):
         if key in self:
-            raise exceptions.ModelAlreadyRegisteredError(key, self.exp_name)
+            raise exceptions.AlreadyRegisteredError(key, self.exp_name)
         self._models.__setitem__(key, value)
 
     def __delitem__(self, key: str):
@@ -100,18 +100,36 @@ class Experiment:
                  max_items_repr: int = 3) -> None:
 
         self.exp_name: Final = exp_name or datetime.date.today().isoformat()
-        self.config = config
         self.exp_pardir = pathlib.Path(exp_pardir)
+        self.exp_dir = self.exp_pardir / self.exp_name
+        self.exp_dir.mkdir(exist_ok=True)
+        self.config_path = self.exp_dir / 'config.yml'
+        if config is None:
+            self.config = self.load_config()
+        else:
+            self.config = config
+            self.save_config(config)
         self.allow_extract_metadata = allow_extract_metadata
         self.max_items_repr = max_items_repr
         self.tracking = ModelTrackerDict(exp_name=self.exp_name)
         self.__class__.past_experiments.add(self)
         self.activate()
 
-    def register_model(self, model: p.ModelProtocol):
-        name = model.name
-        architecture = model.module.__repr__()
-        self.tracking[name] = ModelTracker(name, model_repr=architecture)
+    def save_config(self, config: Any) -> None:
+        loaded_config = self.load_config()
+        if loaded_config is not None and loaded_config != config:
+            raise exceptions.ConfigNotMatchingError(config, loaded_config)
+        else:
+            with self.config_path.open('w') as config_file:
+                yaml.dump(config, config_file)
+        return
+
+    def load_config(self) -> Any:
+        if self.config_path.exists():
+            with self.config_path.open('r') as config_file:
+                config = yaml.safe_load(config_file)
+            return config
+        return None
 
     def activate(self):
         if self._current is not None:
@@ -144,26 +162,3 @@ class Experiment:
         if cfg is None:
             raise exceptions.NoConfigError()
         return cfg
-
-
-def extract_metadata(attr_dict: dict[str, Any],
-                     max_size: int = 3) -> dict[str, Any]:
-    # tries to get the most informative representation of the metadata.
-    try:
-        metadata = {k: repr_utils.struc_repr(v, max_size=max_size)
-                    for k, v in attr_dict.items()}
-    except RecursionError:
-        msg = 'Could not extract metadata because of recursive objects.'
-        warnings.warn(msg)
-        metadata = {}
-    return metadata
-
-
-def add_metadata(exp: Experiment,
-                 model_name: str,
-                 object_name: str,
-                 attr_dict: dict[str, Any]) -> None:
-    if exp.allow_extract_metadata:
-        # tries to get the most informative representation of the metadata.
-        metadata = extract_metadata(attr_dict, exp.max_items_repr)
-        exp.tracking[model_name].metadata[object_name] = metadata

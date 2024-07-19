@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from functools import wraps
-from typing import Optional, Callable, Concatenate, Self, Iterable, Iterator
-from typing import ParamSpec, TypeVar, Any, cast, Generic, Type
+from typing import Optional, Self, Iterable, Iterator
+from typing import TypeVar, Any, cast, Generic, Type
 import copy
 import torch
 from torch import cuda
@@ -17,19 +16,9 @@ from dry_torch import tracking
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
                         contravariant=True)
-_Target_contra = TypeVar('_Target_contra',
-                         bound=p.InputType,
-                         contravariant=True)
 _Output_co = TypeVar('_Output_co',
                      bound=p.OutputType,
                      covariant=True)
-
-_Input = TypeVar('_Input', bound=p.InputType)
-_Target = TypeVar('_Target', bound=p.TargetType)
-_Output = TypeVar('_Output', bound=p.OutputType)
-
-_P = ParamSpec('_P')
-_RT = TypeVar('_RT')
 
 
 @dataclasses.dataclass
@@ -245,54 +234,3 @@ class ModelOptimizer:
 
     def get_epoch(self) -> int:
         return tracking.Experiment.current().tracking[self.model.name].epoch
-
-
-def bind_to_model(
-        func: Callable[
-            Concatenate[Any, p.ModelProtocol[_Input_contra, _Output_co], _P],
-            _RT],
-) -> Callable[
-    Concatenate[Any, p.ModelProtocol[_Input_contra, _Output_co], _P],
-    _RT,
-]:
-    """
-    Decorator that extracts metadata from a function named arguments.
-
-    Args:
-        func: the function that we want to extract metadata from.
-    Returns:
-        Callable: the same input function.
-    """
-
-    @wraps(func)
-    def wrapper(instance: Any,
-                model: p.ModelProtocol[_Input_contra, _Output_co],
-                *args: _P.args,
-                **kwargs: _P.kwargs) -> _RT:
-        if not isinstance(model, p.ModelProtocol):
-            raise exceptions.BoundedModelTypeError(model)
-        exp = tracking.Experiment.current()
-        model_tracking = exp.tracking[model.name]
-        bindings = model_tracking.bindings
-        cls_str = instance.__class__.__name__
-        if cls_str in bindings:
-            raise exceptions.AlreadyBoundedError(model.name, cls_str)
-        cls_count = bindings.setdefault(cls_str, tracking.DefaultName(cls_str))
-        tracking.add_metadata(exp, model.name, cls_count(), kwargs)
-        return func(instance, model, *args, **kwargs)
-
-    return wrapper
-
-
-def unbind(instance: Any,
-           model: p.ModelProtocol[_Input_contra, _Output_co]) -> None:
-    if not isinstance(model, p.ModelProtocol):
-        raise exceptions.BoundedModelTypeError(model)
-    model_tracking = tracking.Experiment.current().tracking[model.name]
-    metadata = model_tracking.metadata
-    cls_str = instance.__class__.__name__
-    if cls_str not in model_tracking.bindings:
-        raise exceptions.NotBoundedError(model.name, cls_str)
-    cls_str_counter = repr(model_tracking.bindings.pop(cls_str))
-    metadata[cls_str_counter]['model_final_epoch'] = model_tracking.epoch
-    return
