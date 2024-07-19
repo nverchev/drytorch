@@ -50,6 +50,9 @@ class LearningScheme(p.LearningProtocol):
     scheduler: p.SchedulerProtocol = scheduling.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
 
 class Model(Generic[_Input_contra, _Output_co]):
     default_model_name = tracking.DefaultName('Model')

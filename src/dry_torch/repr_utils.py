@@ -1,4 +1,5 @@
 from typing import Any, Iterable, Optional
+import datetime
 import functools
 import types
 import yaml  # type: ignore
@@ -7,22 +8,34 @@ import pandas as pd
 import torch
 
 
-def represent_literal_str(dumper, data):
-    scalar = yaml.representer.SafeRepresenter.represent_str(dumper, data)
-    scalar.style = '|'
-    return scalar
-
-
-def represent_none(dumper, _):
-    return dumper.represent_scalar('tag:yaml.org,2002:null', '')
-
-
 class LiteralStr(str):
     pass
 
 
-yaml.add_representer(type(None), represent_none)
+DOTS = LiteralStr('...')
+
+
+def represent_datetime(dumper: yaml.Dumper,
+                       data: datetime.datetime) -> yaml.Node:
+    return dumper.represent_scalar('tag:yaml.org,2002:timestamp',
+                                   data.isoformat(timespec='seconds'))
+
+
+def represent_literal_str(dumper: yaml.Dumper,
+                          literal_str: LiteralStr) -> yaml.Node:
+    scalar = dumper.represent_str(literal_str)
+    scalar.style = '|'
+    return scalar
+
+
+def represent_none(dumper: yaml.Dumper, _: object) -> yaml.Node:
+    return dumper.represent_scalar('tag:yaml.org,2002:null', '')
+
+
+
+yaml.add_representer(datetime, represent_datetime)
 yaml.add_representer(LiteralStr, represent_literal_str)
+yaml.add_representer(type(None), represent_none)
 
 
 class PandasPrintOptions:
@@ -71,7 +84,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
     if hasattr(container, '__len__'):
         listed = list(container)
         if len(listed) > max_size:
-            listed = listed[:max_size // 2] + ['...'] + listed[-max_size // 2:]
+            listed = listed[:max_size // 2] + [DOTS] + listed[-max_size // 2:]
     else:
         listed = []
         iter_container = container.__iter__()
@@ -82,7 +95,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
             except StopIteration:
                 break
         else:
-            listed.append(['...'])
+            listed.append([DOTS])
     return listed
 
 
@@ -112,18 +125,24 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
             msg = 'numpy should be a method without additional parameters'
             raise AttributeError(msg) from te
 
-    null_attr: tuple = (struc, {}, [], set(), None)
     dict_attr = getattr(struc, '__dict__', {})
     dict_attr |= {name: getattr(struc, name)
                   for name in getattr(struc, '__slots__', [])}
-    dict_attr = {k: struc_repr(v, max_size=max_size)
-                 for k, v in dict_attr.items()
-                 if k[0] != '_' and all(v is not item for item in null_attr)}
-    if dict_attr:
+
+    dict_str: dict[str, Any] = {}
+    for k, v in dict_attr.items():
+        if k[0] == '_' or v is struc or v is None:
+            continue
+        if hasattr(v, '__len__'):
+            if not v.__len__():
+                continue
+        dict_str[k] = struc_repr(v, max_size=max_size)
+
+    if dict_str:
         if has_own_repr(struc):
-            return {'repr': struc.__repr__()} | dict_attr
+            return {'repr': struc.__repr__()} | dict_str
         else:
-            return {'class': type(struc).__name__} | dict_attr
+            return {'class': type(struc).__name__} | dict_str
 
     if hasattr(struc, '__iter__'):
         limit_struc = limit_size(struc, max_size=max_size)
@@ -133,8 +152,8 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
         struc_list = [struc_repr(item, max_size=max_size)
                       for item in limit_struc]
         if isinstance(struc, (list, set, tuple)):
-            return LiteralStr(type(struc)(struc_list))
-        return LiteralStr(struc_list)
+            return type(struc)(struc_list)
+        return struc_list
 
     return repr(struc) if has_own_repr(struc) else struc.__class__.__name__
 
