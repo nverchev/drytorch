@@ -80,7 +80,7 @@ class Experiment:
         exp_pardir: parent directory for the folders with the module checkpoints
         allow_extract_metadata: whether to extract metadata from classes that 
         implement the allow_extract_metadata decorator
-        max_item_repr: limits the size of iterators and arrays.
+        max_items_repr: limits the size of iterators and arrays.
 
 
 
@@ -97,13 +97,13 @@ class Experiment:
                  config: Optional[Any] = None,
                  exp_pardir: str | pathlib.Path = pathlib.Path('experiments'),
                  allow_extract_metadata: bool = True,
-                 max_item_repr: int = 3) -> None:
+                 max_items_repr: int = 3) -> None:
 
         self.exp_name: Final = exp_name or datetime.date.today().isoformat()
         self.config = config
         self.exp_pardir = pathlib.Path(exp_pardir)
         self.allow_extract_metadata = allow_extract_metadata
-        self.max_item_repr = max_item_repr
+        self.max_items_repr = max_items_repr
         self.tracking = ModelTrackerDict(exp_name=self.exp_name)
         self.__class__.past_experiments.add(self)
         self.activate()
@@ -165,5 +165,5 @@ def add_metadata(exp: Experiment,
                  attr_dict: dict[str, Any]) -> None:
     if exp.allow_extract_metadata:
         # tries to get the most informative representation of the metadata.
-        metadata = extract_metadata(attr_dict, exp.max_item_repr)
+        metadata = extract_metadata(attr_dict, exp.max_items_repr)
         exp.tracking[model_name].metadata[object_name] = metadata

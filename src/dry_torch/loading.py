@@ -32,17 +32,17 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         self.batch_size = batch_size
         self.dataset = dataset
         self.dataset_len = check_dataset_length(dataset)
+        self.pin_memory: bool = torch.cuda.is_available()
 
     def get_loader(self) -> data.DataLoader[_Data_co]:
         inference = torch.is_inference_mode_enabled()
-        pin_memory: bool = torch.cuda.is_available()
         drop_last: bool = not inference
         shuffle: bool = not inference
         loader = data.DataLoader(self.dataset,
                                  batch_size=self.batch_size,
                                  drop_last=drop_last,
                                  shuffle=shuffle,
-                                 pin_memory=pin_memory)
+                                 pin_memory=self.pin_memory)
         return loader
 
     def __iter__(self) -> Iterator[_Data_co]:
