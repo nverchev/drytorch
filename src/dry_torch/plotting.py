@@ -104,9 +104,7 @@ try:
                   start: int,
                   title: str) -> None:
             train_log_metric: pd.Series[float] = train_log[loss_or_metric]
-            val_log_metric: pd.Series[float] = val_log[loss_or_metric]
             train_log_metric = train_log_metric[train_log.index >= start]
-            val_log_metric = val_log_metric[val_log.index >= start]
 
             layout = dict(xlabel='Epoch',
                           ylabel=loss_or_metric,
@@ -119,6 +117,8 @@ try:
                           opts=layout,
                           name='Training')
             if not val_log.empty:
+                val_log_metric: pd.Series[float] = val_log[loss_or_metric]
+                val_log_metric = val_log_metric[val_log.index >= start]
                 self.vis.line(X=val_log_metric.index,
                               Y=val_log_metric,
                               win=title,
