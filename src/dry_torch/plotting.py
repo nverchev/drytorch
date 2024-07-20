@@ -294,7 +294,7 @@ class Plotter:
             lib: which library to use as backend. 'auto' default to visdom or
             plotly if from a jupyter notebook.
         """
-        log = tracking.Experiment.current().tracking[self.model_name].log
+        log = tracking.Experiment.current().tracker[self.model_name].log
         plotter = self.get_plotter(backend=lib, env=self.model_name)
         plotter.plot(log[dry_torch.protocols.Split.TRAIN],
                      log[dry_torch.protocols.Split.VAL],

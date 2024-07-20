@@ -34,7 +34,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     Implement the standard Pytorch training and evaluation loop.
 
     Args:
-        tracking: contain the module and the optimizing strategy.
+        tracker: contain the module and the optimizing strategy.
         loaders: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
@@ -87,7 +87,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     @property
     def model_tracking(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracking[self.model.name]
+        return tracking.Experiment.current().tracker[self.model.name]
 
     @property
     def partition_log(self):
@@ -202,7 +202,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
     Implement the standard Pytorch training and evaluation loop.
 
     Args:
-        tracking: contain the module and the optimizing strategy.
+        tracker: contain the module and the optimizing strategy.
         loaders: dictionary with loaders for the training, and optionally,
          the validation and test datasets.
         loss_calc: the _loss_calc function, which needs to return batched values
@@ -283,4 +283,4 @@ class Test(Evaluation[_Input, _Target, _Output]):
         return
 
     def __str__(self) -> str:
-        return f'Test {self.test_name} for tracking {self.model.name}.'
+        return f'Test {self.test_name} for tracker {self.model.name}.'

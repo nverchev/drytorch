@@ -43,8 +43,8 @@ def register_model(model: p.ModelProtocol) -> None:
     exp = tracking.Experiment.current()
     name = model.name
     model_repr = model.module.__repr__()
-    exp.tracking[name] = tracking.ModelTracker(name, model_repr=model_repr)
-    io.dump_metadata(name, exp.tracking[name].metadata)
+    exp.tracker[name] = tracking.ModelTracker(name, model_repr=model_repr)
+    io.dump_metadata(name, exp.tracker[name].metadata)
 
 
 def extract_metadata(attr_dict: dict[str, Any],
@@ -67,8 +67,8 @@ def add_metadata(exp: tracking.Experiment,
     if exp.allow_extract_metadata:
         # tries to get the most informative representation of the metadata.
         object_metadata = extract_metadata(attr_dict, exp.max_items_repr)
-        exp.tracking[model_name].metadata[object_name] = object_metadata
-        io.dump_metadata(model_name, exp.tracking[model_name].metadata)
+        exp.tracker[model_name].metadata[object_name] = object_metadata
+        io.dump_metadata(model_name, exp.tracker[model_name].metadata)
 
 
 def bind_to_model(
@@ -96,7 +96,7 @@ def bind_to_model(
         if not isinstance(model, p.ModelProtocol):
             raise exceptions.BoundedModelTypeError(model)
         exp = tracking.Experiment.current()
-        model_tracking = exp.tracking[model.name]
+        model_tracking = exp.tracker[model.name]
         bindings = model_tracking.bindings
         cls_str = instance.__class__.__name__
         if cls_str in bindings:
@@ -112,7 +112,7 @@ def unbind(instance: Any,
            model: p.ModelProtocol[_Input_contra, _Output_co]) -> None:
     if not isinstance(model, p.ModelProtocol):
         raise exceptions.BoundedModelTypeError(model)
-    model_tracking = tracking.Experiment.current().tracking[model.name]
+    model_tracking = tracking.Experiment.current().tracker[model.name]
     metadata = model_tracking.metadata
     cls_str = instance.__class__.__name__
     if cls_str not in model_tracking.bindings:

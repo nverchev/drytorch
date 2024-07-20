@@ -22,11 +22,11 @@ class PathManager:
         model_name: The model_name of the module.
 
     Attributes:
-        tracking  The model_name of the module.
+        tracker  The model_name of the module.
         checkpoints.
     Properties:
         exp (Experiment): The active environment of the experiment.
-        model_tracking (ModelTracker): The tracking information of the module.
+        model_tracking (ModelTracker): The tracker information of the module.
         directory (Path): The directory for the experiment.
         config (Path): The configuration file path.
         model_directory (Path): The directory for the module.
@@ -54,7 +54,7 @@ class PathManager:
 
     @property
     def model_tracking(self) -> tracking.ModelTracker:
-        return self.exp.tracking[self.model_name]
+        return self.exp.tracker[self.model_name]
 
     @property
     def config(self) -> pathlib.Path:
@@ -144,7 +144,7 @@ class LogIO:
 
     @property
     def model_tracker(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracking[self.model_name]
+        return tracking.Experiment.current().tracker[self.model_name]
 
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()

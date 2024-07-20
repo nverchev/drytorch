@@ -111,7 +111,7 @@ class Experiment:
             self.save_config(config)
         self.allow_extract_metadata = allow_extract_metadata
         self.max_items_repr = max_items_repr
-        self.tracking = ModelTrackerDict(exp_name=self.exp_name)
+        self.tracker = ModelTrackerDict(exp_name=self.exp_name)
         self.__class__.past_experiments.add(self)
         self.activate()
 
@@ -125,10 +125,10 @@ class Experiment:
         return
 
     def load_config(self) -> Any:
-        if self.config_path.exists():
-            with self.config_path.open('r') as config_file:
-                config = yaml.safe_load(config_file)
-            return config
+        # if self.config_path.exists():
+        #     with self.config_path.open('r') as config_file:
+        #         config = yaml.safe_load(config_file)
+        #     return config
         return None
 
     def activate(self):
@@ -162,3 +162,8 @@ class Experiment:
         if cfg is None:
             raise exceptions.NoConfigError()
         return cfg
+
+
+def track(model: p.ModelProtocol) -> ModelTracker:
+    exp = Experiment.current()
+    return exp.tracker[model.name]
