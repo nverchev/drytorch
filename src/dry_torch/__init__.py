@@ -4,7 +4,7 @@ __all__ = [
     'LogIO',
     'ModelStateIO',
     'CheckpointIO',
-    'Experiment',
+    'GenericExperiment',
     'DataLoader',
     'SimpleLossCalculator',
     'MetricsCalculator',
@@ -29,7 +29,7 @@ from dry_torch.calculating import MetricsCalculator
 from dry_torch.learning import LearningScheme
 from dry_torch.learning import Model
 from dry_torch.structures import NumpyDictList
-from dry_torch.tracking import Experiment
+from dry_torch.tracking import GenericExperiment
 from dry_torch.training import Trainer
 from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Validation

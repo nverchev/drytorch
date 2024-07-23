@@ -68,9 +68,9 @@ class ModelTrackerDict:
         return self._models.__iter__()
 
 
-class Experiment(Generic[_T]):
-    past_experiments: set[Experiment] = set()
-    _current: Optional[Experiment] = None
+class GenericExperiment(Generic[_T]):
+    past_experiments: set[GenericExperiment] = set()
+    _current: Optional[GenericExperiment] = None
     _current_config: Optional[_T] = None
     _default_link_name = DefaultName('hydra_outputs')
 
@@ -139,9 +139,9 @@ class Experiment(Generic[_T]):
         return
 
     def activate(self) -> None:
-        if Experiment._current is not None:
+        if GenericExperiment._current is not None:
             self.stop()
-        Experiment._current = self
+        GenericExperiment._current = self
         self.__class__._current_config = self.config
         logger.log(default_logging.INFO_LEVELS.experiment,
                    'Running experiment: %(exp_name)s.',
@@ -152,16 +152,16 @@ class Experiment(Generic[_T]):
         logger.log(default_logging.INFO_LEVELS.experiment,
                    f'Stopping experiment:  %(exp_name)s.',
                    {'exp_name': self.exp_name})
-        Experiment._current = None
+        GenericExperiment._current = None
         return
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f'(exp_name={self.exp_name})'
 
     @classmethod
-    def current(cls) -> Experiment:
-        if Experiment._current is not None:
-            return Experiment._current
+    def current(cls) -> GenericExperiment:
+        if GenericExperiment._current is not None:
+            return GenericExperiment._current
         unnamed_experiment = cls(datetime.datetime.now().isoformat())
         unnamed_experiment.activate()
         return unnamed_experiment
@@ -175,5 +175,5 @@ class Experiment(Generic[_T]):
 
 
 def track(model: p.ModelProtocol) -> ModelTracker:
-    exp = Experiment.current()
+    exp = GenericExperiment.current()
     return exp.tracker[model.name]

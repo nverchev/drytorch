@@ -7,7 +7,7 @@ from torch.utils import data
 from dry_torch import Trainer
 from dry_torch import Test as _Test  # otherwise pytest interprets it as a test
 from dry_torch import DataLoader
-from dry_torch import Experiment
+from dry_torch import GenericExperiment
 from dry_torch import Model
 from dry_torch import SimpleLossCalculator
 from dry_torch import exceptions
@@ -69,9 +69,9 @@ logger.setLevel(default_logging.INFO_LEVELS.tqdm_bar)
 
 def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
-    Experiment('test_simple_training',
-               exp_pardir=exp_pardir,
-               config={'answer': 42})
+    GenericExperiment('test_simple_training',
+                      exp_pardir=exp_pardir,
+                      config={'answer': 42})
     module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     model = Model(module, name='original_model')

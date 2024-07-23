@@ -25,7 +25,7 @@ class PathManager:
         tracker  The model_name of the module.
         checkpoints.
     Properties:
-        exp (Experiment): The active environment of the experiment.
+        exp (GenericExperiment): The active environment of the experiment.
         model_tracking (ModelTracker): The tracker information of the module.
         directory (Path): The directory for the experiment.
         config (Path): The configuration file path.
@@ -44,12 +44,12 @@ class PathManager:
         self.model_name = model_name
 
     @property
-    def exp(self) -> tracking.Experiment:
-        return tracking.Experiment.current()
+    def exp(self) -> tracking.GenericExperiment:
+        return tracking.GenericExperiment.current()
 
     @property
     def exp_dir(self) -> pathlib.Path:
-        exp = tracking.Experiment.current()
+        exp = tracking.GenericExperiment.current()
         return exp.exp_dir
 
     @property
@@ -140,7 +140,7 @@ class LogIO:
 
     @property
     def model_tracker(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracker[self.model_name]
+        return tracking.GenericExperiment.current().tracker[self.model_name]
 
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
@@ -304,7 +304,7 @@ class CheckpointIO(ModelStateIO):
 
 
 def dump_metadata(model_name: str) -> None:
-    metadata = tracking.Experiment.current().tracker[model_name].metadata
+    metadata = tracking.GenericExperiment.current().tracker[model_name].metadata
     with PathManager(model_name).metadata.open('w') as metadata_file:
         now = datetime.datetime.now().replace(microsecond=0)
         metadata = {'timestamp': now} | metadata

@@ -82,7 +82,7 @@ class Trainer(
 
     @property
     def model_tracking(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracker[self.model.name]
+        return tracking.GenericExperiment.current().tracker[self.model.name]
 
     def _set_validation(
             self,

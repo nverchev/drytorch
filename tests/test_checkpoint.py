@@ -4,7 +4,7 @@ import torch
 from dry_torch import Model
 from dry_torch import ModelStateIO
 from dry_torch import CheckpointIO
-from dry_torch import Experiment
+from dry_torch import GenericExperiment
 from dry_torch import LearningScheme
 from dry_torch import register_model
 from dry_torch.learning import ModelOptimizer
@@ -18,9 +18,9 @@ from dry_torch.repr_utils import struc_repr
 def test_checkpoint():
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
     model = torch.nn.Linear(1, 1)
-    Experiment('test_checkpoint',
-               exp_pardir=exp_pardir,
-               config={'test': 'test'})
+    GenericExperiment('test_checkpoint',
+                      exp_pardir=exp_pardir,
+                      config={'test': 'test'})
     model = Model(model, name='first_model')
     register_model(model)
     with pytest.raises(AlreadyRegisteredError):
@@ -40,6 +40,6 @@ def test_checkpoint():
     checkpoint_io = CheckpointIO(second_model, model_optimizer.optimizer)
     checkpoint_io.save()
     # with pytest.raises(ConfigNotMatchingError):
-    #     Experiment('test_checkpoint',
+    #     GenericExperiment('test_checkpoint',
     #                exp_pardir=exp_pardir,
     #                config={'test': 'test2'})
