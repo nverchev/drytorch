@@ -44,7 +44,7 @@ class LearningScheme(p.LearningProtocol):
 
 
 class Model(Generic[_Input_contra, _Output_co]):
-    default_model_name = tracking.DefaultName('Model')
+    _default_model_name = tracking.DefaultName('Model')
     """
     Bundle the module and its optimizer.
     Support different learning rates and separate parameters groups.
@@ -79,7 +79,7 @@ class Model(Generic[_Input_contra, _Output_co]):
             name: Optional[str] = None,
             device: Optional[torch.device] = None,
     ) -> None:
-        self.name: str = name or self.__class__.default_model_name()
+        self.name: str = name or Model._default_model_name()
         self.device = self.default_device() if device is None else device
         self.module = self.validate_module(torch_module).to(self.device)
         self.optimizer: Optional[torch.optim.Optimizer] = None

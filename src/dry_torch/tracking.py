@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import pathlib
 import datetime
-from typing import Any, Optional, Final#, TypeVar, Generic
+from typing import Any, Optional, Final, TypeVar, Generic
 
 import pandas as pd
 from dry_torch import exceptions
@@ -13,7 +13,8 @@ from dry_torch import protocols as p
 
 logger = logging.getLogger('dry_torch')
 
-#_T = TypeVar('_T')
+_T = TypeVar('_T')
+
 
 class DefaultName:
     def __init__(self, prefix: str):
@@ -67,10 +68,12 @@ class ModelTrackerDict:
         return self._models.__iter__()
 
 
-class Experiment:
+class Experiment(Generic[_T]):
     past_experiments: set[Experiment] = set()
     _current: Optional[Experiment] = None
-    default_link_name = DefaultName('hydra_outputs')
+    _current_config: Optional[_T] = None
+    _default_link_name = DefaultName('hydra_outputs')
+
     """
     This class is used to describe the experiment.
 
@@ -124,7 +127,7 @@ class Experiment:
         hydra_dir = pathlib.Path(str_dir)
 
         while True:
-            link_name = self.__class__.default_link_name()
+            link_name = self.__class__._default_link_name()
             link_dir = self.exp_dir / link_name
             if link_dir.exists():
                 continue
@@ -136,9 +139,10 @@ class Experiment:
         return
 
     def activate(self) -> None:
-        if self._current is not None:
+        if Experiment._current is not None:
             self.stop()
-        self.__class__._current = self
+        Experiment._current = self
+        self.__class__._current_config = self.config
         logger.log(default_logging.INFO_LEVELS.experiment,
                    'Running experiment: %(exp_name)s.',
                    {'exp_name': self.exp_name})
@@ -148,7 +152,7 @@ class Experiment:
         logger.log(default_logging.INFO_LEVELS.experiment,
                    f'Stopping experiment:  %(exp_name)s.',
                    {'exp_name': self.exp_name})
-        self._current = None
+        Experiment._current = None
         return
 
     def __repr__(self) -> str:
@@ -156,15 +160,15 @@ class Experiment:
 
     @classmethod
     def current(cls) -> Experiment:
-        if cls._current is not None:
-            return cls._current
+        if Experiment._current is not None:
+            return Experiment._current
         unnamed_experiment = cls(datetime.datetime.now().isoformat())
         unnamed_experiment.activate()
         return unnamed_experiment
 
     @classmethod
-    def current_cfg(cls) -> Any:
-        cfg = cls.current().config
+    def get_config(cls) -> _T:
+        cfg = cls._current_config
         if cfg is None:
             raise exceptions.NoConfigError()
         return cfg
