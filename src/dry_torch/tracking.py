@@ -3,10 +3,9 @@ from __future__ import annotations
 import logging
 import pathlib
 import datetime
-from typing import Any, Optional, Final
+from typing import Any, Optional, Final#, TypeVar, Generic
 
 import pandas as pd
-import yaml  # type: ignore
 from dry_torch import exceptions
 from dry_torch import default_logging
 from dry_torch import repr_utils
@@ -14,6 +13,7 @@ from dry_torch import protocols as p
 
 logger = logging.getLogger('dry_torch')
 
+#_T = TypeVar('_T')
 
 class DefaultName:
     def __init__(self, prefix: str):
@@ -70,7 +70,7 @@ class ModelTrackerDict:
 class Experiment:
     past_experiments: set[Experiment] = set()
     _current: Optional[Experiment] = None
-    default_exp_name = DefaultName('Experiment')
+    default_link_name = DefaultName('hydra_outputs')
     """
     This class is used to describe the experiment.
 
@@ -94,65 +94,71 @@ class Experiment:
 
     def __init__(self,
                  exp_name: str = '',
+                 exp_pardir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[Any] = None,
-                 exp_pardir: str | pathlib.Path = pathlib.Path('experiments'),
                  allow_extract_metadata: bool = True,
-                 max_items_repr: int = 3) -> None:
+                 max_items_repr: int = 3,
+                 link_to_hydra: bool = False) -> None:
 
-        self.exp_name: Final = exp_name or datetime.date.today().isoformat()
+        self.exp_name: Final = exp_name or datetime.datetime.now().isoformat()
         self.exp_pardir = pathlib.Path(exp_pardir)
-        self.exp_dir = self.exp_pardir / self.exp_name
+        self.exp_dir = self.exp_pardir / exp_name
         self.exp_dir.mkdir(exist_ok=True)
-        self.config_path = self.exp_dir / 'config.yml'
-        if config is None:
-            self.config = self.load_config()
-        else:
-            self.config = config
-            self.save_config(config)
+        self.config = config
         self.allow_extract_metadata = allow_extract_metadata
         self.max_items_repr = max_items_repr
+        if link_to_hydra:
+            self.link_to_hydra()
         self.tracker = ModelTrackerDict(exp_name=self.exp_name)
         self.__class__.past_experiments.add(self)
         self.activate()
 
-    def save_config(self, config: Any) -> None:
-        loaded_config = self.load_config()
-        if loaded_config is not None and loaded_config != config:
-            raise exceptions.ConfigNotMatchingError(config, loaded_config)
-        else:
-            with self.config_path.open('w') as config_file:
-                yaml.dump(config, config_file)
+    def link_to_hydra(self) -> None:
+        try:
+            import hydra
+        except ImportError:
+            raise exceptions.LibraryNotAvailableError('hydra')
+
+        # noinspection PyUnresolvedReferences
+        str_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+        hydra_dir = pathlib.Path(str_dir)
+
+        while True:
+            link_name = self.__class__.default_link_name()
+            link_dir = self.exp_dir / link_name
+            if link_dir.exists():
+                continue
+            if not hydra_dir.exists() and hydra_dir.is_dir():
+                raise exceptions.LibraryNotSupportedError('hydra')
+            else:
+                link_dir.symlink_to(hydra_dir, target_is_directory=True)
+
         return
 
-    def load_config(self) -> Any:
-        # if self.config_path.exists():
-        #     with self.config_path.open('r') as config_file:
-        #         config = yaml.safe_load(config_file)
-        #     return config
-        return None
-
-    def activate(self):
+    def activate(self) -> None:
         if self._current is not None:
             self.stop()
         self.__class__._current = self
         logger.log(default_logging.INFO_LEVELS.experiment,
                    'Running experiment: %(exp_name)s.',
                    {'exp_name': self.exp_name})
+        return
 
-    def stop(self):
+    def stop(self) -> None:
         logger.log(default_logging.INFO_LEVELS.experiment,
                    f'Stopping experiment:  %(exp_name)s.',
-                   {'exp_name': self._current.exp_name})
+                   {'exp_name': self.exp_name})
         self._current = None
+        return
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__class__.__name__ + f'(exp_name={self.exp_name})'
 
     @classmethod
     def current(cls) -> Experiment:
         if cls._current is not None:
             return cls._current
-        unnamed_experiment = cls(cls.default_exp_name())
+        unnamed_experiment = cls(datetime.datetime.now().isoformat())
         unnamed_experiment.activate()
         return unnamed_experiment
 

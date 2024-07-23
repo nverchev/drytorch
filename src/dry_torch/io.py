@@ -57,10 +57,6 @@ class PathManager:
         return self.exp.tracker[self.model_name]
 
     @property
-    def config(self) -> pathlib.Path:
-        return self.exp.config_path
-
-    @property
     def model_dir(self) -> pathlib.Path:
         directory = self.exp_dir / self.model_tracking.name
         directory.mkdir(exist_ok=True)
@@ -307,7 +303,8 @@ class CheckpointIO(ModelStateIO):
         return
 
 
-def dump_metadata(model_name: str, metadata: dict[str, Any]) -> None:
+def dump_metadata(model_name: str) -> None:
+    metadata = tracking.Experiment.current().tracker[model_name].metadata
     with PathManager(model_name).metadata.open('w') as metadata_file:
         now = datetime.datetime.now().replace(microsecond=0)
         metadata = {'timestamp': now} | metadata

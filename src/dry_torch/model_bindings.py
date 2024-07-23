@@ -44,7 +44,7 @@ def register_model(model: p.ModelProtocol) -> None:
     name = model.name
     model_repr = model.module.__repr__()
     exp.tracker[name] = tracking.ModelTracker(name, model_repr=model_repr)
-    io.dump_metadata(name, exp.tracker[name].metadata)
+    io.dump_metadata(name)
 
 
 def extract_metadata(attr_dict: dict[str, Any],
@@ -68,7 +68,7 @@ def add_metadata(exp: tracking.Experiment,
         # tries to get the most informative representation of the metadata.
         object_metadata = extract_metadata(attr_dict, exp.max_items_repr)
         exp.tracker[model_name].metadata[object_name] = object_metadata
-        io.dump_metadata(model_name, exp.tracker[model_name].metadata)
+        io.dump_metadata(model_name)
 
 
 def bind_to_model(

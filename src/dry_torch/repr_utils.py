@@ -32,7 +32,6 @@ def represent_none(dumper: yaml.Dumper, _: object) -> yaml.Node:
     return dumper.represent_scalar('tag:yaml.org,2002:null', '')
 
 
-
 yaml.add_representer(datetime, represent_datetime)
 yaml.add_representer(LiteralStr, represent_literal_str)
 yaml.add_representer(type(None), represent_none)
@@ -160,6 +159,7 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
 
 @struc_repr.register
 def _(struc: Optional[int | float | complex | str], *, max_size: int = 10):
+    _not_used = max_size
     return struc
 
 
@@ -182,9 +182,11 @@ def _(struc: np.ndarray, *, max_size: int = 10):
 
 @struc_repr.register(type)
 def _(struc, *, max_size: int = 10):
+    _not_used = max_size
     return struc.__name__
 
 
 @struc_repr.register(types.FunctionType)
 def _(struc, *, max_size: int = 10):
+    _not_used = max_size
     return struc.__name__

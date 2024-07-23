@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import pathlib
 import abc
-from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias, \
-    Optional
+from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias
 from typing import Any, Union, Type, Self, runtime_checkable, SupportsIndex
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Optional
 import enum
 
 import pandas as pd
