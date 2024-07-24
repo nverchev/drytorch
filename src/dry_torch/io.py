@@ -10,7 +10,6 @@ from dry_torch import default_logging, exceptions
 from dry_torch import tracking
 from dry_torch import protocols as p
 
-
 logger = logging.getLogger('dry_torch')
 
 
