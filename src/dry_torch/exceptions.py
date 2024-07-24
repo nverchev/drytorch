@@ -7,21 +7,24 @@ _K = TypeVar('_K', bound=Hashable)
 class DryTorchException(BaseException):
     msg: str
 
+    def __init__(self, *args: Any) -> None:
+        super().__init__(self.msg.format(*args))
+
 
 class AccessBeforeCalculateError(AttributeError, DryTorchException):
-    msg = 'Results must be precomputed with the calculate method'
+    msg = 'Results must be precomputed with the calculate method.'
 
     def __init__(self) -> None:
         super().__init__(self.msg)
 
 
 class AlreadyBoundedError(RuntimeError, DryTorchException):
-    msg = 'There is already an object of class {} bounded to module {}'
+    msg = 'There is already an object of class {} bounded to module {}.'
 
     def __init__(self, model_name: str, cls_str: str) -> None:
         self.model_name = model_name
         self.cls_str = cls_str
-        super().__init__(self.msg.format(cls_str, model_name))
+        super().__init__(cls_str, model_name)
 
 
 class AlreadyRegisteredError(ValueError, DryTorchException):
@@ -30,24 +33,15 @@ class AlreadyRegisteredError(ValueError, DryTorchException):
 
     def __init__(self, name: str, exp_name: str) -> None:
         self.name = name
-        super().__init__(self.msg.format(name, exp_name))
+        super().__init__(name, exp_name)
 
 
 class BoundedModelTypeError(TypeError, DryTorchException):
-    msg = 'First argument of type {} does not follow ModelProtocol'
+    msg = 'First argument of type {} does not follow ModelProtocol.'
 
     def __init__(self, not_a_model: Any) -> None:
         self.not_a_model = not_a_model
-        super().__init__(self.msg.format(type(not_a_model)))
-
-
-class ConfigNotMatchingError(ValueError, DryTorchException):
-    msg = 'Config file is different from existing config.'
-
-    def __init__(self, new_config: Any, existing_config: Any) -> None:
-        self.new_config = new_config
-        self.existing_config = existing_config
-        super().__init__(self.msg.format)
+        super().__init__(type(not_a_model))
 
 
 class ConvergenceError(ValueError, DryTorchException):
@@ -55,7 +49,7 @@ class ConvergenceError(ValueError, DryTorchException):
 
     def __init__(self, criterion: float) -> None:
         self.criterion = criterion
-        super().__init__(self.msg.format(criterion))
+        super().__init__(criterion)
 
 
 class DifferentBatchSizeError(ValueError, DryTorchException):
@@ -64,7 +58,7 @@ class DifferentBatchSizeError(ValueError, DryTorchException):
 
     def __init__(self, iterable: Iterable[int]) -> None:
         self.list = list(iterable)
-        super().__init__(self.msg.format(self.list))
+        super().__init__(self.list)
 
 
 class FuncNotApplicableError(TypeError, DryTorchException):
@@ -73,7 +67,7 @@ class FuncNotApplicableError(TypeError, DryTorchException):
     def __init__(self, func: Callable, datatype=Type) -> None:
         self.func = func
         self.type_name = datatype.__name__
-        super().__init__(self.msg.format(func, self.type_name))
+        super().__init__(func, self.type_name)
 
 
 class KeysAlreadySetError(KeyError, DryTorchException):
@@ -84,7 +78,7 @@ class KeysAlreadySetError(KeyError, DryTorchException):
                  current_keys: Iterable[_K]) -> None:
         self.input_keys = list(input_keys)
         self.current_keys = list(current_keys)
-        super().__init__(self.msg.format(current_keys))
+        super().__init__(current_keys)
 
 
 class LibraryNotAvailableError(ImportError, DryTorchException):
@@ -92,7 +86,7 @@ class LibraryNotAvailableError(ImportError, DryTorchException):
 
     def __init__(self, library_name: str) -> None:
         self.library_name = library_name
-        super().__init__(self.msg.format(library_name))
+        super().__init__(library_name)
 
 
 class LibraryNotSupportedError(ValueError, DryTorchException):
@@ -100,7 +94,7 @@ class LibraryNotSupportedError(ValueError, DryTorchException):
 
     def __init__(self, library_name: str) -> None:
         self.library_name = library_name
-        super().__init__(self.msg.format(library_name))
+        super().__init__(library_name)
 
 
 class MissingParamError(ValueError, DryTorchException):
@@ -112,7 +106,7 @@ class MissingParamError(ValueError, DryTorchException):
                  lr_param_groups: list[str]) -> None:
         self.model_architecture = model_architecture
         self.lr_param_groups = lr_param_groups
-        super().__init__(self.msg.format(lr_param_groups))
+        super().__init__(lr_param_groups)
 
 
 class ModelNotExistingError(ValueError, DryTorchException):
@@ -121,7 +115,7 @@ class ModelNotExistingError(ValueError, DryTorchException):
 
     def __init__(self, name: str, exp_name: str) -> None:
         self.name = name
-        super().__init__(self.msg.format(name, exp_name))
+        super().__init__(name, exp_name)
 
 
 class ModelNotFoundError(FileNotFoundError, DryTorchException):
@@ -129,7 +123,7 @@ class ModelNotFoundError(FileNotFoundError, DryTorchException):
 
     def __init__(self, checkpoint_directory: pathlib.Path) -> None:
         self.checkpoint_directory = checkpoint_directory
-        super().__init__(self.msg.format(checkpoint_directory))
+        super().__init__(checkpoint_directory)
 
 
 class MustSupportIndex(TypeError, DryTorchException):
@@ -137,21 +131,15 @@ class MustSupportIndex(TypeError, DryTorchException):
 
     def __init__(self, not_supporting_index: Any) -> None:
         self.not_supporting_index = not_supporting_index
-        super().__init__(self.msg.format(type(not_supporting_index)))
+        super().__init__(type(not_supporting_index))
 
 
 class NoConfigError(AttributeError, DryTorchException):
     msg = 'No config found in experiment.'
 
-    def __init__(self) -> None:
-        super().__init__(self.msg)
-
 
 class NoLengthError(AttributeError, DryTorchException):
     msg = 'Dataset does not implement __len__ method.'
-
-    def __init__(self) -> None:
-        super().__init__(self.msg)
 
 
 class NotASliceError(TypeError, DryTorchException):
@@ -159,7 +147,7 @@ class NotASliceError(TypeError, DryTorchException):
 
     def __init__(self, not_a_slice: Any) -> None:
         self.not_a_slice = not_a_slice
-        super().__init__(self.msg.format(type(not_a_slice)))
+        super().__init__(type(not_a_slice))
 
 
 class NotATensorError(TypeError, DryTorchException):
@@ -168,7 +156,7 @@ class NotATensorError(TypeError, DryTorchException):
     def __init__(self, not_a_tensor: Any, name: str = '') -> None:
         self.name = name
         self.not_a_tensor = not_a_tensor
-        super().__init__(self.msg.format(name, type(not_a_tensor)))
+        super().__init__(name, type(not_a_tensor))
 
 
 class NotBatchedError(ValueError, DryTorchException):
@@ -176,16 +164,16 @@ class NotBatchedError(ValueError, DryTorchException):
 
     def __init__(self, shapes: list[int]) -> None:
         self.shapes = shapes
-        super().__init__(self.msg.format(shapes))
+        super().__init__(shapes)
 
 
 class NotBoundedError(RuntimeError, DryTorchException):
-    msg = 'There is no object of class {} bounded to module {}'
+    msg = 'There is no object of class {} bounded to module {}.'
 
     def __init__(self, model_name: str, cls_str: str) -> None:
         self.model_name = model_name
         self.cls_str = cls_str
-        super().__init__(self.msg.format(cls_str, model_name))
+        super().__init__(cls_str, model_name)
 
 
 class NoToDictMethodError(AttributeError, DryTorchException):
@@ -193,7 +181,7 @@ class NoToDictMethodError(AttributeError, DryTorchException):
 
     def __init__(self, no_to_dict: Any) -> None:
         self.no_to_dict = no_to_dict
-        super().__init__(self.msg.format(type(no_to_dict)))
+        super().__init__(type(no_to_dict))
 
 
 class PartitionNotFoundError(ValueError, DryTorchException):
@@ -201,32 +189,29 @@ class PartitionNotFoundError(ValueError, DryTorchException):
 
     def __init__(self, partition: str) -> None:
         self.partition = partition
-        super().__init__(self.msg.format(partition, partition))
+        super().__init__(partition, partition)
 
 
 class AlreadyTestedWarning(RuntimeWarning, DryTorchException):
     msg = 'Test has already been executed.'
-
-    def __init__(self) -> None:
-        super().__init__(self.msg)
 
 
 class CannotStoreOutputWarning(RuntimeWarning, DryTorchException):
     msg = 'Impossible to store output because the following error.\n{}'
 
     def __init__(self, err_msg: str) -> None:
-        super().__init__(self.msg.format(err_msg))
+        self.err_msg = err_msg
+        super().__init__(err_msg)
 
 
 class OptimizerNotLoadedWarning(RuntimeWarning, DryTorchException):
     msg = 'The optimizer has not been correctly loaded:\n{}'
 
     def __init__(self, error: BaseException) -> None:
-        super().__init__(self.msg.format(error))
+        self.error = error
+        super().__init__(error)
 
 
 class VisdomConnectionWarning(RuntimeWarning, DryTorchException):
     msg = 'Visdom connection refused by server.'
 
-    def __init__(self) -> None:
-        super().__init__(self.msg)

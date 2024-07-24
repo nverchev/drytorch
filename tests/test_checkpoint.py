@@ -8,7 +8,6 @@ from dry_torch import GenericExperiment
 from dry_torch import LearningScheme
 from dry_torch import register_model
 from dry_torch.learning import ModelOptimizer
-from dry_torch.exceptions import ConfigNotMatchingError
 from dry_torch.exceptions import AlreadyRegisteredError
 from dry_torch.tracking import track
 from dry_torch.io import dump_metadata
@@ -39,7 +38,3 @@ def test_checkpoint():
     model_optimizer = ModelOptimizer(second_model, LearningScheme())
     checkpoint_io = CheckpointIO(second_model, model_optimizer.optimizer)
     checkpoint_io.save()
-    # with pytest.raises(ConfigNotMatchingError):
-    #     GenericExperiment('test_checkpoint',
-    #                exp_pardir=exp_pardir,
-    #                config={'test': 'test2'})
