@@ -37,7 +37,7 @@ class ModelTracker:
         self.name: Final = name
         self.epoch = 0
         model_literal = repr_utils.LiteralStr(model_repr)
-        self.metadata: dict[str, Any] = {'Model': {name: model_literal}}
+        self.metadata: dict[str, Any] = {'Repr': {name: model_literal}}
         self.bindings: dict[str, DefaultName] = {}
         self.log = {split: pd.DataFrame() for split in p.Split}
 
@@ -72,7 +72,7 @@ class GenericExperiment(Generic[_T]):
     past_experiments: set[GenericExperiment] = set()
     _current: Optional[GenericExperiment] = None
     _current_config: Optional[_T] = None
-    _default_link_name = DefaultName('hydra_outputs')
+    _default_link_name = DefaultName('outputs')
 
     """
     This class is used to describe the experiment.
@@ -106,7 +106,7 @@ class GenericExperiment(Generic[_T]):
         self.exp_name: Final = exp_name or datetime.datetime.now().isoformat()
         self.exp_pardir = pathlib.Path(exp_pardir)
         self.exp_dir = self.exp_pardir / exp_name
-        self.exp_dir.mkdir(exist_ok=True)
+        self.exp_dir.mkdir(exist_ok=True, parents=True)
         self.config = config
         self.allow_extract_metadata = allow_extract_metadata
         self.max_items_repr = max_items_repr
@@ -125,16 +125,18 @@ class GenericExperiment(Generic[_T]):
         # noinspection PyUnresolvedReferences
         str_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
         hydra_dir = pathlib.Path(str_dir)
-
+        hydra_link = self.exp_dir / 'hydra'
+        hydra_link.mkdir(exist_ok=True)
         while True:
             link_name = self.__class__._default_link_name()
-            link_dir = self.exp_dir / link_name
+            link_dir = hydra_link / link_name
             if link_dir.exists():
                 continue
             if not hydra_dir.exists() and hydra_dir.is_dir():
                 raise exceptions.LibraryNotSupportedError('hydra')
             else:
                 link_dir.symlink_to(hydra_dir, target_is_directory=True)
+                break
 
         return
 
