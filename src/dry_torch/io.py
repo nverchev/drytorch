@@ -12,6 +12,9 @@ from dry_torch import tracking
 from dry_torch import protocols as p
 
 
+logger = logging.getLogger('dry_torch')
+
+
 class PathManager:
     """
     Manages the paths for the experiment.
