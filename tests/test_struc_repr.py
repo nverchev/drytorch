@@ -1,6 +1,6 @@
 import pytest
 from typing import Iterable, Iterator, Self
-
+import pathlib
 import numpy as np
 import pandas as pd
 import torch
@@ -92,7 +92,7 @@ def test_struc_repr() -> None:
     out = recursive_repr(complex_instance, max_size=complex_instance.max_size)
     print(out)
     assert out == complex_instance.expected_struc_repr()
-    with open('test.yml', 'w') as yaml_file:
+    with open(pathlib.Path('experiments') / 'test.yml', 'w') as yaml_file:
         yaml.dump(out, yaml_file, sort_keys=False)
 
 
