@@ -1,12 +1,15 @@
 import warnings
 import pathlib
 import datetime
-import dry_torch.protocols
+
 import yaml  # type: ignore
 import logging
 import pandas as pd
 import torch
-from dry_torch import default_logging, exceptions
+
+from dry_torch import descriptors
+from dry_torch import logging as default_logging
+from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import protocols as p
 
@@ -49,7 +52,7 @@ class PathManager:
     @property
     def exp_dir(self) -> pathlib.Path:
         exp = tracking.GenericExperiment.current()
-        return exp.exp_dir
+        return exp.dir
 
     @property
     def model_tracking(self) -> tracking.ModelTracker:
@@ -72,10 +75,10 @@ class PathManager:
         return self.model_dir / 'metadata.yml'
 
     @property
-    def log(self) -> p.PathDict:
+    def log(self) -> descriptors.PathDict:
         logs_directory = self.logs_dir
         return {split: logs_directory / f'{split.name.lower()}_log.csv'
-                for split in dry_torch.protocols.Split}
+                for split in descriptors.Split}
 
     @property
     def checkpoint_dir(self) -> pathlib.Path:
@@ -91,7 +94,7 @@ class PathManager:
         return epoch_directory
 
     @property
-    def checkpoint(self) -> p.StatePath:
+    def checkpoint(self) -> descriptors.StatePath:
         epoch_directory = self.epoch_dir
         return dict(
             state=epoch_directory / 'state.pt',
@@ -119,7 +122,7 @@ class LogIO:
     definition = 'logs'
     """
     Save and load checkpoints. The folder with the savings has the address
-    of the form: exp_pardir/exp_name.
+    of the form: pardir/name.
 
     Args:
         model: contain the module and the optimizing strategy.
@@ -129,7 +132,7 @@ class LogIO:
     Methods:
         save: save a _checkpoint.
         load: load a _checkpoint.
-        exp_name: property with the model_name of the experiment.
+        name: property with the model_name of the experiment.
         epoch: property with the current epoch.
     """
 
@@ -176,7 +179,7 @@ class LogIO:
                 df = pd.read_csv(path, index_col=0)
             except FileNotFoundError:
                 df = pd.DataFrame()
-            if split is not p.Split.TEST:
+            if split is not descriptors.Split.TEST:
                 # filter out future epochs from logs
                 df = df[df.index <= self.model_tracker.epoch]
             self.model_tracker.log[split] = df
@@ -194,7 +197,7 @@ class LogIO:
 class ModelStateIO(LogIO):
     """
     Save and load checkpoints. The folder with the savings has the address
-    of the form: exp_pardir/exp_name.
+    of the form: pardir/name.
 
     Args:
         model: contain the module and the optimizing strategy.
@@ -204,7 +207,7 @@ class ModelStateIO(LogIO):
     Methods:
         save: save a _checkpoint.
         load: load a _checkpoint.
-        exp_name: property with the model_name of the experiment.
+        name: property with the model_name of the experiment.
         epoch: property with the current epoch.
     """
     definition = 'state'
@@ -244,7 +247,7 @@ class ModelStateIO(LogIO):
 class CheckpointIO(ModelStateIO):
     """
     Save and load checkpoints. The folder with the savings has the address
-    of the form: exp_pardir/exp_name.
+    of the form: pardir/name.
 
     Args:
         model: contain the module and the optimizing strategy.
@@ -254,7 +257,7 @@ class CheckpointIO(ModelStateIO):
     Methods:
         save: save a _checkpoint.
         load: load a _checkpoint.
-        exp_name: property with the model_name of the experiment.
+        name: property with the model_name of the experiment.
         epoch: property with the current epoch.
     """
 

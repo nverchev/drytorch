@@ -1,19 +1,18 @@
-from __future__ import annotations
 import logging
-
 from typing import Callable, Optional, Self, TypeVar
 
-import dry_torch.model_bindings
 import torch
 from torch.cuda import amp
 
+from dry_torch import descriptors
 from dry_torch import io
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import learning
 from dry_torch import protocols as p
-from dry_torch import default_logging
+from dry_torch import logging as default_logging
 from dry_torch import evaluating
+from dry_torch import binding
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -26,7 +25,7 @@ class Trainer(
     evaluating.Evaluation[_Input, _Target, _Output],
     p.TrainerProtocol,
 ):
-    partition = p.Split.TRAIN
+    partition = descriptors.Split.TRAIN
     """
     Implement the standard Pytorch training and evaluation loop.
 
@@ -50,7 +49,7 @@ class Trainer(
         property for adding a hook after running the training session.
     """
 
-    @dry_torch.model_bindings.bind_to_model
+    @binding.bind_to_model
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -110,7 +109,7 @@ class Trainer(
         return
 
     def terminate_training(self) -> None:
-        dry_torch.model_bindings.unbind(self, self.model)
+        binding.unbind(self, self.model)
         self._early_termination = True
         return
 

@@ -11,12 +11,12 @@ from dry_torch import GenericExperiment
 from dry_torch import Model
 from dry_torch import SimpleLossCalculator
 from dry_torch import exceptions
-from dry_torch import default_logging
+from dry_torch import logging
 from dry_torch import LearningScheme
 from dry_torch import protocols as p
 from dry_torch import register_model
 from typing import NamedTuple, Iterable
-from dry_torch import default_logging
+from dry_torch import logging
 import dataclasses
 
 default_logging.propagate_to_main_logger()

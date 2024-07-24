@@ -7,7 +7,7 @@ import torch
 import yaml  # type: ignore
 
 from dry_torch.repr_utils import PandasPrintOptions
-from dry_torch.repr_utils import struc_repr
+from dry_torch.repr_utils import recursive_repr
 
 
 def get_example_dataframe() -> tuple[pd.DataFrame, str]:
@@ -89,7 +89,7 @@ def test_pandas_print_options() -> None:
 
 def test_struc_repr() -> None:
     complex_instance = ComplexClass()
-    out = struc_repr(complex_instance, max_size=complex_instance.max_size)
+    out = recursive_repr(complex_instance, max_size=complex_instance.max_size)
     print(out)
     assert out == complex_instance.expected_struc_repr()
     with open('test.yml', 'w') as yaml_file:
@@ -103,7 +103,7 @@ def test_break_recursion() -> None:
         def __init__(self):
             self.self = self
 
-    _ = struc_repr(ContainSelf())
+    _ = recursive_repr(ContainSelf())
 
     # this should lead to recursion error
     class BreakRecursive(Iterable):
@@ -112,4 +112,4 @@ def test_break_recursion() -> None:
             return zip(self)
 
     with pytest.raises(RecursionError):
-        struc_repr(BreakRecursive())
+        recursive_repr(BreakRecursive())

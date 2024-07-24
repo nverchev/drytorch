@@ -4,11 +4,12 @@ from abc import ABCMeta, abstractmethod
 from typing import Literal, Protocol
 import warnings
 
-import dry_torch.protocols
 import pandas as pd
 from pandas import DataFrame
+
 from dry_torch import tracking
 from dry_torch import exceptions
+from dry_torch import descriptors
 
 Backend = Literal['visdom', 'plotly', 'auto', 'none']
 
@@ -296,8 +297,8 @@ class Plotter:
         """
         log = tracking.GenericExperiment.current().tracker[self.model_name].log
         plotter = self.get_plotter(backend=lib, env=self.model_name)
-        plotter.plot(log[dry_torch.protocols.Split.TRAIN],
-                     log[dry_torch.protocols.Split.VAL],
+        plotter.plot(log[descriptors.Split.TRAIN],
+                     log[descriptors.Split.VAL],
                      metric,
                      start,
                      title)

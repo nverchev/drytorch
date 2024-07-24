@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import warnings
 from functools import wraps
 from typing import Callable, Concatenate, Any, TypeVar, ParamSpec
@@ -28,11 +26,12 @@ def cache_register_model(
 ) -> Callable[[p.ModelProtocol], None]:
     @wraps(func)
     def wrapper(model: p.ModelProtocol) -> None:
+        exp = tracking.GenericExperiment.current()
         model_identifier = id(model)
         if model_identifier in registered_models:
-            exp_name = registered_models[model_identifier].exp_name
+            exp_name = registered_models[model_identifier].name
             raise exceptions.AlreadyRegisteredError(model.name, exp_name)
-        registered_models[model_identifier] = tracking.GenericExperiment.current()
+        registered_models[model_identifier] = exp
         return func(model)
 
     return wrapper
@@ -49,9 +48,9 @@ def register_model(model: p.ModelProtocol) -> None:
 
 def extract_metadata(attr_dict: dict[str, Any],
                      max_size: int = 3) -> dict[str, Any]:
-    # tries to get the most informative representation of the metadata.
+    # get the recursive representation of the objects.
     try:
-        metadata = {k: repr_utils.struc_repr(v, max_size=max_size)
+        metadata = {k: repr_utils.recursive_repr(v, max_size=max_size)
                     for k, v in attr_dict.items()}
     except RecursionError:
         msg = 'Could not extract metadata because of recursive objects.'
@@ -65,7 +64,6 @@ def add_metadata(exp: tracking.GenericExperiment,
                  object_name: str,
                  attr_dict: dict[str, Any]) -> None:
     if exp.allow_extract_metadata:
-        # tries to get the most informative representation of the metadata.
         object_metadata = extract_metadata(attr_dict, exp.max_items_repr)
         exp.tracker[model_name].metadata[object_name] = object_metadata
         io.dump_metadata(model_name)

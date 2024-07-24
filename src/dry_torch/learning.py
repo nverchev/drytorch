@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Optional, Self, Iterable, Iterator
 from typing import TypeVar, Any, cast, Generic, Type
 import copy
@@ -7,9 +5,10 @@ import torch
 from torch import cuda
 import dataclasses
 
+from dry_torch import descriptors
 from dry_torch import io
 from dry_torch import exceptions
-from dry_torch import scheduling
+from dry_torch import schedulers
 from dry_torch import protocols as p
 from dry_torch import tracking
 
@@ -36,7 +35,7 @@ class LearningScheme(p.LearningProtocol):
 
     optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adam
     lr: float | dict[str, float] = 0.001
-    scheduler: p.SchedulerProtocol = scheduling.ConstantScheduler()
+    scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def __repr__(self) -> str:
@@ -152,7 +151,7 @@ class ModelOptimizer:
         self.model = model
         self.module = self.model.module
         self.learning_scheme = learning_scheme
-        self._params_lr: list[p.OptParams] = []
+        self._params_lr: list[descriptors.OptParams] = []
         self.set_lr(learning_scheme.lr)
         self.scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
@@ -160,7 +159,7 @@ class ModelOptimizer:
             **learning_scheme.optimizer_defaults,
         )
 
-    def get_scheduled_lr(self) -> list[p.OptParams]:
+    def get_scheduled_lr(self) -> list[descriptors.OptParams]:
         """
         Learning rates for each parameter updated according to the scheduler
         and the current epoch.
@@ -211,7 +210,7 @@ class ModelOptimizer:
         """
         if lr is not None:
             self.set_lr(lr)
-            self.scheduler = scheduling.ConstantScheduler()
+            self.scheduler = schedulers.ConstantScheduler()
         for g, up_g in zip(self.optimizer.param_groups,
                            self.get_scheduled_lr()):
             g['lr'] = up_g['lr']
@@ -233,4 +232,5 @@ class ModelOptimizer:
         return sum(1 for _ in params)
 
     def get_epoch(self) -> int:
-        return tracking.GenericExperiment.current().tracker[self.model.name].epoch
+        exp = tracking.GenericExperiment.current()
+        return exp.tracker[self.model.name].epoch

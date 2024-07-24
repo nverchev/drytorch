@@ -99,7 +99,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
 
 
 @functools.singledispatch
-def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
+def recursive_repr(struc: Any, *, max_size: int = 10) -> Any:
     """
     It attempts full documentation of a complex object.
     It recursively represents each attribute or element of the object.
@@ -119,7 +119,7 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
 
     if hasattr(struc, 'numpy'):
         try:
-            return struc_repr(struc.numpy(), max_size=max_size)
+            return recursive_repr(struc.numpy(), max_size=max_size)
         except TypeError as te:
             msg = 'numpy should be a method without additional parameters'
             raise AttributeError(msg) from te
@@ -135,7 +135,7 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
         if hasattr(v, '__len__'):
             if not v.__len__():
                 continue
-        dict_str[k] = struc_repr(v, max_size=max_size)
+        dict_str[k] = recursive_repr(v, max_size=max_size)
 
     if dict_str:
         if has_own_repr(struc):
@@ -146,9 +146,9 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
     if hasattr(struc, '__iter__'):
         limit_struc = limit_size(struc, max_size=max_size)
         if hasattr(struc, 'get'):  # assume that the iterable contains keys
-            return {str(k): struc_repr(struc.get(k), max_size=max_size)
+            return {str(k): recursive_repr(struc.get(k), max_size=max_size)
                     for k in limit_struc}
-        struc_list = [struc_repr(item, max_size=max_size)
+        struc_list = [recursive_repr(item, max_size=max_size)
                       for item in limit_struc]
         if isinstance(struc, (list, set, tuple)):
             return type(struc)(struc_list)
@@ -157,13 +157,13 @@ def struc_repr(struc: Any, *, max_size: int = 10) -> Any:
     return repr(struc) if has_own_repr(struc) else struc.__class__.__name__
 
 
-@struc_repr.register
+@recursive_repr.register
 def _(struc: Optional[int | float | complex | str], *, max_size: int = 10):
     _not_used = max_size
     return struc
 
 
-@struc_repr.register
+@recursive_repr.register
 def _(struc: pd.DataFrame | pd.Series | pd.Index, *, max_size: int = 10):
     with PandasPrintOptions(precision=3,
                             max_rows=max_size,
@@ -171,7 +171,7 @@ def _(struc: pd.DataFrame | pd.Series | pd.Index, *, max_size: int = 10):
         return LiteralStr(struc)
 
 
-@struc_repr.register
+@recursive_repr.register
 def _(struc: np.ndarray, *, max_size: int = 10):
     with np.printoptions(precision=3,
                          suppress=True,
@@ -180,13 +180,13 @@ def _(struc: np.ndarray, *, max_size: int = 10):
         return LiteralStr(struc)
 
 
-@struc_repr.register(type)
+@recursive_repr.register(type)
 def _(struc, *, max_size: int = 10):
     _not_used = max_size
     return struc.__name__
 
 
-@struc_repr.register(types.FunctionType)
+@recursive_repr.register(types.FunctionType)
 def _(struc, *, max_size: int = 10):
     _not_used = max_size
     return struc.__name__

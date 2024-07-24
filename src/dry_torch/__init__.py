@@ -34,4 +34,4 @@ from dry_torch.training import Trainer
 from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Validation
 from dry_torch.evaluating import Test
-from dry_torch.model_bindings import register_model
+from dry_torch.binding import register_model

@@ -1,23 +1,21 @@
-from __future__ import annotations
-
 import sys
 import logging
 import abc
 import warnings
 from typing import TypeVar, Generic
 
-import dry_torch.model_bindings
+import dry_torch.binding
+import dry_torch.descriptors
 import dry_torch.protocols
 import torch
 
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import io
-from dry_torch import learning
 from dry_torch import structures
 from dry_torch import recursive_ops
 from dry_torch import protocols as p
-from dry_torch import default_logging
+from dry_torch import logging as default_logging
 from dry_torch import loading
 
 _Input = TypeVar('_Input', bound=p.InputType)
@@ -29,7 +27,7 @@ logger = logging.getLogger('dry_torch')
 
 class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     max_stored_output: int = sys.maxsize
-    partition: dry_torch.protocols.Split
+    partition: dry_torch.descriptors.Split
     """
     Implement the standard Pytorch training and evaluation loop.
 
@@ -156,7 +154,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
 
 class Diagnostic(Evaluation):
-    partition = dry_torch.protocols.Split.TRAIN
+    partition = dry_torch.descriptors.Split.TRAIN
 
     @torch.inference_mode()
     def __call__(self) -> None:
@@ -176,7 +174,7 @@ class Diagnostic(Evaluation):
 
 
 class Validation(Evaluation[_Input, _Target, _Output]):
-    partition = dry_torch.protocols.Split.VAL
+    partition = dry_torch.descriptors.Split.VAL
 
     @torch.inference_mode()
     def __call__(self) -> None:
@@ -196,7 +194,7 @@ class Validation(Evaluation[_Input, _Target, _Output]):
 
 
 class Test(Evaluation[_Input, _Target, _Output]):
-    partition = dry_torch.protocols.Split.TEST
+    partition = dry_torch.descriptors.Split.TEST
 
     """
     Implement the standard Pytorch training and evaluation loop.
@@ -233,7 +231,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
         property for adding a hook after running the training session.
     """
 
-    @dry_torch.model_bindings.bind_to_model
+    @dry_torch.binding.bind_to_model
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -265,7 +263,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
 
         """
         try:
-            dry_torch.model_bindings.unbind(self, self.model)
+            dry_torch.binding.unbind(self, self.model)
         except exceptions.NotBoundedError:
             warnings.warn(exceptions.AlreadyTestedWarning())
             return

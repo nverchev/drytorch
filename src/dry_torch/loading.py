@@ -1,13 +1,13 @@
 import logging
 import sys
 from typing import TypeVar, Iterator, Generator, Generic, Optional
+from tqdm import auto
 
 import torch
 from torch.utils import data
 from dry_torch import protocols as p
 from dry_torch import exceptions
-from dry_torch import default_logging
-from tqdm import auto
+from dry_torch import logging as default_logging
 
 _Data_co = TypeVar('_Data_co',
                    bound=tuple[p.InputType, p.TargetType],

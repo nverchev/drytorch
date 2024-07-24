@@ -1,37 +1,10 @@
-from __future__ import annotations
-
-import pathlib
 import abc
-from typing import Protocol, TypedDict, Iterator, Callable, TypeVar, TypeAlias
+from typing import Protocol, Iterator, Callable, TypeVar, TypeAlias
 from typing import Any, Union, Type, Self, runtime_checkable, SupportsIndex
 from typing import Iterable, Mapping, Optional
-import enum
 
-import pandas as pd
 import torch
-from torch.nn.parameter import Parameter
 from torch.utils import data
-
-
-class Split(enum.Enum):
-    TRAIN = enum.auto()
-    VAL = enum.auto()
-    TEST = enum.auto()
-
-
-class OptParams(TypedDict):
-    params: Iterator[Parameter]
-    lr: float
-
-
-class StatePath(TypedDict):
-    state: pathlib.Path
-    optimizer: pathlib.Path
-
-
-PartitionsLength: TypeAlias = dict[Split, int]
-LogsDict: TypeAlias = dict[Split, pd.DataFrame]
-PathDict: TypeAlias = dict[Split, pathlib.Path]
 
 Tensors: TypeAlias = Union[
     torch.Tensor,
@@ -65,9 +38,9 @@ class NamedTupleProtocol(Protocol[_T]):
         ...
 
     @classmethod
-    def _make(cls: Type[NamedTupleProtocol],
+    def _make(cls: Type[Self],
               *args: Any,
-              **kwargs: Any) -> NamedTupleProtocol:
+              **kwargs: Any) -> Self:
         ...
 
 

@@ -6,8 +6,10 @@ import datetime
 from typing import Any, Optional, Final, TypeVar, Generic
 
 import pandas as pd
+
+from dry_torch import descriptors
 from dry_torch import exceptions
-from dry_torch import default_logging
+from dry_torch import logging as default_logging
 from dry_torch import repr_utils
 from dry_torch import protocols as p
 
@@ -39,7 +41,7 @@ class ModelTracker:
         model_literal = repr_utils.LiteralStr(model_repr)
         self.metadata: dict[str, Any] = {'Repr': {name: model_literal}}
         self.bindings: dict[str, DefaultName] = {}
-        self.log = {split: pd.DataFrame() for split in p.Split}
+        self.log = {split: pd.DataFrame() for split in descriptors.Split}
 
 
 class ModelTrackerDict:
@@ -78,9 +80,9 @@ class GenericExperiment(Generic[_T]):
     This class is used to describe the experiment.
 
     Args:
-        exp_name: the model_name of the experiment.
+        name: the model_name of the experiment.
         config: configuration for the experiment.
-        exp_pardir: parent directory for the folders with the module checkpoints
+        pardir: parent directory for the folders with the module checkpoints
         allow_extract_metadata: whether to extract metadata from classes that 
         implement the allow_extract_metadata decorator
         max_items_repr: limits the size of iterators and arrays.
@@ -96,23 +98,23 @@ class GenericExperiment(Generic[_T]):
     """
 
     def __init__(self,
-                 exp_name: str = '',
+                 name: str = '',
                  exp_pardir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[Any] = None,
                  allow_extract_metadata: bool = True,
                  max_items_repr: int = 3,
                  link_to_hydra: bool = False) -> None:
 
-        self.exp_name: Final = exp_name or datetime.datetime.now().isoformat()
-        self.exp_pardir = pathlib.Path(exp_pardir)
-        self.exp_dir = self.exp_pardir / exp_name
-        self.exp_dir.mkdir(exist_ok=True, parents=True)
+        self.name: Final = name or datetime.datetime.now().isoformat()
+        self.pardir = pathlib.Path(exp_pardir)
+        self.dir = self.pardir / name
+        self.dir.mkdir(exist_ok=True, parents=True)
         self.config = config
         self.allow_extract_metadata = allow_extract_metadata
         self.max_items_repr = max_items_repr
         if link_to_hydra:
             self.link_to_hydra()
-        self.tracker = ModelTrackerDict(exp_name=self.exp_name)
+        self.tracker = ModelTrackerDict(exp_name=self.name)
         self.__class__.past_experiments.add(self)
         self.activate()
 
@@ -125,7 +127,7 @@ class GenericExperiment(Generic[_T]):
         # noinspection PyUnresolvedReferences
         str_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
         hydra_dir = pathlib.Path(str_dir)
-        hydra_link = self.exp_dir / 'hydra'
+        hydra_link = self.dir / 'hydra'
         hydra_link.mkdir(exist_ok=True)
         while True:
             link_name = self.__class__._default_link_name()
@@ -146,19 +148,19 @@ class GenericExperiment(Generic[_T]):
         GenericExperiment._current = self
         self.__class__._current_config = self.config
         logger.log(default_logging.INFO_LEVELS.exp,
-                   'Running experiment: %(exp_name)s.',
-                   {'exp_name': self.exp_name})
+                   'Running experiment: %(name)s.',
+                   {'name': self.name})
         return
 
     def stop(self) -> None:
         logger.log(default_logging.INFO_LEVELS.exp,
-                   f'Stopping experiment:  %(exp_name)s.',
-                   {'exp_name': self.exp_name})
+                   f'Stopping experiment:  %(name)s.',
+                   {'name': self.name})
         GenericExperiment._current = None
         return
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(exp_name={self.exp_name})'
+        return self.__class__.__name__ + f'(name={self.name})'
 
     @classmethod
     def current(cls) -> GenericExperiment:

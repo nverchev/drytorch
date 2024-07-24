@@ -7,8 +7,8 @@ from dry_torch import Model
 from dry_torch import LearningScheme
 from dry_torch import GenericExperiment
 from dry_torch import register_model
-from dry_torch.scheduling import CosineScheduler
-from dry_torch.scheduling import ExponentialScheduler
+from dry_torch.schedulers import CosineScheduler
+from dry_torch.schedulers import ExponentialScheduler
 from dry_torch.exceptions import MissingParamError
 from dry_torch.learning import ModelOptimizer
 

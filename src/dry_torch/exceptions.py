@@ -214,4 +214,3 @@ class OptimizerNotLoadedWarning(RuntimeWarning, DryTorchException):
 
 class VisdomConnectionWarning(RuntimeWarning, DryTorchException):
     msg = 'Visdom connection refused by server.'
-
