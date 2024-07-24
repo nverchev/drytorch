@@ -1,7 +1,6 @@
 import warnings
 import pathlib
 import datetime
-from typing import Any
 import dry_torch.protocols
 import yaml  # type: ignore
 import logging

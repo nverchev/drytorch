@@ -1,0 +1,71 @@
+timestamp: 2024-07-24 19:09:16
+Repr:
+  original_model: |-
+    Linear(
+      (linear): Linear(in_features=1, out_features=1, bias=True)
+    )
+Trainer:
+  learning_scheme:
+    repr: LearningScheme
+    optimizer_cls: Adam
+    lr: 0.01
+    scheduler: Constant learning rate.
+  loss_calc:
+    class: SimpleLossCalculator
+    loss_fun: square_error
+  loader:
+    class: DataLoader
+    batch_size: 4
+    dataset:
+      class: IdentityDataset
+      tensors: |-
+        [[[0.704 ... 0.391]
+          ...
+          [0.456 ... 0.222]]
+
+         ...
+
+         [[0.431 ... 0.98 ]
+          ...
+          [0.137 ... 0.497]]]
+    dataset_len: 1600
+    pin_memory: true
+  val_loader:
+    class: DataLoader
+    batch_size: 4
+    dataset:
+      class: IdentityDataset
+      tensors: |-
+        [[[0.704 ... 0.391]
+          ...
+          [0.456 ... 0.222]]
+
+         ...
+
+         [[0.431 ... 0.98 ]
+          ...
+          [0.137 ... 0.497]]]
+    dataset_len: 1600
+    pin_memory: true
+Test:
+  metrics_calc:
+    class: SimpleLossCalculator
+    loss_fun: square_error
+  loader:
+    class: DataLoader
+    batch_size: 4
+    dataset:
+      class: IdentityDataset
+      tensors: |-
+        [[[0.704 ... 0.391]
+          ...
+          [0.456 ... 0.222]]
+
+         ...
+
+         [[0.431 ... 0.98 ]
+          ...
+          [0.137 ... 0.497]]]
+    dataset_len: 1600
+    pin_memory: true
+  store_outputs: true

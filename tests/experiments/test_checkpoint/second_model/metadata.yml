@@ -1,0 +1,11 @@
+timestamp: 2024-07-24 19:09:12
+Repr:
+  second_model: |-
+    Linear(in_features=1, out_features=1, bias=True)
+test:
+- 1
+- 2
+- |-
+  ...
+- 4
+- 5
