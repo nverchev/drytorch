@@ -145,13 +145,13 @@ class GenericExperiment(Generic[_T]):
             self.stop()
         GenericExperiment._current = self
         self.__class__._current_config = self.config
-        logger.log(default_logging.INFO_LEVELS.experiment,
+        logger.log(default_logging.INFO_LEVELS.exp,
                    'Running experiment: %(exp_name)s.',
                    {'exp_name': self.exp_name})
         return
 
     def stop(self) -> None:
-        logger.log(default_logging.INFO_LEVELS.experiment,
+        logger.log(default_logging.INFO_LEVELS.exp,
                    f'Stopping experiment:  %(exp_name)s.',
                    {'exp_name': self.exp_name})
         GenericExperiment._current = None

@@ -7,9 +7,9 @@ class InfoLevels(NamedTuple):
     tqdm_bar: int
     metrics: int
     epoch: int
-    checkpoint: int
+    io: int
     training: int
-    experiment: int
+    exp: int
 
 
 class InfoFormatter(logging.Formatter):
@@ -22,7 +22,7 @@ class InfoFormatter(logging.Formatter):
     @staticmethod
     def _info_fmt(level_no: Optional[int] = None) -> str:
         if level_no == INFO_LEVELS.training:
-            return '%(asctime)s\n%(message)s\n'
+            return '[%(asctime)s] - %(message)s\n'
         if level_no == INFO_LEVELS.epoch:
             if logger.level > INFO_LEVELS.metrics:
                 return '%(message)s ...\r'
@@ -50,4 +50,6 @@ def propagate_to_main_logger() -> None:
 
 logger = logging.getLogger('dry_torch')
 INFO_LEVELS = InfoLevels(17, 21, 23, 25, 27, 28)
+for name, level in INFO_LEVELS._asdict().items():
+    logging.addLevelName(level, name)
 set_default_logging()

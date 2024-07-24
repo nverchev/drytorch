@@ -11,8 +11,6 @@ from dry_torch import default_logging, exceptions
 from dry_torch import tracking
 from dry_torch import protocols as p
 
-logger = logging.getLogger('dry_torch')
-
 
 class PathManager:
     """
@@ -155,7 +153,7 @@ class LogIO:
         for split, path in self.paths.log.items():
             # write instead of append to be safe from bugs
             self.model_tracker.log[split].to_csv(path)
-        logger.log(default_logging.INFO_LEVELS.checkpoint,
+        logger.log(default_logging.INFO_LEVELS.io,
                    f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
                     'model_dir': self.paths.model_dir}
@@ -181,7 +179,7 @@ class LogIO:
                 # filter out future epochs from logs
                 df = df[df.index <= self.model_tracker.epoch]
             self.model_tracker.log[split] = df
-        logger.log(default_logging.INFO_LEVELS.checkpoint,
+        logger.log(default_logging.INFO_LEVELS.io,
                    f"Loaded %(definition)s at epoch %(epoch)d.",
                    {'definition': self.definition,
                     'epoch': self.model_tracker.epoch}

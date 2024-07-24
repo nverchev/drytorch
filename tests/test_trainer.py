@@ -16,9 +16,10 @@ from dry_torch import LearningScheme
 from dry_torch import protocols as p
 from dry_torch import register_model
 from typing import NamedTuple, Iterable
+from dry_torch import default_logging
 import dataclasses
 
-
+default_logging.propagate_to_main_logger()
 class TorchTuple(NamedTuple):
     input: torch.Tensor
 
@@ -69,9 +70,11 @@ logger.setLevel(default_logging.INFO_LEVELS.tqdm_bar)
 
 def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
+
     GenericExperiment('test_simple_training',
                       exp_pardir=exp_pardir,
                       config={'answer': 42})
+
     module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     model = Model(module, name='original_model')

@@ -270,7 +270,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
             warnings.warn(exceptions.AlreadyTestedWarning())
             return
 
-        logger.log(default_logging.INFO_LEVELS.experiment,
+        logger.log(default_logging.INFO_LEVELS.exp,
                    '%(test_name)s:',
                    {'test_name': self.test_name})
         self.model.module.eval()
