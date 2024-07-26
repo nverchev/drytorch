@@ -72,14 +72,12 @@ InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
 OutputType: TypeAlias = Any
 TargetType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
 
-_Input_co = TypeVar('_Input_co', bound=InputType, covariant=True)
-_Target_co = TypeVar('_Target_co', bound=TargetType, covariant=True)
-
-_Output_co = TypeVar('_Output_co', bound=OutputType, covariant=True)
-
 _Data_co = TypeVar('_Data_co',
                    bound=tuple[InputType, TargetType],
                    covariant=True)
+_Output_co = TypeVar('_Output_co',
+                     bound=OutputType,
+                     covariant=True)
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=InputType,
