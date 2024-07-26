@@ -1,5 +1,5 @@
 """This module contains functions for nested containers."""
-from typing import Callable, Type, overload, TypeVar
+from typing import Callable, Type, TypeVar, overload
 
 import torch
 

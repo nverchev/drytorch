@@ -5,8 +5,9 @@ from typing import Any, Iterable, Iterator, Mapping, Optional, Protocol, Self
 from typing import SupportsIndex, Type, TypeAlias, TypeVar, runtime_checkable
 
 import torch
-from dry_torch.descriptors import Tensors
 from torch.utils import data
+
+from dry_torch.descriptors import Tensors
 
 _T = TypeVar('_T')
 
