@@ -1,4 +1,0 @@
-timestamp: 2024-07-23 14:10:10
-Model:
-  first_model: |-
-    Linear(in_features=1, out_features=1, bias=True)
