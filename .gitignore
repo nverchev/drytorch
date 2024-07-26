@@ -1,4 +1,4 @@
-/tests/experiments/
+/tests/experiments/**
 /tests/.ipynb_checkpoints/
-/.ipynb_checkpoints/
+/.ipynb_checkpoints/*
 /.idea/

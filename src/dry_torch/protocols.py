@@ -38,20 +38,15 @@ class NamedTupleProtocol(Protocol[_T]):
     def _make(cls: Type[Self],
               *args: Any,
               **kwargs: Any) -> Self:
-        ...
+        """Create a new instance of the class."""
 
 
 class HasToDictProtocol(Protocol):
-    """
-    Optional protocol for the output type.
-
-    The to_dict method ensures that the outputs is correctly stored in the
-    DryTorchDictList class.
-    """
+    """Optional protocol for the output type."""
 
     @abc.abstractmethod
     def to_dict(self) -> Mapping[str, torch.Tensor | Iterable[torch.Tensor]]:
-        ...
+        """Method to store outputs in the DryTorchDictList class"""
 
 
 InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
@@ -89,18 +84,15 @@ class LoaderProtocol(Protocol[_Data_co]):
         batch_size: the batch size.
         dataset: dataset
 
-    Methods:
-        __iter__: returns an iterator over the dataset in batches.
-        __len__: returns the number of batches in the dataset.
     """
     batch_size: Optional[int]
     dataset: data.Dataset
 
     def __iter__(self) -> Iterator[_Data_co]:
-        ...
+        """returns an iterator over the dataset in batches"""
 
     def __len__(self) -> int:
-        ...
+        """returns the number of batches in the dataset"""
 
 
 class SchedulerProtocol(Protocol):
@@ -118,7 +110,6 @@ class SchedulerProtocol(Protocol):
         Returns:
             scheduled value for the learning rate.
         """
-        ...
 
 
 class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
@@ -144,16 +135,16 @@ class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
-        ...
+        """Compute the metrics."""
 
     @property
     @abc.abstractmethod
     def metrics(self) -> Mapping[str, torch.Tensor]:
-        ...
+        """Return a Mapping with the metric name and the calculated value."""
 
     @abc.abstractmethod
     def reset_calculated(self) -> None:
-        ...
+        """Delete the calculated values."""
 
 
 class LossCalculatorProtocol(
@@ -165,21 +156,21 @@ class LossCalculatorProtocol(
     def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> None:
-        ...
+        """Compute the metrics and the final loss."""
 
     @property
     @abc.abstractmethod
     def metrics(self) -> Mapping[str, torch.Tensor]:
-        ...
+        """Return a Mapping with the metric name and the calculated value."""
 
     @property
     @abc.abstractmethod
     def criterion(self) -> torch.Tensor:
-        ...
+        """Return a tensor with the final loss value."""
 
     @abc.abstractmethod
     def reset_calculated(self) -> None:
-        ...
+        """Delete the calculated values."""
 
 
 @runtime_checkable
@@ -196,9 +187,8 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
     @property
     def device(self) -> torch.device:
-        """Returns the device of the module"""
-        ...
+        """Returns the device of the module."""
 
     @abc.abstractmethod
     def __call__(self, inputs: _Input_contra) -> _Output_co:
-        ...
+        """Calls the module forward method."""

@@ -14,13 +14,13 @@ def test_recursive_apply() -> None:
 
     # fail because it expects torch.Tensors and not int
     with pytest.raises(TypeError):
-        recursive_apply(struc=dict_data,
+        recursive_apply(obj=dict_data,
                         expected_type=expected_type,
                         func=times_two)
 
     new_tuple_data = [torch.tensor(1.), (torch.tensor(1.), torch.tensor(2.))]
     new_dict_data = {'list': new_tuple_data}
-    out = recursive_apply(struc=new_dict_data,
+    out = recursive_apply(obj=new_dict_data,
                           expected_type=expected_type,
                           func=times_two)
     expected = {'list': [torch.tensor(2.),
@@ -28,10 +28,10 @@ def test_recursive_apply() -> None:
     assert out == expected
 
     # check annotations
-    _out2 = recursive_apply(struc=torch.tensor(1.),
+    _out2 = recursive_apply(obj=torch.tensor(1.),
                             expected_type=expected_type,
                             func=str)
-    _out3 = recursive_apply(struc=torch.tensor(1.),
+    _out3 = recursive_apply(obj=torch.tensor(1.),
                             expected_type=expected_type,
                             func=str)
 

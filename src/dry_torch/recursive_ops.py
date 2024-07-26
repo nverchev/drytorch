@@ -13,7 +13,7 @@ _Array = TypeVar('_Array', torch.Tensor, np.ndarray, pd.DataFrame, pd.Series)
 
 @overload
 def recursive_apply(
-        struc: _Array,
+        obj: _Array,
         expected_type: Type[_Array],
         func: Callable[[_Array], _T]
 ) -> _T:
@@ -22,7 +22,7 @@ def recursive_apply(
 
 @overload
 def recursive_apply(
-        struc: _C,
+        obj: _C,
         expected_type: Type[_Array],
         func: Callable[[_Array], _Array]
 ) -> _C:
@@ -31,61 +31,66 @@ def recursive_apply(
 
 @overload
 def recursive_apply(
-        struc: _C,
+        obj: _C,
         expected_type: Type[_Array],
         func: Callable[[_Array], _T]
 ) -> Any:
     ...  # mypy do not support TypeVar with higher kinds
 
 
-def recursive_apply(struc, expected_type, func):
+def recursive_apply(obj, expected_type, func):
     """
-    It recursively looks for type T in dictionary, lists, tuples and sets and
-    applies func.
-    It can be used for changing device in structured (nested) formats.
+    Function that looks for an expected type and applies a given function.
+
+    It looks inside the items of lists, tuples and sets and the values of
+    dictionaries and returns the built-in container. Subtypes are not supported,
+     except for NamedTuples, which are returned as they are.
 
     Args:
-        struc: an object that stores or is an object of type T.
-        Can only contain dictionaries, list, sets, tuples or T.
-        expected_type: the type T that obj stores.
-        func: the function that we want to apply to objects of type T.
+        obj: container made of dictionaries, list, sets, tuples and NamedTuples.
+        expected_type: the type of the objects contained in obj.
+        func: the function to apply to objects of the expected type.
 
     Returns:
         Any: a copy of the structure in the argument with the modified objects.
 
     Raises:
-        TypeError: if obj stores objects of a different type than T, dict,
-        list, set or tuple.
+        TypeError: if obj stores un unexpected object.
     """
-    if isinstance(struc, expected_type):
-        return func(struc)
-    if isinstance(struc, dict):
+    obj_class = type(obj)
+
+    if obj_class == expected_type:
+        return func(obj)
+
+    if obj_class == dict:
         return {
-            k: recursive_apply(v, expected_type, func) for k, v in struc.items()
+            k: recursive_apply(v, expected_type, func) for k, v in obj.items()
         }
-    if isinstance(struc, p.NamedTupleProtocol):
+
+    if isinstance(obj, p.NamedTupleProtocol):
         # noinspection PyProtectedMember
-        return struc._make(
-            recursive_apply(item, expected_type, func) for item in struc
+        return obj._make(
+            recursive_apply(item, expected_type, func) for item in obj
         )
 
-    if isinstance(struc, (list, set, tuple)):
-        return type(struc)(
-            recursive_apply(item, expected_type, func) for item in struc
+    if obj_class in (list, set, tuple):
+        return obj_class(
+            recursive_apply(item, expected_type, func) for item in obj
         )
-    if isinstance(struc, expected_type):
-        return func(struc)
-    raise exceptions.FuncNotApplicableError(func, struc.__class__)
+
+    raise exceptions.FuncNotApplicableError(func, obj.__class__)
 
 
 def recursive_to(container: _C, device: torch.device) -> _C:
     """
-    Change the devices of tensor inside a container.
+    Function that changes the device of tensors inside a container.
 
     Args:
-        container: a container made of dict, list, set or tuples that contains
-        Tensors.
-        device: the target device
+        container: a Tensor container made of dict, list, set or tuples.
+        device: the target device.
+
+    Returns:
+        the same container with the tensor on the target device.
     """
 
     def to_device(tensor: torch.Tensor) -> torch.Tensor:
