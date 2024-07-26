@@ -1,8 +1,0 @@
-timestamp: 2024-07-26 12:06:22
-Repr:
-  complex_model: |-
-    ComplexModel(
-      (linear): Linear(in_features=1, out_features=2, bias=True)
-      (relu): ReLU()
-      (linear2): Linear(in_features=2, out_features=1, bias=True)
-    )
