@@ -15,7 +15,7 @@ from dry_torch import io
 from dry_torch import structures
 from dry_torch import recursive_ops
 from dry_torch import protocols as p
-from dry_torch import logging as default_logging
+from dry_torch import log_settings
 from dry_torch import loading
 
 _Input = TypeVar('_Input', bound=p.InputType)
@@ -85,7 +85,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     @property
     def model_tracking(self) -> tracking.ModelTracker:
-        return tracking.GenericExperiment.current().tracker[self.model.name]
+        return tracking.Experiment.current().tracker[self.model.name]
 
     @property
     def partition_log(self):
@@ -109,7 +109,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
             self._update_partition_log(metric, value)
             log_msg_list.append(f'%({metric})16s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
-        logger.log(default_logging.INFO_LEVELS.metrics,
+        logger.log(log_settings.INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
                    log_args)
         self._metrics = structures.TorchAggregate()
@@ -268,7 +268,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
             warnings.warn(exceptions.AlreadyTestedWarning())
             return
 
-        logger.log(default_logging.INFO_LEVELS.exp,
+        logger.log(log_settings.INFO_LEVELS.experiment,
                    '%(test_name)s:',
                    {'test_name': self.test_name})
         self.model.module.eval()

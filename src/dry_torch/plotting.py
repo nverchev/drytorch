@@ -107,7 +107,6 @@ try:
                   title: str) -> None:
             train_log_metric: pd.Series[float] = train_log[metric]
             train_log_metric = train_log_metric[train_log.index >= start]
-
             layout = dict(xlabel='Epoch',
                           ylabel=metric,
                           title=title,
@@ -198,10 +197,12 @@ def plotter_closure(model_name: str,
         if _backend == 'auto':
             if jupyter:
                 return get_plotter('plotly')
+
             try:
                 return get_plotter('visdom')
             except ImportError:
                 pass
+
             try:
                 return get_plotter('plotly')
             except ImportError:

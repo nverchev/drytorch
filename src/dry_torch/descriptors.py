@@ -1,9 +1,16 @@
 import enum
 import pathlib
-from typing import TypedDict, Iterator, TypeAlias
+from typing import TypedDict, Iterator, TypeAlias, Union
 
 import pandas as pd
+import torch
 from torch.nn import Parameter
+
+Tensors: TypeAlias = Union[
+    torch.Tensor,
+    tuple[torch.Tensor, ...],
+    list[torch.Tensor],
+]
 
 
 class Split(enum.Enum):
@@ -25,3 +32,4 @@ class StatePath(TypedDict):
 PartitionsLength: TypeAlias = dict[Split, int]
 LogsDict: TypeAlias = dict[Split, pd.DataFrame]
 PathDict: TypeAlias = dict[Split, pathlib.Path]
+

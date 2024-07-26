@@ -5,17 +5,7 @@ It defines and implements a formatter that formats log messages according to
 the levels defined in the INFO_LEVELS variable.
 By default, it prints to stdout and does not propagate to the main root.
 
-
-Classes:
-    InfoLevels: defines different levels of information for logging.
-    InfoFormatter: custom formatter to format log messages based on log level.
-    DryTorchFilter: filter to exclude logs from 'dry_torch'.
-
-Functions:
-    set_default_logging: sets up the default logging configuration.
-    propagate_to_root_logger: propagates the logs to the root logger.
-
-Global Variables:
+Attributes:
     INFO_LEVELS: InfoLevels object for global settings.
 """
 
@@ -25,7 +15,7 @@ from typing import NamedTuple, Optional
 
 
 class InfoLevels(NamedTuple):
-    """Defines different levels of information for logging."""
+    """NamedTuple that defines different levels of information for logging."""
     tqdm_bar: int
     metrics: int
     epoch: int
@@ -66,7 +56,7 @@ class DryTorchFilter(logging.Filter):
 
 
 def set_default_logging() -> None:
-    """Sets up the default logging configuration."""
+    """ This function sets up the default logging configuration."""
     logger.handlers.clear()
     formatter = InfoFormatter()
 
@@ -81,7 +71,7 @@ def set_default_logging() -> None:
 def propagate_to_root_logger(deduplicate_stdout: bool = True,
                              remove_handlers: bool = False) -> None:
     """
-    Propagates logs to the root logger.
+    This function allow logs to propagate to the root logger.
 
     Args:
         deduplicate_stdout: if True, filters dry_torch logs from root stdout.
@@ -92,6 +82,7 @@ def propagate_to_root_logger(deduplicate_stdout: bool = True,
         logger.handlers.clear()
         logger.addHandler(logging.NullHandler())
         logger.setLevel(logging.NOTSET)
+
     if deduplicate_stdout:
         root_logger = logging.getLogger()
         for handler in root_logger.handlers:

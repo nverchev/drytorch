@@ -1,18 +1,4 @@
-"""
-This module defines internal protocols.
-
-Protocols:
-    NamedTupleProtocol: optional protocol for input and target types.
-    HasToDictProtocol: optional protocol for the output type.
-    LoaderProtocol: loads and batches a dataset.
-    SchedulerProtocol: scheduler compatible with the LearningScheme class.
-    ModuleProtocol: for a PyTorch module with type annotations.
-    TensorProtocol: for loss and metrics functions.
-    MetricProtocol: calculates and returns metrics.
-    LossProtocol: calculates and returns metrics and the final loss tensor.
-    ModuleProtocol: for a wrapper around a torch module.
-
-"""
+"""This module defines internal protocols."""
 
 import abc
 from typing import Any, Iterable, Iterator, Mapping, Optional, Protocol, Self
@@ -202,15 +188,15 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     Protocol for a wrapper around a torch module.
 
     Attributes:
-        name: name of the model
-        module: underlying PyTorch module
-
+        name: name of the model.
+        module: underlying PyTorch module.
     """
     name: str
     module: torch.nn.Module
 
     @property
     def device(self) -> torch.device:
+        """Returns the device of the module"""
         ...
 
     @abc.abstractmethod

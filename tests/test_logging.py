@@ -1,5 +1,5 @@
 import logging
-from dry_torch import logging as default_logging
+from dry_torch import log_settings as default_logging
 
 logger = logging.getLogger('dry_torch')
 

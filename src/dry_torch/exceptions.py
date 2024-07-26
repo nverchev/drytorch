@@ -5,7 +5,7 @@ _K = TypeVar('_K', bound=Hashable)
 
 
 class DryTorchException(BaseException):
-    msg: str
+    msg: str = ''
 
     def __init__(self, *args: Any) -> None:
         super().__init__(self.msg.format(*args))

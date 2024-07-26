@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 
 from dry_torch import descriptors
-from dry_torch import logging as default_logging
+from dry_torch import log_settings
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import protocols as p
@@ -27,7 +27,7 @@ class PathManager:
         tracker  The model_name of the module.
         checkpoints.
     Properties:
-        exp (GenericExperiment): The active environment of the experiment.
+        exp (Experiment): The active environment of the experiment.
         model_tracking (ModelTracker): The tracker information of the module.
         directory (Path): The directory for the experiment.
         config (Path): The configuration file path.
@@ -46,12 +46,12 @@ class PathManager:
         self.model_name = model_name
 
     @property
-    def exp(self) -> tracking.GenericExperiment:
-        return tracking.GenericExperiment.current()
+    def exp(self) -> tracking.Experiment:
+        return tracking.Experiment.current()
 
     @property
     def exp_dir(self) -> pathlib.Path:
-        exp = tracking.GenericExperiment.current()
+        exp = tracking.Experiment.current()
         return exp.dir
 
     @property
@@ -142,7 +142,7 @@ class LogIO:
 
     @property
     def model_tracker(self) -> tracking.ModelTracker:
-        return tracking.GenericExperiment.current().tracker[self.model_name]
+        return tracking.Experiment.current().tracker[self.model_name]
 
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
@@ -157,7 +157,7 @@ class LogIO:
         for split, path in self.paths.log.items():
             # write instead of append to be safe from bugs
             self.model_tracker.log[split].to_csv(path)
-        logger.log(default_logging.INFO_LEVELS.io,
+        logger.log(log_settings.INFO_LEVELS.io,
                    f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
                     'model_dir': self.paths.model_dir}
@@ -183,7 +183,7 @@ class LogIO:
                 # filter out future epochs from logs
                 df = df[df.index <= self.model_tracker.epoch]
             self.model_tracker.log[split] = df
-        logger.log(default_logging.INFO_LEVELS.io,
+        logger.log(log_settings.INFO_LEVELS.io,
                    f"Loaded %(definition)s at epoch %(epoch)d.",
                    {'definition': self.definition,
                     'epoch': self.model_tracker.epoch}
@@ -306,7 +306,7 @@ class CheckpointIO(ModelStateIO):
 
 
 def dump_metadata(model_name: str) -> None:
-    metadata = tracking.GenericExperiment.current().tracker[model_name].metadata
+    metadata = tracking.Experiment.current().tracker[model_name].metadata
     with PathManager(model_name).metadata.open('w') as metadata_file:
         now = datetime.datetime.now().replace(microsecond=0)
         metadata = {'timestamp': now} | metadata

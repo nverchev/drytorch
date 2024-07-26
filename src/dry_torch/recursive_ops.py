@@ -47,14 +47,14 @@ def recursive_apply(struc, expected_type, func):
     Args:
         struc: an object that stores or is an object of type T.
         Can only contain dictionaries, list, sets, tuples or T.
-        expected_type: the type T that struc stores.
+        expected_type: the type T that obj stores.
         func: the function that we want to apply to objects of type T.
 
     Returns:
         Any: a copy of the structure in the argument with the modified objects.
 
     Raises:
-        TypeError: if struc stores objects of a different type than T, dict,
+        TypeError: if obj stores objects of a different type than T, dict,
         list, set or tuple.
     """
     if isinstance(struc, expected_type):

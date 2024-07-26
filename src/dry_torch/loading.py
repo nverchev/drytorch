@@ -7,7 +7,7 @@ import torch
 from torch.utils import data
 from dry_torch import protocols as p
 from dry_torch import exceptions
-from dry_torch import logging as default_logging
+from dry_torch import log_settings
 
 _Data_co = TypeVar('_Data_co',
                    bound=tuple[p.InputType, p.TargetType],
@@ -62,7 +62,7 @@ class TqdmLoader(Generic[_Data_co]):
         self.loader = loader
         self.batch_size = loader.batch_size or 0
         self.dataset_len = check_dataset_length(loader.dataset)
-        self.disable_bar = logger.level > default_logging.INFO_LEVELS.tqdm_bar
+        self.disable_bar = logger.level > log_settings.INFO_LEVELS.tqdm_bar
         self._monitor_gen = _monitor()
         next(self._monitor_gen)
         self.seen_str = 'Seen'

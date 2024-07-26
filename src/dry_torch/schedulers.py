@@ -1,3 +1,5 @@
+"""This module defines schedulers for the learning rates"""
+
 from abc import abstractmethod
 import numpy as np
 
@@ -5,16 +7,17 @@ from dry_torch import protocols as p
 
 
 class AbstractScheduler(p.SchedulerProtocol):
+    """Abstract class for the scheduler."""
 
     def __call__(self, base_lr: float, epoch: int) -> float:
         """
-           Call the scheduler for the decay of the learning rate.
+        Modifies the learning rate according to a schedule.
 
-           Args:
-               base_lr: initial learning rate when epoch is 0.
-               epoch: the variable of decaying curve.
-           Returns:
-               decayed value for the learning rate.
+        Args:
+            base_lr: initial learning rate.
+            epoch: the current epoch.
+        Returns:
+            scheduled value for the learning rate.
         """
         return self._compute(base_lr, epoch)
 
@@ -24,9 +27,7 @@ class AbstractScheduler(p.SchedulerProtocol):
 
 
 class ConstantScheduler(AbstractScheduler):
-    """
-    Constant learning rate.
-    """
+    """Constant learning rate."""
 
     def _compute(self, base_lr: float, epoch: int) -> float:
         return base_lr
@@ -37,7 +38,8 @@ class ConstantScheduler(AbstractScheduler):
 
 class ExponentialScheduler(AbstractScheduler):
     """
-    Learning rate with exponential decay.
+    Schedule following an exponential decay.
+
     Args:
         exp_decay: exponential decay parameter d for the curve f(x) = Ce^(dx).
     """
@@ -52,7 +54,7 @@ class ExponentialScheduler(AbstractScheduler):
         return max(base_lr * self.exp_decay ** epoch, self.min_decay)
 
     def __repr__(self) -> str:
-        desc = 'Exponential schedule with exponential decay = {}.'
+        desc = 'Exponential schedule with decay parameter = {}.'
         return desc.format(self.exp_decay)
 
 

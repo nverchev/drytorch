@@ -9,7 +9,7 @@ import pandas as pd
 
 from dry_torch import descriptors
 from dry_torch import exceptions
-from dry_torch import logging as default_logging
+from dry_torch import log_settings
 from dry_torch import repr_utils
 from dry_torch import protocols as p
 
@@ -70,9 +70,9 @@ class ModelTrackerDict:
         return self._models.__iter__()
 
 
-class GenericExperiment(Generic[_T]):
-    past_experiments: set[GenericExperiment] = set()
-    _current: Optional[GenericExperiment] = None
+class Experiment(Generic[_T]):
+    past_experiments: set[Experiment] = set()
+    _current: Optional[Experiment] = None
     _current_config: Optional[_T] = None
     _default_link_name = DefaultName('outputs')
 
@@ -90,7 +90,7 @@ class GenericExperiment(Generic[_T]):
 
 
     Attributes:
-        metric_logger: contains the saved metric and a plotting function
+        metric_logger: contains the saved metric_name and a plotting function
         epoch: the current epoch, that is, the number of epochs the module has 
         been trainer plus one.
 
@@ -143,29 +143,29 @@ class GenericExperiment(Generic[_T]):
         return
 
     def activate(self) -> None:
-        if GenericExperiment._current is not None:
+        if Experiment._current is not None:
             self.stop()
-        GenericExperiment._current = self
+        Experiment._current = self
         self.__class__._current_config = self.config
-        logger.log(default_logging.INFO_LEVELS.exp,
+        logger.log(log_settings.INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
                    {'name': self.name})
         return
 
     def stop(self) -> None:
-        logger.log(default_logging.INFO_LEVELS.exp,
+        logger.log(log_settings.INFO_LEVELS.experiment,
                    f'Stopping experiment:  %(name)s.',
                    {'name': self.name})
-        GenericExperiment._current = None
+        Experiment._current = None
         return
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f'(name={self.name})'
 
     @classmethod
-    def current(cls) -> GenericExperiment:
-        if GenericExperiment._current is not None:
-            return GenericExperiment._current
+    def current(cls) -> Experiment:
+        if Experiment._current is not None:
+            return Experiment._current
         unnamed_experiment = cls(datetime.datetime.now().isoformat())
         unnamed_experiment.activate()
         return unnamed_experiment
@@ -179,5 +179,5 @@ class GenericExperiment(Generic[_T]):
 
 
 def track(model: p.ModelProtocol) -> ModelTracker:
-    exp = GenericExperiment.current()
+    exp = Experiment.current()
     return exp.tracker[model.name]

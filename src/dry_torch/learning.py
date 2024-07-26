@@ -21,7 +21,7 @@ _Output_co = TypeVar('_Output_co',
 
 
 @dataclasses.dataclass
-class LearningScheme(p.LearningProtocol):
+class LearningScheme:
     """
         optimizer_cls: the optimizer class to bind_to_model to the module.
          Defaults to torch.optim.Adam.
@@ -79,10 +79,21 @@ class Model(Generic[_Input_contra, _Output_co]):
             device: Optional[torch.device] = None,
     ) -> None:
         self.name: str = name or Model._default_model_name()
-        self.device = self.default_device() if device is None else device
+        self.device = device
         self.module = self.validate_module(torch_module).to(self.device)
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.checkpoint = io.ModelStateIO(self)
+
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, device: Optional[torch.device]) -> None:
+        device = self.default_device() if device is None else device
+        self._device = device
+        self.module.to(device)
+        return
 
     @staticmethod
     def validate_module(torch_model) -> torch.nn.Module:
@@ -146,7 +157,7 @@ class ModelOptimizer:
     def __init__(
             self,
             model: p.ModelProtocol[_Input_contra, _Output_co],
-            learning_scheme: p.LearningProtocol = LearningScheme()
+            learning_scheme: LearningScheme = LearningScheme()
     ) -> None:
         self.model = model
         self.module = self.model.module
@@ -232,5 +243,5 @@ class ModelOptimizer:
         return sum(1 for _ in params)
 
     def get_epoch(self) -> int:
-        exp = tracking.GenericExperiment.current()
+        exp = tracking.Experiment.current()
         return exp.tracker[self.model.name].epoch

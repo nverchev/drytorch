@@ -3,6 +3,7 @@ from typing import Generic, Iterable, SupportsIndex, Optional, Iterator
 from typing import KeysView, ValuesView, Self, Hashable, overload
 from typing import MutableSequence, TypeVar, Mapping
 
+import dry_torch.descriptors
 import numpy as np
 import torch
 import numpy.typing as npt
@@ -404,7 +405,7 @@ def _conditional_zip(
 
 
 def _check_tensor_have_same_length(
-        tensor_values=ValuesView[p.Tensors]
+        tensor_values=ValuesView[dry_torch.descriptors.Tensors]
 ) -> None:
     """
     Check that all the contained tensors have the same length and return

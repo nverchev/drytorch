@@ -10,7 +10,7 @@ from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import learning
 from dry_torch import protocols as p
-from dry_torch import logging as default_logging
+from dry_torch import log_settings
 from dry_torch import evaluating
 from dry_torch import binding
 
@@ -21,10 +21,7 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 logger = logging.getLogger('dry_torch')
 
 
-class Trainer(
-    evaluating.Evaluation[_Input, _Target, _Output],
-    p.TrainerProtocol,
-):
+class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
     partition = descriptors.Split.TRAIN
     """
     Implement the standard Pytorch training and evaluation loop.
@@ -55,7 +52,7 @@ class Trainer(
             model: p.ModelProtocol[_Input, _Output],
             /,
             *,
-            learning_scheme: p.LearningProtocol,
+            learning_scheme: learning.LearningScheme,
             loss_calc: p.LossCalculatorProtocol[_Output, _Target],
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             val_loader: Optional[
@@ -81,7 +78,7 @@ class Trainer(
 
     @property
     def model_tracking(self) -> tracking.ModelTracker:
-        return tracking.GenericExperiment.current().tracker[self.model.name]
+        return tracking.Experiment.current().tracker[self.model.name]
 
     def _set_validation(
             self,
@@ -124,7 +121,7 @@ class Trainer(
         Parameters:
             num_epochs: the number of epochs for which train the module.
         """
-        logger.log(default_logging.INFO_LEVELS.training,
+        logger.log(log_settings.INFO_LEVELS.training,
                    'Training %(model_name)s.',
                    {'model_name': self.model.name})
         if self._early_termination:
@@ -135,7 +132,7 @@ class Trainer(
             self.exec_pre_epoch_hooks()
             self.model_tracking.epoch += 1
             epoch_msg = '====> Epoch %(epoch)4d:'
-            logger.log(default_logging.INFO_LEVELS.epoch,
+            logger.log(log_settings.INFO_LEVELS.epoch,
                        epoch_msg, {'epoch': self.model_tracking.epoch})
             self._model_optimizer.update_learning_rate()
             self.model.module.train()
@@ -144,7 +141,7 @@ class Trainer(
             except exceptions.ConvergenceError as ce:
                 logger.error(ce, exc_info=True)
             self.exec_post_epoch_hooks()
-        logger.log(default_logging.INFO_LEVELS.training, 'End of training.')
+        logger.log(log_settings.INFO_LEVELS.training, 'End of training.')
         return
 
     def _run_batch(self, inputs: _Input, targets: _Target) -> None:

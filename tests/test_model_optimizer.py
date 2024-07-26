@@ -5,7 +5,7 @@ import torch
 
 from dry_torch import Model
 from dry_torch import LearningScheme
-from dry_torch import GenericExperiment
+from dry_torch import Experiment
 from dry_torch import register_model
 from dry_torch.schedulers import CosineScheduler
 from dry_torch.schedulers import ExponentialScheduler
@@ -33,7 +33,7 @@ def _complex_model() -> Model[torch.Tensor, torch.Tensor]:
 
 @pytest.fixture()
 def complex_model(_complex_model) -> Model[torch.Tensor, torch.Tensor]:
-    GenericExperiment.current().tracker['complex_model'].epoch = 0
+    Experiment.current().tracker['complex_model'].epoch = 0
     return _complex_model
 
 
@@ -59,7 +59,7 @@ def test_Model_dict_lr(complex_model) -> None:
     new_lr = 0.0001
     with pytest.raises(MissingParamError):
         model_optimizer.update_learning_rate(lr={'linear': new_lr})
-    GenericExperiment.current().tracker['complex_model'].epoch = 100
+    Experiment.current().tracker['complex_model'].epoch = 100
     # constant scheduler should not modify the learning rate
     model_optimizer.update_learning_rate(lr={'linear': new_lr,
                                              'linear2': new_lr})
@@ -82,7 +82,7 @@ def test_ExponentialScheduler(complex_model) -> None:
     params = model_optimizer.optimizer.param_groups
     assert np.isclose(params[0]['lr'], init_lr)
     assert np.isclose(params[1]['lr'], init_lr / 10)
-    GenericExperiment.current().tracker['complex_model'].epoch = num_epoch
+    Experiment.current().tracker['complex_model'].epoch = num_epoch
     model_optimizer.update_learning_rate()
     assert np.isclose(params[0]['lr'], init_lr * decay ** num_epoch)
     assert np.isclose(params[1]['lr'], init_lr / 10 * decay ** num_epoch)
@@ -102,12 +102,12 @@ def test_CosineScheduler(complex_model) -> None:
     params = model_optimizer.optimizer.param_groups
     assert np.isclose(params[0]['lr'], init_lr)
     assert np.isclose(params[1]['lr'], init_lr / 10)
-    GenericExperiment.current().tracker['complex_model'].epoch = num_epoch
+    Experiment.current().tracker['complex_model'].epoch = num_epoch
     model_optimizer.update_learning_rate()
     assert np.isclose(params[0]['lr'], init_lr * min_decay)
     assert np.isclose(params[1]['lr'], init_lr / 10 * min_decay)
 
-    GenericExperiment.current().tracker['complex_model'].epoch = 2 * num_epoch
+    Experiment.current().tracker['complex_model'].epoch = 2 * num_epoch
     model_optimizer.update_learning_rate()
     assert np.isclose(params[0]['lr'], init_lr * min_decay)
     assert np.isclose(params[1]['lr'], init_lr / 10 * min_decay)

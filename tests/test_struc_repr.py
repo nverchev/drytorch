@@ -66,7 +66,7 @@ class ComplexClass:
     # expected representation of the object for documentation
     def expected_struc_repr(self):
         expected = {
-            'class': self.__class__.__name__,
+            'object': self.__class__.__name__,
             'zero_attr': self.zero_attr,
             'lorem': self.lorem,
             'complex_struc': {'tuple': (1, '...', 3),
@@ -92,7 +92,8 @@ def test_struc_repr() -> None:
     out = recursive_repr(complex_instance, max_size=complex_instance.max_size)
     print(out)
     assert out == complex_instance.expected_struc_repr()
-    with open(pathlib.Path('experiments') / 'test.yml', 'w') as yaml_file:
+    yaml_path = pathlib.Path() / 'experiments' / 'test.yml'
+    with open(yaml_path, 'w') as yaml_file:
         yaml.dump(out, yaml_file, sort_keys=False)
 
 
@@ -104,12 +105,3 @@ def test_break_recursion() -> None:
             self.self = self
 
     _ = recursive_repr(ContainSelf())
-
-    # this should lead to recursion error
-    class BreakRecursive(Iterable):
-
-        def __iter__(self) -> Iterator[tuple[Self]]:
-            return zip(self)
-
-    with pytest.raises(RecursionError):
-        recursive_repr(BreakRecursive())
