@@ -1,7 +1,14 @@
+"""
+Module for plotting backends and the Plotting class.
+
+It tries to import the supported backend libraries for plotting and create
+a plotter for each, while the Plotter class functions as an interface.
+"""
+
+from abc import ABCMeta, abstractmethod
 import os
 from types import ModuleType
-from abc import ABCMeta, abstractmethod
-from typing import Literal, Protocol
+from typing import Callable, Literal
 import warnings
 
 import pandas as pd
@@ -11,42 +18,37 @@ from dry_torch import tracking
 from dry_torch import exceptions
 from dry_torch import descriptors
 
-Backend = Literal['visdom', 'plotly', 'auto', 'none']
+_Backend = Literal['visdom', 'plotly', 'auto', 'none']
 
 
-class BackendPlotter(metaclass=ABCMeta):
+class BasePlotter(metaclass=ABCMeta):
     """
     Abstract base class for plotting learning curves.
 
     Args:
-        env: the model_name of the environment (useful to some backends).
-        Default to ''.
+        model_name: the name of the model. Default to ''.
     """
 
-    def __init__(self, env: str = '') -> None:
-        self.env: str = env
+    def __init__(self, model_name: str) -> None:
+        self.model_name: str = model_name
 
     def plot(self,
              train_log: DataFrame,
              val_log: DataFrame,
-             loss_or_metric: str = 'Criterion',
+             metric_name: str = 'Criterion',
              start: int = 0,
              title: str = 'Learning Curves') -> None:
         """
-        Plot the learning curves.
+        Plots the learning curves.
 
         Args:
-            train_log: DataFrame with the loss_fun and metrics_fun calculated
-            during training on the training dataset.
-            val_log: Dataframe with the loss_fun and metrics_fun calculated
-            during training on the validation dataset.
-            loss_or_metric: the metric to visualize. Defaults to 'Criterion'.
-            start: the epoch from where you want to display the curve.
-             Defaults to 0.
-            title: the model_name of the window of the plot in the visdom interface.
-            Defaults to 'Learning Curves'.
+            train_log: DataFrame with the logged training metrics.
+            val_log: DataFrame with the logged validation metrics.
+            metric_name: the metric to visualize. Defaults to 'Criterion'.
+            start: the starting epoch for the plot. Defaults to 0.
+            title: the title of the plot. Defaults to 'Learning Curves'.
         """
-        self._plot(train_log, val_log, loss_or_metric, start, title)
+        self._plot(train_log, val_log, metric_name, start, title)
 
     @abstractmethod
     def _plot(self,
@@ -58,10 +60,10 @@ class BackendPlotter(metaclass=ABCMeta):
         ...
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(environment={self.env})'
+        return self.__class__.__name__ + f' for {self.model_name}.'
 
 
-class NoPlotter(BackendPlotter):
+class NoPlotter(BasePlotter):
     """
     Fallback class when no backend is available. Plotting is silently ignored.
     """
@@ -81,19 +83,18 @@ try:
     VISDOM_AVAILABLE: bool = True
 
 
-    class VisdomPlotter(BackendPlotter):
+    class VisdomPlotter(BasePlotter):
         """
-        Initialize a visdom environment with the specified environment model_name
-         and uses it as backend.
+        Initialize a visdom environment uses it as backend.
 
         Args:
-            env: The model_name of the visdom environment. Default to ''.
+            model_name: name given to the visdom environment.
         """
 
-        def __init__(self, env: str = '') -> None:
-            super().__init__(env)
-            self.env = env
-            self.vis = visdom.Visdom(env=env, raise_exceptions=True)
+        def __init__(self, model_name: str) -> None:
+            super().__init__(model_name)
+            self.model_name = model_name
+            self.vis = visdom.Visdom(env=model_name, raise_exceptions=True)
 
         def check_connection(self) -> bool:
             return self.vis.check_connection()
@@ -101,14 +102,14 @@ try:
         def _plot(self,
                   train_log: DataFrame,
                   val_log: DataFrame,
-                  loss_or_metric: str,
+                  metric: str,
                   start: int,
                   title: str) -> None:
-            train_log_metric: pd.Series[float] = train_log[loss_or_metric]
+            train_log_metric: pd.Series[float] = train_log[metric]
             train_log_metric = train_log_metric[train_log.index >= start]
 
             layout = dict(xlabel='Epoch',
-                          ylabel=loss_or_metric,
+                          ylabel=metric,
                           title=title,
                           update='replace',
                           showlegend=True)
@@ -118,7 +119,7 @@ try:
                           opts=layout,
                           name='Training')
             if not val_log.empty:
-                val_log_metric: pd.Series[float] = val_log[loss_or_metric]
+                val_log_metric: pd.Series[float] = val_log[metric]
                 val_log_metric = val_log_metric[val_log.index >= start]
                 self.vis.line(X=val_log_metric.index,
                               Y=val_log_metric,
@@ -131,7 +132,7 @@ try:
 
 except ImportError:
     VISDOM_AVAILABLE = False
-    visdom = ModuleType('Unreachable module')
+    visdom = ModuleType('Unreachable module.')
 
 try:
     import plotly.express as px  # type: ignore
@@ -139,7 +140,7 @@ try:
     PLOTLY_AVAILABLE: bool = True
 
 
-    class PlotlyPlotter(BackendPlotter):
+    class PlotlyPlotter(BasePlotter):
         def _plot(self,
                   train_log: DataFrame,
                   val_log: DataFrame,
@@ -165,77 +166,57 @@ try:
 
 except ImportError:
     PLOTLY_AVAILABLE = False
-    px = ModuleType('Unreachable module')
+    px = ModuleType('Unreachable module.')
 
 
-class GetPlotterProtocol(Protocol):
+def plotter_closure(model_name: str,
+                    backend: _Backend = 'auto') -> Callable[[], BasePlotter]:
     """
-    This protocol is a Callable with named parameters.
-    """
+    Closure that caches the last used plotter.
 
-    def __call__(self, backend: Backend, env: str) -> BackendPlotter:
-        ...
-
-
-def plotter_closure() -> GetPlotterProtocol:
-    """
-    Cache the last used plotter.
+    Args:
+        model_name: the name of the model.
+        backend:
+                auto:
+                    from a Jupiter notebook use plotly ot Raise ImportError.
+                    otherwise:
+                        if visdom is installed use visdom else plotly.
+                        if neither are installed return NoPlotter.
+                plotly: plotly backend. Raise ImportError if not installed.
+                visdom: visdom backend. Raise ImportError if not installed.
 
     Return:
-        A function that returns a new plotter backend or the last used plotter.
+        A Callable returning the plotter.
     """
 
-    plotter: BackendPlotter = NoPlotter('')
+    plotter: BasePlotter = NoPlotter('')
 
-    def get_plotter(backend: Backend = 'auto', env: str = '') -> BackendPlotter:
-        """
-        Returns a plotter object based on the specified backend.
-
-        Args:
-            backend:
-                auto (default):
-                    from a Jupiter notebook: use plotly and return ImportError
-                    if plotly is not installed.
-                    otherwise: if visdom is installed use visdom else plotly.
-                     If neither are installed return NoPlotter.
-                plotly: plotly backend. Return ImportError if
-                plotly is not installed.
-                visdom: visdom backend. Return ImportError if
-                visdom is not installed.
-            env: The optional environment model_name for the backend. Default ''.
-
-        Return:
-            A plotter backend based on the specified backend and environment.
-
-        Raise:
-            ImportError if the specified backend is not available.
-            warning if the visdom connection is refused by the server.
-        """
+    def get_plotter(_backend: _Backend = backend) -> BasePlotter:
         nonlocal plotter
         jupyter = os.path.basename(os.environ['_']) == 'jupyter'
         # True when calling from a jupyter notebook
-        if backend == 'auto':
+        if _backend == 'auto':
             if jupyter:
-                return get_plotter('plotly', '')
+                return get_plotter('plotly')
             try:
-                return get_plotter('visdom', env)
+                return get_plotter('visdom')
             except ImportError:
                 pass
             try:
-                return get_plotter('plotly', '')
+                return get_plotter('plotly')
             except ImportError:
-                return get_plotter('none', '')
+                return get_plotter('none')
 
-        if backend == 'plotly':
+        if _backend == 'plotly':
             if not PLOTLY_AVAILABLE:
                 raise exceptions.LibraryNotAvailableError('plotly')
 
             if not isinstance(plotter, PlotlyPlotter):
-                plotter = PlotlyPlotter()
+                plotter = PlotlyPlotter(model_name)
 
             return plotter
 
-        if backend == 'visdom':
+        if _backend == 'visdom':
             if not VISDOM_AVAILABLE:
                 raise exceptions.LibraryNotAvailableError('visdom')
 
@@ -244,15 +225,15 @@ def plotter_closure() -> GetPlotterProtocol:
                     return plotter
 
             try:
-                plotter = VisdomPlotter(env)
+                plotter = VisdomPlotter(model_name)
                 return plotter
             except ConnectionError:
                 warnings.warn(exceptions.VisdomConnectionWarning())
-                return get_plotter('none', '')
+                return get_plotter('none')
 
-        if backend == 'none':
+        if _backend == 'none':
             if not isinstance(plotter, NoPlotter):
-                plotter = NoPlotter()
+                plotter = NoPlotter(model_name)
 
             return plotter
 
@@ -261,48 +242,51 @@ def plotter_closure() -> GetPlotterProtocol:
     return get_plotter
 
 
-class Plotter:
+class Plotter(BasePlotter):
     """
-    Keep track of metrics and provide a plotting interface.
+    Class providing a plotting interface.
 
     Args:
-         model_name: The model_name of the experiment.
-
-    Methods:
-        allow_extract_metadata: attempt to fully document the experiment.
-        plot_learning_curves: plot the learning curves using an available
-        backend.
+         model_name: the name of the model.
+         lib: the backend to use for plotting.
     """
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, lib: _Backend = 'auto') -> None:
         self.model_name = model_name
-        self.get_plotter = plotter_closure()
+        self.get_plotter = plotter_closure(model_name, lib)
+        super().__init__(model_name)
 
     def plot_learning_curves(self,
-                             metric: str = 'Criterion',
+                             metric_name: str = 'Criterion',
                              start: int = 0,
-                             title: str = 'Learning Curves',
-                             lib: Backend = 'auto') -> None:
+                             title: str = 'Learning Curves') -> None:
         """
-        This method plots the learning curves using either plotly or visdom as
-        backends
+        Plots the learning curves.
 
         Args:
-            metric: the loss_fun or the metric to visualize.
-            start: the epoch from where you want to display the curve.
-            title: the model_name of the window (and title) of the plot in the visdom
-            interface.
-            lib: which library to use as backend. 'auto' default to visdom or
-            plotly if from a jupyter notebook.
+            metric_name: the metric to visualize.
+            start: the starting epoch for the plot.
+            title: the title of the plot.
         """
-        log = tracking.GenericExperiment.current().tracker[self.model_name].log
-        plotter = self.get_plotter(backend=lib, env=self.model_name)
-        plotter.plot(log[descriptors.Split.TRAIN],
-                     log[descriptors.Split.VAL],
-                     metric,
+        log = tracking.Experiment.current().tracker[self.model_name].log
+        self._plot(log[descriptors.Split.TRAIN],
+                   log[descriptors.Split.VAL],
+                   metric_name,
+                   start,
+                   title)
+        return
+
+    def _plot(self,
+              train_log: DataFrame,
+              val_log: DataFrame,
+              metric_name: str = 'Criterion',
+              start: int = 0,
+              title: str = 'Learning Curves',
+              ) -> None:
+        plotter = self.get_plotter()
+        plotter.plot(train_log,
+                     val_log,
+                     metric_name,
                      start,
                      title)
         return
-
-    def __repr__(self):
-        return self.model_name
