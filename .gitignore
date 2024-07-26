@@ -1,6 +1,4 @@
-/tests/experiments/**
+/tests/experiments
 /tests/.ipynb_checkpoints/
 /.ipynb_checkpoints/
 /.idea/
-/tests/experiments/test_checkpoint/first_model/logs/
-/tests/experiments/test_checkpoint/first_model/
