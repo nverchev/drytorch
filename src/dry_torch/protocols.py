@@ -1,28 +1,39 @@
+"""
+This module defines internal protocols.
+
+Protocols:
+    NamedTupleProtocol: optional protocol for input and target types.
+    HasToDictProtocol: optional protocol for the output type.
+    LoaderProtocol: loads and batches a dataset.
+    SchedulerProtocol: scheduler compatible with the LearningScheme class.
+    ModuleProtocol: for a PyTorch module with type annotations.
+    TensorProtocol: for loss and metrics functions.
+    MetricProtocol: calculates and returns metrics.
+    LossProtocol: calculates and returns metrics and the final loss tensor.
+    ModuleProtocol: for a wrapper around a torch module.
+
+"""
+
 import abc
-from typing import Protocol, Iterator, Callable, TypeVar, TypeAlias
-from typing import Any, Union, Type, Self, runtime_checkable, SupportsIndex
-from typing import Iterable, Mapping, Optional
+from typing import Any, Iterable, Iterator, Mapping, Optional, Protocol, Self
+from typing import SupportsIndex, Type, TypeAlias, TypeVar, runtime_checkable
 
 import torch
+from dry_torch.descriptors import Tensors
 from torch.utils import data
 
-Tensors: TypeAlias = Union[
-    torch.Tensor,
-    tuple[torch.Tensor, ...],
-    list[torch.Tensor],
-]
-
 _T = TypeVar('_T')
-
-"""
-Correctly handled by the default collate function.
-NamedTuples with different values are currently interpreted as Generic of Any.
-At the moment, this protocol won't support these interfaces
-"""
 
 
 @runtime_checkable
 class NamedTupleProtocol(Protocol[_T]):
+    """
+    Optional protocol for the input and target types.
+
+    Correctly handled by the default collate function.
+    NamedTuples with different values are currently interpreted as Generic[Any].
+    At the moment, this protocol won't support these interfaces
+    """
 
     def __getitem__(self, index: SupportsIndex) -> _T:
         ...
@@ -45,6 +56,13 @@ class NamedTupleProtocol(Protocol[_T]):
 
 
 class HasToDictProtocol(Protocol):
+    """
+    Optional protocol for the output type.
+
+    The to_dict method ensures that the outputs is correctly stored in the
+    DryTorchDictList class.
+    """
+
     @abc.abstractmethod
     def to_dict(self) -> Mapping[str, torch.Tensor | Iterable[torch.Tensor]]:
         ...
@@ -80,6 +98,17 @@ _Output = TypeVar('_Output', bound=OutputType)
 
 
 class LoaderProtocol(Protocol[_Data_co]):
+    """
+    Protocol loading and batching a dataset.
+
+    Attributes:
+        batch_size: the batch size.
+        dataset: dataset
+
+    Methods:
+        __iter__: returns an iterator over the dataset in batches.
+        __len__: returns the number of batches in the dataset.
+    """
     batch_size: Optional[int]
     dataset: data.Dataset
 
@@ -92,20 +121,31 @@ class LoaderProtocol(Protocol[_Data_co]):
 
 class SchedulerProtocol(Protocol):
     """
-    Protocol of a scheduler compatible with the Model class.
+    Protocol of a scheduler compatible with the LearningScheme class.
     """
 
     def __call__(self, base_lr: float, epoch: int) -> float:
+        """
+        Modifies the learning rate according to a schedule.
+
+        Args:
+            base_lr: initial learning rate.
+            epoch: the current epoch.
+        Returns:
+            scheduled value for the learning rate.
+        """
         ...
 
 
 class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
+    """Protocol for a PyTorch module with type annotations."""
 
     def forward(self, inputs: _Input_contra) -> _Output_co:
         ...
 
 
 class TensorCallable(Protocol[_Output_contra, _Target_contra]):
+    """Protocol for loss and metrics functions."""
 
     def __call__(self,
                  outputs: _Output_contra,
@@ -114,6 +154,8 @@ class TensorCallable(Protocol[_Output_contra, _Target_contra]):
 
 
 class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
+    """Protocol that calculates and returns metrics."""
+
     @abc.abstractmethod
     def calculate(self,
                   outputs: _Output_contra,
@@ -133,6 +175,7 @@ class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
 class LossCalculatorProtocol(
     Protocol[_Output_contra, _Target_contra]
 ):
+    """Protocol that calculates metrics and the final loss (criterion)."""
 
     @abc.abstractmethod
     def calculate(self,
@@ -155,44 +198,23 @@ class LossCalculatorProtocol(
         ...
 
 
-class LearningProtocol(Protocol):
-    """
-        optimizer_cls: the optimizer class to bind_to_model to the module.
-         Defaults to torch.optim.Adam.
-        lr: a dictionary of learning rates for the named parameters or a float
-        for a global value.
-        optimizer_defaults: optional arguments for the optimizer
-        (same for all the parameters).
-        scheduler: modifies the learning rate given the current epoch. Default
-        value does not implement a scheduler.
-    """
-    optimizer_cls: Type[torch.optim.Optimizer]
-    lr: float | dict[str, float]
-    optimizer_defaults: dict[str, Any]
-    scheduler: SchedulerProtocol
-
-
 @runtime_checkable
 class ModelProtocol(Protocol[_Input_contra, _Output_co]):
+    """
+    Protocol for a wrapper around a torch module.
+
+    Attributes:
+        name: name of the model
+        module: underlying PyTorch module
+
+    """
     name: str
-    device: torch.device
     module: torch.nn.Module
+
+    @property
+    def device(self) -> torch.device:
+        ...
 
     @abc.abstractmethod
     def __call__(self, inputs: _Input_contra) -> _Output_co:
-        ...
-
-
-class TrainerProtocol(Protocol):
-
-    def train(self, num_epochs: int) -> None:
-        ...
-
-    def terminate_training(self) -> None:
-        ...
-
-    def add_pre_epoch_hook(self, hook: Callable[[Self], None]) -> None:
-        ...
-
-    def add_post_epoch_hook(self, hook: Callable[[Self], None]) -> None:
         ...
