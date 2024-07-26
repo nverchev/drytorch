@@ -1,4 +1,4 @@
-"""This module defines schedulers for the learning rates"""
+"""This module defines schedulers for the learning rates."""
 
 from abc import abstractmethod
 import numpy as np

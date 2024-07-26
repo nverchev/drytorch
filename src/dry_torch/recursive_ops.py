@@ -1,21 +1,20 @@
-from typing import Any, Callable, Type, overload, TypeVar
-import numpy as np
-import pandas as pd
+"""This module contains functions for nested containers."""
+from typing import Callable, Type, overload, TypeVar
+
 import torch
 
 from dry_torch import exceptions
 from dry_torch import protocols as p
 
 _T = TypeVar('_T')
-_C = TypeVar('_C', dict, list, set, tuple)
-_Array = TypeVar('_Array', torch.Tensor, np.ndarray, pd.DataFrame, pd.Series)
+_C = TypeVar('_C', dict, list, set, tuple, p.NamedTupleProtocol)
 
 
 @overload
 def recursive_apply(
-        obj: _Array,
-        expected_type: Type[_Array],
-        func: Callable[[_Array], _T]
+        obj: _T,
+        expected_type: Type[_T],
+        func: Callable[[_T], _T]
 ) -> _T:
     ...
 
@@ -23,19 +22,10 @@ def recursive_apply(
 @overload
 def recursive_apply(
         obj: _C,
-        expected_type: Type[_Array],
-        func: Callable[[_Array], _Array]
+        expected_type: Type[_T],
+        func: Callable[[_T], _T]
 ) -> _C:
     ...
-
-
-@overload
-def recursive_apply(
-        obj: _C,
-        expected_type: Type[_Array],
-        func: Callable[[_Array], _T]
-) -> Any:
-    ...  # mypy do not support TypeVar with higher kinds
 
 
 def recursive_apply(obj, expected_type, func):
@@ -44,18 +34,19 @@ def recursive_apply(obj, expected_type, func):
 
     It looks inside the items of lists, tuples and sets and the values of
     dictionaries and returns the built-in container. Subtypes are not supported,
-     except for NamedTuples, which are returned as they are.
+    except for NamedTuples, for which a new instance with the modified objects
+    is returned.
 
     Args:
-        obj: container made of dictionaries, list, sets, tuples and NamedTuples.
-        expected_type: the type of the objects contained in obj.
-        func: the function to apply to objects of the expected type.
+        obj: a dictionary, list, set, tuple, NamedTuples or the expected object.
+        expected_type: the type of the expected objects contained in obj.
+        func: a function that modifies objects of the expected type.
 
     Returns:
-        Any: a copy of the structure in the argument with the modified objects.
+        The modified object or a copy of obj containing the modified objects.
 
     Raises:
-        TypeError: if obj stores un unexpected object.
+        TypeError: if obj is un unexpected object.
     """
     obj_class = type(obj)
 
@@ -78,7 +69,7 @@ def recursive_apply(obj, expected_type, func):
             recursive_apply(item, expected_type, func) for item in obj
         )
 
-    raise exceptions.FuncNotApplicableError(func, obj.__class__)
+    raise exceptions.FuncNotApplicableError(func, obj_class)
 
 
 def recursive_to(container: _C, device: torch.device) -> _C:
