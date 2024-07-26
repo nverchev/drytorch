@@ -1,4 +1,5 @@
 """ This module specifies how to represent and dump metadata in a yaml file."""
+
 from typing import Any, Iterable, Optional
 import datetime
 import functools
