@@ -78,9 +78,9 @@ class Model(Generic[_Input_contra, _Output_co]):
             name: Optional[str] = None,
             device: Optional[torch.device] = None,
     ) -> None:
+        self.module = self.validate_module(torch_module)
         self.name: str = name or Model._default_model_name()
         self.device = device
-        self.module = self.validate_module(torch_module).to(self.device)
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.checkpoint = io.ModelStateIO(self)
 
