@@ -11,14 +11,14 @@ class DryTorchException(BaseException):
         super().__init__(self.msg.format(*args))
 
 
-class AccessBeforeCalculateError(AttributeError, DryTorchException):
+class AccessBeforeCalculateError(DryTorchException, AttributeError):
     msg = 'Results must be precomputed with the calculate method.'
 
     def __init__(self) -> None:
-        super().__init__(self.msg)
+        super().__init__()
 
 
-class AlreadyBoundedError(RuntimeError, DryTorchException):
+class AlreadyBoundedError(DryTorchException, RuntimeError):
     msg = 'There is already an object of class {} bounded to module {}.'
 
     def __init__(self, model_name: str, cls_str: str) -> None:
@@ -27,7 +27,7 @@ class AlreadyBoundedError(RuntimeError, DryTorchException):
         super().__init__(cls_str, model_name)
 
 
-class AlreadyRegisteredError(ValueError, DryTorchException):
+class AlreadyRegisteredError(DryTorchException, ValueError):
     msg = ('Registering model_name {} was unsuccessful:'
            ' model_name already registered in experiment {}.')
 
@@ -36,7 +36,7 @@ class AlreadyRegisteredError(ValueError, DryTorchException):
         super().__init__(name, exp_name)
 
 
-class BoundedModelTypeError(TypeError, DryTorchException):
+class BoundedModelTypeError(DryTorchException, TypeError):
     msg = 'First argument of type {} does not follow ModelProtocol.'
 
     def __init__(self, not_a_model: Any) -> None:
@@ -44,7 +44,7 @@ class BoundedModelTypeError(TypeError, DryTorchException):
         super().__init__(type(not_a_model))
 
 
-class ConvergenceError(ValueError, DryTorchException):
+class ConvergenceError(DryTorchException, ValueError):
     msg = 'The module did not converge (criterion is {}).'
 
     def __init__(self, criterion: float) -> None:
@@ -52,7 +52,7 @@ class ConvergenceError(ValueError, DryTorchException):
         super().__init__(criterion)
 
 
-class DifferentBatchSizeError(ValueError, DryTorchException):
+class DifferentBatchSizeError(DryTorchException, ValueError):
     msg = ('Input tensors should have the same batch size'
            ' but got different values: {}.')
 
@@ -61,7 +61,7 @@ class DifferentBatchSizeError(ValueError, DryTorchException):
         super().__init__(self.list)
 
 
-class FuncNotApplicableError(TypeError, DryTorchException):
+class FuncNotApplicableError(DryTorchException, TypeError):
     msg = 'Cannot apply {} on Datatype {}.'
 
     def __init__(self, func: Callable, datatype=Type) -> None:
@@ -70,7 +70,7 @@ class FuncNotApplicableError(TypeError, DryTorchException):
         super().__init__(func, self.type_name)
 
 
-class KeysAlreadySetError(KeyError, DryTorchException):
+class KeysAlreadySetError(DryTorchException, KeyError):
     msg = 'DictList keys are already set to {} and cannot be modified.'
 
     def __init__(self,
@@ -81,7 +81,7 @@ class KeysAlreadySetError(KeyError, DryTorchException):
         super().__init__(current_keys)
 
 
-class LibraryNotAvailableError(ImportError, DryTorchException):
+class LibraryNotAvailableError(DryTorchException, ImportError):
     msg = 'Library {} is not installed.'
 
     def __init__(self, library_name: str) -> None:
@@ -89,7 +89,7 @@ class LibraryNotAvailableError(ImportError, DryTorchException):
         super().__init__(library_name)
 
 
-class LibraryNotSupportedError(ValueError, DryTorchException):
+class LibraryNotSupportedError(DryTorchException, ValueError):
     msg = 'Library {} is not supported.'
 
     def __init__(self, library_name: str) -> None:
@@ -97,7 +97,7 @@ class LibraryNotSupportedError(ValueError, DryTorchException):
         super().__init__(library_name)
 
 
-class MissingParamError(ValueError, DryTorchException):
+class MissingParamError(DryTorchException, ValueError):
     msg = ('Parameter groups {} in input learning rate'
            ' do not contain all module parameters.')
 
@@ -109,7 +109,7 @@ class MissingParamError(ValueError, DryTorchException):
         super().__init__(lr_param_groups)
 
 
-class ModelNotExistingError(ValueError, DryTorchException):
+class ModelNotExistingError(DryTorchException, ValueError):
     msg = ('Accessing module {} was unsuccessful:'
            ' module not registered in experiment {}.')
 
@@ -118,7 +118,7 @@ class ModelNotExistingError(ValueError, DryTorchException):
         super().__init__(name, exp_name)
 
 
-class ModelNotFoundError(FileNotFoundError, DryTorchException):
+class ModelNotFoundError(DryTorchException, FileNotFoundError):
     msg = 'No saved module found in {}.'
 
     def __init__(self, checkpoint_directory: pathlib.Path) -> None:
@@ -126,7 +126,7 @@ class ModelNotFoundError(FileNotFoundError, DryTorchException):
         super().__init__(checkpoint_directory)
 
 
-class MustSupportIndex(TypeError, DryTorchException):
+class MustSupportIndex(DryTorchException, TypeError):
     msg = "Object of type {} has not a '__index__' method."
 
     def __init__(self, not_supporting_index: Any) -> None:
@@ -134,15 +134,15 @@ class MustSupportIndex(TypeError, DryTorchException):
         super().__init__(type(not_supporting_index))
 
 
-class NoConfigError(AttributeError, DryTorchException):
+class NoConfigError(DryTorchException, AttributeError):
     msg = 'No config found in experiment.'
 
 
-class NoLengthError(AttributeError, DryTorchException):
+class NoLengthError(DryTorchException, AttributeError):
     msg = 'Dataset does not implement __len__ method.'
 
 
-class NotASliceError(TypeError, DryTorchException):
+class NotASliceError(DryTorchException, TypeError):
     msg = 'Expected slice. Got object of type {}.'
 
     def __init__(self, not_a_slice: Any) -> None:
@@ -150,7 +150,7 @@ class NotASliceError(TypeError, DryTorchException):
         super().__init__(type(not_a_slice))
 
 
-class NotATensorError(TypeError, DryTorchException):
+class NotATensorError(DryTorchException, TypeError):
     msg = 'Object {} of type {} is not a Tensor.'
 
     def __init__(self, not_a_tensor: Any, name: str = '') -> None:
@@ -159,7 +159,7 @@ class NotATensorError(TypeError, DryTorchException):
         super().__init__(name, type(not_a_tensor))
 
 
-class NotBatchedError(ValueError, DryTorchException):
+class NotBatchedError(DryTorchException, ValueError):
     msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
 
     def __init__(self, shapes: list[int]) -> None:
@@ -167,7 +167,7 @@ class NotBatchedError(ValueError, DryTorchException):
         super().__init__(shapes)
 
 
-class NotBoundedError(RuntimeError, DryTorchException):
+class NotBoundedError(DryTorchException, RuntimeError):
     msg = 'There is no object of class {} bounded to module {}.'
 
     def __init__(self, model_name: str, cls_str: str) -> None:
@@ -176,7 +176,7 @@ class NotBoundedError(RuntimeError, DryTorchException):
         super().__init__(cls_str, model_name)
 
 
-class NoToDictMethodError(AttributeError, DryTorchException):
+class NoToDictMethodError(DryTorchException, AttributeError):
     msg = 'Object of type {} does not have a to_dict() method.'
 
     def __init__(self, no_to_dict: Any) -> None:
@@ -184,7 +184,7 @@ class NoToDictMethodError(AttributeError, DryTorchException):
         super().__init__(type(no_to_dict))
 
 
-class PartitionNotFoundError(ValueError, DryTorchException):
+class PartitionNotFoundError(DryTorchException, ValueError):
     msg = 'Impossible to load {} dataset: partition {} not found.'
 
     def __init__(self, partition: str) -> None:
@@ -192,11 +192,11 @@ class PartitionNotFoundError(ValueError, DryTorchException):
         super().__init__(partition, partition)
 
 
-class AlreadyTestedWarning(RuntimeWarning, DryTorchException):
+class AlreadyTestedWarning(DryTorchException, RuntimeWarning):
     msg = 'Test has already been executed.'
 
 
-class CannotStoreOutputWarning(RuntimeWarning, DryTorchException):
+class CannotStoreOutputWarning(DryTorchException, RuntimeWarning):
     msg = 'Impossible to store output because the following error.\n{}'
 
     def __init__(self, err_msg: str) -> None:
@@ -204,7 +204,7 @@ class CannotStoreOutputWarning(RuntimeWarning, DryTorchException):
         super().__init__(err_msg)
 
 
-class OptimizerNotLoadedWarning(RuntimeWarning, DryTorchException):
+class OptimizerNotLoadedWarning(DryTorchException, RuntimeWarning):
     msg = 'The optimizer has not been correctly loaded:\n{}'
 
     def __init__(self, error: BaseException) -> None:
@@ -212,5 +212,9 @@ class OptimizerNotLoadedWarning(RuntimeWarning, DryTorchException):
         super().__init__(error)
 
 
-class VisdomConnectionWarning(RuntimeWarning, DryTorchException):
+class RecursionWarning(DryTorchException, RuntimeWarning):
+    msg = 'Impossible to extract metadata because there are recursive objects.'
+
+
+class VisdomConnectionWarning(DryTorchException, RuntimeWarning):
     msg = 'Visdom connection refused by server.'
