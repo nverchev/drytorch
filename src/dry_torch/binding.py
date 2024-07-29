@@ -114,6 +114,8 @@ def bind_to_model(
     """
     Decorator that binds a model to a class.
 
+    The class of the object and all its parent classes (excluded object)
+    are added to the bindings. If any of them
 
 
 
@@ -135,13 +137,12 @@ def bind_to_model(
 
         exp = tracking.Experiment.current()
         model_tracker = exp.tracker[model.name]
-        for super_class in instance.__class__.__mro__[:-1]:
-            cls_str = super_class.__name__
-            if cls_str in model_tracker.bindings:
-                raise exceptions.AlreadyBoundError(model.name, cls_str)
-            model_tracker.bindings.add(cls_str)
-
         cls_str = instance.__class__.__name__
+        bound_cls_str = model_tracker.binding
+        if model_tracker.binding is not None:
+            raise exceptions.AlreadyBoundError(model.name, bound_cls_str)
+
+        model_tracker.binding = cls_str
         cls_count = model_tracker.default_names.setdefault(
             cls_str,
             tracking.DefaultName(cls_str)
@@ -161,13 +162,11 @@ def unbind(instance: Any,
 
     model_tracker = tracking.Experiment.current().tracker[model.name]
     metadata = model_tracker.metadata
-    for super_class in instance.__class__.__mro__[:-1]:
-        cls_str = super_class.__name__
-        if cls_str not in model_tracker.bindings:
-            raise exceptions.NotBoundedError(model.name, cls_str)
-        model_tracker.bindings.remove(cls_str)
-
     cls_str = instance.__class__.__name__
+    if cls_str != model_tracker.binding:
+        raise exceptions.NotBoundedError(model.name, cls_str)
+
+    model_tracker.binding = None
     cls_str_with_counter = repr(model_tracker.default_names[cls_str])
     metadata[cls_str_with_counter]['model_final_epoch'] = model_tracker.epoch
     return

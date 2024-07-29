@@ -19,14 +19,12 @@ class AccessBeforeCalculateError(DryTorchException, AttributeError):
 
 
 class AlreadyBoundError(DryTorchException, RuntimeError):
-    msg = 'There is already an object of class {} bound to module {}.'
+    msg = 'Model {} is already bound to class {}.'
 
     def __init__(self, model_name: str, cls_str: str) -> None:
         self.model_name = model_name
         self.cls_str = cls_str
-        if cls_str == 'Evaluation':
-            self.msg += ' Did you terminate the training session?'
-        super().__init__(cls_str, model_name)
+        super().__init__(model_name, cls_str)
 
 
 class AlreadyRegisteredError(DryTorchException, ValueError):
