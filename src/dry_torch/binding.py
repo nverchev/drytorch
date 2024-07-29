@@ -1,12 +1,14 @@
-import warnings
+"""Module with functions to connect a Model-like instance to other classes."""
+
 from functools import wraps
 from typing import Callable, Concatenate, Any, TypeVar, ParamSpec
+import warnings
 
-from dry_torch import protocols as p
 from dry_torch import exceptions
-from dry_torch import tracking
-from dry_torch import repr_utils
 from dry_torch import io
+from dry_torch import protocols as p
+from dry_torch import repr_utils
+from dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -18,27 +20,44 @@ _Output_co = TypeVar('_Output_co',
 _P = ParamSpec('_P')
 _RT = TypeVar('_RT')
 
-registered_models: dict[int, tracking.Experiment] = {}
+_REGISTERED_MODELS: dict[int, tracking.Experiment] = {}
 
 
-def cache_register_model(
+def _cache_register_model(
         func: Callable[[p.ModelProtocol], None]
 ) -> Callable[[p.ModelProtocol], None]:
     @wraps(func)
     def wrapper(model: p.ModelProtocol) -> None:
         exp = tracking.Experiment.current()
         model_identifier = id(model)
-        if model_identifier in registered_models:
-            exp_name = registered_models[model_identifier].name
+        if model_identifier in _REGISTERED_MODELS:
+            exp_name = _REGISTERED_MODELS[model_identifier].name
             raise exceptions.AlreadyRegisteredError(model.name, exp_name)
-        registered_models[model_identifier] = exp
+
+        _REGISTERED_MODELS[model_identifier] = exp
         return func(model)
 
     return wrapper
 
 
-@cache_register_model
-def register_model(model: p.ModelProtocol) -> None:
+@_cache_register_model
+def register_model(model: p.ModelProtocol, /) -> None:
+    """
+    Function needed to save train or test a Model-like instance.
+
+    It registers a model to an experiment, giving a context that encapsulates
+    the development and testing of the model. When registering a model, you
+    create a ModelTracker object which contains logs and metadata of the model.
+    To encourage best practises, a model can only be registered to a single
+    experiment.
+
+    Args:
+        model: the model to register.
+
+    Side Effects:
+        Creation of a ModelTracker instance.
+        Metadata about the model is dumped to a file.
+    """
     exp = tracking.Experiment.current()
     name = model.name
     model_repr = model.module.__repr__()
@@ -46,27 +65,42 @@ def register_model(model: p.ModelProtocol) -> None:
     io.dump_metadata(name)
 
 
-def extract_metadata(attr_dict: dict[str, Any],
+def extract_metadata(to_document: dict[str, Any],
                      max_size: int = 3) -> dict[str, Any]:
+    """
+    Wrapper of recursive_repr that catches Recursion Errors
+
+    Args:
+        to_document: a dictionary of objects to document.
+        max_size: maximum number of documented items in a container.
+    """
     # get the recursive representation of the objects.
     try:
         metadata = {k: repr_utils.recursive_repr(v, max_size=max_size)
-                    for k, v in attr_dict.items()}
+                    for k, v in to_document.items()}
     except RecursionError:
-        msg = 'Could not extract metadata because of recursive objects.'
-        warnings.warn(msg)
+        warnings.warn(exceptions.RecursionWarning())
         metadata = {}
     return metadata
 
 
-def add_metadata(exp: tracking.Experiment,
-                 model_name: str,
+def add_metadata(model_tracker: tracking.ModelTracker,
+                 max_items_repr,
                  object_name: str,
-                 attr_dict: dict[str, Any]) -> None:
-    if exp.allow_extract_metadata:
-        object_metadata = extract_metadata(attr_dict, exp.max_items_repr)
-        exp.tracker[model_name].metadata[object_name] = object_metadata
-        io.dump_metadata(model_name)
+                 to_document: dict[str, Any]) -> None:
+    """
+     Add metadata related to an object operating on a model to its ModelTracker.
+
+     Args:
+         model_tracker: the ModelTracker instance where to add metadata.
+         max_items_repr: maximum number of documented items in a container.
+         object_name: the name of the object operating on a model.
+         to_document: a dictionary of arguments to document.
+     """
+    extracted_metadata = extract_metadata(to_document, max_items_repr)
+    model_tracker.metadata[object_name] = extracted_metadata
+    io.dump_metadata(model_tracker.name)
+    return
 
 
 def bind_to_model(
@@ -78,7 +112,12 @@ def bind_to_model(
     _RT,
 ]:
     """
-    Decorator that extracts metadata from a function named arguments.
+    Decorator that binds a model to a class.
+
+
+
+
+    extracts metadata from a function named arguments.
 
     Args:
         func: the function that we want to extract metadata from.
@@ -93,14 +132,23 @@ def bind_to_model(
                 **kwargs: _P.kwargs) -> _RT:
         if not isinstance(model, p.ModelProtocol):
             raise exceptions.BoundedModelTypeError(model)
+
         exp = tracking.Experiment.current()
-        model_tracking = exp.tracker[model.name]
-        bindings = model_tracking.bindings
+        model_tracker = exp.tracker[model.name]
+        for super_class in instance.__class__.__mro__[:-1]:
+            cls_str = super_class.__name__
+            if cls_str in model_tracker.bindings:
+                raise exceptions.AlreadyBoundError(model.name, cls_str)
+            model_tracker.bindings.add(cls_str)
+
         cls_str = instance.__class__.__name__
-        if cls_str in bindings:
-            raise exceptions.AlreadyBoundedError(model.name, cls_str)
-        cls_count = bindings.setdefault(cls_str, tracking.DefaultName(cls_str))
-        add_metadata(exp, model.name, cls_count(), kwargs)
+        cls_count = model_tracker.default_names.setdefault(
+            cls_str,
+            tracking.DefaultName(cls_str)
+        )
+        if exp.allow_extract_metadata:
+            add_metadata(model_tracker, exp.max_items_repr, cls_count(), kwargs)
+
         return func(instance, model, *args, **kwargs)
 
     return wrapper
@@ -110,11 +158,16 @@ def unbind(instance: Any,
            model: p.ModelProtocol[_Input_contra, _Output_co]) -> None:
     if not isinstance(model, p.ModelProtocol):
         raise exceptions.BoundedModelTypeError(model)
-    model_tracking = tracking.Experiment.current().tracker[model.name]
-    metadata = model_tracking.metadata
+
+    model_tracker = tracking.Experiment.current().tracker[model.name]
+    metadata = model_tracker.metadata
+    for super_class in instance.__class__.__mro__[:-1]:
+        cls_str = super_class.__name__
+        if cls_str not in model_tracker.bindings:
+            raise exceptions.NotBoundedError(model.name, cls_str)
+        model_tracker.bindings.remove(cls_str)
+
     cls_str = instance.__class__.__name__
-    if cls_str not in model_tracking.bindings:
-        raise exceptions.NotBoundedError(model.name, cls_str)
-    cls_str_counter = repr(model_tracking.bindings.pop(cls_str))
-    metadata[cls_str_counter]['model_final_epoch'] = model_tracking.epoch
+    cls_str_with_counter = repr(model_tracker.default_names[cls_str])
+    metadata[cls_str_with_counter]['model_final_epoch'] = model_tracker.epoch
     return
