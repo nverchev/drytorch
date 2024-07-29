@@ -114,23 +114,21 @@ def bind_to_model(
     """
     Decorator that binds a model to a class.
 
-    The class of the object and all its parent classes (excluded object)
-    are added to the bindings. If any of them
-
-
-
-    extracts metadata from a function named arguments.
+    Only one class can be bound to a model at one time.
+    This decorator should be applied to the __init__ method of a class that
+    operates on the model. The __init__ should only accept keyword arguments
+    and only the model as a positional only argument.
+    The keyword arguments are added to the metadata related to the class.
 
     Args:
-        func: the function that we want to extract metadata from.
+        func: typically the __init__ method of a class.
     Returns:
-        Callable: the same input function.
+        the same input function.
     """
 
     @wraps(func)
     def wrapper(instance: Any,
                 model: p.ModelProtocol[_Input_contra, _Output_co],
-                *args: _P.args,
                 **kwargs: _P.kwargs) -> _RT:
         if not isinstance(model, p.ModelProtocol):
             raise exceptions.BoundedModelTypeError(model)
@@ -150,7 +148,7 @@ def bind_to_model(
         if exp.allow_extract_metadata:
             add_metadata(model_tracker, exp.max_items_repr, cls_count(), kwargs)
 
-        return func(instance, model, *args, **kwargs)
+        return func(instance, model, **kwargs)
 
     return wrapper
 
