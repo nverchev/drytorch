@@ -42,6 +42,7 @@ class NamedTupleProtocol(Protocol[_T]):
         """Create a new instance of the class."""
 
 
+@runtime_checkable
 class HasToDictProtocol(Protocol):
     """Optional protocol for the output type."""
 

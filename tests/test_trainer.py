@@ -96,7 +96,7 @@ def test_all() -> None:
             loss_calc=loss_calc,
             loader=loader,
             val_loader=loader)
-    with pytest.raises(exceptions.AlreadyBoundedError):
+    with pytest.raises(exceptions.AlreadyBoundError):
         Trainer(cloned_model,
                 learning_scheme=LearningScheme(lr=0.01),
                 loss_calc=loss_calc,
@@ -105,13 +105,12 @@ def test_all() -> None:
     tuple_in = TorchTuple(input=torch.FloatTensor([.2]).to(cloned_model.device))
     out = cloned_model(tuple_in)
     assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
-
+    trainer.terminate_training()
     test = _Test(model,
                  metrics_calc=loss_calc,
                  loader=loader,
                  store_outputs=True)
-    with pytest.warns(exceptions.CannotStoreOutputWarning):
-        test()
+    test()
     with pytest.warns(exceptions.AlreadyTestedWarning):
         test()
 

@@ -90,7 +90,7 @@ class SimpleLossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
         criterion = self.loss_fun(outputs, targets)
         self._criterion = criterion
         metrics = dict_apply(self.named_metric_fun, outputs, targets)
-        self._metrics = dict(criterion=criterion) | metrics
+        self._metrics = {'Criterion': criterion} | metrics
         return
 
 
@@ -125,7 +125,7 @@ class CompositeLossCalculator(
             metrics[name] = value
         other_metrics = dict_apply(self.named_metric_fun, outputs, targets)
         self._criterion = criterion
-        self._metrics = dict(criterion=criterion) | metrics | other_metrics
+        self._metrics = {'Criterion': criterion} | metrics | other_metrics
         return
 
 

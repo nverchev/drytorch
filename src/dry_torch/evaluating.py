@@ -251,7 +251,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
         return
 
     def _get_default_name(self) -> str:
-        return repr(self.model_tracking.bindings[self.__class__.__name__])
+        return repr(self.model_tracking.default_names[self.__class__.__name__])
 
     @torch.inference_mode()
     def __call__(self) -> None:
@@ -269,8 +269,8 @@ class Test(Evaluation[_Input, _Target, _Output]):
             return
 
         logger.log(log_settings.INFO_LEVELS.experiment,
-                   '%(test_name)s:',
-                   {'test_name': self.test_name})
+                   'Testing %(model_name)s.',
+                   {'model_name': self.model.name})
         self.model.module.eval()
         self._run_epoch()
         self._checkpoint.save()
