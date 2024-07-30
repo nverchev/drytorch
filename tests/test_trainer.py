@@ -15,6 +15,7 @@ from dry_torch import LearningScheme
 from dry_torch import protocols as p
 from dry_torch import register_model
 from dry_torch import log_settings
+from dry_torch import hooks
 from typing import NamedTuple, Iterable
 import dataclasses
 
@@ -63,10 +64,6 @@ def square_error(outputs: TorchData,
     return torch.stack(2 * [(outputs.output - targets) ** 2]).mean()
 
 
-logger = logging.getLogger('dry_torch')
-logger.setLevel(log_settings.INFO_LEVELS.experiment)
-
-
 def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
@@ -85,6 +82,7 @@ def test_all() -> None:
                       loss_calc=loss_calc,
                       loader=loader,
                       val_loader=loader)
+    trainer.post_epoch_hooks.register(hooks.early_stopping_callback())
     trainer.train(5)
     trainer.save_checkpoint(replace_previous=True)
     trainer.train(5)
