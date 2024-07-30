@@ -1,4 +1,4 @@
-# custom_trainer
+# dry_torch
     This class manages training and general utilities for a Pytorch model.
 
     The motivation for using this class is the following:
