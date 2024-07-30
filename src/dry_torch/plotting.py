@@ -270,6 +270,9 @@ class Plotter(BasePlotter):
             title: the title of the plot.
         """
         log = tracking.Experiment.current().tracker[self.model_name].log
+        if metric_name not in log[descriptors.Split.TRAIN]:
+            raise exceptions.MetricNotFoundError(metric_name)
+
         self._plot(log[descriptors.Split.TRAIN],
                    log[descriptors.Split.VAL],
                    metric_name,

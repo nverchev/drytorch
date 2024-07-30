@@ -97,6 +97,14 @@ class LibraryNotSupportedError(DryTorchException, ValueError):
         super().__init__(library_name)
 
 
+class MetricNotFoundError(DryTorchException, ValueError):
+    msg = 'Metric {} is not present in the training log.'
+
+    def __init__(self, metric_name: str) -> None:
+        self.metric_name = metric_name
+        super().__init__(metric_name)
+
+
 class MissingParamError(DryTorchException, ValueError):
     msg = ('Parameter groups {} in input learning rate'
            ' do not contain all module parameters.')

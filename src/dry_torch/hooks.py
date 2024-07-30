@@ -2,9 +2,10 @@ import logging
 from typing import Generic, TypeVar, Callable, Optional
 
 from dry_torch import descriptors
+from dry_torch import exceptions
+from dry_torch import log_settings
 from dry_torch import protocols as p
 from dry_torch import tracking
-from dry_torch import log_settings
 
 _Class = TypeVar('_Class')
 
@@ -33,7 +34,7 @@ def validation_hook(instance: p.TrainerProtocol) -> None:
 
 def early_stopping_callback(
         monitor_dataset: descriptors.Split = descriptors.Split.VAL,
-        metric: str = 'Criterion',
+        metric_name: str = 'Criterion',
         min_delta: float = 0.,
         patience: int = 10,
         lower_is_best: bool = True,
@@ -49,8 +50,10 @@ def early_stopping_callback(
         if model_tracker.epoch < start_from_epoch:
             return
 
-        log = model_tracker.log[monitor_dataset]
-        last_results = log[metric][-(patience + 1):]
+        monitor_log = model_tracker.log[monitor_dataset]
+        if metric_name not in monitor_log:
+            raise exceptions.MetricNotFoundError(metric_name)
+        last_results = monitor_log[metric_name][-(patience + 1):]
         best_last_result = min(last_results)
         if baseline is None:
             condition = best_result + min_delta <= best_last_result
