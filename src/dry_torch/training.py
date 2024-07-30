@@ -13,6 +13,7 @@ from dry_torch import protocols as p
 from dry_torch import log_settings
 from dry_torch import evaluating
 from dry_torch import binding
+from dry_torch import hooks
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -21,7 +22,10 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 logger = logging.getLogger('dry_torch')
 
 
-class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
+class Trainer(
+    evaluating.Evaluation[_Input, _Target, _Output],
+    p.TrainerProtocol,
+):
     partition = descriptors.Split.TRAIN
     """
     Implement the standard Pytorch training and evaluation loop.
@@ -70,9 +74,10 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
         self._optimizer = self._model_optimizer.optimizer
         self._checkpoint = io.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=self._mixed_precision)
-        self._pre_epoch_hooks: list[Callable[[Self], None]] = []
-        self._post_epoch_hooks: list[Callable[[Self], None]] = []
-        self._validation = self._set_validation(val_loader)
+        self.pre_epoch_hooks = hooks.HookRegistry[Self]()
+        self.post_epoch_hooks = hooks.HookRegistry[Self]()
+        self._val_loader = val_loader
+        self._validation = self._set_validation()
         self._early_termination = False
         return
 
@@ -80,33 +85,26 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
     def model_tracking(self) -> tracking.ModelTracker:
         return tracking.Experiment.current().tracker[self.model.name]
 
-    def _set_validation(
-            self,
-            val_loader: Optional[p.LoaderProtocol[tuple[_Input, _Target]]]
-    ) -> Callable[[], None]:
-        if val_loader is None:
+    def _set_validation(self) -> Callable[[], None]:
+
+        if self._val_loader is None:
             def validation() -> None:
                 return
         else:
             validation = evaluating.Validation(self.model,
-                                               loader=val_loader,
+                                               loader=self._val_loader,
                                                metrics_calc=self._calculator)
-            self._activate_validation()
+            self.post_epoch_hooks.register(hooks.validation_hook)
         return validation
 
-    def validate(self):
+    def validate(self) -> None:
         return self._validation()
 
-    def _activate_validation(self: Self) -> None:
-        def validate(instance: Self) -> None:
-            instance.validate()
-            return
-
-        self._post_epoch_hooks.append(validate)
-        return
-
     def terminate_training(self) -> None:
-        binding.unbind(self, self.model)
+        try:
+            binding.unbind(self, self.model)
+        except exceptions.NotBoundedError:
+            pass
         self._early_termination = True
         return
 
@@ -114,7 +112,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
         self.train(1)
         return
 
-    def train(self, num_epochs: int) -> None:
+    def train(self: Self, num_epochs: int) -> None:
         """
         Train the module for the specified number of epochs.
 
@@ -129,7 +127,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
         for _ in range(num_epochs):
             if self._early_termination:
                 return
-            self.exec_pre_epoch_hooks()
+            self.pre_epoch_hooks.execute(self)
             self.model_tracking.epoch += 1
             epoch_msg = '====> Epoch %(epoch)4d:'
             logger.log(log_settings.INFO_LEVELS.epoch,
@@ -140,7 +138,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
                 self._run_epoch()
             except exceptions.ConvergenceError as ce:
                 logger.error(ce, exc_info=True)
-            self.exec_post_epoch_hooks()
+            self.post_epoch_hooks.execute(self)
         logger.log(log_settings.INFO_LEVELS.training, 'End of training.')
         return
 
@@ -166,32 +164,13 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output]):
     def save_checkpoint(self, replace_previous: bool = False) -> None:
         self._checkpoint.save(replace_previous)
 
-    def load_checkpoint(self, epoch=-1) -> None:
+    def load_checkpoint(self, epoch: int = -1) -> None:
         self._checkpoint.load(epoch=epoch)
 
-    def add_pre_epoch_hook(self: Self, hook: Callable[[Self], None]) -> None:
-        self._pre_epoch_hooks.append(hook)
-        return
-
-    def add_post_epoch_hook(self: Self, hook: Callable[[Self], None]) -> None:
-        self._post_epoch_hooks.append(hook)
-        return
-
-    def exec_pre_epoch_hooks(self: Self) -> None:
-        """
-        This hook is called before running the training session.
-        """
-        for hook in self._pre_epoch_hooks:
-            hook(self)
-        return
-
-    def exec_post_epoch_hooks(self: Self) -> None:
-        """
-        This hook is called before running the training session.
-        """
-        for hook in self._post_epoch_hooks:
-            hook(self)
-        return
+    def update_learning_rate(
+            self, learning_rate: float | dict[str, float],
+    ) -> None:
+        self._model_optimizer.update_learning_rate(learning_rate)
 
     def __str__(self) -> str:
         return f'Trainer for {self.model.name}.'

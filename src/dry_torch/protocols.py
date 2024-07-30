@@ -194,3 +194,30 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     @abc.abstractmethod
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         """Calls the module forward method."""
+
+
+@runtime_checkable
+class TrainerProtocol(Protocol):
+    """
+    Protocol for a class that train and validates a model.
+
+    Attributes:
+        model: the model to train.
+    """
+    model: ModelProtocol
+
+    def validate(self) -> None:
+        """Validates the model."""
+
+    def terminate_training(self) -> None:
+        """Terminate the training."""
+
+    def save_checkpoint(self, replace_previous: bool = False) -> None:
+        """Save the model weights, the optimizer state and the logs."""
+
+    def load_checkpoint(self, epoch: int = -1) -> None:
+        """Load the model weights, the optimizer state and the logs."""
+
+    def update_learning_rate(self, learning_rate: float) -> None:
+        """Update the learning rate."""
+
