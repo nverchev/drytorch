@@ -2,8 +2,8 @@ from typing import NamedTuple
 import pytest
 import torch
 
-from dry_torch.recursive_ops import recursive_apply
-from dry_torch.recursive_ops import recursive_to
+from dry_torch.apply_ops import recursive_apply
+from dry_torch.apply_ops import apply_to
 
 
 class TorchTuple(NamedTuple):
@@ -45,6 +45,6 @@ def test_recursive_to() -> None:
     list_data = TorchLikeTuple(torch.tensor(1.),
                                [torch.tensor(1.), torch.tensor(2.)])
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    list_data = recursive_to(list_data, device=device)
+    list_data = apply_to(list_data, device=device)
     assert list_data[0].device == device
     assert list_data[1][0].device == device
