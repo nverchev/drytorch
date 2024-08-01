@@ -136,7 +136,8 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     def _store(self, outputs: _Output) -> None:
         try:
             outputs = apply_ops.apply_cpu_detach(outputs)
-        except exceptions.FuncNotApplicableError as err:
+        except (exceptions.FuncNotApplicableError,
+                exceptions.NamedTupleOnlyError) as err:
             warnings.warn(exceptions.CannotStoreOutputWarning(str(err)))
         else:
             self.outputs_list.append(outputs)
