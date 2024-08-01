@@ -1,4 +1,4 @@
-from typing import Iterable, Any, TypeVar, Hashable, Callable, Type
+from typing import Iterable, Any, TypeVar, Hashable
 import pathlib
 
 _K = TypeVar('_K', bound=Hashable)
