@@ -39,7 +39,7 @@ class ModelTracker:
         self.name: Final = name
         self.epoch = 0
         model_literal = repr_utils.LiteralStr(model_repr)
-        self.metadata: dict[str, Any] = {'Repr': {name: model_literal}}
+        self.metadata: dict[str, Any] = {'Model': {name: model_literal}}
         self.binding: Optional[str] = None
         self.default_names: dict[str, DefaultName] = {}
         self.log = {split: pd.DataFrame() for split in descriptors.Split}
