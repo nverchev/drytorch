@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import torch
+import pathlib
 
 from dry_torch import Model
 from dry_torch import LearningScheme
@@ -11,6 +12,9 @@ from dry_torch.schedulers import CosineScheduler
 from dry_torch.schedulers import ExponentialScheduler
 from dry_torch.exceptions import MissingParamError
 from dry_torch.learning import ModelOptimizer
+
+exp_pardir = pathlib.Path(__file__).parent / 'experiments'
+Experiment('test_optimizer', pardir=exp_pardir)
 
 
 class ComplexModel(torch.nn.Module):
