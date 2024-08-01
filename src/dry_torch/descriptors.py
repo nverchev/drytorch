@@ -1,6 +1,6 @@
 import enum
 import pathlib
-from typing import TypedDict, Iterator, TypeAlias, Union
+from typing import TypedDict, Iterator, TypeAlias, Union, MutableSequence
 
 import pandas as pd
 import torch
@@ -8,8 +8,7 @@ from torch.nn import Parameter
 
 Tensors: TypeAlias = Union[
     torch.Tensor,
-    tuple[torch.Tensor, ...],
-    list[torch.Tensor],
+    MutableSequence[torch.Tensor]
 ]
 
 

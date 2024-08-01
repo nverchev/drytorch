@@ -1,8 +1,8 @@
 """This module defines internal protocols."""
 
 import abc
-from typing import Any, Iterable, Iterator, Mapping, Optional, Protocol, Self
-from typing import SupportsIndex, Type, TypeAlias, TypeVar, runtime_checkable
+from typing import Any, Iterator, Mapping, Optional, Protocol, SupportsIndex
+from typing import TypeAlias, TypeVar, runtime_checkable
 
 import torch
 from torch.utils import data
@@ -21,6 +21,7 @@ class NamedTupleProtocol(Protocol[_T]):
     NamedTuples with different values are currently interpreted as Generic[Any].
     At the moment, this protocol won't support these interfaces
     """
+    _fields: tuple
 
     def __getitem__(self, index: SupportsIndex) -> _T:
         ...
@@ -30,25 +31,6 @@ class NamedTupleProtocol(Protocol[_T]):
 
     def _asdict(self) -> dict[str, _T]:
         ...
-
-    @property
-    def _fields(self) -> tuple[str, ...]:
-        ...
-
-    @classmethod
-    def _make(cls: Type[Self],
-              *args: Any,
-              **kwargs: Any) -> Self:
-        """Create a new instance of the class."""
-
-
-@runtime_checkable
-class HasToDictProtocol(Protocol):
-    """Optional protocol for the output type."""
-
-    @abc.abstractmethod
-    def to_dict(self) -> Mapping[str, torch.Tensor | Iterable[torch.Tensor]]:
-        """Method to store outputs in the DryTorchDictList class"""
 
 
 InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]

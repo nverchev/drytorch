@@ -100,14 +100,14 @@ class Experiment(Generic[_T]):
 
     def __init__(self,
                  name: str = '',
-                 exp_pardir: str | pathlib.Path = pathlib.Path(''),
+                 pardir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[Any] = None,
                  allow_extract_metadata: bool = True,
                  max_items_repr: int = 3,
                  link_to_hydra: bool = False) -> None:
 
         self.name: Final = name or datetime.datetime.now().isoformat()
-        self.pardir = pathlib.Path(exp_pardir)
+        self.pardir = pathlib.Path(pardir)
         self.dir = self.pardir / name
         self.dir.mkdir(exist_ok=True, parents=True)
         self.config = config

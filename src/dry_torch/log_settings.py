@@ -87,8 +87,9 @@ def propagate_to_root_logger(deduplicate_stdout: bool = True,
         root_logger = logging.getLogger()
         for handler in root_logger.handlers:
             if isinstance(handler, logging.StreamHandler):
-                if handler.stream.name == '<stdout>':
-                    handler.addFilter(DryTorchFilter())
+                if hasattr(handler.stream, 'name'):
+                    if handler.stream.name == '<stdout>':
+                        handler.addFilter(DryTorchFilter())
 
 
 logger = logging.getLogger('dry_torch')

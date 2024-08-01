@@ -72,7 +72,7 @@ def extract_metadata(to_document: dict[str, Any],
 
     Args:
         to_document: a dictionary of objects to document.
-        max_size: maximum number of documented items in a container.
+        max_size: maximum number of documented items in a obj.
     """
     # get the recursive representation of the objects.
     try:
@@ -93,7 +93,7 @@ def add_metadata(model_tracker: tracking.ModelTracker,
 
      Args:
          model_tracker: the ModelTracker instance where to add metadata.
-         max_items_repr: maximum number of documented items in a container.
+         max_items_repr: maximum number of documented items in a obj.
          object_name: the name of the object operating on a model.
          to_document: a dictionary of arguments to document.
      """
@@ -114,7 +114,7 @@ def bind_to_model(
     """
     Decorator that binds a model to a class.
 
-    Only one class can be bound to a model at one time.
+    Only one class can be bound to a model at the one time.
     This decorator should be applied to the __init__ method of a class that
     operates on the model. The __init__ should only accept keyword arguments
     and only the model as a positional only argument.

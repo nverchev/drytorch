@@ -12,7 +12,7 @@ import torch
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import io
-from dry_torch import structures
+from dry_torch import aggregator
 from dry_torch import recursive_ops
 from dry_torch import protocols as p
 from dry_torch import log_settings
@@ -47,10 +47,10 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         the maximum number of outputs to store when testing.
         update_frequency:
         number of times the progress bar updates in one epoch.
-        stored_outputs:
+        outputs_list:
             An instance of TorchDictList that stores the last test evaluation.
         _store_outputs: if the flag is active store the module outputs in the
-            stored_outputs attribute. Default to False.
+            outputs_list attribute. Default to False.
 
     Methods:
         train:
@@ -79,8 +79,8 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         self._store_outputs = store_outputs
         device_is_cuda = self.model.device.type == 'cuda'
         self._mixed_precision = mixed_precision and device_is_cuda
-        self._metrics = structures.TorchAggregate()
-        self.stored_outputs = structures.NumpyDictList()
+        self._metrics = aggregator.TorchAggregator()
+        self.outputs_list = list[_Output]()
         return
 
     @property
@@ -112,12 +112,12 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         logger.log(log_settings.INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
                    log_args)
-        self._metrics = structures.TorchAggregate()
+        self._metrics.clear()
         return
 
     def _run_epoch(self):
         if self._store_outputs:
-            self.stored_outputs.clear()
+            self.outputs_list.clear()
         for batch in self._loader:
             batch = recursive_ops.recursive_to(batch, self.model.device)
             self._run_batch(*batch)
@@ -135,15 +135,11 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     def _store(self, outputs: _Output) -> None:
         try:
-            dict_batch = structures.NumpyDictList.from_batch(outputs)
-            self.stored_outputs.extend(dict_batch)
-        except exceptions.NotATensorError as type_err:
-            warnings.warn(exceptions.CannotStoreOutputWarning(str(type_err)))
-        except exceptions.NoToDictMethodError as attr_err:
-            warnings.warn(exceptions.CannotStoreOutputWarning(str(attr_err)))
-        except exceptions.DifferentBatchSizeError as value_err:
-            warnings.warn(exceptions.CannotStoreOutputWarning(str(value_err)))
-        return
+            outputs = recursive_ops.recursive_cpu_detach(outputs)
+        except exceptions.FuncNotApplicableError as err:
+            warnings.warn(exceptions.CannotStoreOutputWarning(str(err)))
+        else:
+            self.outputs_list.append(outputs)
 
     def _update_partition_log(self, metric: str, value: float) -> None:
         self.partition_log.loc[self.model_tracking.epoch, metric] = value
@@ -215,10 +211,10 @@ class Test(Evaluation[_Input, _Target, _Output]):
         the maximum number of outputs to store when testing.
         update_frequency:
         number of times the progress bar updates in one epoch.
-        stored_outputs:
+        outputs_list:
             An instance of TorchDictList that stores the last test evaluation.
         _store_outputs: if the flag is active store the module outputs in the
-            stored_outputs attribute. Default to False.
+            outputs_list attribute. Default to False.
 
     Methods:
         train:

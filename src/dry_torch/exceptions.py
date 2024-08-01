@@ -62,12 +62,12 @@ class DifferentBatchSizeError(DryTorchException, ValueError):
 
 
 class FuncNotApplicableError(DryTorchException, TypeError):
-    msg = 'Cannot apply {} on Datatype {}.'
+    msg = 'Cannot apply function {} on type {}.'
 
-    def __init__(self, func: Callable, datatype=Type) -> None:
-        self.func = func
-        self.type_name = datatype.__name__
-        super().__init__(func, self.type_name)
+    def __init__(self, func_name: str, type_name: str) -> None:
+        self.func_name = func_name
+        self.type_name = type_name
+        super().__init__(func_name, type_name)
 
 
 class KeysAlreadySetError(DryTorchException, KeyError):
@@ -139,7 +139,16 @@ class MustSupportIndex(DryTorchException, TypeError):
 
     def __init__(self, not_supporting_index: Any) -> None:
         self.not_supporting_index = not_supporting_index
-        super().__init__(type(not_supporting_index))
+        super().__init__(type(not_supporting_index).__name__)
+
+
+class NamedTupleOnlyError(DryTorchException, TypeError):
+    msg = ('The only accepted subtypes of tuple are namedtuple constructs. '
+           'Got {}.')
+
+    def __init__(self, tuple_type: str) -> None:
+        self.tuple_type = tuple_type
+        super().__init__(tuple_type)
 
 
 class NoConfigError(DryTorchException, AttributeError):

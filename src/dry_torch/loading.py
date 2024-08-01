@@ -18,7 +18,7 @@ logger = logging.getLogger('dry_torch')
 
 class DataLoader(p.LoaderProtocol[_Data_co]):
     """
-    A container for the data _static_loaders.
+    A obj for the data _static_loaders.
     Args:
         dataset: dataset
         batch_size: the batch size.

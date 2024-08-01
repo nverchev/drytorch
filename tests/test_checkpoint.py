@@ -18,7 +18,7 @@ def test_checkpoint():
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
     model = torch.nn.Linear(1, 1)
     Experiment('test_checkpoint',
-               exp_pardir=exp_pardir,
+               pardir=exp_pardir,
                config={'test': 'test'})
     model = Model(model, name='first_model')
     register_model(model)

@@ -1,15 +1,15 @@
 import logging
-from dry_torch import log_settings as default_logging
+from dry_torch import log_settings
 
 logger = logging.getLogger('dry_torch')
 
 
 def test_training_formatter():
-    logger.log(default_logging.INFO_LEVELS.training, 'test')
+    logger.log(log_settings.INFO_LEVELS.training, 'test')
 
 
 def test_propagate_to_main():
-    default_logging.propagate_to_main_logger()
-    logger.log(default_logging.INFO_LEVELS.training, 'test')
-    default_logging.set_default_logging()
-    logger.log(default_logging.INFO_LEVELS.training, 'test')
+    log_settings.propagate_to_root_logger()
+    logger.log(log_settings.INFO_LEVELS.training, 'test')
+    log_settings.set_default_logging()
+    logger.log(log_settings.INFO_LEVELS.training, 'test')

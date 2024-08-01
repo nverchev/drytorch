@@ -25,12 +25,9 @@ class TorchTuple(NamedTuple):
 
 
 @dataclasses.dataclass()
-class TorchData(p.HasToDictProtocol):
+class TorchData:
     output: torch.Tensor
     output2: tuple[torch.Tensor, ...] = (torch.empty(0),)
-
-    def to_dict(self) -> dict[str, torch.Tensor | Iterable[torch.Tensor]]:
-        return self.__dict__
 
 
 class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
@@ -68,7 +65,7 @@ def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
     Experiment('test_simple_training',
-               exp_pardir=exp_pardir,
+               pardir=exp_pardir,
                config={'answer': 42})
 
     module = Linear(1, 1)
@@ -109,6 +106,7 @@ def test_all() -> None:
                  loader=loader,
                  store_outputs=True)
     test()
+    print(torch.stack([output.output for output in test.outputs_list]))
     with pytest.warns(exceptions.AlreadyTestedWarning):
         test()
 
