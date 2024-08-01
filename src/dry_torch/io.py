@@ -71,10 +71,6 @@ class PathManager:
         return checkpoint_directory
 
     @property
-    def metadata(self) -> pathlib.Path:
-        return self.model_dir / 'metadata.yml'
-
-    @property
     def log(self) -> descriptors.PathDict:
         logs_directory = self.logs_dir
         return {split: logs_directory / f'{split.name.lower()}_log.csv'
@@ -100,6 +96,12 @@ class PathManager:
             state=epoch_directory / 'state.pt',
             optimizer=epoch_directory / 'optimizer.pt',
         )
+
+    @property
+    def metadata_dir(self) -> pathlib.Path:
+        metadata_directory = self.model_dir / 'metadata'
+        metadata_directory.mkdir(exist_ok=True)
+        return metadata_directory
 
     def get_last_saved_epoch(self) -> int:
         """
@@ -307,9 +309,12 @@ class CheckpointIO(ModelStateIO):
 
 def dump_metadata(model_name: str) -> None:
     metadata = tracking.Experiment.current().tracker[model_name].metadata
-    with PathManager(model_name).metadata.open('w') as metadata_file:
-        now = datetime.datetime.now().replace(microsecond=0)
-        metadata = {'timestamp': now} | metadata
-        yaml.dump(metadata, metadata_file, sort_keys=False,
-                  default_flow_style=False)
+    metadata_dir = PathManager(model_name).metadata_dir
+    for key, value in metadata.items():
+        metadata_path = metadata_dir / key
+        with metadata_path.open('w') as metadata_file:
+            now = datetime.datetime.now().replace(microsecond=0)
+            metadata = {'timestamp': now} | value
+            yaml.dump(metadata, metadata_file, sort_keys=False,
+                      default_flow_style=False)
     return

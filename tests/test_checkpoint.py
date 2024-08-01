@@ -32,9 +32,6 @@ def test_checkpoint():
     assert first_loaded_parameter == first_saved_parameter
     second_model = model.clone('second_model')
     register_model(second_model)
-    track(second_model).metadata |= recursive_repr({'test': [1, 2, 3, 4, 5]},
-                                                   max_size=4)
-    dump_metadata(second_model.name)
     model_optimizer = ModelOptimizer(second_model, LearningScheme())
     checkpoint_io = CheckpointIO(second_model, model_optimizer.optimizer)
     checkpoint_io.save()
