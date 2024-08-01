@@ -160,7 +160,7 @@ def _(obj: dict, *, max_size: int = 10):
 @recursive_repr.register
 def _(obj: torch.Tensor, *, max_size: int = 10):
     _not_used = max_size
-    return recursive_repr(obj.detach().cpu().numpy())
+    return recursive_repr(obj.detach().cpu().numpy(), max_size=max_size)
 
 
 @recursive_repr.register
