@@ -71,40 +71,24 @@ def recursive_apply(obj: _C,
                                             obj.__class__.__name__)
 
 
-def recursive_to(obj: _C, device: torch.device) -> _C:
+def apply(obj: _C,
+          expected_type: Type[_T],
+          func: Callable[[_T], _T]) -> _C:
     """
-    Function that changes the device of tensors inside a container.
+    Extend recursive_apply supports.
+
+    If the input has attributes, it calls recursive_apply, set the
+    attributes of a copy of the class to the new values, and returns it.
 
     Args:
-        obj: container with other containers and tensors.
-        device: the target device.
+        obj: container or class containing other containers and tensors.
+        expected_type: the type of the objects to modify.
+        func: a function that modifies objects of the expected type.
 
     Returns:
-        the same container with the tensor on the target device.
+        The container or class with the modified objects.
+
     """
-
-    def to_device(tensor: torch.Tensor) -> torch.Tensor:
-        return tensor.to(device)
-
-    return recursive_apply(obj,
-                           expected_type=torch.Tensor,
-                           func=to_device)
-
-
-def recursive_cpu_detach(obj: _C) -> _C:
-    """
-    Function that detaches and stores in cpu the tensors inside a container.
-
-    Args:
-         obj: container or class containing other containers and tensors.
-
-    Returns:
-        the same obj with the tensor on cpu.
-    """
-
-    def cpu_detach(tensor: torch.Tensor) -> torch.Tensor:
-        return tensor.detach().cpu()
-
     dict_attr: dict[str, Any] = {}
     if hasattr(obj, '__dict__'):
         dict_attr.update(obj.__dict__)
@@ -118,11 +102,47 @@ def recursive_cpu_detach(obj: _C) -> _C:
             setattr(obj_copy,
                     key,
                     recursive_apply(value,
-                                    expected_type=torch.Tensor,
-                                    func=cpu_detach)
+                                    expected_type=expected_type,
+                                    func=func)
                     )
         return obj_copy
     else:
         return recursive_apply(obj,
-                               expected_type=torch.Tensor,
-                               func=cpu_detach)
+                               expected_type=expected_type,
+                               func=func)
+
+
+def apply_to(obj: _C, device: torch.device) -> _C:
+    """
+    Function that changes the device of tensors inside a container.
+
+    Args:
+        obj: container or class containing other containers and tensors.
+        device: the target device.
+
+    Returns:
+        the same container with the tensor on the target device.
+    """
+
+    def to_device(tensor: torch.Tensor) -> torch.Tensor:
+        return tensor.to(device)
+
+    return apply(obj, expected_type=torch.Tensor, func=to_device)
+
+
+def apply_cpu_detach(obj: _C) -> _C:
+    """
+    Function that detaches and stores in cpu the tensors inside a container.
+
+    Args:
+         obj: container or class containing other containers and tensors.
+
+    Returns:
+        the same obj with the tensor on cpu.
+    """
+
+    def cpu_detach(tensor: torch.Tensor) -> torch.Tensor:
+        return tensor.detach().cpu()
+
+    return apply(obj, expected_type=torch.Tensor, func=cpu_detach)
+

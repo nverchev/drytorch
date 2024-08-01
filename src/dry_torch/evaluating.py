@@ -13,7 +13,7 @@ from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import io
 from dry_torch import aggregator
-from dry_torch import recursive_ops
+from dry_torch import apply_ops
 from dry_torch import protocols as p
 from dry_torch import log_settings
 from dry_torch import loading
@@ -119,7 +119,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         if self._store_outputs:
             self.outputs_list.clear()
         for batch in self._loader:
-            batch = recursive_ops.recursive_to(batch, self.model.device)
+            batch = apply_ops.apply_to(batch, self.model.device)
             self._run_batch(*batch)
             self._calculator.reset_calculated()
         self.log_metrics()
@@ -135,7 +135,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     def _store(self, outputs: _Output) -> None:
         try:
-            outputs = recursive_ops.recursive_cpu_detach(outputs)
+            outputs = apply_ops.apply_cpu_detach(outputs)
         except exceptions.FuncNotApplicableError as err:
             warnings.warn(exceptions.CannotStoreOutputWarning(str(err)))
         else:
