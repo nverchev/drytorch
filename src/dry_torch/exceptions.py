@@ -221,6 +221,10 @@ class CannotStoreOutputWarning(DryTorchException, RuntimeWarning):
         super().__init__(err_msg)
 
 
+class NotDocumentedArgs(DryTorchException, RuntimeWarning):
+    msg = 'Bounded classes positional arguments will not be documented.'
+
+
 class OptimizerNotLoadedWarning(DryTorchException, RuntimeWarning):
     msg = 'The optimizer has not been correctly loaded:\n{}'
 

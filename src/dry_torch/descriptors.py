@@ -31,4 +31,3 @@ class StatePath(TypedDict):
 PartitionsLength: TypeAlias = dict[Split, int]
 LogsDict: TypeAlias = dict[Split, pd.DataFrame]
 PathDict: TypeAlias = dict[Split, pathlib.Path]
-

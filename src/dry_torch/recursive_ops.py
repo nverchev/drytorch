@@ -5,7 +5,6 @@ from typing import Callable, Type, TypeVar, MutableMapping, MutableSequence, Any
 import torch
 
 from dry_torch import exceptions
-from dry_torch import protocols as p
 
 _T = TypeVar('_T')
 _C = TypeVar('_C')

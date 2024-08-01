@@ -72,7 +72,7 @@ def extract_metadata(to_document: dict[str, Any],
 
     Args:
         to_document: a dictionary of objects to document.
-        max_size: maximum number of documented items in a obj.
+        max_size: maximum number of documented items in an obj.
     """
     # get the recursive representation of the objects.
     try:
@@ -93,7 +93,7 @@ def add_metadata(model_tracker: tracking.ModelTracker,
 
      Args:
          model_tracker: the ModelTracker instance where to add metadata.
-         max_items_repr: maximum number of documented items in a obj.
+         max_items_repr: maximum number of documented items in an obj.
          object_name: the name of the object operating on a model.
          to_document: a dictionary of arguments to document.
      """
@@ -129,15 +129,18 @@ def bind_to_model(
     @wraps(func)
     def wrapper(instance: Any,
                 model: p.ModelProtocol[_Input_contra, _Output_co],
+                *args: _P.args,
                 **kwargs: _P.kwargs) -> _RT:
         if not isinstance(model, p.ModelProtocol):
             raise exceptions.BoundedModelTypeError(model)
+        if args:
+            warnings.warn(exceptions.NotDocumentedArgs())
 
         exp = tracking.Experiment.current()
         model_tracker = exp.tracker[model.name]
         cls_str = instance.__class__.__name__
         bound_cls_str = model_tracker.binding
-        if model_tracker.binding is not None:
+        if bound_cls_str is not None:
             raise exceptions.AlreadyBoundError(model.name, bound_cls_str)
 
         model_tracker.binding = cls_str
@@ -148,7 +151,7 @@ def bind_to_model(
         if exp.allow_extract_metadata:
             add_metadata(model_tracker, exp.max_items_repr, cls_count(), kwargs)
 
-        return func(instance, model, **kwargs)
+        return func(instance, model, *args, **kwargs)
 
     return wrapper
 
