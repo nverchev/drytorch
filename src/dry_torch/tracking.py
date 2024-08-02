@@ -21,15 +21,13 @@ _T = TypeVar('_T')
 class DefaultName:
     def __init__(self, prefix: str):
         self.prefix = prefix
-        self.count_defaults = -1
+        self.count_defaults = 0
 
     def __call__(self) -> str:
         self.count_defaults += 1
         return repr(self)
 
     def __repr__(self):
-        if not self.count_defaults:
-            return self.prefix
         return f"{self.prefix}_{self.count_defaults}"
 
 
