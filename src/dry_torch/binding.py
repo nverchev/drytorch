@@ -99,7 +99,6 @@ def add_metadata(model_tracker: tracking.ModelTracker,
      """
     extracted_metadata = extract_metadata(to_document, max_items_repr)
     model_tracker.metadata[object_name] = extracted_metadata
-    io.dump_metadata(model_tracker.name)
     return
 
 
@@ -170,4 +169,6 @@ def unbind(instance: Any,
     model_tracker.binding = None
     cls_str_with_counter = repr(model_tracker.default_names[cls_str])
     metadata[cls_str_with_counter]['model_final_epoch'] = model_tracker.epoch
+    io.dump_metadata(model_tracker.name)
+
     return
