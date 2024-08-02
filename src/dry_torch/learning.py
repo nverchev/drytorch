@@ -44,7 +44,7 @@ class LearningScheme:
 
 
 class Model(Generic[_Input_contra, _Output_co]):
-    _default_model_name = tracking.DefaultName('Model')
+    _default_model_name = tracking.DefaultName('Model', start=0)
     """
     Bundle the module and its optimizer.
     Support different learning rates and separate parameters groups.
