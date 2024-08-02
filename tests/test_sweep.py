@@ -74,9 +74,9 @@ def test_all() -> None:
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
     callback = hooks.early_stopping_callback(patience=0, start_from_epoch=5)
-    module = Linear(1, 1)
 
     for i in range(5):
+        module = Linear(1, 1)
         model = Model(module)
         register_model(model)
         trainer = Trainer(model,
