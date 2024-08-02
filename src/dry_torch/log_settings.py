@@ -13,6 +13,8 @@ import logging
 import sys
 from typing import NamedTuple, Optional
 
+from typing_extensions import override
+
 
 class InfoLevels(NamedTuple):
     """NamedTuple that defines different levels of information for logging."""
@@ -34,6 +36,7 @@ class InfoFormatter(logging.Formatter):
 
     default_msec_format = ''
 
+    @override
     def format(self, record: logging.LogRecord) -> str:
         self._style._fmt = self._info_fmt(record.levelno)
         return super().format(record)
@@ -51,6 +54,7 @@ class InfoFormatter(logging.Formatter):
 class DryTorchFilter(logging.Filter):
     """Filter that excludes logs from 'dry_torch'."""
 
+    @override
     def filter(self, record: logging.LogRecord) -> bool:
         return 'dry_torch' not in record.name
 

@@ -12,8 +12,7 @@ from typing import Callable, Literal
 import warnings
 
 import pandas as pd
-from pandas import DataFrame
-
+from dry_torch import protocols as p
 from dry_torch import tracking
 from dry_torch import exceptions
 from dry_torch import descriptors
@@ -21,7 +20,7 @@ from dry_torch import descriptors
 _Backend = Literal['visdom', 'plotly', 'auto', 'none']
 
 
-class BasePlotter(metaclass=ABCMeta):
+class BasePlotter(p.PlotterProtocol, metaclass=ABCMeta):
     """
     Abstract base class for plotting learning curves.
 
@@ -33,8 +32,8 @@ class BasePlotter(metaclass=ABCMeta):
         self.model_name: str = model_name
 
     def plot(self,
-             train_log: DataFrame,
-             val_log: DataFrame,
+             train_log: pd.DataFrame,
+             val_log: pd.DataFrame,
              metric_name: str = 'Criterion',
              start: int = 0,
              title: str = 'Learning Curves') -> None:
@@ -52,8 +51,8 @@ class BasePlotter(metaclass=ABCMeta):
 
     @abstractmethod
     def _plot(self,
-              train_log: DataFrame,
-              val_log: DataFrame,
+              train_log: pd.DataFrame,
+              val_log: pd.DataFrame,
               loss_or_metric: str,
               start: int,
               title: str) -> None:
@@ -69,8 +68,8 @@ class NoPlotter(BasePlotter):
     """
 
     def _plot(self,
-              train_log: DataFrame,
-              val_log: DataFrame,
+              train_log: pd.DataFrame,
+              val_log: pd.DataFrame,
               loss_or_metric: str,
               start: int,
               title: str) -> None:
@@ -82,6 +81,11 @@ try:
 
     VISDOM_AVAILABLE: bool = True
 
+except ImportError:
+    VISDOM_AVAILABLE = False
+    visdom = ModuleType('Unreachable module.')
+
+else:
 
     class VisdomPlotter(BasePlotter):
         """
@@ -100,8 +104,8 @@ try:
             return self.vis.check_connection()
 
         def _plot(self,
-                  train_log: DataFrame,
-                  val_log: DataFrame,
+                  train_log: pd.DataFrame,
+                  val_log: pd.DataFrame,
                   metric: str,
                   start: int,
                   title: str) -> None:
@@ -128,21 +132,20 @@ try:
                               name='Validation')
             return
 
-
-except ImportError:
-    VISDOM_AVAILABLE = False
-    visdom = ModuleType('Unreachable module.')
-
 try:
     import plotly.express as px  # type: ignore
 
     PLOTLY_AVAILABLE: bool = True
 
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    px = ModuleType('Unreachable module.')
 
+else:
     class PlotlyPlotter(BasePlotter):
         def _plot(self,
-                  train_log: DataFrame,
-                  val_log: DataFrame,
+                  train_log: pd.DataFrame,
+                  val_log: pd.DataFrame,
                   loss_or_metric: str,
                   start: int,
                   title: str) -> None:
@@ -161,11 +164,6 @@ try:
                           title=title)
             fig.show()
             return
-
-
-except ImportError:
-    PLOTLY_AVAILABLE = False
-    px = ModuleType('Unreachable module.')
 
 
 def plotter_closure(model_name: str,
@@ -281,8 +279,8 @@ class Plotter(BasePlotter):
         return
 
     def _plot(self,
-              train_log: DataFrame,
-              val_log: DataFrame,
+              train_log: pd.DataFrame,
+              val_log: pd.DataFrame,
               metric_name: str = 'Criterion',
               start: int = 0,
               title: str = 'Learning Curves',

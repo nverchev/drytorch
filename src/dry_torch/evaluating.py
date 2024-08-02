@@ -2,7 +2,7 @@ import sys
 import logging
 import abc
 import warnings
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, override
 
 import dry_torch.binding
 import dry_torch.descriptors
@@ -150,9 +150,8 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         return f'Base Evaluator for {self.model.name}.'
 
 
-class Diagnostic(Evaluation):
-    partition = dry_torch.descriptors.Split.TRAIN
-
+class Diagnostic(Evaluation[_Input, _Target, _Output]):
+    @override
     @torch.inference_mode()
     def __call__(self) -> None:
         """
@@ -166,6 +165,7 @@ class Diagnostic(Evaluation):
         self._run_epoch()
         return
 
+    @override
     def _update_partition_log(self, metric: str, value: float) -> None:
         return
 
@@ -173,6 +173,7 @@ class Diagnostic(Evaluation):
 class Validation(Evaluation[_Input, _Target, _Output]):
     partition = dry_torch.descriptors.Split.VAL
 
+    @override
     @torch.inference_mode()
     def __call__(self) -> None:
         """
@@ -247,9 +248,11 @@ class Test(Evaluation[_Input, _Target, _Output]):
         self._checkpoint = io.LogIO(model.name)
         return
 
+    @override
     def _get_default_name(self) -> str:
         return repr(self.model_tracking.default_names[self.__class__.__name__])
 
+    @override
     @torch.inference_mode()
     def __call__(self) -> None:
         """
@@ -273,6 +276,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
         self._checkpoint.save()
         return
 
+    @override
     def _update_partition_log(self, metric: str, value: float) -> None:
         self.partition_log.loc[self.test_name, metric] = value
         return

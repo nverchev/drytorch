@@ -3,6 +3,7 @@ from typing import Callable, Optional, Self, TypeVar
 
 import torch
 from torch.cuda import amp
+from typing_extensions import override
 
 from dry_torch import descriptors
 from dry_torch import io
@@ -100,6 +101,7 @@ class Trainer(
     def validate(self) -> None:
         return self._validation()
 
+    @override
     def terminate_training(self) -> None:
         try:
             binding.unbind(self, self.model)
@@ -108,10 +110,12 @@ class Trainer(
         self._early_termination = True
         return
 
+    @override
     def __call__(self) -> None:
         self.train(1)
         return
 
+    @override
     def train(self: Self, num_epochs: int) -> None:
         """
         Train the module for the specified number of epochs.
@@ -161,12 +165,15 @@ class Trainer(
         self._scaler.update()
         self._optimizer.zero_grad()
 
+    @override
     def save_checkpoint(self, replace_previous: bool = False) -> None:
         self._checkpoint.save(replace_previous)
 
+    @override
     def load_checkpoint(self, epoch: int = -1) -> None:
         self._checkpoint.load(epoch=epoch)
 
+    @override
     def update_learning_rate(
             self, learning_rate: float | dict[str, float],
     ) -> None:

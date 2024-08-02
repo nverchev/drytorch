@@ -3,6 +3,7 @@
 import abc
 import collections
 from typing import Iterable, Mapping, Self, TypeVar, Generic
+from typing_extensions import override
 
 import torch
 
@@ -11,7 +12,7 @@ from dry_torch import exceptions
 _T = TypeVar('_T')
 
 
-class Aggregator(abc.ABC, Generic[_T]):
+class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
     """
     This class averages tensor values from dict-like objects.
 
@@ -106,10 +107,12 @@ class TorchAggregator(Aggregator[torch.Tensor]):
      typically the one for the batch. """
 
     @staticmethod
+    @override
     def _count(value: torch.Tensor) -> int:
         return value.numel()
 
     @staticmethod
+    @override
     def _aggregate(value: torch.Tensor) -> float:
         try:
             return value.sum(0).item()

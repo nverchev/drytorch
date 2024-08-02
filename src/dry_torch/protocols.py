@@ -4,6 +4,7 @@ import abc
 from typing import Any, Iterator, Mapping, Optional, Protocol, SupportsIndex
 from typing import TypeAlias, TypeVar, runtime_checkable
 
+import pandas as pd
 import torch
 from torch.utils import data
 
@@ -188,8 +189,8 @@ class TrainerProtocol(Protocol):
     """
     model: ModelProtocol
 
-    def validate(self) -> None:
-        """Validates the model."""
+    def train(self, num_epochs: int) -> None:
+        """Trains the model."""
 
     def terminate_training(self) -> None:
         """Terminate the training."""
@@ -203,3 +204,24 @@ class TrainerProtocol(Protocol):
     def update_learning_rate(self, learning_rate: float) -> None:
         """Update the learning rate."""
 
+
+class PlotterProtocol(Protocol):
+    """Protocol for a class that plots the learning curves."""
+
+    def plot(self,
+             train_log: pd.DataFrame,
+             val_log: pd.DataFrame,
+             metric_name: str = 'Criterion',
+             start: int = 0,
+             title: str = 'Learning Curves') -> None:
+        """
+        Plots the learning curves.
+
+        Args:
+            train_log: DataFrame with the logged training metrics.
+            val_log: DataFrame with the logged validation metrics.
+            metric_name: the metric to visualize. Defaults to 'Criterion'.
+            start: the starting epoch for the plot. Defaults to 0.
+            title: the title of the plot. Defaults to 'Learning Curves'.
+        """
+        ...
