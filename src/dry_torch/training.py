@@ -1,5 +1,6 @@
 import logging
-from typing import Callable, Optional, Self, TypeVar
+from typing import Callable, Self, TypeVar
+import atexit
 
 import torch
 from torch.cuda import amp
@@ -75,6 +76,7 @@ class Trainer(
         self.pre_epoch_hooks = hooks.HookRegistry[Self]()
         self.post_epoch_hooks = hooks.HookRegistry[Self]()
         self._early_termination = False
+        atexit.register(self.terminate_training)
         return
 
     @property
