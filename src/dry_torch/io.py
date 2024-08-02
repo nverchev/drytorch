@@ -36,7 +36,7 @@ class PathManager:
         logs_directory (Path): The directory for the logs.
         metadata (Path): The metadata file path.
         log (dict): A dictionary containing the paths for the logs.
-        _checkpoint (StatePath): The path for the _checkpoint.
+        checkpoint (StatePath): The path for the checkpoint.
 
     Methods:
         get_last_saved_epoch(self) -> int: Get the last saved epoch.
@@ -132,8 +132,8 @@ class LogIO:
 
 
     Methods:
-        save: save a _checkpoint.
-        load: load a _checkpoint.
+        save: save a checkpoint.
+        load: load a checkpoint.
         name: property with the model_name of the experiment.
         epoch: property with the current epoch.
     """
@@ -152,13 +152,14 @@ class LogIO:
 
     def save(self) -> None:
         """
-        Save a _checkpoint for the module and the optimizer with the metadata of
+        Save a checkpoint for the module and the optimizer with the metadata of
         the experiments, the test results,
         and the training and validation learning curves.
         """
         for split, path in self.paths.log.items():
-            # write instead of append to be safe from bugs
-            self.model_tracker.log[split].to_csv(path)
+            log = self.model_tracker.log[split]
+            if len(log):
+                log.to_csv(path)
         logger.log(log_settings.INFO_LEVELS.io,
                    f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
@@ -168,11 +169,11 @@ class LogIO:
 
     def load(self, epoch: int = -1) -> None:
         """
-        Load a _checkpoint for the module and the optimizer, the training and
+        Load a checkpoint for the module and the optimizer, the training and
         validation metrics and the test results.
 
         Args:
-            epoch: the epoch of the _checkpoint to load, the last _checkpoint is
+            epoch: the epoch of the checkpoint to load, the last checkpoint is
             loaded if a negative value is given.
         """
         self._update_epoch(epoch)
@@ -207,8 +208,8 @@ class ModelStateIO(LogIO):
 
 
     Methods:
-        save: save a _checkpoint.
-        load: load a _checkpoint.
+        save: save a checkpoint.
+        load: load a checkpoint.
         name: property with the model_name of the experiment.
         epoch: property with the current epoch.
     """
@@ -221,7 +222,7 @@ class ModelStateIO(LogIO):
 
     def save(self) -> None:
         """
-        Save a _checkpoint for the module and the optimizer with the metadata of
+        Save a checkpoint for the module and the optimizer with the metadata of
         the experiments, the test results,
         and the training and validation learning curves.
         """
@@ -231,11 +232,11 @@ class ModelStateIO(LogIO):
 
     def load(self, epoch: int = -1) -> None:
         """
-        Load a _checkpoint for the module and the optimizer, the training and
+        Load a checkpoint for the module and the optimizer, the training and
         validation metrics and the test results.
 
         Args:
-            epoch: the epoch of the _checkpoint to load, the last _checkpoint is
+            epoch: the epoch of the checkpoint to load, the last checkpoint is
             loaded if a negative value is given.
         """
         super().load(epoch)
@@ -257,8 +258,8 @@ class CheckpointIO(ModelStateIO):
 
 
     Methods:
-        save: save a _checkpoint.
-        load: load a _checkpoint.
+        save: save a checkpoint.
+        load: load a checkpoint.
         name: property with the model_name of the experiment.
         epoch: property with the current epoch.
     """
@@ -273,7 +274,7 @@ class CheckpointIO(ModelStateIO):
 
     def save(self, replace_previous: bool = False) -> None:
         """
-        Save a _checkpoint for the module and the optimizer with the metadata of
+        Save a checkpoint for the module and the optimizer with the metadata of
         the experiments, the test results,
         and the training and validation learning curves.
         """
@@ -289,11 +290,11 @@ class CheckpointIO(ModelStateIO):
 
     def load(self, epoch: int = -1) -> None:
         """
-        Load a _checkpoint for the module and the optimizer, the training and
+        Load a checkpoint for the module and the optimizer, the training and
         validation metrics and the test results.
 
         Args:
-            epoch: the epoch of the _checkpoint to load, the last _checkpoint is
+            epoch: the epoch of the checkpoint to load, the last checkpoint is
             loaded if a negative value is given.
         """
         super().load(epoch)
