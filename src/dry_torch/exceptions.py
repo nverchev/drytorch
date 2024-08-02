@@ -27,15 +27,6 @@ class AlreadyBoundError(DryTorchException, RuntimeError):
         super().__init__(model_name, cls_str)
 
 
-class AlreadyRegisteredError(DryTorchException, ValueError):
-    msg = ('Registering model_name {} was unsuccessful:'
-           ' model_name already registered in experiment {}.')
-
-    def __init__(self, name: str, exp_name: str) -> None:
-        self.name = name
-        super().__init__(name, exp_name)
-
-
 class BoundedModelTypeError(DryTorchException, TypeError):
     msg = 'First argument of type {} does not follow ModelProtocol.'
 
@@ -134,12 +125,27 @@ class ModelNotFoundError(DryTorchException, FileNotFoundError):
         super().__init__(checkpoint_directory)
 
 
+class ModuleAlreadyRegisteredError(DryTorchException, ValueError):
+    msg = 'Module already registered in experiment {}.'
+
+    def __init__(self, exp_name: str) -> None:
+        super().__init__(exp_name)
+
+
 class MustSupportIndex(DryTorchException, TypeError):
     msg = "Object of type {} has not a '__index__' method."
 
     def __init__(self, not_supporting_index: Any) -> None:
         self.not_supporting_index = not_supporting_index
         super().__init__(type(not_supporting_index).__name__)
+
+
+class NameAlreadyExistsError(DryTorchException, ValueError):
+    msg = 'Module name {} already present in experiment {}.'
+
+    def __init__(self, name: str, exp_name: str) -> None:
+        self.name = name
+        super().__init__(name, exp_name)
 
 
 class NamedTupleOnlyError(DryTorchException, TypeError):

@@ -29,10 +29,10 @@ def _cache_register_model(
     @wraps(func)
     def wrapper(model: p.ModelProtocol) -> None:
         exp = tracking.Experiment.current()
-        model_identifier = id(model)
+        model_identifier = id(model.module)
         if model_identifier in _REGISTERED_MODELS:
             exp_name = _REGISTERED_MODELS[model_identifier].name
-            raise exceptions.AlreadyRegisteredError(model.name, exp_name)
+            raise exceptions.ModuleAlreadyRegisteredError(exp_name)
 
         _REGISTERED_MODELS[model_identifier] = exp
         return func(model)

@@ -61,7 +61,7 @@ class ModelTrackerDict:
 
     def __setitem__(self, key: str, value: ModelTracker):
         if key in self:
-            raise exceptions.AlreadyRegisteredError(key, self.exp_name)
+            raise exceptions.NameAlreadyExistsError(key, self.exp_name)
         self._models.__setitem__(key, value)
 
     def __delitem__(self, key: str):

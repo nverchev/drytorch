@@ -8,7 +8,7 @@ from dry_torch import Experiment
 from dry_torch import LearningScheme
 from dry_torch import register_model
 from dry_torch.learning import ModelOptimizer
-from dry_torch.exceptions import AlreadyRegisteredError
+from dry_torch.exceptions import ModuleAlreadyRegisteredError
 from dry_torch.tracking import track
 from dry_torch.io import dump_metadata
 from dry_torch.repr_utils import recursive_repr
@@ -22,7 +22,7 @@ def test_checkpoint():
                config={'test': 'test'})
     model = Model(model, name='first_model')
     register_model(model)
-    with pytest.raises(AlreadyRegisteredError):
+    with pytest.raises(ModuleAlreadyRegisteredError):
         register_model(model)
     model_state_io = ModelStateIO(model)
     model_state_io.save()

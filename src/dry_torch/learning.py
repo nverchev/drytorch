@@ -244,5 +244,4 @@ class ModelOptimizer:
         return sum(1 for _ in params)
 
     def get_epoch(self) -> int:
-        exp = tracking.Experiment.current()
-        return exp.tracker[self.model.name].epoch
+        return tracking.track(self.model).epoch

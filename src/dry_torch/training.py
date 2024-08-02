@@ -60,9 +60,6 @@ class Trainer(
             learning_scheme: learning.LearningScheme,
             loss_calc: p.LossCalculatorProtocol[_Output, _Target],
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            val_loader: Optional[
-                p.LoaderProtocol[tuple[_Input, _Target]]
-            ] = None,
             mixed_precision: bool = False,
     ) -> None:
         super().__init__(model,
@@ -77,8 +74,6 @@ class Trainer(
         self._scaler = amp.GradScaler(enabled=self._mixed_precision)
         self.pre_epoch_hooks = hooks.HookRegistry[Self]()
         self.post_epoch_hooks = hooks.HookRegistry[Self]()
-        self._val_loader = val_loader
-        self._validation = self._set_validation()
         self._early_termination = False
         return
 
@@ -86,20 +81,16 @@ class Trainer(
     def model_tracking(self) -> tracking.ModelTracker:
         return tracking.Experiment.current().tracker[self.model.name]
 
-    def _set_validation(self) -> Callable[[], None]:
+    def add_validation(
+            self,
+            val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
+    ) -> Callable[[], None]:
 
-        if self._val_loader is None:
-            def validation() -> None:
-                return
-        else:
-            validation = evaluating.Validation(self.model,
-                                               loader=self._val_loader,
-                                               metrics_calc=self._calculator)
-            self.post_epoch_hooks.register(hooks.validation_hook)
+        validation = evaluating.Validation(self.model,
+                                           loader=val_loader,
+                                           metrics_calc=self._calculator)
+        self.post_epoch_hooks.register(hooks.static_hook(validation))
         return validation
-
-    def validate(self) -> None:
-        return self._validation()
 
     @override
     def terminate_training(self) -> None:

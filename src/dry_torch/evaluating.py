@@ -2,7 +2,8 @@ import sys
 import logging
 import abc
 import warnings
-from typing import TypeVar, Generic, override
+from typing import TypeVar, Generic
+from typing_extensions import override
 
 import dry_torch.binding
 import dry_torch.descriptors
@@ -248,7 +249,6 @@ class Test(Evaluation[_Input, _Target, _Output]):
         self._checkpoint = io.LogIO(model.name)
         return
 
-    @override
     def _get_default_name(self) -> str:
         return repr(self.model_tracking.default_names[self.__class__.__name__])
 

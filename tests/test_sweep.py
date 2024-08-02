@@ -19,6 +19,9 @@ from dry_torch import hooks
 from typing import NamedTuple, Iterable
 import dataclasses
 
+from dry_torch.descriptors import Split
+from dry_torch.tracking import track
+
 
 class TorchTuple(NamedTuple):
     input: torch.Tensor
@@ -64,46 +67,23 @@ def square_error(outputs: TorchData,
 def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
-    Experiment('test_simple_training',
+    Experiment('test_sweep',
                pardir=exp_pardir)
 
-    module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
-    model = Model(module, name='original_model')
-    register_model(model)
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
-    trainer = Trainer(model,
-                      learning_scheme=LearningScheme(lr=0.01),
-                      loss_calc=loss_calc,
-                      loader=loader)
-    trainer.add_validation(val_loader=loader)
-    trainer.post_epoch_hooks.register(
-        hooks.call_every(5, hooks.saving_hook())
-    )
-    trainer.post_epoch_hooks.register(hooks.early_stopping_callback())
-    trainer.train(10)
-    cloned_model = model.clone('cloned_model')
-    register_model(cloned_model)
-    Trainer(cloned_model,
-            learning_scheme=LearningScheme(lr=0.01),
-            loss_calc=loss_calc,
-            loader=loader)
-    with pytest.raises(exceptions.AlreadyBoundError):
-        Trainer(cloned_model,
-                learning_scheme=LearningScheme(lr=0.01),
-                loss_calc=loss_calc,
-                loader=loader)
-    tuple_in = TorchTuple(input=torch.FloatTensor([.2]).to(cloned_model.device))
-    out = cloned_model(tuple_in)
-    assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
-    trainer.terminate_training()
-    test = _Test(model,
-                 metrics_calc=loss_calc,
-                 loader=loader,
-                 store_outputs=True)
-    test()
+    callback = hooks.early_stopping_callback(patience=0, start_from_epoch=5)
+    module = Linear(1, 1)
 
-
-if __name__ == "__main__":
-    test_all()
+    for i in range(5):
+        model = Model(module)
+        register_model(model)
+        trainer = Trainer(model,
+                          learning_scheme=LearningScheme(lr=i * 0.01),
+                          loss_calc=loss_calc,
+                          loader=loader)
+        trainer.add_validation(val_loader=loader)
+        trainer.post_epoch_hooks.register(callback)
+        trainer.train(10)
+        trainer.terminate_training()

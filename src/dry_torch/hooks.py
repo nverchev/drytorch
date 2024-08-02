@@ -1,6 +1,9 @@
 import logging
 from typing import Generic, TypeVar, Callable, Optional
 
+import numpy as np
+import numpy.typing as npt
+
 from dry_torch import descriptors
 from dry_torch import exceptions
 from dry_torch import log_settings
@@ -27,14 +30,40 @@ class HookRegistry(Generic[_Class]):
         return
 
 
-def validation_hook(instance: p.TrainerProtocol) -> None:
-    instance.validate()
-    return
+def saving_hook(
+        replace_previous: bool = False
+) -> Callable[[p.TrainerProtocol], None]:
+    def call(instance: p.TrainerProtocol) -> None:
+        instance.save_checkpoint(replace_previous=replace_previous)
+
+    return call
+
+
+def static_hook(
+        hook: Callable[[], None]
+) -> Callable[[p.TrainerProtocol], None]:
+    def call(_: p.TrainerProtocol) -> None:
+        hook()
+
+    return call
+
+
+def call_every(
+        interval: int,
+        hook: Callable[[p.TrainerProtocol], None],
+        start: int = 0,
+) -> Callable[[p.TrainerProtocol], None]:
+    def call(instance: p.TrainerProtocol) -> None:
+        if tracking.track(instance.model).epoch % interval == start:
+            hook(instance)
+
+    return call
 
 
 def early_stopping_callback(
         monitor_dataset: descriptors.Split = descriptors.Split.VAL,
         metric_name: str = 'Criterion',
+        aggregate_fun: Callable[[npt.NDArray], float] = np.min,
         min_delta: float = 0.,
         patience: int = 10,
         lower_is_best: bool = True,
@@ -43,10 +72,9 @@ def early_stopping_callback(
 ) -> Callable[[p.TrainerProtocol], None]:
     best_result = float('inf') if lower_is_best else 0
 
-    def _early_stopping(instance: p.TrainerProtocol):
+    def call(instance: p.TrainerProtocol):
         nonlocal best_result
-        exp = tracking.Experiment.current()
-        model_tracker = exp.tracker[instance.model.name]
+        model_tracker = tracking.track(instance.model)
         if model_tracker.epoch < start_from_epoch:
             return
 
@@ -54,11 +82,11 @@ def early_stopping_callback(
         if metric_name not in monitor_log:
             raise exceptions.MetricNotFoundError(metric_name)
         last_results = monitor_log[metric_name][-(patience + 1):]
-        best_last_result = min(last_results)
+        aggregated_result = aggregate_fun(last_results)
         if baseline is None:
-            condition = best_result + min_delta <= best_last_result
+            condition = best_result + min_delta <= aggregated_result
         else:
-            condition = baseline + min_delta <= best_last_result
+            condition = baseline + min_delta <= aggregated_result
 
         if not lower_is_best:
             condition = not condition
@@ -68,7 +96,7 @@ def early_stopping_callback(
             logger.log(log_settings.INFO_LEVELS.metrics,
                        'Terminated by early stopping.')
         else:
-            best_result = best_last_result
+            best_result = aggregated_result
         return
 
-    return _early_stopping
+    return call
