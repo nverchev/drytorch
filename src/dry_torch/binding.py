@@ -62,7 +62,8 @@ def register_model(model: p.ModelProtocol, /) -> None:
     name = model.name
     model_repr = model.module.__repr__()
     exp.tracker[name] = tracking.ModelTracker(name, model_repr=model_repr)
-    io.dump_metadata(name)
+    if exp.save_metadata:
+        io.dump_metadata(name)
 
 
 def extract_metadata(to_document: dict[str, Any],
@@ -147,7 +148,7 @@ def bind_to_model(
             cls_str,
             tracking.DefaultName(cls_str)
         )
-        if exp.allow_extract_metadata:
+        if exp.save_metadata:
             add_metadata(model_tracker, exp.max_items_repr, cls_count(), kwargs)
 
         return func(instance, model, *args, **kwargs)
@@ -160,15 +161,18 @@ def unbind(instance: Any,
     if not isinstance(model, p.ModelProtocol):
         raise exceptions.BoundedModelTypeError(model)
 
-    model_tracker = tracking.Experiment.current().tracker[model.name]
+    exp = tracking.Experiment.current()
+    model_tracker = exp.tracker[model.name]
     metadata = model_tracker.metadata
     cls_str = instance.__class__.__name__
     if cls_str != model_tracker.binding:
         raise exceptions.NotBoundedError(model.name, cls_str)
 
     model_tracker.binding = None
-    cls_str_with_counter = repr(model_tracker.default_names[cls_str])
-    metadata[cls_str_with_counter]['model_final_epoch'] = model_tracker.epoch
-    io.dump_metadata(model_tracker.name)
+    cls_str_with_count = repr(model_tracker.default_names[cls_str])
+
+    if exp.save_metadata:
+        metadata[cls_str_with_count]['model_final_epoch'] = model_tracker.epoch
+        io.dump_metadata(model_tracker.name)
 
     return

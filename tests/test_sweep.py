@@ -68,7 +68,8 @@ def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
     Experiment('test_sweep',
-               pardir=exp_pardir)
+               pardir=exp_pardir,
+               save_metadata=False)
 
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     dataset = IdentityDataset()

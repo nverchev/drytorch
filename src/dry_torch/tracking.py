@@ -84,8 +84,8 @@ class Experiment(Generic[_T]):
         name: the model_name of the experiment.
         config: configuration for the experiment.
         pardir: parent directory for the folders with the module checkpoints
-        allow_extract_metadata: whether to extract metadata from classes that 
-        implement the allow_extract_metadata decorator
+        save_metadata: whether to extract metadata from classes that 
+        implement the save_metadata decorator
         max_items_repr: limits the size of iterators and arrays.
 
 
@@ -102,7 +102,7 @@ class Experiment(Generic[_T]):
                  name: str = '',
                  pardir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[Any] = None,
-                 allow_extract_metadata: bool = True,
+                 save_metadata: bool = True,
                  max_items_repr: int = 3,
                  link_to_hydra: bool = False) -> None:
 
@@ -111,7 +111,7 @@ class Experiment(Generic[_T]):
         self.dir = self.pardir / name
         self.dir.mkdir(exist_ok=True, parents=True)
         self.config = config
-        self.allow_extract_metadata = allow_extract_metadata
+        self.save_metadata = save_metadata
         self.max_items_repr = max_items_repr
         if link_to_hydra:
             self.link_to_hydra()
