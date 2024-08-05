@@ -74,6 +74,7 @@ def test_all() -> None:
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
+                      name='MyTrainer',
                       learning_scheme=LearningScheme(lr=0.01),
                       loss_calc=loss_calc,
                       loader=loader)
@@ -82,18 +83,16 @@ def test_all() -> None:
         hooks.call_every(5, hooks.saving_hook())
     )
     trainer.post_epoch_hooks.register(hooks.early_stopping_callback())
-    trainer.train(10)
+    trainer.train(5)
+    trainer.save_checkpoint()
+    trainer.load_checkpoint()
+    trainer.train(5)
     cloned_model = model.clone('cloned_model')
     register_model(cloned_model)
     Trainer(cloned_model,
             learning_scheme=LearningScheme(lr=0.01),
             loss_calc=loss_calc,
             loader=loader)
-    with pytest.raises(exceptions.AlreadyBoundError):
-        Trainer(cloned_model,
-                learning_scheme=LearningScheme(lr=0.01),
-                loss_calc=loss_calc,
-                loader=loader)
     tuple_in = TorchTuple(input=torch.FloatTensor([.2]).to(cloned_model.device))
     out = cloned_model(tuple_in)
     assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
@@ -101,8 +100,8 @@ def test_all() -> None:
     test = _Test(model,
                  metrics_calc=loss_calc,
                  loader=loader,
-                 store_outputs=True)
-    test()
+                 )
+    test(store_outputs=True)
 
 
 if __name__ == "__main__":

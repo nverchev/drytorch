@@ -1,26 +1,18 @@
 import logging
 import pathlib
 
-import pytest
 import torch
 from torch.utils import data
 from dry_torch import Trainer
-from dry_torch import Test as _Test  # otherwise pytest interprets it as a test
 from dry_torch import DataLoader
 from dry_torch import Experiment
 from dry_torch import Model
 from dry_torch import SimpleLossCalculator
-from dry_torch import exceptions
 from dry_torch import LearningScheme
-from dry_torch import protocols as p
 from dry_torch import register_model
-from dry_torch import log_settings
 from dry_torch import hooks
-from typing import NamedTuple, Iterable
+from typing import NamedTuple
 import dataclasses
-
-from dry_torch.descriptors import Split
-from dry_torch.tracking import track
 
 
 class TorchTuple(NamedTuple):
@@ -68,8 +60,7 @@ def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
     Experiment('test_sweep',
-               pardir=exp_pardir,
-               save_metadata=False)
+               pardir=exp_pardir)
 
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     dataset = IdentityDataset()
