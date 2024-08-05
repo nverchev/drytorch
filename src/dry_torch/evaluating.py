@@ -3,13 +3,13 @@ import logging
 import abc
 import warnings
 from typing import TypeVar, Generic
+
+import pandas as pd
 from typing_extensions import override
 
-import dry_torch.binding
-import dry_torch.descriptors
-import dry_torch.protocols
 import torch
 
+from dry_torch import descriptors
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import io
@@ -18,6 +18,7 @@ from dry_torch import apply_ops
 from dry_torch import protocols as p
 from dry_torch import log_settings
 from dry_torch import loading
+from dry_torch import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -28,7 +29,7 @@ logger = logging.getLogger('dry_torch')
 
 class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     max_stored_output: int = sys.maxsize
-    partition: dry_torch.descriptors.Split
+    partition: descriptors.Split
     """
     Implement the standard Pytorch training and evaluation loop.
 
@@ -71,13 +72,13 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
             *,
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
-            store_outputs: bool = False,
             mixed_precision: bool = False,
+            name: str = '',
     ) -> None:
         self.model = model
+        self.name = name
         self._loader = loading.TqdmLoader[tuple[_Input, _Target]](loader)
         self._calculator = metrics_calc
-        self._store_outputs = store_outputs
         device_is_cuda = self.model.device.type == 'cuda'
         self._mixed_precision = mixed_precision and device_is_cuda
         self._metrics = aggregator.TorchAggregator()
@@ -85,12 +86,17 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         return
 
     @property
-    def model_tracking(self) -> tracking.ModelTracker:
+    def model_tracker(self) -> tracking.ModelTracker:
         return tracking.Experiment.current().tracker[self.model.name]
 
     @property
-    def partition_log(self):
-        return self.model_tracking.log[self.partition]
+    def partition_log(self) -> pd.DataFrame:
+        return self.model_tracker.log[self.partition]
+
+    @partition_log.setter
+    def partition_log(self, value) -> None:
+        self.model_tracker.log[self.partition] = value
+        return
 
     @property
     def metrics(self) -> dict[str, float]:
@@ -98,7 +104,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         return out
 
     @abc.abstractmethod
-    def __call__(self) -> None:
+    def __call__(self, store_outputs: bool = False) -> None:
         ...
 
     def log_metrics(self) -> None:
@@ -106,8 +112,8 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         log_msg_list: list[str] = ['%(desc)-24s']
         desc = f'Average {self.partition.name.lower()} metrics:'
         log_args: dict[str, str | float] = {'desc': desc}
+        self._update_partition_log()
         for metric, value in self.metrics.items():
-            self._update_partition_log(metric, value)
             log_msg_list.append(f'%({metric})16s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
         logger.log(log_settings.INFO_LEVELS.metrics,
@@ -116,21 +122,23 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         self._metrics.clear()
         return
 
-    def _run_epoch(self):
-        if self._store_outputs:
-            self.outputs_list.clear()
+    def _run_epoch(self, store_outputs: bool):
+        self.outputs_list.clear()
         for batch in self._loader:
             batch = apply_ops.apply_to(batch, self.model.device)
-            self._run_batch(*batch)
+            self._run_batch(*batch, store_outputs=store_outputs)
             self._calculator.reset_calculated()
         self.log_metrics()
 
-    def _run_batch(self, inputs: _Input, targets: _Target) -> None:
+    def _run_batch(self,
+                   inputs: _Input,
+                   targets: _Target,
+                   store_outputs: bool) -> None:
         with torch.autocast(device_type=self.model.device.type,
                             enabled=self._mixed_precision):
             outputs = self.model(inputs)
             self._calculator.calculate(outputs, targets)
-            if self._store_outputs:
+            if store_outputs:
                 self._store(outputs)
         self._metrics += self._calculator.metrics
 
@@ -143,8 +151,12 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         else:
             self.outputs_list.append(outputs)
 
-    def _update_partition_log(self, metric: str, value: float) -> None:
-        self.partition_log.loc[self.model_tracking.epoch, metric] = value
+    def _update_partition_log(self) -> None:
+        info = {'Source': [self.name], 'Epoch': [self.model_tracker.epoch]}
+        log_line = pd.DataFrame(
+            info | {key: [value] for key, value in self.metrics.items()}
+        )
+        self.partition_log = pd.concat([self.partition_log, log_line])
         return
 
     def __str__(self) -> str:
@@ -152,9 +164,10 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
 
 class Diagnostic(Evaluation[_Input, _Target, _Output]):
+
     @override
     @torch.inference_mode()
-    def __call__(self) -> None:
+    def __call__(self, store_outputs: bool = False) -> None:
         """
         Evaluates the module's performance on the specified partition of the
         dataset.
@@ -163,20 +176,38 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
 
         """
         self.model.module.eval()
-        self._run_epoch()
+        self._run_epoch(store_outputs)
         return
 
     @override
-    def _update_partition_log(self, metric: str, value: float) -> None:
+    def _update_partition_log(self) -> None:
         return
 
 
 class Validation(Evaluation[_Input, _Target, _Output]):
-    partition = dry_torch.descriptors.Split.VAL
+    partition = descriptors.Split.VAL
+
+    @registering.register_kwargs
+    def __init__(
+            self,
+            model: p.ModelProtocol[_Input, _Output],
+            /,
+            *,
+            loader: p.LoaderProtocol[tuple[_Input, _Target]],
+            metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
+            mixed_precision: bool = False,
+            name: str = '',
+    ) -> None:
+        super().__init__(model,
+                         name=name,
+                         loader=loader,
+                         metrics_calc=metrics_calc,
+                         mixed_precision=mixed_precision)
+        return
 
     @override
     @torch.inference_mode()
-    def __call__(self) -> None:
+    def __call__(self, store_outputs: bool = False) -> None:
         """
         Evaluates the module's performance on the specified partition of the
         dataset.
@@ -185,7 +216,7 @@ class Validation(Evaluation[_Input, _Target, _Output]):
 
         """
         self.model.module.eval()
-        self._run_epoch()
+        self._run_epoch(store_outputs)
         return
 
     def __str__(self) -> str:
@@ -193,7 +224,7 @@ class Validation(Evaluation[_Input, _Target, _Output]):
 
 
 class Test(Evaluation[_Input, _Target, _Output]):
-    partition = dry_torch.descriptors.Split.TEST
+    partition = descriptors.Split.TEST
 
     """
     Implement the standard Pytorch training and evaluation loop.
@@ -230,7 +261,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
         property for adding a hook after running the training session.
     """
 
-    @dry_torch.binding.bind_to_model
+    @registering.register_kwargs
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -239,22 +270,17 @@ class Test(Evaluation[_Input, _Target, _Output]):
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
             name: str = '',
-            store_outputs: bool = False,
     ) -> None:
         super().__init__(model,
+                         name=name,
                          loader=loader,
-                         metrics_calc=metrics_calc,
-                         store_outputs=store_outputs)
-        self.test_name = name or self._get_default_name()
+                         metrics_calc=metrics_calc)
         self._checkpoint = io.LogIO(model.name)
         return
 
-    def _get_default_name(self) -> str:
-        return repr(self.model_tracking.default_names[self.__class__.__name__])
-
     @override
     @torch.inference_mode()
-    def __call__(self) -> None:
+    def __call__(self, store_outputs: bool = False) -> None:
         """
         Evaluates the module's performance on the specified partition of the
         dataset.
@@ -262,24 +288,16 @@ class Test(Evaluation[_Input, _Target, _Output]):
         Parameters:
 
         """
-        try:
-            dry_torch.binding.unbind(self, self.model)
-        except exceptions.NotBoundedError:
-            warnings.warn(exceptions.AlreadyTestedWarning())
-            return
-
         logger.log(log_settings.INFO_LEVELS.experiment,
                    'Testing %(model_name)s.',
                    {'model_name': self.model.name})
         self.model.module.eval()
-        self._run_epoch()
+        self._run_epoch(store_outputs)
         self._checkpoint.save()
         return
 
-    @override
-    def _update_partition_log(self, metric: str, value: float) -> None:
-        self.partition_log.loc[self.test_name, metric] = value
-        return
-
     def __str__(self) -> str:
-        return f'Test {self.test_name} for tracker {self.model.name}.'
+        return (
+            f'{repr(self.model_tracker.default_names[self.__class__.__name__])}'
+            'for tracker {self.model.name}.'
+        )

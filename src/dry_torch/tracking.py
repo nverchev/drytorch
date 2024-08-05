@@ -10,7 +10,6 @@ import pandas as pd
 from dry_torch import descriptors
 from dry_torch import exceptions
 from dry_torch import log_settings
-from dry_torch import repr_utils
 from dry_torch import protocols as p
 
 logger = logging.getLogger('dry_torch')
@@ -35,12 +34,10 @@ class DefaultName:
 
 class ModelTracker:
 
-    def __init__(self, name: str, model_repr: str) -> None:
+    def __init__(self, name: str) -> None:
         self.name: Final = name
         self.epoch = 0
-        model_literal = repr_utils.LiteralStr(model_repr)
-        self.metadata: dict[str, Any] = {'Model': {name: model_literal}}
-        self.binding: Optional[str] = None
+        self.metadata: dict[str, Any] = {}
         self.default_names: dict[str, DefaultName] = {}
         self.log = {split: pd.DataFrame() for split in descriptors.Split}
 

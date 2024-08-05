@@ -18,15 +18,6 @@ class AccessBeforeCalculateError(DryTorchException, AttributeError):
         super().__init__()
 
 
-class AlreadyBoundError(DryTorchException, RuntimeError):
-    msg = 'Model {} is already bound to class {}.'
-
-    def __init__(self, model_name: str, cls_str: str) -> None:
-        self.model_name = model_name
-        self.cls_str = cls_str
-        super().__init__(model_name, cls_str)
-
-
 class BoundedModelTypeError(DryTorchException, TypeError):
     msg = 'First argument of type {} does not follow ModelProtocol.'
 
@@ -190,15 +181,6 @@ class NotBatchedError(DryTorchException, ValueError):
         super().__init__(shapes)
 
 
-class NotBoundedError(DryTorchException, RuntimeError):
-    msg = 'There is no object of class {} bounded to module {}.'
-
-    def __init__(self, model_name: str, cls_str: str) -> None:
-        self.model_name = model_name
-        self.cls_str = cls_str
-        super().__init__(cls_str, model_name)
-
-
 class NoToDictMethodError(DryTorchException, AttributeError):
     msg = 'Object of type {} does not have a to_dict() method.'
 
@@ -213,10 +195,6 @@ class PartitionNotFoundError(DryTorchException, ValueError):
     def __init__(self, partition: str) -> None:
         self.partition = partition
         super().__init__(partition, partition)
-
-
-class AlreadyTestedWarning(DryTorchException, RuntimeWarning):
-    msg = 'Test has already been executed.'
 
 
 class CannotStoreOutputWarning(DryTorchException, RuntimeWarning):

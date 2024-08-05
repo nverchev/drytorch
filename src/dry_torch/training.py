@@ -1,6 +1,5 @@
 import logging
 from typing import Callable, Self, TypeVar
-import atexit
 
 import torch
 from torch.cuda import amp
@@ -14,8 +13,8 @@ from dry_torch import learning
 from dry_torch import protocols as p
 from dry_torch import log_settings
 from dry_torch import evaluating
-from dry_torch import binding
 from dry_torch import hooks
+from dry_torch import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -52,7 +51,7 @@ class Trainer(
         property for adding a hook after running the training session.
     """
 
-    @binding.bind_to_model
+    @registering.register_kwargs
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -62,11 +61,13 @@ class Trainer(
             loss_calc: p.LossCalculatorProtocol[_Output, _Target],
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             mixed_precision: bool = False,
+            name: str = '',
     ) -> None:
         super().__init__(model,
                          loader=loader,
                          metrics_calc=loss_calc,
-                         mixed_precision=mixed_precision)
+                         mixed_precision=mixed_precision,
+                         name=name)
         self._early_termination = False
 
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
@@ -76,11 +77,10 @@ class Trainer(
         self.pre_epoch_hooks = hooks.HookRegistry[Self]()
         self.post_epoch_hooks = hooks.HookRegistry[Self]()
         self._early_termination = False
-        atexit.register(self.terminate_training)
         return
 
     @property
-    def model_tracking(self) -> tracking.ModelTracker:
+    def model_tracker(self) -> tracking.ModelTracker:
         return tracking.Experiment.current().tracker[self.model.name]
 
     def add_validation(
@@ -96,16 +96,21 @@ class Trainer(
 
     @override
     def terminate_training(self) -> None:
-        try:
-            binding.unbind(self, self.model)
-        except exceptions.NotBoundedError:
-            pass
         self._early_termination = True
         return
 
     @override
-    def __call__(self) -> None:
-        self.train(1)
+    def __call__(self, store_outputs: bool = False) -> None:
+        self.model_tracker.epoch += 1
+        epoch_msg = '====> Epoch %(epoch)4d:'
+        logger.log(log_settings.INFO_LEVELS.epoch,
+                   epoch_msg, {'epoch': self.model_tracker.epoch})
+        self._model_optimizer.update_learning_rate()
+        self.model.module.train()
+        try:
+            self._run_epoch(store_outputs)
+        except exceptions.ConvergenceError as ce:
+            logger.error(ce, exc_info=True)
         return
 
     @override
@@ -125,22 +130,16 @@ class Trainer(
             if self._early_termination:
                 return
             self.pre_epoch_hooks.execute(self)
-            self.model_tracking.epoch += 1
-            epoch_msg = '====> Epoch %(epoch)4d:'
-            logger.log(log_settings.INFO_LEVELS.epoch,
-                       epoch_msg, {'epoch': self.model_tracking.epoch})
-            self._model_optimizer.update_learning_rate()
-            self.model.module.train()
-            try:
-                self._run_epoch()
-            except exceptions.ConvergenceError as ce:
-                logger.error(ce, exc_info=True)
+            self.__call__()
             self.post_epoch_hooks.execute(self)
         logger.log(log_settings.INFO_LEVELS.training, 'End of training.')
         return
 
-    def _run_batch(self, inputs: _Input, targets: _Target) -> None:
-        super()._run_batch(inputs, targets)
+    def _run_batch(self,
+                   inputs: _Input,
+                   targets: _Target,
+                   store_outputs: bool) -> None:
+        super()._run_batch(inputs, targets, store_outputs=store_outputs)
         self._calculator: p.LossCalculatorProtocol
         criterion = self._calculator.criterion.mean(0)
         try:

@@ -73,7 +73,7 @@ class PathManager:
     @property
     def log(self) -> descriptors.PathDict:
         logs_directory = self.logs_dir
-        return {split: logs_directory / f'{split.name.lower()}_log.csv'
+        return {split: logs_directory / f'{split.name.lower()}.csv'
                 for split in descriptors.Split}
 
     @property
@@ -159,7 +159,7 @@ class LogIO:
         for split, path in self.paths.log.items():
             log = self.model_tracker.log[split]
             if len(log):
-                log.to_csv(path)
+                log.to_csv(path, index=False)
         logger.log(log_settings.INFO_LEVELS.io,
                    f"%(definition)s saved in: %(model_dir)s.",
                    {'definition': self.definition.capitalize(),
@@ -179,12 +179,12 @@ class LogIO:
         self._update_epoch(epoch)
         for split, path in self.paths.log.items():
             try:
-                df = pd.read_csv(path, index_col=0)
+                df = pd.read_csv(path)
             except FileNotFoundError:
                 df = pd.DataFrame()
-            if split is not descriptors.Split.TEST:
+            if split is not descriptors.Split.TEST and len(df):
                 # filter out future epochs from logs
-                df = df[df.index <= self.model_tracker.epoch]
+                df = df[df['Epoch'] <= self.model_tracker.epoch]
             self.model_tracker.log[split] = df
         logger.log(log_settings.INFO_LEVELS.io,
                    f"Loaded %(definition)s at epoch %(epoch)d.",
@@ -308,14 +308,15 @@ class CheckpointIO(ModelStateIO):
         return
 
 
-def dump_metadata(model_name: str) -> None:
-    metadata = tracking.Experiment.current().tracker[model_name].metadata
+def dump_metadata(model_name: str,
+                  class_name: str) -> None:
+    model_tracker = tracking.Experiment.current().tracker[model_name]
+    metadata = model_tracker.metadata[class_name]
     metadata_dir = PathManager(model_name).metadata_dir
-    for key, value in metadata.items():
-        metadata_path = metadata_dir / key
-        with metadata_path.open('w') as metadata_file:
-            now = datetime.datetime.now().replace(microsecond=0)
-            metadata = {'timestamp': now} | value
-            yaml.dump(metadata, metadata_file, sort_keys=False,
-                      default_flow_style=False)
+    metadata_path = (metadata_dir / class_name).with_suffix('.yaml')
+    with metadata_path.open('w') as metadata_file:
+        now = datetime.datetime.now().replace(microsecond=0)
+        yaml.dump({'timestamp': now} | metadata, metadata_file,
+                  sort_keys=False,
+                  default_flow_style=False)
     return

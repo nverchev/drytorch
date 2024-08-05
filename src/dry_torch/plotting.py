@@ -110,26 +110,26 @@ else:
                   start: int,
                   title: str) -> None:
             train_log_metric: pd.Series[float] = train_log[metric]
-            train_log_metric = train_log_metric[train_log.index >= start]
+            train_log_metric = train_log_metric[train_log['Epoch'] >= start]
             layout = dict(xlabel='Epoch',
                           ylabel=metric,
                           title=title,
                           update='replace',
                           showlegend=True)
-            self.vis.line(X=train_log_metric.index,
+            self.vis.line(X=train_log['Epoch'],
                           Y=train_log_metric,
                           win=title,
                           opts=layout,
                           name='Training')
-            if not val_log.empty:
-                val_log_metric: pd.Series[float] = val_log[metric]
-                val_log_metric = val_log_metric[val_log.index >= start]
-                self.vis.line(X=val_log_metric.index,
+            for source, source_log in val_log.groupby('Source'):
+                val_log_metric: pd.Series[float] = source_log[metric]
+                val_log_metric = val_log_metric[source_log['Epoch'] >= start]
+                self.vis.line(X=source_log['Epoch'],
                               Y=val_log_metric,
                               win=title,
                               opts=layout,
                               update='append',
-                              name='Validation')
+                              name=str(source))
             return
 
 try:
@@ -152,15 +152,13 @@ else:
             train_log = train_log.copy()
             train_log['Dataset'] = "Training"
             val_log = val_log.copy()
-            val_log['Dataset'] = "Validation"
+            val_log['Dataset'] = val_log['Source']
             # noinspection PyUnreachableCode
             log = pd.concat((train_log, val_log))
-            log = log[log.index >= start].reset_index().rename(
-                columns={'index': 'Epoch'})
             fig = px.line(log,
                           x="Epoch",
                           y=loss_or_metric,
-                          color="Dataset",
+                          color="Source",
                           title=title)
             fig.show()
             return

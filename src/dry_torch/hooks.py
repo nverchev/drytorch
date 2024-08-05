@@ -6,6 +6,7 @@ import numpy.typing as npt
 
 from dry_torch import descriptors
 from dry_torch import exceptions
+from dry_torch import io
 from dry_torch import log_settings
 from dry_torch import protocols as p
 from dry_torch import tracking
@@ -69,6 +70,7 @@ def early_stopping_callback(
         lower_is_best: bool = True,
         baseline: Optional[float] = None,
         start_from_epoch: int = 0,
+        save_log: bool = True,
 ) -> Callable[[p.TrainerProtocol], None]:
     best_result = float('inf') if lower_is_best else 0
 
@@ -77,7 +79,8 @@ def early_stopping_callback(
         model_tracker = tracking.track(instance.model)
         if model_tracker.epoch < start_from_epoch:
             return
-
+        if save_log:
+            io.LogIO(instance.model.name).save()
         monitor_log = model_tracker.log[monitor_dataset]
         if metric_name not in monitor_log:
             raise exceptions.MetricNotFoundError(metric_name)
