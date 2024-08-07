@@ -164,6 +164,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
 
 class Diagnostic(Evaluation[_Input, _Target, _Output]):
+    partition = descriptors.Split.TRAIN
 
     @override
     @torch.inference_mode()
