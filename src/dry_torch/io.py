@@ -317,6 +317,5 @@ def dump_metadata(model_name: str,
     with metadata_path.open('w') as metadata_file:
         now = datetime.datetime.now().replace(microsecond=0)
         yaml.dump({'timestamp': now} | metadata, metadata_file,
-                  sort_keys=False,
-                  default_flow_style=False)
+                  sort_keys=False,)
     return

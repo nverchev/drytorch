@@ -50,6 +50,12 @@ class PandasPrintOptions:
             pd.set_option(key, value)
 
 
+def represent_str(dumper: yaml.Dumper, string: str) -> yaml.Node:
+    scalar = dumper.represent_str(string)
+    scalar.style = '|' if len(string) > 50 else None
+    return scalar
+
+
 def represent_datetime(dumper: yaml.Dumper,
                        data: datetime.datetime) -> yaml.Node:
     return dumper.represent_scalar('tag:yaml.org,2002:timestamp',
@@ -63,16 +69,13 @@ def represent_literal_str(dumper: yaml.Dumper,
     return scalar
 
 
-def represent_none(dumper: yaml.Dumper, _: object) -> yaml.Node:
-    return dumper.represent_scalar('tag:yaml.org,2002:null', '')
-
 
 DOTS = LiteralStr('...')
 """Dots represent omitted items in containers."""
 
 yaml.add_representer(datetime, represent_datetime)
+yaml.add_representer(str, represent_str)
 yaml.add_representer(LiteralStr, represent_literal_str)
-yaml.add_representer(type(None), represent_none)
 
 
 def has_own_repr(obj: Any) -> bool:
@@ -153,7 +156,7 @@ def _(obj: tuple | list | set, *, max_size: int = 10):
 
 @recursive_repr.register
 def _(obj: dict, *, max_size: int = 10):
-    return {str(k): recursive_repr(obj.get(k), max_size=max_size)
+    return {str(k): recursive_repr(obj.get(k, ''), max_size=max_size)
             for k in limit_size(obj, max_size=max_size)}
 
 
