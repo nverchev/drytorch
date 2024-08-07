@@ -12,6 +12,7 @@ from dry_torch import exceptions
 from dry_torch import schedulers
 from dry_torch import protocols as p
 from dry_torch import tracking
+from dry_torch import registering
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -84,6 +85,7 @@ class Model(Generic[_Input_contra, _Output_co]):
         self.device = device
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.checkpoint = io.ModelStateIO(self)
+        registering.register_model(self)
 
     @property
     def device(self):
