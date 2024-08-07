@@ -80,11 +80,12 @@ class LibraryNotSupportedError(DryTorchException, ValueError):
 
 
 class MetricNotFoundError(DryTorchException, ValueError):
-    msg = 'Metric {} is not present in the training log.'
+    msg = 'Metric {} is not present in the {} log.'
 
-    def __init__(self, metric_name: str) -> None:
+    def __init__(self, metric_name: str, dataset_name: str) -> None:
         self.metric_name = metric_name
-        super().__init__(metric_name)
+        self.dataset_name = dataset_name
+        super().__init__(metric_name, dataset_name)
 
 
 class MissingParamError(DryTorchException, ValueError):
