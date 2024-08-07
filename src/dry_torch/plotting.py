@@ -35,7 +35,6 @@ class BasePlotter(p.PlotterProtocol, metaclass=ABCMeta):
              train_log: pd.DataFrame,
              val_log: pd.DataFrame,
              metric_name: str = 'Criterion',
-             start: int = 0,
              title: str = 'Learning Curves') -> None:
         """
         Plots the learning curves.
@@ -44,17 +43,15 @@ class BasePlotter(p.PlotterProtocol, metaclass=ABCMeta):
             train_log: DataFrame with the logged training metrics.
             val_log: DataFrame with the logged validation metrics.
             metric_name: the metric to visualize. Defaults to 'Criterion'.
-            start: the starting epoch for the plot. Defaults to 0.
             title: the title of the plot. Defaults to 'Learning Curves'.
         """
-        self._plot(train_log, val_log, metric_name, start, title)
+        self._plot(train_log, val_log, metric_name, title)
 
     @abstractmethod
     def _plot(self,
               train_log: pd.DataFrame,
               val_log: pd.DataFrame,
               loss_or_metric: str,
-              start: int,
               title: str) -> None:
         ...
 
@@ -71,7 +68,6 @@ class NoPlotter(BasePlotter):
               train_log: pd.DataFrame,
               val_log: pd.DataFrame,
               loss_or_metric: str,
-              start: int,
               title: str) -> None:
         pass
 
@@ -107,10 +103,9 @@ else:
                   train_log: pd.DataFrame,
                   val_log: pd.DataFrame,
                   metric: str,
-                  start: int,
                   title: str) -> None:
-            train_log_metric: pd.Series[float] = train_log[metric]
-            train_log_metric = train_log_metric[train_log['Epoch'] >= start]
+            train_log_metric: pd.Series[float] = train_log.get(metric,
+                                                               pd.Series(index=train_log.index, name='Size'))
             layout = dict(xlabel='Epoch',
                           ylabel=metric,
                           title=title,
@@ -123,7 +118,6 @@ else:
                           name='Training')
             for source, source_log in val_log.groupby('Source'):
                 val_log_metric: pd.Series[float] = source_log[metric]
-                val_log_metric = val_log_metric[source_log['Epoch'] >= start]
                 self.vis.line(X=source_log['Epoch'],
                               Y=val_log_metric,
                               win=title,
@@ -147,7 +141,6 @@ else:
                   train_log: pd.DataFrame,
                   val_log: pd.DataFrame,
                   loss_or_metric: str,
-                  start: int,
                   title: str) -> None:
             train_log = train_log.copy()
             train_log['Dataset'] = "Training"
@@ -239,7 +232,7 @@ def plotter_closure(model_name: str,
     return get_plotter
 
 
-class Plotter(BasePlotter):
+class Plotter:
     """
     Class providing a plotting interface.
 
@@ -250,8 +243,8 @@ class Plotter(BasePlotter):
 
     def __init__(self, model_name: str, lib: _Backend = 'auto') -> None:
         self.model_name = model_name
-        self.get_plotter = plotter_closure(model_name, lib)
-        super().__init__(model_name)
+        env = tracking.Experiment.current().name
+        self.get_plotter = plotter_closure(env, lib)
 
     def plot_learning_curves(self,
                              metric_name: str = 'Criterion',
@@ -266,8 +259,6 @@ class Plotter(BasePlotter):
             title: the title of the plot.
         """
         log = tracking.Experiment.current().tracker[self.model_name].log
-        if metric_name not in log[descriptors.Split.TRAIN]:
-            raise exceptions.MetricNotFoundError(metric_name)
 
         self._plot(log[descriptors.Split.TRAIN],
                    log[descriptors.Split.VAL],
@@ -284,9 +275,10 @@ class Plotter(BasePlotter):
               title: str = 'Learning Curves',
               ) -> None:
         plotter = self.get_plotter()
+        train_log = train_log[train_log['Epoch'] >= start]
+        val_log = val_log[val_log['Epoch'] >= start]
         plotter.plot(train_log,
                      val_log,
                      metric_name,
-                     start,
                      title)
         return
