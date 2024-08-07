@@ -83,8 +83,12 @@ def early_stopping_callback(
             io.LogIO(instance.model.name).save()
         monitor_log = model_tracker.log[monitor_dataset]
         if metric_name not in monitor_log:
-            raise exceptions.MetricNotFoundError(metric_name)
-        last_results = monitor_log[metric_name][-(patience + 1):]
+            raise exceptions.MetricNotFoundError(metric_name,
+                                                 monitor_dataset.name)
+        metric_results = monitor_log[metric_name]
+        last_results = metric_results[
+            monitor_log['Epoch'] >= model_tracker.epoch - patience
+            ]
         aggregated_result = aggregate_fun(last_results)
         if baseline is None:
             condition = best_result + min_delta <= aggregated_result
