@@ -114,7 +114,7 @@ def register_kwargs(
                 *args: _P.args,
                 **kwargs: _P.kwargs) -> _RT:
         if not isinstance(model, p.ModelProtocol):
-            raise exceptions.BoundedModelTypeError(model)
+            raise exceptions.ModelFirstError(model)
 
         exp = tracking.Experiment.current()
         model_tracker = exp.tracker[model.name]
@@ -131,12 +131,12 @@ def register_kwargs(
         )
         name = cls_count()
         if 'name' in kwargs:
-            name = str(kwargs['name'])
-        else:
-            kwargs['name'] = name
+            name = str(kwargs.pop('name'))
         metadata = extract_metadata(kwargs, exp.max_items_repr)
+        if name in model_tracker.metadata:
+            raise exceptions.NameAlreadyExistsError(name, model.name)
         model_tracker.metadata[name] = metadata
-        io.dump_metadata(model.name, name)
+        kwargs['name'] = io.dump_metadata(model.name, name)
         return func(instance, model, *args, **kwargs)
 
     return wrapper

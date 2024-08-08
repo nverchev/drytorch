@@ -46,12 +46,9 @@ Repository = "https://github.com/nverchev/dry_torch"
 Issues = "https://github.com/nverchev/dry_torch/issues"
 Changelog = "https://github.com/nverchev/dry_torch/blob/master/CHANGELOG.md"
 
-[pytest]
-testpaths = "tests"
-addopts = ["-v"]
-disable_assert_rewriting = false
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 addopts = ["--import-mode=importlib", "--ignore=tests/test_plotter.py"]
 log_cli = true
 log_cli_level = "DEBUG"

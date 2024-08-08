@@ -9,9 +9,10 @@ from dry_torch import LearningScheme
 from dry_torch import register_model
 from dry_torch.learning import ModelOptimizer
 from dry_torch.exceptions import ModuleAlreadyRegisteredError
-from dry_torch.tracking import track
-from dry_torch.io import dump_metadata
-from dry_torch.repr_utils import recursive_repr
+
+
+def test_fail():
+    assert 3 == 4
 
 
 def test_checkpoint():
@@ -21,7 +22,6 @@ def test_checkpoint():
                pardir=exp_pardir,
                config={'test': 'test'})
     model = Model(model, name='first_model')
-    register_model(model)
     with pytest.raises(ModuleAlreadyRegisteredError):
         register_model(model)
     model_state_io = ModelStateIO(model)
@@ -31,7 +31,6 @@ def test_checkpoint():
     first_saved_parameter = model.module.parameters().__next__()
     assert first_loaded_parameter == first_saved_parameter
     second_model = model.clone('second_model')
-    register_model(second_model)
     model_optimizer = ModelOptimizer(second_model, LearningScheme())
     checkpoint_io = CheckpointIO(second_model, model_optimizer.optimizer)
     checkpoint_io.save()

@@ -1,15 +1,17 @@
 import logging
 import pathlib
 
+import numpy as np
 import pytest
 import torch
 from torch.utils import data
 from dry_torch import Trainer
+from dry_torch import Validation
 from dry_torch import Test as _Test  # otherwise pytest interprets it as a test
 from dry_torch import DataLoader
 from dry_torch import Experiment
 from dry_torch import Model
-from dry_torch import SimpleLossCalculator
+from dry_torch import SimpleLossCalculator, MetricsCalculator
 from dry_torch import exceptions
 from dry_torch import LearningScheme
 from dry_torch import protocols as p
@@ -33,7 +35,8 @@ class TorchData:
 class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
 
     def __init__(self):
-        self.tensors = torch.rand(7, 7, 7)
+        self.ones = [1, 1, 1, 1, 1]
+        self.torch_ones = torch.ones(3, 3, 3)
         super().__init__()
 
     def __getitem__(self, index: int) -> tuple[
@@ -61,6 +64,11 @@ def square_error(outputs: TorchData,
     return torch.stack(2 * [(outputs.output - targets) ** 2]).mean()
 
 
+def zero(outputs: TorchData,
+         targets: torch.Tensor) -> torch.Tensor:
+    return torch.tensor(0)
+
+
 def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
@@ -69,8 +77,9 @@ def test_all() -> None:
 
     module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
+    metrics_calc = MetricsCalculator(my_metric=zero)
+
     model = Model(module, name='original_model')
-    register_model(model)
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
@@ -78,17 +87,14 @@ def test_all() -> None:
                       learning_scheme=LearningScheme(lr=0.01),
                       loss_calc=loss_calc,
                       loader=loader)
+
     trainer.add_validation(val_loader=loader)
     trainer.post_epoch_hooks.register(
         hooks.call_every(5, hooks.saving_hook())
     )
     trainer.post_epoch_hooks.register(hooks.early_stopping_callback())
-    trainer.train(5)
-    trainer.save_checkpoint()
-    trainer.load_checkpoint()
-    trainer.train(5)
+    trainer.train(10)
     cloned_model = model.clone('cloned_model')
-    register_model(cloned_model)
     Trainer(cloned_model,
             learning_scheme=LearningScheme(lr=0.01),
             loss_calc=loss_calc,

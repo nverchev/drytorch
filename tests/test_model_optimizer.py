@@ -31,7 +31,6 @@ class ComplexModel(torch.nn.Module):
 @pytest.fixture(scope='module')
 def _complex_model() -> Model[torch.Tensor, torch.Tensor]:
     complex_model = Model(ComplexModel(), name='complex_model')
-    register_model(complex_model)
     return complex_model
 
 

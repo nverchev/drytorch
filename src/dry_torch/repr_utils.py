@@ -1,17 +1,13 @@
 """ This module specifies how to represent and dump metadata in a yaml file."""
 
-from typing import Any, Iterable, Optional
-import datetime
+from typing import Any, Iterable, Sequence
 import functools
 import types
 import yaml  # type: ignore
 import numpy as np
+import numbers
 import pandas as pd
 import torch
-
-
-class LiteralStr(str):
-    pass
 
 
 class PandasPrintOptions:
@@ -50,32 +46,46 @@ class PandasPrintOptions:
             pd.set_option(key, value)
 
 
-def represent_str(dumper: yaml.Dumper, string: str) -> yaml.Node:
-    scalar = dumper.represent_str(string)
-    scalar.style = '|' if len(string) > 50 else None
-    return scalar
-
-
-def represent_datetime(dumper: yaml.Dumper,
-                       data: datetime.datetime) -> yaml.Node:
-    return dumper.represent_scalar('tag:yaml.org,2002:timestamp',
-                                   data.isoformat(timespec='seconds'))
-
-
-def represent_literal_str(dumper: yaml.Dumper,
-                          literal_str: LiteralStr) -> yaml.Node:
-    scalar = dumper.represent_str(literal_str)
-    scalar.style = '|'
-    return scalar
-
+class LiteralStr(str):
+    pass
 
 
 DOTS = LiteralStr('...')
 """Dots represent omitted items in containers."""
 
-yaml.add_representer(datetime, represent_datetime)
-yaml.add_representer(str, represent_str)
+
+def short_repr(obj: object, max_length: int = 20) -> bool:
+    if not isinstance(obj, str):
+        return True
+    if isinstance(obj, LiteralStr):
+        return False
+    return len(obj) <= max_length
+
+
+def represent_literal_str(dumper: yaml.Dumper,
+                          literal_str: LiteralStr) -> yaml.Node:
+    return dumper.represent_scalar('tag:yaml.org,2002:str',
+                                   literal_str,
+                                   style='|')
+
+
+def represent_sequence(dumper: yaml.Dumper,
+                       sequence: Sequence,
+                       max_length_for_plain: int = 10) -> yaml.Node:
+    flow_style = False
+    len_seq = len(sequence)
+    if len_seq < max_length_for_plain:
+        if all(short_repr(elem) for elem in sequence):
+            flow_style = True
+    return dumper.represent_sequence(tag=u'tag:yaml.org,2002:seq',
+                                     sequence=sequence,
+                                     flow_style=flow_style)
+
+
 yaml.add_representer(LiteralStr, represent_literal_str)
+yaml.add_representer(list, represent_sequence)
+yaml.add_representer(tuple, represent_sequence)
+yaml.add_representer(set, represent_sequence)
 
 
 def has_own_repr(obj: Any) -> bool:
@@ -143,31 +153,57 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
 
 
 @recursive_repr.register
-def _(obj: Optional[int | float | complex | str], *, max_size: int = 10):
+def _(obj: str, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj
 
 
 @recursive_repr.register
-def _(obj: tuple | list | set, *, max_size: int = 10):
-    return type(obj)(recursive_repr(item, max_size=max_size)
-                     for item in limit_size(obj, max_size=max_size))
+def _(obj: None, *, max_size: int = 10) -> None:
+    _not_used = max_size
+    return obj
 
 
 @recursive_repr.register
-def _(obj: dict, *, max_size: int = 10):
+def _(obj: numbers.Number, *, max_size: int = 10) -> numbers.Number:
+    _not_used = max_size
+    return obj
+
+
+@recursive_repr.register
+def _(obj: tuple, *, max_size: int = 10) -> tuple:
+    return tuple(recursive_repr(item, max_size=max_size)
+                 for item in limit_size(obj, max_size=max_size))
+
+
+@recursive_repr.register
+def _(obj: list, *, max_size: int = 10) -> list:
+    return [recursive_repr(item, max_size=max_size)
+            for item in limit_size(obj, max_size=max_size)]
+
+
+@recursive_repr.register
+def _(obj: set, *, max_size: int = 10) -> set:
+    return {recursive_repr(item, max_size=max_size)
+            for item in limit_size(obj, max_size=max_size)}
+
+
+@recursive_repr.register
+def _(obj: dict, *, max_size: int = 10) -> dict[str, Any]:
     return {str(k): recursive_repr(obj.get(k, ''), max_size=max_size)
             for k in limit_size(obj, max_size=max_size)}
 
 
 @recursive_repr.register
-def _(obj: torch.Tensor, *, max_size: int = 10):
+def _(obj: torch.Tensor, *, max_size: int = 10) -> LiteralStr:
     _not_used = max_size
     return recursive_repr(obj.detach().cpu().numpy(), max_size=max_size)
 
 
 @recursive_repr.register
-def _(obj: pd.DataFrame | pd.Series | pd.Index, *, max_size: int = 10):
+def _(obj: pd.DataFrame | pd.Series | pd.Index,
+      *,
+      max_size: int = 10) -> LiteralStr:
     with PandasPrintOptions(precision=3,
                             max_rows=max_size,
                             max_columns=max_size):
@@ -175,21 +211,22 @@ def _(obj: pd.DataFrame | pd.Series | pd.Index, *, max_size: int = 10):
 
 
 @recursive_repr.register
-def _(obj: np.ndarray, *, max_size: int = 10):
+def _(obj: np.ndarray, *, max_size: int = 10) -> LiteralStr:
+    size_factor = 2 ** (+obj.ndim - 1)
     with np.printoptions(precision=3,
                          suppress=True,
-                         threshold=max_size,
-                         edgeitems=max_size // 2):
+                         threshold=max_size // size_factor,
+                         edgeitems=max_size // (size_factor * 2)):
         return LiteralStr(obj)
 
 
 @recursive_repr.register(type)
-def _(obj, *, max_size: int = 10):
+def _(obj, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj.__name__
 
 
 @recursive_repr.register(types.FunctionType)
-def _(obj, *, max_size: int = 10):
+def _(obj, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj.__name__

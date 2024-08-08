@@ -18,14 +18,6 @@ class AccessBeforeCalculateError(DryTorchException, AttributeError):
         super().__init__()
 
 
-class BoundedModelTypeError(DryTorchException, TypeError):
-    msg = 'First argument of type {} does not follow ModelProtocol.'
-
-    def __init__(self, not_a_model: Any) -> None:
-        self.not_a_model = not_a_model
-        super().__init__(type(not_a_model))
-
-
 class ConvergenceError(DryTorchException, ValueError):
     msg = 'The module did not converge (criterion is {}).'
 
@@ -89,8 +81,7 @@ class MetricNotFoundError(DryTorchException, ValueError):
 
 
 class MissingParamError(DryTorchException, ValueError):
-    msg = ('Parameter groups {} in input learning rate'
-           ' do not contain all module parameters.')
+    msg = 'Parameter groups {} in input learning rate miss some parameters.'
 
     def __init__(self,
                  model_architecture: str,
@@ -100,8 +91,25 @@ class MissingParamError(DryTorchException, ValueError):
         super().__init__(lr_param_groups)
 
 
+class ModelFirstError(DryTorchException, TypeError):
+    msg = 'First argument of type {} does not follow ModelProtocol.'
+
+    def __init__(self, not_a_model: Any) -> None:
+        self.not_a_model = not_a_model
+        super().__init__(type(not_a_model))
+
+
+class ModelNameAlreadyExistsError(DryTorchException, ValueError):
+    msg = 'Model name {} already present in experiment {}.'
+
+    def __init__(self, name: str, exp_name: str) -> None:
+        self.name = name
+        super().__init__(name, exp_name)
+
+
 class ModelNotExistingError(DryTorchException, ValueError):
-    msg = ('Accessing module {} was unsuccessful:'
+    msg = ('Accessing model'
+           '. {} was unsuccessful:'
            ' module not registered in experiment {}.')
 
     def __init__(self, name: str, exp_name: str) -> None:
@@ -133,11 +141,11 @@ class MustSupportIndex(DryTorchException, TypeError):
 
 
 class NameAlreadyExistsError(DryTorchException, ValueError):
-    msg = 'Module name {} already present in experiment {}.'
+    msg = 'Name {} already present for model {}.'
 
-    def __init__(self, name: str, exp_name: str) -> None:
+    def __init__(self, name: str, model_name: str) -> None:
         self.name = name
-        super().__init__(name, exp_name)
+        super().__init__(name, model_name)
 
 
 class NamedTupleOnlyError(DryTorchException, TypeError):
@@ -204,6 +212,15 @@ class CannotStoreOutputWarning(DryTorchException, RuntimeWarning):
     def __init__(self, err_msg: str) -> None:
         self.err_msg = err_msg
         super().__init__(err_msg)
+
+
+class MetadataNotMatchingWarning(DryTorchException, RuntimeWarning):
+    msg = 'Metadata for object {} does not match file {}. New file generated.'
+
+    def __init__(self, name: str, file: pathlib.Path) -> None:
+        self.name = name
+        self.file = file
+        super().__init__(name, file)
 
 
 class NotDocumentedArgs(DryTorchException, RuntimeWarning):

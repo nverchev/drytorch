@@ -70,7 +70,6 @@ def test_all() -> None:
     for i in range(5):
         module = Linear(1, 1)
         model = Model(module)
-        register_model(model)
         trainer = Trainer(model,
                           learning_scheme=LearningScheme(lr=i * 0.01),
                           loss_calc=loss_calc,
@@ -78,4 +77,3 @@ def test_all() -> None:
         trainer.add_validation(val_loader=loader)
         trainer.post_epoch_hooks.register(callback)
         trainer.train(10)
-        trainer.terminate_training()

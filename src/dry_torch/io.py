@@ -309,13 +309,23 @@ class CheckpointIO(ModelStateIO):
 
 
 def dump_metadata(model_name: str,
-                  class_name: str) -> None:
+                  class_name: str) -> str:
     model_tracker = tracking.Experiment.current().tracker[model_name]
     metadata = model_tracker.metadata[class_name]
     metadata_dir = PathManager(model_name).metadata_dir
     metadata_path = (metadata_dir / class_name).with_suffix('.yaml')
+    yaml_str = yaml.dump(metadata, default_flow_style=False)
+    if metadata_path.exists():
+        with metadata_path.open('r') as metadata_file:
+            file_out = metadata_file.read()
+            if file_out != yaml_str:
+                warnings.warn(
+                    exceptions.MetadataNotMatchingWarning(class_name,
+                                                          metadata_path)
+                )
+                now = datetime.datetime.now().isoformat(timespec='seconds')
+
+                metadata_path = metadata_path.with_stem(class_name + now)
     with metadata_path.open('w') as metadata_file:
-        now = datetime.datetime.now().replace(microsecond=0)
-        yaml.dump({'timestamp': now} | metadata, metadata_file,
-                  sort_keys=False,)
-    return
+        metadata_file.write(yaml_str)
+    return metadata_path.stem
