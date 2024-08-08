@@ -58,7 +58,7 @@ class ModelTrackerDict:
 
     def __setitem__(self, key: str, value: ModelTracker):
         if key in self:
-            raise exceptions.NameAlreadyExistsError(key, self.exp_name)
+            raise exceptions.ModelNameAlreadyExistsError(key, self.exp_name)
         self._models.__setitem__(key, value)
 
     def __delitem__(self, key: str):
@@ -100,7 +100,7 @@ class Experiment(Generic[_T]):
                  pardir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[Any] = None,
                  save_metadata: bool = True,
-                 max_items_repr: int = 3,
+                 max_items_repr: int = 10,
                  link_to_hydra: bool = False) -> None:
 
         self.name: Final = name or datetime.datetime.now().isoformat()
