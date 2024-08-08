@@ -325,7 +325,7 @@ def dump_metadata(model_name: str,
                 )
                 now = datetime.datetime.now().isoformat(timespec='seconds')
 
-                metadata_path = metadata_path.with_stem(class_name + now)
+                metadata_path = metadata_path.with_stem(class_name + '.' + now)
     with metadata_path.open('w') as metadata_file:
         metadata_file.write(yaml_str)
     return metadata_path.stem
