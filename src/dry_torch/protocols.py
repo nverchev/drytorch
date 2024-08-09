@@ -2,7 +2,7 @@
 
 import abc
 from typing import Any, Iterator, Mapping, Optional, Protocol, SupportsIndex
-from typing import TypeAlias, TypeVar, runtime_checkable
+from typing import Type, TypeAlias, TypeVar, runtime_checkable
 
 import pandas as pd
 import torch
@@ -170,7 +170,7 @@ class LearningProtocol(Protocol):
 
     optimizer_cls: Type[torch.optim.Optimizer]
     lr: float | dict[str, float]
-    scheduler: p.SchedulerProtocol
+    scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
 
 @runtime_checkable
