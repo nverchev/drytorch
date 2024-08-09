@@ -94,7 +94,11 @@ def apply(obj: _C,
         dict_attr.update(obj.__dict__)
 
     if hasattr(obj, '__slots__'):
-        dict_attr.update({k: getattr(obj, k) for k in obj.__slots__})
+        for key in obj.__slots__:
+            try:
+                dict_attr[key] = getattr(obj, key)
+            except AttributeError: # slotted attributes may not be initialized
+                pass
 
     if dict_attr:
         obj_copy = copy.copy(obj)
