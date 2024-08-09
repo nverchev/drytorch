@@ -166,6 +166,8 @@ def _(obj: None, *, max_size: int = 10) -> None:
 
 @recursive_repr.register
 def _(obj: numbers.Number, *, max_size: int = 10) -> numbers.Number:
+    if hasattr(obj, 'item'):
+        obj = obj.item()
     _not_used = max_size
     return obj
 
