@@ -57,7 +57,7 @@ class Trainer(
             model: p.ModelProtocol[_Input, _Output],
             /,
             *,
-            learning_scheme: learning.LearningScheme,
+            learning_scheme: p.LearningProtocol,
             loss_calc: p.LossCalculatorProtocol[_Output, _Target],
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             mixed_precision: bool = False,
