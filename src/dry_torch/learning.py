@@ -21,26 +21,23 @@ _Output_co = TypeVar('_Output_co',
                      covariant=True)
 
 
-@dataclasses.dataclass
-class LearningScheme:
+@dataclasses.dataclass(repr=False)
+class LearningScheme(p.LearningProtocol):
     """
-        optimizer_cls: the optimizer class to bind_to_model to the module.
-         Defaults to torch.optim.Adam.
-        lr: a dictionary of learning rates for the named parameters or a float
-        for a global value.
-        optimizer_defaults: optional arguments for the optimizer
-        (same for all the parameters).
-        scheduler: modifies the learning rate given the current epoch. Default
-        value does not implement a scheduler.
+    Class with specifications for the learning algorithm.
+
+    Attributes:
+        optimizer_cls: the optimizer class to bind to the module.
+        lr: initial learning rates for the named parameters or global value.
+        optimizer_defaults: optional arguments for the optimizer.
+        scheduler: modifies the learning rate given the current epoch.
     """
 
-    optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adam
-    lr: float | dict[str, float] = 0.001
+    optimizer_cls: Type[torch.optim.Optimizer]
+    lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
-    def __repr__(self) -> str:
-        return self.__class__.__name__
 
 
 class Model(Generic[_Input_contra, _Output_co]):
@@ -159,7 +156,7 @@ class ModelOptimizer:
     def __init__(
             self,
             model: p.ModelProtocol[_Input_contra, _Output_co],
-            learning_scheme: LearningScheme = LearningScheme()
+            learning_scheme: p.LearningProtocol
     ) -> None:
         self.model = model
         self.module = self.model.module

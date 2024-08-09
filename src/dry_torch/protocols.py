@@ -157,6 +157,21 @@ class LossCalculatorProtocol(
     def reset_calculated(self) -> None:
         """Delete the calculated values."""
 
+class LearningProtocol(Protocol):
+    """
+    Protocol with specifications for the learning algorithm.
+
+    Attributes:
+        optimizer_cls: the optimizer class to bind to the module.
+        lr: initial learning rates for the named parameters or global value.
+        optimizer_defaults: optional arguments for the optimizer.
+        scheduler: modifies the learning rate given the current epoch.
+    """
+
+    optimizer_cls: Type[torch.optim.Optimizer]
+    lr: float | dict[str, float]
+    scheduler: p.SchedulerProtocol
+    optimizer_defaults: dict[str, Any]
 
 @runtime_checkable
 class ModelProtocol(Protocol[_Input_contra, _Output_co]):
@@ -212,7 +227,6 @@ class PlotterProtocol(Protocol):
              train_log: pd.DataFrame,
              val_log: pd.DataFrame,
              metric_name: str = 'Criterion',
-             start: int = 0,
              title: str = 'Learning Curves') -> None:
         """
         Plots the learning curves.
@@ -221,7 +235,6 @@ class PlotterProtocol(Protocol):
             train_log: DataFrame with the logged training metrics.
             val_log: DataFrame with the logged validation metrics.
             metric_name: the metric to visualize. Defaults to 'Criterion'.
-            start: the starting epoch for the plot. Defaults to 0.
             title: the title of the plot. Defaults to 'Learning Curves'.
         """
         ...
