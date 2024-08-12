@@ -1,4 +1,5 @@
 """ This module specifies how to represent and dump metadata in a yaml file."""
+
 import math
 from typing import Any, Iterable, Sequence
 import functools
@@ -59,10 +60,12 @@ class LiteralStr(str):
 
 @dataclasses.dataclass(frozen=True)
 class Omitted:
+    """Class for objects that represent omitted values in an iterable."""
     count: float = math.nan
 
 
 def short_repr(obj: object, max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
+    """Function that indicates whether an object has a short representation."""
     if not isinstance(obj, str):
         return True
     if isinstance(obj, LiteralStr):
@@ -72,6 +75,7 @@ def short_repr(obj: object, max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
 
 def represent_literal_str(dumper: yaml.Dumper,
                           literal_str: LiteralStr) -> yaml.Node:
+    """YAML representer for literal strings."""
     return dumper.represent_scalar('tag:yaml.org,2002:str',
                                    literal_str,
                                    style='|')
@@ -82,6 +86,7 @@ def represent_sequence(
         sequence: Sequence,
         max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
 ) -> yaml.Node:
+    """YAML representer for sequences."""
     flow_style = False
     len_seq = len(sequence)
     if len_seq <= max_length_for_plain:
@@ -93,6 +98,7 @@ def represent_sequence(
 
 
 def represent_omitted(dumper: yaml.Dumper, data: Omitted) -> yaml.Node:
+    """YAML representer for omitted values."""
     return dumper.represent_mapping(u'!Omitted',
                                     {'omitted_elements': data.count})
 
@@ -105,10 +111,12 @@ yaml.add_representer(Omitted, represent_omitted)
 
 
 def has_own_repr(obj: Any) -> bool:
+    """Function that indicates whether __repr__ has been overridden."""
     return not obj.__repr__().endswith(str(hex(id(obj))) + '>')
 
 
 def limit_size(container: Iterable, max_size: int) -> list:
+    """Function that limits the size of iterables and adds an Omitted object."""
     # prevents infinite iterators
     if hasattr(container, '__len__'):
         listed = list(container)
@@ -132,15 +140,15 @@ def limit_size(container: Iterable, max_size: int) -> list:
 @functools.singledispatch
 def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
     """
-    Function that attempts a full documentation of a given object.
+    Function that attempts a hierarchical representation of a given object.
 
     It recursively represents each attribute of the object or the contained
-    items in tuple, list, sets and dictionaries,
+    items in tuple, list, sets and dictionaries. The latter are limited in
+    size by keeping max_size elements and replacing the others with an Omitted
+    instance.
 
-     limiting their size
-     by omitting extra items or,
-    in case of arrays from a library, using the library representation.
-    .
+    Arrays are represented using pandas and numpy array representation. Numbers
+    are return as they are or converted to python types.
 
     Args:
         obj: the object to represent.
