@@ -152,8 +152,9 @@ class Experiment(Generic[_T]):
         return
 
     def stop(self) -> None:
-        logger.log(log_settings.INFO_LEVELS.experiment,
-                   f'Stopping experiment:  %(name)s.',
+        """"""
+        logger.log(logger.DEBUG,
+                   f'Stopping experiment: %(name)s.',
                    {'name': self.name})
         Experiment._current = None
         return
