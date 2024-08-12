@@ -135,6 +135,7 @@ class Experiment(Generic[_T]):
             if not hydra_dir.exists() and hydra_dir.is_dir():
                 raise exceptions.LibraryNotSupportedError('hydra')
             else:
+                link_dir.unlink(missing_ok=True)  # may replace broken link
                 link_dir.symlink_to(hydra_dir, target_is_directory=True)
                 break
 

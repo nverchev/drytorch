@@ -71,7 +71,8 @@ def test_all() -> None:
         module = Linear(1, 1)
         model = Model(module)
         trainer = Trainer(model,
-                          learning_scheme=LearningScheme(lr=i * 0.01),
+                          learning_scheme=LearningScheme(torch.optim.Adam,
+                                                         lr=0.01),
                           loss_calc=loss_calc,
                           loader=loader)
         trainer.add_validation(val_loader=loader)

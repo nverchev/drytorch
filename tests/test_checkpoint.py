@@ -11,9 +11,6 @@ from dry_torch.learning import ModelOptimizer
 from dry_torch.exceptions import ModuleAlreadyRegisteredError
 
 
-def test_fail():
-    assert 3 == 4
-
 
 def test_checkpoint():
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
@@ -31,6 +28,7 @@ def test_checkpoint():
     first_saved_parameter = model.module.parameters().__next__()
     assert first_loaded_parameter == first_saved_parameter
     second_model = model.clone('second_model')
-    model_optimizer = ModelOptimizer(second_model, LearningScheme())
+    learning_scheme = LearningScheme(torch.optim.Adam, lr=0.1)
+    model_optimizer = ModelOptimizer(second_model, learning_scheme)
     checkpoint_io = CheckpointIO(second_model, model_optimizer.optimizer)
     checkpoint_io.save()
