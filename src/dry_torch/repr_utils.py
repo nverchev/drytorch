@@ -1,13 +1,20 @@
 """ This module specifies how to represent and dump metadata in a yaml file."""
-
+import math
 from typing import Any, Iterable, Sequence
 import functools
 import types
+import dataclasses
+
 import yaml  # type: ignore
 import numpy as np
 import numbers
 import pandas as pd
 import torch
+
+MAX_LENGTH_PLAIN_REPR = 10
+"""Sequences longer than this will be represented in flow style by yaml."""
+MAX_LENGTH_SHORT_REPR = 10
+"""Sequences with strings longer than this will be represented in flow style"""
 
 
 class PandasPrintOptions:
@@ -50,11 +57,12 @@ class LiteralStr(str):
     pass
 
 
-DOTS = LiteralStr('...')
-"""Dots represent omitted items in containers."""
+@dataclasses.dataclass(frozen=True)
+class Omitted:
+    count: float = math.nan
 
 
-def short_repr(obj: object, max_length: int = 20) -> bool:
+def short_repr(obj: object, max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
     if not isinstance(obj, str):
         return True
     if isinstance(obj, LiteralStr):
@@ -69,12 +77,14 @@ def represent_literal_str(dumper: yaml.Dumper,
                                    style='|')
 
 
-def represent_sequence(dumper: yaml.Dumper,
-                       sequence: Sequence,
-                       max_length_for_plain: int = 10) -> yaml.Node:
+def represent_sequence(
+        dumper: yaml.Dumper,
+        sequence: Sequence,
+        max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
+) -> yaml.Node:
     flow_style = False
     len_seq = len(sequence)
-    if len_seq < max_length_for_plain:
+    if len_seq <= max_length_for_plain:
         if all(short_repr(elem) for elem in sequence):
             flow_style = True
     return dumper.represent_sequence(tag=u'tag:yaml.org,2002:seq',
@@ -82,10 +92,16 @@ def represent_sequence(dumper: yaml.Dumper,
                                      flow_style=flow_style)
 
 
+def represent_omitted(dumper: yaml.Dumper, data: Omitted) -> yaml.Node:
+    return dumper.represent_mapping(u'!Omitted',
+                                    {'omitted_elements': data.count})
+
+
 yaml.add_representer(LiteralStr, represent_literal_str)
 yaml.add_representer(list, represent_sequence)
 yaml.add_representer(tuple, represent_sequence)
 yaml.add_representer(set, represent_sequence)
+yaml.add_representer(Omitted, represent_omitted)
 
 
 def has_own_repr(obj: Any) -> bool:
@@ -97,7 +113,8 @@ def limit_size(container: Iterable, max_size: int) -> list:
     if hasattr(container, '__len__'):
         listed = list(container)
         if len(listed) > max_size:
-            listed = listed[:max_size // 2] + [DOTS] + listed[-max_size // 2:]
+            omitted = [Omitted(len(listed) - max_size)]
+            listed = listed[:max_size // 2] + omitted + listed[-max_size // 2:]
     else:
         listed = []
         iter_container = container.__iter__()
@@ -108,7 +125,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
             except StopIteration:
                 break
         else:
-            listed.append([DOTS])
+            listed.append([Omitted()])
     return listed
 
 
@@ -153,6 +170,12 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
 
 
 @recursive_repr.register
+def _(obj: Omitted, *, max_size: int = 10) -> Omitted:
+    _not_used = max_size
+    return obj
+
+
+@recursive_repr.register
 def _(obj: str, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj
@@ -192,8 +215,12 @@ def _(obj: set, *, max_size: int = 10) -> set:
 
 @recursive_repr.register
 def _(obj: dict, *, max_size: int = 10) -> dict[str, Any]:
-    return {str(k): recursive_repr(obj.get(k, ''), max_size=max_size)
-            for k in limit_size(obj, max_size=max_size)}
+    out_dict: dict[str, Any] = {
+        str(key): recursive_repr(value, max_size=max_size)
+        for key, value in list(obj.items())[:max_size]}
+    if len(obj) > max_size:
+        out_dict['...'] = Omitted(len(obj) - max_size)
+    return out_dict
 
 
 @recursive_repr.register
