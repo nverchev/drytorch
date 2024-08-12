@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import atexit
 import logging
 import pathlib
 import datetime
+import shutil
 from typing import Any, Optional, Final, TypeVar, Generic
 
 import pandas as pd
@@ -138,6 +140,12 @@ class Experiment(Generic[_T]):
                 link_dir.unlink(missing_ok=True)  # may replace broken link
                 link_dir.symlink_to(hydra_dir, target_is_directory=True)
                 break
+
+        def copy_hydra_dir() -> None:
+            link_dir.unlink()
+            shutil.copytree(hydra_dir, link_dir)
+
+        atexit.register(copy_hydra_dir)
 
         return
 
