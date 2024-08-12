@@ -153,7 +153,7 @@ class Experiment(Generic[_T]):
 
     def stop(self) -> None:
         """"""
-        logger.log(logger.DEBUG,
+        logger.log(logging.DEBUG,
                    f'Stopping experiment: %(name)s.',
                    {'name': self.name})
         Experiment._current = None
