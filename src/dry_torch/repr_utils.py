@@ -14,7 +14,7 @@ import torch
 MAX_LENGTH_PLAIN_REPR = 10
 """Sequences longer than this will be represented in flow style by yaml."""
 MAX_LENGTH_SHORT_REPR = 10
-"""Sequences with strings longer than this will be represented in flow style"""
+"""Sequences with strings longer than this will be represented in flow style."""
 
 
 class PandasPrintOptions:
@@ -54,7 +54,7 @@ class PandasPrintOptions:
 
 
 class LiteralStr(str):
-    pass
+    """YAML will attempt to use the pipe style for this class."""
 
 
 @dataclasses.dataclass(frozen=True)
