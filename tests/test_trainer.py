@@ -35,7 +35,7 @@ class TorchData:
 class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
 
     def __init__(self):
-        self.ones = [1, 1, 1, 1, 1]
+        self.ones = [1, 1, 1, 1, 1] * 5
         self.torch_ones = torch.ones(3, 3, 3)
         super().__init__()
 
@@ -84,7 +84,7 @@ def test_all() -> None:
     loader = DataLoader(dataset=dataset, batch_size=4)
     trainer = Trainer(model,
                       name='MyTrainer',
-                      learning_scheme=LearningScheme(lr=0.01),
+                      learning_scheme=LearningScheme(torch.optim.Adam, lr=0.01),
                       loss_calc=loss_calc,
                       loader=loader)
 
@@ -96,7 +96,7 @@ def test_all() -> None:
     trainer.train(10)
     cloned_model = model.clone('cloned_model')
     Trainer(cloned_model,
-            learning_scheme=LearningScheme(lr=0.01),
+            learning_scheme=LearningScheme(torch.optim.Adam, lr=0.01),
             loss_calc=loss_calc,
             loader=loader)
     tuple_in = TorchTuple(input=torch.FloatTensor([.2]).to(cloned_model.device))
