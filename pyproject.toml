@@ -49,7 +49,10 @@ Changelog = "https://github.com/nverchev/dry_torch/blob/master/CHANGELOG.md"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["--import-mode=importlib", "--ignore=tests/test_plotter.py"]
+addopts = [
+    "--ignore=tests/test_plotter.py",
+    "--hypothesis-profile=simplified"
+]
 log_cli = true
 log_cli_level = "DEBUG"
 
