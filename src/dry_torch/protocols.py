@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 from torch.utils import data
 
-from dry_torch.descriptors import Tensors
+from . import descriptors
 
 _T = TypeVar('_T')
 
@@ -33,7 +33,7 @@ class NamedTupleProtocol(Protocol[_T]):
     def _asdict(self) -> dict[str, _T]:
         ...
 
-
+Tensors = descriptors.Tensors
 InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
 OutputType: TypeAlias = Any
 TargetType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]

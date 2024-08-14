@@ -5,16 +5,16 @@ import torch
 from torch.cuda import amp
 from typing_extensions import override
 
-from dry_torch import descriptors
-from dry_torch import io
-from dry_torch import exceptions
-from dry_torch import tracking
-from dry_torch import learning
-from dry_torch import protocols as p
-from dry_torch import log_settings
-from dry_torch import evaluating
-from dry_torch import hooks
-from dry_torch import registering
+from . import descriptors
+from . import io
+from . import exceptions
+from . import tracking
+from . import learning
+from . import protocols as p
+from . import log_settings
+from . import evaluating
+from . import hooks
+from . import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -110,7 +110,8 @@ class Trainer(
         try:
             self._run_epoch(store_outputs)
         except exceptions.ConvergenceError as ce:
-            logger.error(ce, exc_info=True)
+            logger.error(ce)
+            self.terminate_training()
         return
 
     @override
@@ -142,16 +143,14 @@ class Trainer(
         super()._run_batch(inputs, targets, store_outputs=store_outputs)
         self._calculator: p.LossCalculatorProtocol
         criterion = self._calculator.criterion.mean(0)
+        if torch.isinf(criterion) or torch.isnan(criterion):
+            raise exceptions.ConvergenceError(criterion.item())
         try:
             self._scaler.scale(criterion).backward()
         except RuntimeError as re:
             if criterion.numel != 1:
                 raise exceptions.NotBatchedError(list(criterion.shape))
             raise re
-        except ValueError as ve:
-            if torch.isinf(criterion) or torch.isnan(criterion):
-                raise exceptions.ConvergenceError(criterion.item())
-            raise ve
         self._loader.send(criterion.item())
         self._scaler.step(self._optimizer)
         self._scaler.update()

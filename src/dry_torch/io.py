@@ -7,11 +7,11 @@ import logging
 import pandas as pd
 import torch
 
-from dry_torch import descriptors
-from dry_torch import log_settings
-from dry_torch import exceptions
-from dry_torch import tracking
-from dry_torch import protocols as p
+from . import descriptors
+from . import log_settings
+from . import exceptions
+from . import tracking
+from . import protocols as p
 
 logger = logging.getLogger('dry_torch')
 

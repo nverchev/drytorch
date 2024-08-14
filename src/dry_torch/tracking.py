@@ -9,10 +9,10 @@ from typing import Any, Optional, Final, TypeVar, Generic
 
 import pandas as pd
 
-from dry_torch import descriptors
-from dry_torch import exceptions
-from dry_torch import log_settings
-from dry_torch import protocols as p
+from . import descriptors
+from . import exceptions
+from . import log_settings
+from . import protocols as p
 
 logger = logging.getLogger('dry_torch')
 
@@ -146,7 +146,6 @@ class Experiment(Generic[_T]):
             shutil.copytree(hydra_dir, link_dir)
 
         atexit.register(copy_hydra_dir)
-
         return
 
     def activate(self) -> None:

@@ -5,13 +5,13 @@ import torch
 from torch import cuda
 import dataclasses
 
-from dry_torch import descriptors
-from dry_torch import io
-from dry_torch import exceptions
-from dry_torch import schedulers
-from dry_torch import protocols as p
-from dry_torch import tracking
-from dry_torch import registering
+from . import descriptors
+from . import io
+from . import exceptions
+from . import schedulers
+from . import protocols as p
+from . import tracking
+from . import registering
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -21,7 +21,7 @@ _Output_co = TypeVar('_Output_co',
                      covariant=True)
 
 
-@dataclasses.dataclass(repr=False)
+@dataclasses.dataclass
 class LearningScheme(p.LearningProtocol):
     """
     Class with specifications for the learning algorithm.
