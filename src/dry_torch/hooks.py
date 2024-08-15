@@ -4,12 +4,12 @@ from typing import Generic, TypeVar, Callable, Optional
 import numpy as np
 import numpy.typing as npt
 
-from . import descriptors
-from . import exceptions
-from . import io
-from . import log_settings
-from . import protocols as p
-from . import tracking
+from dry_torch import descriptors
+from dry_torch import exceptions
+from dry_torch import io
+from dry_torch import log_settings
+from dry_torch import protocols as p
+from dry_torch import tracking
 
 _Class = TypeVar('_Class')
 

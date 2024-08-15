@@ -1,7 +1,7 @@
-from typing import Sequence
+from typing import Any
 
 import pytest
-import yaml  # typing: ignore
+import yaml  # type: ignore
 import pandas as pd
 import torch
 import numpy as np
@@ -16,22 +16,63 @@ from dry_torch.repr_utils import (
     MAX_LENGTH_SHORT_REPR,
 )
 
-scalar_data = list(zip([1, -3.2, 1j, 'test_string', None]))
+
+class SimpleClass:
+    int_value = 1
+    string_value = 'text'
+
+
+class LongClass(SimpleClass):
+    long_string_value = 5 * [1, ]
+
+
+class SlottedClass(SimpleClass):
+    __slots__ = ('int_value', 'string_value')
+
+
+scalar_data = [(elem, 0, elem) for elem in [1, -3.2, 1j, 'test_string', None]]
 """data for which recursive_repr is the identity function."""
 
-list_data = [
+list_data: list[tuple[list[int], int, list[int | Omitted]]] = [
     ([1, 2, 3], 3, [1, 2, 3]),
     ([1, 2, 3], 2, [1, Omitted(1), 3]),
     ([1, 2, 3, 4], 3, [1, Omitted(1), 3, 4]),
     ([1, 2, 3, 4], 2, [1, Omitted(2), 4]),
 ]
-"""data limited in size by recursive_repr."""
+
+tuple_data = [(tuple(obj), max_length, tuple(expected))
+              for obj, max_length, expected in list_data]
+
+set_data = [(set(obj), max_length, set(expected))
+            for obj, max_length, expected in list_data]
+
 dict_data = [
     ({1: 1, 2: 2, 3: 3}, 3, {'1': 1, '2': 2, '3': 3}),
     ({1: 1, 2: 2, 3: 3}, 2, {'1': 1, '2': 2, '...': Omitted(1)}),
     ({1: 1, 2: 2, 3: 3, 4: 4}, 2, {'1': 1, '2': 2, '...': Omitted(2)}),
 ]
-"""dict limited in size by recursive_repr."""
+
+external_data = [
+    (np.float32(1), 0, 1.),
+    (np.array([]), 2, LiteralStr(np.array([]))),
+    (np.array([1, 2, 3]), 2, LiteralStr('[1 ... 3]')),
+    (torch.FloatTensor([1, 2, 3]), 2, LiteralStr('[1. ... 3.]')),
+    (pd.DataFrame({'A': range(5), 'B': range(5)}),
+     2,
+     LiteralStr(
+         '    A  B\n0   0  0\n.. .. ..\n4   4  4\n\n[5 rows x 2 columns]')
+     ),
+]
+
+class_data = [
+    (SimpleClass(), 2, 'SimpleClass')
+]
+
+repr_data: list[tuple[Any, int, Any]] = sum(
+    (scalar_data, list_data, tuple_data, set_data, dict_data, external_data,
+     class_data),
+    []
+)
 
 
 @given(text(characters(codec='ascii', exclude_categories=['Cc', 'Cs'])))
@@ -99,28 +140,8 @@ def test_represent_list_with_omitted():
     assert yaml_string == "[2, !Omitted {omitted_elements: 5}, 3]\n"
 
 
-@pytest.mark.parametrize(['obj'], scalar_data)
-def test_recursive_repr_simple_objects(obj: object):
-    assert recursive_repr(obj) == obj
-
-
-@pytest.mark.parametrize(['obj', 'max_size', 'expected'], list_data)
-def test_recursive_repr_list(obj: Sequence, max_size: int, expected: Sequence):
-    assert recursive_repr(obj, max_size=max_size) == expected
-
-
-@pytest.mark.parametrize(['obj', 'max_size', 'expected'], list_data)
-def test_recursive_repr_tuple(obj: Sequence, max_size: int, expected: Sequence):
-    assert recursive_repr(tuple(obj), max_size=max_size) == tuple(expected)
-
-
-@pytest.mark.parametrize(['obj', 'max_size', 'expected'], list_data)
-def test_recursive_repr_set(obj: Sequence, max_size: int, expected: Sequence):
-    assert recursive_repr(set(obj), max_size=max_size) == set(expected)
-
-
-@pytest.mark.parametrize(['obj', 'max_size', 'expected'], dict_data)
-def test_recursive_repr_dict(obj: Sequence, max_size: int, expected: Sequence):
+@pytest.mark.parametrize(['obj', 'max_size', 'expected'], repr_data)
+def test_recursive_repr_list(obj: object, max_size: int, expected: object):
     assert recursive_repr(obj, max_size=max_size) == expected
 
 
@@ -128,46 +149,3 @@ def test_recursive_repr_tensor():
     tensor = torch.tensor([[1.23456, 2.34567], [3.45678, 4.56789]])
     result = recursive_repr(tensor)
     assert isinstance(result, LiteralStr)
-
-
-def test_recursive_repr_pandas():
-    df = pd.DataFrame({'A': range(15), 'B': range(15)})
-    result = recursive_repr(df, max_size=5)
-    assert isinstance(result, LiteralStr)
-    assert "A" in result
-    assert "B" in result
-
-
-def test_recursive_repr_numpy():
-    array = np.array([[1.23456, 2.34567], [3.45678, 4.56789]])
-    result = recursive_repr(array)
-    assert isinstance(result, LiteralStr)
-    assert "1.23" in result
-
-
-def test_recursive_repr_class():
-    class TestClass:
-        def __init__(self):
-            self.attr1 = 1
-            self.attr2 = "string"
-
-    obj = TestClass()
-    result = recursive_repr(obj)
-    assert 'TestClass' in result
-    assert 'attr1' in result
-    assert 'attr2' in result
-    assert result['object'] == 'TestClass'
-
-
-def test_yaml_dump():
-    data = {
-        'string': "This is a test string",
-        'list': [1, 2, 3],
-        'tensor': torch.tensor([1.0, 2.0, 3.0]),
-        'dataframe': pd.DataFrame({'A': range(3)})
-    }
-    yaml_string = yaml.dump(data, Dumper=yaml.Dumper)
-    assert "This is a test string" in yaml_string
-    assert "- 1\n- 2\n- 3" in yaml_string
-    assert "|-\n  [1.0, 2.0, 3.0]" in yaml_string
-    assert "A:\n- 0\n- 1\n- 2" in yaml_string

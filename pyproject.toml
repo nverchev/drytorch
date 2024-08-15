@@ -57,5 +57,6 @@ log_cli = true
 log_cli_level = "DEBUG"
 
 [tool.mypy]
+mypy_path = "src.dry_torch"
 namespace_packages = false
-files = ["src/", "tests/"]
+files = ["src", "tests"]

@@ -7,7 +7,7 @@ from typing_extensions import override
 
 import torch
 
-from . import exceptions
+from dry_torch import exceptions
 
 _T = TypeVar('_T')
 

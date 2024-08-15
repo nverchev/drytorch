@@ -3,7 +3,7 @@
 from abc import abstractmethod
 import numpy as np
 
-from . import protocols as p
+from dry_torch import protocols as p
 
 
 class AbstractScheduler(p.SchedulerProtocol):

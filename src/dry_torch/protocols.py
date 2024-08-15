@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 from torch.utils import data
 
-from . import descriptors
+from dry_torch import descriptors
 
 _T = TypeVar('_T')
 

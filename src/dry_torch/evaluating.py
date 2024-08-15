@@ -9,16 +9,16 @@ from typing_extensions import override
 
 import torch
 
-from . import descriptors
-from . import exceptions
-from . import tracking
-from . import io
-from . import aggregator
-from . import apply_ops
-from . import protocols as p
-from . import log_settings
-from . import loading
-from . import registering
+from dry_torch import descriptors
+from dry_torch import exceptions
+from dry_torch import tracking
+from dry_torch import io
+from dry_torch import aggregator
+from dry_torch import apply_ops
+from dry_torch import protocols as p
+from dry_torch import log_settings
+from dry_torch import loading
+from dry_torch import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)

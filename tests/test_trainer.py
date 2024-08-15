@@ -56,7 +56,7 @@ class Linear(torch.nn.Module):
         self.linear = torch.nn.Linear(in_features, out_features)
 
     def forward(self, inputs: TorchTuple) -> TorchData:
-        return TorchData(self.linear(inputs.input))
+        return TorchData(self.linear(inputs.input) * float('inf'))
 
 
 def square_error(outputs: TorchData,
@@ -102,7 +102,6 @@ def test_all() -> None:
     tuple_in = TorchTuple(input=torch.FloatTensor([.2]).to(cloned_model.device))
     out = cloned_model(tuple_in)
     assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
-    trainer.terminate_training()
     test = _Test(model,
                  metrics_calc=loss_calc,
                  loader=loader,

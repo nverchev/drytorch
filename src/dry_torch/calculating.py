@@ -3,8 +3,8 @@ from typing import TypeVar, Hashable, Optional, Self
 from typing_extensions import override
 import torch
 
-from . import protocols as p
-from . import exceptions
+from dry_torch import protocols as p
+from dry_torch import exceptions
 
 _K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')

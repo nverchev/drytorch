@@ -4,11 +4,11 @@ from functools import wraps
 from typing import Callable, Concatenate, Any, TypeVar, ParamSpec
 import warnings
 
-from . import exceptions
-from . import io
-from . import protocols as p
-from . import repr_utils
-from . import tracking
+from dry_torch import exceptions
+from dry_torch import io
+from dry_torch import protocols as p
+from dry_torch import repr_utils
+from dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,

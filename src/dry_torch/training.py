@@ -5,16 +5,16 @@ import torch
 from torch.cuda import amp
 from typing_extensions import override
 
-from . import descriptors
-from . import io
-from . import exceptions
-from . import tracking
-from . import learning
-from . import protocols as p
-from . import log_settings
-from . import evaluating
-from . import hooks
-from . import registering
+from dry_torch import descriptors
+from dry_torch import io
+from dry_torch import exceptions
+from dry_torch import tracking
+from dry_torch import learning
+from dry_torch import protocols as p
+from dry_torch import log_settings
+from dry_torch import evaluating
+from dry_torch import hooks
+from dry_torch import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)

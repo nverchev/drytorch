@@ -7,11 +7,11 @@ import logging
 import pandas as pd
 import torch
 
-from . import descriptors
-from . import log_settings
-from . import exceptions
-from . import tracking
-from . import protocols as p
+from dry_torch import descriptors
+from dry_torch import log_settings
+from dry_torch import exceptions
+from dry_torch import tracking
+from dry_torch import protocols as p
 
 logger = logging.getLogger('dry_torch')
 
@@ -314,7 +314,7 @@ def dump_metadata(model_name: str,
     metadata = model_tracker.metadata[class_name]
     metadata_dir = PathManager(model_name).metadata_dir
     metadata_path = (metadata_dir / class_name).with_suffix('.yaml')
-    yaml_str = yaml.dump(metadata, default_flow_style=False)
+    yaml_str = yaml.dump(metadata, default_flow_style=False, sort_keys=False)
     if metadata_path.exists():
         with metadata_path.open('r') as metadata_file:
             file_out = metadata_file.read()
