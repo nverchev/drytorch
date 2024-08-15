@@ -10,10 +10,13 @@ from dry_torch import io
 from dry_torch import log_settings
 from dry_torch import protocols as p
 from dry_torch import tracking
+from typing_extensions import ParamSpec
 
 _Class = TypeVar('_Class')
+_P = ParamSpec('_P')
 
 logger = logging.getLogger('dry_torch')
+
 
 
 class HookRegistry(Generic[_Class]):
@@ -48,6 +51,20 @@ def static_hook(
 
     return call
 
+def static_hook_closure(
+        static_closure: Callable[_P, Callable[[], None]]
+) -> Callable[_P, Callable[[p.TrainerProtocol], None]]:
+    def closure_hook(*args: _P.args,
+                     **kwargs: _P.kwargs) -> Callable[[p.TrainerProtocol],
+    None]:
+        static_callable = static_closure(*args, **kwargs)
+
+        def call(_: p.TrainerProtocol) -> None:
+            nonlocal static_callable
+            return static_callable()
+
+        return call
+    return closure_hook
 
 def call_every(
         interval: int,
