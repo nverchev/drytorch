@@ -87,17 +87,14 @@ def early_stopping_callback(
         lower_is_best: bool = True,
         baseline: Optional[float] = None,
         start_from_epoch: int = 0,
-        save_log: bool = True,
 ) -> Callable[[p.TrainerProtocol], None]:
     best_result = float('inf') if lower_is_best else 0
 
     def call(instance: p.TrainerProtocol):
         nonlocal best_result
         model_tracker = tracking.track(instance.model)
-        if model_tracker.epoch < start_from_epoch:
+        if model_tracker.epoch < max(start_from_epoch, patience):
             return
-        if save_log:
-            io.LogIO(instance.model.name).save()
         monitor_log = model_tracker.log[monitor_dataset]
         if metric_name not in monitor_log:
             raise exceptions.MetricNotFoundError(metric_name,
@@ -107,13 +104,17 @@ def early_stopping_callback(
             monitor_log['Epoch'] >= model_tracker.epoch - patience
             ]
         aggregated_result = aggregate_fun(last_results)
-        if baseline is None:
-            condition = best_result + min_delta <= aggregated_result
+        if lower_is_best:
+            if baseline is None:
+                condition = best_result + min_delta < aggregated_result
+            else:
+                condition = baseline + min_delta <= aggregated_result
         else:
-            condition = baseline + min_delta <= aggregated_result
+            if baseline is None:
+                condition = best_result - min_delta > aggregated_result
+            else:
+                condition = baseline - min_delta >= aggregated_result
 
-        if not lower_is_best:
-            condition = not condition
 
         if condition:
             instance.terminate_training()
