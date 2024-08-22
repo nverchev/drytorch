@@ -9,7 +9,7 @@ def test_training_formatter():
 
 
 def test_propagate_to_main():
-    log_settings.propagate_to_root_logger()
+    log_settings.enable_propagation()
     logger.log(log_settings.INFO_LEVELS.training, 'test')
-    log_settings.set_default_logging()
+    log_settings.enable_default_handler()
     logger.log(log_settings.INFO_LEVELS.training, 'test')
