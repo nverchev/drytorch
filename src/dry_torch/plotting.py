@@ -5,13 +5,13 @@ It tries to import the supported backend libraries for plotting and create
 a plotter for each, while the Plotter class functions as an interface.
 """
 
-from abc import ABCMeta, abstractmethod
+import abc
 import os
 from types import ModuleType
 from typing import Callable, Literal
 import warnings
-
 import pandas as pd
+
 from dry_torch import protocols as p
 from dry_torch import tracking
 from dry_torch import exceptions
@@ -20,7 +20,7 @@ from dry_torch import descriptors
 _Backend = Literal['visdom', 'plotly', 'auto', 'none']
 
 
-class BasePlotter(p.PlotterProtocol, metaclass=ABCMeta):
+class BasePlotter(p.PlotterProtocol):
     """
     Abstract base class for plotting learning curves.
 
@@ -47,7 +47,7 @@ class BasePlotter(p.PlotterProtocol, metaclass=ABCMeta):
         """
         self._plot(train_log, val_log, metric_name, title)
 
-    @abstractmethod
+    @abc.abstractmethod
     def _plot(self,
               train_log: pd.DataFrame,
               val_log: pd.DataFrame,
@@ -123,7 +123,7 @@ else:
                               win=title,
                               opts=layout,
                               update='append',
-                              name=str(source))
+                              name=str(source).split('.', 1)[0])
             return
 
 try:
@@ -148,6 +148,7 @@ else:
             val_log['Dataset'] = val_log['Source']
             # noinspection PyUnreachableCode
             log = pd.concat((train_log, val_log))
+            log['Source'] = log['Source'].apply(lambda x: x.split('.', 1)[0])
             fig = px.line(log,
                           x="Epoch",
                           y=loss_or_metric,
@@ -243,7 +244,7 @@ class Plotter:
 
     def __init__(self, model_name: str, lib: _Backend = 'auto') -> None:
         self.model_name = model_name
-        env = tracking.Experiment.current().name
+        env = '_'.join((tracking.Experiment.current().name, model_name))
         self.get_plotter = plotter_closure(env, lib)
 
     def plot_learning_curves(self,
