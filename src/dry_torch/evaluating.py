@@ -2,9 +2,8 @@ import sys
 import logging
 import abc
 import warnings
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Optional
 
-import pandas as pd
 from typing_extensions import override
 
 import torch
@@ -89,14 +88,6 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     def model_tracker(self) -> tracking.ModelTracker:
         return tracking.Experiment.current().tracker[self.model.name]
 
-    @property
-    def partition_log(self) -> pd.DataFrame:
-        return self.model_tracker.log[self.partition]
-
-    @partition_log.setter
-    def partition_log(self, value) -> None:
-        self.model_tracker.log[self.partition] = value
-        return
 
     @property
     def metrics(self) -> dict[str, float]:
@@ -112,7 +103,7 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         log_msg_list: list[str] = ['%(desc)-24s']
         desc = f'Average {self.partition.name.lower()} metrics:'
         log_args: dict[str, str | float] = {'desc': desc}
-        self._update_partition_log()
+        self._update_log()
         for metric, value in self.metrics.items():
             log_msg_list.append(f'%({metric})16s: %({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
@@ -151,12 +142,9 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         else:
             self.outputs_list.append(outputs)
 
-    def _update_partition_log(self) -> None:
-        info = {'Source': [self.name], 'Epoch': [self.model_tracker.epoch]}
-        log_line = pd.DataFrame(
-            info | {key: [value] for key, value in self.metrics.items()}
-        )
-        self.partition_log = pd.concat([self.partition_log, log_line])
+
+    def _update_log(self) -> None:
+        self.model_tracker.update_log(self.name, self.partition, self.metrics)
         return
 
     def __str__(self) -> str:
@@ -180,10 +168,8 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
         self._run_epoch(store_outputs)
         return
 
-    @override
-    def _update_partition_log(self) -> None:
+    def _update_log(self) -> None:
         return
-
 
 class Validation(Evaluation[_Input, _Target, _Output]):
     partition = descriptors.Split.VAL
