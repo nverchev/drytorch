@@ -68,7 +68,7 @@ class Trainer(
                          metrics_calc=loss_calc,
                          mixed_precision=mixed_precision,
                          name=name)
-        self._early_termination = False
+        self._terminated = False
 
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
@@ -76,7 +76,7 @@ class Trainer(
         self._scaler = amp.GradScaler(enabled=self._mixed_precision)
         self.pre_epoch_hooks = hooks.HookRegistry[Self]()
         self.post_epoch_hooks = hooks.HookRegistry[Self]()
-        self._early_termination = False
+        self._terminated = False
         return
 
     @property
@@ -95,8 +95,13 @@ class Trainer(
         return validation
 
     @override
+    @property
+    def terminated(self) -> bool:
+        return self._terminated
+
+    @override
     def terminate_training(self) -> None:
-        self._early_termination = True
+        self._terminated = True
         return
 
     @override
@@ -125,16 +130,34 @@ class Trainer(
         logger.log(log_settings.INFO_LEVELS.training,
                    'Training %(model_name)s.',
                    {'model_name': self.model.name})
-        if self._early_termination:
+        if self._terminated:
             logger.warning('Attempted to train module after termination.')
         for _ in range(num_epochs):
-            if self._early_termination:
+            if self._terminated:
                 return
             self.pre_epoch_hooks.execute(self)
             self.__call__()
             self.post_epoch_hooks.execute(self)
         logger.log(log_settings.INFO_LEVELS.training, 'End of training.')
         return
+
+    def train_until(self: Self, epoch: int) -> None:
+        """
+        Train the module until the specified epoch.
+
+        Parameters:
+            epoch: the final epoch in the training.
+
+        """
+        remaining_epochs = epoch - self.model_tracker.epoch
+        if remaining_epochs > 0:
+            self.train(remaining_epochs)
+        if remaining_epochs < 0:
+            logger.warning(
+                exceptions.PastEpochWarning(epoch, self.model_tracker.epoch)
+            )
+        return
+
 
     def _run_batch(self,
                    inputs: _Input,
@@ -156,19 +179,23 @@ class Trainer(
         self._scaler.update()
         self._optimizer.zero_grad()
 
+
     @override
     def save_checkpoint(self, replace_previous: bool = False) -> None:
         self._checkpoint.save(replace_previous)
 
+
     @override
     def load_checkpoint(self, epoch: int = -1) -> None:
         self._checkpoint.load(epoch=epoch)
+
 
     @override
     def update_learning_rate(
             self, learning_rate: float | dict[str, float],
     ) -> None:
         self._model_optimizer.update_learning_rate(learning_rate)
+
 
     def __str__(self) -> str:
         return f'Trainer for {self.model.name}.'
