@@ -8,7 +8,7 @@ By default, it prints to stdout and does not propagate to the main root.
 Attributes:
     INFO_LEVELS: InfoLevels object for global settings.
 """
-
+import abc
 import logging
 import sys
 from typing import NamedTuple, Optional
@@ -59,11 +59,30 @@ class DryTorchFilter(logging.Filter):
         return 'dry_torch' not in record.name
 
 
-def set_default_logging() -> None:
-    """ This function sets up the default logging configuration."""
-    logger.handlers.clear()
-    formatter = InfoFormatter()
+def get_verbosity() -> int:
+    """This function gets the verbosity level of the 'dry_torch' logger."""
+    return logger.level
 
+
+def set_verbosity(level_no: int):
+    """This function sets the verbosity level of the 'dry_torch' logger."""
+    global logger
+    logger.setLevel(level_no)
+
+
+def disable_default_handler() -> None:
+    """This function disable the handler and filter of the local logger."""
+    logger.setLevel(logging.NOTSET)
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+
+
+def enable_default_handler() -> None:
+    """This function sets up the default logging configuration."""
+    global logger
+    logger.handlers.clear()
+
+    formatter = InfoFormatter()
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.terminator = ''
     stdout_handler.setFormatter(formatter)
@@ -72,21 +91,31 @@ def set_default_logging() -> None:
     logger.propagate = False
 
 
-def propagate_to_root_logger(deduplicate_stdout: bool = True,
-                             remove_handlers: bool = False) -> None:
+def disable_propagation() -> None:
     """
-    This function allow logs to propagate to the root logger.
+    This function reverts the changes made by enable_propagation
+    """
+    global logger
+
+    logger.propagate = False
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        for log_filter in handler.filters:
+            if isinstance(log_filter, DryTorchFilter):
+                handler.removeFilter(log_filter)
+                break
+
+
+def enable_propagation(deduplicate_stdout: bool = True) -> None:
+    """
+    This function allows logs to propagate to the root logger.
 
     Args:
-        deduplicate_stdout: if True, filters dry_torch logs from root stdout.
-        remove_handlers: if True, removes all handlers from the module logger.
+        deduplicate_stdout: whether to remove local messages from stdout.
     """
-    logger.propagate = True
-    if remove_handlers:
-        logger.handlers.clear()
-        logger.addHandler(logging.NullHandler())
-        logger.setLevel(logging.NOTSET)
+    global logger
 
+    logger.propagate = True
     if deduplicate_stdout:
         root_logger = logging.getLogger()
         for handler in root_logger.handlers:
@@ -107,4 +136,4 @@ INFO_LEVELS = InfoLevels(tqdm_bar=17,
 for name, level in INFO_LEVELS._asdict().items():
     logging.addLevelName(level, name.center(10))
 
-set_default_logging()
+enable_default_handler()
