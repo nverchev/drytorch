@@ -235,6 +235,15 @@ class OptimizerNotLoadedWarning(DryTorchException, RuntimeWarning):
         super().__init__(error)
 
 
+class PastEpochWarning(DryTorchException, RuntimeWarning):
+    msg = 'Training until epoch {} stopped: current epoch is already {}.'
+
+    def __init__(self, selected_epoch: int, current_epoch: int) -> None:
+        self.selected_epoch = selected_epoch
+        self.current_epoch = current_epoch
+        super().__init__(selected_epoch, current_epoch)
+
+
 class RecursionWarning(DryTorchException, RuntimeWarning):
     msg = 'Impossible to extract metadata because there are recursive objects.'
 
