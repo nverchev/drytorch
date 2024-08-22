@@ -218,7 +218,9 @@ class TrainerProtocol(Protocol):
 
     def update_learning_rate(self, learning_rate: float) -> None:
         """Update the learning rate."""
-
+    @property
+    def terminated(self) -> bool:
+        """Training has terminated"""
 
 class PlotterProtocol(Protocol):
     """Protocol for a class that plots the learning curves."""
