@@ -72,15 +72,16 @@ def call_every(
         start: int = 0,
 ) -> Callable[[p.TrainerProtocol], None]:
     def call(instance: p.TrainerProtocol) -> None:
-        if tracking.track(instance.model).epoch % interval == start:
+        epoch = tracking.track(instance.model).epoch
+        if epoch % interval == start or instance.terminated:
             hook(instance)
 
     return call
 
 
 def early_stopping_callback(
+        metric_name: str,
         monitor_dataset: descriptors.Split = descriptors.Split.VAL,
-        metric_name: str = 'Criterion',
         aggregate_fun: Callable[[npt.NDArray], float] = np.min,
         min_delta: float = 0.,
         patience: int = 10,
