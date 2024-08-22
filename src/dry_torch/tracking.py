@@ -43,6 +43,24 @@ class ModelTracker:
         self.default_names: dict[str, DefaultName] = {}
         self.log = {split: pd.DataFrame() for split in descriptors.Split}
 
+    def update_log(self,
+                   source: str,
+                   partition: Optional[descriptors.Split],
+                   metrics: dict[str, Any]) -> None:
+
+        if partition is None:
+            return
+        info = {'Source': [source], 'Epoch': [self.epoch]}
+        log_line = pd.DataFrame(
+            info | {key: [value] for key, value in metrics.items()}
+        )
+        # if "wandb" in sys.modules:
+        #     import wandb
+        #     if wandb.run is not None:
+        #         wandb.log({source: metrics}, step=self.epoch, commit=False)
+        self.log[partition] = pd.concat([self.log[partition], log_line])
+        return
+
 
 class ModelTrackerDict:
 
@@ -103,7 +121,7 @@ class Experiment(Generic[_T]):
                  config: Optional[Any] = None,
                  save_metadata: bool = True,
                  max_items_repr: int = 10,
-                 link_to_hydra: bool = False) -> None:
+                 log_backend: None = None) -> None:
 
         self.name: Final = name or datetime.datetime.now().isoformat()
         self.pardir = pathlib.Path(pardir)
@@ -112,11 +130,10 @@ class Experiment(Generic[_T]):
         self.config = config
         self.save_metadata = save_metadata
         self.max_items_repr = max_items_repr
-        if link_to_hydra:
-            self.link_to_hydra()
         self.tracker = ModelTrackerDict(exp_name=self.name)
         self.__class__.past_experiments.add(self)
         self.activate()
+        self.log_backend = log_backend
 
     def link_to_hydra(self) -> None:
         try:
@@ -151,6 +168,8 @@ class Experiment(Generic[_T]):
     def activate(self) -> None:
         if Experiment._current is not None:
             self.stop()
+
+        # session = Session()
         Experiment._current = self
         self.__class__._current_config = self.config
         logger.log(log_settings.INFO_LEVELS.experiment,
