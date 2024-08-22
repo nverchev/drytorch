@@ -15,7 +15,8 @@ __all__ = [
     'Validation',
     'Test',
     'Plotter',
-    'register_model'
+    'register_model',
+    'track',
 ]
 
 from dry_torch.plotting import Plotter
@@ -33,3 +34,4 @@ from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Validation
 from dry_torch.evaluating import Test
 from dry_torch.registering import register_model
+from dry_torch.tracking import track
