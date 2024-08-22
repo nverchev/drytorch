@@ -56,12 +56,13 @@ class Linear(torch.nn.Module):
         self.linear = torch.nn.Linear(in_features, out_features)
 
     def forward(self, inputs: TorchTuple) -> TorchData:
-        return TorchData(self.linear(inputs.input) * float('inf'))
+        return TorchData(self.linear(inputs.input))
 
 
 def square_error(outputs: TorchData,
                  targets: torch.Tensor) -> torch.Tensor:
-    return torch.stack(2 * [(outputs.output - targets) ** 2]).mean()
+    return ((outputs.output - targets) ** 2).mean() + torch.rand_like(
+        outputs.output).mean()
 
 
 def zero(outputs: TorchData,
@@ -77,7 +78,7 @@ def test_all() -> None:
 
     module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
-    metrics_calc = MetricsCalculator(my_metric=zero)
+    metrics_calc = MetricsCalculator(my_metric=square_error, zero=zero)
 
     model = Model(module, name='original_model')
     dataset = IdentityDataset()
@@ -92,7 +93,8 @@ def test_all() -> None:
     trainer.post_epoch_hooks.register(
         hooks.call_every(5, hooks.saving_hook())
     )
-    trainer.post_epoch_hooks.register(hooks.early_stopping_callback())
+    trainer.post_epoch_hooks.register(
+        hooks.early_stopping_callback(metric_name='Criterion', patience=5))
     trainer.train(10)
     cloned_model = model.clone('cloned_model')
     Trainer(cloned_model,
@@ -103,7 +105,7 @@ def test_all() -> None:
     out = cloned_model(tuple_in)
     assert torch.isclose(out.output, torch.tensor(.2), atol=0.01)
     test = _Test(model,
-                 metrics_calc=loss_calc,
+                 metrics_calc=metrics_calc,
                  loader=loader,
                  )
     test(store_outputs=True)

@@ -65,7 +65,8 @@ def test_all() -> None:
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
-    callback = hooks.early_stopping_callback(patience=0, start_from_epoch=5)
+    callback = hooks.early_stopping_callback(metric_name='Criterion',
+                                             patience=5)
 
     for i in range(5):
         module = Linear(1, 1)
