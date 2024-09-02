@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import atexit
 import logging
 import pathlib
 import datetime
-import shutil
 from typing import Any, Optional, Final, TypeVar, Generic
-
-import pandas as pd
 
 from dry_torch import descriptors
 from dry_torch import exceptions
 from dry_torch import log_settings
 from dry_torch import protocols as p
+from dry_torch import log_backend
 
 logger = logging.getLogger('dry_torch')
 
@@ -36,29 +33,21 @@ class DefaultName:
 
 class ModelTracker:
 
-    def __init__(self, name: str) -> None:
+    def __init__(self,
+                 name: str,
+                 log_backend: log_backend.LogBackend) -> None:
         self.name: Final = name
         self.epoch = 0
         self.metadata: dict[str, Any] = {}
         self.default_names: dict[str, DefaultName] = {}
-        self.log = {split: pd.DataFrame() for split in descriptors.Split}
+        self.log = log_backend
 
     def update_log(self,
                    source: str,
-                   partition: Optional[descriptors.Split],
+                   split: descriptors.Split,
                    metrics: dict[str, Any]) -> None:
 
-        if partition is None:
-            return
-        info = {'Source': [source], 'Epoch': [self.epoch]}
-        log_line = pd.DataFrame(
-            info | {key: [value] for key, value in metrics.items()}
-        )
-        # if "wandb" in sys.modules:
-        #     import wandb
-        #     if wandb.run is not None:
-        #         wandb.log({source: metrics}, step=self.epoch, commit=False)
-        self.log[partition] = pd.concat([self.log[partition], log_line])
+        self.log(self.name, source, split.name.lower(), self.epoch, metrics)
         return
 
 
@@ -119,9 +108,10 @@ class Experiment(Generic[_T]):
                  name: str = '',
                  pardir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[Any] = None,
+                 experiment_log: log_backend.ExperimentLog =
+                 log_backend.NoLog(),
                  save_metadata: bool = True,
-                 max_items_repr: int = 10,
-                 log_backend: None = None) -> None:
+                 max_items_repr: int = 10,) -> None:
 
         self.name: Final = name or datetime.datetime.now().isoformat()
         self.pardir = pathlib.Path(pardir)
@@ -133,37 +123,7 @@ class Experiment(Generic[_T]):
         self.tracker = ModelTrackerDict(exp_name=self.name)
         self.__class__.past_experiments.add(self)
         self.activate()
-        self.log_backend = log_backend
-
-    def link_to_hydra(self) -> None:
-        try:
-            import hydra
-        except ImportError:
-            raise exceptions.LibraryNotAvailableError('hydra')
-
-        # noinspection PyUnresolvedReferences
-        str_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-        hydra_dir = pathlib.Path(str_dir)
-        hydra_link = self.dir / 'hydra'
-        hydra_link.mkdir(exist_ok=True)
-        while True:
-            link_name = self.__class__._default_link_name()
-            link_dir = hydra_link / link_name
-            if link_dir.exists():
-                continue
-            if not hydra_dir.exists() and hydra_dir.is_dir():
-                raise exceptions.LibraryNotSupportedError('hydra')
-            else:
-                link_dir.unlink(missing_ok=True)  # may replace broken link
-                link_dir.symlink_to(hydra_dir, target_is_directory=True)
-                break
-
-        def copy_hydra_dir() -> None:
-            link_dir.unlink()
-            shutil.copytree(hydra_dir, link_dir)
-
-        atexit.register(copy_hydra_dir)
-        return
+        self.log_backend = experiment_log.create_log(self.dir, self.name)
 
     def activate(self) -> None:
         if Experiment._current is not None:

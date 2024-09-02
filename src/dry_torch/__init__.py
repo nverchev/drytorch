@@ -20,9 +20,8 @@ __all__ = [
 ]
 
 from dry_torch.plotting import Plotter
-from dry_torch.io import LogIO
-from dry_torch.io import ModelStateIO
-from dry_torch.io import CheckpointIO
+from dry_torch.checkpoint import ModelStateIO
+from dry_torch.checkpoint import CheckpointIO
 from dry_torch.loading import DataLoader
 from dry_torch.calculating import SimpleLossCalculator
 from dry_torch.calculating import MetricsCalculator

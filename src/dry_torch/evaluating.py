@@ -2,7 +2,7 @@ import sys
 import logging
 import abc
 import warnings
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic
 
 from typing_extensions import override
 
@@ -11,7 +11,7 @@ import torch
 from dry_torch import descriptors
 from dry_torch import exceptions
 from dry_torch import tracking
-from dry_torch import io
+from dry_torch import checkpoint
 from dry_torch import aggregator
 from dry_torch import apply_ops
 from dry_torch import protocols as p
@@ -168,8 +168,6 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
         self._run_epoch(store_outputs)
         return
 
-    def _update_log(self) -> None:
-        return
 
 class Validation(Evaluation[_Input, _Target, _Output]):
     partition = descriptors.Split.VAL

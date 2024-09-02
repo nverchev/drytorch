@@ -6,7 +6,7 @@ from torch import cuda
 import dataclasses
 
 from dry_torch import descriptors
-from dry_torch import io
+from dry_torch import checkpoint
 from dry_torch import exceptions
 from dry_torch import schedulers
 from dry_torch import protocols as p

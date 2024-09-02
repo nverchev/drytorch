@@ -5,7 +5,7 @@ from typing import Callable, Concatenate, Any, TypeVar, ParamSpec
 import warnings
 
 from dry_torch import exceptions
-from dry_torch import io
+from dry_torch import checkpoint
 from dry_torch import protocols as p
 from dry_torch import repr_utils
 from dry_torch import tracking
@@ -60,12 +60,12 @@ def register_model(model: p.ModelProtocol, /) -> None:
     """
     exp = tracking.Experiment.current()
     name = model.name
-    exp.tracker[name] = tracking.ModelTracker(name)
-    class_str_snake = model.__class__.__name__
+    exp.tracker[name] = tracking.ModelTracker(name, exp.log_backend)
+    class_str = model.__class__.__name__
     metadata = {name: repr_utils.LiteralStr(repr(model.module))}
-    exp.tracker[name].metadata[class_str_snake] = metadata
+    exp.tracker[name].metadata[class_str] = metadata
     if exp.save_metadata:
-        io.dump_metadata(name, class_str_snake)
+        io.dump_metadata(name, class_str)
 
 
 def extract_metadata(to_document: dict[str, Any],

@@ -8,7 +8,6 @@ By default, it prints to stdout and does not propagate to the main root.
 Attributes:
     INFO_LEVELS: InfoLevels object for global settings.
 """
-import abc
 import logging
 import sys
 from typing import NamedTuple, Optional

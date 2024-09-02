@@ -6,7 +6,7 @@ from torch.cuda import amp
 from typing_extensions import override
 
 from dry_torch import descriptors
-from dry_torch import io
+from dry_torch import checkpoint
 from dry_torch import exceptions
 from dry_torch import tracking
 from dry_torch import learning

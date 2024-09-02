@@ -64,17 +64,6 @@ class PathManager:
         directory.mkdir(exist_ok=True)
         return directory
 
-    @property
-    def logs_dir(self) -> pathlib.Path:
-        checkpoint_directory = self.model_dir / 'logs'
-        checkpoint_directory.mkdir(exist_ok=True)
-        return checkpoint_directory
-
-    @property
-    def log(self) -> descriptors.PathDict:
-        logs_directory = self.logs_dir
-        return {split: logs_directory / f'{split.name.lower()}.csv'
-                for split in descriptors.Split}
 
     @property
     def checkpoint_dir(self) -> pathlib.Path:
@@ -120,84 +109,8 @@ class PathManager:
         return max(past_epochs)
 
 
-class LogIO:
-    definition = 'logs'
-    """
-    Save and load checkpoints. The folder with the savings has the address
-    of the form: pardir/name.
 
-    Args:
-        model: contain the module and the optimizing strategy.
-        . Defaults to module.
-
-
-    Methods:
-        save: save a checkpoint.
-        load: load a checkpoint.
-        name: property with the model_name of the experiment.
-        epoch: property with the current epoch.
-    """
-
-    def __init__(self, model_name: str) -> None:
-        self.model_name = model_name
-        self.paths = PathManager(model_name)
-
-    @property
-    def model_tracker(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracker[self.model_name]
-
-    def _update_epoch(self, epoch: int):
-        epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
-        self.model_tracker.epoch = epoch
-
-    def save(self) -> None:
-        """
-        Save a checkpoint for the module and the optimizer with the metadata of
-        the experiments, the test results,
-        and the training and validation learning curves.
-        """
-        for split, path in self.paths.log.items():
-            log = self.model_tracker.log[split]
-            if len(log):
-                log.to_csv(path, index=False)
-        logger.log(log_settings.INFO_LEVELS.io,
-                   f"%(definition)s saved in: %(model_dir)s.",
-                   {'definition': self.definition.capitalize(),
-                    'model_dir': self.paths.model_dir}
-                   )
-        return
-
-    def load(self, epoch: int = -1) -> None:
-        """
-        Load a checkpoint for the module and the optimizer, the training and
-        validation metrics and the test results.
-
-        Args:
-            epoch: the epoch of the checkpoint to load, the last checkpoint is
-            loaded if a negative value is given.
-        """
-        self._update_epoch(epoch)
-        for split, path in self.paths.log.items():
-            try:
-                df = pd.read_csv(path)
-            except FileNotFoundError:
-                df = pd.DataFrame()
-            if split is not descriptors.Split.TEST and len(df):
-                # filter out future epochs from logs
-                df = df[df['Epoch'] <= self.model_tracker.epoch]
-            self.model_tracker.log[split] = df
-        logger.log(log_settings.INFO_LEVELS.io,
-                   f"Loaded %(definition)s at epoch %(epoch)d.",
-                   {'definition': self.definition,
-                    'epoch': self.model_tracker.epoch}
-                   )
-        return
-
-    def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(module={self.model_tracker.name})'
-
-
-class ModelStateIO(LogIO):
+class ModelStateIO:
     """
     Save and load checkpoints. The folder with the savings has the address
     of the form: pardir/name.
@@ -217,8 +130,17 @@ class ModelStateIO(LogIO):
 
     def __init__(self,
                  model: p.ModelProtocol) -> None:
-        super().__init__(model.name)
         self.model = model
+        self.model_name = model.name
+        self.paths = PathManager(model.name)
+
+    @property
+    def model_tracker(self) -> tracking.ModelTracker:
+        return tracking.Experiment.current().tracker[self.model_name]
+
+    def _update_epoch(self, epoch: int):
+        epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
+        self.model_tracker.epoch = epoch
 
     def save(self) -> None:
         """
@@ -228,7 +150,12 @@ class ModelStateIO(LogIO):
         """
         torch.save(self.model.module.state_dict(),
                    self.paths.checkpoint['state'])
-        return super().save()
+        logger.log(log_settings.INFO_LEVELS.io,
+                   f"%(definition)s saved in: %(model_dir)s.",
+                   {'definition': self.definition.capitalize(),
+                    'model_dir': self.paths.model_dir}
+                   )
+        return
 
     def load(self, epoch: int = -1) -> None:
         """
@@ -239,13 +166,20 @@ class ModelStateIO(LogIO):
             epoch: the epoch of the checkpoint to load, the last checkpoint is
             loaded if a negative value is given.
         """
-        super().load(epoch)
+        self._update_epoch(epoch)
+        logger.log(log_settings.INFO_LEVELS.io,
+                   f"Loaded %(definition)s at epoch %(epoch)d.",
+                   {'definition': self.definition,
+                    'epoch': self.model_tracker.epoch}
+                   )
         self.model.module.load_state_dict(
             torch.load(self.paths.checkpoint['state'],
                        map_location=self.model.device),
         )
         return
 
+    def __repr__(self) -> str:
+        return self.__class__.__name__ + f'(module={self.model_tracker.name})'
 
 class CheckpointIO(ModelStateIO):
     """
