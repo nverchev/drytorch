@@ -1,10 +1,11 @@
 """This module contains functions for nested containers."""
+from collections.abc import Callable, MutableMapping, MutableSequence
 import copy
-from typing import Callable, Type, TypeVar, MutableMapping, MutableSequence, Any
+from typing import Type, TypeVar, Any
 
 import torch
 
-from dry_torch import exceptions
+from src.dry_torch import exceptions
 
 _T = TypeVar('_T')
 _C = TypeVar('_C')

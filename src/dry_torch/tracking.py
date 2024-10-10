@@ -5,11 +5,11 @@ import pathlib
 import datetime
 from typing import Any, Optional, Final, TypeVar, Generic
 
-from dry_torch import descriptors
-from dry_torch import exceptions
-from dry_torch import log_settings
-from dry_torch import protocols as p
-from dry_torch import log_backend
+from src.dry_torch import descriptors
+from src.dry_torch import exceptions
+from src.dry_torch import log_settings
+from src.dry_torch import protocols as p
+from src.dry_torch import log_backend
 
 logger = logging.getLogger('dry_torch')
 
@@ -33,22 +33,10 @@ class DefaultName:
 
 class ModelTracker:
 
-    def __init__(self,
-                 name: str,
-                 log_backend: log_backend.LogBackend) -> None:
-        self.name: Final = name
-        self.epoch = 0
+    def __init__(self) -> None:
         self.metadata: dict[str, Any] = {}
         self.default_names: dict[str, DefaultName] = {}
-        self.log = log_backend
 
-    def update_log(self,
-                   source: str,
-                   split: descriptors.Split,
-                   metrics: dict[str, Any]) -> None:
-
-        self.log(self.name, source, split.name.lower(), self.epoch, metrics)
-        return
 
 
 class ModelTrackerDict:

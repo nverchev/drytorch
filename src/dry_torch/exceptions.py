@@ -1,4 +1,5 @@
-from typing import Iterable, Any, TypeVar, Hashable
+from collections.abc import Iterable, Hashable
+from typing import Any, TypeVar
 import pathlib
 
 _K = TypeVar('_K', bound=Hashable)
@@ -182,7 +183,7 @@ class NotATensorError(DryTorchException, TypeError):
         super().__init__(name, type(not_a_tensor))
 
 
-class NotBatchedError(DryTorchException, ValueError):
+class MetricsNotAVectorError(DryTorchException, ValueError):
     msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
 
     def __init__(self, shapes: list[int]) -> None:

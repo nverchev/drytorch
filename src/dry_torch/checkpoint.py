@@ -4,14 +4,13 @@ import datetime
 
 import yaml  # type: ignore
 import logging
-import pandas as pd
 import torch
 
-from dry_torch import descriptors
-from dry_torch import log_settings
-from dry_torch import exceptions
-from dry_torch import tracking
-from dry_torch import protocols as p
+from src.dry_torch import descriptors
+from src.dry_torch import log_settings
+from src.dry_torch import exceptions
+from src.dry_torch import tracking
+from src.dry_torch import protocols as p
 
 logger = logging.getLogger('dry_torch')
 
@@ -21,7 +20,7 @@ class PathManager:
     Manages the paths for the experiment.
 
     Args:
-        model_name: The model_name of the module.
+        model: The model.
 
     Attributes:
         tracker  The model_name of the module.
@@ -42,8 +41,8 @@ class PathManager:
         get_last_saved_epoch(self) -> int: Get the last saved epoch.
     """
 
-    def __init__(self, model_name: str) -> None:
-        self.model_name = model_name
+    def __init__(self, model: p.ModelProtocol) -> None:
+        self.model = model
 
     @property
     def exp(self) -> tracking.Experiment:
@@ -54,13 +53,10 @@ class PathManager:
         exp = tracking.Experiment.current()
         return exp.dir
 
-    @property
-    def model_tracking(self) -> tracking.ModelTracker:
-        return self.exp.tracker[self.model_name]
 
     @property
     def model_dir(self) -> pathlib.Path:
-        directory = self.exp_dir / self.model_tracking.name
+        directory = self.exp_dir / self.model.name
         directory.mkdir(exist_ok=True)
         return directory
 
@@ -73,8 +69,7 @@ class PathManager:
 
     @property
     def epoch_dir(self) -> pathlib.Path:
-        epoch = self.model_tracking.epoch
-        epoch_directory = self.checkpoint_dir / f'epoch_{epoch}'
+        epoch_directory = self.checkpoint_dir / f'epoch_{self.model.epoch}'
         epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
@@ -131,16 +126,11 @@ class ModelStateIO:
     def __init__(self,
                  model: p.ModelProtocol) -> None:
         self.model = model
-        self.model_name = model.name
-        self.paths = PathManager(model.name)
-
-    @property
-    def model_tracker(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracker[self.model_name]
+        self.paths = PathManager(model)
 
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self.paths.get_last_saved_epoch()
-        self.model_tracker.epoch = epoch
+        self.model.epoch = epoch
 
     def save(self) -> None:
         """
@@ -170,7 +160,7 @@ class ModelStateIO:
         logger.log(log_settings.INFO_LEVELS.io,
                    f"Loaded %(definition)s at epoch %(epoch)d.",
                    {'definition': self.definition,
-                    'epoch': self.model_tracker.epoch}
+                    'epoch': self.model.epoch}
                    )
         self.model.module.load_state_dict(
             torch.load(self.paths.checkpoint['state'],
@@ -179,7 +169,7 @@ class ModelStateIO:
         return
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(module={self.model_tracker.name})'
+        return self.__class__.__name__ + f'(module={self.model.name})'
 
 class CheckpointIO(ModelStateIO):
     """

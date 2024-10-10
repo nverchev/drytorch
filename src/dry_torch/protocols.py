@@ -1,14 +1,15 @@
 """This module defines internal protocols."""
 
 import abc
-from typing import Any, Iterator, Mapping, Optional, Protocol, SupportsIndex
-from typing import Type, TypeAlias, TypeVar, runtime_checkable
+from collections.abc import Iterator, Mapping
+from typing import Any, Optional, Protocol, SupportsIndex, TypeAlias, TypeVar
+from typing import runtime_checkable
 
 import pandas as pd
 import torch
 from torch.utils import data
 
-from dry_torch import descriptors
+from src.dry_torch import descriptors
 
 _T = TypeVar('_T')
 
@@ -184,6 +185,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     """
     name: str
     module: torch.nn.Module
+    epoch: int
 
     @property
     def device(self) -> torch.device:
@@ -192,6 +194,11 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     @abc.abstractmethod
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         """Calls the module forward method."""
+
+    @abc.abstractmethod
+    def increment_epoch(self):
+        ...
+
 
 
 @runtime_checkable

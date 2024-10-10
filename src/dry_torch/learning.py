@@ -1,17 +1,16 @@
-from typing import Optional, Self, Iterable, Iterator
-from typing import TypeVar, Any, cast, Generic, Type
+from collections.abc import Iterable, Iterator
+from typing import Optional, Self, TypeVar, Any, cast, Generic
 import copy
 import torch
 from torch import cuda
 import dataclasses
 
-from dry_torch import descriptors
-from dry_torch import checkpoint
-from dry_torch import exceptions
-from dry_torch import schedulers
-from dry_torch import protocols as p
-from dry_torch import tracking
-from dry_torch import registering
+from src.dry_torch import descriptors
+from src.dry_torch import exceptions
+from src.dry_torch import schedulers
+from src.dry_torch import protocols as p
+from src.dry_torch import tracking
+from src.dry_torch import registering
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -33,7 +32,7 @@ class LearningScheme(p.LearningProtocol):
         scheduler: modifies the learning rate given the current epoch.
     """
 
-    optimizer_cls: Type[torch.optim.Optimizer]
+    optimizer_cls: type[torch.optim.Optimizer]
     lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
@@ -78,6 +77,7 @@ class Model(Generic[_Input_contra, _Output_co]):
     ) -> None:
         self.module = self.validate_module(torch_module)
         self.name: str = name or Model._default_model_name()
+        self.epoch: int = 0
         self.device = device
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.checkpoint = io.ModelStateIO(self)
@@ -93,6 +93,9 @@ class Model(Generic[_Input_contra, _Output_co]):
         self._device = device
         self.module.to(device)
         return
+
+    def increment_epoch(self) -> None:
+        self.epoch += 1
 
     @staticmethod
     def validate_module(torch_model) -> torch.nn.Module:
@@ -174,7 +177,7 @@ class ModelOptimizer:
         Learning rates for each parameter updated according to the scheduler
         and the current epoch.
         """
-        epoch = self.get_epoch()
+        epoch = self.model.epoch
         return [
             dict(params=g['params'], lr=self.scheduler(g['lr'], epoch))
             for g in self._params_lr
@@ -241,5 +244,3 @@ class ModelOptimizer:
     def count_params(params: Iterator) -> int:
         return sum(1 for _ in params)
 
-    def get_epoch(self) -> int:
-        return tracking.track(self.model).epoch

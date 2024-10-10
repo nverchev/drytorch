@@ -1,7 +1,8 @@
 """ This module specifies how to represent and dump metadata in a yaml file."""
 
+from collections.abc import Iterable, Sequence
 import math
-from typing import Any, Iterable, Sequence
+from typing import Any
 import functools
 import types
 import dataclasses

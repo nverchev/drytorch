@@ -1,14 +1,15 @@
+from collections.abc import Callable
 import logging
-from typing import Generic, TypeVar, Callable, Optional, ParamSpec
+from typing import Generic, TypeVar, Optional, ParamSpec
 
 import numpy as np
 import numpy.typing as npt
 
-from dry_torch import descriptors
-from dry_torch import exceptions
-from dry_torch import log_settings
-from dry_torch import protocols as p
-from dry_torch import tracking
+from src.dry_torch import descriptors
+from src.dry_torch import exceptions
+from src.dry_torch import log_settings
+from src.dry_torch import protocols as p
+from src.dry_torch import tracking
 
 _Class = TypeVar('_Class')
 _P = ParamSpec('_P')

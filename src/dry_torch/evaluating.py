@@ -10,9 +10,7 @@ import torch
 
 from dry_torch import descriptors
 from dry_torch import exceptions
-from dry_torch import tracking
-from dry_torch import checkpoint
-from dry_torch import aggregator
+from dry_torch import aggregators
 from dry_torch import apply_ops
 from dry_torch import protocols as p
 from dry_torch import log_settings
@@ -80,13 +78,10 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         self._calculator = metrics_calc
         device_is_cuda = self.model.device.type == 'cuda'
         self._mixed_precision = mixed_precision and device_is_cuda
-        self._metrics = aggregator.TorchAggregator()
+        self._metrics = aggregators.TorchAverager()
         self.outputs_list = list[_Output]()
         return
 
-    @property
-    def model_tracker(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracker[self.model.name]
 
 
     @property

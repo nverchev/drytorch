@@ -1,10 +1,11 @@
 import abc
-from typing import TypeVar, Hashable, Optional, Self
+from collections.abc import Hashable
+from typing import TypeVar, Optional, Self
 from typing_extensions import override
 import torch
 
-from dry_torch import protocols as p
-from dry_torch import exceptions
+from src.dry_torch import protocols as p
+from src.dry_torch import exceptions
 
 _K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')

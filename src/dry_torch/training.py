@@ -1,20 +1,20 @@
+from collections.abc import Callable
 import logging
-from typing import Callable, Self, TypeVar
+from typing import Self, TypeVar
 
 import torch
 from torch.cuda import amp
 from typing_extensions import override
 
-from dry_torch import descriptors
-from dry_torch import checkpoint
-from dry_torch import exceptions
-from dry_torch import tracking
-from dry_torch import learning
-from dry_torch import protocols as p
-from dry_torch import log_settings
-from dry_torch import evaluating
-from dry_torch import hooks
-from dry_torch import registering
+from src.dry_torch import descriptors
+from src.dry_torch import checkpoint
+from src.dry_torch import exceptions
+from src.dry_torch import learning
+from src.dry_torch import protocols as p
+from src.dry_torch import log_settings
+from src.dry_torch import evaluating
+from src.dry_torch import hooks
+from src.dry_torch import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -72,16 +72,13 @@ class Trainer(
 
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
-        self._checkpoint = io.CheckpointIO(model, self._optimizer)
+        self._checkpoint = checkpoint.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=self._mixed_precision)
         self.pre_epoch_hooks = hooks.HookRegistry[Self]()
         self.post_epoch_hooks = hooks.HookRegistry[Self]()
         self._terminated = False
         return
 
-    @property
-    def model_tracker(self) -> tracking.ModelTracker:
-        return tracking.Experiment.current().tracker[self.model.name]
 
     def add_validation(
             self,
@@ -106,10 +103,10 @@ class Trainer(
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
-        self.model_tracker.epoch += 1
+        self.model.increment_epoch()
         epoch_msg = '====> Epoch %(epoch)4d:'
         logger.log(log_settings.INFO_LEVELS.epoch,
-                   epoch_msg, {'epoch': self.model_tracker.epoch})
+                   epoch_msg, {'epoch': self.model.epoch})
         self._model_optimizer.update_learning_rate()
         self.model.module.train()
         try:
@@ -149,12 +146,12 @@ class Trainer(
             epoch: the final epoch in the training.
 
         """
-        remaining_epochs = epoch - self.model_tracker.epoch
+        remaining_epochs = epoch - self.model.epoch
         if remaining_epochs > 0:
             self.train(remaining_epochs)
         if remaining_epochs < 0:
             logger.warning(
-                exceptions.PastEpochWarning(epoch, self.model_tracker.epoch)
+                exceptions.PastEpochWarning(epoch, self.model.epoch)
             )
         return
 
@@ -172,7 +169,7 @@ class Trainer(
             self._scaler.scale(criterion).backward()
         except RuntimeError as re:
             if criterion.numel != 1:
-                raise exceptions.NotBatchedError(list(criterion.shape))
+                raise exceptions.MetricsNotAVectorError(list(criterion.shape))
             raise re
         self._loader.send(criterion.item())
         self._scaler.step(self._optimizer)

@@ -1,7 +1,6 @@
 """Init file for dry_torch module."""
 
 __all__ = [
-    'LogIO',
     'ModelStateIO',
     'CheckpointIO',
     'Experiment',
@@ -19,18 +18,18 @@ __all__ = [
     'track',
 ]
 
-from dry_torch.plotting import Plotter
-from dry_torch.checkpoint import ModelStateIO
-from dry_torch.checkpoint import CheckpointIO
-from dry_torch.loading import DataLoader
-from dry_torch.calculating import SimpleLossCalculator
-from dry_torch.calculating import MetricsCalculator
-from dry_torch.learning import LearningScheme
-from dry_torch.learning import Model
-from dry_torch.tracking import Experiment
-from dry_torch.training import Trainer
-from dry_torch.evaluating import Diagnostic
-from dry_torch.evaluating import Validation
-from dry_torch.evaluating import Test
-from dry_torch.registering import register_model
-from dry_torch.tracking import track
+from src.dry_torch.plotting import Plotter
+from src.dry_torch.checkpoint import ModelStateIO
+from src.dry_torch.checkpoint import CheckpointIO
+from src.dry_torch.loading import DataLoader
+from src.dry_torch.calculating import SimpleLossCalculator
+from src.dry_torch.calculating import MetricsCalculator
+from src.dry_torch.learning import LearningScheme
+from src.dry_torch.learning import Model
+from src.dry_torch.tracking import Experiment
+from src.dry_torch.training import Trainer
+from src.dry_torch.evaluating import Diagnostic
+from src.dry_torch.evaluating import Validation
+from src.dry_torch.evaluating import Test
+from src.dry_torch.registering import register_model
+from src.dry_torch.tracking import track

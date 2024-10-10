@@ -8,14 +8,15 @@ a plotter for each, while the Plotter class functions as an interface.
 import abc
 import os
 from types import ModuleType
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Literal
 import warnings
 import pandas as pd
 
-from dry_torch import protocols as p
-from dry_torch import tracking
-from dry_torch import exceptions
-from dry_torch import descriptors
+from src.dry_torch import protocols as p
+from src.dry_torch import tracking
+from src.dry_torch import exceptions
+from src.dry_torch import descriptors
 
 _Backend = Literal['visdom', 'plotly', 'auto', 'none']
 

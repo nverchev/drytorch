@@ -1,14 +1,14 @@
 """Module with functions to connect a Model-like instance to other classes."""
-
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Concatenate, Any, TypeVar, ParamSpec
+from typing import Concatenate, Any, TypeVar, ParamSpec
 import warnings
 
-from dry_torch import exceptions
-from dry_torch import checkpoint
-from dry_torch import protocols as p
-from dry_torch import repr_utils
-from dry_torch import tracking
+from src.dry_torch import exceptions
+from src.dry_torch import checkpoint
+from src.dry_torch import protocols as p
+from src.dry_torch import repr_utils
+from src.dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,

@@ -2,12 +2,13 @@
 
 import abc
 import collections
-from typing import Iterable, Mapping, Self, TypeVar, Generic
+from collections.abc import Mapping, Iterable
+from typing import Self, TypeVar, Generic
 from typing_extensions import override
 
 import torch
 
-from dry_torch import exceptions
+from src.dry_torch import exceptions
 
 _T = TypeVar('_T')
 
@@ -100,7 +101,7 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
         return self.__class__.__name__ + f'(counts={self.counts})'
 
 
-class TorchAggregator(Aggregator[torch.Tensor]):
+class TorchAverager(Aggregator[torch.Tensor]):
     """ Subclass of Aggregator with an implementation for torch.Tensor.
 
     It accepts only s with no more than one non-squeezable dimension,
@@ -117,4 +118,4 @@ class TorchAggregator(Aggregator[torch.Tensor]):
         try:
             return value.sum(0).item()
         except RuntimeError:
-            raise exceptions.NotBatchedError(list(value.shape))
+            raise exceptions.MetricsNotAVectorError(list(value.shape))

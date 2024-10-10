@@ -8,11 +8,13 @@ By default, it prints to stdout and does not propagate to the main root.
 Attributes:
     INFO_LEVELS: InfoLevels object for global settings.
 """
+import functools
 import logging
 import sys
 from typing import NamedTuple, Optional
-
 from typing_extensions import override
+
+from src.dry_torch import events
 
 
 class InfoLevels(NamedTuple):
@@ -136,3 +138,23 @@ for name, level in INFO_LEVELS._asdict().items():
     logging.addLevelName(level, name.center(10))
 
 enable_default_handler()
+
+
+class BuiltinLogger(events.Subscriber):
+
+    @functools.singledispatchmethod
+    def log(self, event: events.Event) -> None:
+        return
+
+    @log.register
+    def _(self, event: events.TrainingStart) -> None:
+        logger.log(INFO_LEVELS.training,
+                   'Training %(model_name)s.',
+                   {'model_name': event.model_name})
+        return
+
+    @log.register
+    def _(self, event: events.TrainingEnd) -> None:
+        logger.log(INFO_LEVELS.training, 'End of training.')
+        return
+

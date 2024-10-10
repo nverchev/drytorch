@@ -1,6 +1,7 @@
 import enum
 import pathlib
-from typing import TypedDict, Iterator, TypeAlias, Union, MutableSequence
+from collections.abc import Iterator, MutableSequence
+from typing import TypedDict, TypeAlias, Union
 
 import pandas as pd
 import torch
