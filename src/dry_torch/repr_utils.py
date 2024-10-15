@@ -1,4 +1,5 @@
 """ This module specifies how to represent and dump metadata in a yaml file."""
+from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 import math
@@ -269,3 +270,18 @@ def _(obj, *, max_size: int = 10) -> str:
 def _(obj, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj.__name__
+
+
+class DefaultName:
+    def __init__(self, prefix: str, start: int = -1):
+        self.prefix = prefix
+        self.count_defaults = start
+
+    def __call__(self) -> str:
+        self.count_defaults += 1
+        return repr(self)
+
+    def __repr__(self):
+        if not self.count_defaults:
+            return self.prefix
+        return f"{self.prefix}_{self.count_defaults}"

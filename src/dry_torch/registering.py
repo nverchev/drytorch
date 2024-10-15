@@ -4,6 +4,7 @@ from functools import wraps
 from typing import Concatenate, Any, TypeVar, ParamSpec
 import warnings
 
+from src.dry_torch import events
 from src.dry_torch import exceptions
 from src.dry_torch import checkpoint
 from src.dry_torch import protocols as p
@@ -58,33 +59,8 @@ def register_model(model: p.ModelProtocol, /) -> None:
         Creation of a ModelTracker instance.
         Metadata about the model is dumped to a file.
     """
-    exp = tracking.Experiment.current()
-    name = model.name
-    exp.tracker[name] = tracking.ModelTracker(name, exp.log_backend)
-    class_str = model.__class__.__name__
-    metadata = {name: repr_utils.LiteralStr(repr(model.module))}
-    exp.tracker[name].metadata[class_str] = metadata
-    if exp.save_metadata:
-        io.dump_metadata(name, class_str)
 
-
-def extract_metadata(to_document: dict[str, Any],
-                     max_size: int = 3) -> dict[str, Any]:
-    """
-    Wrapper of recursive_repr that catches Recursion Errors
-
-    Args:
-        to_document: a dictionary of objects to document.
-        max_size: maximum number of documented items in an obj.
-    """
-    # get the recursive representation of the objects.
-    try:
-        metadata = {k: repr_utils.recursive_repr(v, max_size=max_size)
-                    for k, v in to_document.items()}
-    except RecursionError:
-        warnings.warn(exceptions.RecursionWarning())
-        metadata = {}
-    return metadata
+    events.ModelCreation(model)
 
 
 def register_kwargs(
@@ -113,30 +89,14 @@ def register_kwargs(
                 model: p.ModelProtocol[_Input_contra, _Output_co],
                 *args: _P.args,
                 **kwargs: _P.kwargs) -> _RT:
+
         if not isinstance(model, p.ModelProtocol):
             raise exceptions.ModelFirstError(model)
 
-        exp = tracking.Experiment.current()
-        model_tracker = exp.tracker[model.name]
-        if not exp.save_metadata:
-            return func(instance, model, *args, **kwargs)
-        if args:
-            warnings.warn(exceptions.NotDocumentedArgs())
-
         cls_str = instance.__class__.__name__
-
-        cls_count = model_tracker.default_names.setdefault(
-            cls_str,
-            tracking.DefaultName(cls_str)
-        )
-        name = cls_count()
         if 'name' in kwargs:
             name = str(kwargs.pop('name'))
-        metadata = extract_metadata(kwargs, exp.max_items_repr)
-        if name in model_tracker.metadata:
-            raise exceptions.NameAlreadyExistsError(name, model.name)
-        model_tracker.metadata[name] = metadata
-        kwargs['name'] = io.dump_metadata(model.name, name)
+        event = events.CreateEvaluation(model, cls_str, args, kwargs)
         return func(instance, model, *args, **kwargs)
 
     return wrapper

@@ -1,6 +1,6 @@
 from collections.abc import Callable
 import logging
-from typing import Self, TypeVar
+from typing import Self, TypeVar, Optional
 
 import torch
 from torch.cuda import amp
@@ -11,10 +11,11 @@ from src.dry_torch import checkpoint
 from src.dry_torch import exceptions
 from src.dry_torch import learning
 from src.dry_torch import protocols as p
-from src.dry_torch import log_settings
+from src.dry_torch import events
 from src.dry_torch import evaluating
 from src.dry_torch import hooks
 from src.dry_torch import registering
+from src.dry_torch import tracking
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -74,6 +75,7 @@ class Trainer(
         self._optimizer = self._model_optimizer.optimizer
         self._checkpoint = checkpoint.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=self._mixed_precision)
+        self.validation: Optional[evaluating.Validation] = None
         self.pre_epoch_hooks = hooks.HookRegistry[Self]()
         self.post_epoch_hooks = hooks.HookRegistry[Self]()
         self._terminated = False
@@ -83,20 +85,19 @@ class Trainer(
     def add_validation(
             self,
             val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
-    ) -> Callable[[], None]:
+    ) -> None:
 
         validation = evaluating.Validation(self.model,
                                            loader=val_loader,
                                            metrics_calc=self._calculator)
         self.post_epoch_hooks.register(hooks.static_hook(validation))
-        return validation
+        self.validation = validation
+        return
 
-    @override
     @property
     def terminated(self) -> bool:
         return self._terminated
 
-    @override
     def terminate_training(self) -> None:
         self._terminated = True
         return
@@ -104,9 +105,7 @@ class Trainer(
     @override
     def __call__(self, store_outputs: bool = False) -> None:
         self.model.increment_epoch()
-        epoch_msg = '====> Epoch %(epoch)4d:'
-        logger.log(log_settings.INFO_LEVELS.epoch,
-                   epoch_msg, {'epoch': self.model.epoch})
+        events.StartEpoch(self.model.epoch)
         self._model_optimizer.update_learning_rate()
         self.model.module.train()
         try:
@@ -116,7 +115,6 @@ class Trainer(
             self.terminate_training()
         return
 
-    @override
     def train(self: Self, num_epochs: int) -> None:
         """
         Train the module for the specified number of epochs.
@@ -124,9 +122,9 @@ class Trainer(
         Parameters:
             num_epochs: the number of epochs for which train the module.
         """
-        logger.log(log_settings.INFO_LEVELS.training,
-                   'Training %(model_name)s.',
-                   {'model_name': self.model.name})
+        events.StartTraining(self.model.name,
+                                     self.model.epoch,
+                                     self.model.epoch + num_epochs)
         if self._terminated:
             logger.warning('Attempted to train module after termination.')
         for _ in range(num_epochs):
@@ -135,7 +133,7 @@ class Trainer(
             self.pre_epoch_hooks.execute(self)
             self.__call__()
             self.post_epoch_hooks.execute(self)
-        logger.log(log_settings.INFO_LEVELS.training, 'End of training.')
+        events.EndTraining()
         return
 
     def train_until(self: Self, epoch: int) -> None:
@@ -156,11 +154,7 @@ class Trainer(
         return
 
 
-    def _run_batch(self,
-                   inputs: _Input,
-                   targets: _Target,
-                   store_outputs: bool) -> None:
-        super()._run_batch(inputs, targets, store_outputs=store_outputs)
+    def _run_backward(self) -> None:
         self._calculator: p.LossCalculatorProtocol
         criterion = self._calculator.criterion.mean(0)
         if torch.isinf(criterion) or torch.isnan(criterion):
@@ -171,23 +165,19 @@ class Trainer(
             if criterion.numel != 1:
                 raise exceptions.MetricsNotAVectorError(list(criterion.shape))
             raise re
-        self._loader.send(criterion.item())
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()
 
 
-    @override
     def save_checkpoint(self, replace_previous: bool = False) -> None:
         self._checkpoint.save(replace_previous)
 
 
-    @override
     def load_checkpoint(self, epoch: int = -1) -> None:
         self._checkpoint.load(epoch=epoch)
 
 
-    @override
     def update_learning_rate(
             self, learning_rate: float | dict[str, float],
     ) -> None:

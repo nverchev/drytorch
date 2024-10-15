@@ -1,75 +1,29 @@
 from __future__ import annotations
 
-import logging
 import pathlib
 import datetime
 from typing import Any, Optional, Final, TypeVar, Generic
 
-from src.dry_torch import descriptors
+from src.dry_torch import repr_utils
+from src.dry_torch import events
 from src.dry_torch import exceptions
-from src.dry_torch import log_settings
-from src.dry_torch import protocols as p
-from src.dry_torch import log_backend
+from src.dry_torch import builtin_logger
 
-logger = logging.getLogger('dry_torch')
+from src.dry_torch.backends import tqdm_backend
+
+DEFAULT_SUBSCRIBER_CLASSES: list[type[events.Subscriber]] = [
+    builtin_logger.InfoLogger,
+    tqdm_backend.Tqdm
+]
 
 _T = TypeVar('_T')
-
-
-class DefaultName:
-    def __init__(self, prefix: str, start: int = -1):
-        self.prefix = prefix
-        self.count_defaults = start
-
-    def __call__(self) -> str:
-        self.count_defaults += 1
-        return repr(self)
-
-    def __repr__(self):
-        if not self.count_defaults:
-            return self.prefix
-        return f"{self.prefix}_{self.count_defaults}"
-
-
-class ModelTracker:
-
-    def __init__(self) -> None:
-        self.metadata: dict[str, Any] = {}
-        self.default_names: dict[str, DefaultName] = {}
-
-
-
-class ModelTrackerDict:
-
-    def __init__(self, exp_name: str) -> None:
-        self.exp_name: Final = exp_name
-        self._models: dict[str, ModelTracker] = {}
-
-    def __contains__(self, item) -> bool:
-        return self._models.__contains__(item)
-
-    def __getitem__(self, key: str) -> ModelTracker:
-        if key not in self:
-            raise exceptions.ModelNotExistingError(key, self.exp_name)
-        return self._models.__getitem__(key)
-
-    def __setitem__(self, key: str, value: ModelTracker):
-        if key in self:
-            raise exceptions.ModelNameAlreadyExistsError(key, self.exp_name)
-        self._models.__setitem__(key, value)
-
-    def __delitem__(self, key: str):
-        self._models.__delitem__(key)
-
-    def __iter__(self):
-        return self._models.__iter__()
 
 
 class Experiment(Generic[_T]):
     past_experiments: set[Experiment] = set()
     _current: Optional[Experiment] = None
     _current_config: Optional[_T] = None
-    _default_link_name = DefaultName('outputs')
+    _default_link_name = repr_utils.DefaultName('outputs')
 
     """
     This class is used to describe the experiment.
@@ -95,42 +49,44 @@ class Experiment(Generic[_T]):
     def __init__(self,
                  name: str = '',
                  pardir: str | pathlib.Path = pathlib.Path(''),
-                 config: Optional[Any] = None,
-                 experiment_log: log_backend.ExperimentLog =
-                 log_backend.NoLog(),
-                 save_metadata: bool = True,
-                 max_items_repr: int = 10,) -> None:
+                 config: Optional[Any] = None) -> None:
 
         self.name: Final = name or datetime.datetime.now().isoformat()
         self.pardir = pathlib.Path(pardir)
         self.dir = self.pardir / name
         self.dir.mkdir(exist_ok=True, parents=True)
         self.config = config
-        self.save_metadata = save_metadata
-        self.max_items_repr = max_items_repr
-        self.tracker = ModelTrackerDict(exp_name=self.name)
         self.__class__.past_experiments.add(self)
+        self.subscribers: dict[type[events.Event], list[events.Subscriber]] = {}
+        for subscriber_class in DEFAULT_SUBSCRIBER_CLASSES:
+            self.register_subscriber(subscriber_class())
         self.activate()
-        self.log_backend = experiment_log.create_log(self.dir, self.name)
+
+    def publish(self, event: events.Event) -> None:
+        for subscriber in self.subscribers.get(event.__class__, []):
+            subscriber.notify(event)
+
+    def register_subscriber(self, subscriber: events.Subscriber) -> None:
+        subscriber.exp_name = self.name
+        for event in subscriber.defined_events():
+            self.subscribers.setdefault(event, []).append(subscriber)
+        return
 
     def activate(self) -> None:
         if Experiment._current is not None:
             self.stop()
-
+        events.Event.auto_publish = self.publish
         # session = Session()
         Experiment._current = self
         self.__class__._current_config = self.config
-        logger.log(log_settings.INFO_LEVELS.experiment,
-                   'Running experiment: %(name)s.',
-                   {'name': self.name})
+        events.StartExperiment(self.name)
         return
 
     def stop(self) -> None:
         """"""
-        logger.log(logging.DEBUG,
-                   f'Stopping experiment: %(name)s.',
-                   {'name': self.name})
         Experiment._current = None
+        event = events.StopExperiment(self.name)
+        self.publish(event)
         return
 
     def __repr__(self) -> str:
@@ -152,6 +108,3 @@ class Experiment(Generic[_T]):
         return cfg
 
 
-def track(model: p.ModelProtocol) -> ModelTracker:
-    exp = Experiment.current()
-    return exp.tracker[model.name]

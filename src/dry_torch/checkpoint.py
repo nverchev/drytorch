@@ -3,16 +3,14 @@ import pathlib
 import datetime
 
 import yaml  # type: ignore
-import logging
 import torch
 
+from src.dry_torch import events
 from src.dry_torch import descriptors
-from src.dry_torch import log_settings
 from src.dry_torch import exceptions
 from src.dry_torch import tracking
 from src.dry_torch import protocols as p
 
-logger = logging.getLogger('dry_torch')
 
 
 class PathManager:
@@ -140,11 +138,8 @@ class ModelStateIO:
         """
         torch.save(self.model.module.state_dict(),
                    self.paths.checkpoint['state'])
-        logger.log(log_settings.INFO_LEVELS.io,
-                   f"%(definition)s saved in: %(model_dir)s.",
-                   {'definition': self.definition.capitalize(),
-                    'model_dir': self.paths.model_dir}
-                   )
+        events.SaveCheckpoint(definition=self.definition,
+                              location=str(self.paths.model_dir))
         return
 
     def load(self, epoch: int = -1) -> None:
@@ -157,15 +152,13 @@ class ModelStateIO:
             loaded if a negative value is given.
         """
         self._update_epoch(epoch)
-        logger.log(log_settings.INFO_LEVELS.io,
-                   f"Loaded %(definition)s at epoch %(epoch)d.",
-                   {'definition': self.definition,
-                    'epoch': self.model.epoch}
-                   )
         self.model.module.load_state_dict(
             torch.load(self.paths.checkpoint['state'],
                        map_location=self.model.device),
         )
+        events.LoadCheckpoint(definition=self.definition,
+                              location=str(self.paths.model_dir),
+                              epoch=self.model.epoch)
         return
 
     def __repr__(self) -> str:
@@ -232,24 +225,3 @@ class CheckpointIO(ModelStateIO):
         return
 
 
-def dump_metadata(model_name: str,
-                  class_name: str) -> str:
-    model_tracker = tracking.Experiment.current().tracker[model_name]
-    metadata = model_tracker.metadata[class_name]
-    metadata_dir = PathManager(model_name).metadata_dir
-    metadata_path = (metadata_dir / class_name).with_suffix('.yaml')
-    yaml_str = yaml.dump(metadata, default_flow_style=False, sort_keys=False)
-    if metadata_path.exists():
-        with metadata_path.open('r') as metadata_file:
-            file_out = metadata_file.read()
-            if file_out != yaml_str:
-                warnings.warn(
-                    exceptions.MetadataNotMatchingWarning(class_name,
-                                                          metadata_path)
-                )
-                now = datetime.datetime.now().isoformat(timespec='seconds')
-
-                metadata_path = metadata_path.with_stem(class_name + '.' + now)
-    with metadata_path.open('w') as metadata_file:
-        metadata_file.write(yaml_str)
-    return metadata_path.stem

@@ -1,5 +1,4 @@
 import sys
-import logging
 import abc
 import warnings
 from typing import TypeVar, Generic
@@ -8,23 +7,22 @@ from typing_extensions import override
 
 import torch
 
-from dry_torch import descriptors
-from dry_torch import exceptions
-from dry_torch import aggregators
-from dry_torch import apply_ops
-from dry_torch import protocols as p
-from dry_torch import log_settings
-from dry_torch import loading
-from dry_torch import registering
+from src.dry_torch import descriptors
+from src.dry_torch import exceptions
+from src.dry_torch import events
+from src.dry_torch import aggregators
+from src.dry_torch import apply_ops
+from src.dry_torch import protocols as p
+from src.dry_torch import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
-logger = logging.getLogger('dry_torch')
 
-
-class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
+class Evaluation(p.EvaluationProtocol,
+                Generic[_Input, _Target, _Output],
+                metaclass=abc.ABCMeta):
     max_stored_output: int = sys.maxsize
     partition: descriptors.Split
     """
@@ -74,59 +72,64 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     ) -> None:
         self.model = model
         self.name = name
-        self._loader = loading.TqdmLoader[tuple[_Input, _Target]](loader)
+        self._loader = loader
         self._calculator = metrics_calc
         device_is_cuda = self.model.device.type == 'cuda'
         self._mixed_precision = mixed_precision and device_is_cuda
         self._metrics = aggregators.TorchAverager()
         self.outputs_list = list[_Output]()
+        self._last_metrics: dict[str, float] = {}
         return
-
-
 
     @property
     def metrics(self) -> dict[str, float]:
-        out = self._metrics.reduce()
-        return out
+        if not self._last_metrics:
+            self._last_metrics = self._metrics.reduce_all()
+        return self._last_metrics
+
+    def clear_metrics(self):
+        self._metrics.clear()
+        self._last_metrics = {}
 
     @abc.abstractmethod
     def __call__(self, store_outputs: bool = False) -> None:
         ...
 
     def log_metrics(self) -> None:
-
-        log_msg_list: list[str] = ['%(desc)-24s']
-        desc = f'Average {self.partition.name.lower()} metrics:'
-        log_args: dict[str, str | float] = {'desc': desc}
-        self._update_log()
-        for metric, value in self.metrics.items():
-            log_msg_list.append(f'%({metric})16s: %({metric}_value)4e')
-            log_args.update({metric: metric, f'{metric}_value': value})
-        logger.log(log_settings.INFO_LEVELS.metrics,
-                   '\t'.join(log_msg_list),
-                   log_args)
-        self._metrics.clear()
+        events.MetricsCreation(model_name=self.model.name,
+                               partition=self.partition,
+                               source=self.name,
+                               epoch=self.model.epoch,
+                               metrics=self.metrics)
         return
 
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
+        self.clear_metrics()
+        pbar = events.EpochProgressBar(self._loader)
         for batch in self._loader:
-            batch = apply_ops.apply_to(batch, self.model.device)
-            self._run_batch(*batch, store_outputs=store_outputs)
-            self._calculator.reset_calculated()
-        self.log_metrics()
-
-    def _run_batch(self,
-                   inputs: _Input,
-                   targets: _Target,
-                   store_outputs: bool) -> None:
-        with torch.autocast(device_type=self.model.device.type,
-                            enabled=self._mixed_precision):
-            outputs = self.model(inputs)
+            inputs, targets = apply_ops.apply_to(batch, self.model.device)
+            outputs = self._run_forward(inputs)
             self._calculator.calculate(outputs, targets)
+            self._run_backward()
+            self._metrics += self._calculator.metrics
+            self._calculator.reset_calculated()
+            first_metric = self._metrics.first_metric
+            pbar.update(first_metric, self._metrics.reduce(first_metric))
             if store_outputs:
                 self._store(outputs)
-        self._metrics += self._calculator.metrics
+
+        self.log_metrics()
+
+    def _run_forward(self, inputs: _Input) -> _Output:
+        with torch.autocast(device_type=self.model.device.type,
+                            enabled=self._mixed_precision):
+            return self.model(inputs)
+
+
+    def _run_backward(self) -> None:
+        pass
+
 
     def _store(self, outputs: _Output) -> None:
         try:
@@ -136,11 +139,6 @@ class Evaluation(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
             warnings.warn(exceptions.CannotStoreOutputWarning(str(err)))
         else:
             self.outputs_list.append(outputs)
-
-
-    def _update_log(self) -> None:
-        self.model_tracker.update_log(self.name, self.partition, self.metrics)
-        return
 
     def __str__(self) -> str:
         return f'Base Evaluator for {self.model.name}.'
@@ -255,7 +253,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
                          name=name,
                          loader=loader,
                          metrics_calc=metrics_calc)
-        self._checkpoint = io.LogIO(model.name)
+        # self._checkpoint = io.LogIO(model.name)
         return
 
     @override
@@ -268,16 +266,14 @@ class Test(Evaluation[_Input, _Target, _Output]):
         Parameters:
 
         """
-        logger.log(log_settings.INFO_LEVELS.experiment,
-                   'Testing %(model_name)s.',
-                   {'model_name': self.model.name})
+        events.StartTest(self.model.name, self.name)
         self.model.module.eval()
         self._run_epoch(store_outputs)
-        self._checkpoint.save()
+        # self._checkpoint.save()
         return
 
-    def __str__(self) -> str:
-        return (
-            f'{repr(self.model_tracker.default_names[self.__class__.__name__])}'
-            'for tracker {self.model.name}.'
-        )
+    # def __str__(self) -> str:
+    #     return (
+    #         f'{repr(self.model_tracker.default_names[self.__class__.__name__])}'
+    #         'for tracker {self.model.name}.'
+    #     )

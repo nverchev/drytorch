@@ -5,11 +5,12 @@ import torch
 from torch import cuda
 import dataclasses
 
+from src.dry_torch import repr_utils
 from src.dry_torch import descriptors
 from src.dry_torch import exceptions
 from src.dry_torch import schedulers
 from src.dry_torch import protocols as p
-from src.dry_torch import tracking
+from src.dry_torch import checkpoint
 from src.dry_torch import registering
 
 _Input_contra = TypeVar('_Input_contra',
@@ -40,7 +41,7 @@ class LearningScheme(p.LearningProtocol):
 
 
 class Model(Generic[_Input_contra, _Output_co]):
-    _default_model_name = tracking.DefaultName('Model', start=0)
+    _default_model_name = repr_utils.DefaultName('Model', start=0)
     """
     Bundle the module and its optimizer.
     Support different learning rates and separate parameters groups.
@@ -80,7 +81,7 @@ class Model(Generic[_Input_contra, _Output_co]):
         self.epoch: int = 0
         self.device = device
         self.optimizer: Optional[torch.optim.Optimizer] = None
-        self.checkpoint = io.ModelStateIO(self)
+        self.checkpoint = checkpoint.ModelStateIO(self)
         registering.register_model(self)
 
     @property

@@ -169,7 +169,7 @@ class LearningProtocol(Protocol):
         scheduler: modifies the learning rate given the current epoch.
     """
 
-    optimizer_cls: Type[torch.optim.Optimizer]
+    optimizer_cls: type[torch.optim.Optimizer]
     lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
@@ -199,7 +199,12 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     def increment_epoch(self):
         ...
 
+class EvaluationProtocol(Protocol):
+    name: str
 
+    @property
+    def metrics(self) -> dict[str, float]:
+        """the metrics from the last evaluation"""
 
 @runtime_checkable
 class TrainerProtocol(Protocol):
@@ -209,7 +214,9 @@ class TrainerProtocol(Protocol):
     Attributes:
         model: the model to train.
     """
+    name: str
     model: ModelProtocol
+    validation: Optional[EvaluationProtocol]
 
     def train(self, num_epochs: int) -> None:
         """Trains the model."""
@@ -225,6 +232,11 @@ class TrainerProtocol(Protocol):
 
     def update_learning_rate(self, learning_rate: float) -> None:
         """Update the learning rate."""
+
+    @property
+    def metrics(self) -> dict[str, float]:
+        """the metrics from the last epoch"""
+
     @property
     def terminated(self) -> bool:
         """Training has terminated"""

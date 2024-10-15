@@ -260,7 +260,7 @@ class Plotter:
             start: the starting epoch for the plot.
             title: the title of the plot.
         """
-        log = tracking.Experiment.current().tracker[self.model_name].log
+        log = tracking.Experiment.current().tracker[self.model_name].notify
 
         self._plot(log[descriptors.Split.TRAIN],
                    log[descriptors.Split.VAL],

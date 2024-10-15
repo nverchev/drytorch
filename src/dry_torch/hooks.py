@@ -1,5 +1,6 @@
+import warnings
+from collections import deque
 from collections.abc import Callable
-import logging
 from typing import Generic, TypeVar, Optional, ParamSpec
 
 import numpy as np
@@ -7,14 +8,14 @@ import numpy.typing as npt
 
 from src.dry_torch import descriptors
 from src.dry_torch import exceptions
-from src.dry_torch import log_settings
+from src.dry_torch import builtin_logger
 from src.dry_torch import protocols as p
 from src.dry_torch import tracking
+from src.dry_torch import events
+
 
 _Class = TypeVar('_Class')
 _P = ParamSpec('_P')
-
-logger = logging.getLogger('dry_torch')
 
 
 
@@ -71,7 +72,7 @@ def call_every(
         start: int = 0,
 ) -> Callable[[p.TrainerProtocol], None]:
     def call(instance: p.TrainerProtocol) -> None:
-        epoch = tracking.track(instance.model).epoch
+        epoch = instance.model.epoch
         if epoch % interval == start or instance.terminated:
             hook(instance)
 
@@ -79,31 +80,37 @@ def call_every(
 
 
 def early_stopping_callback(
-        metric_name: str,
-        monitor_dataset: descriptors.Split = descriptors.Split.VAL,
+        metric_name: Optional[str] = None,
+        monitor_validation: bool = True,
         aggregate_fun: Callable[[npt.NDArray], float] = np.min,
         min_delta: float = 0.,
         patience: int = 10,
         lower_is_best: bool = True,
         baseline: Optional[float] = None,
         start_from_epoch: int = 0,
+        monitor_external: Optional[p.EvaluationProtocol] = None
 ) -> Callable[[p.TrainerProtocol], None]:
     best_result = float('inf') if lower_is_best else 0
+    monitor_log: deque[float] = deque(maxlen=patience + 1)
+
 
     def call(instance: p.TrainerProtocol):
-        nonlocal best_result
-        model_tracker = tracking.track(instance.model)
-        if model_tracker.epoch < max(start_from_epoch, patience):
+        nonlocal metric_name, best_result, monitor_log
+        if monitor_validation:
+            if instance.validation is None:
+                raise exceptions.NoValidationError
+            monitor: p.EvaluationProtocol = instance.validation
+        else:
+            monitor = instance if monitor_external is None else monitor_external
+        last_metrics = monitor.metrics
+        if metric_name is None:
+            metric_name = list(last_metrics.keys())[0]
+        elif metric_name not in last_metrics:
+            raise exceptions.MetricNotFoundError(monitor.name, metric_name)
+        monitor_log.append(last_metrics[metric_name])
+        if instance.model.epoch < max(start_from_epoch, patience):
             return
-        monitor_log = model_tracker.log[monitor_dataset]
-        if metric_name not in monitor_log:
-            raise exceptions.MetricNotFoundError(metric_name,
-                                                 monitor_dataset.name)
-        metric_results = monitor_log[metric_name]
-        last_results = metric_results[
-            monitor_log['Epoch'] >= model_tracker.epoch - patience
-            ]
-        aggregated_result = aggregate_fun(last_results)
+        aggregated_result = aggregate_fun(np.array(monitor_log))
         if lower_is_best:
             if baseline is None:
                 condition = best_result + min_delta < aggregated_result
@@ -118,8 +125,8 @@ def early_stopping_callback(
 
         if condition:
             instance.terminate_training()
-            logger.log(log_settings.INFO_LEVELS.metrics,
-                       'Terminated by early stopping.')
+            events.TerminatedTraining(cause='early stopping')
+
         else:
             best_result = aggregated_result
         return

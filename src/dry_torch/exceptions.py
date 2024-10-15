@@ -71,14 +71,20 @@ class LibraryNotSupportedError(DryTorchException, ValueError):
         self.library_name = library_name
         super().__init__(library_name)
 
+class MetricsNotAVectorError(DryTorchException, ValueError):
+    msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
+
+    def __init__(self, shapes: list[int]) -> None:
+        self.shapes = shapes
+        super().__init__(shapes)
 
 class MetricNotFoundError(DryTorchException, ValueError):
-    msg = 'Metric {} is not present in the {} log.'
+    msg = 'Source {} has no logged metric {}.'
 
-    def __init__(self, metric_name: str, dataset_name: str) -> None:
+    def __init__(self, source_name: str, metric_name: str) -> None:
+        self.source_name = source_name
         self.metric_name = metric_name
-        self.dataset_name = dataset_name
-        super().__init__(metric_name, dataset_name)
+        super().__init__(source_name, metric_name)
 
 
 class MissingParamError(DryTorchException, ValueError):
@@ -162,7 +168,7 @@ class NoConfigError(DryTorchException, AttributeError):
     msg = 'No config found in experiment.'
 
 
-class NoLengthError(DryTorchException, AttributeError):
+class DatasetHasNoLengthError(DryTorchException, AttributeError):
     msg = 'Dataset does not implement __len__ method.'
 
 
@@ -182,13 +188,9 @@ class NotATensorError(DryTorchException, TypeError):
         self.not_a_tensor = not_a_tensor
         super().__init__(name, type(not_a_tensor))
 
+class NoValidationError(DryTorchException, TypeError):
+    msg = 'No validation has been added to the trainer.'
 
-class MetricsNotAVectorError(DryTorchException, ValueError):
-    msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
-
-    def __init__(self, shapes: list[int]) -> None:
-        self.shapes = shapes
-        super().__init__(shapes)
 
 
 class NoToDictMethodError(DryTorchException, AttributeError):
