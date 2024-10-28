@@ -3,5 +3,6 @@
 /.ipynb_checkpoints/
 /.idea/
 /tests/.hypothesis/
-**/__pycache__/**
-**.pyc
+__pycache__/
+*.py[cod]
+*$py.class
