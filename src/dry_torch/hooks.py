@@ -1,4 +1,3 @@
-import warnings
 from collections import deque
 from collections.abc import Callable
 from typing import Generic, TypeVar, Optional, ParamSpec
@@ -6,17 +5,12 @@ from typing import Generic, TypeVar, Optional, ParamSpec
 import numpy as np
 import numpy.typing as npt
 
-from src.dry_torch import descriptors
 from src.dry_torch import exceptions
-from src.dry_torch import builtin_logger
 from src.dry_torch import protocols as p
-from src.dry_torch import tracking
 from src.dry_torch import events
-
 
 _Class = TypeVar('_Class')
 _P = ParamSpec('_P')
-
 
 
 class HookRegistry(Generic[_Class]):
@@ -51,6 +45,7 @@ def static_hook(
 
     return call
 
+
 def static_hook_closure(
         static_closure: Callable[_P, Callable[[], None]]
 ) -> Callable[_P, Callable[[p.TrainerProtocol], None]]:
@@ -64,7 +59,9 @@ def static_hook_closure(
             return static_callable()
 
         return call
+
     return closure_hook
+
 
 def call_every(
         interval: int,
@@ -92,7 +89,6 @@ def early_stopping_callback(
 ) -> Callable[[p.TrainerProtocol], None]:
     best_result = float('inf') if lower_is_best else 0
     monitor_log: deque[float] = deque(maxlen=patience + 1)
-
 
     def call(instance: p.TrainerProtocol):
         nonlocal metric_name, best_result, monitor_log
@@ -122,10 +118,9 @@ def early_stopping_callback(
             else:
                 condition = baseline - min_delta >= aggregated_result
 
-
         if condition:
             instance.terminate_training()
-            events.TerminatedTraining(cause='early stopping')
+            events.TerminatedTraining(instance.model.epoch, 'early stopping')
 
         else:
             best_result = aggregated_result

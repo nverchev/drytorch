@@ -33,7 +33,7 @@ class ConstantScheduler(AbstractScheduler):
         return base_lr
 
     def __repr__(self) -> str:
-        return 'Constant learning rate.'
+        return 'Constant learning rate'
 
 
 class ExponentialScheduler(AbstractScheduler):
@@ -54,7 +54,7 @@ class ExponentialScheduler(AbstractScheduler):
         return max(base_lr * self.exp_decay ** epoch, self.min_decay)
 
     def __repr__(self) -> str:
-        desc = 'Exponential schedule with decay parameter = {}.'
+        desc = 'Exponential schedule with decay parameter = {}'
         return desc.format(self.exp_decay)
 
 
@@ -84,5 +84,5 @@ class CosineScheduler(AbstractScheduler):
         return min_lr + (base_lr - min_lr) * (1 + from_1_to_minus1) / 2
 
     def __repr__(self) -> str:
-        desc = 'Cosine schedule with {} decay steps and {} min_decay factor.'
+        desc = 'Cosine schedule with {} decay steps and {} min_decay factor'
         return desc.format(self.decay_steps, self.min_decay)

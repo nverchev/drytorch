@@ -3,14 +3,14 @@ import pathlib
 
 import torch
 from torch.utils import data
-from dry_torch import Trainer
-from dry_torch import DataLoader
-from dry_torch import Experiment
-from dry_torch import Model
-from dry_torch import SimpleLossCalculator
-from dry_torch import LearningScheme
-from dry_torch import register_model
-from dry_torch import hooks
+from src.dry_torch import Trainer
+from src.dry_torch import DataLoader
+from src.dry_torch import Experiment
+from src.dry_torch import Model
+from src.dry_torch import SimpleLossCalculator
+from src.dry_torch import LearningScheme
+from src.dry_torch import register_model
+from src.dry_torch import hooks
 from typing import NamedTuple
 import dataclasses
 

@@ -1,22 +1,53 @@
 from __future__ import annotations
 
+import abc
+import functools
 import pathlib
 import datetime
-from typing import Any, Optional, Final, TypeVar, Generic
+import weakref
+from abc import abstractmethod
+from typing import Optional, Final, TypeVar, Generic, KeysView, cast
+import warnings
 
 from src.dry_torch import repr_utils
 from src.dry_torch import events
 from src.dry_torch import exceptions
-from src.dry_torch import builtin_logger
-
-from src.dry_torch.backends import tqdm_backend
-
-DEFAULT_SUBSCRIBER_CLASSES: list[type[events.Subscriber]] = [
-    builtin_logger.InfoLogger,
-    tqdm_backend.Tqdm
-]
 
 _T = TypeVar('_T')
+
+
+class Tracker(metaclass=abc.ABCMeta):
+    priority = 1
+
+    def __init__(self) -> None:
+        weakref.finalize(self, self.notify, events.StopExperiment(''))
+
+    @functools.singledispatchmethod
+    @abstractmethod
+    def notify(self, event: events.Event) -> None:
+        return
+
+    @classmethod
+    def defined_events(cls) -> KeysView[type[events.Event]]:
+        # noinspection PyUnresolvedReferences
+        register = cast(functools.singledispatchmethod,
+                        cls.notify.register.__self__)  # type: ignore
+        return register.dispatcher.registry.keys()
+
+    def __gt__(self, other: Tracker) -> bool:
+        return self.priority > other.priority
+
+
+class Handler(Tracker, metaclass=abc.ABCMeta):
+    priority = 2
+
+
+class Logger(Tracker, metaclass=abc.ABCMeta):
+    priority = 0
+
+
+# Default specified in __init__.py
+DEFAULT_TRACKERS: list[Tracker] = []
 
 
 class Experiment(Generic[_T]):
@@ -37,7 +68,6 @@ class Experiment(Generic[_T]):
         max_items_repr: limits the size of iterators and arrays.
 
 
-
     Attributes:
         metric_logger: contains the saved metric_name and a plotting function
         epoch: the current epoch, that is, the number of epochs the module has 
@@ -49,34 +79,59 @@ class Experiment(Generic[_T]):
     def __init__(self,
                  name: str = '',
                  pardir: str | pathlib.Path = pathlib.Path(''),
-                 config: Optional[Any] = None) -> None:
+                 config: Optional[_T] = None) -> None:
 
         self.name: Final = name or datetime.datetime.now().isoformat()
-        self.pardir = pathlib.Path(pardir)
-        self.dir = self.pardir / name
+        self.dir = pathlib.Path(pardir) / name
         self.dir.mkdir(exist_ok=True, parents=True)
         self.config = config
         self.__class__.past_experiments.add(self)
-        self.subscribers: dict[type[events.Event], list[events.Subscriber]] = {}
-        for subscriber_class in DEFAULT_SUBSCRIBER_CLASSES:
-            self.register_subscriber(subscriber_class())
-        self.activate()
+        self.named_trackers: dict[str, Tracker] = {}
+        self.event_trackers: dict[type[events.Event], list[Tracker]] = {}
+        for tracker in DEFAULT_TRACKERS:
+            self.register_tracker(tracker)
 
-    def publish(self, event: events.Event) -> None:
-        for subscriber in self.subscribers.get(event.__class__, []):
-            subscriber.notify(event)
+    def register_tracker(self, tracker: Tracker) -> None:
+        tracker_name = tracker.__class__.__name__
+        if tracker_name in self.named_trackers:
+            raise exceptions.TrackerAlreadyRegisteredError(tracker_name,
+                                                           self.name)
+        self.named_trackers[tracker_name] = tracker
 
-    def register_subscriber(self, subscriber: events.Subscriber) -> None:
-        subscriber.exp_name = self.name
-        for event in subscriber.defined_events():
-            self.subscribers.setdefault(event, []).append(subscriber)
+        for event_class in list(tracker.defined_events()):
+            self.event_trackers.setdefault(event_class, []).append(tracker)
+            self.event_trackers[event_class].sort(reverse=True)
         return
 
-    def activate(self) -> None:
+    def remove_named_tracker(self, tracker_name: str) -> None:
+        try:
+            tracker = self.named_trackers.pop(tracker_name)
+        except ValueError:
+            raise exceptions.TrackerNotRegisteredError(tracker_name, self.name)
+        else:
+            for event_class in tracker.defined_events():
+                self.event_trackers[event_class].remove(tracker)
+        return
+
+    def remove_all_trackers(self) -> None:
+        for tracker_name in list(self.named_trackers):
+            self.remove_named_tracker(tracker_name)
+        return
+
+    def publish(self, event: events.Event) -> None:
+        event_trackers = self.event_trackers.get(event.__class__, [])
+        for subscriber in event_trackers:
+            try:
+                subscriber.notify(event)
+            except BaseException as be:
+                raise be
+                name = subscriber.__class__.__name__
+                warnings.warn(exceptions.TrackerError(name, be))
+
+    def start(self) -> None:
         if Experiment._current is not None:
             self.stop()
-        events.Event.auto_publish = self.publish
-        # session = Session()
+        events.Event.set_auto_publish(self.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
         events.StartExperiment(self.name)
@@ -84,21 +139,25 @@ class Experiment(Generic[_T]):
 
     def stop(self) -> None:
         """"""
-        Experiment._current = None
-        event = events.StopExperiment(self.name)
-        self.publish(event)
+        if Experiment._current is not None:
+            Experiment._current = None
+            events.StopExperiment(self.name)
         return
-
-    def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(name={self.name})'
 
     @classmethod
     def current(cls) -> Experiment:
+        if Experiment._current is None:
+            new_default_experiment = cls()
+            new_default_experiment.start()
+            return new_default_experiment
+        return Experiment._current
+
+    @classmethod
+    def quit(cls) -> None:
         if Experiment._current is not None:
-            return Experiment._current
-        unnamed_experiment = cls(datetime.datetime.now().isoformat())
-        unnamed_experiment.activate()
-        return unnamed_experiment
+            Experiment._current.stop()
+            return
+        return
 
     @classmethod
     def get_config(cls) -> _T:
@@ -107,4 +166,5 @@ class Experiment(Generic[_T]):
             raise exceptions.NoConfigError()
         return cfg
 
-
+    def __repr__(self) -> str:
+        return self.__class__.__name__ + f'(name={self.name})'

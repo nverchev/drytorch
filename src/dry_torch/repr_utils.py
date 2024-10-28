@@ -1,59 +1,60 @@
 """ This module specifies how to represent and dump metadata in a yaml file."""
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 import math
 from typing import Any
 import functools
 import types
 import dataclasses
-
-import yaml  # type: ignore
-import numpy as np
 import numbers
-import pandas as pd
+
+import numpy as np
 import torch
 
-MAX_LENGTH_PLAIN_REPR = 10
-"""Sequences longer than this will be represented in flow style by yaml."""
-MAX_LENGTH_SHORT_REPR = 10
-"""Sequences with strings longer than this will be represented in flow style."""
+try:
+    import pandas as pd
 
 
-class PandasPrintOptions:
-    """
-    Context manager to temporarily set Pandas display options.
+    class PandasPrintOptions:
+        """
+        Context manager to temporarily set Pandas display options.
 
-    Args:
-        precision: Number of digits of precision for floating point output.
-        max_rows: Maximum number of rows to display.
-        max_columns: Maximum number of columns to display.
-    """
+        Args:
+            precision: Number of digits of precision for floating point output.
+            max_rows: Maximum number of rows to display.
+            max_columns: Maximum number of columns to display.
+        """
 
-    def __init__(self,
-                 precision: int = 3,
-                 max_rows: int = 10,
-                 max_columns: int = 10) -> None:
-        self.options: dict[str, int] = {
-            'display.precision': precision,
-            'display.max_rows': max_rows,
-            'display.max_columns': max_columns,
-        }
-        self.original_options: dict[str, Any] = {}
+        def __init__(self,
+                     precision: int = 3,
+                     max_rows: int = 10,
+                     max_columns: int = 10) -> None:
+            self.options: dict[str, int] = {
+                'display.precision': precision,
+                'display.max_rows': max_rows,
+                'display.max_columns': max_columns,
+            }
+            self.original_options: dict[str, Any] = {}
 
-    def __enter__(self) -> None:
-        self.original_options.update(
-            {key: pd.get_option(key) for key in self.options}
-        )
-        for key, value in self.options.items():
-            pd.set_option(key, value)
+        def __enter__(self) -> None:
+            self.original_options.update(
+                {key: pd.get_option(key) for key in self.options}
+            )
+            for key, value in self.options.items():
+                pd.set_option(key, value)
 
-    def __exit__(self,
-                 exc_type: None = None,
-                 exc_val: None = None,
-                 exc_tb: None = None) -> None:
-        for key, value in self.original_options.items():
-            pd.set_option(key, value)
+        def __exit__(self,
+                     exc_type: None = None,
+                     exc_val: None = None,
+                     exc_tb: None = None) -> None:
+            for key, value in self.original_options.items():
+                pd.set_option(key, value)
+
+    PandasObject = pd.core.base.PandasObject
+
+except ImportError:
+    PandasObject = type(object())
 
 
 class LiteralStr(str):
@@ -64,52 +65,6 @@ class LiteralStr(str):
 class Omitted:
     """Class for objects that represent omitted values in an iterable."""
     count: float = math.nan
-
-
-def short_repr(obj: object, max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
-    """Function that indicates whether an object has a short representation."""
-    if not isinstance(obj, str):
-        return True
-    if isinstance(obj, LiteralStr):
-        return False
-    return len(obj) <= max_length
-
-
-def represent_literal_str(dumper: yaml.Dumper,
-                          literal_str: LiteralStr) -> yaml.Node:
-    """YAML representer for literal strings."""
-    return dumper.represent_scalar('tag:yaml.org,2002:str',
-                                   literal_str,
-                                   style='|')
-
-
-def represent_sequence(
-        dumper: yaml.Dumper,
-        sequence: Sequence,
-        max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
-) -> yaml.Node:
-    """YAML representer for sequences."""
-    flow_style = False
-    len_seq = len(sequence)
-    if len_seq <= max_length_for_plain:
-        if all(short_repr(elem) for elem in sequence):
-            flow_style = True
-    return dumper.represent_sequence(tag=u'tag:yaml.org,2002:seq',
-                                     sequence=sequence,
-                                     flow_style=flow_style)
-
-
-def represent_omitted(dumper: yaml.Dumper, data: Omitted) -> yaml.Node:
-    """YAML representer for omitted values."""
-    return dumper.represent_mapping(u'!Omitted',
-                                    {'omitted_elements': data.count})
-
-
-yaml.add_representer(LiteralStr, represent_literal_str)
-yaml.add_representer(list, represent_sequence)
-yaml.add_representer(tuple, represent_sequence)
-yaml.add_representer(set, represent_sequence)
-yaml.add_representer(Omitted, represent_omitted)
 
 
 def has_own_repr(obj: Any) -> bool:
@@ -241,9 +196,10 @@ def _(obj: torch.Tensor, *, max_size: int = 10) -> LiteralStr:
 
 
 @recursive_repr.register
-def _(obj: pd.DataFrame | pd.Series | pd.Index,
+def _(obj: PandasObject,  # type: ignore
       *,
       max_size: int = 10) -> LiteralStr:
+    """Only called when Pandas is imported"""
     with PandasPrintOptions(precision=3,
                             max_rows=max_size,
                             max_columns=max_size):

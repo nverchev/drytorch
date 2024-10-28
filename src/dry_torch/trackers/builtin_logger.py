@@ -11,27 +11,34 @@ Attributes:
 import functools
 import logging
 import sys
-from typing import NamedTuple, Optional, Any
+from typing import NamedTuple, Optional
 from typing_extensions import override
 
 from src.dry_torch import events
+from src.dry_torch import tracking
 
 logger = logging.getLogger('dry_torch')
 
+
 class InfoLevels(NamedTuple):
     """NamedTuple that defines different levels of information for logging."""
+    internal: int
     metrics: int
     epoch: int
-    io: int
+    checkpoint: int
     training: int
     experiment: int
 
 
-INFO_LEVELS = InfoLevels(metrics=21,
+INFO_LEVELS = InfoLevels(internal=19,
+                         metrics=21,
                          epoch=23,
-                         io=25,
+                         checkpoint=25,
                          training=27,
                          experiment=28)
+
+for name, level in INFO_LEVELS._asdict().items():
+    logging.addLevelName(level, name.center(10))
 
 
 class InfoFormatter(logging.Formatter):
@@ -46,6 +53,8 @@ class InfoFormatter(logging.Formatter):
 
     @override
     def format(self, record: logging.LogRecord) -> str:
+        # if record.msg[-1:] != '\r':
+        #     record.msg += '\n'
         self._style._fmt = self._info_fmt(record.levelno)
         return super().format(record)
 
@@ -54,8 +63,7 @@ class InfoFormatter(logging.Formatter):
         if level_no == INFO_LEVELS.training:
             return '[%(asctime)s] - %(message)s\n'
         if level_no == INFO_LEVELS.epoch:
-            if logger.level > INFO_LEVELS.metrics:
-                return '%(message)s ...\r'
+            return '%(message)s'
         return '%(message)s\n'
 
 
@@ -95,7 +103,7 @@ def enable_default_handler() -> None:
     stdout_handler.terminator = ''
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(INFO_LEVELS.metrics)
     logger.propagate = False
 
 
@@ -133,60 +141,64 @@ def enable_propagation(deduplicate_stdout: bool = True) -> None:
                         handler.addFilter(DryTorchFilter())
 
 
-class InfoLogger(events.Subscriber):
+enable_default_handler()
+
+
+class BuiltinLogger(tracking.Logger):
 
     def __init__(self) -> None:
         super().__init__()
-        self.ctx: dict[str, Any] = {}
-
-        for name, level in INFO_LEVELS._asdict().items():
-            logging.addLevelName(level, name.center(10))
-
-        enable_default_handler()
 
     @functools.singledispatchmethod
     def notify(self, event: events.Event) -> None:
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: events.StartTraining) -> None:
-        self.ctx['final_epoch'] = str(event.end_epoch)
         logger.log(INFO_LEVELS.training,
-                   'Training %(model_name)s:',
+                   'Training %(model_name)s started.',
                    {'model_name': event.model_name})
         return
 
     @notify.register
-    def _(self, event: events.EndTraining) -> None:
-        self.ctx['final_epoch'] = ''
-        logger.log(INFO_LEVELS.training, 'End of training.')
+    def _(self, _event: events.EndTraining) -> None:
+        logger.log(INFO_LEVELS.training, 'Training ended.')
         return
 
     @notify.register
     def _(self, event: events.StartEpoch) -> None:
-        final_epoch = self.ctx['final_epoch']
-        if final_epoch:
+        final_epoch = str(event.final_epoch)
+        if final_epoch is not None:
             fix_len = len(final_epoch)
             final_epoch = '/' + final_epoch
         else:
             fix_len = 1
 
-        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch)s:'
-        logger.log(INFO_LEVELS.epoch, epoch_msg,
+        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch)s: \r'
+
+        logger.log(INFO_LEVELS.epoch,
+                   epoch_msg,
                    {'epoch': event.epoch, 'final_epoch': final_epoch})
+        logger.log(INFO_LEVELS.metrics, '')
         return
+
+    # @notify.register
+    # def _(self, _event: events.EndEpoch) -> None:
+    #     logger.log(INFO_LEVELS.metrics, '')
+    #     return
 
     @notify.register
     def _(self, event: events.SaveCheckpoint) -> None:
-        logger.log(INFO_LEVELS.io,
+        logger.log(INFO_LEVELS.checkpoint,
                    f'%(definition)s saved in: %(location)s.',
                    {'definition': event.definition.capitalize(),
                     'location': event.location}
                    )
         return
+
     @notify.register
     def _(self, event: events.LoadCheckpoint) -> None:
-        logger.log(INFO_LEVELS.io,
+        logger.log(INFO_LEVELS.checkpoint,
                    f'Loaded %(definition)s at epoch %(epoch)d.',
                    {'definition': event.definition.capitalize(),
                     'epoch': event.epoch}
@@ -196,27 +208,28 @@ class InfoLogger(events.Subscriber):
     @notify.register
     def _(self, event: events.MetricsCreation) -> None:
         log_msg_list: list[str] = ['%(desc)-24s']
-        desc = f'Average {event.partition.name.lower()} metrics:'
+        desc = event.source.split('.', 1)[0].rjust(15) + ': '
         log_args: dict[str, str | float] = {'desc': desc}
         for metric, value in event.metrics.items():
-            log_msg_list.append(f'%({metric})16s: %({metric}_value)4e')
+            log_msg_list.append(f'%({metric})16s=%({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
         logger.log(INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
                    log_args)
         return
+
     @notify.register
     def _(self, event: events.StartTest) -> None:
         logger.log(INFO_LEVELS.experiment,
-               'Testing %(model_name)s:',
-               {'model_name': event.model_name})
+                   'Testing %(model_name)s started.',
+                   {'model_name': event.model_name})
 
     @notify.register
     def _(self, event: events.TerminatedTraining) -> None:
         explicit_cause = '' if event.cause is None else 'by ' + event.cause
-        logger.log(INFO_LEVELS.metrics,
-                   'Training terminated %(explicit_cause)s.',
-                    {'explicit_cause': explicit_cause})
+        logger.log(INFO_LEVELS.training,
+                   'Training terminated at epoch %(epoch)d %(explicit_cause)s.',
+                   {'epoch': event.epoch, 'explicit_cause': explicit_cause})
 
     @notify.register
     def _(self, event: events.StartExperiment) -> None:
@@ -225,7 +238,11 @@ class InfoLogger(events.Subscriber):
                    {'name': event.exp_name})
 
     @notify.register
-    def _(self, event: events.StopExperiment) -> None:
-        logger.log(logging.DEBUG,
-                   f'Experiment %(name)s has been stopped.',
+    def _(self, event: events.StartExperiment) -> None:
+        logger.log(INFO_LEVELS.experiment,
+                   'Running experiment: %(name)s.',
                    {'name': event.exp_name})
+
+    @notify.register
+    def _(self, event: events.ModelDidNotConverge) -> None:
+        logger.error(event.exception)

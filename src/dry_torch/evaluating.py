@@ -97,7 +97,6 @@ class Evaluation(p.EvaluationProtocol,
 
     def log_metrics(self) -> None:
         events.MetricsCreation(model_name=self.model.name,
-                               partition=self.partition,
                                source=self.name,
                                epoch=self.model.epoch,
                                metrics=self.metrics)
@@ -106,7 +105,7 @@ class Evaluation(p.EvaluationProtocol,
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
         self.clear_metrics()
-        pbar = events.EpochProgressBar(self._loader)
+        pbar = events.EpochBar(self.name, self._loader)
         for batch in self._loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
             outputs = self._run_forward(inputs)
@@ -114,8 +113,7 @@ class Evaluation(p.EvaluationProtocol,
             self._run_backward()
             self._metrics += self._calculator.metrics
             self._calculator.reset_calculated()
-            first_metric = self._metrics.first_metric
-            pbar.update(first_metric, self._metrics.reduce(first_metric))
+            pbar.update_pbar(self._metrics.reduce_all())
             if store_outputs:
                 self._store(outputs)
 

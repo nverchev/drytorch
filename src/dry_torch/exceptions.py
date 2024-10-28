@@ -71,12 +71,14 @@ class LibraryNotSupportedError(DryTorchException, ValueError):
         self.library_name = library_name
         super().__init__(library_name)
 
+
 class MetricsNotAVectorError(DryTorchException, ValueError):
     msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
 
     def __init__(self, shapes: list[int]) -> None:
         self.shapes = shapes
         super().__init__(shapes)
+
 
 class MetricNotFoundError(DryTorchException, ValueError):
     msg = 'Source {} has no logged metric {}.'
@@ -115,9 +117,8 @@ class ModelNameAlreadyExistsError(DryTorchException, ValueError):
 
 
 class ModelNotExistingError(DryTorchException, ValueError):
-    msg = ('Accessing model'
-           '. {} was unsuccessful:'
-           ' module not registered in experiment {}.')
+    msg = ('Accessing model {} was unsuccessful: '
+           'module not registered in experiment {}.')
 
     def __init__(self, name: str, exp_name: str) -> None:
         self.name = name
@@ -188,9 +189,9 @@ class NotATensorError(DryTorchException, TypeError):
         self.not_a_tensor = not_a_tensor
         super().__init__(name, type(not_a_tensor))
 
+
 class NoValidationError(DryTorchException, TypeError):
     msg = 'No validation has been added to the trainer.'
-
 
 
 class NoToDictMethodError(DryTorchException, AttributeError):
@@ -207,6 +208,22 @@ class PartitionNotFoundError(DryTorchException, ValueError):
     def __init__(self, partition: str) -> None:
         self.partition = partition
         super().__init__(partition, partition)
+
+
+class TrackerAlreadyRegisteredError(DryTorchException, ValueError):
+    msg = 'Tracker {} already registered in experiment {}.'
+
+    def __init__(self, tracker_name: str, exp_name: str) -> None:
+        self.tracker_name = tracker_name
+        super().__init__(tracker_name, exp_name)
+
+
+class TrackerNotRegisteredError(DryTorchException, ValueError):
+    msg = 'Tracker {} not registered in experiment {}.'
+
+    def __init__(self, tracker_name: str, exp_name: str) -> None:
+        self.tracker_name = tracker_name
+        super().__init__(tracker_name, exp_name)
 
 
 class CannotStoreOutputWarning(DryTorchException, RuntimeWarning):
@@ -249,6 +266,15 @@ class PastEpochWarning(DryTorchException, RuntimeWarning):
 
 class RecursionWarning(DryTorchException, RuntimeWarning):
     msg = 'Impossible to extract metadata because there are recursive objects.'
+
+
+class TrackerError(DryTorchException, RuntimeWarning):
+    msg = 'Tracker {} encountered the following error: \n {}'
+
+    def __init__(self, subscriber_name: str, error: BaseException) -> None:
+        self.subscriber_name = subscriber_name
+        self.error = error
+        super().__init__(subscriber_name, str(error))
 
 
 class VisdomConnectionWarning(DryTorchException, RuntimeWarning):

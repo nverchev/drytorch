@@ -1,8 +1,6 @@
 import logging
-import sys
-from collections.abc import Iterator, Generator
-from typing import TypeVar, Generic, Optional
-from tqdm import auto
+from collections.abc import Iterator
+from typing import TypeVar
 
 import torch
 from torch.utils import data

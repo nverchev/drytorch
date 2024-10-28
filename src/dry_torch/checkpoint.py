@@ -1,6 +1,5 @@
 import warnings
 import pathlib
-import datetime
 
 import yaml  # type: ignore
 import torch

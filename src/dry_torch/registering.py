@@ -1,14 +1,12 @@
 """Module with functions to connect a Model-like instance to other classes."""
+import warnings
 from collections.abc import Callable
 from functools import wraps
 from typing import Concatenate, Any, TypeVar, ParamSpec
-import warnings
 
 from src.dry_torch import events
 from src.dry_torch import exceptions
-from src.dry_torch import checkpoint
 from src.dry_torch import protocols as p
-from src.dry_torch import repr_utils
 from src.dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
@@ -24,24 +22,6 @@ _RT = TypeVar('_RT')
 _REGISTERED_MODELS: dict[int, tracking.Experiment] = {}
 
 
-def _cache_register_model(
-        func: Callable[[p.ModelProtocol], None]
-) -> Callable[[p.ModelProtocol], None]:
-    @wraps(func)
-    def wrapper(model: p.ModelProtocol) -> None:
-        exp = tracking.Experiment.current()
-        model_identifier = id(model.module)
-        if model_identifier in _REGISTERED_MODELS:
-            exp_name = _REGISTERED_MODELS[model_identifier].name
-            raise exceptions.ModuleAlreadyRegisteredError(exp_name)
-
-        _REGISTERED_MODELS[model_identifier] = exp
-        return func(model)
-
-    return wrapper
-
-
-@_cache_register_model
 def register_model(model: p.ModelProtocol, /) -> None:
     """
     Function needed to save train or test a Model-like instance.
@@ -59,9 +39,13 @@ def register_model(model: p.ModelProtocol, /) -> None:
         Creation of a ModelTracker instance.
         Metadata about the model is dumped to a file.
     """
-
+    exp = tracking.Experiment.current()
+    model_identifier = id(model.module)
+    if model_identifier in _REGISTERED_MODELS:
+        exp_name = _REGISTERED_MODELS[model_identifier].name
+        raise exceptions.ModuleAlreadyRegisteredError(exp_name)
+    _REGISTERED_MODELS[model_identifier] = exp
     events.ModelCreation(model)
-
 
 def register_kwargs(
         func: Callable[
@@ -93,10 +77,17 @@ def register_kwargs(
         if not isinstance(model, p.ModelProtocol):
             raise exceptions.ModelFirstError(model)
 
-        cls_str = instance.__class__.__name__
+        if args:
+            warnings.warn(exceptions.NotDocumentedArgs())
+
+        class_name = instance.__class__.__name__
         if 'name' in kwargs:
             name = str(kwargs.pop('name'))
-        event = events.CreateEvaluation(model, cls_str, args, kwargs)
+        else:
+            name = class_name
+
+        record = events.RecordMetadata(model.name, class_name, name, kwargs)
+        kwargs['name'] = record.class_name
         return func(instance, model, *args, **kwargs)
 
     return wrapper

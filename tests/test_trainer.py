@@ -1,29 +1,29 @@
-import logging
 import pathlib
+import time
 
-import numpy as np
-import pytest
 import torch
+
 from torch.utils import data
-from dry_torch import Trainer
-from dry_torch import Validation
-from dry_torch import Test as _Test  # otherwise pytest interprets it as a test
-from dry_torch import DataLoader
-from dry_torch import Experiment
-from dry_torch import Model
-from dry_torch import SimpleLossCalculator, MetricsCalculator
-from dry_torch import exceptions
-from dry_torch import LearningScheme
-from dry_torch import protocols as p
-from dry_torch import register_model
-from dry_torch import log_settings
-from dry_torch import hooks
-from typing import NamedTuple, Iterable
+
+from src import dry_torch
+from src.dry_torch import Trainer
+from src.dry_torch import Test as _Test  # pytest interprets Test as a test
+from src.dry_torch import DataLoader
+from src.dry_torch import Experiment
+from src.dry_torch import Model
+from src.dry_torch import SimpleLossCalculator, MetricsCalculator
+from src.dry_torch import LearningScheme
+from src.dry_torch import hooks
+from src.dry_torch import set_compact_mode
+from typing import NamedTuple
 import dataclasses
 
 
 class TorchTuple(NamedTuple):
     input: torch.Tensor
+
+
+set_compact_mode()
 
 
 @dataclasses.dataclass()
@@ -42,6 +42,7 @@ class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
     def __getitem__(self, index: int) -> tuple[
         TorchTuple, torch.Tensor
     ]:
+        time.sleep(0.001)
         x = torch.FloatTensor([index]) / len(self)
         return TorchTuple(x), x
 
@@ -61,8 +62,8 @@ class Linear(torch.nn.Module):
 
 def square_error(outputs: TorchData,
                  targets: torch.Tensor) -> torch.Tensor:
-    return ((outputs.output - targets) ** 2).mean() + torch.rand_like(
-        outputs.output).mean()
+    return ((outputs.output - targets) ** 2).mean() + torch.rand([1]).to(
+        'cuda')
 
 
 def zero(outputs: TorchData,
@@ -73,9 +74,7 @@ def zero(outputs: TorchData,
 def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
-    Experiment('test_simple_training',
-               pardir=exp_pardir)
-
+    Experiment('test_simple_training', pardir=exp_pardir).start()
     module = Linear(1, 1)
     loss_calc = SimpleLossCalculator(loss_fun=square_error)
     metrics_calc = MetricsCalculator(my_metric=square_error, zero=zero)
@@ -91,11 +90,17 @@ def test_all() -> None:
 
     trainer.add_validation(val_loader=loader)
     trainer.post_epoch_hooks.register(
+        hooks.early_stopping_callback(
+            monitor_validation=False,
+            monitor_external=trainer.validation,
+            patience=1))
+    trainer.post_epoch_hooks.register(
         hooks.call_every(5, hooks.saving_hook())
     )
-    trainer.post_epoch_hooks.register(
-        hooks.early_stopping_callback(metric_name='Criterion', patience=5))
-    trainer.train(10)
+
+    trainer.train(3)
+    trainer.train(3)
+
     cloned_model = model.clone('cloned_model')
     Trainer(cloned_model,
             learning_scheme=LearningScheme(torch.optim.Adam, lr=0.01),

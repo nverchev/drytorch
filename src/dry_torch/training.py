@@ -1,5 +1,4 @@
-from collections.abc import Callable
-import logging
+import warnings
 from typing import Self, TypeVar, Optional
 
 import torch
@@ -15,13 +14,10 @@ from src.dry_torch import events
 from src.dry_torch import evaluating
 from src.dry_torch import hooks
 from src.dry_torch import registering
-from src.dry_torch import tracking
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
-
-logger = logging.getLogger('dry_torch')
 
 
 class Trainer(
@@ -81,7 +77,6 @@ class Trainer(
         self._terminated = False
         return
 
-
     def add_validation(
             self,
             val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
@@ -105,14 +100,14 @@ class Trainer(
     @override
     def __call__(self, store_outputs: bool = False) -> None:
         self.model.increment_epoch()
-        events.StartEpoch(self.model.epoch)
         self._model_optimizer.update_learning_rate()
         self.model.module.train()
         try:
             self._run_epoch(store_outputs)
         except exceptions.ConvergenceError as ce:
-            logger.error(ce)
+            events.ModelDidNotConverge(ce)
             self.terminate_training()
+
         return
 
     def train(self: Self, num_epochs: int) -> None:
@@ -122,17 +117,19 @@ class Trainer(
         Parameters:
             num_epochs: the number of epochs for which train the module.
         """
-        events.StartTraining(self.model.name,
-                                     self.model.epoch,
-                                     self.model.epoch + num_epochs)
         if self._terminated:
-            logger.warning('Attempted to train module after termination.')
+            warnings.warn('Attempted to train module after termination.')
+            return
+        final_epoch = self.model.epoch + num_epochs
+        events.StartTraining(self.model.name, self.model.epoch, final_epoch)
         for _ in range(num_epochs):
             if self._terminated:
-                return
+                break
+            events.StartEpoch(self.model.epoch + 1, final_epoch)
             self.pre_epoch_hooks.execute(self)
             self.__call__()
             self.post_epoch_hooks.execute(self)
+            events.EndEpoch()
         events.EndTraining()
         return
 
@@ -148,11 +145,8 @@ class Trainer(
         if remaining_epochs > 0:
             self.train(remaining_epochs)
         if remaining_epochs < 0:
-            logger.warning(
-                exceptions.PastEpochWarning(epoch, self.model.epoch)
-            )
+            warnings.warn(exceptions.PastEpochWarning(epoch, self.model.epoch))
         return
-
 
     def _run_backward(self) -> None:
         self._calculator: p.LossCalculatorProtocol
@@ -169,20 +163,16 @@ class Trainer(
         self._scaler.update()
         self._optimizer.zero_grad()
 
-
     def save_checkpoint(self, replace_previous: bool = False) -> None:
         self._checkpoint.save(replace_previous)
 
-
     def load_checkpoint(self, epoch: int = -1) -> None:
         self._checkpoint.load(epoch=epoch)
-
 
     def update_learning_rate(
             self, learning_rate: float | dict[str, float],
     ) -> None:
         self._model_optimizer.update_learning_rate(learning_rate)
-
 
     def __str__(self) -> str:
         return f'Trainer for {self.model.name}.'

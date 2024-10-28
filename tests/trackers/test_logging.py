@@ -1,5 +1,4 @@
 import logging
-from dry_torch import log_settings
 
 logger = logging.getLogger('dry_torch')
 
