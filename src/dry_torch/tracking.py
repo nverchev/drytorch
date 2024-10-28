@@ -47,7 +47,7 @@ class Logger(Tracker, metaclass=abc.ABCMeta):
 
 
 # Default specified in __init__.py
-DEFAULT_TRACKERS: list[Tracker] = []
+DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
 
 class Experiment(Generic[_T]):
@@ -88,7 +88,7 @@ class Experiment(Generic[_T]):
         self.__class__.past_experiments.add(self)
         self.named_trackers: dict[str, Tracker] = {}
         self.event_trackers: dict[type[events.Event], list[Tracker]] = {}
-        for tracker in DEFAULT_TRACKERS:
+        for tracker in DEFAULT_TRACKERS.values():
             self.register_tracker(tracker)
 
     def register_tracker(self, tracker: Tracker) -> None:

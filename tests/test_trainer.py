@@ -14,16 +14,12 @@ from src.dry_torch import Model
 from src.dry_torch import SimpleLossCalculator, MetricsCalculator
 from src.dry_torch import LearningScheme
 from src.dry_torch import hooks
-from src.dry_torch import set_compact_mode
 from typing import NamedTuple
 import dataclasses
 
 
 class TorchTuple(NamedTuple):
     input: torch.Tensor
-
-
-set_compact_mode()
 
 
 @dataclasses.dataclass()
@@ -98,7 +94,6 @@ def test_all() -> None:
         hooks.call_every(5, hooks.saving_hook())
     )
 
-    trainer.train(3)
     trainer.train(3)
 
     cloned_model = model.clone('cloned_model')

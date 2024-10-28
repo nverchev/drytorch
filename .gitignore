@@ -3,3 +3,4 @@
 /.ipynb_checkpoints/
 /.idea/
 /tests/.hypothesis/
+*/__pycache__/
