@@ -6,7 +6,7 @@ from src.dry_torch import protocols as p
 
 
 @pytest.fixture
-def mock_model(mocker) -> p.ModelProtocol:
+def mock_model(mocker) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
     mock = mocker.create_autospec(p.ModelProtocol, instance=True)
     mock.epoch = 0
     mock.name = "mock_model"
@@ -33,6 +33,11 @@ def mock_learning_scheme(mocker,
 
 
 @pytest.fixture
+def mock_metrics_calc(mocker):
+    return mocker.create_autospec(p.MetricsCalculatorProtocol, instance=True)
+
+
+@pytest.fixture
 def mock_loss_calculator(mocker) -> p.LossCalculatorProtocol:
     mock = mocker.create_autospec(spec=p.LossCalculatorProtocol, instance=True)
     mock.criterion = 0.1
@@ -47,4 +52,3 @@ def mock_loader(mocker) -> p.LoaderProtocol:
 @pytest.fixture
 def mock_validation(mocker) -> p.EvaluationProtocol:
     return mocker.create_autospec(spec=p.EvaluationProtocol, instance=True)
-
