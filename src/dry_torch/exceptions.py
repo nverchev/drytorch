@@ -268,6 +268,10 @@ class RecursionWarning(DryTorchException, RuntimeWarning):
     msg = 'Impossible to extract metadata because there are recursive objects.'
 
 
+class TerminatedTrainingWarning(DryTorchException, RuntimeWarning):
+    msg = 'Attempted to train module after termination.'
+
+
 class TrackerError(DryTorchException, RuntimeWarning):
     msg = 'Tracker {} encountered the following error: \n {}'
 
