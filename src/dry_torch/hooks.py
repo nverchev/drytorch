@@ -33,11 +33,10 @@ class HookRegistry(Generic[_Class]):
         return
 
 
-def saving_hook(
-        replace_previous: bool = False
-) -> Callable[[p.TrainerProtocol], None]:
+def saving_hook() -> Callable[[p.TrainerProtocol], None]:
+
     def call(instance: p.TrainerProtocol) -> None:
-        instance.save_checkpoint(replace_previous=replace_previous)
+        instance.save_checkpoint()
 
     return call
 

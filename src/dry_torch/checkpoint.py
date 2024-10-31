@@ -11,7 +11,6 @@ from src.dry_torch import tracking
 from src.dry_torch import protocols as p
 
 
-
 class PathManager:
     """
     Manages the paths for the experiment.
@@ -50,13 +49,11 @@ class PathManager:
         exp = tracking.Experiment.current()
         return exp.dir
 
-
     @property
     def model_dir(self) -> pathlib.Path:
         directory = self.exp_dir / self.model.name
         directory.mkdir(exist_ok=True)
         return directory
-
 
     @property
     def checkpoint_dir(self) -> pathlib.Path:
@@ -99,7 +96,6 @@ class PathManager:
         if not past_epochs:
             raise exceptions.ModelNotFoundError(checkpoint_directory)
         return max(past_epochs)
-
 
 
 class ModelStateIO:
@@ -163,6 +159,7 @@ class ModelStateIO:
     def __repr__(self) -> str:
         return self.__class__.__name__ + f'(module={self.model.name})'
 
+
 class CheckpointIO(ModelStateIO):
     """
     Save and load checkpoints. The folder with the savings has the address
@@ -188,17 +185,12 @@ class CheckpointIO(ModelStateIO):
         super().__init__(model)
         self.optimizer = optimizer
 
-    def save(self, replace_previous: bool = False) -> None:
+    def save(self) -> None:
         """
         Save a checkpoint for the module and the optimizer with the metadata of
         the experiments, the test results,
         and the training and validation learning curves.
         """
-        if replace_previous:
-            epoch_dirs = list(self.paths.checkpoint_dir.iterdir())
-            if epoch_dirs:
-                last_epoch_dir = sorted(epoch_dirs)[-1]
-                pathlib.Path(last_epoch_dir).rename(self.paths.epoch_dir)
         super().save()
         torch.save(self.optimizer.state_dict(),
                    self.paths.checkpoint['optimizer'])
@@ -222,5 +214,3 @@ class CheckpointIO(ModelStateIO):
         except ValueError as ve:
             warnings.warn(exceptions.OptimizerNotLoadedWarning(ve))
         return
-
-

@@ -70,7 +70,7 @@ class Trainer(
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
         self._checkpoint = checkpoint.CheckpointIO(model, self._optimizer)
-        self._scaler = amp.GradScaler(enabled=self._mixed_precision)
+        self._scaler = amp.GradScaler(enabled=mixed_precision)
         self.validation: Optional[evaluating.Validation] = None
         self.pre_epoch_hooks = hooks.HookRegistry[Self]()
         self.post_epoch_hooks = hooks.HookRegistry[Self]()
@@ -150,7 +150,8 @@ class Trainer(
             warnings.warn(exceptions.PastEpochWarning(epoch, self.model.epoch))
         return
 
-    def _run_backward(self) -> None:
+    @override
+    def _run_backwards(self) -> None:
         self._calculator: p.LossCalculatorProtocol
         criterion = self._calculator.criterion.mean(0)
         if torch.isinf(criterion) or torch.isnan(criterion):
@@ -165,8 +166,8 @@ class Trainer(
         self._scaler.update()
         self._optimizer.zero_grad()
 
-    def save_checkpoint(self, replace_previous: bool = False) -> None:
-        self._checkpoint.save(replace_previous)
+    def save_checkpoint(self) -> None:
+        self._checkpoint.save()
 
     def load_checkpoint(self, epoch: int = -1) -> None:
         self._checkpoint.load(epoch=epoch)
