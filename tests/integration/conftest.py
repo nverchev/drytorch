@@ -6,7 +6,8 @@ from src.dry_torch import DataLoader, LearningScheme, MetricsCalculator, Model
 from src.dry_torch import SimpleLossCalculator, Trainer
 from src.dry_torch import protocols as p
 
-from tests.example_classes import TorchTuple, TorchData, IdentityDataset, Linear
+from tests.integration.example_classes import IdentityDataset, Linear
+from tests.integration.example_classes import TorchTuple, TorchData
 
 
 @pytest.fixture
