@@ -1,0 +1,101 @@
+import pytest
+
+import numpy as np
+
+from src.dry_torch import Trainer, exceptions
+
+
+class TestTrainer:
+    @pytest.fixture(autouse=True)
+    def setup(self,
+              mock_model,
+              mock_learning_scheme,
+              mock_loss_calculator,
+              mock_loader):
+        self.trainer = Trainer(
+            mock_model,
+            learning_scheme=mock_learning_scheme,
+            loss_calc=mock_loss_calculator,
+            loader=mock_loader,
+            mixed_precision=False,
+            name="TestTrainer"
+        )
+
+    def test_call_events(self, mocker) -> None:
+        """Test train method invokes the necessary hooks and events."""
+        start_training_event = mocker.patch(
+            "src.dry_torch.events.StartTraining")
+        end_training_event = mocker.patch("src.dry_torch.events.EndTraining")
+
+        self.trainer.train(2)
+
+        start_training_event.assert_called_once_with(
+            self.trainer.model.name,
+            self.trainer.model.epoch,
+            self.trainer.model.epoch + 2)
+        end_training_event.assert_called_once()
+        return
+
+    def test_call_validation(self, mocker, mock_loader) -> None:
+        """Test that validation loader is called when validation is added."""
+        # Spy on the validation loader to check calls
+        spy_loader = mocker.spy(mock_loader, "__iter__")
+
+        # Set up validation and train
+        self.trainer.add_validation(spy_loader)
+        self.trainer()
+
+        # Ensure the validation loader was used during training
+        spy_loader.assert_called_once()
+        return
+
+    def test_convergence_error(self, mocker) -> None:
+        """Test that convergence error correctly terminates training."""
+        mock = mocker.MagicMock(side_effect=exceptions.ConvergenceError(np.Inf))
+        self.trainer._run_epoch = mock
+
+        self.trainer.train(3)
+
+        mock.assert_called_once()
+
+    def test_terminate_training(self) -> None:
+        """Test that terminated correctly stop training."""
+        self.trainer.terminate_training()
+        with pytest.warns(exceptions.TerminatedTrainingWarning):
+            self.trainer()
+
+    def test_train_until(self, mocker) -> None:
+        """Test train_until correctly calculates the remaining epochs."""
+        self.trainer.model.epoch = 2
+        mock_train = mocker.MagicMock()
+        self.trainer.train = mock_train
+
+        self.trainer.train_until(4)
+
+        mock_train.assert_called_once_with(2)
+
+    def test_past_epoch_warning(self) -> None:
+        """Test a warning is raised when trying to train to a past epoch."""
+        self.trainer.model.epoch = 4
+
+        with pytest.warns(exceptions.PastEpochWarning):
+            self.trainer.train_until(3)
+
+    def test_hook_execution_order(self, mocker) -> None:
+        """Test that hooks are executed in the correct order."""
+        # Mock the hooks to track their order of execution
+        pre_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
+        post_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
+        self.trainer.pre_epoch_hooks.register_all(pre_hook_list)
+        self.trainer.post_epoch_hooks.register_all(post_hook_list)
+
+        self.trainer.train(1)
+
+        # Verify pre hooks are called before post hooks within the epoch
+        hook_list = pre_hook_list + post_hook_list
+        ordered_list = []
+        for hook in hook_list:
+            hook.assert_called_once()
+            ordered_list.append(hook.call_args_list[0])
+
+        assert ordered_list == sorted(ordered_list)
