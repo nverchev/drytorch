@@ -99,6 +99,9 @@ class Trainer(
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
+        if self.terminated:
+            warnings.warn(exceptions.TerminatedTrainingWarning())
+            return
         self.model.increment_epoch()
         self._model_optimizer.update_learning_rate()
         self.model.module.train()
@@ -107,7 +110,6 @@ class Trainer(
         except exceptions.ConvergenceError as ce:
             events.ModelDidNotConverge(ce)
             self.terminate_training()
-
         return
 
     def train(self: Self, num_epochs: int) -> None:
@@ -117,13 +119,13 @@ class Trainer(
         Parameters:
             num_epochs: the number of epochs for which train the module.
         """
-        if self._terminated:
-            warnings.warn('Attempted to train module after termination.')
+        if self.terminated:
+            warnings.warn(exceptions.TerminatedTrainingWarning())
             return
         final_epoch = self.model.epoch + num_epochs
         events.StartTraining(self.model.name, self.model.epoch, final_epoch)
         for _ in range(num_epochs):
-            if self._terminated:
+            if self.terminated:
                 break
             events.StartEpoch(self.model.epoch + 1, final_epoch)
             self.pre_epoch_hooks.execute(self)
