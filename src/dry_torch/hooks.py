@@ -22,6 +22,11 @@ class HookRegistry(Generic[_Class]):
         self._hooks.append(hook)
         return
 
+    def register_all(self, hook_list: list[Callable[[_Class], None]]) -> None:
+        for hook in hook_list:
+            self.register(hook)
+        return
+
     def execute(self, class_instance: _Class) -> None:
         for hook in self._hooks:
             hook(class_instance)
