@@ -110,7 +110,7 @@ class Evaluation(p.EvaluationProtocol,
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
             outputs = self._run_forward(inputs)
             self._calculator.calculate(outputs, targets)
-            self._run_backward()
+            self._run_backwards()
             self._metrics += self._calculator.metrics
             self._calculator.reset_calculated()
             pbar.update_pbar(self._metrics.reduce_all())
@@ -124,7 +124,7 @@ class Evaluation(p.EvaluationProtocol,
                             enabled=self._mixed_precision):
             return self.model(inputs)
 
-    def _run_backward(self) -> None:
+    def _run_backwards(self) -> None:
         pass
 
     def _store(self, outputs: _Output) -> None:
