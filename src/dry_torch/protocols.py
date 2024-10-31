@@ -34,6 +34,7 @@ class NamedTupleProtocol(Protocol[_T]):
     def _asdict(self) -> dict[str, _T]:
         ...
 
+
 Tensors = descriptors.Tensors
 InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
 OutputType: TypeAlias = Any
@@ -158,6 +159,7 @@ class LossCalculatorProtocol(
     def reset_calculated(self) -> None:
         """Delete the calculated values."""
 
+
 class LearningProtocol(Protocol):
     """
     Protocol with specifications for the learning algorithm.
@@ -173,6 +175,7 @@ class LearningProtocol(Protocol):
     lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
+
 
 @runtime_checkable
 class ModelProtocol(Protocol[_Input_contra, _Output_co]):
@@ -199,12 +202,14 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     def increment_epoch(self):
         ...
 
+
 class EvaluationProtocol(Protocol):
     name: str
 
     @property
     def metrics(self) -> dict[str, float]:
         """the metrics from the last evaluation"""
+
 
 @runtime_checkable
 class TrainerProtocol(Protocol):
@@ -224,7 +229,7 @@ class TrainerProtocol(Protocol):
     def terminate_training(self) -> None:
         """Terminate the training."""
 
-    def save_checkpoint(self, replace_previous: bool = False) -> None:
+    def save_checkpoint(self) -> None:
         """Save the model weights, the optimizer state and the logs."""
 
     def load_checkpoint(self, epoch: int = -1) -> None:
@@ -240,22 +245,3 @@ class TrainerProtocol(Protocol):
     @property
     def terminated(self) -> bool:
         """Training has terminated"""
-
-class PlotterProtocol(Protocol):
-    """Protocol for a class that plots the learning curves."""
-
-    def plot(self,
-             train_log: pd.DataFrame,
-             val_log: pd.DataFrame,
-             metric_name: str = 'Criterion',
-             title: str = 'Learning Curves') -> None:
-        """
-        Plots the learning curves.
-
-        Args:
-            train_log: DataFrame with the logged training metrics.
-            val_log: DataFrame with the logged validation metrics.
-            metric_name: the metric to visualize. Defaults to 'Criterion'.
-            title: the title of the plot. Defaults to 'Learning Curves'.
-        """
-        ...

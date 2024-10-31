@@ -13,11 +13,9 @@ __all__ = [
     'Diagnostic',
     'Validation',
     'Test',
-    'Plotter',
     'register_model',
 ]
 
-from src.dry_torch.plotting import Plotter
 from src.dry_torch.checkpoint import ModelStateIO
 from src.dry_torch.checkpoint import CheckpointIO
 from src.dry_torch.loading import DataLoader
