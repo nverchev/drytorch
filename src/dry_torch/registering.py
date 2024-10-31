@@ -27,10 +27,7 @@ def register_model(model: p.ModelProtocol, /) -> None:
     Function needed to save train or test a Model-like instance.
 
     It registers a model to an experiment, giving a context that encapsulates
-    the development and testing of the model. When registering a model, you
-    create a ModelTracker object which contains logs and metadata of the model.
-    To encourage best practises, a model can only be registered to a single
-    experiment.
+    the development and testing of the model.
 
     Args:
         model: the model to register.
@@ -46,6 +43,7 @@ def register_model(model: p.ModelProtocol, /) -> None:
         raise exceptions.ModuleAlreadyRegisteredError(exp_name)
     _REGISTERED_MODELS[model_identifier] = exp
     events.ModelCreation(model)
+
 
 def register_kwargs(
         func: Callable[
@@ -87,7 +85,7 @@ def register_kwargs(
             name = class_name
 
         record = events.RecordMetadata(model.name, class_name, name, kwargs)
-        kwargs['name'] = record.class_name
+        kwargs['name'] = record.name
         return func(instance, model, *args, **kwargs)
 
     return wrapper
