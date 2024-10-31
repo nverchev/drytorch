@@ -2,17 +2,12 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[dependencies]
-torch = ">=2.0.0+cu118"
-tqdm = ">=4.65.0"
-visdom = ">=0.2.4"
-
 [project]
 name = "dry-torch"
 version = "0.0.1"
 authors = [{ name = "Nicolas Vercheval", email = "nicolas.vercheval@ugent.be" }]
 description = "This package helps train, document and evaluate a Pytorch model."
-keywords = ["pytorch", "training", "structured_data", "autoencoders"]
+keywords = ["pytorch", "logger"]
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -24,16 +19,24 @@ classifiers = [
 dependencies = [
     "torch >= 2.1",
     "numpy",
-    "tqdm",
-    "pandas",
     "PyYAML >= 6.0",
 ]
 
 [project.optional-dependencies]
-plot_local = ["pyplot"]
-plot_server = ["visdom"]
-all = ["plotly", "visdom"]
-dev = ["pytest"]
+all_trackers = [
+    "plotly",
+    "tqdm",
+    "visdom",
+    "pandas",
+    "sqlalchemy",
+    "wandb",
+    "seaborn",
+    "scikit-learn",
+    "torchvision",
+    "huggingface-datasets",
+    "tqdm",
+    "torchmetrics",]
+dev = ["pytest", "pytest-mock"]
 
 [tool.setuptools.package-data]
 "dry_torch" = ["py.typed"]
@@ -50,6 +53,10 @@ Changelog = "https://github.com/nverchev/dry_torch/blob/master/CHANGELOG.md"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = [
+    "-v",
+    "--tb=short",
+#    "tests/functional",
+    "--strict-markers",
     "--ignore=tests/test_plotter.py",
     "--hypothesis-profile=simplified"
 ]
