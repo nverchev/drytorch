@@ -95,7 +95,7 @@ class TqdmLogger(tracking.Logger):
 
     @notify.register
     def _(self, event: events.EpochBar) -> None:
-        desc = event.source.split('.', 1)[0].rjust(15)
+        desc = event.source.rjust(15)
         bar = EpochBar(event.loader,
                        leave=self.leave,
                        out=self.out,

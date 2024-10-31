@@ -177,5 +177,3 @@ class Trainer(
     ) -> None:
         self._model_optimizer.update_learning_rate(learning_rate)
 
-    def __str__(self) -> str:
-        return f'Trainer for {self.model.name}.'

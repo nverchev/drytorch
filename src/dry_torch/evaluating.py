@@ -60,6 +60,7 @@ class Evaluation(p.EvaluationProtocol,
         property for adding a hook after running the training session.
     """
 
+    @registering.register_kwargs
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -97,7 +98,7 @@ class Evaluation(p.EvaluationProtocol,
 
     def log_metrics(self) -> None:
         events.MetricsCreation(model_name=self.model.name,
-                               source=self.name,
+                               source=str(self),
                                epoch=self.model.epoch,
                                metrics=self.metrics)
         return
@@ -136,8 +137,11 @@ class Evaluation(p.EvaluationProtocol,
         else:
             self.outputs_list.append(outputs)
 
+    def __repr__(self) -> str:
+        return self.name + f'for model {self.model.name}'
+
     def __str__(self) -> str:
-        return f'Base Evaluator for {self.model.name}.'
+        return self.name.split('.', 1)[0]
 
 
 class Diagnostic(Evaluation[_Input, _Target, _Output]):
@@ -158,46 +162,11 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
         return
 
 
-class Validation(Evaluation[_Input, _Target, _Output]):
+class Validation(Diagnostic[_Input, _Target, _Output]):
     partition = descriptors.Split.VAL
 
-    @registering.register_kwargs
-    def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            /,
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
-            mixed_precision: bool = False,
-            name: str = '',
-    ) -> None:
-        super().__init__(model,
-                         name=name,
-                         loader=loader,
-                         metrics_calc=metrics_calc,
-                         mixed_precision=mixed_precision)
-        return
 
-    @override
-    @torch.inference_mode()
-    def __call__(self, store_outputs: bool = False) -> None:
-        """
-        Evaluates the module's performance on the specified partition of the
-        dataset.
-
-        Parameters:
-
-        """
-        self.model.module.eval()
-        self._run_epoch(store_outputs)
-        return
-
-    def __str__(self) -> str:
-        return f'Validator for {self.model.name}.'
-
-
-class Test(Evaluation[_Input, _Target, _Output]):
+class Test(Diagnostic[_Input, _Target, _Output]):
     partition = descriptors.Split.TEST
 
     """
@@ -235,7 +204,6 @@ class Test(Evaluation[_Input, _Target, _Output]):
         property for adding a hook after running the training session.
     """
 
-    @registering.register_kwargs
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
@@ -263,13 +231,6 @@ class Test(Evaluation[_Input, _Target, _Output]):
 
         """
         events.StartTest(self.model.name, self.name)
-        self.model.module.eval()
-        self._run_epoch(store_outputs)
+        self.super().__call__(store_outputs)
         # self._checkpoint.save()
         return
-
-    # def __str__(self) -> str:
-    #     return (
-    #         f'{repr(self.model_tracker.default_names[self.__class__.__name__])}'
-    #         'for tracker {self.model.name}.'
-    #     )
