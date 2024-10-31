@@ -21,8 +21,8 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class Evaluation(p.EvaluationProtocol,
-                Generic[_Input, _Target, _Output],
-                metaclass=abc.ABCMeta):
+                 Generic[_Input, _Target, _Output],
+                 metaclass=abc.ABCMeta):
     max_stored_output: int = sys.maxsize
     partition: descriptors.Split
     """
@@ -124,10 +124,8 @@ class Evaluation(p.EvaluationProtocol,
                             enabled=self._mixed_precision):
             return self.model(inputs)
 
-
     def _run_backward(self) -> None:
         pass
-
 
     def _store(self, outputs: _Output) -> None:
         try:
