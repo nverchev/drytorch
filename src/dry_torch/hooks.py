@@ -1,9 +1,8 @@
 from collections import deque
 from collections.abc import Callable
-from typing import Generic, TypeVar, Optional, ParamSpec
+from typing import Generic, TypeVar, Optional, ParamSpec, Literal
 
 import numpy as np
-import numpy.typing as npt
 
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
@@ -34,7 +33,6 @@ class HookRegistry(Generic[_Class]):
 
 
 def saving_hook() -> Callable[[p.TrainerProtocol], None]:
-
     def call(instance: p.TrainerProtocol) -> None:
         instance.save_checkpoint()
 
@@ -53,9 +51,10 @@ def static_hook(
 def static_hook_closure(
         static_closure: Callable[_P, Callable[[], None]]
 ) -> Callable[_P, Callable[[p.TrainerProtocol], None]]:
-    def closure_hook(*args: _P.args,
-                     **kwargs: _P.kwargs) -> Callable[[p.TrainerProtocol],
-    None]:
+    def closure_hook(
+            *args: _P.args,
+            **kwargs: _P.kwargs,
+    ) -> Callable[[p.TrainerProtocol], None]:
         static_callable = static_closure(*args, **kwargs)
 
         def call(_: p.TrainerProtocol) -> None:
@@ -83,19 +82,28 @@ def call_every(
 def early_stopping_callback(
         metric_name: Optional[str] = None,
         monitor_validation: bool = True,
-        aggregate_fun: Callable[[npt.NDArray], float] = np.min,
         min_delta: float = 0.,
         patience: int = 10,
-        lower_is_best: bool = True,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
         baseline: Optional[float] = None,
         start_from_epoch: int = 0,
         monitor_external: Optional[p.EvaluationProtocol] = None
 ) -> Callable[[p.TrainerProtocol], None]:
-    best_result = float('inf') if lower_is_best else 0
+
+    if best_is == 'lower':
+        best_result = float('inf')
+        aggregate_fn = np.min
+    elif best_is == 'higher':
+        best_result = float('-inf')
+        aggregate_fn = np.max
+    else:
+        best_result = 0
+        aggregate_fn = np.min
+
     monitor_log: deque[float] = deque(maxlen=patience + 1)
 
     def call(instance: p.TrainerProtocol):
-        nonlocal metric_name, best_result, monitor_log
+        nonlocal aggregate_fn, metric_name, best_result, monitor_log, best_is
         if monitor_validation:
             if instance.validation is None:
                 raise exceptions.NoValidationError
@@ -110,17 +118,31 @@ def early_stopping_callback(
         monitor_log.append(last_metrics[metric_name])
         if instance.model.epoch < max(start_from_epoch, patience):
             return
-        aggregated_result = aggregate_fun(np.array(monitor_log))
-        if lower_is_best:
+        if best_is == 'auto':
+            if len(monitor_log) > 1:
+                if monitor_log[0] > monitor_log[-1]:
+                    best_is = 'lower'
+                    best_result = float('inf')
+                    aggregate_fn = np.min
+                else:
+                    best_is = 'higher'
+                    best_result = float('-inf')
+                    aggregate_fn = np.max
+            return
+
+        aggregated_result = aggregate_fn(np.array(monitor_log))
+        if best_is == 'lower':
             if baseline is None:
                 condition = best_result + min_delta < aggregated_result
             else:
                 condition = baseline + min_delta <= aggregated_result
-        else:
+        elif best_is == 'higher':
             if baseline is None:
                 condition = best_result - min_delta > aggregated_result
             else:
                 condition = baseline - min_delta >= aggregated_result
+        else:
+            condition = False
 
         if condition:
             instance.terminate_training()
