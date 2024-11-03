@@ -118,6 +118,7 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         return self.__class__.__name__ + f'(counts={self.counts})'
 
+
 class Averager(Aggregator[float]):
     """ Subclass of Aggregator with an implementation for torch.Tensor.
 
@@ -133,6 +134,7 @@ class Averager(Aggregator[float]):
     @override
     def _aggregate(value: float) -> float:
         return value
+
 
 class TorchAverager(Aggregator[torch.Tensor]):
     """ Subclass of Aggregator with an implementation for torch.Tensor.
@@ -152,4 +154,3 @@ class TorchAverager(Aggregator[torch.Tensor]):
             return value.sum(0).item()
         except RuntimeError:
             raise exceptions.MetricsNotAVectorError(list(value.shape))
-
