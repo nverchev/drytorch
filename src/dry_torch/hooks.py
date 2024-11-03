@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Generic, TypeVar, Optional, ParamSpec, Literal
 
 import numpy as np
+import numpy.typing as npt
 
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
@@ -79,77 +80,90 @@ def call_every(
     return call
 
 
-def early_stopping_callback(
-        metric_name: Optional[str] = None,
-        monitor_validation: bool = True,
-        min_delta: float = 0.,
-        patience: int = 10,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        baseline: Optional[float] = None,
-        start_from_epoch: int = 0,
-        monitor_external: Optional[p.EvaluationProtocol] = None
-) -> Callable[[p.TrainerProtocol], None]:
+class EarlyStoppingCallback:
+    def __init__(
+            self,
+            metric_name: Optional[str] = None,
+            monitor_validation: bool = True,
+            min_delta: float = 0.,
+            patience: int = 10,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            aggregate_fn: Optional[Callable[[npt.NDArray], float]] = None,
+            pruning: Optional[dict[int, float]] = None,
+            start_from_epoch: int = 0,
+            monitor_external: Optional[p.EvaluationProtocol] = None,
+    ) -> None:
+        self.metric_name = metric_name
+        self.monitor_validation = monitor_validation
+        self.min_delta = min_delta
+        self.patience = patience
+        self.best_is = best_is
+        self.pruning = pruning
+        self.start_from_epoch = start_from_epoch
+        self.monitor_external = monitor_external
+        self.monitor_log: deque[float] = deque(maxlen=patience + 1)
+        self.pruning_results: dict[int, float] = {}
 
-    if best_is == 'lower':
-        best_result = float('inf')
-        aggregate_fn = np.min
-    elif best_is == 'higher':
-        best_result = float('-inf')
-        aggregate_fn = np.max
-    else:
-        best_result = 0
-        aggregate_fn = np.min
+        default_aggregate: Callable[[npt.NDArray], float]
+        if best_is == 'lower':
+            self.best_result = float('inf')
+            default_aggregate = np.min
+        elif best_is == 'higher':
+            self.best_result = float('-inf')
+            default_aggregate = np.max
+        else:
+            self.best_result = 0
+            default_aggregate = np.mean
+        if aggregate_fn is None:
+            self.aggregate_fn = default_aggregate
+        else:
+            self.aggregate_fn = aggregate_fn
 
-    monitor_log: deque[float] = deque(maxlen=patience + 1)
-
-    def call(instance: p.TrainerProtocol):
-        nonlocal aggregate_fn, metric_name, best_result, monitor_log, best_is
-        if monitor_validation:
+    def __call__(self, instance: p.TrainerProtocol) -> None:
+        if self.monitor_validation:
             if instance.validation is None:
                 raise exceptions.NoValidationError
             monitor: p.EvaluationProtocol = instance.validation
         else:
-            monitor = instance if monitor_external is None else monitor_external
+            monitor = instance if self.monitor_external is None else (
+                self.monitor_external)
+        current_epoch = instance.model.epoch
         last_metrics = monitor.metrics
-        if metric_name is None:
-            metric_name = list(last_metrics.keys())[0]
-        elif metric_name not in last_metrics:
-            raise exceptions.MetricNotFoundError(monitor.name, metric_name)
-        monitor_log.append(last_metrics[metric_name])
-        if instance.model.epoch < max(start_from_epoch, patience):
+        if self.metric_name is None:
+            self.metric_name = list(last_metrics.keys())[0]
+        elif self.metric_name not in last_metrics:
+            raise exceptions.MetricNotFoundError(monitor.name, self.metric_name)
+        self.monitor_log.append(last_metrics[self.metric_name])
+        if current_epoch < max(self.start_from_epoch, self.patience):
             return
-        if best_is == 'auto':
-            if len(monitor_log) > 1:
-                if monitor_log[0] > monitor_log[-1]:
-                    best_is = 'lower'
-                    best_result = float('inf')
-                    aggregate_fn = np.min
+        if self.best_is == 'auto':
+            if len(self.monitor_log) > 1:
+                if self.monitor_log[0] > self.monitor_log[-1]:
+                    self.best_is = 'lower'
+                    self.best_result = float('inf')
+                    self.aggregate_fn = np.min
                 else:
-                    best_is = 'higher'
-                    best_result = float('-inf')
-                    aggregate_fn = np.max
+                    self.best_is = 'higher'
+                    self.best_result = float('-inf')
+                    self.aggregate_fn = np.max
             return
 
-        aggregated_result = aggregate_fn(np.array(monitor_log))
-        if best_is == 'lower':
-            if baseline is None:
-                condition = best_result + min_delta < aggregated_result
-            else:
-                condition = baseline + min_delta <= aggregated_result
-        elif best_is == 'higher':
-            if baseline is None:
-                condition = best_result - min_delta > aggregated_result
-            else:
-                condition = baseline - min_delta >= aggregated_result
+        aggregate_result = self.aggregate_fn(np.array(self.monitor_log))
+        if self.best_is == 'lower':
+            condition = self.best_result + self.min_delta < aggregate_result
+            if self.pruning is not None and current_epoch in self.pruning:
+                condition |= self.pruning[current_epoch] <= aggregate_result
+                self.pruning_results[current_epoch] = aggregate_result
         else:
-            condition = False
+            condition = self.best_result - self.min_delta > aggregate_result
+            if self.pruning is not None and current_epoch in self.pruning:
+                condition |= self.pruning[current_epoch] >= aggregate_result
+                self.pruning_results[current_epoch] = aggregate_result
 
         if condition:
             instance.terminate_training()
             events.TerminatedTraining(instance.model.epoch, 'early stopping')
 
         else:
-            best_result = aggregated_result
+            self.best_result = aggregate_result
         return
-
-    return call
