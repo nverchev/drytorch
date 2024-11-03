@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from src.dry_torch import DataLoader, LearningScheme, MetricsCalculator, Model
-from src.dry_torch import SimpleLossCalculator, Trainer
+from src.dry_torch import LossCalculator, Trainer
 from src.dry_torch import protocols as p
 
 from tests.integration.example_classes import IdentityDataset, Linear
@@ -33,7 +33,7 @@ def square_loss_calc() -> p.LossCalculatorProtocol[TorchData, torch.Tensor]:
         """Mean square error calculation."""
         return ((outputs.output - targets) ** 2).mean()
 
-    return SimpleLossCalculator(loss_fun=mse)
+    return LossCalculator(loss_fun=mse)
 
 
 @pytest.fixture
