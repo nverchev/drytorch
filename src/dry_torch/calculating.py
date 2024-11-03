@@ -79,7 +79,7 @@ class LossCalculatorBase(
         self._criterion = None
 
 
-class SimpleLossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
+class LossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
 
     def __init__(
             self,
@@ -101,7 +101,6 @@ class SimpleLossCalculator(LossCalculatorBase[_Output_contra, _Target_contra]):
         return
 
 
-# TODO: Test this
 class CompositeLossCalculator(
     LossCalculatorBase[_Output_contra, _Target_contra]
 ):

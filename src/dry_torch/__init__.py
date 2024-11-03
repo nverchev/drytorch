@@ -5,7 +5,7 @@ __all__ = [
     'CheckpointIO',
     'Experiment',
     'DataLoader',
-    'SimpleLossCalculator',
+    'LossCalculator',
     'MetricsCalculator',
     'LearningScheme',
     'Model',
@@ -19,7 +19,7 @@ __all__ = [
 from src.dry_torch.checkpoint import ModelStateIO
 from src.dry_torch.checkpoint import CheckpointIO
 from src.dry_torch.loading import DataLoader
-from src.dry_torch.calculating import SimpleLossCalculator
+from src.dry_torch.calculating import LossCalculator
 from src.dry_torch.calculating import MetricsCalculator
 from src.dry_torch.learning import LearningScheme
 from src.dry_torch.learning import Model
