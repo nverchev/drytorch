@@ -55,6 +55,7 @@ try:
 
 except ImportError:
     PandasObject = type(object())
+    pd = types.ModuleType('Unreachable module.')
 
 
 class LiteralStr(str):
