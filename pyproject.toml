@@ -58,7 +58,6 @@ addopts = [
 #    "tests/functional",
     "--strict-markers",
     "--ignore=tests/test_plotter.py",
-    "--hypothesis-profile=simplified"
 ]
 log_cli = true
 log_cli_level = "DEBUG"
