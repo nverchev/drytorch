@@ -1,4 +1,6 @@
-/tests/experiments
+/tests/units/experiments
+/tests/integration/experiments
+/tests/functional/experiments
 /tests/.ipynb_checkpoints/
 /.ipynb_checkpoints/
 /.idea/
