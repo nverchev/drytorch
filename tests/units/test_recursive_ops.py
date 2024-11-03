@@ -2,8 +2,8 @@ from typing import NamedTuple
 import pytest
 import torch
 
-from dry_torch.apply_ops import recursive_apply
-from dry_torch.apply_ops import apply_to
+from src.dry_torch.apply_ops import recursive_apply
+from src.dry_torch.apply_ops import apply_to
 
 
 class TorchTuple(NamedTuple):
