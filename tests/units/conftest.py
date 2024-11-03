@@ -61,5 +61,15 @@ def mock_loader(mocker) -> p.LoaderProtocol:
 
 
 @pytest.fixture
+def mock_trainer(mocker, mock_model) -> p.TrainerProtocol:
+    mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
+    mock.model = mock_model
+    mock.name = 'mock_trainer'
+    return mock
+
+
+@pytest.fixture
 def mock_validation(mocker) -> p.EvaluationProtocol:
-    return mocker.create_autospec(spec=p.EvaluationProtocol, instance=True)
+    mock = mocker.create_autospec(spec=p.EvaluationProtocol, instance=True)
+    mock.name = 'mock_validation'
+    return mock
