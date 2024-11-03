@@ -8,13 +8,7 @@ import numpy as np
 from hypothesis import given, assume
 from hypothesis.strategies import text, characters, lists
 
-from dry_torch.repr_utils import (
-    LiteralStr,
-    Omitted,
-    recursive_repr,
-    MAX_LENGTH_PLAIN_REPR,
-    MAX_LENGTH_SHORT_REPR,
-)
+from src.dry_torch.repr_utils import LiteralStr, Omitted, recursive_repr
 
 
 class SimpleClass:

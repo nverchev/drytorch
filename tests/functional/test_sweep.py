@@ -7,7 +7,7 @@ from src.dry_torch import Trainer
 from src.dry_torch import DataLoader
 from src.dry_torch import Experiment
 from src.dry_torch import Model
-from src.dry_torch import SimpleLossCalculator
+from src.dry_torch import LossCalculator
 from src.dry_torch import LearningScheme
 from src.dry_torch import register_model
 from src.dry_torch import hooks
@@ -62,7 +62,7 @@ def test_all() -> None:
     Experiment('test_sweep',
                pardir=exp_pardir)
 
-    loss_calc = SimpleLossCalculator(loss_fun=square_error)
+    loss_calc = LossCalculator(loss_fun=square_error)
     dataset = IdentityDataset()
     loader = DataLoader(dataset=dataset, batch_size=4)
     callback = hooks.early_stopping_callback(metric_name='Criterion',
