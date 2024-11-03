@@ -102,7 +102,6 @@ class EarlyStoppingCallback:
         self.start_from_epoch = start_from_epoch
         self.monitor_external = monitor_external
         self.monitor_log: deque[float] = deque(maxlen=patience + 1)
-        self.pruning_results: dict[int, float] = {}
 
         default_aggregate: Callable[[npt.NDArray], float]
         if best_is == 'lower':
@@ -153,12 +152,10 @@ class EarlyStoppingCallback:
             condition = self.best_result + self.min_delta < aggregate_result
             if self.pruning is not None and current_epoch in self.pruning:
                 condition |= self.pruning[current_epoch] <= aggregate_result
-                self.pruning_results[current_epoch] = aggregate_result
         else:
             condition = self.best_result - self.min_delta > aggregate_result
             if self.pruning is not None and current_epoch in self.pruning:
                 condition |= self.pruning[current_epoch] >= aggregate_result
-                self.pruning_results[current_epoch] = aggregate_result
 
         if condition:
             instance.terminate_training()

@@ -156,7 +156,6 @@ class TestEarlyStoppingCallback:
         mock_terminated_event.assert_called_once_with(
             mock_trainer.model.epoch, 'early stopping'
         )
-        assert self.hook.pruning_results[15] == 0.9
 
     def test_update_best_result(self, mock_trainer) -> None:
         """Test that early_stopping_callback updates best_result"""
