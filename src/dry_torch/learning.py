@@ -39,7 +39,6 @@ class LearningScheme(p.LearningProtocol):
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
-
 class Model(Generic[_Input_contra, _Output_co]):
     _default_model_name = repr_utils.DefaultName('Model', start=0)
     """
@@ -203,9 +202,7 @@ class ModelOptimizer:
                 for k, v in lr.items()
             ]
             if not self._params_lr_contains_all_params():
-                raise exceptions.MissingParamError(
-                    repr(self.module), list(lr)
-                )
+                raise exceptions.MissingParamError(repr(self.module), list(lr))
         return
 
     def update_learning_rate(
@@ -244,4 +241,3 @@ class ModelOptimizer:
     @staticmethod
     def count_params(params: Iterator) -> int:
         return sum(1 for _ in params)
-
