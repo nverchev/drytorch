@@ -46,12 +46,15 @@ class RecordMetadata(Event):
 
 @dataclasses.dataclass
 class SaveCheckpoint(Event):
+    model_name: str
     definition: str
     location: str
+    epoch: int
 
 
 @dataclasses.dataclass
 class LoadCheckpoint(Event):
+    model_name: str
     definition: str
     location: str
     epoch: int
