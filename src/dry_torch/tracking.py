@@ -17,6 +17,11 @@ _T = TypeVar('_T')
 
 
 class Tracker(metaclass=abc.ABCMeta):
+    """Abstract base class for tracking events with priority ordering.
+
+    Attributes:
+        priority (int): Proportional to the priority level for the tracker.
+    """
     priority = 1
 
     def __init__(self) -> None:
@@ -25,62 +30,60 @@ class Tracker(metaclass=abc.ABCMeta):
     @functools.singledispatchmethod
     @abstractmethod
     def notify(self, event: events.Event) -> None:
+        """Notify the tracker of an event.
+
+        Args:
+            event (events.Event): The event to notify about.
+        """
         return
 
     @classmethod
     def defined_events(cls) -> KeysView[type[events.Event]]:
-        # noinspection PyUnresolvedReferences
+        """Return the types of events this tracker is registered for."""
         register = cast(functools.singledispatchmethod,
                         cls.notify.register.__self__)  # type: ignore
         return register.dispatcher.registry.keys()
 
     def __gt__(self, other: Tracker) -> bool:
+        """Compare trackers based on priority."""
         return self.priority > other.priority
 
 
 class Handler(Tracker, metaclass=abc.ABCMeta):
+    """Handler tracker subclass with higher priority."""
     priority = 2
 
 
 class Logger(Tracker, metaclass=abc.ABCMeta):
+    """Logger tracker subclass with lower priority."""
     priority = 0
 
 
-# Default specified in __init__.py
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
 
 class Experiment(Generic[_T]):
+    """Manages experiment details, configuration, and event tracking.
+
+    Args:
+        name: The name of the experiment.
+        pardir: Parent directory for experiment data.
+        config: Configuration for the experiment.
+
+    Attributes:
+        name: The experiment name, set at initialization.
+        dir: The directory for storing experiment files.
+        config: Configuration object for the experiment.
+    """
     past_experiments: set[Experiment] = set()
     _current: Optional[Experiment] = None
     _current_config: Optional[_T] = None
     _default_link_name = repr_utils.DefaultName('outputs')
 
-    """
-    This class is used to describe the experiment.
-
-    Args:
-        name: the model_name of the experiment.
-        config: configuration for the experiment.
-        pardir: parent directory for the folders with the module checkpoints
-        save_metadata: whether to extract metadata from classes that 
-        implement the save_metadata decorator
-        max_items_repr: limits the size of iterators and arrays.
-
-
-    Attributes:
-        metric_logger: contains the saved metric_name and a plotting function
-        epoch: the current epoch, that is, the number of epochs the module has 
-        been trainer plus one.
-
-
-    """
-
     def __init__(self,
                  name: str = '',
                  pardir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[_T] = None) -> None:
-
         self.name: Final = name or datetime.datetime.now().isoformat()
         self.dir = pathlib.Path(pardir) / name
         self.dir.mkdir(exist_ok=True, parents=True)
@@ -92,6 +95,14 @@ class Experiment(Generic[_T]):
             self.register_tracker(tracker)
 
     def register_tracker(self, tracker: Tracker) -> None:
+        """Register a tracker to the experiment.
+
+        Args:
+            tracker: The tracker to register.
+
+        Raises:
+            TrackerAlreadyRegisteredError: If the tracker is already registered.
+        """
         tracker_name = tracker.__class__.__name__
         if tracker_name in self.named_trackers:
             raise exceptions.TrackerAlreadyRegisteredError(tracker_name,
@@ -101,51 +112,65 @@ class Experiment(Generic[_T]):
         for event_class in list(tracker.defined_events()):
             self.event_trackers.setdefault(event_class, []).append(tracker)
             self.event_trackers[event_class].sort(reverse=True)
-        return
 
     def remove_named_tracker(self, tracker_name: str) -> None:
+        """Remove a tracker by name from the experiment.
+
+        Args:
+            tracker_name: Name of the tracker to remove.
+
+        Raises:
+            TrackerNotRegisteredError: If the tracker is not registered.
+        """
         try:
             tracker = self.named_trackers.pop(tracker_name)
-        except ValueError:
+        except KeyError:
             raise exceptions.TrackerNotRegisteredError(tracker_name, self.name)
         else:
             for event_class in tracker.defined_events():
                 self.event_trackers[event_class].remove(tracker)
-        return
 
     def remove_all_trackers(self) -> None:
+        """Remove all trackers from the experiment."""
         for tracker_name in list(self.named_trackers):
             self.remove_named_tracker(tracker_name)
-        return
 
     def publish(self, event: events.Event) -> None:
+        """Publish an event to all registered trackers.
+
+        Args:
+            event: The event to publish.
+        """
         event_trackers = self.event_trackers.get(event.__class__, [])
         for subscriber in event_trackers:
             try:
                 subscriber.notify(event)
-            except BaseException as be:
-                raise be
+            except Exception as exc:
                 name = subscriber.__class__.__name__
-                warnings.warn(exceptions.TrackerError(name, be))
+                warnings.warn(exceptions.TrackerError(name, exc))
 
     def start(self) -> None:
+        """Start the experiment, setting it as the current active experiment."""
         if Experiment._current is not None:
             self.stop()
         events.Event.set_auto_publish(self.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
         events.StartExperiment(self.name)
-        return
 
     def stop(self) -> None:
-        """"""
+        """Stop the experiment, clearing it from the active experiment."""
         if Experiment._current is not None:
             Experiment._current = None
             events.StopExperiment(self.name)
-        return
 
     @classmethod
     def current(cls) -> Experiment:
+        """Return the current active experiment if exists or start a new one.
+
+        Returns:
+            Experiment: The current active experiment.
+        """
         if Experiment._current is None:
             new_default_experiment = cls()
             new_default_experiment.start()
@@ -154,17 +179,24 @@ class Experiment(Generic[_T]):
 
     @classmethod
     def quit(cls) -> None:
+        """Stop the current experiment if one is active."""
         if Experiment._current is not None:
             Experiment._current.stop()
-            return
-        return
 
     @classmethod
     def get_config(cls) -> _T:
+        """Retrieve the configuration of the current experiment.
+
+        Returns:
+            _T: Configuration object of the current experiment.
+
+        Raises:
+            NoConfigError: If there is no configuration available.
+        """
         cfg = cls._current_config
         if cfg is None:
             raise exceptions.NoConfigError()
         return cfg
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(name={self.name})'
+        return f"{self.__class__.__name__}(name={self.name})"
