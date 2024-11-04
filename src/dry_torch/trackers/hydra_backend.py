@@ -1,7 +1,6 @@
 import functools
 import pathlib
 import shutil
-import weakref
 
 import hydra
 
