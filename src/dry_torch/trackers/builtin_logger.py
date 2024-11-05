@@ -14,7 +14,7 @@ import sys
 from typing import NamedTuple, Optional
 from typing_extensions import override
 
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import tracking
 
 logger = logging.getLogger('dry_torch')
@@ -150,23 +150,23 @@ class BuiltinLogger(tracking.Logger):
         super().__init__()
 
     @functools.singledispatchmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
     @notify.register
-    def _(self, event: events.StartTraining) -> None:
+    def _(self, event: log_events.StartTraining) -> None:
         logger.log(INFO_LEVELS.training,
                    'Training %(model_name)s started.',
                    {'model_name': event.model_name})
         return
 
     @notify.register
-    def _(self, _event: events.EndTraining) -> None:
+    def _(self, _event: log_events.EndTraining) -> None:
         logger.log(INFO_LEVELS.training, 'Training ended.')
         return
 
     @notify.register
-    def _(self, event: events.StartEpoch) -> None:
+    def _(self, event: log_events.StartEpoch) -> None:
         final_epoch = str(event.final_epoch)
         if final_epoch is not None:
             fix_len = len(final_epoch)
@@ -183,12 +183,12 @@ class BuiltinLogger(tracking.Logger):
         return
 
     # @notify.register
-    # def _(self, _event: events.EndEpoch) -> None:
+    # def _(self, _event: log_events.EndEpoch) -> None:
     #     logger.log(INFO_LEVELS.metrics, '')
     #     return
 
     @notify.register
-    def _(self, event: events.SaveCheckpoint) -> None:
+    def _(self, event: log_events.SaveCheckpoint) -> None:
         logger.log(INFO_LEVELS.checkpoint,
                    f'%(definition)s saved in: %(location)s.',
                    {'definition': event.definition.capitalize(),
@@ -197,7 +197,7 @@ class BuiltinLogger(tracking.Logger):
         return
 
     @notify.register
-    def _(self, event: events.LoadCheckpoint) -> None:
+    def _(self, event: log_events.LoadCheckpoint) -> None:
         logger.log(INFO_LEVELS.checkpoint,
                    f'Loaded %(definition)s at epoch %(epoch)d.',
                    {'definition': event.definition.capitalize(),
@@ -206,7 +206,7 @@ class BuiltinLogger(tracking.Logger):
         return
 
     @notify.register
-    def _(self, event: events.MetricsCreation) -> None:
+    def _(self, event: log_events.MetricsCreation) -> None:
         log_msg_list: list[str] = ['%(desc)-24s']
         desc = event.source.rjust(15) + ': '
         log_args: dict[str, str | float] = {'desc': desc}
@@ -219,30 +219,30 @@ class BuiltinLogger(tracking.Logger):
         return
 
     @notify.register
-    def _(self, event: events.StartTest) -> None:
+    def _(self, event: log_events.StartTest) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Testing %(model_name)s started.',
                    {'model_name': event.model_name})
 
     @notify.register
-    def _(self, event: events.TerminatedTraining) -> None:
+    def _(self, event: log_events.TerminatedTraining) -> None:
         explicit_cause = '' if event.cause is None else 'by ' + event.cause
         logger.log(INFO_LEVELS.training,
                    'Training terminated at epoch %(epoch)d %(explicit_cause)s.',
                    {'epoch': event.epoch, 'explicit_cause': explicit_cause})
 
     @notify.register
-    def _(self, event: events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
                    {'name': event.exp_name})
 
     @notify.register
-    def _(self, event: events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
                    {'name': event.exp_name})
 
     @notify.register
-    def _(self, event: events.ModelDidNotConverge) -> None:
+    def _(self, event: log_events.ModelDidNotConverge) -> None:
         logger.error(event.exception)

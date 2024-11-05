@@ -4,7 +4,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Concatenate, Any, TypeVar, ParamSpec
 
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
 from src.dry_torch import tracking
@@ -42,7 +42,7 @@ def register_model(model: p.ModelProtocol, /) -> None:
         exp_name = _REGISTERED_MODELS[model_identifier].name
         raise exceptions.ModuleAlreadyRegisteredError(exp_name)
     _REGISTERED_MODELS[model_identifier] = exp
-    events.ModelCreation(model)
+    log_events.ModelCreation(model)
 
 
 def register_kwargs(
@@ -84,7 +84,7 @@ def register_kwargs(
         else:
             name = class_name
 
-        record = events.RecordMetadata(model.name, class_name, name, kwargs)
+        record = log_events.RecordMetadata(model.name, class_name, name, kwargs)
         kwargs['name'] = record.name
         return func(instance, model, *args, **kwargs)
 

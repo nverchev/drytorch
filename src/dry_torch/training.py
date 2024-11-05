@@ -10,7 +10,7 @@ from src.dry_torch import checkpoint
 from src.dry_torch import exceptions
 from src.dry_torch import learning
 from src.dry_torch import protocols as p
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import evaluating
 from src.dry_torch import hooks
 from src.dry_torch import registering
@@ -108,7 +108,7 @@ class Trainer(
         try:
             self._run_epoch(store_outputs)
         except exceptions.ConvergenceError as ce:
-            events.ModelDidNotConverge(ce)
+            log_events.ModelDidNotConverge(ce)
             self.terminate_training()
         return
 
@@ -123,16 +123,16 @@ class Trainer(
             warnings.warn(exceptions.TerminatedTrainingWarning())
             return
         final_epoch = self.model.epoch + num_epochs
-        events.StartTraining(self.model.name, self.model.epoch, final_epoch)
+        log_events.StartTraining(self.model.name, self.model.epoch, final_epoch)
         for _ in range(num_epochs):
             if self.terminated:
                 break
-            events.StartEpoch(self.model.epoch + 1, final_epoch)
+            log_events.StartEpoch(self.model.epoch + 1, final_epoch)
             self.pre_epoch_hooks.execute(self)
             self.__call__()
             self.post_epoch_hooks.execute(self)
-            events.EndEpoch()
-        events.EndTraining()
+            log_events.EndEpoch()
+        log_events.EndTraining()
         return
 
     def train_until(self: Self, epoch: int) -> None:
@@ -176,4 +176,3 @@ class Trainer(
             self, learning_rate: float | dict[str, float],
     ) -> None:
         self._model_optimizer.update_learning_rate(learning_rate)
-

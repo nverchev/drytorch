@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml  # type: ignore
 
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import exceptions
 from src.dry_torch import repr_utils
 from src.dry_torch import tracking
@@ -79,21 +79,21 @@ class YamlDumper(tracking.Handler):
         return path
 
     @functools.singledispatchmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
     @notify.register
-    def _(self, event: events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperiment) -> None:
         self.exp_name = event.exp_name
 
     @notify.register
-    def _(self, event: events.ModelCreation) -> None:
+    def _(self, event: log_events.ModelCreation) -> None:
         class_name = event.model.__class__.__name__
         self.dump(event.metadata, event.model.name, class_name)
         return
 
     @notify.register
-    def _(self, event: events.RecordMetadata) -> None:
+    def _(self, event: log_events.RecordMetadata) -> None:
         event.name = self.dump(event.metadata, event.model_name, event.name)
         return
 

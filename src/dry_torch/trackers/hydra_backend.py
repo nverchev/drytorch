@@ -5,7 +5,7 @@ import shutil
 import hydra
 
 from src.dry_torch import tracking
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import repr_utils
 from src.dry_torch.trackers import builtin_logger
 
@@ -25,11 +25,11 @@ class HydraLink(tracking.Logger):
         builtin_logger.enable_propagation()
 
     @functools.singledispatchmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
     @notify.register
-    def _(self, event: events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperiment) -> None:
         exp_name = event.exp_name
         exp_dir = self.par_dir / exp_name
         exp_dir.mkdir(exist_ok=True)
@@ -42,6 +42,6 @@ class HydraLink(tracking.Logger):
         return
 
     @notify.register
-    def _(self, _event: events.StopExperiment) -> None:
+    def _(self, _event: log_events.StopExperiment) -> None:
         self.link_dir.unlink()
         shutil.copytree(self.hydra_dir, self.link_dir)

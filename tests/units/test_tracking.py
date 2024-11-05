@@ -4,11 +4,11 @@ import functools
 
 from src.dry_torch import Experiment
 from src.dry_torch import exceptions
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch.tracking import Tracker
 
 
-class MockEvent(events.Event):
+class MockEvent(log_events.Event):
     """Mock Event subclass for testing."""
     pass
 
@@ -17,7 +17,7 @@ class MockTracker(Tracker):
     """Mock Tracker subclass with a defined notify method."""
 
     @functools.singledispatchmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         pass
 
 
@@ -77,8 +77,8 @@ def test_publish_event_calls_tracker_notify(mocker, experiment):
 
 def test_start_and_stop_experiment(mocker):
     """Test starting and stopping an experiment."""
-    mock_event_start = mocker.patch.object(events, "StartExperiment")
-    mock_event_stop = mocker.patch.object(events, "StopExperiment")
+    mock_event_start = mocker.patch.object(log_events, "StartExperiment")
+    mock_event_stop = mocker.patch.object(log_events, "StopExperiment")
 
     exp = Experiment(name="TestExp")
     exp.start()

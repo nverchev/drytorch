@@ -5,7 +5,7 @@ import sys
 
 from tqdm import auto
 
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import loading
 from src.dry_torch import protocols as p
 from src.dry_torch import tracking
@@ -90,11 +90,11 @@ class TqdmLogger(tracking.Logger):
         self.enable_training_bar = enable_training_bar
 
     @functools.singledispatchmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
     @notify.register
-    def _(self, event: events.EpochBar) -> None:
+    def _(self, event: log_events.EpochBar) -> None:
         desc = event.source.rjust(15)
         bar = EpochBar(event.loader,
                        leave=self.leave,
@@ -104,7 +104,7 @@ class TqdmLogger(tracking.Logger):
         return
 
     @notify.register
-    def _(self, event: events.StartTraining) -> None:
+    def _(self, event: log_events.StartTraining) -> None:
         self._training_bar = TrainingBar(event.start_epoch,
                                          event.end_epoch,
                                          out=self.out,
@@ -112,6 +112,6 @@ class TqdmLogger(tracking.Logger):
         return
 
     @notify.register
-    def _(self, event: events.StartEpoch) -> None:
+    def _(self, event: log_events.StartEpoch) -> None:
         self._training_bar.update(event.epoch)
         return

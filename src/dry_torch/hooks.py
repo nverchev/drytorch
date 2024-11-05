@@ -7,7 +7,7 @@ import numpy.typing as npt
 
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
-from src.dry_torch import events
+from src.dry_torch import log_events
 
 _Class = TypeVar('_Class')
 _P = ParamSpec('_P')
@@ -159,7 +159,8 @@ class EarlyStoppingCallback:
 
         if condition:
             instance.terminate_training()
-            events.TerminatedTraining(instance.model.epoch, 'early stopping')
+            log_events.TerminatedTraining(instance.model.epoch,
+                                          'early stopping')
 
         else:
             self.best_result = aggregate_result

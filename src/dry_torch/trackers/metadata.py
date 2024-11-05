@@ -4,7 +4,7 @@ from typing import Any
 
 import yaml  # type: ignore
 
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import repr_utils
 from src.dry_torch import exceptions
 from src.dry_torch import tracking
@@ -18,16 +18,16 @@ class MetadataExtractor(tracking.Handler):
         self.exp_name: str
 
     @functools.singledispatchmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         return
 
     @notify.register
-    def _(self, event: events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperiment) -> None:
         self.exp_name = event.exp_name
         return
 
     @notify.register
-    def _(self, event: events.ModelCreation) -> None:
+    def _(self, event: log_events.ModelCreation) -> None:
         name = event.model.name
         if name in self.default_names:
             raise exceptions.ModelNameAlreadyExistsError(name, self.exp_name)
@@ -37,7 +37,7 @@ class MetadataExtractor(tracking.Handler):
         return
 
     @notify.register
-    def _(self, event: events.RecordMetadata) -> None:
+    def _(self, event: log_events.RecordMetadata) -> None:
         model_default_names = self.default_names.get(event.model_name)
         if model_default_names is None:
             raise exceptions.ModelNotExistingError(event.model_name,

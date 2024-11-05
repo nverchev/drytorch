@@ -3,7 +3,7 @@ import pathlib
 
 import torch
 
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import exceptions
 from src.dry_torch import tracking
 from src.dry_torch import protocols as p
@@ -96,20 +96,20 @@ class ModelStateIO:
     def save(self) -> None:
         """Saves the model's state dictionary."""
         torch.save(self.model.module.state_dict(), self.state_path)
-        events.SaveCheckpoint(model_name=self.model.name,
-                              definition=self.definition,
-                              location=str(self.paths.epoch_dir),
-                              epoch=self.model.epoch)
+        log_events.SaveCheckpoint(model_name=self.model.name,
+                                  definition=self.definition,
+                                  location=str(self.paths.epoch_dir),
+                                  epoch=self.model.epoch)
 
     def load(self, epoch: int = -1) -> None:
         """Loads the model's state dictionary."""
         self._update_epoch(epoch)
         self.model.module.load_state_dict(
             torch.load(self.state_path, map_location=self.model.device))
-        events.LoadCheckpoint(model_name=self.model.name,
-                              definition=self.definition,
-                              location=str(self.paths.epoch_dir),
-                              epoch=self.model.epoch)
+        log_events.LoadCheckpoint(model_name=self.model.name,
+                                  definition=self.definition,
+                                  location=str(self.paths.epoch_dir),
+                                  epoch=self.model.epoch)
 
     def _get_last_saved_epoch(self) -> int:
         checkpoint_directory = self.paths.checkpoint_dir

@@ -1,7 +1,7 @@
 import functools
 from typing import Any
 
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import tracking
 
 
@@ -12,6 +12,6 @@ class DefaultHandler(tracking.Handler):
         self.ctx: dict[str, Any] = {}
 
     @functools.singledispatchmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         return
 

@@ -9,7 +9,7 @@ import torch
 
 from src.dry_torch import descriptors
 from src.dry_torch import exceptions
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import aggregators
 from src.dry_torch import apply_ops
 from src.dry_torch import protocols as p
@@ -97,16 +97,16 @@ class Evaluation(p.EvaluationProtocol,
         ...
 
     def log_metrics(self) -> None:
-        events.MetricsCreation(model_name=self.model.name,
-                               source=str(self),
-                               epoch=self.model.epoch,
-                               metrics=self.metrics)
+        log_events.MetricsCreation(model_name=self.model.name,
+                                   source=str(self),
+                                   epoch=self.model.epoch,
+                                   metrics=self.metrics)
         return
 
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
         self.clear_metrics()
-        pbar = events.EpochBar(self.name, self._loader)
+        pbar = log_events.EpochBar(self.name, self._loader)
         for batch in self._loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
             outputs = self._run_forward(inputs)
@@ -230,7 +230,7 @@ class Test(Diagnostic[_Input, _Target, _Output]):
         Parameters:
 
         """
-        events.StartTest(self.model.name, self.name)
-        self.super().__call__(store_outputs)
+        log_events.StartTest(self.model.name, self.name)
+        super().__call__(store_outputs)
         # self._checkpoint.save()
         return

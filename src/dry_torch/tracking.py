@@ -10,7 +10,7 @@ from typing import Optional, Final, TypeVar, Generic, KeysView, cast
 import warnings
 
 from src.dry_torch import repr_utils
-from src.dry_torch import events
+from src.dry_torch import log_events
 from src.dry_torch import exceptions
 
 _T = TypeVar('_T')
@@ -25,20 +25,20 @@ class Tracker(metaclass=abc.ABCMeta):
     priority = 1
 
     def __init__(self) -> None:
-        weakref.finalize(self, self.notify, events.StopExperiment(''))
+        weakref.finalize(self, self.notify, log_events.StopExperiment(''))
 
     @functools.singledispatchmethod
     @abstractmethod
-    def notify(self, event: events.Event) -> None:
+    def notify(self, event: log_events.Event) -> None:
         """Notify the tracker of an event.
 
         Args:
-            event (events.Event): The event to notify about.
+            event (log_events.Event): The event to notify about.
         """
         return
 
     @classmethod
-    def defined_events(cls) -> KeysView[type[events.Event]]:
+    def defined_events(cls) -> KeysView[type[log_events.Event]]:
         """Return the types of events this tracker is registered for."""
         register = cast(functools.singledispatchmethod,
                         cls.notify.register.__self__)  # type: ignore
@@ -90,7 +90,7 @@ class Experiment(Generic[_T]):
         self.config = config
         self.__class__.past_experiments.add(self)
         self.named_trackers: dict[str, Tracker] = {}
-        self.event_trackers: dict[type[events.Event], list[Tracker]] = {}
+        self.event_trackers: dict[type[log_events.Event], list[Tracker]] = {}
         for tracker in DEFAULT_TRACKERS.values():
             self.register_tracker(tracker)
 
@@ -135,7 +135,7 @@ class Experiment(Generic[_T]):
         for tracker_name in list(self.named_trackers):
             self.remove_named_tracker(tracker_name)
 
-    def publish(self, event: events.Event) -> None:
+    def publish(self, event: log_events.Event) -> None:
         """Publish an event to all registered trackers.
 
         Args:
@@ -153,16 +153,16 @@ class Experiment(Generic[_T]):
         """Start the experiment, setting it as the current active experiment."""
         if Experiment._current is not None:
             self.stop()
-        events.Event.set_auto_publish(self.publish)
+        log_events.Event.set_auto_publish(self.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
-        events.StartExperiment(self.name)
+        log_events.StartExperiment(self.name)
 
     def stop(self) -> None:
         """Stop the experiment, clearing it from the active experiment."""
         if Experiment._current is not None:
             Experiment._current = None
-            events.StopExperiment(self.name)
+            log_events.StopExperiment(self.name)
 
     @classmethod
     def current(cls) -> Experiment:
