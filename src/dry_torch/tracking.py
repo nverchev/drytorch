@@ -6,7 +6,7 @@ import pathlib
 import datetime
 import weakref
 from abc import abstractmethod
-from typing import Optional, Final, TypeVar, Generic, KeysView, cast
+from typing import Optional, Final, TypeVar, Generic, KeysView, cast, Iterable
 import warnings
 
 from src.dry_torch import repr_utils
@@ -18,9 +18,6 @@ _T = TypeVar('_T')
 
 class Tracker(metaclass=abc.ABCMeta):
     """Abstract base class for tracking events with priority ordering.
-
-    Attributes:
-        priority (int): Proportional to the priority level for the tracker.
     """
 
     def __init__(self) -> None:
@@ -76,8 +73,7 @@ class Experiment(Generic[_T]):
         self.__class__.past_experiments.add(self)
         self.named_trackers: dict[str, Tracker] = {}
         self.event_trackers: dict[type[log_events.Event], list[Tracker]] = {}
-        for tracker in DEFAULT_TRACKERS.values():
-            self.register_tracker(tracker)
+        self.register_trackers(*DEFAULT_TRACKERS.values())
 
     def register_tracker(self, tracker: Tracker) -> None:
         """Register a tracker to the experiment.
@@ -97,6 +93,18 @@ class Experiment(Generic[_T]):
         for event_class in list(tracker.defined_events()):
             self.event_trackers.setdefault(event_class, []).append(tracker)
             self.event_trackers[event_class].sort(reverse=True)
+
+    def register_trackers(self, *trackers: Tracker) -> None:
+        """Register trackers from am iterable to the experiment.
+
+        Args:
+            trackers: Trackers to register.
+
+        Raises:
+            TrackerAlreadyRegisteredError: If a tracker is already registered.
+        """
+        for tracker in trackers:
+            self.register_tracker(tracker)
 
     def remove_named_tracker(self, tracker_name: str) -> None:
         """Remove a tracker by name from the experiment.
