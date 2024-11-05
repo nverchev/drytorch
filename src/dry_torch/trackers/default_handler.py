@@ -5,7 +5,7 @@ from src.dry_torch import log_events
 from src.dry_torch import tracking
 
 
-class DefaultHandler(tracking.Handler):
+class DefaultHandler(tracking.Tracker):
 
     def __init__(self) -> None:
         super().__init__()

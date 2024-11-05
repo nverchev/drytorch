@@ -144,7 +144,7 @@ def enable_propagation(deduplicate_stdout: bool = True) -> None:
 enable_default_handler()
 
 
-class BuiltinLogger(tracking.Logger):
+class BuiltinLogger(tracking.Tracker):
 
     def __init__(self) -> None:
         super().__init__()

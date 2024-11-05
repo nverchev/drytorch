@@ -8,7 +8,7 @@ from typing import Optional
 from tempfile import TemporaryDirectory
 import wandb
 
-from dry_torch import log_backend
+from src.dry_torch import log_backend
 
 
 class WandbBackend(log_backend.LogBackend):

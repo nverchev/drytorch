@@ -65,7 +65,7 @@ yaml.add_representer(set, represent_sequence)
 yaml.add_representer(repr_utils.Omitted, represent_omitted)
 
 
-class YamlDumper(tracking.Handler):
+class YamlDumper(tracking.Tracker):
 
     def __init__(self, par_dir: pathlib.Path = pathlib.Path('experiments')):
         super().__init__()

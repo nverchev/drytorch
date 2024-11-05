@@ -22,7 +22,6 @@ class Tracker(metaclass=abc.ABCMeta):
     Attributes:
         priority (int): Proportional to the priority level for the tracker.
     """
-    priority = 1
 
     def __init__(self) -> None:
         weakref.finalize(self, self.notify, log_events.StopExperiment(''))
@@ -43,20 +42,6 @@ class Tracker(metaclass=abc.ABCMeta):
         register = cast(functools.singledispatchmethod,
                         cls.notify.register.__self__)  # type: ignore
         return register.dispatcher.registry.keys()
-
-    def __gt__(self, other: Tracker) -> bool:
-        """Compare trackers based on priority."""
-        return self.priority > other.priority
-
-
-class Handler(Tracker, metaclass=abc.ABCMeta):
-    """Handler tracker subclass with higher priority."""
-    priority = 2
-
-
-class Logger(Tracker, metaclass=abc.ABCMeta):
-    """Logger tracker subclass with lower priority."""
-    priority = 0
 
 
 DEFAULT_TRACKERS: dict[str, Tracker] = {}

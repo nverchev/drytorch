@@ -78,7 +78,7 @@ class TrainingBar:
         return
 
 
-class TqdmLogger(tracking.Logger):
+class TqdmLogger(tracking.Tracker):
 
     def __init__(self,
                  leave: bool = False,

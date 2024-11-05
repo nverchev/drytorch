@@ -10,7 +10,7 @@ from src.dry_torch import exceptions
 from src.dry_torch import tracking
 
 
-class MetadataExtractor(tracking.Handler):
+class MetadataExtractor(tracking.Tracker):
     def __init__(self, max_items_repr: int = 10) -> None:
         super().__init__()
         self.max_items_repr = max_items_repr

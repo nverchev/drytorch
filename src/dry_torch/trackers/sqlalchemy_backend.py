@@ -5,7 +5,7 @@ from typing import Optional
 import sqlalchemy
 from sqlalchemy import orm
 
-from dry_torch.log_backend import LogBackend, ExperimentLog
+from src.dry_torch.log_backend import LogBackend, ExperimentLog
 
 
 class Base(orm.DeclarativeBase):

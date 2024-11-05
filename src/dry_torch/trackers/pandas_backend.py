@@ -8,7 +8,7 @@ import pandas
 import pandas as pd
 from mypy.memprofile import defaultdict
 
-from dry_torch import log_backend
+from src.dry_torch import log_backend
 
 
 class BaseCSVBackend(log_backend.LogBackend, abc.ABC):

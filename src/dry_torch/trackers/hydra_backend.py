@@ -10,7 +10,7 @@ from src.dry_torch import repr_utils
 from src.dry_torch.trackers import builtin_logger
 
 
-class HydraLink(tracking.Logger):
+class HydraLink(tracking.Tracker):
 
     def __init__(self, par_dir: pathlib.Path, link_name: str = 'hydra') -> None:
         super().__init__()
