@@ -4,6 +4,7 @@ from typing import Generic, TypeVar, Optional, ParamSpec, Literal
 
 import numpy as np
 import numpy.typing as npt
+from zmq.backend import first
 
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
@@ -100,22 +101,41 @@ class EarlyStoppingCallback:
         self.start_from_epoch = start_from_epoch
         self.monitor = monitor
         self.monitor_log: deque[float] = deque(maxlen=patience + 1)
-        default_aggregate: Callable[[npt.NDArray], float]
-        if best_is == 'lower':
-            self.best_result = float('inf')
-            default_aggregate = np.min
-        elif best_is == 'higher':
-            self.best_result = float('-inf')
-            default_aggregate = np.max
-        else:
-            self.best_result = 0
-            default_aggregate = np.mean
-        if aggregate_fn is None:
-            self.aggregate_fn = default_aggregate
-        else:
-            self.aggregate_fn = aggregate_fn
+        self._best_result: Optional[float] = None
+        self._aggregate_fn = aggregate_fn
+
+
+    @property
+    def best_result(self) ->  float:
+        if self._best_result is None:
+            first_result = self.monitor_log[0]
+            self._best_result = first_result
+            return first_result
+        return self._best_result
+
+    @best_result.setter
+    def best_result(self, value: float) -> None:
+        self._best_result = value
+        return
+
+    @property
+    def aggregate_fn(self) ->  Callable[[npt.NDArray], float]:
+        if self._aggregate_fn is None:
+            if self.best_is == 'lower':
+                self._aggregate_fn = np.min
+                return np.min
+            elif self._best_result == 'higher':
+                self._aggregate_fn = np.max
+                return np.max
+            else:
+                return lambda array: array[-1]
+        return self._aggregate_fn
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
+        current_epoch = instance.model.epoch
+        if current_epoch < max(self.start_from_epoch, self.patience):
+            return
+
         if self.monitor is None:
             if instance.validation is None:
                 monitor: p.EvaluationProtocol = instance
@@ -124,29 +144,25 @@ class EarlyStoppingCallback:
         else:
             monitor = self.monitor
 
-        current_epoch = instance.model.epoch
         last_metrics = monitor.metrics
         if self.metric_name is None:
             self.metric_name = list(last_metrics.keys())[0]
         elif self.metric_name not in last_metrics:
             raise exceptions.MetricNotFoundError(monitor.name, self.metric_name)
         self.monitor_log.append(last_metrics[self.metric_name])
-        if current_epoch < max(self.start_from_epoch, self.patience):
-            return
-        if self.best_is == 'auto':
-            if len(self.monitor_log) > 1:
-                if self.monitor_log[0] > self.monitor_log[-1]:
-                    self.best_is = 'lower'
-                    self.best_result = float('inf')
-                    self.aggregate_fn = np.min
-                else:
-                    self.best_is = 'higher'
-                    self.best_result = float('-inf')
-                    self.aggregate_fn = np.max
+
+        if len(self.monitor_log) == 1:
             return
 
         aggregate_result = self.aggregate_fn(np.array(self.monitor_log))
-        if self.best_is == 'lower':
+
+        if self.best_is == 'auto':
+            if self.best_result > aggregate_result:
+                self.best_is = 'lower'  # at start best_result is worse result
+            else:
+                self.best_is = 'higher'
+            condition = False
+        elif self.best_is == 'lower':
             condition = self.best_result + self.min_delta < aggregate_result
             if self.pruning is not None and current_epoch in self.pruning:
                 condition |= self.pruning[current_epoch] <= aggregate_result
@@ -159,7 +175,6 @@ class EarlyStoppingCallback:
             instance.terminate_training()
             log_events.TerminatedTraining(instance.model.epoch,
                                           'early stopping')
-
         else:
             self.best_result = aggregate_result
         return
