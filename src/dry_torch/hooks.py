@@ -84,25 +84,22 @@ class EarlyStoppingCallback:
     def __init__(
             self,
             metric_name: Optional[str] = None,
-            monitor_validation: bool = True,
+            monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 0.,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
             aggregate_fn: Optional[Callable[[npt.NDArray], float]] = None,
             pruning: Optional[dict[int, float]] = None,
             start_from_epoch: int = 0,
-            monitor_external: Optional[p.EvaluationProtocol] = None,
     ) -> None:
         self.metric_name = metric_name
-        self.monitor_validation = monitor_validation
         self.min_delta = min_delta
         self.patience = patience
         self.best_is = best_is
         self.pruning = pruning
         self.start_from_epoch = start_from_epoch
-        self.monitor_external = monitor_external
+        self.monitor = monitor
         self.monitor_log: deque[float] = deque(maxlen=patience + 1)
-
         default_aggregate: Callable[[npt.NDArray], float]
         if best_is == 'lower':
             self.best_result = float('inf')
@@ -119,13 +116,14 @@ class EarlyStoppingCallback:
             self.aggregate_fn = aggregate_fn
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
-        if self.monitor_validation:
+        if self.monitor is None:
             if instance.validation is None:
-                raise exceptions.NoValidationError
-            monitor: p.EvaluationProtocol = instance.validation
+                monitor: p.EvaluationProtocol = instance
+            else:
+                monitor = instance.validation
         else:
-            monitor = instance if self.monitor_external is None else (
-                self.monitor_external)
+            monitor = self.monitor
+
         current_epoch = instance.model.epoch
         last_metrics = monitor.metrics
         if self.metric_name is None:
