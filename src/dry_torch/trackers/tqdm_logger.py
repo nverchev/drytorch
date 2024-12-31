@@ -1,5 +1,4 @@
 import functools
-import itertools
 from typing import TextIO
 import sys
 
