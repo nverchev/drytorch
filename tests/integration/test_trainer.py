@@ -32,7 +32,8 @@ def test_early_stopping_on_val(exp_pardir,
 
     trainer.add_validation(val_loader=identity_loader)
     trainer.post_epoch_hooks.register(
-        hooks.early_stopping_callback(patience=1))
+        hooks.EarlyStoppingCallback(patience=1)
+    )
     # trainer.post_epoch_hooks.register(
     #     hooks.call_every(5, hooks.saving_hook())
     # )
