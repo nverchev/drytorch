@@ -217,7 +217,6 @@ class Test(Diagnostic[_Input, _Target, _Output]):
                          name=name,
                          loader=loader,
                          metrics_calc=metrics_calc)
-        # self._checkpoint = io.LogIO(model.name)
         return
 
     @override
@@ -232,5 +231,4 @@ class Test(Diagnostic[_Input, _Target, _Output]):
         """
         log_events.StartTest(self.model.name, self.name)
         super().__call__(store_outputs)
-        # self._checkpoint.save()
         return
