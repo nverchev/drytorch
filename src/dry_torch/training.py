@@ -48,7 +48,6 @@ class Trainer(
         property for adding a hook after running the training session.
     """
 
-    @registering.register_kwargs
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
