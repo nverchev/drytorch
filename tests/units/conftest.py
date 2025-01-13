@@ -72,6 +72,7 @@ def mock_trainer(mocker, mock_model) -> p.TrainerProtocol:
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
     mock.model = mock_model
     mock.name = 'mock_trainer'
+    mock.validation = None
     return mock
 
 
