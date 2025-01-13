@@ -199,7 +199,7 @@ class EarlyStoppingCallback:
             try:
                 first_result = self._monitor_log[0]
             except IndexError:
-                raise exceptions.ResultNotAvailableException
+                raise exceptions.ResultNotAvailableError()
             self._best_result = first_result
             return first_result
         return self._best_result
