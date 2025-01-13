@@ -198,8 +198,8 @@ class EarlyStoppingCallback:
         if self._best_result is None:
             try:
                 first_result = self._monitor_log[0]
-            except:
-                raise exceptions.MetricNotFoundError()
+            except IndexError:
+                raise exceptions.ResultNotAvailableException
             self._best_result = first_result
             return first_result
         return self._best_result

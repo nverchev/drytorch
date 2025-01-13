@@ -6,6 +6,7 @@ _K = TypeVar('_K', bound=Hashable)
 
 
 class DryTorchException(Exception):
+    """Exception from the dry_torch package."""
     msg: str = ''
 
     def __init__(self, *args: Any) -> None:
@@ -216,6 +217,10 @@ class TrackerAlreadyRegisteredError(DryTorchException, ValueError):
     def __init__(self, tracker_name: str, exp_name: str) -> None:
         self.tracker_name = tracker_name
         super().__init__(tracker_name, exp_name)
+
+
+class ResultNotAvailableError(DryTorchException, ValueError):
+    msg = 'The result will be available only after the hook has been called.'
 
 
 class TrackerNotRegisteredError(DryTorchException, ValueError):
