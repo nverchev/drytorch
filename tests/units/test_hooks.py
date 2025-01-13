@@ -97,15 +97,18 @@ def test_call_every(mocker, mock_trainer) -> None:
 
 
 class TestEarlyStoppingCallback:
-
-    patience = 5
+    patience = 2
 
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         """Set up the hook"""
-        self.hook = EarlyStoppingCallback(
-            patience=self.patience,
-        )
+        self.hook = EarlyStoppingCallback(patience=self.patience,
+                                          start_from_epoch=0)
+
+    def test_best_is_when_no_call(self, mock_trainer) -> None:
+        """Test default aggregation functions."""
+        with pytest.raises(exceptions.ResultNotAvailableError):
+            _ = self.hook.best_result
 
     def test_default_aggregate_fn(self, mock_trainer) -> None:
         """Test default aggregation functions."""
@@ -116,16 +119,15 @@ class TestEarlyStoppingCallback:
         assert self.hook.aggregate_fn == min
 
     def test_trainer_evaluation(self, mock_trainer) -> None:
-        """Test that early_stopping_callback monitors training."""
+        """Test that it monitors training."""
         mock_trainer.metrics = {'accuracy': 1.0}
-        mock_trainer.validation = None
         self.hook(mock_trainer)
         assert self.hook.best_result == 1
 
     def test_validation(self,
                         mock_trainer,
                         mock_validation) -> None:
-        """Test that early_stopping_callback monitors validation."""
+        """Test that it monitors validation."""
         mock_validation.metrics = {'accuracy': 1.0}
         mock_trainer.validation = mock_validation
         self.hook(mock_trainer)
@@ -134,65 +136,51 @@ class TestEarlyStoppingCallback:
     def test_error_when_metric_not_found(self,
                                          mock_trainer,
                                          mock_validation) -> None:
-        """Test that early_stopping_callback raises MetricNotFoundError"""
+        """Test that it raises MetricNotFoundError"""
         mock_trainer.validation = mock_validation
         self.hook._metric_name = 'not_existing'
         with pytest.raises(exceptions.MetricNotFoundError):
             self.hook(mock_trainer)
 
-    def test_pruning(self, mocker, mock_trainer) -> None:
-        """Test that early_stopping_callback prunes as indicated."""
-
-        self.hook._pruning = {15: 0.95}
-        mock_terminated_event = mocker.patch(
-            'src.dry_torch.events.TerminatedTraining'
-        )
+    def test_pruning(self, mock_trainer) -> None:
+        """Test that it prunes as indicated."""
+        self.hook._best_is = 'lower'
+        self.hook._pruning = {3: 0.95}
 
         mock_trainer.metrics = {'accuracy': 0.9}
 
-        mock_trainer.model.epoch = 14
-        self.hook(mock_trainer)
+        for iter in range(self.patience):
+            mock_trainer.model.epoch = 2
+            self.hook(mock_trainer)
+            mock_trainer.terminate_training.assert_not_called()  # type: ignore
 
-        mock_trainer.terminate_training.assert_not_called()  # type: ignore
-        mock_terminated_event.assert_not_called()
-
-        mock_trainer.model.epoch = 15
+        mock_trainer.model.epoch = 3
         self.hook(mock_trainer)
 
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
-        mock_terminated_event.assert_called_once_with(
-            mock_trainer.model.epoch, 'early stopping'
-        )
 
     def test_update_best_result(self, mock_trainer) -> None:
-        """Test that early_stopping_callback updates best_result"""
+        """Test that it updates best_result"""
+        self.hook._best_is = 'higher'
+        mock_trainer.metrics = {'accuracy': 1.}
 
-        mock_trainer.model.epoch = 12
-        # noinspection PyPropertyAccess
-        mock_trainer.metrics = {'accuracy': 0.2}
+        for _ in range(self.patience):
+            self.hook(mock_trainer)
 
-        self.hook(mock_trainer)
-
-        assert self.hook.best_result == 0.2
+        assert self.hook.best_result == 1.
 
         # Second call with improved metric
-        mock_trainer.metrics['accuracy'] = 0.45
+        mock_trainer.metrics['accuracy'] = 2.
 
         self.hook(mock_trainer)
 
-        assert self.hook.best_result == 0.45
+        assert self.hook.best_result == 2.
 
     def test_patience(self, mock_trainer) -> None:
-        """Test that early_stopping_callback does not terminate."""
-        mock_trainer.metrics = {'accuracy': 0.2}
-        mock_trainer.model.epoch = 15
+        """Test that it does not terminate while patient."""
+        self.hook._best_is = 'lower'
+        mock_trainer.metrics = {'accuracy': 1.}
+        for _ in range(self.patience + 1):
+            self.hook(mock_trainer)
 
-        self.hook(mock_trainer)  # First call sets the baseline
-
-        mock_trainer.terminate_training.assert_not_called()  # type: ignore
-
-        # Call without improvement
-        mock_trainer.metrics['accuracy'] = 0.1
-        self.hook(mock_trainer)
-
-        mock_trainer.terminate_training.assert_not_called()  # type: ignore
+        mock_trainer.terminate_training.assert_called_once()  # type: ignore

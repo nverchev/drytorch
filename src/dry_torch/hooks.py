@@ -4,9 +4,6 @@ from collections.abc import Callable, Sequence
 from functools import wraps
 from typing import Generic, TypeVar, Optional, ParamSpec, Literal, TypeAlias
 
-import numpy as np
-import numpy.typing as npt
-
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
 from src.dry_torch import log_events
@@ -158,7 +155,7 @@ class EarlyStoppingCallback:
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
             aggregate_fn: Optional[Callable[[Sequence], float]] = None,
             pruning: Optional[dict[int, float]] = None,
-            start_from_epoch: int = 0,
+            start_from_epoch: int = 2,
     ) -> None:
         """
         Initializes the EarlyStoppingCallback.
@@ -168,13 +165,13 @@ class EarlyStoppingCallback:
         monitor: The evaluation protocol to monitor. Defaults to validation.
             Falls back to the trainer class.
         min_delta: The minimum change in metric to qualify as an improvement.
-        patience: The number of epochs to wait before stopping.
+        patience: The number of calls to wait before stopping. Defaults to 10.
         best_is: Determines if higher or lower values are better. Defaults to
             automatic inference.
         aggregate_fn: Function to aggregate recent metric values. Defaults to
             min or max depending on best_is.
         pruning: A mapping of epoch numbers to pruning thresholds.
-        start_from_epoch: The epoch from which monitoring starts. Defaults to 0.
+        start_from_epoch: The earliest epoch to stop. Defaults to 2.
         """
         self._metric_name = metric_name
         self._min_delta = min_delta
@@ -231,7 +228,7 @@ class EarlyStoppingCallback:
                 self._aggregate_fn = max
                 return max
             else:
-                return lambda array: array[-1]
+                return lambda array: array[0]
         return self._aggregate_fn
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
@@ -241,9 +238,6 @@ class EarlyStoppingCallback:
         Args:
             instance: The Trainer instance to evaluate.
         """
-        current_epoch = instance.model.epoch
-        if current_epoch < self._start_from_epoch:
-            return
 
         if self._monitor is None:
             if instance.validation is None:
@@ -259,25 +253,33 @@ class EarlyStoppingCallback:
         elif self._metric_name not in last_metrics:
             raise exceptions.MetricNotFoundError(monitor.name,
                                                  self._metric_name)
+        if last_metrics != last_metrics:
+            instance.terminate_training()
+            log_events.TerminatedTraining(instance.model.epoch,
+                                          f'Metric is not a number.')
+
         self._monitor_log.append(last_metrics[self._metric_name])
 
-        if len(self._monitor_log) == 1:
+        current_epoch = instance.model.epoch
+
+        if (current_epoch < self._start_from_epoch or
+                len(self._monitor_log) <= self._patience):
             return
 
-        aggregate_result = self.aggregate_fn(np.array(self._monitor_log))
+        aggregate_result = self.aggregate_fn(self._monitor_log)
 
         if self._best_is == 'auto':
-            if self.best_result > aggregate_result:
-                self._best_is = 'lower'  # at start best_result is worse result
+            if self._monitor_log[0] > aggregate_result:
+                self._best_is = 'lower'  # start result is worse result
             else:
                 self._best_is = 'higher'
             condition = False
         elif self._best_is == 'lower':
-            condition = self.best_result + self._min_delta < aggregate_result
+            condition = self.best_result + self._min_delta <= aggregate_result
             if self._pruning is not None and current_epoch in self._pruning:
                 condition |= self._pruning[current_epoch] <= aggregate_result
         else:
-            condition = self.best_result - self._min_delta > aggregate_result
+            condition = self.best_result - self._min_delta >= aggregate_result
             if self._pruning is not None and current_epoch in self._pruning:
                 condition |= self._pruning[current_epoch] >= aggregate_result
 
