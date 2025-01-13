@@ -5,7 +5,7 @@ import pathlib
 _K = TypeVar('_K', bound=Hashable)
 
 
-class DryTorchException(BaseException):
+class DryTorchException(Exception):
     msg: str = ''
 
     def __init__(self, *args: Any) -> None:
