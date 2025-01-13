@@ -37,8 +37,7 @@ def test_saving_hook(mock_trainer) -> None:
     hook = saving_hook()
 
     hook(mock_trainer)
-    # noinspection PyUnresolvedReferences
-    mock_trainer.save_checkpoint.assert_called_once()
+    mock_trainer.save_checkpoint.assert_called_once()  # type: ignore
 
 
 def test_static_hook(mocker) -> None:
@@ -49,6 +48,16 @@ def test_static_hook(mocker) -> None:
     hook(mocker.MagicMock())  # Pass any instance
 
     mock_callable.assert_called_once()
+
+
+def test_docs():
+    def do_nothing_hook() -> None:
+        """Test docs."""
+        pass
+
+    hook = static_hook(do_nothing_hook)
+
+    assert hook.__doc__ == "Test docs."
 
 
 def test_static_hook_closure(mocker) -> None:
@@ -63,11 +72,10 @@ def test_static_hook_closure(mocker) -> None:
     mock_callable.return_value.assert_called_once()
 
 
-# noinspection PyPropertyAccess
 def test_call_every(mocker, mock_trainer) -> None:
     """Test call_every executes the hook based on interval and trainer state."""
     mock_hook = mocker.MagicMock()
-    hook = call_every(interval=2, hook=mock_hook, start=0)
+    hook = call_every(interval=2, hook=mock_hook)
 
     mock_trainer.terminated = False
 
@@ -90,69 +98,68 @@ def test_call_every(mocker, mock_trainer) -> None:
 
 class TestEarlyStoppingCallback:
 
+    patience = 5
+
     @pytest.fixture(autouse=True)
-    def setup(self,
-              mock_model,
-              mock_learning_scheme,
-              mock_loss_calculator,
-              mock_loader):
+    def setup(self) -> None:
+        """Set up the hook"""
         self.hook = EarlyStoppingCallback(
-            metric_name='accuracy',
-            monitor_validation=False,
-            patience=5,
-            best_is='higher'
+            patience=self.patience,
         )
+
+    def test_default_aggregate_fn(self, mock_trainer) -> None:
+        """Test default aggregation functions."""
+        self.hook._best_is = 'higher'
+        assert self.hook.aggregate_fn == max
+        self.hook._aggregate_fn = None  # reset aggregate
+        self.hook._best_is = 'lower'
+        assert self.hook.aggregate_fn == min
+
+    def test_trainer_evaluation(self, mock_trainer) -> None:
+        """Test that early_stopping_callback monitors training."""
+        mock_trainer.metrics = {'accuracy': 1.0}
+        mock_trainer.validation = None
+        self.hook(mock_trainer)
+        assert self.hook.best_result == 1
 
     def test_validation(self,
                         mock_trainer,
                         mock_validation) -> None:
         """Test that early_stopping_callback monitors validation."""
-        # noinspection PyPropertyAccess
         mock_validation.metrics = {'accuracy': 1.0}
         mock_trainer.validation = mock_validation
-        self.hook.monitor_validation = True
-
         self.hook(mock_trainer)
-
-    def test_error_when_no_validation(self, mock_trainer) -> None:
-        """Test that early_stopping_callback raises NoValidationError"""
-        self.hook.monitor_validation = True
-        mock_trainer.validation = None
-
-        with pytest.raises(exceptions.NoValidationError):
-            self.hook(mock_trainer)
+        assert self.hook.best_result == 1
 
     def test_error_when_metric_not_found(self,
                                          mock_trainer,
                                          mock_validation) -> None:
         """Test that early_stopping_callback raises MetricNotFoundError"""
         mock_trainer.validation = mock_validation
+        self.hook._metric_name = 'not_existing'
         with pytest.raises(exceptions.MetricNotFoundError):
             self.hook(mock_trainer)
 
     def test_pruning(self, mocker, mock_trainer) -> None:
         """Test that early_stopping_callback prunes as indicated."""
 
-        self.hook.pruning = {15: 0.95}
+        self.hook._pruning = {15: 0.95}
         mock_terminated_event = mocker.patch(
             'src.dry_torch.events.TerminatedTraining'
         )
 
-        # noinspection PyPropertyAccess
         mock_trainer.metrics = {'accuracy': 0.9}
 
         mock_trainer.model.epoch = 14
         self.hook(mock_trainer)
 
-        # noinspection PyUnresolvedReferences
-        mock_trainer.terminate_training.assert_not_called()
+        mock_trainer.terminate_training.assert_not_called()  # type: ignore
         mock_terminated_event.assert_not_called()
 
         mock_trainer.model.epoch = 15
         self.hook(mock_trainer)
 
-        # noinspection PyUnresolvedReferences
-        mock_trainer.terminate_training.assert_called_once()
+        mock_trainer.terminate_training.assert_called_once()  # type: ignore
         mock_terminated_event.assert_called_once_with(
             mock_trainer.model.epoch, 'early stopping'
         )
@@ -177,19 +184,15 @@ class TestEarlyStoppingCallback:
 
     def test_patience(self, mock_trainer) -> None:
         """Test that early_stopping_callback does not terminate."""
-        # noinspection PyPropertyAccess
-
         mock_trainer.metrics = {'accuracy': 0.2}
         mock_trainer.model.epoch = 15
 
         self.hook(mock_trainer)  # First call sets the baseline
 
-        # noinspection PyUnresolvedReferences
-        mock_trainer.terminate_training.assert_not_called()
+        mock_trainer.terminate_training.assert_not_called()  # type: ignore
 
         # Call without improvement
         mock_trainer.metrics['accuracy'] = 0.1
         self.hook(mock_trainer)
 
-        # noinspection PyUnresolvedReferences
-        mock_trainer.terminate_training.assert_not_called()
+        mock_trainer.terminate_training.assert_not_called()  # type: ignore
