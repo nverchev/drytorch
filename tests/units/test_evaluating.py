@@ -1,3 +1,5 @@
+"""Tests for the evaluating module"""
+
 import pytest
 from src.dry_torch import Diagnostic
 
@@ -5,6 +7,7 @@ from src.dry_torch import Diagnostic
 class TestDiagnostic:
     @pytest.fixture(autouse=True)
     def setup(self, mock_model, mock_metrics_calc, mock_loader):
+        """Set up the Diagnostic."""
         self.diagnostic = Diagnostic(
             mock_model,
             loader=mock_loader,

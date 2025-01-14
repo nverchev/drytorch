@@ -1,3 +1,5 @@
+"""Tests for the aggregators module"""
+
 import pytest
 import torch
 from src.dry_torch import exceptions

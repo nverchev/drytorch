@@ -1,3 +1,4 @@
+"""Tests for the hooks module"""
 import pytest
 
 from typing import Any
@@ -101,7 +102,7 @@ class TestEarlyStoppingCallback:
 
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
-        """Set up the hook"""
+        """Set up the hook."""
         self.hook = EarlyStoppingCallback(patience=self.patience,
                                           start_from_epoch=0)
 
@@ -136,7 +137,7 @@ class TestEarlyStoppingCallback:
     def test_error_when_metric_not_found(self,
                                          mock_trainer,
                                          mock_validation) -> None:
-        """Test that it raises MetricNotFoundError"""
+        """Test that it raises MetricNotFoundError."""
         mock_trainer.validation = mock_validation
         self.hook._metric_name = 'not_existing'
         with pytest.raises(exceptions.MetricNotFoundError):
@@ -160,7 +161,7 @@ class TestEarlyStoppingCallback:
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
 
     def test_update_best_result(self, mock_trainer) -> None:
-        """Test that it updates best_result"""
+        """Test that it updates best_result."""
         self.hook._best_is = 'higher'
         mock_trainer.metrics = {'accuracy': 1.}
 

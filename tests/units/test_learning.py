@@ -1,3 +1,4 @@
+"""Tests for the registering module"""
 import pytest
 
 import torch
@@ -16,6 +17,7 @@ class ComplexModule(torch.nn.Module):
         self.linear2 = torch.nn.Linear(2, 1)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Standard forward."""
         return self.linear2(self.relu(self.linear(inputs)))
 
 
@@ -23,6 +25,7 @@ class TestModel:
 
     @pytest.fixture(scope='class')
     def complex_model(self) -> Model[torch.Tensor, torch.Tensor]:
+        """Fixture of a complex model."""
         complex_model = Model(ComplexModule(), name='complex_model')
         return complex_model
 

@@ -1,3 +1,5 @@
+"""Tests for the tracking module"""
+
 import pytest
 
 import functools
@@ -23,6 +25,7 @@ class MockTracker(Tracker):
 
 @pytest.fixture
 def experiment():
+    """Fixture of an experiment."""
     return Experiment(name="TestExperiment")
 
 

@@ -1,11 +1,11 @@
-from typing import Callable
+"""Tests for the calculating module"""
 
 import pytest
 import torch
 
 from src.dry_torch import exceptions
-from src.dry_torch.calculating import MetricsCalculatorBase, MetricsCalculator
-from src.dry_torch.calculating import LossCalculatorBase, LossCalculator
+from src.dry_torch.calculating import MetricsCalculator
+from src.dry_torch.calculating import LossCalculator
 from src.dry_torch.calculating import CompositeLossCalculator, dict_apply
 
 

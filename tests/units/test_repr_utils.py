@@ -1,3 +1,5 @@
+"""Tests for the repr_utils module"""
+
 import pytest
 
 import types
@@ -18,16 +20,16 @@ from src.dry_torch.repr_utils import limit_size, has_own_repr, DefaultName
 
 
 # Test classes for recursive representation
-class SimpleClass:
+class _SimpleClass:
     int_value = 1
     string_value = 'text'
 
 
-class LongClass(SimpleClass):
+class _LongClass(_SimpleClass):
     long_string_value = 5 * [1, ]
 
 
-class SlottedClass(SimpleClass):
+class _SlottedClass(_SimpleClass):
     __slots__ = ('int_value', 'string_value')
 
 
@@ -62,7 +64,7 @@ numpy_and_torch_data = [
 ]
 
 class_data = [
-    (SimpleClass(), 2, 'SimpleClass')
+    (_SimpleClass(), 2, '_SimpleClass')
 ]
 
 repr_data = (scalar_data +
@@ -92,13 +94,13 @@ def test_limit_size() -> None:
 
 def test_has_own_repr() -> None:
     """Test has_own_repr function to check if __repr__ has been overridden."""
-    assert has_own_repr(SimpleClass()) is False
+    assert has_own_repr(_SimpleClass()) is False
 
-    class CustomReprClass:
+    class _CustomReprClass:
         def __repr__(self):
             return "Custom Representation"
 
-    assert has_own_repr(CustomReprClass()) is True
+    assert has_own_repr(_CustomReprClass()) is True
 
 
 @pytest.mark.skipif(not PANDAS_INSTALLED, reason="Requires pandas")

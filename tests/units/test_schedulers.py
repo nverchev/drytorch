@@ -1,6 +1,7 @@
-import pytest
+"""Tests for the scheduler module"""
+
 import numpy as np
-from src.dry_torch.schedulers import AbstractScheduler, ConstantScheduler
+from src.dry_torch.schedulers import ConstantScheduler
 from src.dry_torch.schedulers import ExponentialScheduler, CosineScheduler
 
 
@@ -56,4 +57,3 @@ def test_cosine_scheduler() -> None:
     # Beyond decay_steps, learning rate should remain constant at min_lr
     lr_beyond_decay = scheduler(base_lr, decay_steps + 10)
     assert lr_beyond_decay == min_decay * base_lr
-

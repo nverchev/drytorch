@@ -1,3 +1,5 @@
+"""Tests for the training module"""
+
 import pytest
 
 import numpy as np
@@ -12,12 +14,12 @@ class TestTrainer:
               mock_learning_scheme,
               mock_loss_calculator,
               mock_loader):
+        """Set up a Trainer instance with mock components."""
         self.trainer = Trainer(
             mock_model,
             learning_scheme=mock_learning_scheme,
             loss_calc=mock_loss_calculator,
             loader=mock_loader,
-            mixed_precision=False,
             name="TestTrainer"
         )
 

@@ -1,3 +1,4 @@
+"""Shared configuration file."""
 import pytest
 
 import pathlib

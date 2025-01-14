@@ -1,3 +1,5 @@
+"""Configuration files with mockups."""
+
 import pytest
 
 import torch

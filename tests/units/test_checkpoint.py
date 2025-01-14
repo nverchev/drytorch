@@ -1,3 +1,5 @@
+"""Tests for the checkpoint module"""
+
 import pathlib
 
 import pytest
@@ -10,6 +12,7 @@ from src.dry_torch import exceptions
 class TestModelStateIO:
     @pytest.fixture(autouse=True)
     def setup(self, mock_model):
+        """Set up the model state class."""
         self.model_io = ModelStateIO(mock_model)
 
     def test_get_last_saved_epoch(self, mocker):
@@ -37,6 +40,7 @@ class TestModelStateIO:
 class TestCheckpointIO:
     @pytest.fixture(autouse=True)
     def setup(self, mock_model, mocker):
+        """Set up the Checkpoint class."""
         optimizer = mocker.MagicMock()
         self.checkpoint_io = CheckpointIO(mock_model, optimizer)
 
