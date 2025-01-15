@@ -1,3 +1,4 @@
+"""Classes to save model state and its optimizer state."""
 import warnings
 import pathlib
 
@@ -19,11 +20,6 @@ class PathManager:
     Attributes:
         model: The model instance for which paths are managed.
         model_dir: Directory for the model's data.
-
-    Properties:
-        checkpoint_dir: Directory for storing checkpoints.
-        epoch_dir: Directory for storing epoch-specific checkpoints.
-        metadata_dir: Directory for model metadata storage.
     """
 
     def __init__(self, model: p.ModelProtocol) -> None:
@@ -33,21 +29,29 @@ class PathManager:
 
     @property
     def checkpoint_dir(self) -> pathlib.Path:
+        """Directory for storing checkpoints."""
         checkpoint_directory = self.model_dir / 'checkpoints'
         checkpoint_directory.mkdir(exist_ok=True, parents=True)
         return checkpoint_directory
 
     @property
     def epoch_dir(self) -> pathlib.Path:
+        """Directory for a checkpoint at the current epoch."""
         epoch_directory = self.checkpoint_dir / f'epoch_{self.model.epoch}'
         epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
     @property
-    def metadata_dir(self) -> pathlib.Path:
-        metadata_directory = self.model_dir / 'metadata'
-        metadata_directory.mkdir(exist_ok=True)
-        return metadata_directory
+    def state_path(self) -> pathlib.Path:
+        """Name of the file with the state."""
+        epoch_directory = self.epoch_dir
+        return epoch_directory / 'state.pt'
+
+    @property
+    def optimizer_path(self) -> pathlib.Path:
+        """Name of the file with the optimizer state."""
+        epoch_directory = self.epoch_dir
+        return epoch_directory / 'optimizer.pt'
 
 
 class ModelStateIO:
@@ -68,18 +72,13 @@ class ModelStateIO:
         self.model = model
         self.paths = PathManager(model)
 
-    @property
-    def state_path(self) -> pathlib.Path:
-        epoch_directory = self.paths.epoch_dir
-        return epoch_directory / 'state.pt'
-
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self._get_last_saved_epoch()
         self.model.epoch = epoch
 
     def save(self) -> None:
         """Saves the model's state dictionary."""
-        torch.save(self.model.module.state_dict(), self.state_path)
+        torch.save(self.model.module.state_dict(), self.paths.state_path)
         log_events.SaveCheckpoint(model_name=self.model.name,
                                   definition=self.definition,
                                   location=str(self.paths.epoch_dir),
@@ -89,7 +88,7 @@ class ModelStateIO:
         """Loads the model's state dictionary."""
         self._update_epoch(epoch)
         self.model.module.load_state_dict(
-            torch.load(self.state_path, map_location=self.model.device))
+            torch.load(self.paths.state_path, map_location=self.model.device))
         log_events.LoadCheckpoint(model_name=self.model.name,
                                   definition=self.definition,
                                   location=str(self.paths.epoch_dir),
@@ -127,22 +126,18 @@ class CheckpointIO(ModelStateIO):
         super().__init__(model)
         self.optimizer = optimizer
 
-    @property
-    def optimizer_path(self) -> pathlib.Path:
-        epoch_directory = self.paths.epoch_dir
-        return epoch_directory / 'optimizer.pt'
-
     def save(self) -> None:
         """Saves the model and optimizer state dictionaries."""
         super().save()
-        torch.save(self.optimizer.state_dict(), self.optimizer_path)
+        torch.save(self.optimizer.state_dict(), self.paths.optimizer_path)
 
     def load(self, epoch: int = -1) -> None:
         """Loads the model and optimizer state dictionaries."""
         super().load(epoch)
         try:
             self.optimizer.load_state_dict(
-                torch.load(self.optimizer_path, map_location=self.model.device),
+                torch.load(self.paths.optimizer_path,
+                           map_location=self.model.device),
             )
         except ValueError as ve:
             warnings.warn(exceptions.OptimizerNotLoadedWarning(ve))
