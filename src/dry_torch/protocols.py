@@ -1,17 +1,16 @@
 """This module defines internal protocols."""
 
 import abc
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, MutableSequence
 from typing import Any, Optional, Protocol, SupportsIndex, TypeAlias, TypeVar
 from typing import runtime_checkable
 
-import pandas as pd
 import torch
 from torch.utils import data
 
-from src.dry_torch import descriptors
-
 _T = TypeVar('_T')
+
+Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
 
 
 @runtime_checkable
@@ -35,7 +34,6 @@ class NamedTupleProtocol(Protocol[_T]):
         ...
 
 
-Tensors = descriptors.Tensors
 InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
 OutputType: TypeAlias = Any
 TargetType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
@@ -103,7 +101,7 @@ class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
     """Protocol for a PyTorch module with type annotations."""
 
     def forward(self, inputs: _Input_contra) -> _Output_co:
-        ...
+        """Forward run of the network."""
 
 
 class TensorCallable(Protocol[_Output_contra, _Target_contra]):
@@ -112,7 +110,7 @@ class TensorCallable(Protocol[_Output_contra, _Target_contra]):
     def __call__(self,
                  outputs: _Output_contra,
                  targets: _Target_contra) -> torch.Tensor:
-        ...
+        """Return performance results in batches or aggregated."""
 
 
 class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
@@ -200,10 +198,13 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
     @abc.abstractmethod
     def increment_epoch(self):
+        """Increments the epoch by 1."""
         ...
 
 
 class EvaluationProtocol(Protocol):
+    """Protocol for a class that validates a model."""
+
     name: str
 
     @property
@@ -214,7 +215,7 @@ class EvaluationProtocol(Protocol):
 @runtime_checkable
 class TrainerProtocol(Protocol):
     """
-    Protocol for a class that train and validates a model.
+    Protocol for a class that train a model.
 
     Attributes:
         model: the model to train.
