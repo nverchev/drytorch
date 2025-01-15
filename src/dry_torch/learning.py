@@ -1,24 +1,31 @@
+"""Classes for wrapping a torch module and its optimizer."""
+
 from collections.abc import Iterable, Iterator
-from typing import Optional, Self, TypeVar, Any, cast, Generic
+from typing import Optional, Self, TypeVar, TypedDict, Any, cast, Generic
 import copy
 import torch
 from torch import cuda
 import dataclasses
 
 from src.dry_torch import repr_utils
-from src.dry_torch import descriptors
 from src.dry_torch import exceptions
 from src.dry_torch import schedulers
 from src.dry_torch import protocols as p
-from src.dry_torch import checkpoint
+from src.dry_torch import io
 from src.dry_torch import registering
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
                         contravariant=True)
+
 _Output_co = TypeVar('_Output_co',
                      bound=p.OutputType,
                      covariant=True)
+
+
+class _OptParams(TypedDict):
+    params: Iterator[torch.nn.Parameter]
+    lr: float
 
 
 @dataclasses.dataclass
@@ -40,33 +47,21 @@ class LearningScheme(p.LearningProtocol):
 
 
 class Model(Generic[_Input_contra, _Output_co]):
-    _default_model_name = repr_utils.DefaultName('Model', start=0)
     """
-    Bundle the module and its optimizer.
-    Support different learning rates and separate parameters groups.
+    Wrapper for a torch.nn.Module class with extra information.
 
     Args:
-        torch_module: Pytorch module to optimize. AnnotatedModule type variables
-        match the class type variables.
-         Defaults to torch.optim.Adam.
-        for a global value.
-        (same for all the parameters).
-        value does not implement a scheduler.
-        device: the device where to store the module. Default uses cuda when
-        available else cpu.
-
+        torch_module: Pytorch module with type annotations.
+        name: the name of the model.
+        device: the device where to store the weights of module. Default uses
+            cuda when available else cpu.
 
     Attributes:
-        module: Pytorch module to optimize. Annotate forward method for better
-         linting
-        device: the device where to store the module.
+        module: Pytorch module to optimize.
+        epoch: the number of epochs the model has been trained so far.
 
-    Methods:
-        clone(): return a deepcopy of the instance.
-        params_lr: property for the updated learning rates for the optimizer.
-        update_learning_rate(): update the optimizer with the updated settings
-         or with an input learning rate.
     """
+    _default_model_name = repr_utils.DefaultName('Model', start=0)
 
     def __init__(
             self,
@@ -75,42 +70,26 @@ class Model(Generic[_Input_contra, _Output_co]):
             name: Optional[str] = None,
             device: Optional[torch.device] = None,
     ) -> None:
-        self.module = self.validate_module(torch_module)
+        self.module = self._validate_module(torch_module)
         self.name: str = name or Model._default_model_name()
         self.epoch: int = 0
-        self.device = device
-        self.optimizer: Optional[torch.optim.Optimizer] = None
-        self.checkpoint = checkpoint.ModelStateIO(self)
+        self.device = self._default_device() if device is None else device
+        self._model_state_io = io.ModelStateIO(self)
         registering.register_model(self)
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
+        """The device where the weights are stored."""
         return self._device
 
     @device.setter
-    def device(self, device: Optional[torch.device]) -> None:
-        device = self.default_device() if device is None else device
+    def device(self, device: torch.device) -> None:
         self._device = device
         self.module.to(device)
         return
 
-    def increment_epoch(self) -> None:
-        self.epoch += 1
-
-    @staticmethod
-    def validate_module(torch_model) -> torch.nn.Module:
-        if not isinstance(torch_model, torch.nn.Module):
-            raise TypeError('torch_module must be a torch.nn.Module subclass')
-        return torch_model
-
-    @staticmethod
-    def default_device() -> torch.device:
-        return torch.device('cuda:0' if cuda.is_available() else 'cpu')
-
-    def _copy_module(
-            self
-    ) -> p.ModuleProtocol[_Input_contra, _Output_co]:
-        return copy.deepcopy(self.module)
+    def __call__(self, inputs: _Input_contra) -> _Output_co:
+        return self.module(inputs)
 
     def clone(self, new_name: str) -> Self:
         """
@@ -124,36 +103,52 @@ class Model(Generic[_Input_contra, _Output_co]):
         )
         return cloned
 
-    def save_state(self) -> None:
-        self.checkpoint.save()
+    def increment_epoch(self) -> None:
+        """Increment the epoch by 1."""
+        self.epoch += 1
 
     def load_state(self, epoch=-1) -> None:
-        self.checkpoint.load(epoch=epoch)
+        """Load the weights and epoch of the model"""
+        self._model_state_io.load(epoch=epoch)
+
+    def save_state(self) -> None:
+        """Save the weights and epoch of the model"""
+        self._model_state_io.save()
 
     def to(self, device: torch.device) -> None:
+        """Forward the homonymous method."""
         self.device = device
-        self.module.to(device)
 
-    def __call__(self, inputs: _Input_contra) -> _Output_co:
-        return self.module(inputs)
+    def _copy_module(
+            self
+    ) -> p.ModuleProtocol[_Input_contra, _Output_co]:
+        return copy.deepcopy(self.module)
+
+    @staticmethod
+    def _default_device() -> torch.device:
+        return torch.device('cuda:0' if cuda.is_available() else 'cpu')
+
+    @staticmethod
+    def _validate_module(torch_model) -> torch.nn.Module:
+        if not isinstance(torch_model, torch.nn.Module):
+            raise TypeError('torch_module must be a torch.nn.Module subclass')
+        return torch_model
 
 
 class ModelOptimizer:
     """
     Bundle the module and its optimizer.
-    Support different learning rates and separate parameters groups.
+    Support different learning rates to separate parameters groups.
 
     Args:
+        model: the model to be optimized.
+        learning_scheme: the learning scheme for the optimizer.
 
     Attributes:
-
+        model: the model to be optimized.
+        module: the module contained in the model.
+        scheduler: the scheduler for the learning rate.
         optimizer: the optimizer bound to the module.
-
-    Methods:
-        clone(): return a deepcopy of the instance.
-        params_lr: property for the updated learning rates for the optimizer.
-        update_learning_rate(): update the optimizer with the updated settings
-         or with an input learning rate.
     """
 
     def __init__(
@@ -162,9 +157,8 @@ class ModelOptimizer:
             learning_scheme: p.LearningProtocol
     ) -> None:
         self.model = model
-        self.module = self.model.module
-        self.learning_scheme = learning_scheme
-        self._params_lr: list[descriptors.OptParams] = []
+        self.module = model.module
+        self._params_lr: list[_OptParams] = []
         self.set_lr(learning_scheme.lr)
         self.scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
@@ -172,7 +166,7 @@ class ModelOptimizer:
             **learning_scheme.optimizer_defaults,
         )
 
-    def get_scheduled_lr(self) -> list[descriptors.OptParams]:
+    def get_scheduled_lr(self) -> list[_OptParams]:
         """
         Learning rates for each parameter updated according to the scheduler
         and the current epoch.
@@ -190,7 +184,7 @@ class ModelOptimizer:
 
         Args:
             lr: a dictionary of learning rates for the named parameters or
-            a float for a global value.
+                a float for a global value.
         """
         if isinstance(lr, (float, int)):
             self._params_lr = [
@@ -215,9 +209,9 @@ class ModelOptimizer:
 
         Args:
             lr: a dictionary of learning rates for the named parameters or a
-            float for a global value.
-               If None (default), the scheduled original learning rates are
-               used. Else, the scheduler is deactivated.
+                float for a global value. If None (default), the scheduled
+                original learning rates are used.
+                Else, the scheduler is deactivated.
         """
         if lr is not None:
             self.set_lr(lr)
@@ -228,9 +222,9 @@ class ModelOptimizer:
         return
 
     def _params_lr_contains_all_params(self) -> bool:
-        total_params_lr = sum(self.count_params(elem['params'])
+        total_params_lr = sum(count_params(elem['params'])
                               for elem in self._params_lr)
-        total_params_model = self.count_params(self.module.parameters())
+        total_params_model = count_params(self.module.parameters())
         return total_params_lr == total_params_model
 
     def __repr__(self) -> str:
@@ -238,6 +232,7 @@ class ModelOptimizer:
         return desc.format(self.__class__.__name__,
                            self.optimizer.__class__.__name__)
 
-    @staticmethod
-    def count_params(params: Iterator) -> int:
-        return sum(1 for _ in params)
+
+def count_params(params: Iterator) -> int:
+    """Counts the number of parameters."""
+    return sum(1 for _ in params)
