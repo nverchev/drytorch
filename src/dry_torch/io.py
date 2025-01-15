@@ -18,11 +18,9 @@ class PathManager:
 
     Attributes:
         model: The model instance for which paths are managed.
+        model_dir: Directory for the model's data.
 
     Properties:
-        exp: The active experiment instance.
-        exp_dir: The base directory for the experiment.
-        model_dir: Directory for the model's data.
         checkpoint_dir: Directory for storing checkpoints.
         epoch_dir: Directory for storing epoch-specific checkpoints.
         metadata_dir: Directory for model metadata storage.
@@ -30,27 +28,13 @@ class PathManager:
 
     def __init__(self, model: p.ModelProtocol) -> None:
         self.model = model
-
-    @property
-    def exp(self) -> tracking.Experiment:
-        return tracking.Experiment.current()
-
-    @property
-    def exp_dir(self) -> pathlib.Path:
-        exp = tracking.Experiment.current()
-        exp.dir.mkdir(exist_ok=True)
-        return exp.dir
-
-    @property
-    def model_dir(self) -> pathlib.Path:
-        directory = self.exp_dir / self.model.name
-        directory.mkdir(exist_ok=True)
-        return directory
+        experiment = tracking.Experiment.current()
+        self.model_dir = experiment.dir / model.name
 
     @property
     def checkpoint_dir(self) -> pathlib.Path:
         checkpoint_directory = self.model_dir / 'checkpoints'
-        checkpoint_directory.mkdir(exist_ok=True)
+        checkpoint_directory.mkdir(exist_ok=True, parents=True)
         return checkpoint_directory
 
     @property
