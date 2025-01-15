@@ -166,6 +166,10 @@ class NamedTupleOnlyError(DryTorchException, TypeError):
         super().__init__(tuple_type)
 
 
+class NoActiveExperimentError(DryTorchException, AttributeError):
+    msg = 'No experiment has been started.'
+
+
 class NoConfigError(DryTorchException, AttributeError):
     msg = 'No config found in experiment.'
 
