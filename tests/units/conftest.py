@@ -2,10 +2,23 @@
 
 import pytest
 
+import pathlib
 import torch
 
 from src.dry_torch import protocols as p
 from src.dry_torch import Experiment
+
+
+@pytest.fixture(scope='session')
+def exp_pardir():
+    """Package directory for experiments."""
+    return pathlib.Path(__file__).parent / 'experiments'
+
+
+@pytest.fixture(autouse=True, scope='session')
+def experiment(exp_pardir):
+    """Fixture of an experiment."""
+    return Experiment(name="TestExperiment", pardir=exp_pardir)
 
 
 @pytest.fixture
@@ -13,7 +26,7 @@ def mock_experiment(mocker):
     """Fixture for a mock experiment."""
     mock_experiment = mocker.create_autospec(Experiment, instance=True)
     mock_experiment.name = 'mock_experiment'
-    mocker.patch("src.dry_torch.tracking.Experiment.current",
+    mocker.patch('src.dry_torch.tracking.Experiment.current',
                  return_value=mock_experiment)
     return mock_experiment
 

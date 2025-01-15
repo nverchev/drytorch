@@ -36,15 +36,15 @@ class TestModel:
 
     def test_model_clone(self, complex_model: Model) -> None:
         """Test Model's clone method creates a deep copy."""
-        cloned_model = complex_model.clone("ClonedModel")
-        assert cloned_model.name == "ClonedModel"
+        cloned_model = complex_model.clone('cloned_model')
+        assert cloned_model.name == 'cloned_model'
         assert cloned_model is not complex_model
         assert cloned_model.module != complex_model.module
 
 
 class TestModelOptimizerGlobalLR:
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model) -> None:
+    def setup(self, mock_model, mock_experiment) -> None:
         """Set up a mock ModelOptimizer instance with a global lr."""
         mock_model.module = ComplexModule()
         learning_scheme = LearningScheme(optimizer_cls=torch.optim.SGD, lr=0.01)
@@ -72,7 +72,7 @@ class TestModelOptimizerGlobalLR:
 
 class TestModelOptimizerParameterLR:
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model) -> None:
+    def setup(self, mock_model, mock_experiment) -> None:
         """Set up a mock ModelOptimizer instance with a lr per parameter."""
         mock_model.module = ComplexModule()
         self.dict_lr: dict[str, float] = {'linear': 0.01, 'linear2': 0.001}

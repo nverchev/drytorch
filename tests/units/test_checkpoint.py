@@ -47,7 +47,7 @@ class TestCheckpointIO:
     def test_checkpoint_load_optimizer_warning(self, mocker):
         """Test it raises a warning if it cannot find the optimizer."""
         mock_optimizer = mocker.MagicMock()
-        mock_optimizer.load_state_dict.side_effect = ValueError("Test error")
+        mock_optimizer.load_state_dict.side_effect = ValueError('Test error')
         mocker.patch('torch.load')
         ModelStateIO.load = mocker.MagicMock()
         self.checkpoint_io.optimizer = mock_optimizer

@@ -20,14 +20,15 @@ class TestTrainer:
             learning_scheme=mock_learning_scheme,
             loss_calc=mock_loss_calculator,
             loader=mock_loader,
-            name="TestTrainer"
+            name='TestTrainer'
         )
 
     def test_call_events(self, mocker) -> None:
         """Test train method invokes the necessary hooks and events."""
         start_training_event = mocker.patch(
-            "src.dry_torch.events.StartTraining")
-        end_training_event = mocker.patch("src.dry_torch.events.EndTraining")
+            'src.dry_torch.log_events.StartTraining')
+        end_training_event = mocker.patch(
+            'src.dry_torch.log_events.EndTraining')
 
         self.trainer.train(2)
 
@@ -41,7 +42,7 @@ class TestTrainer:
     def test_call_validation(self, mocker, mock_loader) -> None:
         """Test that validation loader is called when validation is added."""
         # Spy on the validation loader to check calls
-        spy_loader = mocker.spy(mock_loader, "__iter__")
+        spy_loader = mocker.spy(mock_loader, '__iter__')
 
         # Set up validation and train
         self.trainer.add_validation(spy_loader)

@@ -36,7 +36,7 @@ class TestDiagnostic:
         """Test outputs are correctly stored if store_outputs flag is active."""
         mock_output = mocker.Mock()
         mock_apply_ops = mocker.patch(
-            "src.dry_torch.apply_ops.apply_cpu_detach",
+            'src.dry_torch.apply_ops.apply_cpu_detach',
             return_value=mock_output)
 
         self.diagnostic._store(mock_output)

@@ -58,7 +58,7 @@ def test_docs():
 
     hook = static_hook(do_nothing_hook)
 
-    assert hook.__doc__ == "Test docs."
+    assert hook.__doc__ == 'Test docs.'
 
 
 def test_static_hook_closure(mocker) -> None:

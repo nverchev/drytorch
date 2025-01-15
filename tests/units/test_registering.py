@@ -22,7 +22,7 @@ def test_register_kwargs_decorator_calls_event(mocker, mock_model) -> None:
     class _TestEvent:
         name = 'TestEvent'
 
-    mock_record_event = mocker.patch("src.dry_torch.events.RecordMetadata",
+    mock_record_event = mocker.patch('src.dry_torch.log_events.RecordMetadata',
                                      return_value=_TestEvent())
 
     @register_kwargs
@@ -54,7 +54,7 @@ def test_register_kwargs_raises_model_first_error(mocker) -> None:
 
     mock_instance = mocker.MagicMock()
     with pytest.raises(exceptions.ModelFirstError):
-        _sample_init(mock_instance, "not_a_model", arg1=10)  # type: ignore
+        _sample_init(mock_instance, 'not_a_model', arg1=10)  # type: ignore
 
     return
 

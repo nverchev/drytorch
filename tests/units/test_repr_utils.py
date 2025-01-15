@@ -98,16 +98,16 @@ def test_has_own_repr() -> None:
 
     class _CustomReprClass:
         def __repr__(self):
-            return "Custom Representation"
+            return 'Custom Representation'
 
     assert has_own_repr(_CustomReprClass()) is True
 
 
-@pytest.mark.skipif(not PANDAS_INSTALLED, reason="Requires pandas")
+@pytest.mark.skipif(not PANDAS_INSTALLED, reason='Requires pandas')
 def test_pandas_print_options() -> None:
     """Test PandasPrintOptions context manager changes Pandas settings."""
-    original_max_rows = pd.get_option("display.max_rows")
-    original_max_columns = pd.get_option("display.max_columns")
+    original_max_rows = pd.get_option('display.max_rows')
+    original_max_columns = pd.get_option('display.max_columns')
     df = pd.DataFrame({'A': range(5), 'B': range(5)})
     expected_df_repr = LiteralStr(
         '    A  B\n0   0  0\n.. .. ..\n4   4  4\n\n[5 rows x 2 columns]'
@@ -115,14 +115,14 @@ def test_pandas_print_options() -> None:
     assert recursive_repr(df, max_size=2) == expected_df_repr
 
     # After context, original values should be restored
-    assert pd.get_option("display.max_rows") == original_max_rows
-    assert pd.get_option("display.max_columns") == original_max_columns
+    assert pd.get_option('display.max_rows') == original_max_rows
+    assert pd.get_option('display.max_columns') == original_max_columns
 
 
-@pytest.mark.parametrize("prefix, start, expected", [
-    ("Model", -1, "Model"),
-    ("Session", 0, "Session_1"),
-    ("Run", 2, "Run_3"),
+@pytest.mark.parametrize('prefix, start, expected', [
+    ('Model', -1, 'Model'),
+    ('Session', 0, 'Session_1'),
+    ('Run', 2, 'Run_3'),
 ])
 def test_default_name(prefix: str, start: int, expected: str) -> None:
     """Test DefaultName class generates incremental names."""

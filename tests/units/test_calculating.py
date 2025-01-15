@@ -27,12 +27,12 @@ class TestMetricsCalculator:
         self.calc.calculate(mock_outputs, mock_targets)
 
         # Ensure that dict_apply was called correctly
-        assert self.calc.metrics == {"accuracy": torch.tensor(0.8)}
+        assert self.calc.metrics == {'accuracy': torch.tensor(0.8)}
         return
 
     def test_reset_calculated(self) -> None:
         """Test reset_calculated sets _metrics to None."""
-        self.calc._metrics = {"accuracy": torch.tensor(0.8)}
+        self.calc._metrics = {'accuracy': torch.tensor(0.8)}
         self.calc.reset_calculated()
         assert self.calc._metrics is None
         return
@@ -64,8 +64,8 @@ class TestLossCalculator:
 
         # Check that loss and metrics were calculated
         assert self.calc.criterion == torch.tensor(0.5)
-        assert self.calc.metrics == {"Criterion": torch.tensor(0.5),
-                                     "accuracy": torch.tensor(0.8)}
+        assert self.calc.metrics == {'Criterion': torch.tensor(0.5),
+                                     'accuracy': torch.tensor(0.8)}
 
     def test_criterion_access_before_calculate(self) -> None:
         """Test accessing criterion before calculation raises an error."""
@@ -74,7 +74,7 @@ class TestLossCalculator:
 
     def test_reset_calculated(self) -> None:
         """Test reset_calculated sets _metrics and _criterion to None."""
-        self.calc._metrics = {"accuracy": torch.tensor(0.8)}
+        self.calc._metrics = {'accuracy': torch.tensor(0.8)}
         self.calc._criterion = torch.tensor(1.0)
         self.calc.reset_calculated()
         assert self.calc._metrics is None
@@ -107,10 +107,10 @@ class TestCompositeLossCalculator:
         assert torch.allclose(self.calc.criterion,
                               torch.tensor(expected_criterion))
         expected_metrics = {
-            "Criterion": torch.tensor(expected_criterion),
-            "loss1": torch.tensor(0.5),
-            "loss2": torch.tensor(0.3),
-            "accuracy": torch.tensor(0.8),
+            'Criterion': torch.tensor(expected_criterion),
+            'loss1': torch.tensor(0.5),
+            'loss2': torch.tensor(0.3),
+            'accuracy': torch.tensor(0.8),
         }
 
         for key, expected_value in expected_metrics.items():
@@ -122,13 +122,13 @@ def test_dict_apply(mocker) -> None:
     """Test it applies each function in the dict to outputs and targets."""
     mock_fun1 = mocker.MagicMock(return_value=torch.tensor(0.5))
     mock_fun2 = mocker.MagicMock(return_value=torch.tensor(0.8))
-    dict_fun = {"fun1": mock_fun1, "fun2": mock_fun2}
+    dict_fun = {'fun1': mock_fun1, 'fun2': mock_fun2}
 
     mock_outputs = mocker.MagicMock()
     mock_targets = mocker.MagicMock()
 
     result = dict_apply(dict_fun, mock_outputs, mock_targets)
 
-    assert result == {"fun1": torch.tensor(0.5), "fun2": torch.tensor(0.8)}
+    assert result == {'fun1': torch.tensor(0.5), 'fun2': torch.tensor(0.8)}
     mock_fun1.assert_called_once_with(mock_outputs, mock_targets)
     mock_fun2.assert_called_once_with(mock_outputs, mock_targets)
