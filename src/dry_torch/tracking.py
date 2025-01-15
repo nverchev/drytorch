@@ -6,7 +6,7 @@ import pathlib
 import datetime
 import weakref
 from abc import abstractmethod
-from typing import Optional, Final, TypeVar, Generic, KeysView, cast, Iterable
+from typing import Optional, Final, TypeVar, Generic, KeysView, cast, Any
 import warnings
 
 from src.dry_torch import repr_utils
@@ -17,8 +17,7 @@ _T = TypeVar('_T')
 
 
 class Tracker(metaclass=abc.ABCMeta):
-    """Abstract base class for tracking events with priority ordering.
-    """
+    """Abstract base class for tracking events with priority ordering."""
 
     def __init__(self) -> None:
         weakref.finalize(self, self.notify, log_events.StopExperiment(''))
@@ -92,7 +91,6 @@ class Experiment(Generic[_T]):
 
         for event_class in list(tracker.defined_events()):
             self.event_trackers.setdefault(event_class, []).append(tracker)
-            self.event_trackers[event_class].sort(reverse=True)
 
     def register_trackers(self, *trackers: Tracker) -> None:
         """Register trackers from am iterable to the experiment.
@@ -154,8 +152,9 @@ class Experiment(Generic[_T]):
     def stop(self) -> None:
         """Stop the experiment, clearing it from the active experiment."""
         if Experiment._current is not None:
+            name = Experiment._current.name
             Experiment._current = None
-            log_events.StopExperiment(self.name)
+            log_events.StopExperiment(name)
 
     @classmethod
     def current(cls) -> Experiment:
@@ -165,9 +164,7 @@ class Experiment(Generic[_T]):
             Experiment: The current active experiment.
         """
         if Experiment._current is None:
-            new_default_experiment = cls()
-            new_default_experiment.start()
-            return new_default_experiment
+            raise exceptions.NoActiveExperimentError()
         return Experiment._current
 
     @classmethod
