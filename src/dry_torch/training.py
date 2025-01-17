@@ -1,3 +1,4 @@
+"""Classes for training a model."""
 import warnings
 from typing import Self, TypeVar, Optional
 
@@ -5,7 +6,6 @@ import torch
 from torch.cuda import amp
 from typing_extensions import override
 
-from src.dry_torch import descriptors
 from src.dry_torch import checkpoint
 from src.dry_torch import exceptions
 from src.dry_torch import learning
@@ -13,7 +13,6 @@ from src.dry_torch import protocols as p
 from src.dry_torch import log_events
 from src.dry_torch import evaluating
 from src.dry_torch import hooks
-from src.dry_torch import registering
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -24,55 +23,64 @@ class Trainer(
     evaluating.Evaluation[_Input, _Target, _Output],
     p.TrainerProtocol,
 ):
-    partition = descriptors.Split.TRAIN
     """
-    Implement the standard Pytorch training and evaluation loop.
+    Implement the standard Pytorch training loop.
 
-    Args:
-        tracker: contain the module and the optimizing strategy.
-        loader: dictionary with loaders for the training, and optionally,
-         the validation and test datasets.
-        loss_calc: the _loss_calc function, which needs to return batched values
-         as in LossAndMetricsProtocol.
+    Attributes:
+        model: the model containing the weights to evaluate.
+        loader: provides inputs and targets in batches.
+        calculator: processes the model outputs and targets.
+        name: the name for the object for logging purposes.
+        learning_scheme: contains optimizer settings and scheduling.
         mixed_precision: whether to use mixed precision computing.
-         Optional, default to False.
+        outputs_list: list of optionally stored outputs
 
-    Methods:
-        train:
-        run the training session,
-        optionally quickly evaluate on the validation dataset.
-
-        hook_before_training_epoch:
-        property for adding a hook before running the training session.
-        hook_after_training_epoch:
-        property for adding a hook after running the training session.
     """
+    # simply re-annotated to avoid another generic type
+    calculator: p.LossCalculatorProtocol[_Output, _Target]
 
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
             /,
             *,
-            learning_scheme: p.LearningProtocol,
-            loss_calc: p.LossCalculatorProtocol[_Output, _Target],
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            mixed_precision: bool = False,
+            calculator: p.LossCalculatorProtocol[_Output, _Target],
+            learning_scheme: p.LearningProtocol,
             name: str = '',
+            mixed_precision: bool = False,
+            validation_split: float = 0.,
     ) -> None:
+        """
+        Args:
+            model: the model containing the weights to evaluate.
+            loader: provides inputs and targets in batches.
+            calculator: processes the model outputs and targets.
+            learning_scheme: contains optimizer settings and scheduling.
+            name: the name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
+            mixed_precision: whether to use mixed precision computing.
+                Defaults to False.
+            validation_split: fraction of the training dataset
+                destined for validation. Defaults to 0.
+        """
         super().__init__(model,
                          loader=loader,
-                         metrics_calc=loss_calc,
+                         calculator=calculator,
                          mixed_precision=mixed_precision,
                          name=name)
-        self._terminated = False
-
+        self.learning_scheme = learning_scheme
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
         self._checkpoint = checkpoint.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=mixed_precision)
-        self.validation: Optional[evaluating.Validation] = None
-        self.pre_epoch_hooks = hooks.HookRegistry[Self]()
-        self.post_epoch_hooks = hooks.HookRegistry[Self]()
+        if validation_split:
+            self.loader, validation_loader = self.loader.split(validation_split)
+            self.add_validation(validation_loader)
+        else:
+            self._validation: Optional[evaluating.Validation] = None
+        self._pre_epoch_hooks = hooks.HookRegistry[Self]()
+        self._post_epoch_hooks = hooks.HookRegistry[Self]()
         self._terminated = False
         return
 
@@ -80,24 +88,33 @@ class Trainer(
             self,
             val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
     ) -> None:
+        """
+        Add loader for validation with same metrics as for training.
+
+        Args:
+            val_loader: the loader for validation.
+        """
 
         validation = evaluating.Validation(self.model,
                                            loader=val_loader,
-                                           metrics_calc=self._calculator)
-        self.post_epoch_hooks.register(hooks.static_hook(validation))
-        self.validation = validation
+                                           calculator=self.calculator)
+        self._post_epoch_hooks.register(hooks.static_hook(validation))
+        self._validation = validation
         return
 
     @property
     def terminated(self) -> bool:
+        """If true, this trainer should not be used for training anymore."""
         return self._terminated
-
-    def terminate_training(self) -> None:
-        self._terminated = True
-        return
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
+        """
+        Train the module for one epoch.
+
+        Args:
+            store_outputs: whether to store model outputs.
+        """
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning())
             return
@@ -111,11 +128,24 @@ class Trainer(
             self.terminate_training()
         return
 
+    def load_checkpoint(self, epoch: int = -1) -> None:
+        """Load model and optimizer state from a checkpoint."""
+        self._checkpoint.load(epoch=epoch)
+
+    def save_checkpoint(self) -> None:
+        """Save model and optimizer state in a checkpoint."""
+        self._checkpoint.save()
+
+    def terminate_training(self) -> None:
+        """Prevent the trainer from continue the training."""
+        self._terminated = True
+        return
+
     def train(self: Self, num_epochs: int) -> None:
         """
         Train the module for the specified number of epochs.
 
-        Parameters:
+        Args:
             num_epochs: the number of epochs for which train the module.
         """
         if self.terminated:
@@ -124,13 +154,13 @@ class Trainer(
         final_epoch = self.model.epoch + num_epochs
         log_events.StartTraining(self.model.name, self.model.epoch, final_epoch)
         for _ in range(num_epochs):
+            log_events.StartEpoch(self.model.epoch + 1, final_epoch)
+            self._pre_epoch_hooks.execute(self)
+            self.__call__()
+            self._post_epoch_hooks.execute(self)
+            log_events.EndEpoch()
             if self.terminated:
                 break
-            log_events.StartEpoch(self.model.epoch + 1, final_epoch)
-            self.pre_epoch_hooks.execute(self)
-            self.__call__()
-            self.post_epoch_hooks.execute(self)
-            log_events.EndEpoch()
         log_events.EndTraining()
         return
 
@@ -138,7 +168,7 @@ class Trainer(
         """
         Train the module until the specified epoch.
 
-        Parameters:
+        Args:
             epoch: the final epoch in the training.
 
         """
@@ -151,8 +181,7 @@ class Trainer(
 
     @override
     def _run_backwards(self) -> None:
-        self._calculator: p.LossCalculatorProtocol
-        criterion = self._calculator.criterion.mean(0)
+        criterion = self.calculator.criterion.mean(0)
         if torch.isinf(criterion) or torch.isnan(criterion):
             raise exceptions.ConvergenceError(criterion.item())
         try:
@@ -165,13 +194,7 @@ class Trainer(
         self._scaler.update()
         self._optimizer.zero_grad()
 
-    def save_checkpoint(self) -> None:
-        self._checkpoint.save()
-
-    def load_checkpoint(self, epoch: int = -1) -> None:
-        self._checkpoint.load(epoch=epoch)
-
-    def update_learning_rate(
+    def _update_learning_rate(
             self, learning_rate: float | dict[str, float],
     ) -> None:
         self._model_optimizer.update_learning_rate(learning_rate)
