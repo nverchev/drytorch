@@ -1,4 +1,5 @@
-""" This module specifies how to represent and dump metadata in a yaml file."""
+"""Utilities to extract readable documentation from any object."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -200,10 +201,8 @@ def _(obj: torch.Tensor, *, max_size: int = 10) -> LiteralStr:
 def _(obj: PandasObject,  # type: ignore
       *,
       max_size: int = 10) -> LiteralStr:
-    """Only called when Pandas is imported"""
-    with PandasPrintOptions(precision=3,
-                            max_rows=max_size,
-                            max_columns=max_size):
+    # only called when Pandas is imported
+    with PandasPrintOptions(max_rows=max_size, max_columns=max_size):
         return LiteralStr(obj)
 
 
@@ -230,15 +229,23 @@ def _(obj, *, max_size: int = 10) -> str:
 
 
 class DefaultName:
+    """Add a counter to a prefix"""
+
     def __init__(self, prefix: str, start: int = -1):
+        """
+        Args:
+            prefix: prefix for the counter.
+            start: initial count value.
+        """
         self.prefix = prefix
         self.count_defaults = start
 
     def __call__(self) -> str:
+        """Increment the counter."""
         self.count_defaults += 1
         return repr(self)
 
     def __repr__(self):
         if not self.count_defaults:
             return self.prefix
-        return f"{self.prefix}_{self.count_defaults}"
+        return f'{self.prefix}_{self.count_defaults}'
