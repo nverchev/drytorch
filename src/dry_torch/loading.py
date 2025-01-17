@@ -1,4 +1,5 @@
 """Classes for batching a dateset."""
+from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from typing import Final, TypeVar, overload
@@ -24,6 +25,8 @@ class Sliced(Sequence[_T]):
                  seq: Sequence[_T],
                  slice_: slice) -> None:
         self.seq: Final = seq
+        self.slice = slice_
+        # take advantage of range implementation
         self.range = range(len(self.seq))[slice_]
         self.sliced = self.seq[slice_]
 
@@ -47,7 +50,7 @@ class Sliced(Sequence[_T]):
             return Sliced(self.seq, self.range_to_slice(new_range))
 
     def __repr__(self) -> str:
-        return self.seq.__repr__() + self.range.__repr__()[5:]
+        return self.seq.__repr__() + f'[{self.slice.__repr__()}]'
 
     @staticmethod
     def range_to_slice(r: range) -> slice:
@@ -78,10 +81,7 @@ class Permutation(Sequence[int]):
         ...
 
     def __getitem__(self, idx: int | slice) -> int | Sequence[int]:
-        if isinstance(idx, int):
-            return self._new_indices[idx]
-        else:  # slice
-            return Sliced(self, idx)
+        return self._new_indices[idx]
 
     def __repr__(self) -> str:
         return f"Permutation(size={self.size}, seed={self.seed})"
@@ -141,10 +141,12 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         """
         self._pin_memory = value
 
-    def split(self,
-              split_ratio: float = 0.2,
-              shuffle: bool = True,
-              seed: int = 42) -> tuple['DataLoader', 'DataLoader']:
+    def split(
+            self,
+            split_ratio: float = 0.2,
+            shuffle: bool = True,
+            seed: int = 42,
+    ) -> tuple[DataLoader[_Data_co], DataLoader[_Data_co]]:
         """
         Splits the dataset into training and validation sets.
 
@@ -160,7 +162,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
             ValueError: If split_ratio is not between 0 and 1.
         """
         if split_ratio < 0 or split_ratio > 1:
-            raise ValueError("split_ratio must be between 0 and 1")
+            raise exceptions.ValueError_("split_ratio must be between 0 and 1")
 
         dataset_size = check_dataset_length(self.dataset)
         val_size = int(dataset_size * split_ratio)
@@ -171,8 +173,12 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         else:
             indices = range(dataset_size)
 
-        train_dataset = data.Subset(self.dataset, indices[:train_size])
-        val_dataset = data.Subset(self.dataset, indices[train_size:])
+        train_dataset = data.Subset(
+            self.dataset, Sliced(indices, slice(train_size))
+        )
+        val_dataset = data.Subset(
+            self.dataset, Sliced(indices, slice(train_size, dataset_size))
+        )
 
         train_loader = DataLoader(train_dataset, self.batch_size)
         val_loader = DataLoader(val_dataset, self.batch_size)
@@ -219,3 +225,35 @@ def check_dataset_length(dataset: data.Dataset) -> int:
     if hasattr(dataset, '__len__'):
         return dataset.__len__()
     raise exceptions.DatasetHasNoLengthError()
+
+
+class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
+    """Simple dataset for testing purposes."""
+
+    def __init__(self, dataset: Sequence[tuple[int, int]]) -> None:
+        self.data = dataset
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        out = self.data[index]
+        return torch.LongTensor([out[0]]), torch.LongTensor([out[1]])
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+
+class SimpleLoader(p.LoaderProtocol[_Data_co]):
+    def __init__(self, dataset: data.Dataset[_Data_co]):
+        self.dataset = dataset
+        self.batch_size = 2
+
+    def __iter__(self) -> Iterator[_Data_co]:
+        return iter([self.dataset[0] for _ in range(3)])
+
+    def __len__(self) -> int:
+        return 4
+
+
+datast: data.Dataset[tuple[torch.Tensor, torch.Tensor]] = SimpleDataset(
+    [(1, 1) for _ in range(3)])
+loader = SimpleLoader(datast)
+
