@@ -1,4 +1,5 @@
 """This module defines internal protocols."""
+from __future__ import annotations
 
 import abc
 from collections.abc import Iterator, Mapping, MutableSequence
@@ -79,6 +80,21 @@ class LoaderProtocol(Protocol[_Data_co]):
     def __len__(self) -> int:
         """returns the number of batches in the dataset"""
 
+    def split(
+            self,
+            split: float = 0.2,
+            shuffle: bool = True,
+            seed: int = 42,
+    ) -> tuple[LoaderProtocol[_Data_co], LoaderProtocol[_Data_co]]:
+        """
+        Split loader into two.
+        
+        Args:
+            split: fraction of the dataset for the second output loader.
+            shuffle: whether to shuffle the data before splitting.
+            seed: seed for shuffling.
+        """
+
 
 class SchedulerProtocol(Protocol):
     """
@@ -113,49 +129,71 @@ class TensorCallable(Protocol[_Output_contra, _Target_contra]):
         """Return performance results in batches or aggregated."""
 
 
-class MetricsCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
-    """Protocol that calculates and returns metrics."""
+class MetricCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
+    """Protocol that calculates and returns metrics and loss."""
 
     @abc.abstractmethod
-    def calculate(self,
-                  outputs: _Output_contra,
-                  targets: _Target_contra) -> None:
-        """Compute the metrics."""
+    def update(self,
+               outputs: _Output_contra,
+               targets:  _Target_contra) -> Any:
+        """
+        Compute the metrics only.
 
-    @property
-    @abc.abstractmethod
-    def metrics(self) -> Mapping[str, torch.Tensor]:
-        """Return a Mapping with the metric name and the calculated value."""
+        Args:
+            outputs: model outputs.
+            targets: ground truth.
 
-    @abc.abstractmethod
-    def reset_calculated(self) -> None:
-        """Delete the calculated values."""
-
-
-class LossCalculatorProtocol(
-    Protocol[_Output_contra, _Target_contra]
-):
-    """Protocol that calculates metrics and the final loss (criterion)."""
+        Returns:
+            return value will not be used.
+        """
 
     @abc.abstractmethod
-    def calculate(self,
-                  outputs: _Output_contra,
-                  targets: _Target_contra) -> None:
-        """Compute the metrics and the final loss."""
-
-    @property
-    @abc.abstractmethod
-    def metrics(self) -> Mapping[str, torch.Tensor]:
-        """Return a Mapping with the metric name and the calculated value."""
-
-    @property
-    @abc.abstractmethod
-    def criterion(self) -> torch.Tensor:
-        """Return a tensor with the final loss value."""
+    def compute(self) -> Mapping[str, torch.Tensor] | torch.Tensor | None:
+        """Return a Mapping from the metric names to the calculated values."""
 
     @abc.abstractmethod
-    def reset_calculated(self) -> None:
-        """Delete the calculated values."""
+    def reset(self) -> Any:
+        """Reset cached values."""
+
+
+class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
+    """Protocol that calculates and returns metrics and loss."""
+
+    def forward(self,
+                outputs: _Output_contra,
+                targets: _Target_contra) -> torch.Tensor:
+        """
+        Process the outputs and targets and returns the loss.
+
+        Args:
+            outputs: model outputs.
+            targets: ground truth.
+
+        Returns:
+              the computed loss.
+        """
+
+    @abc.abstractmethod
+    def update(self,
+               outputs: _Output_contra,
+               targets:  _Target_contra) -> Any:
+        """
+        Compute the metrics only.
+
+        Args:
+            outputs: model outputs.
+            targets: ground truth.
+
+        Returns:
+            return value will not be used.
+        """
+    @abc.abstractmethod
+    def compute(self) -> Mapping[str, torch.Tensor] | torch.Tensor | None:
+        """Return a Mapping from the metric names to the calculated values."""
+
+    @abc.abstractmethod
+    def reset(self) -> Any:
+        """Reset cached values."""
 
 
 class LearningProtocol(Protocol):
@@ -203,13 +241,17 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
 
 class EvaluationProtocol(Protocol):
-    """Protocol for a class that validates a model."""
+    """
+    Protocol for a class that validates a model.
 
+    Attributes:
+        name: name of the trainer.
+        model: the model to train.
+        calculator: object that calculates the metrics
+    """
     name: str
-
-    @property
-    def metrics(self) -> dict[str, float]:
-        """the metrics from the last evaluation"""
+    model: ModelProtocol
+    calculator: MetricCalculatorProtocol
 
 
 @runtime_checkable
@@ -218,11 +260,21 @@ class TrainerProtocol(Protocol):
     Protocol for a class that train a model.
 
     Attributes:
+        name: name of the trainer.
         model: the model to train.
+        calculator: object that calculates the metrics and loss
     """
     name: str
     model: ModelProtocol
-    validation: Optional[EvaluationProtocol]
+    calculator: MetricCalculatorProtocol
+
+    @property
+    def validation(self) -> EvaluationProtocol | None:
+        """model validation performed during training."""
+
+    @property
+    def terminated(self) -> bool:
+        """Training has terminated."""
 
     def train(self, num_epochs: int) -> None:
         """Trains the model."""
@@ -235,14 +287,3 @@ class TrainerProtocol(Protocol):
 
     def load_checkpoint(self, epoch: int = -1) -> None:
         """Load the model weights, the optimizer state and the logs."""
-
-    def update_learning_rate(self, learning_rate: float) -> None:
-        """Update the learning rate."""
-
-    @property
-    def metrics(self) -> dict[str, float]:
-        """the metrics from the last epoch"""
-
-    @property
-    def terminated(self) -> bool:
-        """Training has terminated"""
