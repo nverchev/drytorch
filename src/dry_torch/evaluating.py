@@ -1,19 +1,19 @@
+"""Classes for the evaluation of a model."""
 import sys
 import abc
 import warnings
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Mapping, Any
 
 from typing_extensions import override
 
 import torch
 
-from src.dry_torch import descriptors
 from src.dry_torch import exceptions
 from src.dry_torch import log_events
-from src.dry_torch import aggregators
 from src.dry_torch import apply_ops
 from src.dry_torch import protocols as p
 from src.dry_torch import registering
+from src.dry_torch import calculating
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -23,110 +23,96 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 class Evaluation(p.EvaluationProtocol,
                  Generic[_Input, _Target, _Output],
                  metaclass=abc.ABCMeta):
-    max_stored_output: int = sys.maxsize
-    partition: descriptors.Split
     """
-    Implement the standard Pytorch training and evaluation loop.
+    Abstract class for evaluating a model on a given dataset.
 
-    Args:
-        tracker: contain the module and the optimizing strategy.
-        loaders: dictionary with loaders for the training, and optionally,
-         the validation and test datasets.
-        loss_calc: the _loss_calc function, which needs to return batched values
-         as in LossAndMetricsProtocol.
-        metrics_calc: the test metrics function, returning TestMetricsProtocol.
-         If None, _loss_calc will be used instead.
-        mixed_precision: whether to use mixed precision computing.
-         Optional, default to False.
+    It coordinates the batching from a loader with the processing of the
+    model output.
+    Subclasses need to implement the __call__ method for training, validation or
+    testing of the model.
 
     Attributes:
-        max_stored_output:
-        the maximum number of outputs to store when testing.
-        update_frequency:
-        number of times the progress bar updates in one epoch.
-        outputs_list:
-            An instance of TorchDictList that stores the last test evaluation.
-        _store_outputs: if the flag is active store the module outputs in the
-            outputs_list attribute. Default to False.
-
-    Methods:
-        train:
-        run the training session,
-        optionally quickly evaluate on the validation dataset.
-        test: evaluate on the specified partition of the dataset.
-        hook_before_training_epoch:
-        property for adding a hook before running the training session.
-        hook_after_training_epoch:
-        property for adding a hook after running the training session.
+        model: the model containing the weights to evaluate.
+        loader: provides inputs and targets in batches.
+        calculator: processes the model outputs and targets.
+        name: the name for the object for logging purposes.
+        mixed_precision: whether to use mixed precision computing.
+        outputs_list: list of optionally stored outputs
     """
+    max_stored_output: int = sys.maxsize
 
-    @registering.register_kwargs
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
             /,
             *,
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
-            mixed_precision: bool = False,
+            calculator: p.MetricCalculatorProtocol[_Output, _Target],
             name: str = '',
+            mixed_precision: bool = False,
     ) -> None:
+        """
+        Args:
+            model: the model containing the weights to evaluate.
+            loader: provides inputs and targets in batches.
+            calculator: processes the model outputs and targets.
+            name: the name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
+            mixed_precision: whether to use mixed precision computing.
+                Defaults to False.
+        """
         self.model = model
         self.name = name
-        self._loader = loader
-        self._calculator = metrics_calc
+        self.loader = loader
+        self.calculator = calculator
         device_is_cuda = self.model.device.type == 'cuda'
-        self._mixed_precision = mixed_precision and device_is_cuda
-        self._metrics = aggregators.TorchAverager()
+        self.mixed_precision = mixed_precision and device_is_cuda
         self.outputs_list = list[_Output]()
-        self._last_metrics: dict[str, float] = {}
         return
-
-    @property
-    def metrics(self) -> dict[str, float]:
-        if not self._last_metrics:
-            self._last_metrics = self._metrics.reduce_all()
-        return self._last_metrics
-
-    def clear_metrics(self):
-        self._metrics.clear()
-        self._last_metrics = {}
 
     @abc.abstractmethod
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, store_outputs: bool) -> None:
+        """
+        Abstract method to be implemented by subclasses for model evaluation.
+
+        Args:
+            store_outputs (bool): Whether to store model outputs.
+        """
         ...
 
-    def log_metrics(self) -> None:
-        log_events.MetricsCreation(model_name=self.model.name,
-                                   source=str(self),
-                                   epoch=self.model.epoch,
-                                   metrics=self.metrics)
+    def log_metrics(self,
+                    metrics: Mapping[str, Any]) -> None:
+        """
+        Log final metrics.
+        """
+        log_events.Metrics(model_name=self.model.name,
+                           source=str(self),
+                           epoch=self.model.epoch,
+                           metrics=metrics)
         return
 
-    def _run_epoch(self, store_outputs: bool):
-        self.outputs_list.clear()
-        self.clear_metrics()
-        pbar = log_events.EpochBar(self.name, self._loader)
-        for batch in self._loader:
-            inputs, targets = apply_ops.apply_to(batch, self.model.device)
-            outputs = self._run_forward(inputs)
-            self._calculator.calculate(outputs, targets)
-            self._run_backwards()
-            self._metrics += self._calculator.metrics
-            self._calculator.reset_calculated()
-            pbar.update_pbar(self._metrics.reduce_all())
-            if store_outputs:
-                self._store(outputs)
-
-        self.log_metrics()
+    def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
+        self.calculator.update(outputs, targets)
 
     def _run_forward(self, inputs: _Input) -> _Output:
         with torch.autocast(device_type=self.model.device.type,
-                            enabled=self._mixed_precision):
+                            enabled=self.mixed_precision):
             return self.model(inputs)
 
-    def _run_backwards(self) -> None:
-        pass
+    def _run_epoch(self, store_outputs: bool):
+        self.outputs_list.clear()
+        self.calculator.reset()
+        pbar = log_events.EpochBar(self.name, self.loader)
+        metrics: Mapping[str, Any] = {}
+        for batch in self.loader:
+            inputs, targets = apply_ops.apply_to(batch, self.model.device)
+            outputs = self._run_forward(inputs)
+            self._run_backwards(outputs, targets)
+            pbar.update_pbar(calculating.repr_metrics(self.calculator))
+            if store_outputs:
+                self._store(outputs)
+
+        self.log_metrics(metrics)
 
     def _store(self, outputs: _Output) -> None:
         try:
@@ -145,17 +131,29 @@ class Evaluation(p.EvaluationProtocol,
 
 
 class Diagnostic(Evaluation[_Input, _Target, _Output]):
-    partition = descriptors.Split.TRAIN
+    """
+    Evaluate model on inference mode.
+
+    It could be used for testing or validating a model (see subclasses) but
+    also for diagnosing a problem in its training.
+
+    Attributes:
+        model: the model containing the weights to evaluate.
+        loader: provides inputs and targets in batches.
+        calculator: processes the model outputs and targets.
+        name: the name for the object for logging purposes.
+        mixed_precision: whether to use mixed precision computing.
+        outputs_list: list of optionally stored outputs
+    """
 
     @override
     @torch.inference_mode()
     def __call__(self, store_outputs: bool = False) -> None:
         """
-        Evaluates the module's performance on the specified partition of the
-        dataset.
+        Run epoch without tracking gradients and in eval mode.
 
-        Parameters:
-
+        Args:
+            store_outputs: whether to store model outputs. Defaults to False
         """
         self.model.module.eval()
         self._run_epoch(store_outputs)
@@ -163,72 +161,40 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
 
 
 class Validation(Diagnostic[_Input, _Target, _Output]):
-    partition = descriptors.Split.VAL
+    """
+    Evaluate model for performance validation on a validation dataset.
+
+    Attributes:
+        model: the model containing the weights to evaluate.
+        loader: provides inputs and targets in batches.
+        calculator: processes the model outputs and targets.
+        name: the name for the object for logging purposes.
+        mixed_precision: whether to use mixed precision computing.
+        outputs_list: list of optionally stored outputs
+    """
 
 
 class Test(Diagnostic[_Input, _Target, _Output]):
-    partition = descriptors.Split.TEST
-
     """
-    Implement the standard Pytorch training and evaluation loop.
-
-    Args:
-        tracker: contain the module and the optimizing strategy.
-        loaders: dictionary with loaders for the training, and optionally,
-         the validation and test datasets.
-        loss_calc: the _loss_calc function, which needs to return batched values
-         as in LossAndMetricsProtocol.
-        metrics_calc: the test metrics function, returning TestMetricsProtocol.
-         If None, _loss_calc will be used instead.
-        mixed_precision: whether to use mixed precision computing.
-         Optional, default to False.
+    Evaluate model test performance on a test dataset.
 
     Attributes:
-        max_stored_output:
-        the maximum number of outputs to store when testing.
-        update_frequency:
-        number of times the progress bar updates in one epoch.
-        outputs_list:
-            An instance of TorchDictList that stores the last test evaluation.
-        _store_outputs: if the flag is active store the module outputs in the
-            outputs_list attribute. Default to False.
-
-    Methods:
-        train:
-        run the training session,
-        optionally quickly evaluate on the validation dataset.
-        test: evaluate on the specified partition of the dataset.
-        hook_before_training_epoch:
-        property for adding a hook before running the training session.
-        hook_after_training_epoch:
-        property for adding a hook after running the training session.
+        model: the model containing the weights to evaluate.
+        loader: provides inputs and targets in batches.
+        calculator: processes the model outputs and targets.
+        name: the name for the object for logging purposes.
+        mixed_precision: whether to use mixed precision computing.
+        outputs_list: list of optionally stored outputs
     """
 
-    def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            /,
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            metrics_calc: p.MetricsCalculatorProtocol[_Output, _Target],
-            name: str = '',
-    ) -> None:
-        super().__init__(model,
-                         name=name,
-                         loader=loader,
-                         metrics_calc=metrics_calc)
-        return
-
     @override
-    @torch.inference_mode()
     def __call__(self, store_outputs: bool = False) -> None:
         """
-        Evaluates the module's performance on the specified partition of the
-        dataset.
+        Test the model on the dataset.
 
-        Parameters:
-
+        Args:
+            store_outputs: whether to store model outputs. Defaults to False
         """
-        log_events.StartTest(self.model.name, self.name)
+        log_events.Test(self.model.name, self.name)
         super().__call__(store_outputs)
         return
