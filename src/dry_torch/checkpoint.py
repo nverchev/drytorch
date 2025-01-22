@@ -66,7 +66,7 @@ class ModelStateIO:
         paths: Path manager for directories and checkpoints.
 
     """
-    definition = 'state'
+    definition = 'model state'
 
     def __init__(self, model: p.ModelProtocol) -> None:
         self.model = model
@@ -78,21 +78,21 @@ class ModelStateIO:
 
     def save(self) -> None:
         """Saves the model's state dictionary."""
-        torch.save(self.model.module.state_dict(), self.paths.state_path)
         log_events.SaveCheckpoint(model_name=self.model.name,
                                   definition=self.definition,
                                   location=str(self.paths.epoch_dir),
                                   epoch=self.model.epoch)
+        torch.save(self.model.module.state_dict(), self.paths.state_path)
 
     def load(self, epoch: int = -1) -> None:
         """Loads the model's state dictionary."""
         self._update_epoch(epoch)
-        self.model.module.load_state_dict(
-            torch.load(self.paths.state_path, map_location=self.model.device))
         log_events.LoadCheckpoint(model_name=self.model.name,
                                   definition=self.definition,
                                   location=str(self.paths.epoch_dir),
                                   epoch=self.model.epoch)
+        self.model.module.load_state_dict(
+            torch.load(self.paths.state_path, map_location=self.model.device))
 
     def _get_last_saved_epoch(self) -> int:
         checkpoint_directory = self.paths.checkpoint_dir
@@ -119,9 +119,10 @@ class CheckpointIO(ModelStateIO):
     Attributes:
         optimizer: The optimizer instance.
     """
-    definition = 'checkpoint'
+    definition = 'model and optimizer states'
 
-    def __init__(self, model: p.ModelProtocol,
+    def __init__(self,
+                 model: p.ModelProtocol,
                  optimizer: torch.optim.Optimizer) -> None:
         super().__init__(model)
         self.optimizer = optimizer
