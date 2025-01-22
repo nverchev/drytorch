@@ -13,6 +13,30 @@ import numbers
 import numpy as np
 import torch
 
+
+class DefaultName:
+    """Add a counter to a prefix"""
+
+    def __init__(self, prefix: str, start: int = -1):
+        """
+        Args:
+            prefix: prefix for the counter.
+            start: initial count value.
+        """
+        self.prefix = prefix
+        self.count_defaults = start
+
+    def __call__(self) -> str:
+        """Increment the counter."""
+        self.count_defaults += 1
+        return repr(self)
+
+    def __repr__(self):
+        if not self.count_defaults:
+            return self.prefix
+        return f'{self.prefix}_{self.count_defaults}'
+
+
 try:
     import pandas as pd
 
@@ -51,6 +75,7 @@ try:
                      exc_tb: None = None) -> None:
             for key, value in self.original_options.items():
                 pd.set_option(key, value)
+
 
     PandasObject = pd.core.base.PandasObject
 
@@ -226,26 +251,3 @@ def _(obj, *, max_size: int = 10) -> str:
 def _(obj, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj.__name__
-
-
-class DefaultName:
-    """Add a counter to a prefix"""
-
-    def __init__(self, prefix: str, start: int = -1):
-        """
-        Args:
-            prefix: prefix for the counter.
-            start: initial count value.
-        """
-        self.prefix = prefix
-        self.count_defaults = start
-
-    def __call__(self) -> str:
-        """Increment the counter."""
-        self.count_defaults += 1
-        return repr(self)
-
-    def __repr__(self):
-        if not self.count_defaults:
-            return self.prefix
-        return f'{self.prefix}_{self.count_defaults}'
