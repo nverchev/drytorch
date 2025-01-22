@@ -1,4 +1,5 @@
 """Classes for training a model."""
+
 import warnings
 from typing import Self, TypeVar, Optional
 
@@ -36,8 +37,6 @@ class Trainer(
         outputs_list: list of optionally stored outputs
 
     """
-    # simply re-annotated to avoid another generic type
-    calculator: p.LossCalculatorProtocol[_Output, _Target]
 
     def __init__(
             self,
@@ -70,6 +69,7 @@ class Trainer(
                          mixed_precision=mixed_precision,
                          name=name)
         self.learning_scheme = learning_scheme
+        self.calculator: p.LossCalculatorProtocol[_Output, _Target] = calculator
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
         self._checkpoint = checkpoint.CheckpointIO(model, self._optimizer)
@@ -84,28 +84,15 @@ class Trainer(
         self._terminated = False
         return
 
-    def add_validation(
-            self,
-            val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
-    ) -> None:
-        """
-        Add loader for validation with same metrics as for training.
-
-        Args:
-            val_loader: the loader for validation.
-        """
-
-        validation = evaluating.Validation(self.model,
-                                           loader=val_loader,
-                                           calculator=self.calculator)
-        self._post_epoch_hooks.register(hooks.static_hook(validation))
-        self._validation = validation
-        return
-
     @property
     def terminated(self) -> bool:
         """If true, this trainer should not be used for training anymore."""
         return self._terminated
+
+    @property
+    def validation(self) -> evaluating.Validation | None:
+        """Property to avoid documenting validation twice (see repr_utils)"""
+        return self._validation
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
@@ -126,6 +113,26 @@ class Trainer(
         except exceptions.ConvergenceError as ce:
             log_events.ModelDidNotConverge(ce)
             self.terminate_training()
+        return
+
+    def add_validation(
+            self,
+            val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
+    ) -> None:
+        """
+        Add loader for validation with same metrics as for training.
+
+        If different validation loaders are added, they will all be performed
+        but only the last will be stored as the instance validation.
+
+        Args:
+            val_loader: the loader for validation.
+        """
+        validation = evaluating.Validation(self.model,
+                                           loader=val_loader,
+                                           calculator=self.calculator)
+        self._post_epoch_hooks.register(hooks.static_hook(validation))
+        self._validation = validation
         return
 
     def load_checkpoint(self, epoch: int = -1) -> None:
@@ -180,8 +187,8 @@ class Trainer(
         return
 
     @override
-    def _run_backwards(self) -> None:
-        criterion = self.calculator.criterion.mean(0)
+    def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
+        criterion = self.calculator.forward(outputs, targets)
         if torch.isinf(criterion) or torch.isnan(criterion):
             raise exceptions.ConvergenceError(criterion.item())
         try:
