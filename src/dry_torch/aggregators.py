@@ -3,6 +3,7 @@
 import abc
 import collections
 from collections.abc import Mapping, Iterable, KeysView
+import copy
 from typing import Self, TypeVar, Generic
 from typing_extensions import override
 
@@ -10,7 +11,7 @@ import torch
 
 from src.dry_torch import exceptions
 
-_T = TypeVar('_T')
+_T = TypeVar('_T', torch.Tensor, float)
 
 
 class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
@@ -28,13 +29,13 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
         aggregate: a dictionary with the aggregated values.
         counts: a dictionary with the count of the total elements.
     """
-    __slots__ = ('aggregate', 'counts')
+    __slots__ = ('aggregate', 'counts', '_cached_reduce')
 
     def __init__(self,
                  iterable: Iterable[tuple[str, _T]] = (),
                  /,
                  **kwargs: _T):
-        self.aggregate = collections.defaultdict[str, float](float)
+        self.aggregate: dict[str, _T] = {}
         self.counts = collections.defaultdict[str, int](int)
         for key, value in iterable:
             self[key] = value
@@ -42,19 +43,23 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
         for key, value in kwargs.items():
             self[key] = value
 
+        self._cached_reduce: dict[str, _T] = {}
+
     def __add__(self, other: Self | Mapping[str, _T]) -> Self:
         if isinstance(other, Mapping):
             other = self.__class__(**other)
-        out = self.__copy__()
+        out = copy.deepcopy(self)
         out += other
         return out
 
     def __iadd__(self, other: Self | Mapping[str, _T]) -> Self:
         if isinstance(other, Mapping):
             other = self.__class__(**other)
-
-        for key, value in other.aggregate.items():
-            self.aggregate[key] += value
+        if self.aggregate:  # fail if new elements are added after start
+            for key, value in other.aggregate.items():
+                self.aggregate[key] += value
+        else:
+            self.aggregate = other.aggregate
 
         for key, count in other.counts.items():
             self.counts[key] += count
@@ -70,16 +75,9 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
             return False
         return self.aggregate == other.aggregate and self.counts == other.counts
 
-    @property
-    def first_metric(self):
-        try:
-            return next(iter(self.keys()))
-        except StopIteration as si:
-            raise exceptions.MetricNotFoundError(self.__class__.__name__,
-                                                 'yet') from si
-
     def clear(self) -> None:
         """Clear data contained in the class."""
+        self._cached_reduce = {}
         self.aggregate.clear()
         self.counts.clear()
         return
@@ -88,22 +86,19 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
         """Calculate the count of a value."""
         return self.aggregate.keys()
 
-    def reduce(self, key: str) -> float:
-        return self.aggregate[key] / self.counts[key]
-
-    def reduce_all(self) -> dict[str, float]:
-        """Return the averages values as floating points."""
-        return {key: value / self.counts[key]
-                for key, value in self.aggregate.items()}
-
-    def __copy__(self) -> Self:
-        copied = self.__class__()
-        copied.aggregate = self.aggregate.copy()
-        copied.counts = self.counts.copy()
-        return copied
+    def reduce(self) -> dict[str, _T]:
+        """Return the averages values."""
+        if not self._cached_reduce:
+            self._cached_reduce = {key: self._reduce(value, self.counts[key])
+                                   for key, value in self.aggregate.items()}
+        return self._cached_reduce
 
     def __bool__(self) -> bool:
         return bool(self.aggregate)
+
+    @staticmethod
+    def _reduce(aggregated: _T, count: int) -> _T:
+        return aggregated / count
 
     @staticmethod
     @abc.abstractmethod
@@ -112,7 +107,7 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
 
     @staticmethod
     @abc.abstractmethod
-    def _aggregate(value: _T) -> float:
+    def _aggregate(value: _T) -> _T:
         ...
 
     def __repr__(self) -> str:
@@ -149,8 +144,8 @@ class TorchAverager(Aggregator[torch.Tensor]):
 
     @staticmethod
     @override
-    def _aggregate(value: torch.Tensor) -> float:
-        try:
-            return value.sum(0).item()
-        except RuntimeError:
+    def _aggregate(value: torch.Tensor) -> torch.Tensor:
+        if value.dim() > 1:
             raise exceptions.MetricsNotAVectorError(list(value.shape))
+        else:
+            return value.sum(0)
