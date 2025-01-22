@@ -1,4 +1,4 @@
-"""Tests for the aggregators module"""
+"""Tests for the aggregators module."""
 
 import pytest
 import torch
@@ -36,6 +36,7 @@ class TestAggregator:
 
         assert not aggregator.aggregate
         assert not aggregator.counts
+        assert not aggregator._cached_reduce
 
     def test_equality(self, aggregator: Aggregator[float]) -> None:
         """Test equality of two Aggregator instances with the same data."""
@@ -45,28 +46,8 @@ class TestAggregator:
 
         assert aggregator == other_aggregator
 
-    def test_first_metric(self, aggregator: Aggregator[float]) -> None:
-        """Test first_metric property returns the first added metric."""
-        aggregator['metric1'] = 1.0
-        aggregator['metric2'] = 2.0
-
-        assert aggregator.first_metric == 'metric1'
-
-    def test_first_metric_empty(self, aggregator: Aggregator[float]) -> None:
-        """Test that first_metric raises MetricNotFoundError when empty."""
-        with pytest.raises(exceptions.MetricNotFoundError):
-            _ = aggregator.first_metric
-
     def test_reduce(self, aggregator: Aggregator[float]) -> None:
-        """Test the reduce method calculates the correct average."""
-        aggregator['metric1'] = 4.0
-        aggregator['metric2'] = 2.0
-
-        assert aggregator.reduce('metric1') == 4.0
-        assert aggregator.reduce('metric2') == 2.0
-
-    def test_reduce_all(self, aggregator: Aggregator[float]) -> None:
-        """Test reduce_all calculates averages for all metrics."""
+        """Test reduce calculates averages for all metrics."""
         aggregator['metric1'] = 4.0
         aggregator['metric2'] = 6.0
         aggregator['metric3'] = 3.0
@@ -77,7 +58,15 @@ class TestAggregator:
             'metric3': 3.0
         }
 
-        assert aggregator.reduce_all() == expected_reduced
+        assert aggregator.reduce() == expected_reduced
+        assert aggregator._cached_reduce
+
+    def test_cached_reduce(self, aggregator: Aggregator[float]) -> None:
+        """Test cached_reduce stores result."""
+        result = {'metric1': 4.0}
+        aggregator._cached_reduce = result
+
+        assert aggregator.reduce() == result
 
 
 class TestAverager:
@@ -130,9 +119,8 @@ class TestTorchAverager:
         assert torch_averager.aggregate['metric'] == tensor.sum().item()
         assert torch_averager.counts['metric'] == tensor.numel()
 
-    def test_reduce_all_with_tensors(self,
-                                     torch_averager: TorchAverager) -> None:
-        """Test reduce_all calculates averages for torch tensors."""
+    def test_reduce_with_tensors(self, torch_averager: TorchAverager) -> None:
+        """Test reduce calculates averages for torch tensors."""
         tensor1 = torch.tensor([2.0, 3.0, 4.0])
         tensor2 = torch.tensor([1.0, 1.0, 1.0])
 
@@ -144,12 +132,12 @@ class TestTorchAverager:
             'metric2': tensor2.sum().item() / tensor2.numel(),
         }
 
-        assert torch_averager.reduce_all() == expected_reduced
+        assert torch_averager.reduce() == expected_reduced
 
     def test_clear(self, torch_averager: TorchAverager) -> None:
-        """Test that reduce_all returns an empty dict after clearing."""
+        """Test that reduce returns an empty dict after clearing."""
 
         tensor = torch.tensor([1.0, 2.0, 3.0, 4.0])
         torch_averager['metric'] = tensor
         torch_averager.clear()
-        assert torch_averager.reduce_all() == {}
+        assert torch_averager.reduce() == {}

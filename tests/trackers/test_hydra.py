@@ -13,7 +13,7 @@ def main(conf: omegaconf.DictConfig) -> None:
     assert conf.test_conf.pi == 3.14159
     print(conf)
     exp_pardir = pathlib.Path(__file__).parent.parent / 'experiments'
-    exp = Experiment[None]('test hydra', pardir=exp_pardir)
+    exp = Experiment[None]('test hydra', par_dir=exp_pardir)
     exp.register_tracker(hydra_backend.HydraLink(exp_pardir))
     exp.start()
 

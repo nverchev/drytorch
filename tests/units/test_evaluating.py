@@ -1,4 +1,4 @@
-"""Tests for the evaluating module"""
+"""Tests for the evaluating module."""
 
 import pytest
 from src.dry_torch import Diagnostic
@@ -6,31 +6,14 @@ from src.dry_torch import Diagnostic
 
 class TestDiagnostic:
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model, mock_metrics_calc, mock_loader):
+    def setup(self, mock_model, mock_metric, mock_loader):
         """Set up the Diagnostic."""
         self.diagnostic = Diagnostic(
             mock_model,
             loader=mock_loader,
-            metrics_calc=mock_metrics_calc,
+            calculator=mock_metric,
             mixed_precision=True,
         )
-
-    def test_clear_metrics(self, mocker):
-        """Test that clear_metrics clears metrics and resets last metrics."""
-        mock_results = {'accuracy': 0.9}
-        mock_metrics = mocker.MagicMock()
-        mock_metrics.reduce_all.return_value = mock_results
-        self.diagnostic._metrics = mock_metrics
-
-        assert self.diagnostic.metrics == mock_results
-        assert self.diagnostic.metrics == mock_results
-        mock_metrics.reduce_all.assert_called_once()
-
-        self.diagnostic.clear_metrics()
-
-        mock_metrics.reset_mock()
-        assert self.diagnostic.metrics == mock_results
-        mock_metrics.reduce_all.assert_called_once()
 
     def test_store_outputs(self, mocker):
         """Test outputs are correctly stored if store_outputs flag is active."""

@@ -1,10 +1,11 @@
-"""Tests for the training module"""
+"""Tests for the training module."""
 
 import pytest
 
 import numpy as np
 
-from src.dry_torch import Trainer, exceptions
+from src.dry_torch import Trainer
+from src.dry_torch import exceptions
 
 
 class TestTrainer:
@@ -12,13 +13,14 @@ class TestTrainer:
     def setup(self,
               mock_model,
               mock_learning_scheme,
-              mock_loss_calculator,
-              mock_loader):
+              mock_loss,
+              mock_loader,
+              experiment):
         """Set up a Trainer instance with mock components."""
         self.trainer = Trainer(
             mock_model,
             learning_scheme=mock_learning_scheme,
-            loss_calc=mock_loss_calculator,
+            calculator=mock_loss,
             loader=mock_loader,
             name='TestTrainer'
         )
@@ -89,8 +91,8 @@ class TestTrainer:
         # Mock the hooks to track their order of execution
         pre_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         post_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
-        self.trainer.pre_epoch_hooks.register_all(pre_hook_list)
-        self.trainer.post_epoch_hooks.register_all(post_hook_list)
+        self.trainer._pre_epoch_hooks.register_all(pre_hook_list)
+        self.trainer._post_epoch_hooks.register_all(post_hook_list)
 
         self.trainer.train(1)
 

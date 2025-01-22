@@ -1,4 +1,5 @@
-"""Tests for the hooks module"""
+"""Tests for the hooks module."""
+
 import pytest
 
 from typing import Any
@@ -7,6 +8,9 @@ from src.dry_torch import exceptions
 from src.dry_torch.hooks import HookRegistry, saving_hook, static_hook
 from src.dry_torch.hooks import static_hook_closure, call_every
 from src.dry_torch.hooks import EarlyStoppingCallback
+
+Accuracy = 'Accuracy'
+Criterion = 'Loss'
 
 
 class TestHookRegistry:
@@ -78,8 +82,6 @@ def test_call_every(mocker, mock_trainer) -> None:
     mock_hook = mocker.MagicMock()
     hook = call_every(interval=2, hook=mock_hook)
 
-    mock_trainer.terminated = False
-
     # Test when epoch is divisible by interval
     mock_trainer.model.epoch = 4
     hook(mock_trainer)
@@ -92,7 +94,7 @@ def test_call_every(mocker, mock_trainer) -> None:
     mock_hook.assert_not_called()
 
     # Test when trainer is terminated
-    mock_trainer.terminated = True
+    mock_trainer.terminate_training()
     hook(mock_trainer)
     mock_hook.assert_called_once_with(mock_trainer)
 
@@ -103,8 +105,10 @@ class TestEarlyStoppingCallback:
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         """Set up the hook."""
-        self.hook = EarlyStoppingCallback(patience=self.patience,
-                                          start_from_epoch=0)
+        self.hook = EarlyStoppingCallback(metric=Criterion,
+                                          patience=self.patience,
+                                          start_from_epoch=0,
+                                          min_delta=.01)
 
     def test_best_is_when_no_call(self, mock_trainer) -> None:
         """Test default aggregation functions."""
@@ -121,58 +125,40 @@ class TestEarlyStoppingCallback:
 
     def test_trainer_evaluation(self, mock_trainer) -> None:
         """Test that it monitors training."""
-        mock_trainer.metrics = {'accuracy': 1.0}
         self.hook(mock_trainer)
         assert self.hook.best_result == 1
 
     def test_validation(self,
-                        mock_trainer,
+                        mocker,
                         mock_validation) -> None:
         """Test that it monitors validation."""
-        mock_validation.metrics = {'accuracy': 1.0}
-        mock_trainer.validation = mock_validation
-        self.hook(mock_trainer)
-        assert self.hook.best_result == 1
+        hook = EarlyStoppingCallback(metric=Accuracy)
+        trainer = mocker.Mock()
+        trainer.validation = mock_validation
+        trainer.model.epoch = 2
+        hook(trainer)
+        assert hook.best_result == 0.5
 
     def test_error_when_metric_not_found(self,
                                          mock_trainer,
                                          mock_validation) -> None:
         """Test that it raises MetricNotFoundError."""
-        mock_trainer.validation = mock_validation
         self.hook._metric_name = 'not_existing'
         with pytest.raises(exceptions.MetricNotFoundError):
             self.hook(mock_trainer)
 
-    def test_pruning(self, mock_trainer) -> None:
-        """Test that it prunes as indicated."""
-        self.hook._best_is = 'lower'
-        self.hook._pruning = {3: 0.95}
-
-        mock_trainer.metrics = {'accuracy': 0.9}
-
-        for iter in range(self.patience):
-            mock_trainer.model.epoch = 2
-            self.hook(mock_trainer)
-            mock_trainer.terminate_training.assert_not_called()  # type: ignore
-
-        mock_trainer.model.epoch = 3
-        self.hook(mock_trainer)
-
-        mock_trainer.terminate_training.assert_called_once()  # type: ignore
-
     def test_update_best_result(self, mock_trainer) -> None:
         """Test that it updates best_result."""
         self.hook._best_is = 'higher'
-        mock_trainer.metrics = {'accuracy': 1.}
+
+        self.hook._monitor_log.append(0.)
 
         for _ in range(self.patience):
             self.hook(mock_trainer)
 
         assert self.hook.best_result == 1.
 
-        # Second call with improved metric
-        mock_trainer.metrics['accuracy'] = 2.
-
+        self.hook._monitor_log.append(2.)
         self.hook(mock_trainer)
 
         assert self.hook.best_result == 2.
@@ -180,8 +166,37 @@ class TestEarlyStoppingCallback:
     def test_patience(self, mock_trainer) -> None:
         """Test that it does not terminate while patient."""
         self.hook._best_is = 'lower'
-        mock_trainer.metrics = {'accuracy': 1.}
-        for _ in range(self.patience + 1):
-            self.hook(mock_trainer)
+        self.hook._monitor_log.extend([2., 0.])
 
+        for _ in range(self.patience - 1):
+            self.hook._monitor_log.append(1.)
+
+        self.hook(mock_trainer)
+
+        mock_trainer.terminate_training.assert_not_called()  # type: ignore
+
+        self.hook._monitor_log.clear()
+        self.hook._monitor_log.extend([2., 0.])
+
+        for _ in range(self.patience):
+            self.hook._monitor_log.append(1.)
+
+        self.hook(mock_trainer)
+        mock_trainer.terminate_training.assert_called_once()  # type: ignore
+
+    def test_pruning(self, mock_trainer) -> None:
+        """Test that it prunes as indicated."""
+        self.hook._best_is = 'lower'
+        self.hook._pruning = {3: 0}
+        self.hook._monitor_log.extend([2.] * self.patience)
+
+        mock_trainer.model.epoch = 2
+        self.hook(mock_trainer)
+        mock_trainer.terminate_training.assert_not_called()  # type: ignore
+
+        self.hook._monitor_log.clear()
+        self.hook._monitor_log.extend([2.] * self.patience)
+
+        mock_trainer.model.epoch = 3
+        self.hook(mock_trainer)
         mock_trainer.terminate_training.assert_called_once()  # type: ignore

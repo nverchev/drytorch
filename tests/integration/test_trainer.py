@@ -22,7 +22,7 @@ def test_early_stopping_on_val(exp_pardir,
                                linear_model,
                                square_loss_calc,
                                zero_metrics_calc) -> None:
-    Experiment('test_early_stop_val', pardir=exp_pardir).start()
+    Experiment('test_early_stop_val', par_dir=exp_pardir).start()
 
     trainer = Trainer(linear_model,
                       name='MyTrainer',
@@ -31,7 +31,7 @@ def test_early_stopping_on_val(exp_pardir,
                       loader=identity_loader)
 
     trainer.add_validation(val_loader=identity_loader)
-    trainer.post_epoch_hooks.register(
+    trainer._post_epoch_hooks.register(
         hooks.EarlyStoppingCallback(patience=1)
     )
     # trainer.post_epoch_hooks.register(

@@ -1,4 +1,4 @@
-"""Tests for the repr_utils module"""
+"""Tests for the repr_utils module."""
 
 import pytest
 
@@ -6,14 +6,6 @@ import types
 
 import numpy as np
 import torch
-
-try:
-    import pandas as pd
-
-    PANDAS_INSTALLED = True
-except ImportError:
-    PANDAS_INSTALLED = False
-    pd = types.ModuleType('Unreachable module.')
 
 from src.dry_torch.repr_utils import LiteralStr, Omitted, recursive_repr
 from src.dry_torch.repr_utils import limit_size, has_own_repr, DefaultName
@@ -103,9 +95,9 @@ def test_has_own_repr() -> None:
     assert has_own_repr(_CustomReprClass()) is True
 
 
-@pytest.mark.skipif(not PANDAS_INSTALLED, reason='Requires pandas')
 def test_pandas_print_options() -> None:
     """Test PandasPrintOptions context manager changes Pandas settings."""
+    pd = pytest.importorskip('pandas')
     original_max_rows = pd.get_option('display.max_rows')
     original_max_columns = pd.get_option('display.max_columns')
     df = pd.DataFrame({'A': range(5), 'B': range(5)})

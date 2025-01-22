@@ -1,4 +1,4 @@
-"""Tests for the checkpoint module"""
+"""Tests for the checkpoint module."""
 
 import pathlib
 

@@ -1,4 +1,4 @@
-"""Tests for the scheduler module"""
+"""Tests for the scheduler module."""
 
 import numpy as np
 from src.dry_torch.schedulers import ConstantScheduler

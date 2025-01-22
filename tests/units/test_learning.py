@@ -1,4 +1,5 @@
-"""Tests for the registering module"""
+"""Tests for the registering module."""
+
 import pytest
 
 import torch
@@ -10,6 +11,7 @@ from src.dry_torch.learning import ModelOptimizer
 
 
 class ComplexModule(torch.nn.Module):
+    """Example for an arbitrarily complex module."""
     def __init__(self):
         super().__init__()
         self.linear = torch.nn.Linear(1, 2)

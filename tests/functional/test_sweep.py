@@ -60,7 +60,7 @@ def test_all() -> None:
     exp_pardir = pathlib.Path(__file__).parent / 'experiments'
 
     Experiment('test_sweep',
-               pardir=exp_pardir)
+               par_dir=exp_pardir)
 
     loss_calc = LossCalculator(loss_fun=square_error)
     dataset = IdentityDataset()
@@ -77,5 +77,5 @@ def test_all() -> None:
                           loss_calc=loss_calc,
                           loader=loader)
         trainer.add_validation(val_loader=loader)
-        trainer.post_epoch_hooks.register(callback)
+        trainer._post_epoch_hooks.register(callback)
         trainer.train(10)
