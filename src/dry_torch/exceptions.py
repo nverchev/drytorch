@@ -1,8 +1,7 @@
-from collections.abc import Iterable, Hashable
-from typing import Any, TypeVar
-import pathlib
+"""Library specific exceptions."""
 
-_K = TypeVar('_K', bound=Hashable)
+from typing import Any
+import pathlib
 
 
 class DryTorchException(Exception):
@@ -13,28 +12,12 @@ class DryTorchException(Exception):
         super().__init__(self.msg.format(*args))
 
 
-class AccessBeforeCalculateError(DryTorchException, AttributeError):
-    msg = 'Results must be precomputed with the calculate method.'
-
-    def __init__(self) -> None:
-        super().__init__()
-
-
 class ConvergenceError(DryTorchException, ValueError):
     msg = 'The module did not converge (criterion is {}).'
 
     def __init__(self, criterion: float) -> None:
         self.criterion = criterion
         super().__init__(criterion)
-
-
-class DifferentBatchSizeError(DryTorchException, ValueError):
-    msg = ('Input tensors should have the same batch size'
-           ' but got different values: {}.')
-
-    def __init__(self, iterable: Iterable[int]) -> None:
-        self.list = list(iterable)
-        super().__init__(self.list)
 
 
 class FuncNotApplicableError(DryTorchException, TypeError):
@@ -46,27 +29,8 @@ class FuncNotApplicableError(DryTorchException, TypeError):
         super().__init__(func_name, type_name)
 
 
-class KeysAlreadySetError(DryTorchException, KeyError):
-    msg = 'DictList keys are already set to {} and cannot be modified.'
-
-    def __init__(self,
-                 input_keys: Iterable[_K],
-                 current_keys: Iterable[_K]) -> None:
-        self.input_keys = list(input_keys)
-        self.current_keys = list(current_keys)
-        super().__init__(current_keys)
-
-
 class LibraryNotAvailableError(DryTorchException, ImportError):
     msg = 'Library {} is not installed.'
-
-    def __init__(self, library_name: str) -> None:
-        self.library_name = library_name
-        super().__init__(library_name)
-
-
-class LibraryNotSupportedError(DryTorchException, ValueError):
-    msg = 'Library {} is not supported.'
 
     def __init__(self, library_name: str) -> None:
         self.library_name = library_name
@@ -82,12 +46,12 @@ class MetricsNotAVectorError(DryTorchException, ValueError):
 
 
 class MetricNotFoundError(DryTorchException, ValueError):
-    msg = 'Source {} has no logged metric {}.'
+    msg = 'No metric {}found in {}.'
 
     def __init__(self, source_name: str, metric_name: str) -> None:
         self.source_name = source_name
-        self.metric_name = metric_name
-        super().__init__(source_name, metric_name)
+        self.metric_name = metric_name + ' ' if metric_name else ''
+        super().__init__(self.metric_name, source_name)
 
 
 class MissingParamError(DryTorchException, ValueError):
@@ -109,23 +73,6 @@ class ModelFirstError(DryTorchException, TypeError):
         super().__init__(type(not_a_model))
 
 
-class ModelNameAlreadyExistsError(DryTorchException, ValueError):
-    msg = 'Model name {} already present in experiment {}.'
-
-    def __init__(self, name: str, exp_name: str) -> None:
-        self.name = name
-        super().__init__(name, exp_name)
-
-
-class ModelNotExistingError(DryTorchException, ValueError):
-    msg = ('Accessing model {} was unsuccessful: '
-           'module not registered in experiment {}.')
-
-    def __init__(self, name: str, exp_name: str) -> None:
-        self.name = name
-        super().__init__(name, exp_name)
-
-
 class ModelNotFoundError(DryTorchException, FileNotFoundError):
     msg = 'No saved module found in {}.'
 
@@ -139,22 +86,6 @@ class ModuleAlreadyRegisteredError(DryTorchException, ValueError):
 
     def __init__(self, exp_name: str) -> None:
         super().__init__(exp_name)
-
-
-class MustSupportIndex(DryTorchException, TypeError):
-    msg = "Object of type {} has not a '__index__' method."
-
-    def __init__(self, not_supporting_index: Any) -> None:
-        self.not_supporting_index = not_supporting_index
-        super().__init__(type(not_supporting_index).__name__)
-
-
-class NameAlreadyExistsError(DryTorchException, ValueError):
-    msg = 'Name {} already present for model {}.'
-
-    def __init__(self, name: str, model_name: str) -> None:
-        self.name = name
-        super().__init__(name, model_name)
 
 
 class NamedTupleOnlyError(DryTorchException, TypeError):
@@ -178,43 +109,6 @@ class DatasetHasNoLengthError(DryTorchException, AttributeError):
     msg = 'Dataset does not implement __len__ method.'
 
 
-class NotASliceError(DryTorchException, TypeError):
-    msg = 'Expected slice. Got object of type {}.'
-
-    def __init__(self, not_a_slice: Any) -> None:
-        self.not_a_slice = not_a_slice
-        super().__init__(type(not_a_slice))
-
-
-class NotATensorError(DryTorchException, TypeError):
-    msg = 'Object {} of type {} is not a Tensor.'
-
-    def __init__(self, not_a_tensor: Any, name: str = '') -> None:
-        self.name = name
-        self.not_a_tensor = not_a_tensor
-        super().__init__(name, type(not_a_tensor))
-
-
-class NoValidationError(DryTorchException, TypeError):
-    msg = 'No validation has been added to the trainer.'
-
-
-class NoToDictMethodError(DryTorchException, AttributeError):
-    msg = 'Object of type {} does not have a to_dict() method.'
-
-    def __init__(self, no_to_dict: Any) -> None:
-        self.no_to_dict = no_to_dict
-        super().__init__(type(no_to_dict))
-
-
-class PartitionNotFoundError(DryTorchException, ValueError):
-    msg = 'Impossible to load {} dataset: partition {} not found.'
-
-    def __init__(self, partition: str) -> None:
-        self.partition = partition
-        super().__init__(partition, partition)
-
-
 class TrackerAlreadyRegisteredError(DryTorchException, ValueError):
     msg = 'Tracker {} already registered in experiment {}.'
 
@@ -235,7 +129,7 @@ class TrackerNotRegisteredError(DryTorchException, ValueError):
         super().__init__(tracker_name, exp_name)
 
 
-class CannotStoreOutputWarning(DryTorchException, RuntimeWarning):
+class CannotStoreOutputWarning(DryTorchException, UserWarning):
     msg = 'Impossible to store output because the following error.\n{}'
 
     def __init__(self, err_msg: str) -> None:
@@ -243,20 +137,15 @@ class CannotStoreOutputWarning(DryTorchException, RuntimeWarning):
         super().__init__(err_msg)
 
 
-class MetadataNotMatchingWarning(DryTorchException, RuntimeWarning):
-    msg = 'Metadata for object {} does not match file {}. New file generated.'
+class ComputedBeforeUpdatedWarning(DryTorchException, UserWarning):
+    msg = 'The ``compute`` method of {} was called before its updating.'
 
-    def __init__(self, name: str, file: pathlib.Path) -> None:
-        self.name = name
-        self.file = file
-        super().__init__(name, file)
-
-
-class NotDocumentedArgs(DryTorchException, RuntimeWarning):
-    msg = 'Bounded classes positional arguments will not be documented.'
+    def __init__(self, calculator: Any) -> None:
+        self.calculator = calculator
+        super().__init__(calculator.__class__.__name__)
 
 
-class OptimizerNotLoadedWarning(DryTorchException, RuntimeWarning):
+class OptimizerNotLoadedWarning(DryTorchException, UserWarning):
     msg = 'The optimizer has not been correctly loaded:\n{}'
 
     def __init__(self, error: BaseException) -> None:
@@ -264,7 +153,7 @@ class OptimizerNotLoadedWarning(DryTorchException, RuntimeWarning):
         super().__init__(error)
 
 
-class PastEpochWarning(DryTorchException, RuntimeWarning):
+class PastEpochWarning(DryTorchException, UserWarning):
     msg = 'Training until epoch {} stopped: current epoch is already {}.'
 
     def __init__(self, selected_epoch: int, current_epoch: int) -> None:
@@ -273,22 +162,18 @@ class PastEpochWarning(DryTorchException, RuntimeWarning):
         super().__init__(selected_epoch, current_epoch)
 
 
-class RecursionWarning(DryTorchException, RuntimeWarning):
+class RecursionWarning(DryTorchException, UserWarning):
     msg = 'Impossible to extract metadata because there are recursive objects.'
 
 
-class TerminatedTrainingWarning(DryTorchException, RuntimeWarning):
+class TerminatedTrainingWarning(DryTorchException, UserWarning):
     msg = 'Attempted to train module after termination.'
 
 
-class TrackerError(DryTorchException, RuntimeWarning):
+class TrackerError(DryTorchException, UserWarning):
     msg = 'Tracker {} encountered the following error: \n {}'
 
-    def __init__(self, subscriber_name: str, error: BaseException) -> None:
+    def __init__(self, subscriber_name: str, error: Exception) -> None:
         self.subscriber_name = subscriber_name
         self.error = error
         super().__init__(subscriber_name, str(error))
-
-
-class VisdomConnectionWarning(DryTorchException, RuntimeWarning):
-    msg = 'Visdom connection refused by server.'
