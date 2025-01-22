@@ -10,19 +10,21 @@ from src.dry_torch import Experiment
 
 
 @pytest.fixture(scope='session')
-def exp_pardir():
+def exp_pardir() -> pathlib.Path:
     """Package directory for experiments."""
     return pathlib.Path(__file__).parent / 'experiments'
 
 
 @pytest.fixture(autouse=True, scope='session')
-def experiment(exp_pardir):
+def experiment(exp_pardir) -> Experiment:
     """Fixture of an experiment."""
-    return Experiment(name="TestExperiment", pardir=exp_pardir)
+    exp = Experiment[None](name='TestExperiment', par_dir=exp_pardir)
+    exp.start()
+    return exp
 
 
 @pytest.fixture
-def mock_experiment(mocker):
+def mock_experiment(mocker) -> Experiment:
     """Fixture for a mock experiment."""
     mock_experiment = mocker.create_autospec(Experiment, instance=True)
     mock_experiment.name = 'mock_experiment'
@@ -36,14 +38,14 @@ def mock_model(mocker) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock model."""
     mock = mocker.create_autospec(p.ModelProtocol, instance=True)
     mock.epoch = 0
-    mock.name = "mock_model"
+    mock.name = 'mock_model'
     mock.module = torch.nn.Linear(1, 1)
     mock.increment_epoch = mocker.Mock()
     return mock
 
 
 @pytest.fixture
-def mock_scheduler(mocker):
+def mock_scheduler(mocker) -> p.SchedulerProtocol:
     """Fixture for a mock scheduler."""
     mock = mocker.create_autospec(spec=p.SchedulerProtocol, instance=True)
     return mock
@@ -62,16 +64,22 @@ def mock_learning_scheme(mocker,
 
 
 @pytest.fixture
-def mock_metrics_calc(mocker):
+def mock_metric(mocker) -> p.MetricCalculatorProtocol:
     """Fixture for a mock metric calculator."""
-    return mocker.create_autospec(p.MetricsCalculatorProtocol, instance=True)
+    mock = mocker.create_autospec(p.MetricCalculatorProtocol, instance=True)
+    mock.name = 'Accuracy'
+    mock.compute = mocker.Mock(return_value={'Accuracy': torch.tensor(.5)})
+
+    return mock
 
 
 @pytest.fixture
-def mock_loss_calculator(mocker) -> p.LossCalculatorProtocol:
+def mock_loss(mocker) -> p.LossCalculatorProtocol:
     """Fixture for a mock loss calculator."""
     mock = mocker.create_autospec(spec=p.LossCalculatorProtocol, instance=True)
-    mock.criterion = 0.1
+    mock.forward = torch.tensor(1)
+    mock.name = 'Loss'
+    mock.compute = mocker.Mock(return_value={'Loss': torch.tensor(1)})
     return mock
 
 
@@ -82,18 +90,26 @@ def mock_loader(mocker) -> p.LoaderProtocol:
 
 
 @pytest.fixture
-def mock_trainer(mocker, mock_model) -> p.TrainerProtocol:
+def mock_trainer(mocker, mock_model, mock_loss) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
     mock.model = mock_model
     mock.name = 'mock_trainer'
+    mock.calculator = mock_loss
     mock.validation = None
+    mock.terminated = False
+
+    def _terminate_training():
+        mock.terminated = True
+
+    mock.terminate_training = mocker.Mock(side_effect=_terminate_training)
     return mock
 
 
 @pytest.fixture
-def mock_validation(mocker) -> p.EvaluationProtocol:
+def mock_validation(mocker, mock_metric) -> p.EvaluationProtocol:
     """Fixture for a mock validation."""
     mock = mocker.create_autospec(spec=p.EvaluationProtocol, instance=True)
     mock.name = 'mock_validation'
+    mock.calculator = mock_metric
     return mock
