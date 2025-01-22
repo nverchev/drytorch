@@ -45,7 +45,7 @@ class Sliced(Sequence[_T]):
         if isinstance(idx, int):
             return self.sliced[idx]
         else:  # slice
-            # Calculate new slice relative to original data
+            # calculate new slice relative to original data
             new_range = self.range[idx]
             return Sliced(self.seq, self.range_to_slice(new_range))
 
@@ -143,47 +143,47 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
 
     def split(
             self,
-            split_ratio: float = 0.2,
+            split: float = 0.2,
             shuffle: bool = True,
             seed: int = 42,
     ) -> tuple[DataLoader[_Data_co], DataLoader[_Data_co]]:
         """
-        Splits the dataset into training and validation sets.
+        Split loader into two.
 
         Args:
-            split_ratio: Fraction of the dataset to use for validation.
-            shuffle: Whether to shuffle the data before splitting.
-            seed: Seed for shuffling.
+            split: fraction of the dataset to the second output loader.
+            shuffle: whether to shuffle the data before splitting.
+            seed: seed for shuffling.
 
         Returns:
-            A tuple of (train_loader, val_loader).
+            A tuple of (DataLoader, DataLoader).
 
         Raises:
-            ValueError: If split_ratio is not between 0 and 1.
+            ValueError: If split is not between 0 and 1.
         """
-        if split_ratio < 0 or split_ratio > 1:
-            raise exceptions.ValueError_("split_ratio must be between 0 and 1")
+        if split < 0 or split > 1:
+            raise ValueError('split must be between 0 and 1.')
 
         dataset_size = check_dataset_length(self.dataset)
-        val_size = int(dataset_size * split_ratio)
-        train_size = dataset_size - val_size
+        second_size = int(dataset_size * split)
+        first_size = dataset_size - second_size
         indices: Sequence[int]
         if shuffle:
             indices = Permutation(dataset_size, seed=seed)
         else:
             indices = range(dataset_size)
 
-        train_dataset = data.Subset(
-            self.dataset, Sliced(indices, slice(train_size))
+        first_dataset = data.Subset(
+            self.dataset, Sliced(indices, slice(first_size))
         )
-        val_dataset = data.Subset(
-            self.dataset, Sliced(indices, slice(train_size, dataset_size))
+        second_dataset = data.Subset(
+            self.dataset, Sliced(indices, slice(first_size, dataset_size))
         )
 
-        train_loader = DataLoader(train_dataset, self.batch_size)
-        val_loader = DataLoader(val_dataset, self.batch_size)
+        first_loader = DataLoader(first_dataset, self.batch_size)
+        second_loader = DataLoader(second_dataset, self.batch_size)
 
-        return train_loader, val_loader
+        return first_loader, second_loader
 
     def __iter__(self) -> Iterator[_Data_co]:
         return self.get_loader().__iter__()
@@ -251,9 +251,3 @@ class SimpleLoader(p.LoaderProtocol[_Data_co]):
 
     def __len__(self) -> int:
         return 4
-
-
-datast: data.Dataset[tuple[torch.Tensor, torch.Tensor]] = SimpleDataset(
-    [(1, 1) for _ in range(3)])
-loader = SimpleLoader(datast)
-
