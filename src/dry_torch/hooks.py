@@ -1,12 +1,13 @@
 """Registry and hooks for a class following the Trainer protocol."""
 from collections import deque
 from collections.abc import Callable, Sequence
-from functools import wraps
+import functools
 from typing import Generic, TypeVar, Optional, ParamSpec, Literal, TypeAlias
 
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
 from src.dry_torch import log_events
+from src.dry_torch import calculating
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
@@ -87,7 +88,7 @@ def static_hook(hook: Callable[[], None]) -> _Hook:
         A hook that invokes the static callable.
     """
 
-    @wraps(hook)
+    @functools.wraps(hook)
     def _call(_: p.TrainerProtocol) -> None:
         hook()
 
@@ -106,7 +107,7 @@ def static_hook_closure(static_closure: Callable[_P, Callable[[], None]]
         A hook that invokes the static callable.
     """
 
-    @wraps(static_closure)
+    @functools.wraps(static_closure)
     def _closure_hook(*args: _P.args, **kwargs: _P.kwargs) -> _Hook:
         static_callable = static_closure(*args, **kwargs)
 
@@ -132,7 +133,7 @@ def call_every(interval: int, hook: _Hook, start: int = 0) -> _Hook:
         A callable hook.
     """
 
-    @wraps(hook)
+    @functools.wraps(hook)
     def _call(instance: p.TrainerProtocol) -> None:
         epoch = instance.model.epoch
         if epoch % interval == start or instance.terminated:
@@ -148,7 +149,7 @@ class EarlyStoppingCallback:
 
     def __init__(
             self,
-            metric_name: Optional[str] = None,
+            metric: Optional[str | p.MetricCalculatorProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 0.,
             patience: int = 10,
@@ -173,10 +174,21 @@ class EarlyStoppingCallback:
         pruning: A mapping of epoch numbers to pruning thresholds.
         start_from_epoch: The earliest epoch to stop. Defaults to 2.
         """
-        self._metric_name = metric_name
+        if isinstance(metric, str):
+            self._metric_name = metric
+        elif name := getattr(metric, 'name', None):
+            self._metric_name = str(name)
+        else:
+            self._metric_name = metric.__class__.__name__
         self._min_delta = min_delta
         self._patience = patience
-        self._best_is = best_is
+        higher_is_better = getattr(metric, 'higher_is_better', None)
+        if higher_is_better is True:
+            self._best_is = 'higher'
+        elif higher_is_better is False:
+            self._best_is = 'lower'
+        else:
+            self._best_is = best_is
         self._pruning = pruning
         self._start_from_epoch = start_from_epoch
         self._monitor = monitor
@@ -237,8 +249,12 @@ class EarlyStoppingCallback:
 
         Args:
             instance: The Trainer instance to evaluate.
-        """
 
+        Raises:
+            MetricNotFoundError: If the specified metric is not found.
+        """
+        log_events.TerminatedTraining(instance.model.epoch,
+                                          'early stopping')
         if self._monitor is None:
             if instance.validation is None:
                 monitor: p.EvaluationProtocol = instance
@@ -247,7 +263,8 @@ class EarlyStoppingCallback:
         else:
             monitor = self._monitor
 
-        last_metrics = monitor.metrics
+        last_metrics = calculating.repr_metrics(monitor.calculator)
+
         if self._metric_name is None:
             self._metric_name = list(last_metrics.keys())[0]
         elif self._metric_name not in last_metrics:
