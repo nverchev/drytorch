@@ -25,19 +25,19 @@ class PathManager:
     def __init__(self, model: p.ModelProtocol) -> None:
         self.model = model
         experiment = tracking.Experiment.current()
-        self.model_dir = experiment.dir / model.name
+        self.checkpoint_dir = experiment.dir / 'checkpoints'
 
     @property
-    def checkpoint_dir(self) -> pathlib.Path:
-        """Directory for storing checkpoints."""
-        checkpoint_directory = self.model_dir / 'checkpoints'
-        checkpoint_directory.mkdir(exist_ok=True, parents=True)
-        return checkpoint_directory
+    def model_dir(self) -> pathlib.Path:
+        """Directory for storing checkpoints of a model."""
+        model_dir = self.checkpoint_dir / self.model.name
+        model_dir.mkdir(exist_ok=True, parents=True)
+        return model_dir
 
     @property
     def epoch_dir(self) -> pathlib.Path:
         """Directory for a checkpoint at the current epoch."""
-        epoch_directory = self.checkpoint_dir / f'epoch_{self.model.epoch}'
+        epoch_directory = self.model_dir / f'epoch_{self.model.epoch}'
         epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
@@ -95,7 +95,7 @@ class ModelStateIO:
             torch.load(self.paths.state_path, map_location=self.model.device))
 
     def _get_last_saved_epoch(self) -> int:
-        checkpoint_directory = self.paths.checkpoint_dir
+        checkpoint_directory = self.paths.model_dir
         past_epochs = [
             int(path.stem.rsplit('_', 1)[-1])
             for path in checkpoint_directory.iterdir() if path.is_dir()

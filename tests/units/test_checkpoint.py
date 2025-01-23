@@ -19,14 +19,14 @@ class TestPathManager:
 
     def test_dirs_creation(self, mock_model, experiment):
         """Test that the directories are created when called."""
-        checkpoint_dir = experiment.dir / mock_model.name / 'checkpoints'
-        epoch_dir = checkpoint_dir / f'epoch_{mock_model.epoch}'
-        expected_dirs = [checkpoint_dir, epoch_dir]
+        model_dir = experiment.dir / 'checkpoints' / mock_model.name
+        epoch_dir = model_dir / f'epoch_{mock_model.epoch}'
+        expected_dirs = [model_dir, epoch_dir]
 
         for expected_dir in expected_dirs:
             assert not expected_dir.exists()
 
-        dirs = [self.manager.checkpoint_dir, self.manager.epoch_dir]
+        dirs = [self.manager.model_dir, self.manager.epoch_dir]
 
         for dir_, expected_dir in zip(dirs, expected_dirs):
             assert dir_ == expected_dir
