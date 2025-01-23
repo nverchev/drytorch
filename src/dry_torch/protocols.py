@@ -80,22 +80,6 @@ class LoaderProtocol(Protocol[_Data_co]):
     def __len__(self) -> int:
         """returns the number of batches in the dataset"""
 
-    def split(
-            self,
-            split: float = 0.2,
-            shuffle: bool = True,
-            seed: int = 42,
-    ) -> tuple[LoaderProtocol[_Data_co], LoaderProtocol[_Data_co]]:
-        """
-        Split loader into two.
-        
-        Args:
-            split: fraction of the dataset for the second output loader.
-            shuffle: whether to shuffle the data before splitting.
-            seed: seed for shuffling.
-        """
-
-
 class SchedulerProtocol(Protocol):
     """
     Protocol of a scheduler compatible with the LearningScheme class.
@@ -267,10 +251,8 @@ class TrainerProtocol(Protocol):
     name: str
     model: ModelProtocol
     calculator: MetricCalculatorProtocol
+    validation: EvaluationProtocol | None
 
-    @property
-    def validation(self) -> EvaluationProtocol | None:
-        """model validation performed during training."""
 
     @property
     def terminated(self) -> bool:

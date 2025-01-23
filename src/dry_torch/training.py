@@ -48,7 +48,6 @@ class Trainer(
             learning_scheme: p.LearningProtocol,
             name: str = '',
             mixed_precision: bool = False,
-            validation_split: float = 0.,
     ) -> None:
         """
         Args:
@@ -60,25 +59,19 @@ class Trainer(
                 Defaults to class name plus eventual counter.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to False.
-            validation_split: fraction of the training dataset
-                destined for validation. Defaults to 0.
         """
         super().__init__(model,
                          loader=loader,
                          calculator=calculator,
                          mixed_precision=mixed_precision,
                          name=name)
-        self.learning_scheme = learning_scheme
         self.calculator: p.LossCalculatorProtocol[_Output, _Target] = calculator
+        self.learning_scheme = learning_scheme
+        self.validation: Optional[evaluating.Validation] = None
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
         self._checkpoint = checkpoint.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=mixed_precision)
-        if validation_split:
-            self.loader, validation_loader = self.loader.split(validation_split)
-            self.add_validation(validation_loader)
-        else:
-            self._validation: Optional[evaluating.Validation] = None
         self._pre_epoch_hooks = hooks.HookRegistry[Self]()
         self._post_epoch_hooks = hooks.HookRegistry[Self]()
         self._terminated = False
@@ -88,11 +81,6 @@ class Trainer(
     def terminated(self) -> bool:
         """If true, this trainer should not be used for training anymore."""
         return self._terminated
-
-    @property
-    def validation(self) -> evaluating.Validation | None:
-        """Property to avoid documenting validation twice (see repr_utils)"""
-        return self._validation
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
