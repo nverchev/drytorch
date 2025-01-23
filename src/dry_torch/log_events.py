@@ -6,7 +6,6 @@ from collections.abc import Callable
 from typing import Any, Optional, Mapping
 import pathlib
 
-from src.dry_torch import protocols as p
 
 
 class Event(metaclass=abc.ABCMeta):
@@ -84,12 +83,13 @@ class EndEpoch(Event):
 @dataclasses.dataclass
 class EpochBar(Event):
     source: str
-    loader: p.LoaderProtocol
+    batch_size: int
+    dataset_size: int
     push_updates: list[
         Callable[[Mapping[str, Any]], None]
     ] = dataclasses.field(default_factory=list)
 
-    def update_pbar(self, metrics: Mapping[str, Any]) -> None:
+    def update(self, metrics: Mapping[str, Any]) -> None:
         for update in self.push_updates:
             update(metrics)
         return
