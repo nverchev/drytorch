@@ -102,13 +102,15 @@ class Evaluation(p.EvaluationProtocol,
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
         self.calculator.reset()
-        pbar = log_events.EpochBar(self.name, self.loader)
+        pbar = log_events.EpochBar(self.name,
+                                   self.loader.batch_size or 0,
+                                   len(self.loader))
         metrics: Mapping[str, Any] = {}
         for batch in self.loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
             outputs = self._run_forward(inputs)
             self._run_backwards(outputs, targets)
-            pbar.update_pbar(calculating.repr_metrics(self.calculator))
+            pbar.update(calculating.repr_metrics(self.calculator))
             if store_outputs:
                 self._store(outputs)
 
