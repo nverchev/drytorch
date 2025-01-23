@@ -82,7 +82,12 @@ def mock_loss(mocker) -> p.LossCalculatorProtocol:
 @pytest.fixture
 def mock_loader(mocker) -> p.LoaderProtocol:
     """Fixture for a mock loader."""
-    return mocker.create_autospec(spec=p.LoaderProtocol, instance=True)
+    mock = mocker.create_autospec(spec=p.LoaderProtocol, instance=True)
+    mock.batch_size = 32
+    mock.__len__ = mocker.Mock(return_value=500)
+    mock.dataset = mocker.Mock()
+    mock.dataset.__len__ = mocker.Mock(return_value=500)
+    return mock
 
 
 @pytest.fixture
