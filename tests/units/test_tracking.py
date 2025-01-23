@@ -8,7 +8,6 @@ from src.dry_torch import Experiment
 from src.dry_torch import exceptions
 from src.dry_torch import log_events
 from src.dry_torch.tracking import Tracker
-from tests.units.conftest import exp_pardir
 
 
 class SimpleEvent(log_events.Event):
@@ -75,13 +74,14 @@ def test_publish_event_calls_tracker_notify(mocker, experiment):
     mock_tracker.notify.assert_called_once_with(event)
 
 
-def test_start_and_stop_experiment(mocker, exp_pardir, experiment):
+def test_start_and_stop_experiment(mocker, experiment):
     """Test starting and stopping an experiment."""
     mock_event_start = mocker.patch.object(log_events, 'StartExperiment')
     exp_name = 'NewTestExperiment'
-    exp = Experiment(exp_name, par_dir=exp_pardir)
+    par_dir = experiment.dir.parent
+    exp = Experiment(exp_name, par_dir=par_dir)
     exp.start()
-    mock_event_start.assert_called_once_with(exp_name, exp_pardir / exp_name)
+    mock_event_start.assert_called_once_with(exp_name, par_dir / exp_name)
 
     mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
     exp.stop()
