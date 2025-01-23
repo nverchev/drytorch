@@ -13,6 +13,7 @@ class TestPathManager:
     @pytest.fixture(autouse=True)
     def setup(self, mock_model) -> None:
         """Set up the path manager."""
+        mock_model.name = 'mock_1'
         self.manager = checkpoint.PathManager(mock_model)
         return
 
@@ -48,6 +49,7 @@ class TestModelStateIO:
     @pytest.fixture(autouse=True)
     def setup(self, mock_model):
         """Set up the model state class."""
+        mock_model.name = 'mock_2'
         self.model_io = checkpoint.ModelStateIO(mock_model)
 
     def test_get_last_saved_epoch_no_checkpoints(self, mocker):
@@ -80,6 +82,7 @@ class TestCheckpointIO:
     @pytest.fixture(autouse=True)
     def setup(self, mock_model, mocker):
         """Set up the Checkpoint class."""
+        mock_model.name = 'mock_3'
         optimizer = torch.optim.SGD(mock_model.module.parameters())
         self.checkpoint_io = checkpoint.CheckpointIO(mock_model, optimizer)
 
