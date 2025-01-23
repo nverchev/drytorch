@@ -4,11 +4,13 @@ import abc
 import warnings
 from typing import TypeVar, Generic, Mapping, Any
 
+from pandas.io.sas.sas_constants import dataset_length
 from typing_extensions import override
 
 import torch
 
 from src.dry_torch import exceptions
+from src.dry_torch import loading
 from src.dry_torch import log_events
 from src.dry_torch import apply_ops
 from src.dry_torch import protocols as p
@@ -102,9 +104,9 @@ class Evaluation(p.EvaluationProtocol,
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
         self.calculator.reset()
-        pbar = log_events.EpochBar(self.name,
-                                   self.loader.batch_size or 0,
-                                   len(self.loader))
+        num_samples = loading.check_dataset_length(self.loader.dataset)
+        pbar = log_events.EpochBar(self.name, len(self.loader), num_samples)
+
         metrics: Mapping[str, Any] = {}
         for batch in self.loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)

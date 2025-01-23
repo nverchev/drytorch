@@ -8,7 +8,6 @@ import sys
 from tqdm import auto  # type: ignore
 
 from src.dry_torch import log_events
-from src.dry_torch import loading
 from src.dry_torch import tracking
 
 if TYPE_CHECKING:
@@ -20,15 +19,14 @@ class EpochBar:
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
 
     def __init__(self,
-                 batch_size: int,
-                 dataset_size: int,
+                 total: int,
+                 num_samples: int,
                  leave: bool,
                  out: SupportsWrite[str],
                  desc: str) -> None:
 
-        self.batch_size = batch_size
-        self.dataset_size = dataset_size
-        total = loading.num_batches(self.dataset_size, self.batch_size)
+        self.batch_size = num_samples // total
+        self.num_samples = num_samples
         self.pbar = auto.tqdm(total=total,
                               leave=leave,
                               file=out,
@@ -43,8 +41,8 @@ class EpochBar:
         """Adds batch and metric information to the bar."""
         self.pbar.update()
         self.epoch_seen += self.batch_size
-        if self.epoch_seen >= self.dataset_size:
-            self.epoch_seen = self.dataset_size
+        if self.epoch_seen >= self.num_samples:
+            self.epoch_seen = self.num_samples
             self.last_epoch = True
         monitor_seen: dict[str, int] = {self.seen_str: self.epoch_seen}
         monitor_metric = {metric_name: f'{metric_value:.3e}'
@@ -104,8 +102,8 @@ class TqdmLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.EpochBar) -> None:
         desc = event.source.rjust(15)
-        bar = EpochBar(event.batch_size,
-                       event.dataset_size,
+        bar = EpochBar(event.bar_length,
+                       event.num_samples,
                        leave=self.leave,
                        out=self.out,
                        desc=desc)

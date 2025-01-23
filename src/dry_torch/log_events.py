@@ -84,13 +84,16 @@ class EndEpoch(Event):
 @dataclasses.dataclass
 class EpochBar(Event):
     source: str
-    batch_size: int
-    dataset_size: int
+    bar_length: int
+    num_samples: int
     push_updates: list[
         Callable[[Mapping[str, Any]], None]
     ] = dataclasses.field(default_factory=list)
 
     def update(self, metrics: Mapping[str, Any]) -> None:
+        """Update the metrics in the bar.
+
+        """
         for update in self.push_updates:
             update(metrics)
         return
