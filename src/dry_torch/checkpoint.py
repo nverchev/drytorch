@@ -19,7 +19,7 @@ class PathManager:
 
     Attributes:
         model: The model instance for which paths are managed.
-        model_dir: Directory for the model's data.
+        checkpoint_dir: Directory for the checkpoints.
     """
 
     def __init__(self, model: p.ModelProtocol) -> None:
