@@ -1,3 +1,5 @@
+"""Classes that contain event information for logging purposes."""
+
 from __future__ import annotations
 
 import abc
@@ -5,7 +7,6 @@ import dataclasses
 from collections.abc import Callable
 from typing import Any, Optional, Mapping
 import pathlib
-
 
 
 class Event(metaclass=abc.ABCMeta):
