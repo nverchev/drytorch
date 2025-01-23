@@ -2,23 +2,18 @@
 
 import pytest
 
-import pathlib
 import torch
 
 from src.dry_torch import protocols as p
 from src.dry_torch import Experiment
 
 
-@pytest.fixture(scope='session')
-def exp_pardir() -> pathlib.Path:
-    """Package directory for experiments."""
-    return pathlib.Path(__file__).parent / 'experiments'
-
-
 @pytest.fixture(autouse=True, scope='session')
-def experiment(exp_pardir) -> Experiment:
+def experiment(tmpdir_factory) -> Experiment:
     """Fixture of an experiment."""
-    exp = Experiment[None](name='TestExperiment', par_dir=exp_pardir)
+    par_dir = tmpdir_factory.mktemp('experiments')
+    print(par_dir)
+    exp = Experiment[None](name='TestExperiment', par_dir=par_dir)
     exp.start()
     return exp
 
@@ -40,6 +35,7 @@ def mock_model(mocker) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
     mock.epoch = 0
     mock.name = 'mock_model'
     mock.module = torch.nn.Linear(1, 1)
+    mock.device = torch.device('cpu')
     mock.increment_epoch = mocker.Mock()
     return mock
 
