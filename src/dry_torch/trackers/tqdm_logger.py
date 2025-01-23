@@ -1,27 +1,34 @@
+"""Creates a progress meter tailored for specific events."""
+from __future__ import annotations
+
 import functools
-from typing import TextIO
+from typing import TYPE_CHECKING, Any, Mapping
 import sys
 
-from tqdm import auto
+from tqdm import auto  # type: ignore
 
 from src.dry_torch import log_events
 from src.dry_torch import loading
-from src.dry_torch import protocols as p
 from src.dry_torch import tracking
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsWrite
 
 
 class EpochBar:
+    """Bar that displays current epoch's metrics and progress"""
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
 
     def __init__(self,
-                 loader: p.LoaderProtocol,
+                 batch_size: int,
+                 dataset_size: int,
                  leave: bool,
-                 out: TextIO,
+                 out: SupportsWrite[str],
                  desc: str) -> None:
-        self.batch_size = loader.batch_size or 0
-        self.dataset_len = loading.check_dataset_length(loader.dataset)
-        total = loading.num_batches(self.dataset_len, self.batch_size)
-        # noinspection PyTypeChecker
+
+        self.batch_size = batch_size
+        self.dataset_size = dataset_size
+        total = loading.num_batches(self.dataset_size, self.batch_size)
         self.pbar = auto.tqdm(total=total,
                               leave=leave,
                               file=out,
@@ -30,12 +37,14 @@ class EpochBar:
         self.seen_str = 'Samples'
         self.epoch_seen = 0
         self.last_epoch = False
+        return
 
-    def update(self, metrics: dict[str, float]) -> None:
-        self.pbar.update(1)
+    def update(self, metrics: Mapping[str, Any]) -> None:
+        """Adds batch and metric information to the bar."""
+        self.pbar.update()
         self.epoch_seen += self.batch_size
-        if self.epoch_seen >= self.dataset_len:
-            self.epoch_seen = self.dataset_len
+        if self.epoch_seen >= self.dataset_size:
+            self.epoch_seen = self.dataset_size
             self.last_epoch = True
         monitor_seen: dict[str, int] = {self.seen_str: self.epoch_seen}
         monitor_metric = {metric_name: f'{metric_value:.3e}'
@@ -53,9 +62,8 @@ class TrainingBar:
     def __init__(self,
                  start_epoch: int,
                  end_epoch: int,
-                 out: TextIO,
+                 out: SupportsWrite[str],
                  disable: bool) -> None:
-        # noinspection PyTypeChecker
         self.pbar = auto.trange(start_epoch,
                                 end_epoch,
                                 desc='Epoch:',
@@ -67,7 +75,7 @@ class TrainingBar:
         self.end_epoch = end_epoch
 
     def update(self, current_epoch: int) -> None:
-        self.pbar.update(1)
+        self.pbar.update()
         self.pbar.set_description(
             f'Epoch: {current_epoch} / {self.end_epoch}')
         return
@@ -82,11 +90,12 @@ class TqdmLogger(tracking.Tracker):
     def __init__(self,
                  leave: bool = False,
                  enable_training_bar: bool = False,
-                 out: TextIO = sys.stdout) -> None:
+                 out: SupportsWrite[str] = sys.stdout) -> None:
         super().__init__()
         self.leave = leave
         self.out = out
         self.enable_training_bar = enable_training_bar
+        self.training_bar: TrainingBar | None = None
 
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
@@ -95,7 +104,8 @@ class TqdmLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.EpochBar) -> None:
         desc = event.source.rjust(15)
-        bar = EpochBar(event.loader,
+        bar = EpochBar(event.batch_size,
+                       event.dataset_size,
                        leave=self.leave,
                        out=self.out,
                        desc=desc)
@@ -104,13 +114,14 @@ class TqdmLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartTraining) -> None:
-        self._training_bar = TrainingBar(event.start_epoch,
-                                         event.end_epoch,
-                                         out=self.out,
-                                         disable=not self.enable_training_bar)
+        self.training_bar = TrainingBar(event.start_epoch,
+                                        event.end_epoch,
+                                        out=self.out,
+                                        disable=not self.enable_training_bar)
         return
 
     @notify.register
     def _(self, event: log_events.StartEpoch) -> None:
-        self._training_bar.update(event.epoch)
+        if self.training_bar is not None:
+            self.training_bar.update(event.epoch)
         return
