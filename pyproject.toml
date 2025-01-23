@@ -19,24 +19,37 @@ classifiers = [
 dependencies = [
     "torch >= 2.1",
     "numpy",
-    "PyYAML >= 6.0",
 ]
 
 [project.optional-dependencies]
-all_trackers = [
-    "plotly",
+default_trackers = [
+    "PyYAML >= 6.0",
     "tqdm",
+    "plotly",
+]
+
+all_trackers = [
+    "dry-torch[default_trackers]",
     "visdom",
-    "pandas",
     "sqlalchemy",
     "wandb",
     "seaborn",
-    "scikit-learn",
     "torchvision",
     "huggingface-datasets",
-    "tqdm",
-    "torchmetrics",]
+]
+
+support = [
+    "torchmetrics",
+    "pandas",
+]
+
 dev = ["pytest", "pytest-mock"]
+
+all = [
+    "dry-torch[all_trackers]",
+    "dry-torch[support]",
+    "dry-torch[dev]",
+]
 
 [tool.setuptools.package-data]
 "dry_torch" = ["py.typed"]
@@ -55,9 +68,8 @@ testpaths = ["tests"]
 addopts = [
     "-v",
     "--tb=short",
-#    "tests/functional",
     "--strict-markers",
-    "--ignore=tests/test_plotter.py",
+    "--ignore=tests/functional",
 ]
 log_cli = true
 log_cli_level = "DEBUG"
