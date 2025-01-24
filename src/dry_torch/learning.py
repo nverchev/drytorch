@@ -1,7 +1,7 @@
 """Classes for wrapping a torch module and its optimizer."""
 
 from collections.abc import Iterable, Iterator
-from typing import Optional, Self, TypeVar, TypedDict, Any, cast, Generic
+from typing import Optional, Self, TypeVar, TypedDict, Any, cast
 import copy
 import torch
 from torch import cuda
@@ -11,8 +11,7 @@ from src.dry_torch import repr_utils
 from src.dry_torch import exceptions
 from src.dry_torch import schedulers
 from src.dry_torch import protocols as p
-from src.dry_torch import io
-from src.dry_torch import registering
+from src.dry_torch import checkpoint
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -46,7 +45,7 @@ class LearningScheme(p.LearningProtocol):
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
-class Model(Generic[_Input_contra, _Output_co]):
+class Model(p.ModelProtocol[_Input_contra, _Output_co]):
     """
     Wrapper for a torch.nn.Module class with extra information.
 
@@ -61,7 +60,7 @@ class Model(Generic[_Input_contra, _Output_co]):
         epoch: the number of epochs the model has been trained so far.
 
     """
-    _default_model_name = repr_utils.DefaultName('Model', start=0)
+    _default_model_name = repr_utils.DefaultName()
 
     def __init__(
             self,
@@ -71,11 +70,10 @@ class Model(Generic[_Input_contra, _Output_co]):
             device: Optional[torch.device] = None,
     ) -> None:
         self.module = self._validate_module(torch_module)
-        self.name: str = name or Model._default_model_name()
+        self.name: str = name or self._default_model_name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
-        self._model_state_io = io.ModelStateIO(self)
-        registering.register_model(self)
+        self._model_state_io = checkpoint.ModelStateIO(self)
 
     @property
     def device(self) -> torch.device:
@@ -165,6 +163,7 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
             **learning_scheme.optimizer_defaults,
         )
+        self._checkpoint = checkpoint.CheckpointIO(model, self.optimizer)
 
     def get_scheduled_lr(self) -> list[_OptParams]:
         """
@@ -220,6 +219,14 @@ class ModelOptimizer:
                            self.get_scheduled_lr()):
             g['lr'] = up_g['lr']
         return
+
+    def load(self, epoch: int = -1) -> None:
+        """Load model and optimizer state from a checkpoint."""
+        self._checkpoint.load(epoch=epoch)
+
+    def save(self) -> None:
+        """Save model and optimizer state in a checkpoint."""
+        self._checkpoint.save()
 
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(count_params(elem['params'])

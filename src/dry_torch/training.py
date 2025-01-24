@@ -22,7 +22,7 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 
 class Trainer(
     evaluating.Evaluation[_Input, _Target, _Output],
-    p.TrainerProtocol,
+    p.TrainerProtocol[_Input, _Target, _Output],
 ):
     """
     Implement the standard Pytorch training loop.
@@ -70,7 +70,6 @@ class Trainer(
         self.validation: Optional[evaluating.Validation] = None
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
-        self._checkpoint = checkpoint.CheckpointIO(model, self._optimizer)
         self._scaler = amp.GradScaler(enabled=mixed_precision)
         self._pre_epoch_hooks = hooks.HookRegistry[Self]()
         self._post_epoch_hooks = hooks.HookRegistry[Self]()
@@ -90,6 +89,7 @@ class Trainer(
         Args:
             store_outputs: whether to store model outputs.
         """
+        super().__call__()
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning())
             return
@@ -120,16 +120,16 @@ class Trainer(
                                            loader=val_loader,
                                            calculator=self.calculator)
         self._post_epoch_hooks.register(hooks.static_hook(validation))
-        self._validation = validation
+        self.validation = validation
         return
 
     def load_checkpoint(self, epoch: int = -1) -> None:
         """Load model and optimizer state from a checkpoint."""
-        self._checkpoint.load(epoch=epoch)
+        self._model_optimizer.load(epoch=epoch)
 
     def save_checkpoint(self) -> None:
         """Save model and optimizer state in a checkpoint."""
-        self._checkpoint.save()
+        self._model_optimizer.save()
 
     def terminate_training(self) -> None:
         """Prevent the trainer from continue the training."""
