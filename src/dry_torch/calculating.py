@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import abc
 import warnings
-from collections.abc import Hashable
-from typing import TypeVar, Mapping, Self, Callable, Optional, Any, Protocol, \
-    runtime_checkable
+from collections.abc import Hashable, Callable
+from typing import TypeVar, Mapping, Self, Optional, Any, Protocol
+from typing import runtime_checkable
 from typing_extensions import override
 import torch
 
@@ -96,9 +96,10 @@ def from_torchmetrics(
             return self.metric(outputs, targets)
 
         def compute(self) -> dict[str, torch.Tensor]:
-            dict_output: dict[str, torch.Tensor] = {}
-            metric_list: list[p.MetricCalculatorProtocol | float | None] = [
-                self.metric]
+            dict_output = dict[str, torch.Tensor]()
+            metric_list = list[p.MetricCalculatorProtocol | float | None]()
+            metric_list.append(self.metric)
+
             while metric_list:
                 metric_ = metric_list.pop()
                 if isinstance(metric_, self.metric.__class__):
