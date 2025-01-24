@@ -77,7 +77,7 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
 
     def clear(self) -> None:
         """Clear data contained in the class."""
-        self._cached_reduce = {}
+        self._cached_reduce.clear()
         self.aggregate.clear()
         self.counts.clear()
         return
