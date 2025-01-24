@@ -17,9 +17,9 @@ class TestPathManager:
         self.manager = checkpoint.PathManager(mock_model)
         return
 
-    def test_dirs_creation(self, mock_model, experiment):
+    def test_dirs_creation(self, mock_model, mock_experiment):
         """Test that the directories are created when called."""
-        model_dir = experiment.dir / 'checkpoints' / mock_model.name
+        model_dir = mock_experiment.dir / 'checkpoints' / mock_model.name
         epoch_dir = model_dir / f'epoch_{mock_model.epoch}'
         expected_dirs = [model_dir, epoch_dir]
 

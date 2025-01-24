@@ -1,4 +1,5 @@
 """Tests for the tracking module."""
+from typing import Optional
 
 import pytest
 
@@ -10,85 +11,74 @@ from src.dry_torch import log_events
 from src.dry_torch.tracking import Tracker
 
 
-class SimpleEvent(log_events.Event):
+class _SimpleEvent(log_events.Event):
     """Simple Event subclass for testing."""
     pass
 
 
-class SimpleTracker(Tracker):
+class _SimpleTracker(Tracker):
     """Simple Tracker subclass with a defined notify method."""
+    last_event: Optional[log_events.Event] = None
 
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
-        pass
+        self.last_event = event
 
 
-@pytest.fixture(scope='module')
-def tracker(experiment):
-    """Fixture for a mock tracker."""
-    tracker = SimpleTracker()
-    experiment.register_tracker(tracker)
-    return tracker
+class TestExperiment:
+    """Test the Experiment class."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path) -> None:
+        """Set up an experiment."""
+        self.name = 'TestExperiment'
+        self.par_dir = tmp_path
+        self.experiment = Experiment[None](self.name, self.par_dir)
+        self.tracker = _SimpleTracker()
+        self.experiment.register_tracker(self.tracker)
+        return
 
-def test_experiment_initialization(experiment):
-    """Test that Experiment initializes with correct properties."""
-    assert experiment.name == 'TestExperiment'
-    assert experiment.dir.exists()
-    assert isinstance(experiment.named_trackers, dict)
-    assert isinstance(experiment.event_trackers, dict)
+    def test_experiment_initialization(self):
+        """Test that Experiment initializes with correct properties."""
+        assert self.experiment.name == self.name
+        assert self.experiment.dir.exists()
 
+    def test_register_tracker(self):
+        """Test that a tracker can be registered to an experiment."""
+        assert self.tracker.__class__.__name__ in self.experiment.named_trackers
 
-def test_register_tracker(tracker, experiment):
-    """Test that a tracker can be registered to an experiment."""
-    assert tracker.__class__.__name__ in experiment.named_trackers
+    def test_register_duplicate_tracker_raises_error(self):
+        """Test that registering a duplicate tracker raises an error."""
+        with pytest.raises(exceptions.TrackerAlreadyRegisteredError):
+            self.experiment.register_tracker(_SimpleTracker())
 
+    def test_remove_named_tracker(self):
+        """Test that a registered tracker can be removed by name."""
+        tracker_name = self.tracker.__class__.__name__
+        self.experiment.remove_named_tracker(tracker_name)
+        assert tracker_name not in self.experiment.named_trackers
 
-def test_register_duplicate_tracker_raises_error(tracker, experiment):
-    """Test that registering a duplicate tracker raises an error."""
-    with pytest.raises(exceptions.TrackerAlreadyRegisteredError):
-        experiment.register_tracker(tracker)
+    def test_remove_nonexistent_tracker_raises_error(self):
+        """Test that removing a non-existent tracker raises an error."""
+        with pytest.raises(exceptions.TrackerNotRegisteredError):
+            self.experiment.remove_named_tracker('NonexistentTracker')
 
+    def test_start_and_stop_experiment(self, mocker):
+        """Test starting and stopping an experiment."""
+        mock_event_start = mocker.patch.object(log_events, 'StartExperiment')
+        self.experiment.start()
+        mock_event_start.assert_called_once_with(self.name,
+                                                 self.par_dir / self.name)
 
-def test_remove_named_tracker(tracker, experiment):
-    """Test that a registered tracker can be removed by name."""
-    experiment.remove_named_tracker(tracker.__class__.__name__)
-    assert tracker.__class__.__name__ not in experiment.named_trackers
+        mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
+        self.experiment.stop()
+        mock_event_stop.assert_called_once_with(self.name)
 
-
-def test_remove_nonexistent_tracker_raises_error(experiment):
-    """Test that removing a non-existent tracker raises an error."""
-    with pytest.raises(exceptions.TrackerNotRegisteredError):
-        experiment.remove_named_tracker('NonexistentTracker')
-
-
-def test_publish_event_calls_tracker_notify(mocker, experiment):
-    """Test publishing an event calls notify on registered trackers."""
-    event = SimpleEvent()
-    mock_tracker = mocker.create_autospec(SimpleTracker, instance=True)
-    # create_autospec has problems with functools singledispatchmethod
-    mock_tracker.defined_events.return_value = [event.__class__]
-    mock_tracker.notify = mocker.Mock()
-    experiment.register_tracker(mock_tracker)
-    experiment.publish(event)
-    mock_tracker.notify.assert_called_once_with(event)
-
-
-def test_start_and_stop_experiment(mocker, experiment):
-    """Test starting and stopping an experiment."""
-    mock_event_start = mocker.patch.object(log_events, 'StartExperiment')
-    exp_name = 'NewTestExperiment'
-    par_dir = experiment.dir.parent
-    exp = Experiment(exp_name, par_dir=par_dir)
-    exp.start()
-    mock_event_start.assert_called_once_with(exp_name, par_dir / exp_name)
-
-    mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
-    exp.stop()
-    mock_event_stop.assert_called_once_with(exp_name)
-
-    # Restart default experiment
-    experiment.start()
+    def test_publish_event_calls_tracker_notify(self):
+        """Test publishing an event calls notify on registered trackers."""
+        simple_event = _SimpleEvent()
+        self.experiment.publish(event=simple_event)
+        assert self.tracker.last_event is simple_event
 
 
 def test_get_config_no_config_error():

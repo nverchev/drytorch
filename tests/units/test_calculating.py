@@ -299,54 +299,38 @@ def test_dict_apply(mocker) -> None:
     mock_fun2.assert_called_once_with(mock_outputs, mock_targets)
 
 
-class TestReprMetrics:
-    @pytest.fixture
-    def mock_calculator_mapping(self,
-                                mocker,
-                                metric_1,
-                                metric_2) -> p.MetricCalculatorProtocol:
-        """Fixture for a mock calculator that returns a mapping."""
-        calculator = mocker.MagicMock(spec=p.MetricCalculatorProtocol)
-        calculator.compute.return_value = {metric_1: torch.tensor(1),
-                                           metric_2: torch.tensor(2)}
-        return calculator
+@pytest.mark.parametrize(
+    "compute_return, class_name, expected",
+    [
+        # Case 1: Mapping of metrics
+        (
+                {"metric_1": torch.tensor(1), "metric_2": torch.tensor(2)},
+                None,
+                {"metric_1": 1, "metric_2": 2},
+        ),
+        # Case 2: Single tensor
+        (
+                torch.tensor(0.5),
+                "metric_1",
+                {"metric_1": 0.5},
+        ),
+        # Case 3: None
+        (
+                None,
+                None,
+                {},
+        ),
+    ],
+)
+def test_repr_metrics(mocker, compute_return, class_name, expected):
+    """Test the repr_metrics function with various compute return values."""
+    # Mock the calculator
+    mock_calculator = mocker.MagicMock(spec=p.MetricCalculatorProtocol)
+    mock_calculator.compute.return_value = compute_return
 
-    @pytest.fixture
-    def mock_calculator_tensor(self,
-                               mocker,
-                               metric_1) -> p.MetricCalculatorProtocol:
-        """Fixture for a mock calculator that returns a single tensor."""
-        calculator = mocker.MagicMock(spec=p.MetricCalculatorProtocol)
-        calculator.__class__.__name__ = metric_1
-        calculator.compute.return_value = torch.tensor(0.5)
-        return calculator
+    if class_name:
+        mock_calculator.__class__.__name__ = class_name
 
-    @pytest.fixture
-    def mock_calculator_none(self, mocker) -> p.MetricCalculatorProtocol:
-        """Fixture for a mock calculator that returns None."""
-        calculator = mocker.MagicMock(spec=p.MetricCalculatorProtocol)
-        calculator.compute.return_value = None
-        return calculator
-
-    def test_repr_metrics_mapping(self,
-                                  mock_calculator_mapping,
-                                  metric_1,
-                                  metric_2) -> None:
-        """Test when compute returns a mapping of metrics."""
-        result = repr_metrics(mock_calculator_mapping)
-        expected = {metric_1: 1, metric_2: 2}
-        assert result == expected
-
-    def test_repr_metrics_tensor(self,
-                                 mock_calculator_tensor,
-                                 metric_1) -> None:
-        """Test when compute returns a single tensor."""
-        result = repr_metrics(mock_calculator_tensor)
-        expected = {metric_1: 0.5}
-        assert result == expected
-
-    def test_repr_metrics_none(self, mock_calculator_none) -> None:
-        """Test when compute returns None."""
-        result = repr_metrics(mock_calculator_none)
-        expected: dict[None, None] = {}
-        assert result == expected
+    # Call the function and assert the result
+    result = repr_metrics(mock_calculator)
+    assert result == expected

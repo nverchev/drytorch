@@ -2,6 +2,8 @@
 
 import pytest
 
+import pathlib
+
 import torch
 
 from src.dry_torch import protocols as p
@@ -9,22 +11,16 @@ from src.dry_torch import Experiment
 
 
 @pytest.fixture(autouse=True, scope='session')
-def experiment(tmpdir_factory) -> Experiment:
-    """Fixture of an experiment."""
-    par_dir = tmpdir_factory.mktemp('experiments')
-    print(par_dir)
-    exp = Experiment[None](name='TestExperiment', par_dir=par_dir)
-    exp.start()
-    return exp
-
-
-@pytest.fixture
-def mock_experiment(mocker) -> Experiment:
+def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     """Fixture for a mock experiment."""
-    mock_experiment = mocker.create_autospec(Experiment, instance=True)
+    mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
     mock_experiment.name = 'mock_experiment'
-    mocker.patch('src.dry_torch.tracking.Experiment.current',
-                 return_value=mock_experiment)
+    mock_experiment.dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
+    mock_experiment.metadata_manager = session_mocker.Mock()
+    mock_experiment.metadata_manager.record_metadata = session_mocker.Mock()
+    mock_experiment.metadata_manager.register_model = session_mocker.Mock()
+    session_mocker.patch('src.dry_torch.tracking.Experiment.current',
+                         return_value=mock_experiment)
     return mock_experiment
 
 
@@ -60,7 +56,9 @@ def mock_learning_scheme(mocker,
 
 
 @pytest.fixture
-def mock_metric(mocker) -> p.MetricCalculatorProtocol:
+def mock_metric(
+        mocker,
+) -> p.MetricCalculatorProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock metric calculator."""
     mock = mocker.create_autospec(p.MetricCalculatorProtocol, instance=True)
     mock.name = 'Accuracy'
@@ -70,7 +68,7 @@ def mock_metric(mocker) -> p.MetricCalculatorProtocol:
 
 
 @pytest.fixture
-def mock_loss(mocker) -> p.LossCalculatorProtocol:
+def mock_loss(mocker) -> p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock loss calculator."""
     mock = mocker.create_autospec(spec=p.LossCalculatorProtocol, instance=True)
     mock.forward = torch.tensor(1)
@@ -80,7 +78,7 @@ def mock_loss(mocker) -> p.LossCalculatorProtocol:
 
 
 @pytest.fixture
-def mock_loader(mocker) -> p.LoaderProtocol:
+def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
     """Fixture for a mock loader."""
     mock = mocker.create_autospec(spec=p.LoaderProtocol, instance=True)
     mock.batch_size = 32

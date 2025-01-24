@@ -1,10 +1,38 @@
-# """Tests for the learning module."""
-#
-# import pytest
-#
-# from src.dry_torch import exceptions
-# from src.dry_torch.registering import register_model, register_kwargs
-#
+import pathlib
+from typing import Protocol, TypeVar, Generic
+
+import pytest
+import torch
+
+from src.dry_torch import exceptions
+from src.dry_torch.registering import record_metadata
+from src.dry_torch import tracking
+from src.dry_torch import Model
+
+
+class _SimpleTrainer:
+    def __init__(self):
+        self.name = 'simple_trainer'
+        self.model = Model(torch.nn.Linear(1, 1), name='SimpleModel')
+        record_metadata(self)
+
+
+class TestMetadataRecorder:
+    """Test the MetadataRecorder metaclass."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the SimpleTrainer."""
+        self.trainer = _SimpleTrainer()
+        return
+
+    def test_register_model(self, mock_experiment) -> None:
+        manager = mock_experiment.metadata_manager
+        manager.record_metadata.assert_called_once_with(self.trainer.name,
+                                                        self.trainer)
+        manager.register_model.assert_called_once_with(self.trainer.model)
+        assert True
+
 #
 # def test_register_model_already_registered(mock_model, mock_experiment) -> None:
 #     """Test that an error is raised if the model is already registered."""

@@ -14,8 +14,7 @@ class TestTrainer:
               mock_model,
               mock_learning_scheme,
               mock_loss,
-              mock_loader,
-              experiment):
+              mock_loader):
         """Set up a Trainer instance with mock components."""
         self.trainer = Trainer(
             mock_model,

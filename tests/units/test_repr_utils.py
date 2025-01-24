@@ -2,8 +2,6 @@
 
 import pytest
 
-import types
-
 import numpy as np
 import torch
 
@@ -23,6 +21,26 @@ class _LongClass(_SimpleClass):
 
 class _SlottedClass(_SimpleClass):
     __slots__ = ('int_value', 'string_value')
+
+
+# Test class for DefaultName
+class _TestClass:
+    default_name = DefaultName()
+
+
+class TestDefaultName:
+    """Test DefaultName class generates incremental names."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the DefaultName class."""
+        self.obj = _TestClass()
+
+    def test_default_name(self) -> None:
+        """Test DefaultName class generates incremental names."""
+
+        assert self.obj.default_name == self.obj.__class__.__name__
+        assert self.obj.default_name == f'{self.obj.__class__.__name__}_1'
 
 
 # Scalar data that should remain unchanged in recursive representation
@@ -109,14 +127,3 @@ def test_pandas_print_options() -> None:
     # After context, original values should be restored
     assert pd.get_option('display.max_rows') == original_max_rows
     assert pd.get_option('display.max_columns') == original_max_columns
-
-
-@pytest.mark.parametrize('prefix, start, expected', [
-    ('Model', -1, 'Model'),
-    ('Session', 0, 'Session_1'),
-    ('Run', 2, 'Run_3'),
-])
-def test_default_name(prefix: str, start: int, expected: str) -> None:
-    """Test DefaultName class generates incremental names."""
-    name_generator = DefaultName(prefix, start)
-    assert name_generator() == expected
