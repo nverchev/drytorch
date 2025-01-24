@@ -49,7 +49,6 @@ _Output_co = TypeVar('_Output_co',
 _Input_contra = TypeVar('_Input_contra',
                         bound=InputType,
                         contravariant=True)
-
 _Target_contra = TypeVar('_Target_contra',
                          bound=TargetType,
                          contravariant=True)
@@ -79,6 +78,7 @@ class LoaderProtocol(Protocol[_Data_co]):
 
     def __len__(self) -> int:
         """returns the number of batches in the dataset"""
+
 
 class SchedulerProtocol(Protocol):
     """
@@ -119,7 +119,7 @@ class MetricCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
     @abc.abstractmethod
     def update(self,
                outputs: _Output_contra,
-               targets:  _Target_contra) -> Any:
+               targets: _Target_contra) -> Any:
         """
         Compute the metrics only.
 
@@ -160,7 +160,7 @@ class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
     @abc.abstractmethod
     def update(self,
                outputs: _Output_contra,
-               targets:  _Target_contra) -> Any:
+               targets: _Target_contra) -> Any:
         """
         Compute the metrics only.
 
@@ -171,6 +171,7 @@ class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
         Returns:
             return value will not be used.
         """
+
     @abc.abstractmethod
     def compute(self) -> Mapping[str, torch.Tensor] | torch.Tensor | None:
         """Return a Mapping from the metric names to the calculated values."""
@@ -224,7 +225,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         ...
 
 
-class EvaluationProtocol(Protocol):
+class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
     """
     Protocol for a class that validates a model.
 
@@ -234,12 +235,12 @@ class EvaluationProtocol(Protocol):
         calculator: object that calculates the metrics
     """
     name: str
-    model: ModelProtocol
-    calculator: MetricCalculatorProtocol
+    model: ModelProtocol[_Input, _Output]
+    calculator: MetricCalculatorProtocol[_Output, _Target]
 
 
 @runtime_checkable
-class TrainerProtocol(Protocol):
+class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     """
     Protocol for a class that train a model.
 
@@ -249,10 +250,9 @@ class TrainerProtocol(Protocol):
         calculator: object that calculates the metrics and loss
     """
     name: str
-    model: ModelProtocol
-    calculator: MetricCalculatorProtocol
-    validation: EvaluationProtocol | None
-
+    model: ModelProtocol[_Input, _Output]
+    calculator: MetricCalculatorProtocol[_Output, _Target]
+    validation: EvaluationProtocol[_Input, _Target, _Output] | None
 
     @property
     def terminated(self) -> bool:
