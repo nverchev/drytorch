@@ -6,14 +6,68 @@ import pathlib
 import datetime
 import weakref
 from abc import abstractmethod
-from typing import Optional, Final, TypeVar, Generic, KeysView, cast, Any
+from typing import Optional, Final, TypeVar, Generic, Any
 import warnings
 
 from src.dry_torch import repr_utils
 from src.dry_torch import log_events
 from src.dry_torch import exceptions
+from src.dry_torch import protocols as p
 
 _T = TypeVar('_T')
+
+
+class MetadataManager:
+    def __init__(self, max_items_repr: int = 10) -> None:
+        super().__init__()
+        self.max_items_repr = max_items_repr
+
+    def record_metadata(self, name: str, object: Any) -> None:
+        metadata = self.extract_metadata(object, max_size=self.max_items_repr)
+        log_events.RecordMetadata(name, metadata)
+        return
+
+    def register_model(self, model: p.ModelProtocol) -> None:
+        name = model.name
+        # self._model_names.setdefault(name, repr_utils.DefaultName(name))
+        # model.name = self._model_names[name]()
+        metadata = {'module': repr_utils.LiteralStr(repr(model.module))}
+        log_events.ModelCreation(model.name, metadata)
+        return
+
+    # def record_metadata(self, model_name, class_name, name, kwargs) -> None:
+    #     model_default_names = self.default_names.get(event.model_name)
+    #     if model_default_names is None:
+    #         raise exceptions.ModelNotExistingError(event.model_name,
+    #                                                self.exp_name)
+    #     cls_count = model_default_names.setdefault(
+    #         event.name,
+    #         repr_utils.DefaultName(event.name)
+    #     )
+    #     name = cls_count()
+    #
+    #     metadata = self.extract_metadata(event.kwargs, self.max_items_repr)
+    #     event.kwargs['name'] = name
+    #     metadata |= {event.class_name: metadata}
+    #     record = log_events.RecordMetadata(model_name, name, metadata)
+    #
+    #     return
+
+    @staticmethod
+    def extract_metadata(obj: Any, max_size: int) -> dict[str, Any]:
+        """
+        Wrapper of recursive_repr that catches RecursionError.
+
+        Args:
+            obj: an object to document.
+            max_size: maximum number of documented items in an obj.
+        """
+        try:
+            metadata = repr_utils.recursive_repr(obj, max_size=max_size)
+        except RecursionError:
+            warnings.warn(exceptions.RecursionWarning())
+            metadata = {}
+        return metadata
 
 
 class Tracker(metaclass=abc.ABCMeta):
@@ -32,13 +86,6 @@ class Tracker(metaclass=abc.ABCMeta):
         """
         return
 
-    @classmethod
-    def defined_events(cls) -> KeysView[type[log_events.Event]]:
-        """Return the types of events this tracker is registered for."""
-        register = cast(functools.singledispatchmethod,
-                        cls.notify.register.__self__)  # type: ignore
-        return register.dispatcher.registry.keys()
-
 
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
@@ -48,7 +95,7 @@ class Experiment(Generic[_T]):
 
     Args:
         name: The name of the experiment.
-        pardir: Parent directory for experiment data.
+        par_dir: Parent directory for experiment data.
         config: Configuration for the experiment.
 
     Attributes:
@@ -59,19 +106,18 @@ class Experiment(Generic[_T]):
     past_experiments: set[Experiment] = set()
     _current: Optional[Experiment] = None
     _current_config: Optional[_T] = None
-    _default_link_name = repr_utils.DefaultName('outputs')
 
     def __init__(self,
                  name: str = '',
-                 pardir: str | pathlib.Path = pathlib.Path(''),
+                 par_dir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[_T] = None) -> None:
         self.name: Final = name or datetime.datetime.now().isoformat()
-        self.dir = pathlib.Path(pardir) / name
+        self.dir = pathlib.Path(par_dir) / name
         self.dir.mkdir(exist_ok=True, parents=True)
         self.config = config
+        self.metadata_manager = MetadataManager()
         self.__class__.past_experiments.add(self)
         self.named_trackers: dict[str, Tracker] = {}
-        self.event_trackers: dict[type[log_events.Event], list[Tracker]] = {}
         self.register_trackers(*DEFAULT_TRACKERS.values())
 
     def register_tracker(self, tracker: Tracker) -> None:
@@ -88,9 +134,6 @@ class Experiment(Generic[_T]):
             raise exceptions.TrackerAlreadyRegisteredError(tracker_name,
                                                            self.name)
         self.named_trackers[tracker_name] = tracker
-
-        for event_class in list(tracker.defined_events()):
-            self.event_trackers.setdefault(event_class, []).append(tracker)
 
     def register_trackers(self, *trackers: Tracker) -> None:
         """Register trackers from am iterable to the experiment.
@@ -114,12 +157,10 @@ class Experiment(Generic[_T]):
             TrackerNotRegisteredError: If the tracker is not registered.
         """
         try:
-            tracker = self.named_trackers.pop(tracker_name)
+            self.named_trackers.pop(tracker_name)
         except KeyError:
             raise exceptions.TrackerNotRegisteredError(tracker_name, self.name)
-        else:
-            for event_class in tracker.defined_events():
-                self.event_trackers[event_class].remove(tracker)
+        return
 
     def remove_all_trackers(self) -> None:
         """Remove all trackers from the experiment."""
@@ -132,12 +173,11 @@ class Experiment(Generic[_T]):
         Args:
             event: The event to publish.
         """
-        event_trackers = self.event_trackers.get(event.__class__, [])
-        for subscriber in event_trackers:
+        for tracker in self.named_trackers.values():
             try:
-                subscriber.notify(event)
+                tracker.notify(event)
             except Exception as exc:
-                name = subscriber.__class__.__name__
+                name = tracker.__class__.__name__
                 warnings.warn(exceptions.TrackerError(name, exc))
 
     def start(self) -> None:
@@ -147,9 +187,10 @@ class Experiment(Generic[_T]):
         log_events.Event.set_auto_publish(self.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
-        log_events.StartExperiment(self.name)
+        log_events.StartExperiment(self.name, self.dir)
 
-    def stop(self) -> None:
+    @staticmethod
+    def stop() -> None:
         """Stop the experiment, clearing it from the active experiment."""
         if Experiment._current is not None:
             name = Experiment._current.name
@@ -189,4 +230,4 @@ class Experiment(Generic[_T]):
         return cfg
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(name={self.name})"
+        return f'{self.__class__.__name__}(name={self.name})'
