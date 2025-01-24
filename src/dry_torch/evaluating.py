@@ -2,29 +2,27 @@
 import sys
 import abc
 import warnings
-from typing import TypeVar, Generic, Mapping, Any
+from typing import TypeVar, Mapping, Any
 
-from pandas.io.sas.sas_constants import dataset_length
 from typing_extensions import override
 
 import torch
 
+from src.dry_torch import calculating
 from src.dry_torch import exceptions
 from src.dry_torch import loading
 from src.dry_torch import log_events
 from src.dry_torch import apply_ops
 from src.dry_torch import protocols as p
 from src.dry_torch import registering
-from src.dry_torch import calculating
+from src.dry_torch import repr_utils
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Evaluation(p.EvaluationProtocol,
-                 Generic[_Input, _Target, _Output],
-                 metaclass=abc.ABCMeta):
+class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
     """
     Abstract class for evaluating a model on a given dataset.
 
@@ -42,6 +40,7 @@ class Evaluation(p.EvaluationProtocol,
         outputs_list: list of optionally stored outputs
     """
     max_stored_output: int = sys.maxsize
+    _default_model_name = repr_utils.DefaultName()
 
     def __init__(
             self,
@@ -64,29 +63,25 @@ class Evaluation(p.EvaluationProtocol,
                 Defaults to False.
         """
         self.model = model
-        self.name = name
+        self.name = name or self._default_model_name
         self.loader = loader
         self.calculator = calculator
         device_is_cuda = self.model.device.type == 'cuda'
         self.mixed_precision = mixed_precision and device_is_cuda
         self.outputs_list = list[_Output]()
+        self._metadata_recorded = False
         return
 
     @abc.abstractmethod
-    def __call__(self, store_outputs: bool) -> None:
+    def __call__(self) -> None:
         """
         Abstract method to be implemented by subclasses for model evaluation.
+        """
+        if not self._metadata_recorded:
+            registering.record_metadata(self)
+        return
 
-        Args:
-            store_outputs (bool): Whether to store model outputs.
-        """
-        ...
-
-    def log_metrics(self,
-                    metrics: Mapping[str, Any]) -> None:
-        """
-        Log final metrics.
-        """
+    def _log_metrics(self, metrics: Mapping[str, Any]) -> None:
         log_events.Metrics(model_name=self.model.name,
                            source=str(self),
                            epoch=self.model.epoch,
@@ -116,7 +111,7 @@ class Evaluation(p.EvaluationProtocol,
             if store_outputs:
                 self._store(outputs)
 
-        self.log_metrics(metrics)
+        self._log_metrics(metrics)
 
     def _store(self, outputs: _Output) -> None:
         try:
@@ -159,6 +154,7 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
         Args:
             store_outputs: whether to store model outputs. Defaults to False
         """
+        super().__call__()
         self.model.module.eval()
         self._run_epoch(store_outputs)
         return
@@ -166,7 +162,7 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
 
 class Validation(Diagnostic[_Input, _Target, _Output]):
     """
-    Evaluate model for performance validation on a validation dataset.
+    Evaluate model performance on a validation dataset.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -180,7 +176,7 @@ class Validation(Diagnostic[_Input, _Target, _Output]):
 
 class Test(Diagnostic[_Input, _Target, _Output]):
     """
-    Evaluate model test performance on a test dataset.
+    Evaluate model performance on a test dataset.
 
     Attributes:
         model: the model containing the weights to evaluate.
