@@ -17,21 +17,23 @@ import torch
 class DefaultName:
     """Add a counter to a prefix"""
 
-    def __init__(self, prefix: str, start: int = -1):
+    def __init__(self, start: int = -1):
         """
         Args:
-            prefix: prefix for the counter.
             start: initial count value.
         """
-        self.prefix = prefix
+        self.prefix = 'default'
         self.count_defaults = start
 
-    def __call__(self) -> str:
-        """Increment the counter."""
+    def __get__(self, instance: Any, owner: type) -> str:
+        """Return the default name for the instance or class."""
+        if instance is None:
+            return self.prefix
+        self.prefix = instance.__class__.__name__
         self.count_defaults += 1
         return repr(self)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if not self.count_defaults:
             return self.prefix
         return f'{self.prefix}_{self.count_defaults}'
