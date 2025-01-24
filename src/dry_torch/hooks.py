@@ -192,7 +192,7 @@ class EarlyStoppingCallback:
         self._pruning = pruning
         self._start_from_epoch = start_from_epoch
         self._monitor = monitor
-        self._monitor_log: deque[float] = deque(maxlen=patience + 1)
+        self._monitor_log = deque[float](maxlen=patience + 1)
         self._best_result: Optional[float] = None
         self._aggregate_fn = aggregate_fn
 
@@ -253,8 +253,7 @@ class EarlyStoppingCallback:
         Raises:
             MetricNotFoundError: If the specified metric is not found.
         """
-        log_events.TerminatedTraining(instance.model.epoch,
-                                          'early stopping')
+        log_events.TerminatedTraining(instance.model.epoch, 'early stopping')
         if self._monitor is None:
             if instance.validation is None:
                 monitor: p.EvaluationProtocol = instance
