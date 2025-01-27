@@ -6,8 +6,16 @@ import pathlib
 
 import torch
 
+from src import dry_torch
 from src.dry_torch import protocols as p
 from src.dry_torch import Experiment
+
+
+@pytest.fixture(autouse=True, scope='session')
+def remove_trackers() -> None:
+    """Remove trackers."""
+    dry_torch.remove_all_default_trackers()
+    return
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -17,10 +25,13 @@ def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     mock_experiment.name = 'mock_experiment'
     mock_experiment.dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
     mock_experiment.metadata_manager = session_mocker.Mock()
-    mock_experiment.metadata_manager.record_metadata = session_mocker.Mock()
+    mock_experiment.metadata_manager.record_model_call = session_mocker.Mock()
     mock_experiment.metadata_manager.register_model = session_mocker.Mock()
     session_mocker.patch('src.dry_torch.tracking.Experiment.current',
                          return_value=mock_experiment)
+    session_mocker.patch('src.dry_torch.registering.register_model')
+    session_mocker.patch('src.dry_torch.registering.record_model_call')
+
     return mock_experiment
 
 
@@ -71,7 +82,9 @@ def mock_metric(
 def mock_loss(mocker) -> p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock loss calculator."""
     mock = mocker.create_autospec(spec=p.LossCalculatorProtocol, instance=True)
-    mock.forward = torch.tensor(1)
+    mock_loss_value = torch.FloatTensor([1])
+    mock_loss_value.requires_grad = True
+    mock.forward = mocker.Mock(return_value=mock_loss_value)
     mock.name = 'Loss'
     mock.compute = mocker.Mock(return_value={'Loss': torch.tensor(1)})
     return mock
@@ -85,6 +98,8 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
     mock.__len__ = mocker.Mock(return_value=500)
     mock.dataset = mocker.Mock()
     mock.dataset.__len__ = mocker.Mock(return_value=500)
+    tensor = torch.FloatTensor([1])
+    mock.__iter__ = mocker.Mock(return_value=iter([(tensor, tensor)] * 3))
     return mock
 
 

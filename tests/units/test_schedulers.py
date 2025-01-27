@@ -1,59 +1,93 @@
 """Tests for the scheduler module."""
 
+import pytest
+
 import numpy as np
-from src.dry_torch.schedulers import ConstantScheduler
+
 from src.dry_torch.schedulers import ExponentialScheduler, CosineScheduler
+from src.dry_torch.schedulers import ConstantScheduler
 
 
-def test_constant_scheduler() -> None:
-    """Test ConstantScheduler scheduling."""
-    scheduler = ConstantScheduler()
-    base_lr = 0.1
-    epochs = [0, 10, 50]
+class TestConstantScheduler:
+    """Test ConstantScheduler functionality."""
 
-    for epoch in epochs:
-        assert scheduler(base_lr, epoch) == base_lr
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the ConstantScheduler for testing."""
+        self.scheduler = ConstantScheduler()
 
+    def test_constant_scheduler(self) -> None:
+        """Test that ConstantScheduler returns the same learning rate."""
+        base_lr = 0.1
+        epochs = [0, 10, 50]
 
-def test_exponential_scheduler() -> None:
-    """Test ExponentialScheduler scheduling."""
-    exp_decay = 0.9
-    min_decay = 0.5
-    scheduler = ExponentialScheduler(exp_decay=exp_decay, min_decay=min_decay)
-
-    base_lr = 1.0
-    epoch_0 = scheduler(base_lr, 0)  # Epoch 0 should return base_lr
-    epoch_1 = scheduler(base_lr, 1)  # Epoch 1 should return base_lr * exp_decay
-    epoch_10 = scheduler(base_lr, 10)  # Exponentially decayed value
-
-    assert epoch_0 == base_lr
-    assert epoch_1 == base_lr * exp_decay
-    assert epoch_10 == min_decay
+        for epoch in epochs:
+            assert self.scheduler(base_lr, epoch) == base_lr
 
 
-def test_cosine_scheduler() -> None:
-    """Test CosineScheduler scheduling."""
-    decay_steps = 100
-    min_decay = 0.1
-    scheduler = CosineScheduler(decay_steps=decay_steps, min_decay=min_decay)
-    base_lr = 1.0
+# Test class for ExponentialScheduler
+class TestExponentialScheduler:
+    """Test ExponentialScheduler functionality."""
 
-    # Start of the schedule
-    lr_epoch_0 = scheduler(base_lr, 0)
-    assert lr_epoch_0 == base_lr
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the ExponentialScheduler for testing."""
+        self.exp_decay = 0.9
+        self.min_decay = 0.5
+        self.scheduler = ExponentialScheduler(exp_decay=self.exp_decay,
+                                              min_decay=self.min_decay)
 
-    # Midway through the schedule
-    lr_epoch_mid = scheduler(base_lr, decay_steps // 2)
-    expected_lr_mid = (
-        min_decay * base_lr +
-        (base_lr - min_decay * base_lr) * (1 + np.cos(np.pi / 2)) / 2
-    )
-    assert np.isclose(lr_epoch_mid, expected_lr_mid, rtol=1e-5)
+    def test_exponential_scheduler(self) -> None:
+        """Test that ExponentialScheduler correctly decays learning rate."""
+        base_lr = 1.0
 
-    # End of the schedule
-    lr_epoch_end = scheduler(base_lr, decay_steps)
-    assert lr_epoch_end == min_decay * base_lr
+        # Epoch 0 should return base_lr
+        assert self.scheduler(base_lr, 0) == base_lr
 
-    # Beyond decay_steps, learning rate should remain constant at min_lr
-    lr_beyond_decay = scheduler(base_lr, decay_steps + 10)
-    assert lr_beyond_decay == min_decay * base_lr
+        # Epoch 1 should return base_lr * exp_decay
+        assert self.scheduler(base_lr, 1) == base_lr * self.exp_decay
+
+        # Beyond decay limit, it should return min_decay * base_lr
+        assert self.scheduler(base_lr, 10) == self.min_decay
+
+
+# Test class for CosineScheduler
+class TestCosineScheduler:
+    """Test CosineScheduler functionality."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the CosineScheduler for testing."""
+        self.decay_steps = 100
+        self.min_decay = 0.1
+        self.scheduler = CosineScheduler(decay_steps=self.decay_steps,
+                                         min_decay=self.min_decay)
+
+    def test_cosine_scheduler_start(self) -> None:
+        """Test CosineScheduler at the start of the schedule."""
+        base_lr = 1.0
+        lr_epoch_0 = self.scheduler(base_lr, 0)
+        assert lr_epoch_0 == base_lr
+
+    def test_cosine_scheduler_mid(self) -> None:
+        """Test CosineScheduler midway through the schedule."""
+        base_lr = 1.0
+        epoch_mid = self.decay_steps // 2
+        lr_epoch_mid = self.scheduler(base_lr, epoch_mid)
+        base_term = self.min_decay * base_lr
+        delta_term = base_lr - self.min_decay * base_lr
+        cosine_decay = 1 / 2
+        expected_lr_mid = base_term + delta_term * cosine_decay
+        assert np.isclose(lr_epoch_mid, expected_lr_mid, rtol=1e-5)
+
+    def test_cosine_scheduler_end(self) -> None:
+        """Test CosineScheduler at the end of the schedule."""
+        base_lr = 1.0
+        lr_epoch_end = self.scheduler(base_lr, self.decay_steps)
+        assert lr_epoch_end == self.min_decay * base_lr
+
+    def test_cosine_scheduler_beyond_end(self) -> None:
+        """Test CosineScheduler beyond decay_steps remains constant."""
+        base_lr = 1.0
+        lr_beyond_decay = self.scheduler(base_lr, self.decay_steps + 10)
+        assert lr_beyond_decay == self.min_decay * base_lr

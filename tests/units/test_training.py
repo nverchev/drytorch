@@ -2,7 +2,7 @@
 
 import pytest
 
-import numpy as np
+import torch
 
 from src.dry_torch import Trainer
 from src.dry_torch import exceptions
@@ -53,14 +53,24 @@ class TestTrainer:
         spy_loader.assert_called_once()
         return
 
-    def test_convergence_error(self, mocker) -> None:
-        """Test that convergence error correctly terminates training."""
-        mock = mocker.MagicMock(side_effect=exceptions.ConvergenceError(np.Inf))
-        self.trainer._run_epoch = mock
-
+    @pytest.mark.parametrize('invalid_value', [torch.inf, torch.nan])
+    def test_convergence_error(self, mocker, invalid_value) -> None:
+        """Test that convergence error is called and terminates training."""
+        loss_value = torch.FloatTensor([invalid_value])
+        loss_value.requires_grad = True
+        mock = mocker.MagicMock(return_value=loss_value)
+        self.trainer.calculator.forward = mock
         self.trainer.train(3)
-
         mock.assert_called_once()
+
+    def test_loss_not_a_scalar(self, mocker) -> None:
+        """Test that convergence error correctly terminates training."""
+        loss_value = torch.ones(2, 1)
+        loss_value.requires_grad = True
+        mock = mocker.MagicMock(return_value=loss_value)
+        self.trainer.calculator.forward = mock
+        with pytest.raises(exceptions.LossNotScalarError):
+            self.trainer.train(1)
 
     def test_terminate_training(self) -> None:
         """Test that terminated correctly stop training."""
@@ -73,9 +83,7 @@ class TestTrainer:
         self.trainer.model.epoch = 2
         mock_train = mocker.MagicMock()
         self.trainer.train = mock_train
-
         self.trainer.train_until(4)
-
         mock_train.assert_called_once_with(2)
 
     def test_past_epoch_warning(self) -> None:

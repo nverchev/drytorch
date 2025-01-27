@@ -1,7 +1,9 @@
 """Tests for the aggregators module."""
 
 import pytest
+
 import torch
+
 from src.dry_torch import exceptions
 from src.dry_torch.aggregators import Aggregator, Averager, TorchAverager
 

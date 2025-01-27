@@ -5,9 +5,10 @@ import pytest
 from typing import Any
 
 from src.dry_torch import exceptions
-from src.dry_torch.hooks import HookRegistry, saving_hook, static_hook
-from src.dry_torch.hooks import static_hook_closure, call_every
-from src.dry_torch.hooks import EarlyStoppingCallback
+from src.dry_torch.hooks import EarlyStoppingCallback, HookRegistry
+from src.dry_torch.hooks import call_every, saving_hook, static_hook
+from src.dry_torch.hooks import static_hook_closure
+
 
 Accuracy = 'Accuracy'
 Criterion = 'Loss'

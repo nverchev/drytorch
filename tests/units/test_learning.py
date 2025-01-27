@@ -4,10 +4,8 @@ import pytest
 
 import torch
 
-from src.dry_torch import Model
-from src.dry_torch import LearningScheme
 from src.dry_torch import exceptions
-from src.dry_torch.learning import ModelOptimizer
+from src.dry_torch.learning import LearningScheme, Model, ModelOptimizer
 
 
 class ComplexModule(torch.nn.Module):
@@ -39,7 +37,7 @@ class TestModel:
     def test_model_clone(self, complex_model: Model) -> None:
         """Test Model's clone method creates a deep copy."""
         cloned_model = complex_model.clone('cloned_model')
-        assert cloned_model.name == 'cloned_model'
+        assert str(cloned_model.name) == 'cloned_model'
         assert cloned_model is not complex_model
         assert cloned_model.module != complex_model.module
 

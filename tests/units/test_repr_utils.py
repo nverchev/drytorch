@@ -5,8 +5,28 @@ import pytest
 import numpy as np
 import torch
 
-from src.dry_torch.repr_utils import LiteralStr, Omitted, recursive_repr
-from src.dry_torch.repr_utils import limit_size, has_own_repr, DefaultName
+from src.dry_torch.repr_utils import DefaultName, LiteralStr, Omitted
+from src.dry_torch.repr_utils import limit_size, has_own_repr, recursive_repr
+
+
+# Test class for DefaultName
+class _TestClass:
+    _default_name = DefaultName()
+
+
+class TestDefaultName:
+    """Test DefaultName class generates incremental names."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the DefaultName class."""
+        self.obj = _TestClass()
+
+    def test_default_name(self) -> None:
+        """Test DefaultName class generates incremental names."""
+
+        assert self.obj._default_name == self.obj.__class__.__name__
+        assert self.obj._default_name == f'{self.obj.__class__.__name__}_1'
 
 
 # Test classes for recursive representation
@@ -21,26 +41,6 @@ class _LongClass(_SimpleClass):
 
 class _SlottedClass(_SimpleClass):
     __slots__ = ('int_value', 'string_value')
-
-
-# Test class for DefaultName
-class _TestClass:
-    default_name = DefaultName()
-
-
-class TestDefaultName:
-    """Test DefaultName class generates incremental names."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self) -> None:
-        """Set up the DefaultName class."""
-        self.obj = _TestClass()
-
-    def test_default_name(self) -> None:
-        """Test DefaultName class generates incremental names."""
-
-        assert self.obj.default_name == self.obj.__class__.__name__
-        assert self.obj.default_name == f'{self.obj.__class__.__name__}_1'
 
 
 # Scalar data that should remain unchanged in recursive representation

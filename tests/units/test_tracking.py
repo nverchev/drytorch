@@ -5,10 +5,9 @@ import pytest
 
 import functools
 
-from src.dry_torch import Experiment
 from src.dry_torch import exceptions
 from src.dry_torch import log_events
-from src.dry_torch.tracking import EventDispatcher, Tracker
+from src.dry_torch.tracking import EventDispatcher, Experiment, Tracker
 
 
 class _SimpleEvent(log_events.Event):
@@ -39,6 +38,7 @@ class _SimpleTracker(Tracker):
 
 
 class TestEventDispatcher:
+    """Test the event dispatcher."""
 
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path) -> None:

@@ -2,22 +2,24 @@
 
 import pytest
 
+from src.dry_torch import exceptions
 from src.dry_torch import Diagnostic
 
 
 class TestDiagnostic:
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model, mock_metric, mock_loader):
-
-        """Set up the Diagnostic."""
+    def setup(self, mock_model, mock_metric, mock_loader) -> None:
+        """Set up a diagnostic for testing. """
+        self.name = 'test_diagnostic'
         self.diagnostic = Diagnostic(
             mock_model,
+            name=self.name,
             loader=mock_loader,
             calculator=mock_metric,
             mixed_precision=True,
         )
 
-    def test_store_outputs(self, mocker):
+    def test_store_outputs(self, mocker) -> None:
         """Test outputs are correctly stored if store_outputs flag is active."""
         mock_output = mocker.Mock()
         mock_apply_ops = mocker.patch(
@@ -29,7 +31,24 @@ class TestDiagnostic:
         mock_apply_ops.assert_called_once_with(mock_output)
         assert self.diagnostic.outputs_list == [mock_output]
 
-    def test_str_repr(self):
-        """Test name is process correctly."""
-        self.diagnostic.name = 'Test Diagnostic.123'
-        assert str(self.diagnostic) == 'Test Diagnostic'
+    @pytest.mark.parametrize('error', [
+        exceptions.FuncNotApplicableError('wrong_func', 'wrong_type'),
+        exceptions.NamedTupleOnlyError('wrong_type')
+
+    ])
+    def test_store_outputs_warning(self, mocker, error) -> None:
+        """Test warning is raised if output cannot be stored."""
+        mock_output = mocker.Mock()
+        mock_apply_ops = mocker.patch(
+            'src.dry_torch.apply_ops.apply_cpu_detach',
+            side_effect=error)
+
+        with pytest.warns(exceptions.CannotStoreOutputWarning):
+            self.diagnostic._store(mock_output)
+
+        mock_apply_ops.assert_called_once_with(mock_output)
+        assert self.diagnostic.outputs_list == []
+
+    def test_str(self):
+        """Test string representation of the diagnostic."""
+        assert str(self.diagnostic) == self.name

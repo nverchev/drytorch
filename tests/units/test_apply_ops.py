@@ -19,6 +19,7 @@ class _TorchLikeTuple(NamedTuple):
 
 
 def test_recursive_apply() -> None:
+    """Test ``recursive_apply`` works when expected to."""
     expected_type = torch.Tensor
     tuple_data = (torch.tensor(1.), [1, 2])
     dict_data = {'list': tuple_data}
@@ -44,6 +45,7 @@ def test_recursive_apply() -> None:
 
 
 def test_recursive_to() -> None:
+    """Test ``recursive_to`` works as expected."""
     list_data = _TorchLikeTuple(torch.tensor(1.),
                                 [torch.tensor(1.), torch.tensor(2.)])
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

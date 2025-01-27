@@ -19,14 +19,14 @@ class TestPathManager:
 
     def test_dirs_creation(self, mock_model, mock_experiment):
         """Test that the directories are created when called."""
-        model_dir = mock_experiment.dir / 'checkpoints' / mock_model.name
-        epoch_dir = model_dir / f'epoch_{mock_model.epoch}'
-        expected_dirs = [model_dir, epoch_dir]
+        checkpoint_dir = mock_experiment.dir / mock_model.name / 'checkpoints'
+        epoch_dir = checkpoint_dir / f'epoch_{mock_model.epoch}'
+        expected_dirs = [checkpoint_dir, epoch_dir]
 
         for expected_dir in expected_dirs:
             assert not expected_dir.exists()
 
-        dirs = [self.manager.model_dir, self.manager.epoch_dir]
+        dirs = [self.manager.checkpoint_dir, self.manager.epoch_dir]
 
         for dir_, expected_dir in zip(dirs, expected_dirs):
             assert dir_ == expected_dir
@@ -52,7 +52,7 @@ class TestModelStateIO:
         mock_model.name = 'mock_2'
         self.model_io = checkpoint.ModelStateIO(mock_model)
 
-    def test_get_last_saved_epoch_no_checkpoints(self, mocker):
+    def test_get_last_saved_epoch_no_checkpoints(self):
         """Test it raises error if it cannot find any folder."""
         with pytest.raises(exceptions.ModelNotFoundError):
             self.model_io.load()
@@ -67,7 +67,7 @@ class TestModelStateIO:
         self.model_io.load(self.model_io.model.epoch)
         assert old_weight == self.model_io.model.module.weight
 
-    def test_get_last_saved_epoch(self, mocker):
+    def test_get_last_saved_epoch(self):
         """Test it recovers the epoch of the longest trained model."""
         self.model_io.save()
         old_epoch = self.model_io.model.epoch
@@ -80,7 +80,7 @@ class TestModelStateIO:
 
 class TestCheckpointIO:
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model, mocker):
+    def setup(self, mock_model):
         """Set up the Checkpoint class."""
         mock_model.name = 'mock_3'
         optimizer = torch.optim.SGD(mock_model.module.parameters())
