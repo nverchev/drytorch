@@ -1,4 +1,5 @@
 """Classes to save model state and its optimizer state."""
+
 import warnings
 import pathlib
 
@@ -6,7 +7,6 @@ import torch
 
 from src.dry_torch import log_events
 from src.dry_torch import exceptions
-from src.dry_torch import tracking
 from src.dry_torch import protocols as p
 
 
@@ -16,28 +16,28 @@ class PathManager:
 
     Args:
         model: The model whose paths are to be managed.
+        par_dir: Parent directory for experiment data.
 
     Attributes:
         model: The model instance for which paths are managed.
-        checkpoint_dir: Directory for the checkpoints.
+        model_dir: Directory for the checkpoints.
     """
 
-    def __init__(self, model: p.ModelProtocol) -> None:
+    def __init__(self, model: p.ModelProtocol, par_dir: pathlib.Path) -> None:
         self.model = model
-        experiment = tracking.Experiment.current()
-        self.checkpoint_dir = experiment.dir / 'checkpoints'
+        self.model_dir = par_dir / model.name
 
     @property
-    def model_dir(self) -> pathlib.Path:
-        """Directory for storing checkpoints of a model."""
-        model_dir = self.checkpoint_dir / self.model.name
-        model_dir.mkdir(exist_ok=True, parents=True)
-        return model_dir
+    def checkpoint_dir(self) -> pathlib.Path:
+        """Directory for a checkpoint at the current epoch."""
+        epoch_directory = self.model_dir / 'checkpoints'
+        epoch_directory.mkdir(exist_ok=True, parents=True)
+        return epoch_directory
 
     @property
     def epoch_dir(self) -> pathlib.Path:
         """Directory for a checkpoint at the current epoch."""
-        epoch_directory = self.model_dir / f'epoch_{self.model.epoch}'
+        epoch_directory = self.checkpoint_dir / f'epoch_{self.model.epoch}'
         epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
@@ -60,6 +60,7 @@ class ModelStateIO:
 
     Args:
         model: The model instance.
+        par_dir: Parent directory for experiment data.
 
     Attributes:
         model: The model instance.
@@ -68,9 +69,9 @@ class ModelStateIO:
     """
     definition = 'model state'
 
-    def __init__(self, model: p.ModelProtocol) -> None:
+    def __init__(self, model: p.ModelProtocol, par_dir: pathlib.Path) -> None:
         self.model = model
-        self.paths = PathManager(model)
+        self.paths = PathManager(model, par_dir)
 
     def _update_epoch(self, epoch: int):
         epoch = epoch if epoch >= 0 else self._get_last_saved_epoch()
@@ -95,7 +96,7 @@ class ModelStateIO:
             torch.load(self.paths.state_path, map_location=self.model.device))
 
     def _get_last_saved_epoch(self) -> int:
-        checkpoint_directory = self.paths.model_dir
+        checkpoint_directory = self.paths.checkpoint_dir
         past_epochs = [
             int(path.stem.rsplit('_', 1)[-1])
             for path in checkpoint_directory.iterdir() if path.is_dir()
@@ -123,8 +124,9 @@ class CheckpointIO(ModelStateIO):
 
     def __init__(self,
                  model: p.ModelProtocol,
-                 optimizer: torch.optim.Optimizer) -> None:
-        super().__init__(model)
+                 optimizer: torch.optim.Optimizer,
+                 par_dir: pathlib.Path) -> None:
+        super().__init__(model, par_dir)
         self.optimizer = optimizer
 
     def save(self) -> None:

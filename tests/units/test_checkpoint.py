@@ -11,15 +11,16 @@ from src.dry_torch import exceptions
 class TestPathManager:
 
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model) -> None:
+    def setup(self, mock_model, tmp_path) -> None:
         """Set up the path manager."""
         mock_model.name = 'mock_1'
-        self.manager = checkpoint.PathManager(mock_model)
+        self.par_dir = tmp_path
+        self.manager = checkpoint.PathManager(mock_model, tmp_path)
         return
 
-    def test_dirs_creation(self, mock_model, mock_experiment):
+    def test_dirs_creation(self, mock_model):
         """Test that the directories are created when called."""
-        checkpoint_dir = mock_experiment.dir / mock_model.name / 'checkpoints'
+        checkpoint_dir = self.par_dir / mock_model.name / 'checkpoints'
         epoch_dir = checkpoint_dir / f'epoch_{mock_model.epoch}'
         expected_dirs = [checkpoint_dir, epoch_dir]
 
@@ -47,10 +48,10 @@ class TestPathManager:
 
 class TestModelStateIO:
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model):
+    def setup(self, mock_model, tmp_path):
         """Set up the model state class."""
         mock_model.name = 'mock_2'
-        self.model_io = checkpoint.ModelStateIO(mock_model)
+        self.model_io = checkpoint.ModelStateIO(mock_model, tmp_path)
 
     def test_get_last_saved_epoch_no_checkpoints(self):
         """Test it raises error if it cannot find any folder."""
@@ -80,11 +81,13 @@ class TestModelStateIO:
 
 class TestCheckpointIO:
     @pytest.fixture(autouse=True)
-    def setup(self, mock_model):
+    def setup(self, mock_model, tmp_path):
         """Set up the Checkpoint class."""
-        mock_model.name = 'mock_3'
+        self.par_dir = tmp_path
         optimizer = torch.optim.SGD(mock_model.module.parameters())
-        self.checkpoint_io = checkpoint.CheckpointIO(mock_model, optimizer)
+        self.checkpoint_io = checkpoint.CheckpointIO(mock_model,
+                                                     optimizer,
+                                                     tmp_path)
 
     def test_save_and_load(self):
         """Test it saves the model's state."""
@@ -101,7 +104,9 @@ class TestCheckpointIO:
         self.checkpoint_io.save()
         model_with_no_bias = torch.nn.Linear(1, 1, bias=False)
         optimizer = torch.optim.SGD(model_with_no_bias.parameters())
-        self.checkpoint_io = checkpoint.CheckpointIO(mock_model, optimizer)
+        self.checkpoint_io = checkpoint.CheckpointIO(mock_model,
+                                                     optimizer,
+                                                     self.par_dir)
 
         with pytest.warns(exceptions.OptimizerNotLoadedWarning):
             self.checkpoint_io.load()
