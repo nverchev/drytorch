@@ -1,57 +1,80 @@
+"""
+Module for coordinating logging of metadata, internal messages and metrics.
+
+Attributes:
+    DEFAULT_TRACKERS: named trackers that are automatically registered to the
+                      experiment.
+"""
+
 from __future__ import annotations
 
 import abc
+from abc import abstractmethod
 import functools
 import pathlib
-import datetime
-import weakref
-from abc import abstractmethod
-from typing import Optional, Final, TypeVar, Generic, Any
+from types import TracebackType
+from typing import Any, Final, Generic, Optional, TypeVar
 import warnings
+import weakref
 
-from src.dry_torch import repr_utils
-from src.dry_torch import log_events
 from src.dry_torch import exceptions
+from src.dry_torch import log_events
 from src.dry_torch import protocols as p
+from src.dry_torch import repr_utils
 
 _T = TypeVar('_T')
 
+DEFAULT_TRACKERS: dict[str, Tracker] = {}
+
 
 class MetadataManager:
+    """
+    Class that handles and generates metadata.
+
+    Attributes:
+        used_names: Set to keep track of already registered names.
+        max_items_repr: Maximum number of documented items in an object.
+    """
+
     def __init__(self, max_items_repr: int = 10) -> None:
+        """
+        Args:
+            max_items_repr: Maximum number of documented items in an object.
+        """
         super().__init__()
+        self.used_names = set[str]()
         self.max_items_repr = max_items_repr
 
-    def record_metadata(self, name: str, object: Any) -> None:
-        metadata = self.extract_metadata(object, max_size=self.max_items_repr)
+    def record_metadata(self, name: repr_utils.StrWithTS, obj: Any) -> None:
+        """
+        Records metadata of a given named object.
+
+        Args:
+            name: The name associated to the object.
+            obj: The object to document.
+        """
+        self._register_name(name)
+        metadata = self.extract_metadata(obj, max_size=self.max_items_repr)
         log_events.RecordMetadata(name, metadata)
         return
 
     def register_model(self, model: p.ModelProtocol) -> None:
-        name = model.name
-        # self._model_names.setdefault(name, repr_utils.DefaultName(name))
-        # model.name = self._model_names[name]()
+        """
+        Records metadata of a given model.
+
+        Args:
+            model: The model to document.
+        """
+        self._register_name(model.name)
         metadata = {'module': repr_utils.LiteralStr(repr(model.module))}
         log_events.ModelCreation(model.name, metadata)
         return
 
-    # def record_metadata(self, model_name, class_name, name, kwargs) -> None:
-    #     model_default_names = self.default_names.get(event.model_name)
-    #     if model_default_names is None:
-    #         raise exceptions.ModelNotExistingError(event.model_name,
-    #                                                self.exp_name)
-    #     cls_count = model_default_names.setdefault(
-    #         event.name,
-    #         repr_utils.DefaultName(event.name)
-    #     )
-    #     name = cls_count()
-    #
-    #     metadata = self.extract_metadata(event.kwargs, self.max_items_repr)
-    #     event.kwargs['name'] = name
-    #     metadata |= {event.class_name: metadata}
-    #     record = log_events.RecordMetadata(model_name, name, metadata)
-    #
-    #     return
+    def _register_name(self, name: str) -> None:
+        if name in self.used_names:
+            raise exceptions.ModuleAlreadyRegisteredError(name)
+        self.used_names.add(name)
+        return
 
     @staticmethod
     def extract_metadata(obj: Any, max_size: int) -> dict[str, Any]:
@@ -79,7 +102,8 @@ class Tracker(metaclass=abc.ABCMeta):
     @functools.singledispatchmethod
     @abstractmethod
     def notify(self, event: log_events.Event) -> None:
-        """Notify the tracker of an event.
+        """
+        Notify the tracker of an event.
 
         Args:
             event (log_events.Event): The event to notify about.
@@ -87,38 +111,35 @@ class Tracker(metaclass=abc.ABCMeta):
         return
 
 
-DEFAULT_TRACKERS: dict[str, Tracker] = {}
-
-
-class Experiment(Generic[_T]):
-    """Manages experiment details, configuration, and event tracking.
-
-    Args:
-        name: The name of the experiment.
-        par_dir: Parent directory for experiment data.
-        config: Configuration for the experiment.
+class EventDispatcher:
+    """
+    Notifies tracker of an event.
 
     Attributes:
-        name: The experiment name, set at initialization.
-        dir: The directory for storing experiment files.
-        config: Configuration object for the experiment.
+        exp_name: Name of the current experiment.
+        named_trackers: A dictionary of trackers, indexed by their names.
     """
-    past_experiments: set[Experiment] = set()
-    _current: Optional[Experiment] = None
-    _current_config: Optional[_T] = None
 
-    def __init__(self,
-                 name: str = '',
-                 par_dir: str | pathlib.Path = pathlib.Path(''),
-                 config: Optional[_T] = None) -> None:
-        self.name: Final = name or datetime.datetime.now().isoformat()
-        self.dir = pathlib.Path(par_dir) / name
-        self.dir.mkdir(exist_ok=True, parents=True)
-        self.config = config
-        self.metadata_manager = MetadataManager()
-        self.__class__.past_experiments.add(self)
+    def __init__(self, exp_name) -> None:
+        """
+        Args:
+            exp_name: Name of the current experiment.
+        """
+        self.exp_name = str(exp_name)
         self.named_trackers: dict[str, Tracker] = {}
-        self.register_trackers(*DEFAULT_TRACKERS.values())
+
+    def publish(self, event: log_events.Event) -> None:
+        """Publish an event to all registered trackers.
+
+        Args:
+            event: The event to publish.
+        """
+        for tracker in self.named_trackers.values():
+            try:
+                tracker.notify(event)
+            except Exception as err:
+                name = tracker.__class__.__name__
+                warnings.warn(exceptions.TrackerError(name, err))
 
     def register_tracker(self, tracker: Tracker) -> None:
         """Register a tracker to the experiment.
@@ -132,7 +153,7 @@ class Experiment(Generic[_T]):
         tracker_name = tracker.__class__.__name__
         if tracker_name in self.named_trackers:
             raise exceptions.TrackerAlreadyRegisteredError(tracker_name,
-                                                           self.name)
+                                                           self.exp_name)
         self.named_trackers[tracker_name] = tracker
 
     def register_trackers(self, *trackers: Tracker) -> None:
@@ -159,7 +180,8 @@ class Experiment(Generic[_T]):
         try:
             self.named_trackers.pop(tracker_name)
         except KeyError:
-            raise exceptions.TrackerNotRegisteredError(tracker_name, self.name)
+            raise exceptions.TrackerNotRegisteredError(tracker_name,
+                                                       self.exp_name)
         return
 
     def remove_all_trackers(self) -> None:
@@ -167,24 +189,53 @@ class Experiment(Generic[_T]):
         for tracker_name in list(self.named_trackers):
             self.remove_named_tracker(tracker_name)
 
-    def publish(self, event: log_events.Event) -> None:
-        """Publish an event to all registered trackers.
 
-        Args:
-            event: The event to publish.
-        """
-        for tracker in self.named_trackers.values():
-            try:
-                tracker.notify(event)
-            except Exception as exc:
-                name = tracker.__class__.__name__
-                warnings.warn(exceptions.TrackerError(name, exc))
+class Experiment(Generic[_T]):
+    """Manages experiment metadata, configuration, and tracking.
+
+    Args:
+        name: The name of the experiment.
+        par_dir: Parent directory for experiment data.
+        config: Configuration for the experiment.
+
+    Attributes:
+        name: The experiment name, set at initialization.
+        dir: The directory for storing experiment files.
+        config: Configuration object for the experiment.
+        metadata_manager: Manager for recording metadata.
+    """
+
+    past_experiments: set[Experiment] = set()
+    _current: Optional[Experiment] = None
+    _current_config: Optional[_T] = None
+    _default_name = repr_utils.DefaultName()
+
+    def __init__(self,
+                 name: str = '',
+                 par_dir: str | pathlib.Path = pathlib.Path(''),
+                 config: Optional[_T] = None) -> None:
+        self.name: Final = name or repr_utils.StrWithTS(self._default_name)
+        self.dir = pathlib.Path(par_dir) / name
+        self.config = config
+        self.metadata_manager = MetadataManager()
+        self.event_dispatcher = EventDispatcher(self.name)
+        self.event_dispatcher.register_trackers(*DEFAULT_TRACKERS.values())
+        self.__class__.past_experiments.add(self)
+
+    def __enter__(self) -> None:
+        return self.start()
+
+    def __exit__(self,
+                 exc_type: type[BaseException],
+                 exc_val: BaseException,
+                 exc_tb: TracebackType) -> None:
+        return self.stop()
 
     def start(self) -> None:
         """Start the experiment, setting it as the current active experiment."""
         if Experiment._current is not None:
             self.stop()
-        log_events.Event.set_auto_publish(self.publish)
+        log_events.Event.set_auto_publish(self.event_dispatcher.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
         log_events.StartExperiment(self.name, self.dir)
