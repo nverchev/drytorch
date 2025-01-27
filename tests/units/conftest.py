@@ -2,6 +2,7 @@
 
 import pytest
 
+from typing import Callable
 import pathlib
 
 import torch
@@ -16,6 +17,12 @@ def remove_trackers() -> None:
     """Remove trackers."""
     dry_torch.remove_all_default_trackers()
     return
+
+
+@pytest.fixture(autouse=True, scope='session')
+def experiment_current_original() -> Callable[[], Experiment]:
+    """Stores the original current method from Experiment."""
+    return Experiment.current
 
 
 @pytest.fixture(autouse=True, scope='session')

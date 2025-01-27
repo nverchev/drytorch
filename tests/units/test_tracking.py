@@ -7,7 +7,8 @@ import functools
 
 from src.dry_torch import exceptions
 from src.dry_torch import log_events
-from src.dry_torch.tracking import EventDispatcher, Experiment, Tracker
+from src.dry_torch.tracking import EventDispatcher, Experiment, MetadataManager
+from src.dry_torch.tracking import Tracker
 
 
 class _SimpleEvent(log_events.Event):
@@ -35,6 +36,59 @@ class _SimpleTracker(Tracker):
     @notify.register
     def _(self, event: _UndefinedEvent) -> None:
         raise NotImplementedError('`notify` is not implemented.')
+
+
+# Test class for MetadataManager
+class TestMetadataManager:
+    """Test MetadataManager functionality."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the MetadataManager for testing."""
+        self.max_items_repr = 10
+        self.manager = MetadataManager(max_items_repr=self.max_items_repr)
+
+    def test_record_model_call(self, mocker) -> None:
+        """Test recording metadata creates the event."""
+        mock_obj = mocker.Mock()
+        mock_model_name = 'test_model'
+        mock_name = 'test_caller'
+
+        mock_log_event = mocker.patch('src.dry_torch.log_events.ModelCalled')
+        self.manager.record_model_call(mock_name, mock_model_name, mock_obj)
+        assert mock_name in self.manager.used_names
+        mock_log_event.assert_called_once()
+        with pytest.raises(exceptions.ModelAlreadyRegisteredError):
+            self.manager.record_model_call(mock_name, mock_model_name, mock_obj)
+
+    def test_register_model(self, mocker, mock_model) -> None:
+        """Test registering a model creates the event."""
+
+        mock_log_event = mocker.patch('src.dry_torch.log_events.ModelCreation')
+        self.manager.register_model(mock_model)
+        assert mock_model.name in self.manager.used_names
+        mock_log_event.assert_called_once()
+        with pytest.raises(exceptions.ModelAlreadyRegisteredError):
+            self.manager.register_model(mock_model)
+
+    def test_extract_metadata(self, mocker) -> None:
+        """Test metadata extraction with a recursive_repr wrapper."""
+        mock_obj = mocker.Mock()
+
+        mocker.patch('src.dry_torch.repr_utils.recursive_repr',
+                     return_value={'key': 'value'})
+
+        metadata = self.manager.extract_metadata(mock_obj, max_size=5)
+        assert metadata == {'key': 'value'}
+
+    def test_extract_metadata_recursion_error(self, mocker) -> None:
+        """Test extract_metadata handles RecursionError gracefully."""
+        mock_obj = mocker.Mock()
+
+        mocker.patch('src.dry_torch.repr_utils.recursive_repr',
+                     side_effect=RecursionError)
+        with pytest.warns(exceptions.RecursionWarning):
+            _ = self.manager.extract_metadata(mock_obj, max_size=5)
 
 
 class TestEventDispatcher:
@@ -106,6 +160,13 @@ class TestExperiment:
             mock_event_start.assert_called_once_with(self.name,
                                                      self.par_dir / self.name)
         mock_event_stop.assert_called_once_with(self.name)
+
+
+def test_no_active_experiment_error(experiment_current_original):
+    """Test that error is called when no experiment is active."""
+    with pytest.raises(exceptions.NoActiveExperimentError):
+        # Experiment.current has been stored in experiment_current_original
+        _ = experiment_current_original()
 
 
 def test_get_config_no_config_error():
