@@ -1,53 +1,51 @@
-"""Init file for dry_torch module."""
+"""Init file for the dry_torch package."""
 
 __all__ = [
+    'Loss',
+    'Metric',
     'ModelStateIO',
     'CheckpointIO',
-    'Experiment',
     'DataLoader',
-    'LossCalculator',
-    'MetricsCalculator',
     'LearningScheme',
     'Model',
-    'Trainer',
     'Diagnostic',
     'Validation',
     'Test',
-    'register_model',
+    'Experiment',
+    'Trainer',
 ]
-
-from src.dry_torch.checkpoint import ModelStateIO
+from src.dry_torch.calculating import Loss
+from src.dry_torch.calculating import Metric
 from src.dry_torch.checkpoint import CheckpointIO
+from src.dry_torch.checkpoint import ModelStateIO
 from src.dry_torch.loading import DataLoader
-from src.dry_torch.calculating import LossCalculator
-from src.dry_torch.calculating import MetricsCalculator
 from src.dry_torch.learning import LearningScheme
 from src.dry_torch.learning import Model
-from src.dry_torch.training import Trainer
 from src.dry_torch.evaluating import Diagnostic
-from src.dry_torch.evaluating import Validation
 from src.dry_torch.evaluating import Test
-from src.dry_torch.registering import register_model
+from src.dry_torch.evaluating import Validation
 from src.dry_torch.tracking import DEFAULT_TRACKERS
 from src.dry_torch.tracking import Experiment
 from src.dry_torch.tracking import Tracker
+from src.dry_torch.training import Trainer
 
 from src.dry_torch.trackers import builtin_logger
-from src.dry_torch.trackers import metadata
 
 
 def extend_default_trackers(tracker_list: list[Tracker]) -> None:
+    """Add a list of trackers to the default ones."""
     for tracker in tracker_list:
         DEFAULT_TRACKERS[tracker.__class__.__name__] = tracker
 
 
 def remove_all_default_trackers() -> None:
+    """Remove all default trackers."""
     DEFAULT_TRACKERS.clear()
 
 
-def add_default_trackers() -> None:
+def add_standard_trackers_to_default_trackers() -> None:
+    """Add a list of trackers to the default ones."""
     tracker_list: list[Tracker] = [
-        metadata.MetadataExtractor(),
         builtin_logger.BuiltinLogger(),
     ]
     try:
@@ -70,4 +68,4 @@ def add_default_trackers() -> None:
     extend_default_trackers(tracker_list)
 
 
-add_default_trackers()
+add_standard_trackers_to_default_trackers()
