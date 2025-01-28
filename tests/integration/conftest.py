@@ -1,22 +1,37 @@
+"""Configuration module with objects from the package."""
+
 import pytest
 
 import torch
 
-from src.dry_torch import DataLoader, LearningScheme, MetricsCalculator, Model
-from src.dry_torch import LossCalculator, Trainer
+from src import dry_torch
+from src.dry_torch import DataLoader, LearningScheme, Model, Experiment
+from src.dry_torch import Trainer, Loss, Metric
 from src.dry_torch import protocols as p
 
-from tests.integration.example_classes import IdentityDataset, Linear
-from tests.integration.example_classes import TorchTuple, TorchData
+from tests.integration.simple_classes import IdentityDataset, Linear
+from tests.integration.simple_classes import TorchData, TorchTuple
+
+
+@pytest.fixture(autouse=True, scope='session')
+def experiment(tmpdir_factory) -> Experiment:
+    """Fixture of an experiment."""
+    dry_torch.remove_all_default_trackers()
+    par_dir = tmpdir_factory.mktemp('experiments')
+    exp = Experiment[None](name='TestExperiment', par_dir=par_dir)
+    exp.start()
+    return exp
 
 
 @pytest.fixture
 def linear_model() -> p.ModelProtocol[TorchTuple, TorchData]:
+    """Instantiate a simple model."""
     return Model(Linear(1, 1), name='linear')
 
 
 @pytest.fixture
 def identity_dataset() -> IdentityDataset:
+    """Instantiate a simple dataset."""
     return IdentityDataset()
 
 
@@ -24,40 +39,65 @@ def identity_dataset() -> IdentityDataset:
 def identity_loader(
         identity_dataset
 ) -> p.LoaderProtocol[tuple[TorchTuple, torch.Tensor]]:
+    """Instantiate a loader for the identity dataset."""
     return DataLoader(dataset=identity_dataset, batch_size=4)
 
 
 @pytest.fixture
-def square_loss_calc() -> p.LossCalculatorProtocol[TorchData, torch.Tensor]:
-    def mse(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
-        """Mean square error calculation."""
-        return ((outputs.output - targets) ** 2).mean()
+def zero_metrics_calc() -> p.MetricCalculatorProtocol[TorchData, torch.Tensor]:
+    """Instantiate a null metric for the identity dataset."""
 
-    return LossCalculator(loss_fun=mse)
-
-
-@pytest.fixture
-def zero_metrics_calc() -> p.MetricsCalculatorProtocol[TorchData, torch.Tensor]:
     def zero(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
-        """Dummy metric calculation."""
+        """
+        Dummy metric calculation from structured outputs.
+
+        Args:
+            outputs: structured model outputs.
+            targets: tensor for the ground truth.
+
+        Returns:
+            zero tensor.
+        """
         _not_used = outputs, targets
         return torch.tensor(0)
 
-    return MetricsCalculator(Zero=zero)
+    return Metric(name='Zero', fun=zero)
 
 
 @pytest.fixture
-def example_learning_scheme() -> p.LearningProtocol:
-    return LearningScheme(torch.optim.Adam, lr=0.01)
+def square_loss_calc() -> p.LossCalculatorProtocol[TorchData, torch.Tensor]:
+    """Instantiate a loss for the identity dataset."""
+
+    def mse(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
+        """
+        Mean square error calculation from structured outputs.
+
+        Args:
+            outputs: structured model outputs.
+            targets: tensor for the ground truth.
+
+        Returns:
+            mean square error.
+        """
+        return ((outputs.output - targets) ** 2).mean()
+
+    return Loss('Mse', fun=mse)
+
+
+@pytest.fixture
+def standard_learning_scheme() -> p.LearningProtocol:
+    """Instantiate a standard learning scheme."""
+    return LearningScheme.Adam(lr=0.01)
 
 
 @pytest.fixture
 def identity_trainer(linear_model,
-                     example_learning_scheme,
+                     standard_learning_scheme,
                      square_loss_calc,
                      identity_loader) -> p.TrainerProtocol:
+    """Instantiate a trainer for the linear model using the identity dataset."""
     return Trainer(linear_model,
                    name='MyTrainer',
                    loader=identity_loader,
-                   learning_scheme=example_learning_scheme,
-                   loss_calc=square_loss_calc)
+                   learning_scheme=standard_learning_scheme,
+                   calculator=square_loss_calc)
