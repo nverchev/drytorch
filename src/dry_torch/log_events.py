@@ -83,8 +83,8 @@ class SaveModel(Event):
     Attributes:
         model_name: The name of the model.
         definition: Specifies what was saved.
-        location: The location where the checkpoint is saved.
-        epoch: The epoch at which the checkpoint was saved.
+        location: The location where the model is saved.
+        epoch: The epoch at which the model was saved.
     """
     model_name: str
     definition: str
@@ -93,14 +93,14 @@ class SaveModel(Event):
 
 
 @dataclasses.dataclass
-class LoadCheckpoint(Event):
-    """Event logged when a checkpoint is loaded.
+class LoadModel(Event):
+    """Event logged when a model is loaded.
 
     Attributes:
         model_name: The name of the model.
-        definition (str): Specifies what was is loaded.
-        location: The location where the checkpoint is loaded from.
-        epoch: The epoch at which the checkpoint was loaded.
+        definition: Specifies what was is loaded.
+        location: The location where the model is loaded from.
+        epoch: The epoch at which the model was loaded.
     """
     model_name: str
     definition: str
