@@ -1,18 +1,18 @@
 """Classes for the evaluation of a model."""
 import sys
 import abc
+from typing import Any, Mapping, TypeVar
 import warnings
-from typing import TypeVar, Mapping, Any
 
 from typing_extensions import override
 
 import torch
 
+from src.dry_torch import apply_ops
 from src.dry_torch import calculating
 from src.dry_torch import exceptions
 from src.dry_torch import loading
 from src.dry_torch import log_events
-from src.dry_torch import apply_ops
 from src.dry_torch import protocols as p
 from src.dry_torch import registering
 from src.dry_torch import repr_utils
@@ -40,7 +40,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         outputs_list: list of optionally stored outputs
     """
     max_stored_output: int = sys.maxsize
-    _default_model_name = repr_utils.DefaultName()
+    _default_name = repr_utils.DefaultName()
 
     def __init__(
             self,
@@ -63,7 +63,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
                 Defaults to False.
         """
         self.model = model
-        self.name = name or self._default_model_name
+        self.name = repr_utils.StrWithTS(name or self._default_name)
         self.loader = loader
         self.calculator = calculator
         device_is_cuda = self.model.device.type == 'cuda'
@@ -77,15 +77,14 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         """
         Abstract method to be implemented by subclasses for model evaluation.
         """
-        if not self._metadata_recorded:
-            registering.record_metadata(self)
+        registering.record_model_call(self, self.model)
         return
 
     def _log_metrics(self, metrics: Mapping[str, Any]) -> None:
-        log_events.Metrics(model_name=self.model.name,
-                           source=str(self),
-                           epoch=self.model.epoch,
-                           metrics=metrics)
+        log_events.FinalMetrics(model_name=self.model.name,
+                                source=self.name,
+                                epoch=self.model.epoch,
+                                metrics=metrics)
         return
 
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
@@ -100,8 +99,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         self.outputs_list.clear()
         self.calculator.reset()
         num_samples = loading.check_dataset_length(self.loader.dataset)
-        pbar = log_events.EpochBar(self.name, len(self.loader), num_samples)
-
+        pbar = log_events.IterateBatch(self.name, len(self.loader), num_samples)
         metrics: Mapping[str, Any] = {}
         for batch in self.loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
@@ -118,7 +116,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
             outputs = apply_ops.apply_cpu_detach(outputs)
         except (exceptions.FuncNotApplicableError,
                 exceptions.NamedTupleOnlyError) as err:
-            warnings.warn(exceptions.CannotStoreOutputWarning(str(err)))
+            warnings.warn(exceptions.CannotStoreOutputWarning(err))
         else:
             self.outputs_list.append(outputs)
 
@@ -126,7 +124,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         return self.name + f'for model {self.model.name}'
 
     def __str__(self) -> str:
-        return self.name.split('.', 1)[0]
+        return str(self.name)
 
 
 class Diagnostic(Evaluation[_Input, _Target, _Output]):
