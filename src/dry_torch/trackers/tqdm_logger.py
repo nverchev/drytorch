@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class EpochBar:
-    """Bar that displays current epoch's metrics and progress"""
+    """Bar that displays current epoch's metrics and progress."""
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
 
     def __init__(self,
@@ -100,10 +100,10 @@ class TqdmLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EpochBar) -> None:
+    def _(self, event: log_events.IterateBatch) -> None:
         desc = event.source.rjust(15)
-        bar = EpochBar(event.bar_length,
-                       event.num_samples,
+        bar = EpochBar(event.num_iter,
+                       event.dataset_size,
                        leave=self.leave,
                        out=self.out,
                        desc=desc)
