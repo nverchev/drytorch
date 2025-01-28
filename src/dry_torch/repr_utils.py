@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-import math
-from typing import Any
-import functools
-import types
 import dataclasses
+import datetime
+import functools
+import math
 import numbers
+import types
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -94,6 +95,19 @@ class LiteralStr(str):
 class Omitted:
     """Class for objects that represent omitted values in an iterable."""
     count: float = math.nan
+
+
+class StrWithTS(str):
+    """A string that adds a timestamp."""
+    fmt = '%Y-%m-%dT%H:%M:%S'
+
+    def __new__(cls, suffix: str) -> StrWithTS:
+
+        str_with_timestamp = f'{suffix}.{datetime.datetime.now():{cls.fmt}}'
+        return cast(StrWithTS, super().__new__(cls, str_with_timestamp))
+
+    def __str__(self) -> str:
+        return self.split('.')[0]
 
 
 def has_own_repr(obj: Any) -> bool:
