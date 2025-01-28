@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 
 from src.dry_torch.schedulers import ExponentialScheduler, CosineScheduler
-from src.dry_torch.schedulers import ConstantScheduler
+from src.dry_torch.schedulers import ConstantScheduler, Warmup
 
 
 class TestConstantScheduler:
@@ -91,3 +91,40 @@ class TestCosineScheduler:
         base_lr = 1.0
         lr_beyond_decay = self.scheduler(base_lr, self.decay_steps + 10)
         assert lr_beyond_decay == self.min_decay * base_lr
+
+
+class TestWarmupWrapper:
+    """Test WarmupWrapper functionality with different schedulers."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up different schedulers with warmup for testing."""
+        self.base_lr = 0.01
+        self.warmup_steps = 10
+        self.scheduler = ExponentialScheduler(exp_decay=0.9,
+                                              min_decay=self.base_lr)
+        self.warmed_up_scheduler = Warmup(warmup_steps=self.warmup_steps,
+                                          scheduler=self.scheduler)
+
+    def test_warmup_start(self) -> None:
+        """Test that warmup starts at zero learning rate."""
+        assert self.warmed_up_scheduler(self.base_lr, 0) == 0.0
+
+    def test_warmup_middle(self) -> None:
+        """Test that warmup increases linearly."""
+        mid_warmup = self.warmup_steps // 2
+        expected_lr = self.base_lr * (mid_warmup / self.warmup_steps)
+        assert self.warmed_up_scheduler(self.base_lr, mid_warmup) == expected_lr
+
+    def test_warmup_end(self) -> None:
+        """Test that warmup reaches base_lr."""
+        end_warmup = self.warmed_up_scheduler(self.base_lr, self.warmup_steps)
+        assert end_warmup == self.base_lr
+
+    def test_post_warmup(self) -> None:
+        """Test that constant scheduler behaves correctly after warmup."""
+        epochs_after_warmup = 5
+        total_epochs = self.warmup_steps + epochs_after_warmup
+        post_warmup = self.warmed_up_scheduler(self.base_lr, total_epochs)
+        expected = self.scheduler(self.base_lr, epochs_after_warmup)
+        assert post_warmup == expected

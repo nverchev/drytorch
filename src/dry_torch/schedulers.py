@@ -1,6 +1,7 @@
 """This module defines schedulers for the learning rates."""
-
 from abc import abstractmethod
+import dataclasses
+
 import numpy as np
 
 from src.dry_torch import protocols as p
@@ -36,45 +37,38 @@ class ConstantScheduler(AbstractScheduler):
         return 'Constant learning rate'
 
 
+@dataclasses.dataclass
 class ExponentialScheduler(AbstractScheduler):
     """
     Schedule following an exponential decay.
 
-    Args:
+    Attributes:
         exp_decay: exponential decay parameter d for the curve f(x) = Ce^(dx).
     """
-
-    def __init__(self,
-                 exp_decay: float = .975,
-                 min_decay: float = 0.00) -> None:
-        self.exp_decay = exp_decay
-        self.min_decay = min_decay
+    exp_decay: float = .975
+    min_decay: float = 0.00
 
     def _compute(self, base_lr: float, epoch: int) -> float:
         return max(base_lr * self.exp_decay ** epoch, self.min_decay)
 
-    def __repr__(self) -> str:
-        desc = 'Exponential schedule with decay parameter = {}'
-        return desc.format(self.exp_decay)
 
-
+@dataclasses.dataclass
 class CosineScheduler(AbstractScheduler):
     """
     Learning rate with cosine decay.
-    It remains constant after reaching the minimum value.
-    The cosine function is f(x) = C0 + C(1 + cos(C2x))
-    specified by the following parameters.
 
-    Args:
+    The cosine function is f(x) = C0 + C(1 + cos(C2x)) specified by the
+    following parameters. It remains constant after reaching the minimum value.
+
+    Attributes:
         decay_steps: the epochs (C2 * pi) were the schedule follows a cosine
-         curve until its minimum C0.
+            curve until its minimum C0.
         min_decay: the fraction of the initial value that it returned at the
             end (C0 + C) / C0.
     """
 
-    def __init__(self, decay_steps: int = 250, min_decay: float = 0.01):
-        self.decay_steps = decay_steps
-        self.min_decay = min_decay
+    decay_steps: int = 250
+    min_decay: float = 0.01
 
     def _compute(self, base_lr: float, epoch: int) -> float:
         min_lr = self.min_decay * base_lr
@@ -83,6 +77,28 @@ class CosineScheduler(AbstractScheduler):
         from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
         return min_lr + (base_lr - min_lr) * (1 + from_1_to_minus1) / 2
 
+
+@dataclasses.dataclass
+class Warmup(AbstractScheduler):
+    """
+    Adds a warmup phase to any scheduler.
+
+    During warmup, the learning rate increases linearly from 0 to base_lr.
+    After warmup, delegates to the wrapped scheduler with adjusted epochs.
+
+    Attributes:
+        warmup_steps: Number of epochs for the linear warmup phase.
+        scheduler: The base scheduler to wrap with warmup.
+    """
+
+    warmup_steps: int = 10
+    scheduler: AbstractScheduler = ConstantScheduler()
+
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        if epoch < self.warmup_steps:
+            return base_lr * (epoch / self.warmup_steps)
+        return self.scheduler(base_lr, epoch - self.warmup_steps)
+
     def __repr__(self) -> str:
-        desc = 'Cosine schedule with {} decay steps and {} min_decay factor'
-        return desc.format(self.decay_steps, self.min_decay)
+        wrapped_repr = self.scheduler.__repr__()
+        return f'{wrapped_repr} with {self.warmup_steps} warm up steps'
