@@ -11,11 +11,13 @@ functional approach.
 from __future__ import annotations
 
 import abc
-import warnings
-from collections.abc import Hashable, Callable
-from typing import TypeVar, Mapping, Self, Optional, Any, Protocol
+from collections.abc import Callable, Hashable
+import operator
+from typing import Any, Mapping, Optional, Protocol, Self, TypeVar
 from typing import runtime_checkable
 from typing_extensions import override
+import warnings
+
 import torch
 
 from src.dry_torch import aggregators
@@ -253,7 +255,7 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, lambda t1, t2: t1 + t2)
+        return self._apply(other, operator.add)
 
     def __radd__(self, other: float) -> CompositionalLoss:
         return self.__add__(other)
@@ -262,7 +264,7 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, lambda t1, t2: t1 - t2)
+        return self._apply(other, operator.sub)
 
     def __rsub__(self, other: float) -> CompositionalLoss:
         return self._apply(other, lambda t1, t2: t2 - t1)
@@ -271,7 +273,7 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, lambda t1, t2: t1 * t2)
+        return self._apply(other, operator.mul)
 
     def __rmul__(self, other: float) -> CompositionalLoss:
         return self.__mul__(other)
@@ -280,14 +282,13 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, lambda t1, t2: t1 / t2)
+        return self._apply(other, operator.truediv)
 
     def __rtruediv__(self, other: float) -> CompositionalLoss:
         return self._apply(other, lambda t1, t2: t2 / t1)
 
     def __neg__(self) -> CompositionalLoss:
-        return CompositionalLoss(lambda x: -self.criterion(x),
-                                 **self.named_metric_fun)
+        return self.__rsub__(0.)
 
 
 class CompositionalLoss(
@@ -320,11 +321,9 @@ class Loss(
             name: str,
             fun: p.TensorCallable[_Output_contra, _Target_contra],
             higher_is_better: Optional[bool] = False):
-        def _criterion(all_metrics: dict[str, torch.Tensor]) -> torch.Tensor:
-            return all_metrics[name]
 
         super(LossBase, self).__init__(name, fun, higher_is_better)
-        self.criterion = _criterion
+        self.criterion = operator.itemgetter(self.name)
         return
 
 
