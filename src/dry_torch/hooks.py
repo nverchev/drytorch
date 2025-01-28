@@ -1,13 +1,15 @@
 """Registry and hooks for a class following the Trainer protocol."""
+
 from collections import deque
 from collections.abc import Callable, Sequence
 import functools
-from typing import Generic, TypeVar, Optional, ParamSpec, Literal, TypeAlias
+from typing import Generic, Literal, Optional, ParamSpec, TypeAlias, TypeVar
+from typing import cast
 
+from src.dry_torch import calculating
+from src.dry_torch import log_events
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
-from src.dry_torch import log_events
-from src.dry_torch import calculating
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
@@ -174,9 +176,9 @@ class EarlyStoppingCallback:
         pruning: A mapping of epoch numbers to pruning thresholds.
         start_from_epoch: The earliest epoch to stop. Defaults to 2.
         """
-        if isinstance(metric, str):
+        if metric is None or isinstance(metric, str):
             self._metric_name = metric
-        elif name := getattr(metric, 'name', None):
+        elif name := getattr(metric, 'name', False):
             self._metric_name = str(name)
         else:
             self._metric_name = metric.__class__.__name__
@@ -256,7 +258,7 @@ class EarlyStoppingCallback:
         log_events.TerminatedTraining(instance.model.epoch, 'early stopping')
         if self._monitor is None:
             if instance.validation is None:
-                monitor: p.EvaluationProtocol = instance
+                monitor = cast(p.EvaluationProtocol, instance)
             else:
                 monitor = instance.validation
         else:
