@@ -5,10 +5,18 @@ import pytest
 
 import functools
 
+from src import dry_torch
 from src.dry_torch import exceptions
 from src.dry_torch import log_events
 from src.dry_torch.tracking import EventDispatcher, Experiment, MetadataManager
 from src.dry_torch.tracking import Tracker
+
+
+@pytest.fixture(autouse=True, scope='module')
+def remove_trackers() -> None:
+    """Remove trackers."""
+    dry_torch.remove_all_default_trackers()
+    return
 
 
 class _SimpleEvent(log_events.Event):

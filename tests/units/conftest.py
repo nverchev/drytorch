@@ -1,4 +1,4 @@
-"""Configuration files with mockups."""
+"""Configuration module with mockups."""
 
 import pytest
 
@@ -7,16 +7,8 @@ import pathlib
 
 import torch
 
-from src import dry_torch
 from src.dry_torch import protocols as p
 from src.dry_torch import Experiment
-
-
-@pytest.fixture(autouse=True, scope='session')
-def remove_trackers() -> None:
-    """Remove trackers."""
-    dry_torch.remove_all_default_trackers()
-    return
 
 
 @pytest.fixture(autouse=True, scope='session')
