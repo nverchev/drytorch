@@ -79,19 +79,19 @@ class ModelStateIO:
 
     def save(self) -> None:
         """Saves the model's state dictionary."""
-        log_events.SaveCheckpoint(model_name=self.model.name,
-                                  definition=self.definition,
-                                  location=str(self.paths.epoch_dir),
-                                  epoch=self.model.epoch)
+        log_events.SaveModel(model_name=self.model.name,
+                             definition=self.definition,
+                             location=str(self.paths.epoch_dir),
+                             epoch=self.model.epoch)
         torch.save(self.model.module.state_dict(), self.paths.state_path)
 
     def load(self, epoch: int = -1) -> None:
         """Loads the model's state dictionary."""
         self._update_epoch(epoch)
-        log_events.LoadCheckpoint(model_name=self.model.name,
-                                  definition=self.definition,
-                                  location=str(self.paths.epoch_dir),
-                                  epoch=self.model.epoch)
+        log_events.LoadModel(model_name=self.model.name,
+                             definition=self.definition,
+                             location=str(self.paths.epoch_dir),
+                             epoch=self.model.epoch)
         self.model.module.load_state_dict(
             torch.load(self.paths.state_path, map_location=self.model.device))
 
