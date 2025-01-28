@@ -2,9 +2,9 @@
 
 import abc
 import collections
-from collections.abc import Mapping, Iterable, KeysView
+from collections.abc import KeysView, Iterable, Mapping
 import copy
-from typing import Self, TypeVar, Generic
+from typing import Generic, Self, TypeVar
 from typing_extensions import override
 
 import torch
