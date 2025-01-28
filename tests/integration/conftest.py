@@ -7,7 +7,6 @@ import torch
 from src import dry_torch
 from src.dry_torch import DataLoader, LearningScheme, Model, Experiment
 from src.dry_torch import Trainer, Loss, Metric
-from src.dry_torch import protocols as p
 
 from tests.integration.simple_classes import IdentityDataset, Linear
 from tests.integration.simple_classes import TorchData, TorchTuple
@@ -24,7 +23,7 @@ def experiment(tmpdir_factory) -> Experiment:
 
 
 @pytest.fixture
-def linear_model() -> p.ModelProtocol[TorchTuple, TorchData]:
+def linear_model() -> Model[TorchTuple, TorchData]:
     """Instantiate a simple model."""
     return Model(Linear(1, 1), name='linear')
 
@@ -36,15 +35,15 @@ def identity_dataset() -> IdentityDataset:
 
 
 @pytest.fixture
-def identity_loader(
-        identity_dataset
-) -> p.LoaderProtocol[tuple[TorchTuple, torch.Tensor]]:
+def identity_loader(identity_dataset) -> DataLoader[
+    tuple[TorchTuple, torch.Tensor]
+]:
     """Instantiate a loader for the identity dataset."""
     return DataLoader(dataset=identity_dataset, batch_size=4)
 
 
 @pytest.fixture
-def zero_metrics_calc() -> p.MetricCalculatorProtocol[TorchData, torch.Tensor]:
+def zero_metrics_calc() -> Metric[TorchData, torch.Tensor]:
     """Instantiate a null metric for the identity dataset."""
 
     def zero(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
@@ -65,7 +64,7 @@ def zero_metrics_calc() -> p.MetricCalculatorProtocol[TorchData, torch.Tensor]:
 
 
 @pytest.fixture
-def square_loss_calc() -> p.LossCalculatorProtocol[TorchData, torch.Tensor]:
+def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
     """Instantiate a loss for the identity dataset."""
 
     def mse(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
@@ -85,7 +84,7 @@ def square_loss_calc() -> p.LossCalculatorProtocol[TorchData, torch.Tensor]:
 
 
 @pytest.fixture
-def standard_learning_scheme() -> p.LearningProtocol:
+def standard_learning_scheme() -> LearningScheme:
     """Instantiate a standard learning scheme."""
     return LearningScheme.Adam(lr=0.01)
 
@@ -94,7 +93,7 @@ def standard_learning_scheme() -> p.LearningProtocol:
 def identity_trainer(linear_model,
                      standard_learning_scheme,
                      square_loss_calc,
-                     identity_loader) -> p.TrainerProtocol:
+                     identity_loader) -> Trainer:
     """Instantiate a trainer for the linear model using the identity dataset."""
     return Trainer(linear_model,
                    name='MyTrainer',
