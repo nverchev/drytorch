@@ -190,8 +190,8 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
 
     def __len__(self) -> int:
         if torch.is_inference_mode_enabled():  # drop_last is true
-            return self.dataset_len // self.batch_size
-        return num_batches(self.dataset_len, self.batch_size)
+            return num_batches(self.dataset_len, self.batch_size)
+        return self.dataset_len // self.batch_size
 
 
 def num_batches(dataset_len: int, batch_size: int) -> int:
@@ -225,29 +225,3 @@ def check_dataset_length(dataset: data.Dataset) -> int:
     if hasattr(dataset, '__len__'):
         return dataset.__len__()
     raise exceptions.DatasetHasNoLengthError()
-
-
-class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
-    """Simple dataset for testing purposes."""
-
-    def __init__(self, dataset: Sequence[tuple[int, int]]) -> None:
-        self.data = dataset
-
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        out = self.data[index]
-        return torch.LongTensor([out[0]]), torch.LongTensor([out[1]])
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-
-class SimpleLoader(p.LoaderProtocol[_Data_co]):
-    def __init__(self, dataset: data.Dataset[_Data_co]):
-        self.dataset = dataset
-        self.batch_size = 2
-
-    def __iter__(self) -> Iterator[_Data_co]:
-        return iter([self.dataset[0] for _ in range(3)])
-
-    def __len__(self) -> int:
-        return 4
