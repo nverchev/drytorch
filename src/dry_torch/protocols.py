@@ -230,8 +230,8 @@ class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
     Protocol for a class that validates a model.
 
     Attributes:
-        name: name of the trainer.
-        model: the model to train.
+        name: name of the evaluator.
+        model: the model to evaluate.
         calculator: object that calculates the metrics
     """
     name: str
@@ -251,7 +251,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     """
     name: str
     model: ModelProtocol[_Input, _Output]
-    calculator: MetricCalculatorProtocol[_Output, _Target]
+    calculator: LossCalculatorProtocol[_Output, _Target]
     validation: EvaluationProtocol[_Input, _Target, _Output] | None
 
     @property
