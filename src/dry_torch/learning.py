@@ -1,17 +1,20 @@
 """Classes for wrapping a torch module and its optimizer."""
+from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from typing import Optional, Self, TypeVar, TypedDict, Any, cast
+from typing import Any, Optional, Self, TypedDict, TypeVar, cast
 import copy
+
 import torch
 from torch import cuda
 import dataclasses
 
-from src.dry_torch import repr_utils
-from src.dry_torch import exceptions
-from src.dry_torch import schedulers
-from src.dry_torch import protocols as p
 from src.dry_torch import checkpoint
+from src.dry_torch import exceptions
+from src.dry_torch import protocols as p
+from src.dry_torch import repr_utils
+from src.dry_torch import registering
+from src.dry_torch import schedulers
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -38,11 +41,103 @@ class LearningScheme(p.LearningProtocol):
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
     """
-
     optimizer_cls: type[torch.optim.Optimizer]
     lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+    @classmethod
+    def Adam(cls,
+             lr: float = 1e-3,
+             betas: tuple[float, float] = (0.9, 0.999),
+             scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+             ) -> LearningScheme:
+        """
+        Convenience method for the Adam optimizer.
+
+        Args:
+            lr: initial learning rate.
+            betas: coefficients used for computing running averages.
+            scheduler: modifies the learning rate given the current epoch.
+        """
+        return cls(optimizer_cls=torch.optim.Adam,
+                   lr=lr,
+                   scheduler=scheduler,
+                   optimizer_defaults={'betas': betas})
+
+    @classmethod
+    def AdamW(cls,
+              lr: float = 1e-3,
+              betas: tuple[float, float] = (0.9, 0.999),
+              weight_decay: float = 1e-2,
+              scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+              ) -> LearningScheme:
+        """
+        Convenience method for the AdamW optimizer.
+
+        Args:
+            lr: initial learning rate.
+            betas: coefficients used for computing running averages.
+            weight_decay: weight decay (L2 penalty).
+            scheduler: modifies the learning rate given the current epoch.
+        """
+        return cls(optimizer_cls=torch.optim.AdamW,
+                   lr=lr,
+                   scheduler=scheduler,
+                   optimizer_defaults={'betas': betas,
+                                       'weight_decay': weight_decay})
+
+    @classmethod
+    def SGD(cls,
+            lr: float = 0.01,
+            momentum: float = 0.,
+            weight_decay: float = 0.,
+            dampening: float = 0.,
+            nesterov: bool = False,
+            scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+            ) -> LearningScheme:
+        """
+        Convenience method for the SGD optimizer.
+
+        Args:
+            lr: initial learning rate.
+            momentum: momentum factor.
+            dampening:  dampening for momentum.
+            weight_decay: weight decay (L2 penalty).
+            nesterov: enables Nesterov momentum.
+            scheduler: modifies the learning rate given the current epoch.
+        """
+        return cls(optimizer_cls=torch.optim.SGD,
+                   lr=lr,
+                   scheduler=scheduler,
+                   optimizer_defaults={'momentum': momentum,
+                                       'weight_decay': weight_decay,
+                                       'dampening': dampening,
+                                       'nesterov': nesterov})
+
+    @classmethod
+    def RAdam(cls,
+              lr: float = 1e-3,
+              betas: tuple[float, float] = (0.9, 0.999),
+              weight_decay: float = 0.,
+              scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+              ) -> LearningScheme:
+        """
+        Convenience method for the RAdam optimizer.
+
+        Args:
+            lr: initial learning rate.
+            betas: coefficients used for computing running averages.
+            weight_decay: weight decay (L2 penalty).
+            scheduler: modifies the learning rate given the current epoch.
+        """
+        wd_flag = bool(weight_decay)
+        return cls(optimizer_cls=torch.optim.RAdam,
+                   lr=lr,
+                   scheduler=scheduler,
+                   optimizer_defaults={'betas': betas,
+                                       'weight_decay': weight_decay,
+                                       'decoupled_weight_decay': wd_flag})
 
 
 class Model(p.ModelProtocol[_Input_contra, _Output_co]):
@@ -60,7 +155,7 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
         epoch: the number of epochs the model has been trained so far.
 
     """
-    _default_model_name = repr_utils.DefaultName()
+    _default_name = repr_utils.DefaultName()
 
     def __init__(
             self,
@@ -70,10 +165,11 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
             device: Optional[torch.device] = None,
     ) -> None:
         self.module = self._validate_module(torch_module)
-        self.name: str = name or self._default_model_name
+        self.name = repr_utils.StrWithTS(name or self._default_name)
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
-        self._model_state_io = checkpoint.ModelStateIO(self)
+        exp = registering.register_model(self)
+        self._model_state_io = checkpoint.ModelStateIO(self, exp.dir)
 
     @property
     def device(self) -> torch.device:
@@ -163,7 +259,7 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
             **learning_scheme.optimizer_defaults,
         )
-        self._checkpoint = checkpoint.CheckpointIO(model, self.optimizer)
+        #self._checkpoint = checkpoint.CheckpointIO(model, self.optimizer)
 
     def get_scheduled_lr(self) -> list[_OptParams]:
         """
@@ -220,13 +316,13 @@ class ModelOptimizer:
             g['lr'] = up_g['lr']
         return
 
-    def load(self, epoch: int = -1) -> None:
-        """Load model and optimizer state from a checkpoint."""
-        self._checkpoint.load(epoch=epoch)
-
-    def save(self) -> None:
-        """Save model and optimizer state in a checkpoint."""
-        self._checkpoint.save()
+    # def load(self, epoch: int = -1) -> None:
+    #     """Load model and optimizer state from a checkpoint."""
+    #     self._checkpoint.load(epoch=epoch)
+    #
+    # def save(self) -> None:
+    #     """Save model and optimizer state in a checkpoint."""
+    #     self._checkpoint.save()
 
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(count_params(elem['params'])
