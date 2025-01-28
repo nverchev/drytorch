@@ -1,29 +1,28 @@
 """Classes for training a model."""
 
+from typing import Self, Optional, TypeVar
+from typing_extensions import override
 import warnings
-from typing import Self, TypeVar, Optional
 
 import torch
 from torch.cuda import amp
-from typing_extensions import override
 
-from src.dry_torch import checkpoint
+from src.dry_torch import evaluating
 from src.dry_torch import exceptions
 from src.dry_torch import learning
-from src.dry_torch import protocols as p
 from src.dry_torch import log_events
-from src.dry_torch import evaluating
 from src.dry_torch import hooks
+from src.dry_torch import protocols as p
+from src.dry_torch import repr_utils
+
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Trainer(
-    evaluating.Evaluation[_Input, _Target, _Output],
-    p.TrainerProtocol[_Input, _Target, _Output],
-):
+class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
+              p.TrainerProtocol[_Input, _Target, _Output]):
     """
     Implement the standard Pytorch training loop.
 
@@ -33,7 +32,7 @@ class Trainer(
         calculator: processes the model outputs and targets.
         name: the name for the object for logging purposes.
         learning_scheme: contains optimizer settings and scheduling.
-        mixed_precision: whether to use mixed precision computing.
+        mixed_precision: whether it uses mixed precision computing.
         outputs_list: list of optionally stored outputs
 
     """
@@ -55,16 +54,17 @@ class Trainer(
             loader: provides inputs and targets in batches.
             calculator: processes the model outputs and targets.
             learning_scheme: contains optimizer settings and scheduling.
-            name: the name for the object for logging purposes.
+            name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            mixed_precision: whether to use mixed precision computing.
-                Defaults to False.
+            mixed_precision: if allowed, use mixed precision computing.
         """
         super().__init__(model,
                          loader=loader,
                          calculator=calculator,
                          mixed_precision=mixed_precision,
                          name=name)
+        self.name: repr_utils.StrWithTS
+        self.model: p.ModelProtocol[_Input, _Output]
         self.calculator: p.LossCalculatorProtocol[_Output, _Target] = calculator
         self.learning_scheme = learning_scheme
         self.validation: Optional[evaluating.Validation] = None
@@ -124,7 +124,13 @@ class Trainer(
         return
 
     def load_checkpoint(self, epoch: int = -1) -> None:
-        """Load model and optimizer state from a checkpoint."""
+        """
+        Load model and optimizer state from a checkpoint.
+
+        Args:
+            epoch: the epoch from which to load the checkpoint.
+                Defaults to the last saved epoch.
+        """
         self._model_optimizer.load(epoch=epoch)
 
     def save_checkpoint(self) -> None:
@@ -176,15 +182,15 @@ class Trainer(
 
     @override
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
-        criterion = self.calculator.forward(outputs, targets)
-        if torch.isinf(criterion) or torch.isnan(criterion):
-            raise exceptions.ConvergenceError(criterion.item())
+        loss_value = self.calculator.forward(outputs, targets)
         try:
-            self._scaler.scale(criterion).backward()
+            if torch.isinf(loss_value) or torch.isnan(loss_value):
+                raise exceptions.ConvergenceError(loss_value.item())
         except RuntimeError as re:
-            if criterion.numel != 1:
-                raise exceptions.MetricsNotAVectorError(list(criterion.shape))
+            if loss_value.numel() != 1:
+                raise exceptions.LossNotScalarError(loss_value.shape)
             raise re
+        self._scaler.scale(loss_value).backward()
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()
