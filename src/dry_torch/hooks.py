@@ -153,7 +153,7 @@ class EarlyStoppingCallback:
             self,
             metric: Optional[str | p.MetricCalculatorProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
-            min_delta: float = 0.,
+            min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
             aggregate_fn: Optional[Callable[[Sequence], float]] = None,
@@ -293,11 +293,11 @@ class EarlyStoppingCallback:
                 self._best_is = 'higher'
             condition = False
         elif self._best_is == 'lower':
-            condition = self.best_result + self._min_delta <= aggregate_result
+            condition = self.best_result - self._min_delta <= aggregate_result
             if self._pruning is not None and current_epoch in self._pruning:
                 condition |= self._pruning[current_epoch] <= aggregate_result
         else:
-            condition = self.best_result - self._min_delta >= aggregate_result
+            condition = self.best_result + self._min_delta >= aggregate_result
             if self._pruning is not None and current_epoch in self._pruning:
                 condition |= self._pruning[current_epoch] >= aggregate_result
 
