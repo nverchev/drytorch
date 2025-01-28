@@ -1,7 +1,8 @@
 """This module contains functions for nested containers."""
+
 from collections.abc import Callable, MutableMapping, MutableSequence
 import copy
-from typing import Type, TypeVar, Any
+from typing import Any, Type, TypeVar
 
 import torch
 
@@ -54,19 +55,15 @@ def recursive_apply(obj: _C,
         for i, value in enumerate(obj):
             sequence[i] = recursive_apply(value, expected_type, func)
         return sequence  # type: ignore
-    try:
-        if isinstance(obj, tuple):
-            new = (recursive_apply(item, expected_type, func) for item in obj)
-            if obj.__class__ == tuple:
-                return tuple(list(new))  # type: ignore
-            try:
-                return obj.__class__(*new)  # type: ignore
-            except TypeError:
-                raise exceptions.NamedTupleOnlyError(obj.__class__.__name__)
 
-    except (TypeError, ValueError):
-        raise exceptions.FuncNotApplicableError(func.__name__,
-                                                obj.__class__.__name__)
+    if isinstance(obj, tuple):
+        new = (recursive_apply(item, expected_type, func) for item in obj)
+        if obj.__class__ == tuple:
+            return tuple(list(new))  # type: ignore
+        try:
+            return obj.__class__(*new)  # type: ignore
+        except TypeError:
+            raise exceptions.NamedTupleOnlyError(obj.__class__.__name__)
 
     raise exceptions.FuncNotApplicableError(func.__name__,
                                             obj.__class__.__name__)
@@ -98,7 +95,7 @@ def apply(obj: _C,
         for key in obj.__slots__:
             try:
                 dict_attr[key] = getattr(obj, key)
-            except AttributeError: # slotted attributes may not be initialized
+            except AttributeError:  # slotted attributes may not be initialized
                 pass
 
     if dict_attr:
@@ -129,10 +126,10 @@ def apply_to(obj: _C, device: torch.device) -> _C:
         the same container with the tensor on the target device.
     """
 
-    def to_device(tensor: torch.Tensor) -> torch.Tensor:
+    def _to_device(tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(device)
 
-    return apply(obj, expected_type=torch.Tensor, func=to_device)
+    return apply(obj, expected_type=torch.Tensor, func=_to_device)
 
 
 def apply_cpu_detach(obj: _C) -> _C:
@@ -146,8 +143,7 @@ def apply_cpu_detach(obj: _C) -> _C:
         the same obj with the tensor on cpu.
     """
 
-    def cpu_detach(tensor: torch.Tensor) -> torch.Tensor:
+    def _cpu_detach(tensor: torch.Tensor) -> torch.Tensor:
         return tensor.detach().cpu()
 
-    return apply(obj, expected_type=torch.Tensor, func=cpu_detach)
-
+    return apply(obj, expected_type=torch.Tensor, func=_cpu_detach)
