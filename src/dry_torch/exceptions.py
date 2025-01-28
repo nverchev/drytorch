@@ -1,7 +1,9 @@
 """Library specific exceptions."""
 
-from typing import Any
 import pathlib
+from typing import Any
+
+import torch
 
 
 class DryTorchException(Exception):
@@ -29,20 +31,20 @@ class FuncNotApplicableError(DryTorchException, TypeError):
         super().__init__(func_name, type_name)
 
 
-class LibraryNotAvailableError(DryTorchException, ImportError):
-    msg = 'Library {} is not installed.'
+class LossNotScalarError(DryTorchException, ValueError):
+    msg = 'Loss must be a scalar but got Tensor of shape {}.'
 
-    def __init__(self, library_name: str) -> None:
-        self.library_name = library_name
-        super().__init__(library_name)
+    def __init__(self, size: torch.Size) -> None:
+        self.size = size
+        super().__init__(size)
 
 
 class MetricsNotAVectorError(DryTorchException, ValueError):
     msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
 
-    def __init__(self, shapes: list[int]) -> None:
-        self.shapes = shapes
-        super().__init__(shapes)
+    def __init__(self, shape: list[int]) -> None:
+        self.shapes = shape
+        super().__init__(shape)
 
 
 class MetricNotFoundError(DryTorchException, ValueError):
@@ -65,12 +67,12 @@ class MissingParamError(DryTorchException, ValueError):
         super().__init__(lr_param_groups)
 
 
-class ModelFirstError(DryTorchException, TypeError):
-    msg = 'First argument of type {} does not follow ModelProtocol.'
+class ModelNotRegisteredError(DryTorchException, TypeError):
+    msg = 'Model {} has not been registered in experiment {}.'
 
-    def __init__(self, not_a_model: Any) -> None:
-        self.not_a_model = not_a_model
-        super().__init__(type(not_a_model))
+    def __init__(self, model_name: str, exp_name: str) -> None:
+        self.model_name = model_name
+        super().__init__(str(model_name), exp_name)
 
 
 class ModelNotFoundError(DryTorchException, FileNotFoundError):
@@ -81,8 +83,8 @@ class ModelNotFoundError(DryTorchException, FileNotFoundError):
         super().__init__(checkpoint_directory)
 
 
-class ModuleAlreadyRegisteredError(DryTorchException, ValueError):
-    msg = 'Module already registered in experiment {}.'
+class ModelAlreadyRegisteredError(DryTorchException, ValueError):
+    msg = 'Model has a module already registered in experiment {}.'
 
     def __init__(self, exp_name: str) -> None:
         super().__init__(exp_name)
@@ -132,9 +134,9 @@ class TrackerNotRegisteredError(DryTorchException, ValueError):
 class CannotStoreOutputWarning(DryTorchException, UserWarning):
     msg = 'Impossible to store output because the following error.\n{}'
 
-    def __init__(self, err_msg: str) -> None:
-        self.err_msg = err_msg
-        super().__init__(err_msg)
+    def __init__(self, error: BaseException) -> None:
+        self.error = error
+        super().__init__(str(error))
 
 
 class ComputedBeforeUpdatedWarning(DryTorchException, UserWarning):
@@ -171,9 +173,9 @@ class TerminatedTrainingWarning(DryTorchException, UserWarning):
 
 
 class TrackerError(DryTorchException, UserWarning):
-    msg = 'Tracker {} encountered the following error: \n {}'
+    msg = 'Tracker {} encountered the following error and was skipped: \n {}'
 
-    def __init__(self, subscriber_name: str, error: Exception) -> None:
+    def __init__(self, subscriber_name: str, error: BaseException) -> None:
         self.subscriber_name = subscriber_name
         self.error = error
         super().__init__(subscriber_name, str(error))
