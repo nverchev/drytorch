@@ -45,17 +45,18 @@ class MetadataManager:
         self.used_names = set[str]()
         self.max_items_repr = max_items_repr
 
-    def record_metadata(self, name: repr_utils.StrWithTS, obj: Any) -> None:
+    def record_model_call(self, name: str, model_name: str, obj: Any) -> None:
         """
         Records metadata of a given named object.
 
         Args:
             name: The name associated to the object.
+            model_name: The name of the model linked to the object.
             obj: The object to document.
         """
         self._register_name(name)
         metadata = self.extract_metadata(obj, max_size=self.max_items_repr)
-        log_events.RecordMetadata(name, metadata)
+        log_events.CallModel(name, model_name, metadata)
         return
 
     def register_model(self, model: p.ModelProtocol) -> None:
@@ -72,7 +73,7 @@ class MetadataManager:
 
     def _register_name(self, name: str) -> None:
         if name in self.used_names:
-            raise exceptions.ModuleAlreadyRegisteredError(name)
+            raise exceptions.ModelAlreadyRegisteredError(name)
         self.used_names.add(name)
         return
 
@@ -106,7 +107,7 @@ class Tracker(metaclass=abc.ABCMeta):
         Notify the tracker of an event.
 
         Args:
-            event (log_events.Event): The event to notify about.
+            event: The event to notify about.
         """
         return
 
@@ -129,7 +130,8 @@ class EventDispatcher:
         self.named_trackers: dict[str, Tracker] = {}
 
     def publish(self, event: log_events.Event) -> None:
-        """Publish an event to all registered trackers.
+        """
+        Publish an event to all registered trackers.
 
         Args:
             event: The event to publish.
@@ -142,7 +144,8 @@ class EventDispatcher:
                 warnings.warn(exceptions.TrackerError(name, err))
 
     def register_tracker(self, tracker: Tracker) -> None:
-        """Register a tracker to the experiment.
+        """
+        Register a tracker to the experiment.
 
         Args:
             tracker: The tracker to register.
@@ -157,7 +160,8 @@ class EventDispatcher:
         self.named_trackers[tracker_name] = tracker
 
     def register_trackers(self, *trackers: Tracker) -> None:
-        """Register trackers from am iterable to the experiment.
+        """
+        Register trackers from am iterable to the experiment.
 
         Args:
             trackers: Trackers to register.
@@ -169,7 +173,8 @@ class EventDispatcher:
             self.register_tracker(tracker)
 
     def remove_named_tracker(self, tracker_name: str) -> None:
-        """Remove a tracker by name from the experiment.
+        """
+        Remove a tracker by name from the experiment.
 
         Args:
             tracker_name: Name of the tracker to remove.
@@ -203,6 +208,7 @@ class Experiment(Generic[_T]):
         dir: The directory for storing experiment files.
         config: Configuration object for the experiment.
         metadata_manager: Manager for recording metadata.
+        event_dispatcher: Dispatcher for publishing events.
     """
 
     past_experiments: set[Experiment] = set()
