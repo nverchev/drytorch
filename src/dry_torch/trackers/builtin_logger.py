@@ -8,6 +8,7 @@ By default, it prints to stdout and does not propagate to the main root.
 Attributes:
     INFO_LEVELS: InfoLevels object for global settings.
 """
+
 import functools
 import logging
 import sys
@@ -157,7 +158,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartTraining) -> None:
         logger.log(INFO_LEVELS.training,
                    'Training %(model_name)s started.',
-                   {'model_name': event.model_name})
+                   {'model_name': str(event.model_name)})
         return
 
     @notify.register
@@ -182,31 +183,28 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.metrics, '')
         return
 
-    # @notify.register
-    # def _(self, _event: log_events.EndEpoch) -> None:
-    #     logger.log(INFO_LEVELS.metrics, '')
-    #     return
-
     @notify.register
-    def _(self, event: log_events.SaveCheckpoint) -> None:
+    def _(self, event: log_events.SaveModel) -> None:
         logger.log(INFO_LEVELS.checkpoint,
-                   f'%(definition)s saved in: %(location)s.',
-                   {'definition': event.definition.capitalize(),
+                   f'Saving %(name)s %(definition)s in: %(location)s.',
+                   {'name': str(event.model_name),
+                    'definition': event.definition.capitalize(),
                     'location': event.location}
                    )
         return
 
     @notify.register
-    def _(self, event: log_events.LoadCheckpoint) -> None:
+    def _(self, event: log_events.LoadModel) -> None:
         logger.log(INFO_LEVELS.checkpoint,
-                   f'Loaded %(definition)s at epoch %(epoch)d.',
-                   {'definition': event.definition.capitalize(),
+                   f'Loading %(name)s %(definition)s at epoch %(epoch)d.',
+                   {'name': str(event.model_name),
+                    'definition': event.definition.capitalize(),
                     'epoch': event.epoch}
                    )
         return
 
     @notify.register
-    def _(self, event: log_events.MetricsCreation) -> None:
+    def _(self, event: log_events.FinalMetrics) -> None:
         log_msg_list: list[str] = ['%(desc)-24s']
         desc = event.source.rjust(15) + ': '
         log_args: dict[str, str | float] = {'desc': desc}
@@ -219,29 +217,31 @@ class BuiltinLogger(tracking.Tracker):
         return
 
     @notify.register
-    def _(self, event: log_events.StartTest) -> None:
+    def _(self, event: log_events.Test) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Testing %(model_name)s started.',
-                   {'model_name': event.model_name})
+                   {'model_name': str(event.model_name)})
 
     @notify.register
     def _(self, event: log_events.TerminatedTraining) -> None:
         explicit_cause = '' if event.cause is None else 'by ' + event.cause
-        logger.log(INFO_LEVELS.training,
-                   'Training terminated at epoch %(epoch)d %(explicit_cause)s.',
-                   {'epoch': event.epoch, 'explicit_cause': explicit_cause})
+        logger.log(
+            INFO_LEVELS.training,
+            'Training terminated at epoch %(epoch)d %(explicit_cause)s.',
+            {'epoch': event.epoch, 'explicit_cause': explicit_cause},
+        )
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
-                   {'name': event.exp_name})
+                   {'name': str(event.exp_name)})
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
-                   {'name': event.exp_name})
+                   {'name': str(event.exp_name)})
 
     @notify.register
     def _(self, event: log_events.ModelDidNotConverge) -> None:
