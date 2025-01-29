@@ -1,15 +1,17 @@
 """Registry and hooks for a class following the Trainer protocol."""
 
+import abc
 from collections import deque
 from collections.abc import Callable, Sequence
 import functools
+import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeAlias, TypeVar
-from typing import cast
 
 from src.dry_torch import calculating
 from src.dry_torch import log_events
 from src.dry_torch import exceptions
 from src.dry_torch import protocols as p
+from src.dry_torch import schedulers
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
@@ -23,14 +25,14 @@ class HookRegistry(Generic[_T]):
     The hooks have a generic object as input and can access it.
 
     Attributes:
-        _hooks: A list of registered hooks.
+        hooks: A list of registered hooks.
     """
 
     def __init__(self) -> None:
         """
         Initializes the HookRegistry with an empty list of hooks.
         """
-        self._hooks: list[Callable[[_T], None]] = []
+        self.hooks: list[Callable[[_T], None]] = []
 
     def register(self, hook: Callable[[_T], None]) -> None:
         """
@@ -39,7 +41,7 @@ class HookRegistry(Generic[_T]):
         Args:
             hook: The hook to register.
         """
-        self._hooks.append(hook)
+        self.hooks.append(hook)
         return
 
     def register_all(self, hook_list: list[Callable[[_T], None]]) -> None:
@@ -60,7 +62,7 @@ class HookRegistry(Generic[_T]):
         Args:
             input_object: The input to pass to each hook.
         """
-        for hook in self._hooks:
+        for hook in self.hooks:
             hook(input_object)
         return
 
@@ -144,9 +146,16 @@ def call_every(interval: int, hook: _Hook, start: int = 0) -> _Hook:
     return _call
 
 
-class EarlyStoppingCallback:
+class MetricMonitor:
     """
-    Implements early stopping logic for training models.
+    Handles metric monitoring and alerts when performance stop increasing.
+
+    Attributes:
+        metric_name: Name of the metric to monitor.
+        optional_monitor: Evaluation protocol to monitor.
+        min_delta: Minimum change required to qualify as an improvement.
+        patience: Number of checks to wait before triggering callback.
+        aggregate_fn: Function to aggregate recent metric values.
     """
 
     def __init__(
@@ -156,55 +165,63 @@ class EarlyStoppingCallback:
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            aggregate_fn: Optional[Callable[[Sequence], float]] = None,
-            pruning: Optional[dict[int, float]] = None,
-            start_from_epoch: int = 2,
+            aggregate_fn: Optional[Callable[[Sequence[float]], float]] = None,
     ) -> None:
         """
-        Initializes the EarlyStoppingCallback.
-
         Args:
-        metric_name: The name of the metric to monitor. Defaults to first found.
-        monitor: The evaluation protocol to monitor. Defaults to validation.
-            Falls back to the trainer class.
-        min_delta: The minimum change in metric to qualify as an improvement.
-        patience: The number of calls to wait before stopping. Defaults to 10.
-        best_is: Determines if higher or lower values are better. Defaults to
-            automatic inference.
-        aggregate_fn: Function to aggregate recent metric values. Defaults to
-            min or max depending on best_is.
-        pruning: A mapping of epoch numbers to pruning thresholds.
-        start_from_epoch: The earliest epoch to stop. Defaults to 2.
+            metric: Name of the metric to monitor or metric calculator instance.
+                Defaults to first metric found.
+            monitor: Evaluation protocol to monitor. Defaults to validation
+                if available, trainer instance otherwise.
+            min_delta: Minimum change required to qualify as an improvement.
+            patience: Number of checks to wait before triggering callback.
+            best_is: Whether higher or lower metric values are better.
+                'auto' will determine this from first measurements.
+            aggregate_fn: Function to aggregate recent metric values.
+                Defaults to min/max based on best_is.
         """
         if metric is None or isinstance(metric, str):
-            self._metric_name = metric
+            self.metric_name = metric
         elif name := getattr(metric, 'name', False):
-            self._metric_name = str(name)
+            self.metric_name = str(name)
         else:
-            self._metric_name = metric.__class__.__name__
-        self._min_delta = min_delta
-        self._patience = patience
+            self.metric_name = metric.__class__.__name__
+
         higher_is_better = getattr(metric, 'higher_is_better', None)
         if higher_is_better is True:
-            self._best_is = 'higher'
+            self.best_is = 'higher'
         elif higher_is_better is False:
-            self._best_is = 'lower'
+            self.best_is = 'lower'
         else:
-            self._best_is = best_is
-        self._pruning = pruning
-        self._start_from_epoch = start_from_epoch
-        self._monitor = monitor
-        self._monitor_log = deque[float](maxlen=patience + 1)
+            self.best_is = best_is
+
+        if patience < 0:
+            raise ValueError('Patience must be a non-negative integer.')
+
+        self.aggregate_fn: Callable[[Sequence[float]], float]
+        if aggregate_fn is None:
+            self.aggregate_fn = operator.itemgetter(-1)
+        else:
+            self.aggregate_fn = aggregate_fn
+
+        self.min_delta = min_delta
+        self.patience = patience
+        self.optional_monitor = monitor
+        self._patience_countdown = patience
         self._best_result: Optional[float] = None
-        self._aggregate_fn = aggregate_fn
+        self._monitor_log = deque[float](maxlen=patience + 1)
+        return
 
     @property
     def best_result(self) -> float:
         """
-        Returns the best observed result.
+        Get the best result observed so far.
 
         Returns:
-            The best observed metric value.
+            The best metric value according to best_is criterion.
+
+        Raises:
+            ResultNotAvailableError: if no results have been logged yet.
         """
         if self._best_result is None:
             try:
@@ -217,94 +234,379 @@ class EarlyStoppingCallback:
 
     @best_result.setter
     def best_result(self, value: float) -> None:
-        """
-        Sets the best result.
-
-        Args:
-            The new best result value.
-        """
+        """Set the best result value."""
         self._best_result = value
         return
 
-    @property
-    def aggregate_fn(self) -> Callable[[Sequence], float]:
+    def register_metric(self, instance: p.TrainerProtocol) -> None:
         """
-        Returns the aggregation function used for metrics.
-
-        Returns:
-            The aggregation function.
-        """
-        if self._aggregate_fn is None:
-            if self._best_is == 'lower':
-                self._aggregate_fn = min
-                return min
-            elif self._best_is == 'higher':
-                self._aggregate_fn = max
-                return max
-            else:
-                return lambda array: array[0]
-        return self._aggregate_fn
-
-    def __call__(self, instance: p.TrainerProtocol) -> None:
-        """
-        Evaluates whether training should be stopped early.
+        Register new metric.
 
         Args:
-            instance: The Trainer instance to evaluate.
+            instance: Trainer instance.
 
         Raises:
             MetricNotFoundError: If the specified metric is not found.
         """
-        log_events.TerminatedTraining(instance.model.epoch, 'early stopping')
-        if self._monitor is None:
-            if instance.validation is None:
-                monitor = cast(p.EvaluationProtocol, instance)
-            else:
-                monitor = instance.validation
-        else:
-            monitor = self._monitor
-
+        monitor = self._get_monitor(instance)
         last_metrics = calculating.repr_metrics(monitor.calculator)
 
-        if self._metric_name is None:
-            self._metric_name = list(last_metrics.keys())[0]
-        elif self._metric_name not in last_metrics:
+        if self.metric_name is None:
+            self.metric_name = list(last_metrics.keys())[0]
+        elif self.metric_name not in last_metrics:
             raise exceptions.MetricNotFoundError(monitor.name,
-                                                 self._metric_name)
-        if last_metrics != last_metrics:
-            instance.terminate_training()
-            log_events.TerminatedTraining(instance.model.epoch,
-                                          f'Metric is not a number.')
+                                                 self.metric_name)
 
-        self._monitor_log.append(last_metrics[self._metric_name])
+        value = last_metrics[self.metric_name]
+        self._monitor_log.append(value)
+        return
 
-        current_epoch = instance.model.epoch
+    def is_patient(self) -> bool:
+        """Check whether to be patient."""
+        return self._patience_countdown > 1
 
-        if (current_epoch < self._start_from_epoch or
-                len(self._monitor_log) <= self._patience):
-            return
+    def is_improving(self) -> bool:
+        """
+        Determine if the model performance is improving.
+
+        Returns:
+            Whether there has been an improvement in the last {patience} calls.
+        """
+
+        if len(self._monitor_log) <= 1:
+            return True
 
         aggregate_result = self.aggregate_fn(self._monitor_log)
 
-        if self._best_is == 'auto':
-            if self._monitor_log[0] > aggregate_result:
-                self._best_is = 'lower'  # start result is worse result
-            else:
-                self._best_is = 'higher'
-            condition = False
-        elif self._best_is == 'lower':
-            condition = self.best_result - self._min_delta <= aggregate_result
-            if self._pruning is not None and current_epoch in self._pruning:
-                condition |= self._pruning[current_epoch] <= aggregate_result
-        else:
-            condition = self.best_result + self._min_delta >= aggregate_result
-            if self._pruning is not None and current_epoch in self._pruning:
-                condition |= self._pruning[current_epoch] >= aggregate_result
-
-        if condition:
-            instance.terminate_training()
-            log_events.TerminatedTraining(instance.model.epoch,
-                                          'early stopping')
-        else:
+        if self.is_best(aggregate_result):
             self.best_result = aggregate_result
+            self._patience_countdown = self.patience
+            return True
+        self._patience_countdown -= 1
+        return False
+
+    def is_best(self, value: float) -> bool:
+        """
+        Determine if value is better than recent performances.
+
+        Args:
+            value: the value to compare.
+
+        Returns:
+            True if value is a potential improvement, False otherwise.
+        """
+        if value != value:  # Check for NaN
+            return False
+
+        if self.best_is == 'auto':
+            if self._monitor_log[0] > value:
+                self.best_is = 'lower'
+            else:
+                self.best_is = 'higher'
+            return True
+        elif self.best_is == 'lower':
+            return self.best_result - self.min_delta > value
+        else:
+            return self.best_result + self.min_delta < value
+
+    def _get_monitor(self, instance: p.TrainerProtocol) -> p.EvaluationProtocol:
+        if self.optional_monitor is None:
+            if instance.validation is None:
+                return instance  # type: ignore
+            return instance.validation
+        return self.optional_monitor
+
+
+class EarlyStoppingCallback:
+    """
+    Implements early stopping logic for training models.
+
+    Attributes:
+        monitor: Monitor instance
+        start_from_epoch: Start from epoch
+    """
+
+    def __init__(
+            self,
+            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            monitor: Optional[p.EvaluationProtocol] = None,
+            min_delta: float = 1e-8,
+            patience: int = 10,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            aggregate_fn: Optional[Callable[[Sequence[float]], float]] = None,
+            start_from_epoch: int = 2,
+    ) -> None:
+        """
+        Args:
+            metric: Name of metric to monitor or metric calculator instance.
+                            Defaults to first metric found.
+            monitor: Evaluation protocol to monitor. Defaults to validation
+                if available, trainer instance otherwise.
+            min_delta: Minimum change required to qualify as an improvement.
+            patience: Number of calls to wait before stopping.
+                'auto' will determine this from first measurements.
+            best_is: Whether higher or lower metric values are better.
+            aggregate_fn: Function to aggregate recent metric values.
+                Defaults to min/max based on best_is.
+            start_from_epoch: First epoch to start monitoring from.
+        """
+        self.monitor = MetricMonitor(
+            metric=metric,
+            monitor=monitor,
+            min_delta=min_delta,
+            patience=patience,
+            best_is=best_is,
+            aggregate_fn=aggregate_fn,
+        )
+        self.start_from_epoch = start_from_epoch
         return
+
+    def __call__(self, instance: p.TrainerProtocol) -> None:
+        """
+        Evaluate whether training should be stopped early.
+
+        Args:
+            instance: Trainer instance to evaluate.
+        """
+        self.monitor.register_metric(instance)
+
+        epoch = instance.model.epoch
+        if epoch < self.start_from_epoch:
+            return
+
+        if self.monitor.is_improving() or self.monitor.is_patient():
+            return
+        instance.terminate_training()
+        log_events.TerminatedTraining(epoch, 'early stopping')
+        return
+
+
+class PruneCallback:
+    """
+    Implements pruning logic for training models.
+
+    Attributes:
+        monitor: Monitor instance
+        pruning: Dictionary mapping epochs to pruning thresholds
+    """
+
+    def __init__(
+            self,
+            pruning: dict[int, float],
+            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            monitor: Optional[p.EvaluationProtocol] = None,
+            min_delta: float = 1e-8,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            aggregate_fn: Optional[Callable[[Sequence[float]], float]] = None,
+    ) -> None:
+        """
+        Args:
+            pruning: Dictionary mapping epochs to pruning thresholds.
+            metric: Name of metric to monitor or metric calculator instance.
+                            Defaults to first metric found.
+            monitor: Evaluation protocol to monitor. Defaults to validation
+                if available, trainer instance otherwise.
+            min_delta: Minimum change required to qualify as an improvement.
+            best_is: Whether higher or lower metric values are better.
+               'auto' will determine this from first measurements.
+            aggregate_fn: Function to aggregate recent metric values.
+                Defaults to min/max based on best_is.
+        """
+        self.monitor = MetricMonitor(
+            metric=metric,
+            monitor=monitor,
+            min_delta=min_delta,
+            patience=0,
+            best_is=best_is,
+            aggregate_fn=aggregate_fn,
+        )
+        self.pruning = pruning
+        return
+
+    def __call__(self, instance: p.TrainerProtocol) -> None:
+        """
+        Evaluate whether training should be stopped early.
+
+        Args:
+            instance: Trainer instance to evaluate.
+        """
+        epoch = instance.model.epoch
+        if epoch not in self.pruning:
+            return
+        threshold = self.pruning[epoch]
+        self.monitor.register_metric(instance)
+        if self.monitor.is_best(threshold):
+            instance.terminate_training()
+            log_events.TerminatedTraining(epoch, 'pruning')
+        return
+
+
+class ChangeSchedulerOnPlateau(metaclass=abc.ABCMeta):
+    """
+    Changes learning rate schedule when a metric has stopped improving.
+
+    Attributes:
+        monitor: Monitor instance
+        cooldown: Number of calls to skip after changing the schedule
+    """
+
+    def __init__(
+            self,
+            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            monitor: Optional[p.EvaluationProtocol] = None,
+            min_delta: float = 1e-8,
+            patience: int = 0,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            aggregate_fn: Optional[Callable[[Sequence[float]], float]] = None,
+            cooldown: int = 0,
+    ) -> None:
+        """
+        Initialize the learning rate reduction callback.
+
+        Args:
+            metric: Name of metric to monitor or metric calculator instance.
+                Defaults to first metric found.
+            monitor: Evaluation protocol to monitor. Defaults to validation
+                if available, trainer instance otherwise.
+            min_delta: Minimum change required to qualify as an improvement.
+            patience: Number of checks to wait before changing the schedule.
+            best_is: Whether higher or lower metric values are better.
+                'auto' will determine this from first measurements.
+            aggregate_fn: Function to aggregate recent metric values.
+                Defaults to min/max based on best_is.
+            cooldown: calls to skip after changing the schedule.
+        """
+        self.monitor = MetricMonitor(
+            metric=metric,
+            monitor=monitor,
+            min_delta=min_delta,
+            patience=patience,
+            best_is=best_is,
+            aggregate_fn=aggregate_fn,
+        )
+        self.cooldown = cooldown
+        self._cooldown_counter = 0
+        return
+
+    def __call__(self, instance: p.TrainerProtocol) -> None:
+        """
+        Check if learning rate should be reduced and apply reduction if needed.
+
+        Args:
+            instance: Trainer instance to evaluate.
+        """
+        epoch = instance.model.epoch
+
+        if self._cooldown_counter > 0:
+            self._cooldown_counter -= 1
+            return
+
+        self.monitor.register_metric(instance)
+        if self.monitor.is_improving() or self.monitor.is_patient():
+            return
+
+        scheduler = self.get_scheduler(epoch,
+                                       instance.learning_scheme.scheduler)
+        instance.update_learning_rate(lr=None, scheduler=scheduler)
+
+        # Start cooldown period
+        self._cooldown_counter = self.cooldown
+        return
+
+    @abc.abstractmethod
+    def get_scheduler(self,
+                      epoch: int,
+                      scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
+        """
+        Modifies input scheduler.
+
+        Args:
+            epoch: Current epoch
+            scheduler: Scheduler to be modified.
+        """
+
+
+class ReduceLROnPlateau(ChangeSchedulerOnPlateau):
+    """
+    Reduces learning rate when a metric has stopped improving.
+
+    Attributes:
+        monitor: Monitor instance
+        cooldown: Number of calls to skip after changing the schedule
+        factor: Factor by which to reduce the learning rate
+    """
+
+    def __init__(
+            self,
+            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            monitor: Optional[p.EvaluationProtocol] = None,
+            min_delta: float = 1e-8,
+            patience: int = 0,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            aggregate_fn: Optional[Callable[[Sequence[float]], float]] = None,
+            factor: float = 0.1,
+            cooldown: int = 0,
+    ) -> None:
+        """
+        Initialize the learning rate reduction callback.
+
+        Args:
+            metric: Name of metric to monitor or metric calculator instance.
+                Defaults to first metric found.
+            monitor: Evaluation protocol to monitor. Defaults to validation
+                if available, trainer instance otherwise.
+            min_delta: Minimum change required to qualify as an improvement.
+            patience: Number of checks to wait before changing the schedule.
+            best_is: Whether higher or lower metric values are better.
+                'auto' will determine this from first measurements.
+            aggregate_fn: Function to aggregate recent metric values.
+                Defaults to min/max based on best_is.
+            cooldown: calls to skip after changing the schedule.
+            factor: Factor by which to reduce the learning rate.
+        """
+        super().__init__(
+            metric=metric,
+            monitor=monitor,
+            min_delta=min_delta,
+            patience=patience,
+            best_is=best_is,
+            aggregate_fn=aggregate_fn,
+            cooldown=cooldown,
+        )
+        self.factor = factor
+
+    def get_scheduler(self,
+                      epoch: int,
+                      scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
+        """
+        Modifies input scheduler to scale down the learning rate.
+
+        Args:
+            epoch: Not used
+            scheduler: Scheduler to be modified.
+        """
+        scaled_scheduler = schedulers.ConstantScheduler(self.factor)
+        # composition is in reverse order such as in f \circle g
+        return schedulers.CompositionScheduler(scheduler, scaled_scheduler)
+
+
+class RestartScheduleOnPlateau(ChangeSchedulerOnPlateau):
+    """
+    Restarts the scheduling after plateauing.
+
+    Attributes:
+        monitor: Monitor instance
+        cooldown: Number of calls to skip after changing the schedule
+    """
+
+    def get_scheduler(self,
+                      epoch: int,
+                      scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
+        """
+        Consider training until now a warm-up and restart scheduling.
+
+        Args:
+            epoch: int
+            scheduler: Scheduler to be modified.
+        """
+        return schedulers.WarmupScheduler(epoch, scheduler)
