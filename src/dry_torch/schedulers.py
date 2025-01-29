@@ -27,14 +27,18 @@ class AbstractScheduler(p.SchedulerProtocol):
         ...
 
 
+@dataclasses.dataclass
 class ConstantScheduler(AbstractScheduler):
-    """Constant learning rate."""
+    """
+    Constant learning rate.
+
+    Attributes:
+        factor: multiplicative factor for the base learning rate.
+    """
+    factor: float = 1.0
 
     def _compute(self, base_lr: float, epoch: int) -> float:
-        return base_lr
-
-    def __repr__(self) -> str:
-        return 'Constant learning rate'
+        return self.factor * base_lr
 
 
 @dataclasses.dataclass
