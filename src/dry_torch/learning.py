@@ -253,7 +253,7 @@ class ModelOptimizer:
         self.model = model
         self.module = model.module
         self._params_lr: list[_OptParams] = []
-        self.set_lr(learning_scheme.lr)
+        self.lr = learning_scheme.lr
         self.scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
@@ -272,15 +272,16 @@ class ModelOptimizer:
             for g in self._params_lr
         ]
 
-    # params_lr.setter does not implement typing suggestion
-    def set_lr(self, lr: float | dict[str, float]) -> None:
+    @property
+    def lr(self) -> float | dict[str, float]:
         """
-        Pair the learning rates with the parameter groups.
+        The learning rate(s) for the module parameters.
+        """
+        return self._lr
 
-        Args:
-            lr: a dictionary of learning rates for the named parameters or
-                a float for a global value.
-        """
+    @lr.setter
+    def lr(self, lr: float | dict[str, float]) -> None:
+        self._lr = lr
         if isinstance(lr, (float, int)):
             self._params_lr = [
                 dict(params=self.module.parameters(), lr=lr),
@@ -309,7 +310,7 @@ class ModelOptimizer:
                 Else, the scheduler is deactivated.
         """
         if lr is not None:
-            self.set_lr(lr)
+            self.lr = lr
             self.scheduler = schedulers.ConstantScheduler()
         for g, up_g in zip(self.optimizer.param_groups,
                            self.get_scheduled_lr()):
