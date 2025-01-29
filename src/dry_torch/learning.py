@@ -297,21 +297,23 @@ class ModelOptimizer:
 
     def update_learning_rate(
             self,
-            lr: Optional[float | dict[str, float]] = None
+            lr: Optional[float | dict[str, float]] = None,
+            scheduler: Optional[p.SchedulerProtocol] = None,
     ) -> None:
         """
         It updates the learning rates for each parameters' group in the
-        optimizer.
+        optimizer based on input learning rate(s) and scheduler.
 
         Args:
-            lr: a dictionary of learning rates for the named parameters or a
-                float for a global value. If None (default), the scheduled
-                original learning rates are used.
-                Else, the scheduler is deactivated.
+            lr: learning rates for named parameters or global value. Default
+                keeps the original learning rates.
+            scheduler: scheduler for the learning rates. Default keeps the
+                original scheduler.
         """
+        if scheduler is not None:
+            self.scheduler = scheduler
         if lr is not None:
             self.lr = lr
-            self.scheduler = schedulers.ConstantScheduler()
         for g, up_g in zip(self.optimizer.param_groups,
                            self.get_scheduled_lr()):
             g['lr'] = up_g['lr']
