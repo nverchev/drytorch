@@ -251,6 +251,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     """
     name: str
     model: ModelProtocol[_Input, _Output]
+    learning_scheme: LearningProtocol
     calculator: LossCalculatorProtocol[_Output, _Target]
     validation: EvaluationProtocol[_Input, _Target, _Output] | None
 
@@ -269,3 +270,17 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
 
     def load_checkpoint(self, epoch: int = -1) -> None:
         """Load the model weights, the optimizer state and the logs."""
+
+    def update_learning_rate(
+            self,
+            lr: Optional[float],
+            scheduler: Optional[SchedulerProtocol],
+    ) -> None:
+        """
+        It updates the learning rates for each parameters' group in the
+        optimizer based on input learning rate and scheduler.
+
+        Args:
+            lr: learning rate.
+            scheduler: scheduler for the learning rate.
+        """

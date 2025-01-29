@@ -180,6 +180,23 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             warnings.warn(exceptions.PastEpochWarning(epoch, self.model.epoch))
         return
 
+    def update_learning_rate(
+            self,
+            lr: Optional[float | dict[str, float]] = None,
+            scheduler: Optional[p.SchedulerProtocol] = None,
+    ) -> None:
+        """
+        It updates the learning rates for each parameters' group in the
+        optimizer based on input learning rate(s) and scheduler.
+
+        Args:
+            lr: learning rates for named parameters or global value. Default
+                keeps the original learning rates.
+            scheduler: scheduler for the learning rates. Default keeps the
+                original scheduler.
+        """
+        self._model_optimizer.update_learning_rate(lr, scheduler)
+
     @override
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
         loss_value = self.calculator.forward(outputs, targets)
@@ -194,8 +211,3 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()
-
-    def _update_learning_rate(
-            self, learning_rate: float | dict[str, float],
-    ) -> None:
-        self._model_optimizer.update_learning_rate(learning_rate)
