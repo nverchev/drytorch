@@ -4,8 +4,9 @@ import pytest
 
 import numpy as np
 
-from src.dry_torch.schedulers import ExponentialScheduler, CosineScheduler
-from src.dry_torch.schedulers import ConstantScheduler, Warmup
+from src.dry_torch.schedulers import CompositionScheduler, ConstantScheduler
+from src.dry_torch.schedulers import CosineScheduler, ExponentialScheduler
+from src.dry_torch.schedulers import WarmupScheduler
 
 
 class TestConstantScheduler:
@@ -94,7 +95,7 @@ class TestCosineScheduler:
 
 
 class TestWarmupWrapper:
-    """Test WarmupWrapper functionality with different schedulers."""
+    """Test WarmupWrapper functionality with exponential scheduler."""
 
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
@@ -103,8 +104,9 @@ class TestWarmupWrapper:
         self.warmup_steps = 10
         self.scheduler = ExponentialScheduler(exp_decay=0.9,
                                               min_decay=self.base_lr)
-        self.warmed_up_scheduler = Warmup(warmup_steps=self.warmup_steps,
-                                          scheduler=self.scheduler)
+        self.warmed_up_scheduler = WarmupScheduler(
+            warmup_steps=self.warmup_steps,
+            scheduler=self.scheduler)
 
     def test_warmup_start(self) -> None:
         """Test that warmup starts at zero learning rate."""
@@ -128,3 +130,26 @@ class TestWarmupWrapper:
         post_warmup = self.warmed_up_scheduler(self.base_lr, total_epochs)
         expected = self.scheduler(self.base_lr, epochs_after_warmup)
         assert post_warmup == expected
+
+
+class TestCompositionScheduler:
+    """Test CompositionScheduler functionality."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up different schedulers with warmup for testing."""
+        self.base_lr = 0.01
+        self.factor = 0.1
+        self.scaled_scheduler = ConstantScheduler(self.factor)
+        self.exp_scheduler = ExponentialScheduler(exp_decay=0.9,
+                                                  min_decay=self.base_lr)
+        self.composed_scheduler = CompositionScheduler(self.scaled_scheduler,
+                                                       self.exp_scheduler)
+        return
+
+    @pytest.mark.parametrize('epoch', [10, 30, 50])
+    def test_epochs(self, epoch) -> None:
+        """Test that warmup increases linearly."""
+        expected_lr = self.exp_scheduler(self.base_lr, epoch) * self.factor
+        assert self.composed_scheduler(self.base_lr, epoch) == expected_lr
+

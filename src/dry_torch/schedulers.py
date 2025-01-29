@@ -27,7 +27,7 @@ class AbstractScheduler(p.SchedulerProtocol):
         ...
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class ConstantScheduler(AbstractScheduler):
     """
     Constant learning rate.
@@ -83,7 +83,7 @@ class CosineScheduler(AbstractScheduler):
 
 
 @dataclasses.dataclass
-class Warmup(AbstractScheduler):
+class WarmupScheduler(AbstractScheduler):
     """
     Adds a warmup phase to any scheduler.
 
@@ -96,7 +96,7 @@ class Warmup(AbstractScheduler):
     """
 
     warmup_steps: int = 10
-    scheduler: AbstractScheduler = ConstantScheduler()
+    scheduler: p.SchedulerProtocol = ConstantScheduler()
 
     def _compute(self, base_lr: float, epoch: int) -> float:
         if epoch < self.warmup_steps:
@@ -106,3 +106,20 @@ class Warmup(AbstractScheduler):
     def __repr__(self) -> str:
         wrapped_repr = self.scheduler.__repr__()
         return f'{wrapped_repr} with {self.warmup_steps} warm up steps'
+
+
+@dataclasses.dataclass
+class CompositionScheduler(AbstractScheduler):
+    """
+    Compose two schedulers as in function composition.
+
+    Attributes:
+        scheduler_a: second scheduler to call.
+        scheduler_b: first scheduler to call.
+    """
+
+    scheduler_a: p.SchedulerProtocol
+    scheduler_b: p.SchedulerProtocol
+
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        return self.scheduler_a(self.scheduler_b(base_lr, epoch), epoch)
