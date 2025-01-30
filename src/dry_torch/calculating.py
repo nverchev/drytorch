@@ -13,7 +13,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Callable, Hashable
 import operator
-from typing import Any, Mapping, Optional, Protocol, Self, TypeVar
+from typing import Any, Mapping, Protocol, Optional, Self, TypeVar
 from typing import runtime_checkable
 from typing_extensions import override
 import warnings
@@ -179,9 +179,11 @@ class MetricCollection(MetricBase[_Output_contra, _Target_contra]):
 class Metric(MetricBase[_Output_contra, _Target_contra]):
 
     def __init__(self,
-                 name: str,
                  fun: p.TensorCallable[_Output_contra, _Target_contra],
-                 higher_is_better: Optional[bool] = None) -> None:
+                 /,
+                 *,
+                 name: str,
+                 higher_is_better: Optional[bool]) -> None:
         super().__init__(**{name: fun})
         self.name = name
         self.fun = fun
@@ -200,6 +202,8 @@ class LossBase(
     metaclass=abc.ABCMeta,
 ):
     name = 'Loss'
+    higher_is_better: bool
+    formula: str
 
     def __init__(
             self,
@@ -222,15 +226,17 @@ class LossBase(
             other: MetricBase[_Output_contra, _Target_contra]
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
-        return CompositionalLoss(self.criterion, **named_metric_fun)
+        return CompositionalLoss(criterion=self.criterion,
+                                 higher_is_better=self.higher_is_better,
+                                 formula=self.formula,
+                                 **named_metric_fun)
 
-    def _apply(
+    def _combine(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
-            operation: Callable[
-                [torch.Tensor, torch.Tensor | float],
-                torch.Tensor
-            ],
+            operation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+            str_op: str,
+            requires_outer_par: bool = True,
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """
         Helper method to combine two losses or apply an operation with a float.
@@ -238,24 +244,40 @@ class LossBase(
         if isinstance(other, LossBase):
             named_metric_fun = self.named_metric_fun | other.named_metric_fun
 
+            str_other = other.formula
+
+            # apply should combine losses that share the same direction
+            self._check_same_direction(other)
+
             def _new_criterion(x: dict[str, torch.Tensor]) -> torch.Tensor:
                 return operation(self.criterion(x), other.criterion(x))
 
         elif isinstance(other, (float, int)):
             named_metric_fun = self.named_metric_fun
 
-            def _new_criterion(x: dict[str, torch.Tensor]) -> torch.Tensor:
-                return operation(self.criterion(x), other)
-        else:
-            raise TypeError(f"Unsupported type for operation: {type(other)}")
+            str_other = str(other)
 
-        return CompositionalLoss(_new_criterion, **named_metric_fun)
+            def _new_criterion(x: dict[str, torch.Tensor]) -> torch.Tensor:
+                return operation(self.criterion(x), torch.tensor(other))
+
+        else:
+            raise TypeError(f'Unsupported type for operation: {type(other)}')
+
+        if requires_outer_par:
+            formula = f'({self.formula} {str_op} {str_other})'
+        else:
+            formula = f'{self.formula} {str_op} {str_other}'
+
+        return CompositionalLoss(criterion=_new_criterion,
+                                 higher_is_better=self.higher_is_better,
+                                 formula=formula,
+                                 **named_metric_fun)
 
     def __add__(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, operator.add)
+        return self._combine(other, operator.add, '+')
 
     def __radd__(self, other: float) -> CompositionalLoss:
         return self.__add__(other)
@@ -264,16 +286,18 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, operator.sub)
+        neg_other = other.__neg__()
+        return self.__add__(neg_other)
 
     def __rsub__(self, other: float) -> CompositionalLoss:
-        return self._apply(other, lambda t1, t2: t2 - t1)
+        neg_self = self.__neg__()
+        return neg_self.__add__(other)
 
     def __mul__(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, operator.mul)
+        return self._combine(other, operator.mul, 'x', False)
 
     def __rmul__(self, other: float) -> CompositionalLoss:
         return self.__mul__(other)
@@ -282,13 +306,41 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._apply(other, operator.truediv)
+        mul_inv_other = other.__pow__(-1)
+        return self.__mul__(mul_inv_other)
 
     def __rtruediv__(self, other: float) -> CompositionalLoss:
-        return self._apply(other, lambda t1, t2: t2 / t1)
+        mul_inv_self = self.__pow__(-1)
+        return mul_inv_self.__mul__(other)
+
+    def __pow__(self, other: float) -> CompositionalLoss:
+
+        def _str_other_op(power: float):
+            return ' ^ ' + str(power) if power != 1 else ''
+
+        if other >= 0:
+            higher_is_better = self.higher_is_better
+            formula = f'{self.formula}{_str_other_op(other)}'
+        else:
+            higher_is_better = not self.higher_is_better
+            formula = f'(1 / ({self.formula}{_str_other_op(-other)}))'
+        return CompositionalLoss(criterion=lambda x: self.criterion(x) ** other,
+                                 higher_is_better=higher_is_better,
+                                 formula=formula,
+                                 **self.named_metric_fun)
 
     def __neg__(self) -> CompositionalLoss:
-        return self.__rsub__(0.)
+        return CompositionalLoss(criterion=lambda x: -self.criterion(x),
+                                 higher_is_better=not self.higher_is_better,
+                                 formula=f'-{self.formula}',
+                                 **self.named_metric_fun)
+
+    def _check_same_direction(self, other: LossBase):
+        if self.higher_is_better ^ other.higher_is_better:
+            raise ValueError()
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.formula})'
 
 
 class CompositionalLoss(
@@ -299,9 +351,14 @@ class CompositionalLoss(
     def __init__(
             self,
             criterion: Callable[[dict[str, torch.Tensor]], torch.Tensor],
+            *,
+            higher_is_better: bool,
+            formula: str,
             **named_metric_fun: p.TensorCallable[_Output_contra, _Target_contra]
     ) -> None:
         super().__init__(criterion, **named_metric_fun)
+        self.higher_is_better = higher_is_better
+        self.formula = formula.replace('--', '').replace('+ -', '- ')
         return
 
     def calculate(self: Self,
@@ -310,20 +367,28 @@ class CompositionalLoss(
         all_metrics = super().calculate(outputs, targets)
         return {self.name: self.criterion(all_metrics)} | all_metrics
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.formula.strip('()')})"
+
 
 class Loss(
     LossBase[_Output_contra, _Target_contra],
     Metric[_Output_contra, _Target_contra],
 ):
+    higher_is_better: bool
 
     def __init__(
             self,
-            name: str,
             fun: p.TensorCallable[_Output_contra, _Target_contra],
-            higher_is_better: Optional[bool] = False):
-
-        super(LossBase, self).__init__(name, fun, higher_is_better)
+            /,
+            *,
+            name: str,
+            higher_is_better: bool = False):
+        super(LossBase, self).__init__(fun,
+                                       name=name,
+                                       higher_is_better=higher_is_better)
         self.criterion = operator.itemgetter(self.name)
+        self.formula = name
         return
 
 
