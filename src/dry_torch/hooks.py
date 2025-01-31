@@ -34,9 +34,9 @@ class HookRegistry(Generic[_T]):
         """
         Initializes the HookRegistry with an empty list of hooks.
         """
-        self.hooks: list[CallableMonad[_T]] = []
+        self.hooks: list[AbstractCallableMonad[_T]] = []
 
-    def register(self, hook: CallableMonad) -> None:
+    def register(self, hook: AbstractCallableMonad) -> None:
         """
         Registers a single hook.
 
@@ -46,7 +46,7 @@ class HookRegistry(Generic[_T]):
         self.hooks.append(hook)
         return
 
-    def register_all(self, hook_list: list[CallableMonad[_T]]) -> None:
+    def register_all(self, hook_list: list[AbstractCallableMonad[_T]]) -> None:
         """
         Registers multiple hooks.
 
@@ -69,8 +69,8 @@ class HookRegistry(Generic[_T]):
         return
 
 
-class CallableMonad(Generic[_P], metaclass=abc.ABCMeta):
-    """Base class for creating callables supporting monadic operations."""
+class AbstractCallableMonad(Generic[_P], metaclass=abc.ABCMeta):
+    """Base class for a callable supporting bind operations."""
 
     @abc.abstractmethod
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> None:
@@ -78,21 +78,21 @@ class CallableMonad(Generic[_P], metaclass=abc.ABCMeta):
 
     def bind(
             self,
-            f: Callable[[Callable[_P, None]], CallableMonad[_P]]
-    ) -> CallableMonad[_P]:
+            f: Callable[[Callable[_P, None]], AbstractCallableMonad[_P]]
+    ) -> AbstractCallableMonad[_P]:
         """
-        Compose endofunctors by applying .
+        Allow composition of functions changing the __call__ method.
 
         Args:
-            f:
+            f: a function specifying a change.
         Return:
-            the new
+            a wrapper around the class implementing the change.
         """
         return f(self)
 
 
-class StaticCallable(CallableMonad[_P]):
-    """A callable that always executes the same underlying function."""
+class StaticCallable(AbstractCallableMonad[_P]):
+    """A callable ignoring arguments and executing the wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
         """
@@ -107,8 +107,8 @@ class StaticCallable(CallableMonad[_P]):
         return self.wrapped()
 
 
-class OptionalCallable(CallableMonad[_P], metaclass=abc.ABCMeta):
-    """A callable that may or may not execute based on custom conditions."""
+class OptionalCallable(AbstractCallableMonad[_P], metaclass=abc.ABCMeta):
+    """Abstract class for callables that execute based on custom conditions."""
 
     def __init__(self, wrapped: Callable[_P, None]) -> None:
         """
@@ -130,13 +130,14 @@ class OptionalCallable(CallableMonad[_P], metaclass=abc.ABCMeta):
 
 
 class UnitCallable(OptionalCallable[_P]):
+    """Simple wrapper for a callable that allows binding operations."""
 
     @override
     def _should_call(self, *args: _P.args, **kwargs: _P.kwargs) -> bool:
         return True
 
 
-class AbstractHook(CallableMonad[p.TrainerProtocol], metaclass=abc.ABCMeta):
+class AbstractHook(AbstractCallableMonad[p.TrainerProtocol], metaclass=abc.ABCMeta):
     pass
 
 
@@ -170,7 +171,9 @@ class CallEveryHook(OptionalCallable[p.TrainerProtocol]):
             trainer: The trainer object to check for call condition.
         """
         epoch = trainer.model.epoch
-        return epoch % self.interval == self.start or trainer.terminated
+        if epoch < self.start:
+            return False
+        return not (epoch - self.start) % self.interval or trainer.terminated
 
 
 class Hook(UnitCallable[p.TrainerProtocol]):
@@ -178,8 +181,8 @@ class Hook(UnitCallable[p.TrainerProtocol]):
 
 
 def call_every(
-        start: int,
-        interval: int
+        start: int = 1,
+        interval: int = 1,
 ) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEveryHook]:
     """Create a decorator for periodic hook execution.
 
@@ -207,6 +210,37 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
     """
     trainer.save_checkpoint()
     return
+
+
+def static_class(
+        cls: Callable[_P, Callable[[], None]]
+) -> Callable[_P, AbstractHook]:
+    """
+    Class decorator to wrap a callable class into a static hook type.
+
+    Args:
+        cls: A callable class that takes no arguments and returns None.
+
+    Returns:
+        A class that can be instantiated in the same way to have a static hook.
+    """
+
+    class StaticClassHook(AbstractHook):
+
+        def __init__(self, *args: _P.args, **kwargs: _P.kwargs):
+            self.wrapped = cls(*args, **kwargs)
+
+        @override
+        def __call__(self, trainer: p.TrainerProtocol) -> None:
+            """
+            Call the wrapped class's __call__ method.
+
+            Args:
+                trainer: Ignored in this implementation
+            """
+            return self.wrapped()
+
+    return StaticClassHook
 
 
 class MetricMonitor:
