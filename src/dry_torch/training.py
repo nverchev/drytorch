@@ -119,7 +119,8 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         validation = evaluating.Validation(self.model,
                                            loader=val_loader,
                                            calculator=self.calculator)
-        self._post_epoch_hooks.register(hooks.static_hook(validation))
+        val_hook = hooks.StaticHook(validation)
+        self._post_epoch_hooks.register(val_hook)
         self.validation = validation
         return
 
