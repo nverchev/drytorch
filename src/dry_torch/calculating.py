@@ -183,7 +183,7 @@ class Metric(MetricBase[_Output_contra, _Target_contra]):
                  /,
                  *,
                  name: str,
-                 higher_is_better: Optional[bool]) -> None:
+                 higher_is_better: Optional[bool] = None) -> None:
         super().__init__(**{name: fun})
         self.name = name
         self.fun = fun
@@ -249,7 +249,7 @@ class LossBase(
             # apply should combine losses that share the same direction
             self._check_same_direction(other)
 
-            def _new_criterion(x: dict[str, torch.Tensor]) -> torch.Tensor:
+            def _combined(x: dict[str, torch.Tensor]) -> torch.Tensor:
                 return operation(self.criterion(x), other.criterion(x))
 
         elif isinstance(other, (float, int)):
@@ -257,7 +257,7 @@ class LossBase(
 
             str_other = str(other)
 
-            def _new_criterion(x: dict[str, torch.Tensor]) -> torch.Tensor:
+            def _combined(x: dict[str, torch.Tensor]) -> torch.Tensor:
                 return operation(self.criterion(x), torch.tensor(other))
 
         else:
@@ -268,7 +268,7 @@ class LossBase(
         else:
             formula = f'{self.formula} {str_op} {str_other}'
 
-        return CompositionalLoss(criterion=_new_criterion,
+        return CompositionalLoss(criterion=_combined,
                                  higher_is_better=self.higher_is_better,
                                  formula=formula,
                                  **named_metric_fun)

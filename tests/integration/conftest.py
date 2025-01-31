@@ -60,7 +60,7 @@ def zero_metrics_calc() -> Metric[TorchData, torch.Tensor]:
         _not_used = outputs, targets
         return torch.tensor(0)
 
-    return Metric(name='Zero', fun=zero)
+    return Metric(zero, name='Zero', higher_is_better=True)
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
         """
         return ((outputs.output - targets) ** 2).mean()
 
-    return Loss('Mse', fun=mse)
+    return Loss(mse, name='Mse')
 
 
 @pytest.fixture
