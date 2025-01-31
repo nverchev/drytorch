@@ -1,11 +1,13 @@
 """Registry and hooks for a class following the Trainer protocol."""
 
+from __future__ import annotations
+
 import abc
 from collections import deque
 from collections.abc import Callable, Sequence
-import functools
 import operator
-from typing import Generic, Literal, Optional, ParamSpec, TypeAlias, TypeVar
+from typing import Generic, Literal, Optional, ParamSpec, TypeVar
+from typing_extensions import override
 
 from src.dry_torch import calculating
 from src.dry_torch import log_events
@@ -15,7 +17,7 @@ from src.dry_torch import schedulers
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
-_Hook: TypeAlias = Callable[[p.TrainerProtocol], None]
+_Q = ParamSpec('_Q')
 
 
 class HookRegistry(Generic[_T]):
@@ -32,9 +34,9 @@ class HookRegistry(Generic[_T]):
         """
         Initializes the HookRegistry with an empty list of hooks.
         """
-        self.hooks: list[Callable[[_T], None]] = []
+        self.hooks: list[CallableMonad[_T]] = []
 
-    def register(self, hook: Callable[[_T], None]) -> None:
+    def register(self, hook: CallableMonad) -> None:
         """
         Registers a single hook.
 
@@ -44,7 +46,7 @@ class HookRegistry(Generic[_T]):
         self.hooks.append(hook)
         return
 
-    def register_all(self, hook_list: list[Callable[[_T], None]]) -> None:
+    def register_all(self, hook_list: list[CallableMonad[_T]]) -> None:
         """
         Registers multiple hooks.
 
@@ -67,83 +69,144 @@ class HookRegistry(Generic[_T]):
         return
 
 
-def saving_hook() -> _Hook:
+class CallableMonad(Generic[_P], metaclass=abc.ABCMeta):
+    """Base class for creating callables supporting monadic operations."""
+
+    @abc.abstractmethod
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> None:
+        """Executes the call."""
+
+    def bind(
+            self,
+            f: Callable[[Callable[_P, None]], CallableMonad[_P]]
+    ) -> CallableMonad[_P]:
+        """
+        Compose endofunctors by applying .
+
+        Args:
+            f:
+        Return:
+            the new
+        """
+        return f(self)
+
+
+class StaticCallable(CallableMonad[_P]):
+    """A callable that always executes the same underlying function."""
+
+    def __init__(self, wrapped: Callable[[], None]):
+        """
+        Args:
+            wrapped: The function to be wrapped and called statically.
+        """
+        self.wrapped = wrapped
+
+    def __call__(self,
+                 *args: _P.args,
+                 **kwargs: _P.kwargs) -> None:
+        return self.wrapped()
+
+
+class OptionalCallable(CallableMonad[_P], metaclass=abc.ABCMeta):
+    """A callable that may or may not execute based on custom conditions."""
+
+    def __init__(self, wrapped: Callable[_P, None]) -> None:
+        """
+        Args:
+            wrapped: The function to be conditionally called.
+        """
+        self.wrapped = wrapped
+
+    def __call__(self,
+                 *args: _P.args,
+                 **kwargs: _P.kwargs) -> None:
+        if not self._should_call(*args, **kwargs):
+            return
+        return self.wrapped(*args, **kwargs)
+
+    @abc.abstractmethod
+    def _should_call(self, *args: _P.args, **kwargs: _P.kwargs) -> bool:
+        """Determine if the callable should be executed."""
+
+
+class UnitCallable(OptionalCallable[_P]):
+
+    @override
+    def _should_call(self, *args: _P.args, **kwargs: _P.kwargs) -> bool:
+        return True
+
+
+class AbstractHook(CallableMonad[p.TrainerProtocol], metaclass=abc.ABCMeta):
+    pass
+
+
+class StaticHook(StaticCallable[p.TrainerProtocol]):
+    pass
+
+
+class CallEveryHook(OptionalCallable[p.TrainerProtocol]):
+    """A hook that calls a function at specified intervals."""
+
+    def __init__(self,
+                 start: int,
+                 interval: int,
+                 wrapped: Callable[[p.TrainerProtocol], None]) -> None:
+        """
+        Args:
+            start: The epoch to start calling the hook.
+            interval: The frequency of calling the hook.
+            wrapped: The function to be called periodically.
+        """
+        self.start = start
+        self.interval = interval
+        super().__init__(wrapped)
+
+    @override
+    def _should_call(self, trainer: p.TrainerProtocol) -> bool:
+        """
+        Determines if the hook should be called based on epoch.
+
+        Args:
+            trainer: The trainer object to check for call condition.
+        """
+        epoch = trainer.model.epoch
+        return epoch % self.interval == self.start or trainer.terminated
+
+
+class Hook(UnitCallable[p.TrainerProtocol]):
+    pass
+
+
+def call_every(
+        start: int,
+        interval: int
+) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEveryHook]:
+    """Create a decorator for periodic hook execution.
+
+    Args:
+        start: The epoch to start calling the hook.
+        interval: The frequency of calling the hook.
+
+    Returns:
+        A decorator that wraps a function in a CallEveryHook.
+    """
+
+    def _decorator(func: Callable[[p.TrainerProtocol], None]) -> CallEveryHook:
+        return CallEveryHook(start, interval, func)
+
+    return _decorator
+
+
+@Hook
+def saving_hook(trainer: p.TrainerProtocol) -> None:
     """
     Creates a hook that saves the model's checkpoint.
 
-    Returns:
-        A callable hook that saves a checkpoint.
-    """
-
-    def _call(instance: p.TrainerProtocol) -> None:
-        instance.save_checkpoint()
-
-    return _call
-
-
-def static_hook(hook: Callable[[], None]) -> _Hook:
-    """
-    Wraps a static callable as a hook.
-
     Args:
-        hook: The static callable to wrap.
-
-    Returns:
-        A hook that invokes the static callable.
+        The trainer instance.
     """
-
-    @functools.wraps(hook)
-    def _call(_: p.TrainerProtocol) -> None:
-        hook()
-
-    return _call
-
-
-def static_hook_closure(static_closure: Callable[_P, Callable[[], None]]
-                        ) -> Callable[_P, _Hook]:
-    """
-    Creates a hook from a static closure.
-
-    Args:
-        static_closure: The static closure to wrap.
-
-    Returns:
-        A hook that invokes the static callable.
-    """
-
-    @functools.wraps(static_closure)
-    def _closure_hook(*args: _P.args, **kwargs: _P.kwargs) -> _Hook:
-        static_callable = static_closure(*args, **kwargs)
-
-        def _call(_: p.TrainerProtocol) -> None:
-            nonlocal static_callable
-            return static_callable()
-
-        return _call
-
-    return _closure_hook
-
-
-def call_every(interval: int, hook: _Hook, start: int = 0) -> _Hook:
-    """
-    Creates a hook that executes at specified intervals.
-
-    Args:
-        interval: The interval (in epochs) at which the hook is called.
-        hook: The hook to execute.
-        start: The starting epoch offset. Defaults to 0.
-
-    Returns:
-        A callable hook.
-    """
-
-    @functools.wraps(hook)
-    def _call(instance: p.TrainerProtocol) -> None:
-        epoch = instance.model.epoch
-        if epoch % interval == start or instance.terminated:
-            hook(instance)
-
-    return _call
+    trainer.save_checkpoint()
+    return
 
 
 class MetricMonitor:
@@ -317,7 +380,7 @@ class MetricMonitor:
         return self.optional_monitor
 
 
-class EarlyStoppingCallback:
+class EarlyStoppingCallback(AbstractHook):
     """
     Implements early stopping logic for training models.
 
@@ -381,7 +444,7 @@ class EarlyStoppingCallback:
         return
 
 
-class PruneCallback:
+class PruneCallback(AbstractHook):
     """
     Implements pruning logic for training models.
 
@@ -441,7 +504,7 @@ class PruneCallback:
         return
 
 
-class ChangeSchedulerOnPlateau(metaclass=abc.ABCMeta):
+class ChangeSchedulerOnPlateau(AbstractHook, metaclass=abc.ABCMeta):
     """
     Changes learning rate schedule when a metric has stopped improving.
 
