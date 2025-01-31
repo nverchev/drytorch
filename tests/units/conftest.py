@@ -71,9 +71,8 @@ def mock_metric(
 ) -> p.MetricCalculatorProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock metric calculator."""
     mock = mocker.create_autospec(p.MetricCalculatorProtocol, instance=True)
-    mock.name = 'Accuracy'
-    mock.compute = mocker.Mock(return_value={'Accuracy': torch.tensor(.5)})
-
+    mock.name = 'mock_metric'
+    mock.compute = mocker.Mock(return_value={'mock_metric': torch.tensor(.5)})
     return mock
 
 
@@ -94,28 +93,11 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
     """Fixture for a mock loader."""
     mock = mocker.create_autospec(spec=p.LoaderProtocol, instance=True)
     mock.batch_size = 32
-    mock.__len__ = mocker.Mock(return_value=500)
+    mock.__len__ = mocker.Mock(return_value=7)
     mock.dataset = mocker.Mock()
     mock.dataset.__len__ = mocker.Mock(return_value=500)
     tensor = torch.FloatTensor([1])
     mock.__iter__ = mocker.Mock(return_value=iter([(tensor, tensor)] * 3))
-    return mock
-
-
-@pytest.fixture
-def mock_trainer(mocker, mock_model, mock_loss) -> p.TrainerProtocol:
-    """Fixture for a mock trainer."""
-    mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
-    mock.model = mock_model
-    mock.name = 'mock_trainer'
-    mock.calculator = mock_loss
-    mock.validation = None
-    mock.terminated = False
-
-    def _terminate_training():
-        mock.terminated = True
-
-    mock.terminate_training = mocker.Mock(side_effect=_terminate_training)
     return mock
 
 
@@ -125,4 +107,25 @@ def mock_validation(mocker, mock_metric) -> p.EvaluationProtocol:
     mock = mocker.create_autospec(spec=p.EvaluationProtocol, instance=True)
     mock.name = 'mock_validation'
     mock.calculator = mock_metric
+    return mock
+
+
+@pytest.fixture
+def mock_trainer(mocker,
+                 mock_model,
+                 mock_loss,
+                 mock_validation) -> p.TrainerProtocol:
+    """Fixture for a mock trainer."""
+    mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
+    mock.model = mock_model
+    mock.name = 'mock_trainer'
+    mock.model.epoch = 3
+    mock.calculator = mock_loss
+    mock.validation = mock_validation
+    mock.terminated = False
+
+    def _terminate_training():
+        mock.terminated = True
+
+    mock.terminate_training = mocker.Mock(side_effect=_terminate_training)
     return mock
