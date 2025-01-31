@@ -7,11 +7,9 @@ from typing import Any
 from src.dry_torch import exceptions
 from src.dry_torch import schedulers
 from src.dry_torch.hooks import EarlyStoppingCallback, HookRegistry
-from src.dry_torch.hooks import MetricMonitor, PruneCallback
-from src.dry_torch.hooks import ReduceLROnPlateau, RestartScheduleOnPlateau
-from src.dry_torch.hooks import call_every, saving_hook, static_hook
-from src.dry_torch.hooks import static_hook_closure
-from tests.units.conftest import mock_metric
+from src.dry_torch.hooks import MetricMonitor, PruneCallback, ReduceLROnPlateau
+from src.dry_torch.hooks import RestartScheduleOnPlateau, StaticHook
+from src.dry_torch.hooks import call_every, saving_hook, static_class
 
 Accuracy = 'Accuracy'
 Criterion = 'Loss'
@@ -43,8 +41,7 @@ class TestHookRegistry:
 
 def test_saving_hook(mock_trainer) -> None:
     """Test that saving_hook calls save_checkpoint on the instance."""
-    hook = saving_hook()
-
+    hook = saving_hook
     hook(mock_trainer)
     mock_trainer.save_checkpoint.assert_called_once()  # type: ignore
 
@@ -52,51 +49,54 @@ def test_saving_hook(mock_trainer) -> None:
 def test_static_hook(mocker) -> None:
     """Test that static_hook wraps a static callable."""
     mock_callable = mocker.MagicMock()
-    hook = static_hook(mock_callable)
+    hook = StaticHook(mock_callable)
 
     hook(mocker.MagicMock())  # Pass any instance
 
     mock_callable.assert_called_once()
 
 
-def test_docs():
-    def do_nothing_hook() -> None:
-        """Test docs."""
-        pass
+def test_static_class(mocker, mock_trainer) -> None:
+    """Test that static_hook wraps a static callable."""
 
-    hook = static_hook(do_nothing_hook)
+    mock_event = mocker.MagicMock()
 
-    assert hook.__doc__ == 'Test docs.'
+    class _TestClass:
+        def __init__(self, text: str, number: int = 1):
+            self.text = text
+            self.number = number
 
+        def __call__(self) -> None:
+            mock_event()
 
-def test_static_hook_closure(mocker) -> None:
-    """Test that static_hook_closure returns a static hook closure."""
-    mock_callable = mocker.MagicMock(return_value=mocker.MagicMock())
-    hook_closure = static_hook_closure(mock_callable)
-
-    hook = hook_closure(arg1=10)
-    hook(mocker.MagicMock())  # Pass any instance
-
-    mock_callable.assert_called_once_with(arg1=10)
-    mock_callable.return_value.assert_called_once()
+    hook = static_class(_TestClass)('test', number=1)
+    hook(mock_trainer)
+    mock_event.assert_called_once()
 
 
 def test_call_every(mocker, mock_trainer) -> None:
     """Test call_every executes the hook based on interval and trainer state."""
     mock_hook = mocker.MagicMock()
-    hook = call_every(interval=2, hook=mock_hook)
+    hook = call_every(start=3, interval=3)(mock_hook)
 
-    # Test when epoch is divisible by interval
-    mock_trainer.model.epoch = 4
-    hook(mock_trainer)
-    mock_hook.assert_called_once_with(mock_trainer)
-
-    # Test when epoch is not divisible by interval
+    # Test when epoch is before start
     mock_hook.reset_mock()
-    mock_trainer.model.epoch = 3
+    mock_trainer.model.epoch = 0
     hook(mock_trainer)
     mock_hook.assert_not_called()
 
+    # Test when epoch minus the start is not divisible by interval
+    mock_hook.reset_mock()
+    mock_trainer.model.epoch = 4
+    hook(mock_trainer)
+    mock_hook.assert_not_called()
+
+    # Test when epoch minus the start is divisible by interval
+    mock_trainer.model.epoch = 6
+    hook(mock_trainer)
+    mock_hook.assert_called_once_with(mock_trainer)
+
+    mock_hook.reset_mock()
     # Test when trainer is terminated
     mock_trainer.terminate_training()
     hook(mock_trainer)
@@ -242,7 +242,6 @@ class TestReduceLROnPlateau:
         )
 
     def test_reduces_lr_and_respects_cooldown(self, mocker, mock_trainer):
-
         scheduler = schedulers.ConstantScheduler(1.0)
         mock_trainer.learning_scheme = mocker.Mock
         mock_trainer.learning_scheme.scheduler = scheduler

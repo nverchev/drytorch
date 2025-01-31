@@ -34,9 +34,9 @@ class HookRegistry(Generic[_T]):
         """
         Initializes the HookRegistry with an empty list of hooks.
         """
-        self.hooks: list[AbstractCallableMonad[_T]] = []
+        self.hooks: list[AbstractHook[_T]] = []
 
-    def register(self, hook: AbstractCallableMonad) -> None:
+    def register(self, hook: AbstractHook) -> None:
         """
         Registers a single hook.
 
@@ -46,7 +46,7 @@ class HookRegistry(Generic[_T]):
         self.hooks.append(hook)
         return
 
-    def register_all(self, hook_list: list[AbstractCallableMonad[_T]]) -> None:
+    def register_all(self, hook_list: list[AbstractHook[_T]]) -> None:
         """
         Registers multiple hooks.
 
@@ -69,8 +69,8 @@ class HookRegistry(Generic[_T]):
         return
 
 
-class AbstractCallableMonad(Generic[_P], metaclass=abc.ABCMeta):
-    """Base class for a callable supporting bind operations."""
+class AbstractHook(Generic[_P], metaclass=abc.ABCMeta):
+    """Base class for void callable supporting bind operations."""
 
     @abc.abstractmethod
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> None:
@@ -78,10 +78,10 @@ class AbstractCallableMonad(Generic[_P], metaclass=abc.ABCMeta):
 
     def bind(
             self,
-            f: Callable[[Callable[_P, None]], AbstractCallableMonad[_P]]
-    ) -> AbstractCallableMonad[_P]:
+            f: Callable[[Callable[_P, None]], AbstractHook[_P]]
+    ) -> AbstractHook[_P]:
         """
-        Allow composition of functions changing the __call__ method.
+        Allow composition of callables.
 
         Args:
             f: a function specifying a change.
@@ -91,7 +91,7 @@ class AbstractCallableMonad(Generic[_P], metaclass=abc.ABCMeta):
         return f(self)
 
 
-class StaticCallable(AbstractCallableMonad[_P]):
+class StaticCallable(AbstractHook[_P]):
     """A callable ignoring arguments and executing the wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
@@ -107,7 +107,7 @@ class StaticCallable(AbstractCallableMonad[_P]):
         return self.wrapped()
 
 
-class OptionalCallable(AbstractCallableMonad[_P], metaclass=abc.ABCMeta):
+class OptionalCallable(AbstractHook[_P], metaclass=abc.ABCMeta):
     """Abstract class for callables that execute based on custom conditions."""
 
     def __init__(self, wrapped: Callable[_P, None]) -> None:
@@ -137,7 +137,8 @@ class UnitCallable(OptionalCallable[_P]):
         return True
 
 
-class AbstractHook(AbstractCallableMonad[p.TrainerProtocol], metaclass=abc.ABCMeta):
+class AbstractTrainingHook(AbstractHook[p.TrainerProtocol],
+                           metaclass=abc.ABCMeta):
     pass
 
 
@@ -214,7 +215,7 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
 
 def static_class(
         cls: Callable[_P, Callable[[], None]]
-) -> Callable[_P, AbstractHook]:
+) -> Callable[_P, AbstractTrainingHook]:
     """
     Class decorator to wrap a callable class into a static hook type.
 
@@ -225,7 +226,7 @@ def static_class(
         A class that can be instantiated in the same way to have a static hook.
     """
 
-    class StaticClassHook(AbstractHook):
+    class StaticClassHook(AbstractTrainingHook):
 
         def __init__(self, *args: _P.args, **kwargs: _P.kwargs):
             self.wrapped = cls(*args, **kwargs)
@@ -414,7 +415,7 @@ class MetricMonitor:
         return self.optional_monitor
 
 
-class EarlyStoppingCallback(AbstractHook):
+class EarlyStoppingCallback(AbstractTrainingHook):
     """
     Implements early stopping logic for training models.
 
@@ -478,7 +479,7 @@ class EarlyStoppingCallback(AbstractHook):
         return
 
 
-class PruneCallback(AbstractHook):
+class PruneCallback(AbstractTrainingHook):
     """
     Implements pruning logic for training models.
 
@@ -538,7 +539,7 @@ class PruneCallback(AbstractHook):
         return
 
 
-class ChangeSchedulerOnPlateau(AbstractHook, metaclass=abc.ABCMeta):
+class ChangeSchedulerOnPlateau(AbstractTrainingHook, metaclass=abc.ABCMeta):
     """
     Changes learning rate schedule when a metric has stopped improving.
 
