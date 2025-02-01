@@ -113,11 +113,8 @@ class CheckpointIO(ModelStateIO):
     """
     Manages saving and loading both model and optimizer states for checkpoints.
 
-    Args:
-        model: The model instance.
-        optimizer: The optimizer instance.
-
     Attributes:
+        model: The model instance for which paths are managed.
         optimizer: The optimizer instance.
     """
     definition = 'model and optimizer states'
@@ -126,6 +123,12 @@ class CheckpointIO(ModelStateIO):
                  model: p.ModelProtocol,
                  optimizer: torch.optim.Optimizer,
                  par_dir: pathlib.Path) -> None:
+        """
+        Args:
+            model: The model instance.
+            optimizer: The optimizer instance.
+            par_dir: The directory where to save checkpoints.
+        """
         super().__init__(model, par_dir)
         self.optimizer = optimizer
 

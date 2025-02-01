@@ -15,6 +15,7 @@ from src.dry_torch import protocols as p
 from src.dry_torch import repr_utils
 from src.dry_torch import registering
 from src.dry_torch import schedulers
+from src.dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -259,7 +260,10 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
             **learning_scheme.optimizer_defaults,
         )
-        #self._checkpoint = checkpoint.CheckpointIO(model, self.optimizer)
+        exp_dir = tracking.Experiment.current().dir
+        self._checkpoint = checkpoint.CheckpointIO(model,
+                                                   self.optimizer,
+                                                   par_dir=exp_dir)
 
     def get_scheduled_lr(self) -> list[_OptParams]:
         """
@@ -319,13 +323,13 @@ class ModelOptimizer:
             g['lr'] = up_g['lr']
         return
 
-    # def load(self, epoch: int = -1) -> None:
-    #     """Load model and optimizer state from a checkpoint."""
-    #     self._checkpoint.load(epoch=epoch)
-    #
-    # def save(self) -> None:
-    #     """Save model and optimizer state in a checkpoint."""
-    #     self._checkpoint.save()
+    def load(self, epoch: int = -1) -> None:
+        """Load model and optimizer state from a checkpoint."""
+        self._checkpoint.load(epoch=epoch)
+
+    def save(self) -> None:
+        """Save model and optimizer state in a checkpoint."""
+        self._checkpoint.save()
 
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(count_params(elem['params'])
