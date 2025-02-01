@@ -85,6 +85,7 @@ def set_verbosity(level_no: int):
     """This function sets the verbosity level of the 'dry_torch' logger."""
     global logger
     logger.setLevel(level_no)
+    return
 
 
 def disable_default_handler() -> None:
@@ -92,6 +93,7 @@ def disable_default_handler() -> None:
     logger.setLevel(logging.NOTSET)
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
+    return
 
 
 def enable_default_handler() -> None:
@@ -106,6 +108,7 @@ def enable_default_handler() -> None:
     logger.addHandler(stdout_handler)
     logger.setLevel(INFO_LEVELS.metrics)
     logger.propagate = False
+    return
 
 
 def disable_propagation() -> None:
@@ -121,6 +124,7 @@ def disable_propagation() -> None:
             if isinstance(log_filter, DryTorchFilter):
                 handler.removeFilter(log_filter)
                 break
+    return
 
 
 def enable_propagation(deduplicate_stdout: bool = True) -> None:
@@ -140,6 +144,7 @@ def enable_propagation(deduplicate_stdout: bool = True) -> None:
                 if hasattr(handler.stream, 'name'):
                     if handler.stream.name == '<stdout>':
                         handler.addFilter(DryTorchFilter())
+    return
 
 
 enable_default_handler()
@@ -221,28 +226,53 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.experiment,
                    'Testing %(model_name)s started.',
                    {'model_name': str(event.model_name)})
+        return
 
     @notify.register
     def _(self, event: log_events.TerminatedTraining) -> None:
-        explicit_cause = '' if event.cause is None else 'by ' + event.cause
-        logger.log(
-            INFO_LEVELS.training,
-            'Training terminated at epoch %(epoch)d %(explicit_cause)s.',
-            {'epoch': event.epoch, 'explicit_cause': explicit_cause},
-        )
+
+        msg = '.\n'.join([
+            '%(source)s: Training %(model_name)s terminated at epoch %(epoch)d',
+            'Reason: %(reason)s'
+        ])
+        log_args = {'source': event.source,
+                    'model_name': str(event.model_name),
+                    'reason': event.reason,
+                    'epoch': event.epoch},
+        logger.log(INFO_LEVELS.training, msg, log_args)
+        return
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
                    {'name': str(event.exp_name)})
+        return
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
                    {'name': str(event.exp_name)})
+        return
 
     @notify.register
-    def _(self, event: log_events.ModelDidNotConverge) -> None:
-        logger.error(event.exception)
+    def _(self, event: log_events.UpdateLearningRate) -> None:
+
+        message_parts = [
+            '%(source)s: Updated %(model_name)s optimizer at epoch %(epoch)d',
+        ]
+        if event.scheduler_name is not None:
+            message_parts.append('New learning rate: %(scheduler_name)s')
+        if event.scheduler_name is not None:
+            message_parts.append('New scheduler: %(scheduler_name)s')
+
+        msg = '.\n'.join(message_parts) + '.'
+
+        log_args = {'source': event.source,
+                    'model_name': str(event.model_name),
+                    'epoch': event.epoch,
+                    'learning_rate': event.base_lr,
+                    'scheduler_name': event.scheduler_name},
+        logger.log(INFO_LEVELS.training, msg, log_args)
+        return

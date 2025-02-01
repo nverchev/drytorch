@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-from collections import deque
 from collections.abc import Callable, Sequence
 import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar
@@ -18,6 +17,8 @@ from src.dry_torch import schedulers
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
+
+_Hook: Callable[[p.TrainerProtocol], None]
 
 
 class HookRegistry(Generic[_T]):
@@ -34,9 +35,9 @@ class HookRegistry(Generic[_T]):
         """
         Initializes the HookRegistry with an empty list of hooks.
         """
-        self.hooks: list[AbstractHook[_T]] = []
+        self.hooks: list[Callable[[_T], None]] = []
 
-    def register(self, hook: AbstractHook) -> None:
+    def register(self, hook: Callable[[_T], None]) -> None:
         """
         Registers a single hook.
 
@@ -46,7 +47,7 @@ class HookRegistry(Generic[_T]):
         self.hooks.append(hook)
         return
 
-    def register_all(self, hook_list: list[AbstractHook[_T]]) -> None:
+    def register_all(self, hook_list: list[Callable[[_T], None]]) -> None:
         """
         Registers multiple hooks.
 
@@ -69,17 +70,21 @@ class HookRegistry(Generic[_T]):
         return
 
 
-class AbstractHook(Generic[_P], metaclass=abc.ABCMeta):
-    """Base class for void callable supporting bind operations."""
+class AbstractHook(metaclass=abc.ABCMeta):
+    """Wrapper for void callable supporting bind operations."""
 
     @abc.abstractmethod
-    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> None:
-        """Executes the call."""
+    def __call__(self, trainer: p.TrainerProtocol) -> None:
+        """
+        Executes the call.
 
-    def bind(
-            self,
-            f: Callable[[Callable[_P, None]], AbstractHook[_P]]
-    ) -> AbstractHook[_P]:
+        Args:
+            trainer: The trainer to pass to the wrapped function.
+        """
+
+    def bind(self,
+             f: Callable[[Callable[[p.TrainerProtocol], None]], Hook],
+             ) -> Hook:
         """
         Allow composition of callables.
 
@@ -91,7 +96,27 @@ class AbstractHook(Generic[_P], metaclass=abc.ABCMeta):
         return f(self)
 
 
-class StaticCallable(AbstractHook[_P]):
+class Hook(AbstractHook):
+    """Wrapper for void callable supporting bind operations."""
+
+    def __init__(self, wrapped: Callable[[p.TrainerProtocol], None]) -> None:
+        """
+        Args:
+            wrapped: The function to be conditionally called.
+        """
+        self.wrapped = wrapped
+
+    def __call__(self, trainer: p.TrainerProtocol) -> None:
+        """
+        Executes the call.
+
+        Args:
+            trainer: The trainer to pass to the wrapped function.
+        """
+        self.wrapped(trainer)
+
+
+class StaticHook(AbstractHook):
     """A callable ignoring arguments and executing the wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
@@ -101,58 +126,42 @@ class StaticCallable(AbstractHook[_P]):
         """
         self.wrapped = wrapped
 
-    def __call__(self,
-                 *args: _P.args,
-                 **kwargs: _P.kwargs) -> None:
+    def __call__(self, trainer: p.TrainerProtocol) -> None:
+        """
+        Executes the call.
+
+        Args:
+            trainer: not used.
+        """
         return self.wrapped()
 
 
-class OptionalCallable(AbstractHook[_P], metaclass=abc.ABCMeta):
+class OptionalCallable(Hook, metaclass=abc.ABCMeta):
     """Abstract class for callables that execute based on custom conditions."""
 
-    def __init__(self, wrapped: Callable[_P, None]) -> None:
+    def __call__(self, trainer: p.TrainerProtocol) -> None:
         """
-        Args:
-            wrapped: The function to be conditionally called.
-        """
-        self.wrapped = wrapped
+        Executes the call.
 
-    def __call__(self,
-                 *args: _P.args,
-                 **kwargs: _P.kwargs) -> None:
-        if not self._should_call(*args, **kwargs):
+        Args:
+            trainer: The trainer to pass to the wrapped function.
+        """
+        if not self._should_call(trainer):
             return
-        return self.wrapped(*args, **kwargs)
+        return self.wrapped(trainer)
 
     @abc.abstractmethod
-    def _should_call(self, *args: _P.args, **kwargs: _P.kwargs) -> bool:
+    def _should_call(self, trainer: p.TrainerProtocol) -> bool:
         """Determine if the callable should be executed."""
 
 
-class UnitCallable(OptionalCallable[_P]):
-    """Simple wrapper for a callable that allows binding operations."""
-
-    @override
-    def _should_call(self, *args: _P.args, **kwargs: _P.kwargs) -> bool:
-        return True
-
-
-class AbstractTrainingHook(AbstractHook[p.TrainerProtocol],
-                           metaclass=abc.ABCMeta):
-    pass
-
-
-class StaticHook(StaticCallable[p.TrainerProtocol]):
-    pass
-
-
-class CallEveryHook(OptionalCallable[p.TrainerProtocol]):
+class CallEveryHook(OptionalCallable):
     """A hook that calls a function at specified intervals."""
 
     def __init__(self,
-                 start: int,
+                 wrapped: Callable[[p.TrainerProtocol], None],
                  interval: int,
-                 wrapped: Callable[[p.TrainerProtocol], None]) -> None:
+                 start: int) -> None:
         """
         Args:
             start: The epoch to start calling the hook.
@@ -177,13 +186,9 @@ class CallEveryHook(OptionalCallable[p.TrainerProtocol]):
         return not (epoch - self.start) % self.interval or trainer.terminated
 
 
-class Hook(UnitCallable[p.TrainerProtocol]):
-    pass
-
-
 def call_every(
+        interval: int,
         start: int = 1,
-        interval: int = 1,
 ) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEveryHook]:
     """Create a decorator for periodic hook execution.
 
@@ -196,7 +201,7 @@ def call_every(
     """
 
     def _decorator(func: Callable[[p.TrainerProtocol], None]) -> CallEveryHook:
-        return CallEveryHook(start, interval, func)
+        return CallEveryHook(func, interval, start)
 
     return _decorator
 
@@ -215,7 +220,7 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
 
 def static_class(
         cls: Callable[_P, Callable[[], None]]
-) -> Callable[_P, AbstractTrainingHook]:
+) -> Callable[_P, StaticHook]:
     """
     Class decorator to wrap a callable class into a static hook type.
 
@@ -226,20 +231,10 @@ def static_class(
         A class that can be instantiated in the same way to have a static hook.
     """
 
-    class StaticClassHook(AbstractTrainingHook):
+    class StaticClassHook(StaticHook):
 
         def __init__(self, *args: _P.args, **kwargs: _P.kwargs):
-            self.wrapped = cls(*args, **kwargs)
-
-        @override
-        def __call__(self, trainer: p.TrainerProtocol) -> None:
-            """
-            Call the wrapped class's __call__ method.
-
-            Args:
-                trainer: Ignored in this implementation
-            """
-            return self.wrapped()
+            super().__init__(cls(*args, **kwargs))
 
     return StaticClassHook
 
@@ -307,7 +302,7 @@ class MetricMonitor:
         self.optional_monitor = monitor
         self._patience_countdown = patience
         self._best_result: Optional[float] = None
-        self._monitor_log = deque[float](maxlen=patience + 1)
+        self._monitor_log = list[float]()
         return
 
     @property
@@ -361,7 +356,7 @@ class MetricMonitor:
 
     def is_patient(self) -> bool:
         """Check whether to be patient."""
-        return self._patience_countdown > 1
+        return self._patience_countdown > 0
 
     def is_improving(self) -> bool:
         """
@@ -415,7 +410,7 @@ class MetricMonitor:
         return self.optional_monitor
 
 
-class EarlyStoppingCallback(AbstractTrainingHook):
+class EarlyStoppingCallback:
     """
     Implements early stopping logic for training models.
 
@@ -474,12 +469,15 @@ class EarlyStoppingCallback(AbstractTrainingHook):
 
         if self.monitor.is_improving() or self.monitor.is_patient():
             return
-        instance.terminate_training()
-        log_events.TerminatedTraining(epoch, 'early stopping')
+        best_result = self.monitor.best_result
+        metric_name = self.monitor.metric_name
+        instance.terminate_training(
+            f'Training stopped with best result={best_result} {metric_name}.'
+        )
         return
 
 
-class PruneCallback(AbstractTrainingHook):
+class PruneCallback:
     """
     Implements pruning logic for training models.
 
@@ -534,12 +532,14 @@ class PruneCallback(AbstractTrainingHook):
         threshold = self.pruning[epoch]
         self.monitor.register_metric(instance)
         if self.monitor.is_best(threshold):
-            instance.terminate_training()
-            log_events.TerminatedTraining(epoch, 'pruning')
+            metric_name = self.monitor.metric_name
+            instance.terminate_training(
+                f'Training stopped at {threshold=} {metric_name}.'
+            )
         return
 
 
-class ChangeSchedulerOnPlateau(AbstractTrainingHook, metaclass=abc.ABCMeta):
+class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     """
     Changes learning rate schedule when a metric has stopped improving.
 
@@ -624,7 +624,7 @@ class ChangeSchedulerOnPlateau(AbstractTrainingHook, metaclass=abc.ABCMeta):
         """
 
 
-class ReduceLROnPlateau(ChangeSchedulerOnPlateau):
+class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     """
     Reduces learning rate when a metric has stopped improving.
 
@@ -688,7 +688,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateau):
         return schedulers.CompositionScheduler(scheduler, scaled_scheduler)
 
 
-class RestartScheduleOnPlateau(ChangeSchedulerOnPlateau):
+class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
     """
     Restarts the scheduling after plateauing.
 

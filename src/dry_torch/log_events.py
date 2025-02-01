@@ -173,27 +173,18 @@ class IterateBatch(Event):
 
 
 @dataclasses.dataclass
-class ModelDidNotConverge(Event):
-    """
-    Event logged when a model failed to converge.
-
-    Attributes:
-        exception: The error explaining why the model did not converge.
-    """
-    exception: BaseException
-
-
-@dataclasses.dataclass
 class TerminatedTraining(Event):
     """
     Event logged when training is terminated.
 
     Attributes:
         epoch: The epoch at which training was terminated.
-        cause: The cause of the termination.
+        reason: The cause of the termination.
     """
+    model_name: str
+    source: str
     epoch: int
-    cause: Optional[str] = None
+    reason: str
 
 
 @dataclasses.dataclass
@@ -230,3 +221,22 @@ class FinalMetrics(Event):
     source: str
     epoch: int
     metrics: Mapping[str, float]
+
+
+@dataclasses.dataclass
+class UpdateLearningRate(Event):
+    """
+    Event logged when the learning rate is updated.
+
+    Attributes:
+        model_name: The name of the model.
+        source: The name of the object that computed the metrics.
+        epoch: The number of epoch the model was trained.
+        base_lr: New value(s) for the learning rate(s).
+        scheduler_name: The representation of the scheduler.
+    """
+    model_name: str
+    source: str
+    epoch: int
+    base_lr: Optional[Mapping[str, float] | float] = None
+    scheduler_name: Optional[str] = None

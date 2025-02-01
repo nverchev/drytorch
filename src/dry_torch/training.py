@@ -1,6 +1,6 @@
 """Classes for training a model."""
 
-from typing import Self, Optional, TypeVar
+from typing import Self, Optional, TypeVar, reveal_type
 from typing_extensions import override
 import warnings
 
@@ -14,7 +14,6 @@ from src.dry_torch import log_events
 from src.dry_torch import hooks
 from src.dry_torch import protocols as p
 from src.dry_torch import repr_utils
-
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -99,8 +98,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         try:
             self._run_epoch(store_outputs)
         except exceptions.ConvergenceError as ce:
-            log_events.ModelDidNotConverge(ce)
-            self.terminate_training()
+            self.terminate_training(reason=str(ce))
         return
 
     def add_validation(
@@ -119,6 +117,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         validation = evaluating.Validation(self.model,
                                            loader=val_loader,
                                            calculator=self.calculator)
+
         val_hook = hooks.StaticHook(validation)
         self._post_epoch_hooks.register(val_hook)
         self.validation = validation
@@ -138,9 +137,13 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         """Save model and optimizer state in a checkpoint."""
         self._model_optimizer.save()
 
-    def terminate_training(self) -> None:
+    def terminate_training(self, reason: str) -> None:
         """Prevent the trainer from continue the training."""
         self._terminated = True
+        log_events.TerminatedTraining(model_name=self.model.name,
+                                      source=self.name,
+                                      epoch=self.model.epoch,
+                                      reason=reason)
         return
 
     def train(self: Self, num_epochs: int) -> None:
@@ -183,7 +186,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
 
     def update_learning_rate(
             self,
-            lr: Optional[float | dict[str, float]] = None,
+            base_lr: Optional[float | dict[str, float]] = None,
             scheduler: Optional[p.SchedulerProtocol] = None,
     ) -> None:
         """
@@ -191,12 +194,19 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         optimizer based on input learning rate(s) and scheduler.
 
         Args:
-            lr: learning rates for named parameters or global value. Default
+            base_lr: learning rates for named parameters or global value. Default
                 keeps the original learning rates.
             scheduler: scheduler for the learning rates. Default keeps the
                 original scheduler.
         """
-        self._model_optimizer.update_learning_rate(lr, scheduler)
+        scheduler_name = None if scheduler is None else repr(scheduler)
+        log_events.UpdateLearningRate(model_name=self.model.name,
+                                      source=self.name,
+                                      epoch=self.model.epoch,
+                                      base_lr=base_lr,
+                                      scheduler_name=scheduler_name)
+
+        self._model_optimizer.update_learning_rate(base_lr, scheduler)
 
     @override
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
