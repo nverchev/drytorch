@@ -254,10 +254,10 @@ class ModelOptimizer:
         self.model = model
         self.module = model.module
         self._params_lr: list[_OptParams] = []
-        self.lr = learning_scheme.lr
+        self.base_lr = learning_scheme.lr
         self.scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
-            params=cast(Iterable[dict[str, Any]], self.get_scheduled_lr()),
+            params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
         exp_dir = tracking.Experiment.current().dir
@@ -265,26 +265,34 @@ class ModelOptimizer:
                                                    self.optimizer,
                                                    par_dir=exp_dir)
 
-    def get_scheduled_lr(self) -> list[_OptParams]:
+    def get_opt_params(self) -> list[_OptParams]:
         """
         Learning rates for each parameter updated according to the scheduler
         and the current epoch.
         """
-        epoch = self.model.epoch
         return [
-            dict(params=g['params'], lr=self.scheduler(g['lr'], epoch))
+            dict(params=g['params'], lr=self.get_scheduled_lr(g['lr']))
             for g in self._params_lr
         ]
 
+    def get_scheduled_lr(self, lr: float) -> float:
+        """
+        Update the base learning rate according to the scheduler.
+
+        Args:
+            lr: base learning rate.
+        """
+        return self.scheduler(lr, self.model.epoch)
+
     @property
-    def lr(self) -> float | dict[str, float]:
+    def base_lr(self) -> float | dict[str, float]:
         """
         The learning rate(s) for the module parameters.
         """
         return self._lr
 
-    @lr.setter
-    def lr(self, lr: float | dict[str, float]) -> None:
+    @base_lr.setter
+    def base_lr(self, lr: float | dict[str, float]) -> None:
         self._lr = lr
         if isinstance(lr, (float, int)):
             self._params_lr = [
@@ -317,9 +325,9 @@ class ModelOptimizer:
         if scheduler is not None:
             self.scheduler = scheduler
         if lr is not None:
-            self.lr = lr
+            self.base_lr = lr
         for g, up_g in zip(self.optimizer.param_groups,
-                           self.get_scheduled_lr()):
+                           self.get_opt_params()):
             g['lr'] = up_g['lr']
         return
 

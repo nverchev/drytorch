@@ -54,7 +54,7 @@ class TestModelOptimizerGlobalLR:
 
     def test_get_scheduled_lr(self, ) -> None:
         """Test get_scheduled_lr returns correct learning rates."""
-        scheduled_lr = self.model_optimizer.get_scheduled_lr()
+        scheduled_lr = self.model_optimizer.get_opt_params()
         assert isinstance(scheduled_lr, list)
         assert len(scheduled_lr) == 1
         assert 'lr' in scheduled_lr[0]
@@ -96,4 +96,4 @@ class TestModelOptimizerParameterLR:
         """Test that MissingParamError is raised when params are missing."""
 
         with pytest.raises(exceptions.MissingParamError):
-            self.model_optimizer.lr = {'linear': 0.1}
+            self.model_optimizer.base_lr = {'linear': 0.1}
