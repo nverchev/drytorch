@@ -222,7 +222,6 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     @abc.abstractmethod
     def increment_epoch(self):
         """Increments the epoch by 1."""
-        ...
 
 
 class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
@@ -262,7 +261,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     def train(self, num_epochs: int) -> None:
         """Trains the model."""
 
-    def terminate_training(self) -> None:
+    def terminate_training(self, reason:str) -> None:
         """Terminate the training."""
 
     def save_checkpoint(self) -> None:
