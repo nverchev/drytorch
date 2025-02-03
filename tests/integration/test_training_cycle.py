@@ -121,4 +121,3 @@ def test_multiple_callbacks(identity_loader,
     identity_trainer.train(10)
     # Should stop before max epochs due to either early stopping or pruning
     assert identity_trainer.model.epoch < 10
-

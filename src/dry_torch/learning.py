@@ -9,13 +9,13 @@ import torch
 from torch import cuda
 import dataclasses
 
-from src.dry_torch import checkpoint
-from src.dry_torch import exceptions
-from src.dry_torch import protocols as p
-from src.dry_torch import repr_utils
-from src.dry_torch import registering
-from src.dry_torch import schedulers
-from src.dry_torch import tracking
+from dry_torch import checkpoint
+from dry_torch import exceptions
+from dry_torch import protocols as p
+from dry_torch import repr_utils
+from dry_torch import registering
+from dry_torch import schedulers
+from dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,

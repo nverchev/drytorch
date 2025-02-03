@@ -6,7 +6,7 @@ from typing import Any, Type, TypeVar
 
 import torch
 
-from src.dry_torch import exceptions
+from dry_torch import exceptions
 
 _T = TypeVar('_T')
 _C = TypeVar('_C')

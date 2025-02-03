@@ -5,9 +5,9 @@ import pathlib
 
 import torch
 
-from src.dry_torch import log_events
-from src.dry_torch import exceptions
-from src.dry_torch import protocols as p
+from dry_torch import log_events
+from dry_torch import exceptions
+from dry_torch import protocols as p
 
 
 class PathManager:

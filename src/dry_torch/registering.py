@@ -14,10 +14,10 @@ from typing import Any
 
 from torch import nn
 
-from src.dry_torch import exceptions
-from src.dry_torch import protocols as p
-from src.dry_torch import repr_utils
-from src.dry_torch import tracking
+from dry_torch import exceptions
+from dry_torch import protocols as p
+from dry_torch import repr_utils
+from dry_torch import tracking
 
 ALL_CALLERS = dict[int, tracking.Experiment]()
 ALL_MODULES = dict[nn.Module, tracking.Experiment]()

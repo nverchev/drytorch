@@ -17,10 +17,10 @@ from typing import Any, Final, Generic, Optional, TypeVar
 import warnings
 import weakref
 
-from src.dry_torch import exceptions
-from src.dry_torch import log_events
-from src.dry_torch import protocols as p
-from src.dry_torch import repr_utils
+from dry_torch import exceptions
+from dry_torch import log_events
+from dry_torch import protocols as p
+from dry_torch import repr_utils
 
 _T = TypeVar('_T')
 

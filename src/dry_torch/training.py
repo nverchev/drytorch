@@ -7,13 +7,13 @@ import warnings
 import torch
 from torch.cuda import amp
 
-from src.dry_torch import evaluating
-from src.dry_torch import exceptions
-from src.dry_torch import learning
-from src.dry_torch import log_events
-from src.dry_torch import hooks
-from src.dry_torch import protocols as p
-from src.dry_torch import repr_utils
+from dry_torch import evaluating
+from dry_torch import exceptions
+from dry_torch import learning
+from dry_torch import log_events
+from dry_torch import hooks
+from dry_torch import protocols as p
+from dry_torch import repr_utils
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)

@@ -9,7 +9,7 @@ from typing_extensions import override
 
 import torch
 
-from src.dry_torch import exceptions
+from dry_torch import exceptions
 
 _T = TypeVar('_T', torch.Tensor, float)
 

@@ -8,8 +8,8 @@ import numpy as np
 import torch
 from torch.utils import data
 
-from src.dry_torch import protocols as p
-from src.dry_torch import exceptions
+from dry_torch import protocols as p
+from dry_torch import exceptions
 
 _Data_co = TypeVar('_Data_co',
                    bound=tuple[p.InputType, p.TargetType],

@@ -51,11 +51,16 @@ all = [
     "dry-torch[dev]",
 ]
 
+
+#[tool.coverage.run]
+#source = ["dry_torch"]
+
 [tool.setuptools.package-data]
 "dry_torch" = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include-package-data = true
 
 [project.urls]
 Repository = "https://github.com/nverchev/dry_torch"
@@ -70,11 +75,14 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--ignore=tests/functional",
+#    "--cov=.",
+#    "--cov-report=term-missing",
+#    "--cov-report=html",
 ]
 log_cli = true
 log_cli_level = "DEBUG"
 
 [tool.mypy]
-mypy_path = "src.dry_torch"
+mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]

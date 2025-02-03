@@ -43,6 +43,11 @@ class DefaultName:
 try:
     import pandas as pd
 
+except ImportError:
+    PandasObject = type(object())
+    pd = types.ModuleType('Unreachable module.')
+
+else:
 
     class PandasPrintOptions:
         """
@@ -82,10 +87,6 @@ try:
 
     PandasObject = pd.core.base.PandasObject
 
-except ImportError:
-    PandasObject = type(object())
-    pd = types.ModuleType('Unreachable module.')
-
 
 class LiteralStr(str):
     """YAML will attempt to use the pipe style for this class."""
@@ -102,7 +103,6 @@ class StrWithTS(str):
     fmt = '%Y-%m-%dT%H:%M:%S'
 
     def __new__(cls, suffix: str) -> StrWithTS:
-
         str_with_timestamp = f'{suffix}.{datetime.datetime.now():{cls.fmt}}'
         return cast(StrWithTS, super().__new__(cls, str_with_timestamp))
 
