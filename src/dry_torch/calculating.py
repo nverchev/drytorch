@@ -235,16 +235,16 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
             operation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
-            str_op: str,
-            requires_outer_par: bool = True,
+            op_fmt: str,
+            requires_parentheses: bool = True,
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """
         Helper method to combine two losses or apply an operation with a float.
         """
         if isinstance(other, LossBase):
             named_metric_fun = self.named_metric_fun | other.named_metric_fun
-
-            str_other = other.formula
+            str_first = self.formula
+            str_second = other.formula
 
             # apply should combine losses that share the same direction
             self._check_same_direction(other)
@@ -254,8 +254,8 @@ class LossBase(
 
         elif isinstance(other, (float, int)):
             named_metric_fun = self.named_metric_fun
-
-            str_other = str(other)
+            str_first = str(other)
+            str_second = self.formula
 
             def _combined(x: dict[str, torch.Tensor]) -> torch.Tensor:
                 return operation(self.criterion(x), torch.tensor(other))
@@ -263,10 +263,11 @@ class LossBase(
         else:
             raise TypeError(f'Unsupported type for operation: {type(other)}')
 
-        if requires_outer_par:
-            formula = f'({self.formula} {str_op} {str_other})'
-        else:
-            formula = f'{self.formula} {str_op} {str_other}'
+        if not requires_parentheses:
+            str_first = self._remove_outer_parentheses(str_first)
+            str_second = self._remove_outer_parentheses(str_second)
+
+        formula = op_fmt.format(str_first, str_second)
 
         return CompositionalLoss(criterion=_combined,
                                  higher_is_better=self.higher_is_better,
@@ -277,7 +278,7 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._combine(other, operator.add, '+')
+        return self._combine(other, operator.add, '{} + {}', False)
 
     def __radd__(self, other: float) -> CompositionalLoss:
         return self.__add__(other)
@@ -297,7 +298,7 @@ class LossBase(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss:
-        return self._combine(other, operator.mul, 'x', False)
+        return self._combine(other, operator.mul, '{} x {}')
 
     def __rmul__(self, other: float) -> CompositionalLoss:
         return self.__mul__(other)
@@ -316,14 +317,14 @@ class LossBase(
     def __pow__(self, other: float) -> CompositionalLoss:
 
         def _str_other_op(power: float):
-            return ' ^ ' + str(power) if power != 1 else ''
+            return f'^{power}' if power != 1 else ''
 
         if other >= 0:
             higher_is_better = self.higher_is_better
             formula = f'{self.formula}{_str_other_op(other)}'
         else:
             higher_is_better = not self.higher_is_better
-            formula = f'(1 / ({self.formula}{_str_other_op(-other)}))'
+            formula = f'1 / {self.formula}{_str_other_op(-other)}'
         return CompositionalLoss(criterion=lambda x: self.criterion(x) ** other,
                                  higher_is_better=higher_is_better,
                                  formula=formula,
@@ -342,6 +343,12 @@ class LossBase(
     def __repr__(self):
         return f'{self.__class__.__name__}({self.formula})'
 
+    @staticmethod
+    def _remove_outer_parentheses(formula: str) -> str:
+        if formula.startswith('(') and formula.endswith(')'):
+            return formula[1:-1]
+        return formula
+
 
 class CompositionalLoss(
     LossBase[_Output_contra, _Target_contra],
@@ -358,7 +365,7 @@ class CompositionalLoss(
     ) -> None:
         super().__init__(criterion, **named_metric_fun)
         self.higher_is_better = higher_is_better
-        self.formula = formula.replace('--', '').replace('+ -', '- ')
+        self.formula = f'({self._simplify_formula(formula)})'
         return
 
     def calculate(self: Self,
@@ -368,7 +375,11 @@ class CompositionalLoss(
         return {self.name: self.criterion(all_metrics)} | all_metrics
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.formula.strip('()')})"
+        return f'{self.__class__.__name__}{self.formula}'
+
+    @staticmethod
+    def _simplify_formula(formula: str) -> str:
+        return formula.replace('--', '').replace('+ -', '- ')
 
 
 class Loss(
@@ -388,7 +399,7 @@ class Loss(
                                        name=name,
                                        higher_is_better=higher_is_better)
         self.criterion = operator.itemgetter(self.name)
-        self.formula = name
+        self.formula = f'[{name}]'
         return
 
 

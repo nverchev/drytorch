@@ -194,18 +194,22 @@ class TestCompositionalLoss:
     @pytest.fixture(autouse=True)
     def setup(self, metric_1, metric_2, metric_fun_1, metric_fun_2) -> None:
         """Set up a CompositionalLoss instance with simple arguments."""
+
+        # formula corresponds to what the formula components should look like
+        self.loss = CompositionalLoss(lambda x: x[metric_1],
+                                      higher_is_better=True,
+                                      formula=f'[{metric_1}]',
+                                      **metric_fun_1)
+
         self.loss_1 = CompositionalLoss(lambda x: 2. * x[metric_1],
                                         higher_is_better=True,
-                                        formula=f'2 x {metric_1}',
+                                        formula=f'2 x [{metric_1}]',
                                         **metric_fun_1)
         self.loss_2 = CompositionalLoss(lambda x: 3. * x[metric_2],
                                         higher_is_better=True,
-                                        formula=f'3 x {metric_2}',
+                                        formula=f'3 x [{metric_2}]',
                                         **metric_fun_2)
-        self.loss_3 = CompositionalLoss(lambda x: -3. * x[metric_2],
-                                        higher_is_better=False,
-                                        formula=f'-3 x {metric_2}',
-                                        **metric_fun_2)
+
         self.example_metric_results = {metric_1: torch.tensor(1),
                                        metric_2: torch.tensor(2)}
         return
@@ -220,35 +224,36 @@ class TestCompositionalLoss:
         assert self.loss_1.calculate(simple_outputs, simple_targets) == expected
         return
 
+    def test_negate_loss(self) -> None:
+        """Test negation of a loss."""
+        neg_loss = -self.loss_1
+        assert neg_loss.criterion(self.example_metric_results) == -2
+        assert neg_loss.formula == '(-(2 x [Metric_1]))'
+
     def test_add_losses(self) -> None:
         """Test addition of two losses."""
         combined_loss = self.loss_1 + self.loss_2
         assert combined_loss.criterion(self.example_metric_results) == 2 + 6
-        assert combined_loss.formula == '(2 x Metric_1 + 3 x Metric_2)'
+        assert combined_loss.formula == '(2 x [Metric_1] + 3 x [Metric_2])'
 
     def test_subtract_losses(self) -> None:
         """Test subtraction of two losses."""
-        combined_loss = self.loss_1 - self.loss_3
+        combined_loss = self.loss_1 - -self.loss_2
         assert combined_loss.criterion(self.example_metric_results) == 2 + 6
-        assert combined_loss.formula == '(2 x Metric_1 + 3 x Metric_2)'
+        assert combined_loss.formula == '(2 x [Metric_1] - (-(3 x [Metric_2])))'
 
     def test_multiply_losses(self) -> None:
         """Test multiplication of two losses."""
         combined_loss = self.loss_1 * self.loss_2
         assert combined_loss.criterion(self.example_metric_results) == 2 * 6
-        assert combined_loss.formula == '2 x Metric_1 x 3 x Metric_2'
+        assert combined_loss.formula == '((2 x [Metric_1]) x (3 x [Metric_2]))'
 
     def test_divide_losses(self) -> None:
         """Test division of two losses."""
-        combined_loss = self.loss_1 / self.loss_3
+        combined_loss = self.loss_1 / -self.loss_2
         assert combined_loss.criterion(self.example_metric_results) == 2 / -6
-        assert combined_loss.formula == '2 x Metric_1 x (1 / (-3 x Metric_2))'
-
-    def test_negate_loss(self) -> None:
-        """Test negation of a loss."""
-        neg_loss = -self.loss_1
-        assert neg_loss.criterion(self.example_metric_results) == -2
-        assert neg_loss.formula == '-2 x Metric_1'
+        expected = '((2 x [Metric_1]) x (1 / (-(3 x [Metric_2]))))'
+        assert combined_loss.formula == expected
 
 
 class TestLoss:
@@ -264,61 +269,61 @@ class TestLoss:
         """Test addition by float."""
         combined_loss = self.loss_1 + 3
         assert combined_loss.criterion(self.example_metric_results) == 2 + 3
-        assert combined_loss.formula == '(Metric_1 + 3)'
+        assert combined_loss.formula == '(3 + [Metric_1])'
 
     def test_subtract_float(self) -> None:
         """Test subtraction by float."""
         combined_loss = self.loss_1 - 3
         assert combined_loss.criterion(self.example_metric_results) == 2 - 3
-        assert combined_loss.formula == '(Metric_1 - 3)'
+        assert combined_loss.formula == '(-3 + [Metric_1])'
 
     def test_multiply_float(self) -> None:
         """Test multiplication by float."""
         combined_loss = self.loss_1 * 3
         assert combined_loss.criterion(self.example_metric_results) == 2 * 3
-        assert combined_loss.formula == 'Metric_1 x 3'
+        assert combined_loss.formula == '(3 x [Metric_1])'
 
     def test_divide_float(self) -> None:
         """Test division by float."""
         combined_loss = self.loss_1 / 3
         assert combined_loss.criterion(self.example_metric_results) == 2 / 3
-        assert combined_loss.formula == 'Metric_1 x 0.3333333333333333'
+        assert combined_loss.formula == '(0.3333333333333333 x [Metric_1])'
 
     def test_float_add(self) -> None:
         """Test addition to float."""
         combined_loss = 3 + self.loss_1
         assert combined_loss.criterion(self.example_metric_results) == 3 + 2
-        assert combined_loss.formula == '(Metric_1 + 3)'
+        assert combined_loss.formula == '(3 + [Metric_1])'
 
     def test_float_subtract(self) -> None:
         """Test subtraction to float."""
         combined_loss = 3 - self.loss_1
         assert combined_loss.criterion(self.example_metric_results) == 3 - 2
-        assert combined_loss.formula == '(-Metric_1 + 3)'
+        assert combined_loss.formula == '(3 - [Metric_1])'
 
     def test_float_multiply(self) -> None:
         """Test multiplication to float."""
         combined_loss = 3 * self.loss_1
         assert combined_loss.criterion(self.example_metric_results) == 3 * 2
-        assert combined_loss.formula == 'Metric_1 x 3'
+        assert combined_loss.formula == '(3 x [Metric_1])'
 
     def test_float_divide(self) -> None:
         """Test division to float."""
         combined_loss = 3 / self.loss_1
         assert combined_loss.criterion(self.example_metric_results) == 3 / 2
-        assert combined_loss.formula == '(1 / (Metric_1)) x 3'
+        assert combined_loss.formula == '(3 x (1 / [Metric_1]))'
 
     def test_positive_exp(self) -> None:
         """Test exponentiation by positive float."""
         combined_loss = self.loss_1 ** 2
         assert combined_loss.criterion(self.example_metric_results) == 2 ** 2
-        assert combined_loss.formula == 'Metric_1 ^ 2'
+        assert combined_loss.formula == '([Metric_1]^2)'
 
     def test_negative_exp(self) -> None:
         """Test exponentiation by negative float."""
         combined_loss = self.loss_1 ** -2
         assert combined_loss.criterion(self.example_metric_results) == 2 ** (-2)
-        assert combined_loss.formula == '(1 / (Metric_1 ^ 2))'
+        assert combined_loss.formula == '(1 / [Metric_1]^2)'
 
 
 def test_dict_apply(mocker) -> None:
