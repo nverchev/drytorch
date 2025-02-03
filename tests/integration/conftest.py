@@ -86,7 +86,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
 @pytest.fixture
 def standard_learning_scheme() -> LearningScheme:
     """Instantiate a standard learning scheme."""
-    return LearningScheme.Adam(lr=0.01)
+    return LearningScheme.Adam(base_lr=0.01)
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 """Classes for training a model."""
 
-from typing import Self, Optional, TypeVar, reveal_type
+from typing import Self, Optional, TypeVar
 from typing_extensions import override
 import warnings
 
@@ -194,8 +194,8 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         optimizer based on input learning rate(s) and scheduler.
 
         Args:
-            base_lr: learning rates for named parameters or global value. Default
-                keeps the original learning rates.
+            base_lr: initial learning rates for named parameters or global
+                value. Default keeps the original learning rates.
             scheduler: scheduler for the learning rates. Default keeps the
                 original scheduler.
         """

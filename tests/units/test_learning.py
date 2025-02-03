@@ -4,8 +4,8 @@ import pytest
 
 import torch
 
-from src.dry_torch import exceptions
-from src.dry_torch.learning import LearningScheme, Model, ModelOptimizer
+from dry_torch import exceptions
+from dry_torch.learning import LearningScheme, Model, ModelOptimizer
 
 
 class ComplexModule(torch.nn.Module):
@@ -47,7 +47,8 @@ class TestModelOptimizerGlobalLR:
     def setup(self, mock_model, mock_experiment) -> None:
         """Set up a mock ModelOptimizer instance with a global lr."""
         mock_model.module = ComplexModule()
-        learning_scheme = LearningScheme(optimizer_cls=torch.optim.SGD, lr=0.01)
+        learning_scheme = LearningScheme(optimizer_cls=torch.optim.SGD,
+                                         base_lr=0.01)
         self.model_optimizer = ModelOptimizer(model=mock_model,
                                               learning_scheme=learning_scheme)
         return
@@ -63,7 +64,7 @@ class TestModelOptimizerGlobalLR:
     def test_update_learning_rate(self) -> None:
         """Test it correctly updates learning rates."""
         # Set new learning rate and check scheduler is disabled
-        self.model_optimizer.update_learning_rate(lr=0.02)
+        self.model_optimizer.update_learning_rate(base_lr=0.02)
 
         # Check optimizer parameter group learning rate
         for param_group in self.model_optimizer.optimizer.param_groups:
@@ -77,7 +78,7 @@ class TestModelOptimizerParameterLR:
         mock_model.module = ComplexModule()
         self.dict_lr: dict[str, float] = {'linear': 0.01, 'linear2': 0.001}
         learning_scheme = LearningScheme(optimizer_cls=torch.optim.SGD,
-                                         lr=self.dict_lr)
+                                         base_lr=self.dict_lr)
         self.model_optimizer = ModelOptimizer(mock_model,
                                               learning_scheme=learning_scheme)
         return
@@ -86,7 +87,7 @@ class TestModelOptimizerParameterLR:
         """Test it correctly updates learning rates."""
         new_lr = {key: value / 2 for key, value in self.dict_lr.items()}
 
-        self.model_optimizer.update_learning_rate(lr=new_lr)
+        self.model_optimizer.update_learning_rate(base_lr=new_lr)
 
         param_groups = self.model_optimizer.optimizer.param_groups
         for param_group, lr in zip(param_groups, new_lr.values()):

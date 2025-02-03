@@ -38,18 +38,18 @@ class LearningScheme(p.LearningProtocol):
 
     Attributes:
         optimizer_cls: the optimizer class to bind to the module.
-        lr: initial learning rates for the named parameters or global value.
+        base_lr: initial learning rates for named parameters or global value.
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
     """
     optimizer_cls: type[torch.optim.Optimizer]
-    lr: float | dict[str, float]
+    base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     @classmethod
     def Adam(cls,
-             lr: float = 1e-3,
+             base_lr: float = 1e-3,
              betas: tuple[float, float] = (0.9, 0.999),
              scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
              ) -> LearningScheme:
@@ -57,18 +57,18 @@ class LearningScheme(p.LearningProtocol):
         Convenience method for the Adam optimizer.
 
         Args:
-            lr: initial learning rate.
+            base_lr: initial learning rate.
             betas: coefficients used for computing running averages.
             scheduler: modifies the learning rate given the current epoch.
         """
         return cls(optimizer_cls=torch.optim.Adam,
-                   lr=lr,
+                   base_lr=base_lr,
                    scheduler=scheduler,
                    optimizer_defaults={'betas': betas})
 
     @classmethod
     def AdamW(cls,
-              lr: float = 1e-3,
+              base_lr: float = 1e-3,
               betas: tuple[float, float] = (0.9, 0.999),
               weight_decay: float = 1e-2,
               scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
@@ -77,20 +77,20 @@ class LearningScheme(p.LearningProtocol):
         Convenience method for the AdamW optimizer.
 
         Args:
-            lr: initial learning rate.
+            base_lr: initial learning rate.
             betas: coefficients used for computing running averages.
             weight_decay: weight decay (L2 penalty).
             scheduler: modifies the learning rate given the current epoch.
         """
         return cls(optimizer_cls=torch.optim.AdamW,
-                   lr=lr,
+                   base_lr=base_lr,
                    scheduler=scheduler,
                    optimizer_defaults={'betas': betas,
                                        'weight_decay': weight_decay})
 
     @classmethod
     def SGD(cls,
-            lr: float = 0.01,
+            base_lr: float = 0.01,
             momentum: float = 0.,
             weight_decay: float = 0.,
             dampening: float = 0.,
@@ -101,7 +101,7 @@ class LearningScheme(p.LearningProtocol):
         Convenience method for the SGD optimizer.
 
         Args:
-            lr: initial learning rate.
+            base_lr: initial learning rate.
             momentum: momentum factor.
             dampening:  dampening for momentum.
             weight_decay: weight decay (L2 penalty).
@@ -109,7 +109,7 @@ class LearningScheme(p.LearningProtocol):
             scheduler: modifies the learning rate given the current epoch.
         """
         return cls(optimizer_cls=torch.optim.SGD,
-                   lr=lr,
+                   base_lr=base_lr,
                    scheduler=scheduler,
                    optimizer_defaults={'momentum': momentum,
                                        'weight_decay': weight_decay,
@@ -118,7 +118,7 @@ class LearningScheme(p.LearningProtocol):
 
     @classmethod
     def RAdam(cls,
-              lr: float = 1e-3,
+              base_lr: float = 1e-3,
               betas: tuple[float, float] = (0.9, 0.999),
               weight_decay: float = 0.,
               scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
@@ -127,14 +127,14 @@ class LearningScheme(p.LearningProtocol):
         Convenience method for the RAdam optimizer.
 
         Args:
-            lr: initial learning rate.
+            base_lr: initial learning rate.
             betas: coefficients used for computing running averages.
             weight_decay: weight decay (L2 penalty).
             scheduler: modifies the learning rate given the current epoch.
         """
         wd_flag = bool(weight_decay)
         return cls(optimizer_cls=torch.optim.RAdam,
-                   lr=lr,
+                   base_lr=base_lr,
                    scheduler=scheduler,
                    optimizer_defaults={'betas': betas,
                                        'weight_decay': weight_decay,
@@ -254,7 +254,7 @@ class ModelOptimizer:
         self.model = model
         self.module = model.module
         self._params_lr: list[_OptParams] = []
-        self.base_lr = learning_scheme.lr
+        self.base_lr = learning_scheme.base_lr
         self.scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
@@ -309,7 +309,7 @@ class ModelOptimizer:
 
     def update_learning_rate(
             self,
-            lr: Optional[float | dict[str, float]] = None,
+            base_lr: Optional[float | dict[str, float]] = None,
             scheduler: Optional[p.SchedulerProtocol] = None,
     ) -> None:
         """
@@ -317,15 +317,15 @@ class ModelOptimizer:
         optimizer based on input learning rate(s) and scheduler.
 
         Args:
-            lr: learning rates for named parameters or global value. Default
-                keeps the original learning rates.
+            base_lr: Initial learning rates for named parameters or global
+                value. Default keeps the original learning rates.
             scheduler: scheduler for the learning rates. Default keeps the
                 original scheduler.
         """
         if scheduler is not None:
             self.scheduler = scheduler
-        if lr is not None:
-            self.base_lr = lr
+        if base_lr is not None:
+            self.base_lr = base_lr
         for g, up_g in zip(self.optimizer.param_groups,
                            self.get_opt_params()):
             g['lr'] = up_g['lr']

@@ -143,23 +143,23 @@ class EventDispatcher:
                 name = tracker.__class__.__name__
                 warnings.warn(exceptions.TrackerError(name, err))
 
-    def register_tracker(self, tracker: Tracker) -> None:
+    def _register_tracker(self, name: str, tracker: Tracker) -> None:
         """
         Register a tracker to the experiment.
 
         Args:
+            name: The name associated to the tracker.
             tracker: The tracker to register.
 
         Raises:
             TrackerAlreadyRegisteredError: If the tracker is already registered.
         """
-        tracker_name = tracker.__class__.__name__
-        if tracker_name in self.named_trackers:
-            raise exceptions.TrackerAlreadyRegisteredError(tracker_name,
-                                                           self.exp_name)
-        self.named_trackers[tracker_name] = tracker
+        if name in self.named_trackers:
+            raise exceptions.TrackerAlreadyRegisteredError(name, self.exp_name)
 
-    def register_trackers(self, *trackers: Tracker) -> None:
+        self.named_trackers[name] = tracker
+
+    def register(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
         """
         Register trackers from am iterable to the experiment.
 
@@ -170,9 +170,13 @@ class EventDispatcher:
             TrackerAlreadyRegisteredError: If a tracker is already registered.
         """
         for tracker in trackers:
-            self.register_tracker(tracker)
+            name = tracker.__class__.__name__
+            self._register_tracker(name, tracker)
 
-    def remove_named_tracker(self, tracker_name: str) -> None:
+        for name, tracker in named_trackers.items():
+            self._register_tracker(name, tracker)
+
+    def remove(self, tracker_name: str) -> None:
         """
         Remove a tracker by name from the experiment.
 
@@ -189,10 +193,10 @@ class EventDispatcher:
                                                        self.exp_name)
         return
 
-    def remove_all_trackers(self) -> None:
+    def remove_all(self) -> None:
         """Remove all trackers from the experiment."""
         for tracker_name in list(self.named_trackers):
-            self.remove_named_tracker(tracker_name)
+            self.remove(tracker_name)
 
 
 class Experiment(Generic[_T]):
@@ -208,7 +212,7 @@ class Experiment(Generic[_T]):
         dir: The directory for storing experiment files.
         config: Configuration object for the experiment.
         metadata_manager: Manager for recording metadata.
-        event_dispatcher: Dispatcher for publishing events.
+        trackers: Dispatcher for publishing events.
     """
 
     past_experiments: set[Experiment] = set()
@@ -224,8 +228,8 @@ class Experiment(Generic[_T]):
         self.dir = pathlib.Path(par_dir) / name
         self.config = config
         self.metadata_manager = MetadataManager()
-        self.event_dispatcher = EventDispatcher(self.name)
-        self.event_dispatcher.register_trackers(*DEFAULT_TRACKERS.values())
+        self.trackers = EventDispatcher(self.name)
+        self.trackers.register(**DEFAULT_TRACKERS)
         self.__class__.past_experiments.add(self)
 
     def __enter__(self) -> None:
@@ -241,7 +245,7 @@ class Experiment(Generic[_T]):
         """Start the experiment, setting it as the current active experiment."""
         if Experiment._current is not None:
             self.stop()
-        log_events.Event.set_auto_publish(self.event_dispatcher.publish)
+        log_events.Event.set_auto_publish(self.trackers.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
         log_events.StartExperiment(self.name, self.dir)

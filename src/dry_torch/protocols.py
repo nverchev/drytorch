@@ -187,13 +187,13 @@ class LearningProtocol(Protocol):
 
     Attributes:
         optimizer_cls: the optimizer class to bind to the module.
-        lr: initial learning rates for the named parameters or global value.
+        base_lr: initial learning rates for the named parameters or global value.
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
     """
 
     optimizer_cls: type[torch.optim.Optimizer]
-    lr: float | dict[str, float]
+    base_lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
 
@@ -261,7 +261,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     def train(self, num_epochs: int) -> None:
         """Trains the model."""
 
-    def terminate_training(self, reason:str) -> None:
+    def terminate_training(self, reason: str) -> None:
         """Terminate the training."""
 
     def save_checkpoint(self) -> None:
@@ -272,7 +272,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
 
     def update_learning_rate(
             self,
-            lr: Optional[float],
+            base_lr: Optional[float],
             scheduler: Optional[SchedulerProtocol],
     ) -> None:
         """
@@ -280,6 +280,6 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
         optimizer based on input learning rate and scheduler.
 
         Args:
-            lr: learning rate.
+            base_lr: the initial learning rate.
             scheduler: scheduler for the learning rate.
         """
