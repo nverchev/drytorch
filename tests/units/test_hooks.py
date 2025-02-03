@@ -4,12 +4,12 @@ import pytest
 
 from typing import Any
 
-from src.dry_torch import exceptions
-from src.dry_torch import schedulers
-from src.dry_torch.hooks import EarlyStoppingCallback, HookRegistry
-from src.dry_torch.hooks import MetricMonitor, PruneCallback, ReduceLROnPlateau
-from src.dry_torch.hooks import RestartScheduleOnPlateau, StaticHook
-from src.dry_torch.hooks import call_every, saving_hook, static_class
+from dry_torch import exceptions
+from dry_torch import schedulers
+from dry_torch.hooks import EarlyStoppingCallback, HookRegistry
+from dry_torch.hooks import MetricMonitor, PruneCallback, ReduceLROnPlateau
+from dry_torch.hooks import RestartScheduleOnPlateau, StaticHook
+from dry_torch.hooks import call_every, saving_hook, static_class
 
 Accuracy = 'Accuracy'
 Criterion = 'Loss'
@@ -98,7 +98,7 @@ def test_call_every(mocker, mock_trainer) -> None:
 
     mock_hook.reset_mock()
     # Test when trainer is terminated
-    mock_trainer.terminate_training()
+    mock_trainer.terminate_training('This is a test.')
     hook(mock_trainer)
     mock_hook.assert_called_once_with(mock_trainer)
 
@@ -203,7 +203,8 @@ class TestEarlyStoppingCallback:
     def test_stops_on_plateau(self, mock_trainer):
         mock_trainer.validation.calculator.higher_is_better = True
 
-        for _ in range(self.callback.monitor.patience + 1):
+        # best result + patience + terminate = 2 + patience
+        for _ in range(self.callback.monitor.patience + 2):
             self.callback(mock_trainer)
 
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
@@ -246,7 +247,7 @@ class TestReduceLROnPlateau:
         mock_trainer.learning_scheme = mocker.Mock
         mock_trainer.learning_scheme.scheduler = scheduler
 
-        for _ in range(self.callback.monitor.patience + 1):
+        for _ in range(self.callback.monitor.patience + 2):
             self.callback(mock_trainer)
 
         mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
@@ -270,6 +271,7 @@ class TestRestartScheduleOnPlateau:
         mock_trainer.learning_scheme = mocker.Mock
         mock_trainer.learning_scheme.scheduler = scheduler
 
+        # best result + patience + terminate = 2 + patience
         for _ in range(self.callback.monitor.patience + 2):
             self.callback(mock_trainer)
 

@@ -5,11 +5,11 @@ import pytest
 
 import functools
 
-from src import dry_torch
-from src.dry_torch import exceptions
-from src.dry_torch import log_events
-from src.dry_torch.tracking import EventDispatcher, Experiment, MetadataManager
-from src.dry_torch.tracking import Tracker
+import dry_torch
+from dry_torch import exceptions
+from dry_torch import log_events
+from dry_torch.tracking import EventDispatcher, Experiment, MetadataManager
+from dry_torch.tracking import Tracker
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -62,7 +62,7 @@ class TestMetadataManager:
         mock_model_name = 'test_model'
         mock_name = 'test_caller'
 
-        mock_log_event = mocker.patch('src.dry_torch.log_events.ModelCalled')
+        mock_log_event = mocker.patch('dry_torch.log_events.CallModel')
         self.manager.record_model_call(mock_name, mock_model_name, mock_obj)
         assert mock_name in self.manager.used_names
         mock_log_event.assert_called_once()
@@ -72,7 +72,7 @@ class TestMetadataManager:
     def test_register_model(self, mocker, mock_model) -> None:
         """Test registering a model creates the event."""
 
-        mock_log_event = mocker.patch('src.dry_torch.log_events.ModelCreation')
+        mock_log_event = mocker.patch('dry_torch.log_events.ModelCreation')
         self.manager.register_model(mock_model)
         assert mock_model.name in self.manager.used_names
         mock_log_event.assert_called_once()
@@ -83,7 +83,7 @@ class TestMetadataManager:
         """Test metadata extraction with a recursive_repr wrapper."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('src.dry_torch.repr_utils.recursive_repr',
+        mocker.patch('dry_torch.repr_utils.recursive_repr',
                      return_value={'key': 'value'})
 
         metadata = self.manager.extract_metadata(mock_obj, max_size=5)
@@ -93,7 +93,7 @@ class TestMetadataManager:
         """Test extract_metadata handles RecursionError gracefully."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('src.dry_torch.repr_utils.recursive_repr',
+        mocker.patch('dry_torch.repr_utils.recursive_repr',
                      side_effect=RecursionError)
         with pytest.warns(exceptions.RecursionWarning):
             _ = self.manager.extract_metadata(mock_obj, max_size=5)
@@ -109,7 +109,7 @@ class TestEventDispatcher:
         self.par_dir = tmp_path
         self.dispatcher = EventDispatcher(self.name)
         self.tracker = _SimpleTracker()
-        self.dispatcher.register_tracker(self.tracker)
+        self.dispatcher.register(self.tracker)
         return
 
     def test_register_tracker(self):
@@ -119,18 +119,18 @@ class TestEventDispatcher:
     def test_register_duplicate_tracker_raises_error(self):
         """Test that registering a duplicate tracker raises an error."""
         with pytest.raises(exceptions.TrackerAlreadyRegisteredError):
-            self.dispatcher.register_tracker(_SimpleTracker())
+            self.dispatcher.register(_SimpleTracker())
 
     def test_remove_named_tracker(self):
         """Test that a registered tracker can be removed by name."""
         tracker_name = self.tracker.__class__.__name__
-        self.dispatcher.remove_named_tracker(tracker_name)
+        self.dispatcher.remove(tracker_name)
         assert tracker_name not in self.dispatcher.named_trackers
 
     def test_remove_nonexistent_tracker_raises_error(self):
         """Test that removing a non-existent tracker raises an error."""
         with pytest.raises(exceptions.TrackerNotRegisteredError):
-            self.dispatcher.remove_named_tracker('NonexistentTracker')
+            self.dispatcher.remove('NonexistentTracker')
 
     def test_publish_event_calls_tracker_notify(self):
         """Test publishing an event calls notify on registered trackers."""

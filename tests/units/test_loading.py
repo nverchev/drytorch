@@ -7,9 +7,9 @@ from typing import Sequence
 import torch
 from torch.utils import data
 
-from src.dry_torch import exceptions
-from src.dry_torch.loading import DataLoader, Permutation, Sliced
-from src.dry_torch.loading import check_dataset_length, num_batches
+from dry_torch import exceptions
+from dry_torch.loading import DataLoader, Permutation, Sliced
+from dry_torch.loading import check_dataset_length, num_batches
 
 
 class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):

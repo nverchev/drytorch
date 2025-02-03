@@ -2,8 +2,8 @@
 
 import torch
 
-from src.dry_torch import schedulers
-from src.dry_torch import hooks
+from dry_torch import schedulers
+from dry_torch import hooks
 
 
 def test_convergence(identity_trainer) -> None:

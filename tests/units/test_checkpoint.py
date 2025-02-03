@@ -4,8 +4,8 @@ import pytest
 
 import torch
 
-from src.dry_torch import checkpoint
-from src.dry_torch import exceptions
+from dry_torch import checkpoint
+from dry_torch import exceptions
 
 
 class TestPathManager:

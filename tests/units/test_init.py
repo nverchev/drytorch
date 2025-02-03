@@ -1,6 +1,6 @@
 """Test functions for default trackers."""
 
-from src import dry_torch
+import dry_torch
 
 
 def test_standard_trackers():

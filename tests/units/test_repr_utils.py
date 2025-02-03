@@ -5,8 +5,8 @@ import pytest
 import numpy as np
 import torch
 
-from src.dry_torch.repr_utils import DefaultName, LiteralStr, Omitted
-from src.dry_torch.repr_utils import limit_size, has_own_repr, recursive_repr
+from dry_torch.repr_utils import DefaultName, LiteralStr, Omitted
+from dry_torch.repr_utils import limit_size, has_own_repr, recursive_repr
 
 
 # Test class for DefaultName

@@ -3,9 +3,9 @@ import pathlib
 import hydra
 import omegaconf
 
-from src.dry_torch import Experiment
-from src.dry_torch.trackers import hydra_backend
-from src.dry_torch.trackers import builtin_logger
+from dry_torch import Experiment
+from dry_torch.trackers import hydra_backend
+from dry_torch.trackers import builtin_logger
 
 
 @hydra.main(version_base=None, config_path='conf', config_name='defaults')

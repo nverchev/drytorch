@@ -4,9 +4,9 @@ import pytest
 
 import numpy as np
 
-from src.dry_torch.schedulers import CompositionScheduler, ConstantScheduler
-from src.dry_torch.schedulers import CosineScheduler, ExponentialScheduler
-from src.dry_torch.schedulers import WarmupScheduler
+from dry_torch.schedulers import CompositionScheduler, ConstantScheduler
+from dry_torch.schedulers import CosineScheduler, ExponentialScheduler
+from dry_torch.schedulers import WarmupScheduler
 
 
 class TestConstantScheduler:

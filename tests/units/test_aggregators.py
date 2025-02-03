@@ -4,8 +4,8 @@ import pytest
 
 import torch
 
-from src.dry_torch import exceptions
-from src.dry_torch.aggregators import Aggregator, Averager, TorchAverager
+from dry_torch import exceptions
+from dry_torch.aggregators import Aggregator, Averager, TorchAverager
 
 
 class TestAggregator:

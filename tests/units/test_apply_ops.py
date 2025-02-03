@@ -4,8 +4,8 @@ from typing import NamedTuple
 import pytest
 import torch
 
-from src.dry_torch.apply_ops import recursive_apply
-from src.dry_torch.apply_ops import apply_to
+from dry_torch.apply_ops import recursive_apply
+from dry_torch.apply_ops import apply_to
 
 
 class _TorchTuple(NamedTuple):
@@ -19,7 +19,7 @@ class _TorchLikeTuple(NamedTuple):
 
 
 def test_recursive_apply() -> None:
-    """Test ``recursive_apply`` works when expected to."""
+    """Test works when expected to."""
     expected_type = torch.Tensor
     tuple_data = (torch.tensor(1.), [1, 2])
     dict_data = {'list': tuple_data}

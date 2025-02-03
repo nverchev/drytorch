@@ -4,8 +4,8 @@ import pytest
 
 import torch
 
-from src.dry_torch import Trainer
-from src.dry_torch import exceptions
+from dry_torch import Trainer
+from dry_torch import exceptions
 
 
 class TestTrainer:
@@ -27,9 +27,9 @@ class TestTrainer:
     def test_call_events(self, mocker) -> None:
         """Test train method invokes the necessary hooks and events."""
         start_training_event = mocker.patch(
-            'src.dry_torch.log_events.StartTraining')
+            'dry_torch.log_events.StartTraining')
         end_training_event = mocker.patch(
-            'src.dry_torch.log_events.EndTraining')
+            'dry_torch.log_events.EndTraining')
 
         self.trainer.train(2)
 
@@ -74,7 +74,7 @@ class TestTrainer:
 
     def test_terminate_training(self) -> None:
         """Test that terminated correctly stop training."""
-        self.trainer.terminate_training()
+        self.trainer.terminate_training(reason='This is a test.')
         with pytest.warns(exceptions.TerminatedTrainingWarning):
             self.trainer()
 

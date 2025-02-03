@@ -4,9 +4,9 @@ import pytest
 
 import torch
 
-from src import dry_torch
-from src.dry_torch import DataLoader, LearningScheme, Model, Experiment
-from src.dry_torch import Trainer, Loss, Metric
+import dry_torch
+from dry_torch import DataLoader, LearningScheme, Model, Experiment
+from dry_torch import Trainer, Loss, Metric
 
 from tests.integration.simple_classes import IdentityDataset, Linear
 from tests.integration.simple_classes import TorchData, TorchTuple

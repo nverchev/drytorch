@@ -7,8 +7,8 @@ import pathlib
 
 import torch
 
-from src.dry_torch import protocols as p
-from src.dry_torch import Experiment
+from dry_torch import protocols as p
+from dry_torch import Experiment
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -26,10 +26,10 @@ def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     mock_experiment.metadata_manager = session_mocker.Mock()
     mock_experiment.metadata_manager.record_model_call = session_mocker.Mock()
     mock_experiment.metadata_manager.register_model = session_mocker.Mock()
-    session_mocker.patch('src.dry_torch.tracking.Experiment.current',
+    session_mocker.patch('dry_torch.tracking.Experiment.current',
                          return_value=mock_experiment)
-    session_mocker.patch('src.dry_torch.registering.register_model')
-    session_mocker.patch('src.dry_torch.registering.record_model_call')
+    session_mocker.patch('dry_torch.registering.register_model')
+    session_mocker.patch('dry_torch.registering.record_model_call')
 
     return mock_experiment
 
@@ -58,7 +58,7 @@ def mock_learning_scheme(mocker,
                          mock_scheduler) -> p.LearningProtocol:
     """Fixture for a mock learning scheme."""
     mock = mocker.create_autospec(spec=p.LearningProtocol, instance=True)
-    mock.base_lr = 0.
+    mock.lr = 0.
     mock.scheduler = mock_scheduler
     mock.optimizer_cls = torch.optim.SGD
     mock.optimizer_defaults = {}
@@ -124,7 +124,7 @@ def mock_trainer(mocker,
     mock.validation = mock_validation
     mock.terminated = False
 
-    def _terminate_training():
+    def _terminate_training(reason: str):
         mock.terminated = True
 
     mock.terminate_training = mocker.Mock(side_effect=_terminate_training)
