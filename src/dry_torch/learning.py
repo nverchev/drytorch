@@ -145,28 +145,29 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
     """
     Wrapper for a torch.nn.Module class with extra information.
 
-    Args:
-        torch_module: Pytorch module with type annotations.
-        name: the name of the model.
-        device: the device where to store the weights of module. Default uses
-            cuda when available else cpu.
-
     Attributes:
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
-
     """
-    _default_name = repr_utils.DefaultName()
+    _name = repr_utils.DefaultName()
 
     def __init__(
             self,
             torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
             /,
-            name: Optional[str] = None,
+            name: str = '',
             device: Optional[torch.device] = None,
     ) -> None:
+        """
+        Args:
+            torch_module: Pytorch module with type annotations.
+            name: the name of the model. Default uses the class name.
+            device: the device where to store the weights of module.
+                Default uses cuda when available, cpu otherwise.
+
+        """
         self.module = self._validate_module(torch_module)
-        self.name = repr_utils.StrWithTS(name or self._default_name)
+        self._name = name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
         exp = registering.register_model(self)
@@ -182,6 +183,11 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
         self._device = device
         self.module.to(device)
         return
+
+    @property
+    def name(self):
+        """The name of the model."""
+        return self._name
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         return self.module(inputs)

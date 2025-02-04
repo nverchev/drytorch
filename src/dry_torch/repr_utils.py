@@ -6,38 +6,48 @@ from collections.abc import Iterable
 import dataclasses
 import datetime
 import functools
+import itertools
 import math
 import numbers
 import types
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 import torch
 
 
+class StrWithTS(str):
+    """A string that adds a timestamp."""
+    fmt = '%Y-%m-%dT%H:%M:%S'
+
+    def __new__(cls, suffix: str) -> StrWithTS:
+        str_with_timestamp = f'{suffix}.{datetime.datetime.now():{cls.fmt}}'
+        return cast(StrWithTS, super().__new__(cls, str_with_timestamp))
+
+    def __str__(self) -> str:
+        return self.split('.')[0]
+
+
 class DefaultName:
     """Add a counter to a prefix"""
 
-    def __init__(self, start: int = -1):
+    def __init__(self):
         """
-        Args:
-            start: initial count value.
         """
-        self.prefix = 'default'
-        self.count_defaults = start
+        self._prefixes = dict[str, itertools.count]()
 
-    def __get__(self, instance: Any, owner: type) -> str:
+    def __get__(self, instance: Any, objtype: Optional[type] = None) -> str:
         """Return the default name for the instance or class."""
-        if instance is None:
-            return self.prefix
-        self.prefix = instance.__class__.__name__
-        self.count_defaults += 1
-        return repr(self)
+        return instance.__name
 
-    def __repr__(self) -> str:
-        if not self.count_defaults:
-            return self.prefix
-        return f'{self.prefix}_{self.count_defaults}'
+    def __set__(self, instance: Any, value: str) -> None:
+        """Return the default name for the instance or class."""
+        value = value if value else instance.__class__.__name__
+        count_iter = self._prefixes.setdefault(value, itertools.count())
+        if count_value := next(count_iter):
+            value = f'{value}_{count_value}'
+        instance.__name = StrWithTS(value)
+        return
 
 
 try:
@@ -96,18 +106,6 @@ class LiteralStr(str):
 class Omitted:
     """Class for objects that represent omitted values in an iterable."""
     count: float = math.nan
-
-
-class StrWithTS(str):
-    """A string that adds a timestamp."""
-    fmt = '%Y-%m-%dT%H:%M:%S'
-
-    def __new__(cls, suffix: str) -> StrWithTS:
-        str_with_timestamp = f'{suffix}.{datetime.datetime.now():{cls.fmt}}'
-        return cast(StrWithTS, super().__new__(cls, str_with_timestamp))
-
-    def __str__(self) -> str:
-        return self.split('.')[0]
 
 
 def has_own_repr(obj: Any) -> bool:

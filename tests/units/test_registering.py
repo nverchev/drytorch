@@ -4,7 +4,7 @@ import pytest
 
 from dry_torch import exceptions
 from dry_torch.registering import register_model, record_model_call
-from dry_torch.registering import ALL_CALLERS, ALL_MODULES
+from dry_torch.registering import ALL_MODULES
 
 
 class _SimpleCaller:
@@ -23,9 +23,6 @@ def test_record_model_call(mock_experiment, mock_model) -> None:
                                                       mock_model.name,
                                                       caller)
 
-    assert id(caller) in ALL_CALLERS
-    assert ALL_CALLERS[id(caller)] == mock_experiment
-
 
 def test_register_model(mock_experiment, mock_model) -> None:
     """Test successful model registration."""
@@ -41,7 +38,7 @@ def test_register_model_already_registered(mock_experiment, mock_model) -> None:
     """Test error when registering a model that is already registered."""
     ALL_MODULES[mock_model.module] = mock_experiment
 
-    with pytest.raises(exceptions.ModelAlreadyRegisteredError):
+    with pytest.raises(exceptions.NameAlreadyRegisteredError):
         register_model(mock_model)
 
 

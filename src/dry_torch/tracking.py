@@ -13,7 +13,7 @@ from abc import abstractmethod
 import functools
 import pathlib
 from types import TracebackType
-from typing import Any, Final, Generic, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 import warnings
 import weakref
 
@@ -73,7 +73,7 @@ class MetadataManager:
 
     def _register_name(self, name: str) -> None:
         if name in self.used_names:
-            raise exceptions.ModelAlreadyRegisteredError(name)
+            raise exceptions.NameAlreadyRegisteredError(name)
         self.used_names.add(name)
         return
 
@@ -202,13 +202,7 @@ class EventDispatcher:
 class Experiment(Generic[_T]):
     """Manages experiment metadata, configuration, and tracking.
 
-    Args:
-        name: The name of the experiment.
-        par_dir: Parent directory for experiment data.
-        config: Configuration for the experiment.
-
     Attributes:
-        name: The experiment name, set at initialization.
         dir: The directory for storing experiment files.
         config: Configuration object for the experiment.
         metadata_manager: Manager for recording metadata.
@@ -218,19 +212,30 @@ class Experiment(Generic[_T]):
     past_experiments: set[Experiment] = set()
     _current: Optional[Experiment] = None
     _current_config: Optional[_T] = None
-    _default_name = repr_utils.DefaultName()
+    _name = repr_utils.DefaultName()
 
     def __init__(self,
                  name: str = '',
                  par_dir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[_T] = None) -> None:
-        self.name: Final = name or repr_utils.StrWithTS(self._default_name)
-        self.dir = pathlib.Path(par_dir) / name
+        """
+        Args:
+            name: The name of the experiment. Defaults to class name.
+            par_dir: Parent directory for experiment data.
+            config: Configuration for the experiment.
+        """
+        self._name = name
+        self.dir = pathlib.Path(par_dir) / str(self.name)
         self.config = config
         self.metadata_manager = MetadataManager()
         self.trackers = EventDispatcher(self.name)
         self.trackers.register(**DEFAULT_TRACKERS)
         self.__class__.past_experiments.add(self)
+
+    @property
+    def name(self) -> str:
+        """The name of the experiment."""
+        return self._name
 
     def __enter__(self) -> None:
         return self.start()

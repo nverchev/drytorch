@@ -66,7 +66,7 @@ class TestMetadataManager:
         self.manager.record_model_call(mock_name, mock_model_name, mock_obj)
         assert mock_name in self.manager.used_names
         mock_log_event.assert_called_once()
-        with pytest.raises(exceptions.ModelAlreadyRegisteredError):
+        with pytest.raises(exceptions.NameAlreadyRegisteredError):
             self.manager.record_model_call(mock_name, mock_model_name, mock_obj)
 
     def test_register_model(self, mocker, mock_model) -> None:
@@ -76,7 +76,7 @@ class TestMetadataManager:
         self.manager.register_model(mock_model)
         assert mock_model.name in self.manager.used_names
         mock_log_event.assert_called_once()
-        with pytest.raises(exceptions.ModelAlreadyRegisteredError):
+        with pytest.raises(exceptions.NameAlreadyRegisteredError):
             self.manager.register_model(mock_model)
 
     def test_extract_metadata(self, mocker) -> None:

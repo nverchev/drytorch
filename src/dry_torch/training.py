@@ -13,7 +13,6 @@ from dry_torch import learning
 from dry_torch import log_events
 from dry_torch import hooks
 from dry_torch import protocols as p
-from dry_torch import repr_utils
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -29,7 +28,6 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         calculator: processes the model outputs and targets.
-        name: the name for the object for logging purposes.
         learning_scheme: contains optimizer settings and scheduling.
         mixed_precision: whether it uses mixed precision computing.
         outputs_list: list of optionally stored outputs
@@ -62,7 +60,6 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
                          calculator=calculator,
                          mixed_precision=mixed_precision,
                          name=name)
-        self.name: repr_utils.StrWithTS
         self.model: p.ModelProtocol[_Input, _Output]
         self.calculator: p.LossCalculatorProtocol[_Output, _Target] = calculator
         self.learning_scheme = learning_scheme

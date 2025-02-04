@@ -35,12 +35,11 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         calculator: processes the model outputs and targets.
-        name: the name for the object for logging purposes.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
     max_stored_output: int = sys.maxsize
-    _default_name = repr_utils.DefaultName()
+    _name = repr_utils.DefaultName()
 
     def __init__(
             self,
@@ -63,21 +62,29 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
                 Defaults to False.
         """
         self.model = model
-        self.name = repr_utils.StrWithTS(name or self._default_name)
+        self._name = name
         self.loader = loader
         self.calculator = calculator
         device_is_cuda = self.model.device.type == 'cuda'
         self.mixed_precision = mixed_precision and device_is_cuda
         self.outputs_list = list[_Output]()
         self._metadata_recorded = False
+        self._registered = False
         return
+
+    @property
+    def name(self) -> str:
+        """The name of the model."""
+        return self._name
 
     @abc.abstractmethod
     def __call__(self) -> None:
         """
         Abstract method to be implemented by subclasses for model evaluation.
         """
-        registering.record_model_call(self, self.model)
+        if not self._registered:
+            registering.record_model_call(self, self.model)
+        self._registered = True
         return
 
     def _log_metrics(self, metrics: Mapping[str, Any]) -> None:
@@ -138,7 +145,6 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         calculator: processes the model outputs and targets.
-        name: the name for the object for logging purposes.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
@@ -166,7 +172,6 @@ class Validation(Diagnostic[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         calculator: processes the model outputs and targets.
-        name: the name for the object for logging purposes.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
@@ -180,7 +185,6 @@ class Test(Diagnostic[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         calculator: processes the model outputs and targets.
-        name: the name for the object for logging purposes.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """

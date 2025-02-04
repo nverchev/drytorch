@@ -187,7 +187,7 @@ class LearningProtocol(Protocol):
 
     Attributes:
         optimizer_cls: the optimizer class to bind to the module.
-        base_lr: initial learning rates for the named parameters or global value.
+        base_lr: initial learning rates for named parameters or global value.
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
     """
@@ -204,16 +204,19 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     Protocol for a wrapper around a torch module.
 
     Attributes:
-        name: name of the model.
-        module: underlying PyTorch module.
+        module: Pytorch module to optimize.
+        epoch: the number of epochs the model has been trained so far.
     """
-    name: str
     module: torch.nn.Module
     epoch: int
 
     @property
     def device(self) -> torch.device:
-        """Returns the device of the module."""
+        """The device where the weights are stored."""
+
+    @property
+    def name(self) -> str:
+        """The name of the model."""
 
     @abc.abstractmethod
     def __call__(self, inputs: _Input_contra) -> _Output_co:
@@ -229,11 +232,9 @@ class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
     Protocol for a class that validates a model.
 
     Attributes:
-        name: name of the evaluator.
         model: the model to evaluate.
         calculator: object that calculates the metrics
     """
-    name: str
     model: ModelProtocol[_Input, _Output]
     calculator: MetricCalculatorProtocol[_Output, _Target]
 
@@ -244,11 +245,9 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     Protocol for a class that train a model.
 
     Attributes:
-        name: name of the trainer.
         model: the model to train.
         calculator: object that calculates the metrics and loss
     """
-    name: str
     model: ModelProtocol[_Input, _Output]
     learning_scheme: LearningProtocol
     calculator: LossCalculatorProtocol[_Output, _Target]

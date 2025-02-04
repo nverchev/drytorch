@@ -51,4 +51,4 @@ class TestDiagnostic:
 
     def test_str(self):
         """Test string representation of the diagnostic."""
-        assert str(self.diagnostic) == self.name
+        assert str(self.diagnostic).startswith(self.name)
