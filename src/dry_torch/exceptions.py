@@ -83,11 +83,11 @@ class ModelNotFoundError(DryTorchException, FileNotFoundError):
         super().__init__(checkpoint_directory)
 
 
-class ModelAlreadyRegisteredError(DryTorchException, ValueError):
-    msg = 'Model has a module already registered in experiment {}.'
+class NameAlreadyRegisteredError(DryTorchException, ValueError):
+    msg = 'Name {} has already been registered in the current experiment.'
 
-    def __init__(self, exp_name: str) -> None:
-        super().__init__(exp_name)
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
 
 
 class NamedTupleOnlyError(DryTorchException, TypeError):
