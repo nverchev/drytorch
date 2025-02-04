@@ -181,5 +181,3 @@ def test_no_active_experiment_error(experiment_current_original):
     with pytest.raises(exceptions.NoActiveExperimentError):
         # Experiment.current has been stored in experiment_current_original
         _ = experiment_current_original()
-
-

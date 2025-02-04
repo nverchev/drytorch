@@ -187,7 +187,7 @@ class CallEveryHook(OptionalCallable):
 
 def call_every(
         interval: int,
-        start: int = 1,
+        start: int = 0,
 ) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEveryHook]:
     """Create a decorator for periodic hook execution.
 
