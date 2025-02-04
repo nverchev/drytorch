@@ -264,6 +264,8 @@ class Experiment(Generic[_T]):
 
         Returns:
             Experiment: The current active experiment.
+        Raises:
+            NoActiveExperimentError: If there is no active experiment.
         """
         if Experiment._current is None:
             raise exceptions.NoActiveExperimentError()
@@ -283,9 +285,12 @@ class Experiment(Generic[_T]):
             _T: Configuration object of the current experiment.
 
         Raises:
+            NoActiveExperimentError: If there is no active experiment.
             NoConfigError: If there is no configuration available.
         """
         cfg = cls._current_config
+        if Experiment._current is None:
+            raise exceptions.NoActiveExperimentError()
         if cfg is None:
             raise exceptions.NoConfigError()
         return cfg

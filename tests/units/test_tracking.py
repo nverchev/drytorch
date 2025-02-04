@@ -169,6 +169,12 @@ class TestExperiment:
                                                      self.par_dir / self.name)
         mock_event_stop.assert_called_once_with(self.name)
 
+    def test_get_config_no_config_error(self):
+        """Test NoConfigError is raised if config is None."""
+        with self.experiment:
+            with pytest.raises(exceptions.NoConfigError):
+                Experiment.get_config()
+
 
 def test_no_active_experiment_error(experiment_current_original):
     """Test that error is called when no experiment is active."""
@@ -177,8 +183,3 @@ def test_no_active_experiment_error(experiment_current_original):
         _ = experiment_current_original()
 
 
-def test_get_config_no_config_error():
-    """Test NoConfigError is raised if config is accessed when unavailable."""
-    Experiment._current_config = None  # Ensure no config is set
-    with pytest.raises(exceptions.NoConfigError):
-        Experiment.get_config()
