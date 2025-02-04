@@ -15,8 +15,8 @@ import sys
 from typing import NamedTuple, Optional
 from typing_extensions import override
 
-from src.dry_torch import log_events
-from src.dry_torch import tracking
+from dry_torch import log_events
+from dry_torch import tracking
 
 logger = logging.getLogger('dry_torch')
 
@@ -238,7 +238,7 @@ class BuiltinLogger(tracking.Tracker):
         log_args = {'source': event.source,
                     'model_name': str(event.model_name),
                     'reason': event.reason,
-                    'epoch': event.epoch},
+                    'epoch': event.epoch}
         logger.log(INFO_LEVELS.training, msg, log_args)
         return
 
