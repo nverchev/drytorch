@@ -217,7 +217,7 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
     return
 
 
-def static_class(
+def static_hook_class(
         cls: Callable[_P, Callable[[], None]]
 ) -> Callable[_P, StaticHook]:
     """
@@ -230,12 +230,12 @@ def static_class(
         A class that can be instantiated in the same way to have a static hook.
     """
 
-    class StaticClassHook(StaticHook):
+    class StaticHookDecorator(StaticHook):
 
         def __init__(self, *args: _P.args, **kwargs: _P.kwargs):
             super().__init__(cls(*args, **kwargs))
 
-    return StaticClassHook
+    return StaticHookDecorator
 
 
 class MetricMonitor:

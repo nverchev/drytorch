@@ -9,7 +9,7 @@ from dry_torch import schedulers
 from dry_torch.hooks import EarlyStoppingCallback, HookRegistry
 from dry_torch.hooks import MetricMonitor, PruneCallback, ReduceLROnPlateau
 from dry_torch.hooks import RestartScheduleOnPlateau, StaticHook
-from dry_torch.hooks import call_every, saving_hook, static_class
+from dry_torch.hooks import call_every, saving_hook, static_hook_class
 
 Accuracy = 'Accuracy'
 Criterion = 'Loss'
@@ -69,7 +69,7 @@ def test_static_class(mocker, mock_trainer) -> None:
         def __call__(self) -> None:
             mock_event()
 
-    hook = static_class(_TestClass)('test', number=1)
+    hook = static_hook_class(_TestClass)('test', number=1)
     hook(mock_trainer)
     mock_event.assert_called_once()
 
