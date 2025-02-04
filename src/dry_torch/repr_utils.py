@@ -43,7 +43,7 @@ class DefaultName:
 try:
     import pandas as pd
 
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     PandasObject = type(object())
     pd = types.ModuleType('Unreachable module.')
 

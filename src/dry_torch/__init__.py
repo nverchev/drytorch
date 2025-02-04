@@ -1,14 +1,17 @@
 """Init file for the dry_torch package."""
+import warnings
+
 from dry_torch.calculating import Loss
 from dry_torch.calculating import Metric
 from dry_torch.checkpoint import CheckpointIO
 from dry_torch.checkpoint import ModelStateIO
-from dry_torch.loading import DataLoader
-from dry_torch.learning import LearningScheme
-from dry_torch.learning import Model
 from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Test
 from dry_torch.evaluating import Validation
+from dry_torch.exceptions import FailedOptionalImportWarning
+from dry_torch.loading import DataLoader
+from dry_torch.learning import LearningScheme
+from dry_torch.learning import Model
 from dry_torch.tracking import DEFAULT_TRACKERS
 from dry_torch.tracking import Experiment
 from dry_torch.tracking import Tracker
@@ -36,8 +39,8 @@ def add_standard_trackers_to_default_trackers() -> None:
     try:
         import tqdm
 
-    except ImportError:
-        pass
+    except (ImportError, ModuleNotFoundError) as ie:
+        warnings.warn(FailedOptionalImportWarning('tqdm', ie))
 
     else:
         from dry_torch.trackers import tqdm_logger
@@ -45,8 +48,8 @@ def add_standard_trackers_to_default_trackers() -> None:
 
     try:
         import yaml  # type: ignore
-    except ImportError:
-        pass
+    except (ImportError, ModuleNotFoundError) as ie:
+        warnings.warn(FailedOptionalImportWarning('yaml', ie))
     else:
         from dry_torch.trackers import yaml_dumper
         tracker_list.append(yaml_dumper.YamlDumper())

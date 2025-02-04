@@ -147,6 +147,15 @@ class ComputedBeforeUpdatedWarning(DryTorchException, UserWarning):
         super().__init__(calculator.__class__.__name__)
 
 
+class FailedOptionalImportWarning(DryTorchException, UserWarning):
+    msg = 'Failed to import optional dependency {}. Install for better support.'
+
+    def __init__(self, package_name: str, error: BaseException) -> None:
+        self.error = error
+        self.package_name = package_name
+        super().__init__(self.msg.format(package_name))
+
+
 class OptimizerNotLoadedWarning(DryTorchException, UserWarning):
     msg = 'The optimizer has not been correctly loaded:\n{}'
 
