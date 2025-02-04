@@ -219,7 +219,7 @@ class LossBase(
                 outputs: _Output_contra,
                 targets: _Target_contra) -> torch.Tensor:
         metrics = self.update(outputs, targets)
-        return self.criterion(metrics)
+        return self.criterion(metrics).mean()
 
     def __or__(
             self,
