@@ -28,9 +28,11 @@ def test_failed_import_warning():
     with pytest.MonkeyPatch().context() as mp:
         original_import = __import__
 
-        def _mock_import(name, *args, **kwargs):
-            if name in ('tqdm', 'yaml'):
+        def _mock_import(name: str, *args, **kwargs):
+            if name == 'tqdm':
                 raise ImportError
+            if name == 'yaml':
+                raise ModuleNotFoundError
             return original_import(name, *args, **kwargs)
 
         mp.setattr('builtins.__import__', _mock_import)
