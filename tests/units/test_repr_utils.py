@@ -13,6 +13,14 @@ from dry_torch.repr_utils import limit_size, has_own_repr, recursive_repr
 class _TestClass:
     _default_name = DefaultName()
 
+    def __init__(self) -> None:
+        self._default_name = ''
+
+
+class _TestSubClass(_TestClass):
+    def __init__(self) -> None:
+        super().__init__()
+
 
 class TestDefaultName:
     """Test DefaultName class generates incremental names."""
@@ -25,8 +33,17 @@ class TestDefaultName:
     def test_default_name(self) -> None:
         """Test DefaultName class generates incremental names."""
 
-        assert self.obj._default_name == self.obj.__class__.__name__
-        assert self.obj._default_name == f'{self.obj.__class__.__name__}_1'
+        assert str(self.obj._default_name) == self.obj.__class__.__name__
+        self.obj_1 = _TestClass()
+
+        dfdfd=str(self.obj_1._default_name)
+        assert dfdfd == f'{self.obj.__class__.__name__}_1'
+
+    def test_subclass_name(self) -> None:
+        """Test DefaultName generates incremental names starting from 0."""
+        assert str(self.obj._default_name) == self.obj.__class__.__name__
+        sub_obj = _TestSubClass()
+        assert str(sub_obj._default_name) == sub_obj.__class__.__name__
 
 
 # Test classes for recursive representation
