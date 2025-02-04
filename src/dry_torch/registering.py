@@ -19,7 +19,6 @@ from dry_torch import protocols as p
 from dry_torch import repr_utils
 from dry_torch import tracking
 
-ALL_CALLERS = dict[int, tracking.Experiment]()
 ALL_MODULES = dict[nn.Module, tracking.Experiment]()
 
 
@@ -33,9 +32,7 @@ def record_model_call(x: Any, model: p.ModelProtocol) -> None:
     """
     exp = tracking.Experiment.current()
     name = getattr(x, 'name', '') or repr_utils.StrWithTS(x.__class__.__name__)
-    if id(x) not in ALL_CALLERS:
-        ALL_CALLERS[id(x)] = exp
-        exp.metadata_manager.record_model_call(name, model.name, x)
+    exp.metadata_manager.record_model_call(name, model.name, x)
     module = model.module
     try:
         model_exp = ALL_MODULES[module]
@@ -57,7 +54,7 @@ def register_model(model: p.ModelProtocol) -> tracking.Experiment:
     exp = tracking.Experiment.current()
     module = model.module
     if module in ALL_MODULES:
-        raise exceptions.ModelAlreadyRegisteredError(exp.name)
+        raise exceptions.NameAlreadyRegisteredError(exp.name)
     ALL_MODULES[module] = exp
     exp.metadata_manager.register_model(model)
     return exp
