@@ -98,8 +98,8 @@ class TestTrainer:
         # Mock the hooks to track their order of execution
         pre_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         post_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
-        self.trainer._pre_epoch_hooks.register_all(pre_hook_list)
-        self.trainer._post_epoch_hooks.register_all(post_hook_list)
+        self.trainer.pre_epoch_hooks.register_all(pre_hook_list)
+        self.trainer.post_epoch_hooks.register_all(post_hook_list)
 
         self.trainer.train(1)
 

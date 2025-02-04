@@ -22,7 +22,7 @@ def test_early_stopping(identity_loader,
     hook = hooks.EarlyStoppingCallback(square_loss_calc,
                                        patience=5,
                                        min_delta=10)
-    identity_trainer._post_epoch_hooks.register(hook)
+    identity_trainer.post_epoch_hooks.register(hook)
     identity_trainer.train(15)
     # patience never reset, 5 epochs of patience and terminate at 6
     assert identity_trainer.model.epoch == 6
@@ -37,7 +37,7 @@ def test_early_stopping_on_val(identity_loader,
                                        patience=5,
                                        min_delta=10)
     identity_trainer.add_validation(val_loader=identity_loader)
-    identity_trainer._post_epoch_hooks.register(hook)
+    identity_trainer.post_epoch_hooks.register(hook)
     identity_trainer.train(15)
     assert identity_trainer.model.epoch == 6
 
@@ -48,7 +48,7 @@ def test_pruning_callback(identity_loader,
                           identity_trainer) -> None:
     """Test pruning based on metric thresholds."""
     pruning_thresholds = {2: 0.1, 4: 0}
-    identity_trainer._post_epoch_hooks.register(
+    identity_trainer.post_epoch_hooks.register(
         hooks.PruneCallback(
             pruning=pruning_thresholds,
             metric=square_loss_calc,
@@ -66,7 +66,7 @@ def test_reduce_lr_on_plateau(identity_loader,
     """Test learning rate reduction on plateau."""
     factor = 0.01
     initial_lr = identity_trainer._model_optimizer.base_lr
-    identity_trainer._post_epoch_hooks.register(
+    identity_trainer.post_epoch_hooks.register(
         hooks.ReduceLROnPlateau(
             metric=square_loss_calc,
             factor=factor,
@@ -86,7 +86,7 @@ def test_restart_schedule_on_plateau(identity_loader,
     exp_scheduler = schedulers.ExponentialScheduler()
     initial_lr = identity_trainer._model_optimizer.base_lr
     identity_trainer.update_learning_rate(scheduler=exp_scheduler)
-    identity_trainer._post_epoch_hooks.register(
+    identity_trainer.post_epoch_hooks.register(
         hooks.RestartScheduleOnPlateau(
             metric=square_loss_calc,
             cooldown=1
@@ -106,7 +106,7 @@ def test_multiple_callbacks(identity_loader,
     identity_trainer.add_validation(val_loader=identity_loader)
 
     # Register multiple callbacks
-    identity_trainer._post_epoch_hooks.register_all([
+    identity_trainer.post_epoch_hooks.register_all([
         hooks.EarlyStoppingCallback(patience=2),
         hooks.ReduceLROnPlateau(
             metric=square_loss_calc,

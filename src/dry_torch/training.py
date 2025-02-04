@@ -70,8 +70,8 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
         self._scaler = amp.GradScaler(enabled=mixed_precision)
-        self._pre_epoch_hooks = hooks.HookRegistry[Self]()
-        self._post_epoch_hooks = hooks.HookRegistry[Self]()
+        self.pre_epoch_hooks = hooks.HookRegistry[Self]()
+        self.post_epoch_hooks = hooks.HookRegistry[Self]()
         self._terminated = False
         return
 
@@ -119,7 +119,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
                                            calculator=self.calculator)
 
         val_hook = hooks.StaticHook(validation)
-        self._post_epoch_hooks.register(val_hook)
+        self.post_epoch_hooks.register(val_hook)
         self.validation = validation
         return
 
@@ -160,9 +160,9 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         log_events.StartTraining(self.model.name, self.model.epoch, final_epoch)
         for _ in range(num_epochs):
             log_events.StartEpoch(self.model.epoch + 1, final_epoch)
-            self._pre_epoch_hooks.execute(self)
+            self.pre_epoch_hooks.execute(self)
             self.__call__()
-            self._post_epoch_hooks.execute(self)
+            self.post_epoch_hooks.execute(self)
             log_events.EndEpoch()
             if self.terminated:
                 break
