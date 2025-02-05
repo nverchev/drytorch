@@ -121,7 +121,9 @@ class MetricBase(
     metaclass=abc.ABCMeta
 ):
     def __init__(self,
-                 **metric_fun: p.TensorCallable[_Output_contra, _Target_contra],
+                 **metric_fun: Callable[
+                     [_Output_contra, _Target_contra], torch.Tensor
+                 ],
                  ) -> None:
         self._aggregator = aggregators.TorchAverager()
         self.named_metric_fun = metric_fun
@@ -179,7 +181,7 @@ class MetricCollection(MetricBase[_Output_contra, _Target_contra]):
 class Metric(MetricBase[_Output_contra, _Target_contra]):
 
     def __init__(self,
-                 fun: p.TensorCallable[_Output_contra, _Target_contra],
+                 fun: Callable[[_Output_contra, _Target_contra], torch.Tensor],
                  /,
                  *,
                  name: str,
@@ -208,7 +210,9 @@ class LossBase(
     def __init__(
             self,
             criterion: Callable[[dict[str, torch.Tensor]], torch.Tensor],
-            **named_metric_fun: p.TensorCallable[_Output_contra, _Target_contra]
+            **named_metric_fun: Callable[
+                [_Output_contra, _Target_contra], torch.Tensor
+            ],
     ) -> None:
         super().__init__(**named_metric_fun)
         self.criterion = criterion
@@ -361,7 +365,9 @@ class CompositionalLoss(
             *,
             higher_is_better: bool,
             formula: str,
-            **named_metric_fun: p.TensorCallable[_Output_contra, _Target_contra]
+            **named_metric_fun: Callable[
+                [_Output_contra, _Target_contra], torch.Tensor
+            ]
     ) -> None:
         super().__init__(criterion, **named_metric_fun)
         self.higher_is_better = higher_is_better
@@ -390,7 +396,7 @@ class Loss(
 
     def __init__(
             self,
-            fun: p.TensorCallable[_Output_contra, _Target_contra],
+            fun: Callable[[_Output_contra, _Target_contra], torch.Tensor],
             /,
             *,
             name: str,
@@ -404,7 +410,9 @@ class Loss(
 
 
 def dict_apply(
-        dict_fun: dict[str, p.TensorCallable[_Output_contra, _Target_contra]],
+        dict_fun: dict[str, Callable[
+            [_Output_contra, _Target_contra], torch.Tensor]
+        ],
         outputs: _Output_contra,
         targets: _Target_contra,
 ) -> dict[str, torch.Tensor]:

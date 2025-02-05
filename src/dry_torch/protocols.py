@@ -104,15 +104,6 @@ class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
         """Forward run of the network."""
 
 
-class TensorCallable(Protocol[_Output_contra, _Target_contra]):
-    """Protocol for loss and metrics functions."""
-
-    def __call__(self,
-                 outputs: _Output_contra,
-                 targets: _Target_contra) -> torch.Tensor:
-        """Return performance results in batches or aggregated."""
-
-
 class MetricCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
     """Protocol that calculates and returns metrics and loss."""
 
