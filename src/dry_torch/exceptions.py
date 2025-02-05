@@ -39,14 +39,6 @@ class LossNotScalarError(DryTorchException, ValueError):
         super().__init__(size)
 
 
-class MetricsNotAVectorError(DryTorchException, ValueError):
-    msg = 'Value must be scalar or one-dimensional but got Tensor of shape {}.'
-
-    def __init__(self, shape: list[int]) -> None:
-        self.shapes = shape
-        super().__init__(shape)
-
-
 class MetricNotFoundError(DryTorchException, ValueError):
     msg = 'No metric {}found in {}.'
 
