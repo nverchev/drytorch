@@ -1,15 +1,15 @@
 """This module contains the Aggregator abstract class and TorchAggregator."""
+from __future__ import annotations
 
 import abc
 import collections
-from collections.abc import KeysView, Iterable, Mapping
+from collections.abc import KeysView, Mapping
 import copy
 from typing import Generic, Self, TypeVar
+
 from typing_extensions import override
 
 import torch
-
-from dry_torch import exceptions
 
 _T = TypeVar('_T', torch.Tensor, float)
 
@@ -22,7 +22,6 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
     precise sample average in case of unequal sample sizes.
 
     Args:
-        iterable: a _T valued dictionary or equivalent iterable.
         kwargs: keyword _T arguments (alternative syntax).
 
     Attributes:
@@ -32,43 +31,39 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
     __slots__ = ('aggregate', 'counts', '_cached_reduce')
 
     def __init__(self,
-                 iterable: Iterable[tuple[str, _T]] = (),
-                 /,
                  **kwargs: _T):
         self.aggregate: dict[str, _T] = {}
         self.counts = collections.defaultdict[str, int](int)
-        for key, value in iterable:
-            self[key] = value
+        self.__iadd__(kwargs)
+        self._cached_reduce: dict[str, _T]
 
-        for key, value in kwargs.items():
-            self[key] = value
-
-        self._cached_reduce: dict[str, _T] = {}
-
-    def __add__(self, other: Self | Mapping[str, _T]) -> Self:
+    def __add__(self, other: Aggregator | Mapping[str, _T]) -> Self:
         if isinstance(other, Mapping):
             other = self.__class__(**other)
         out = copy.deepcopy(self)
         out += other
         return out
 
-    def __iadd__(self, other: Self | Mapping[str, _T]) -> Self:
-        if isinstance(other, Mapping):
-            other = self.__class__(**other)
-        if self.aggregate:  # fail if new elements are added after start
-            for key, value in other.aggregate.items():
-                self.aggregate[key] += value
+    def __iadd__(self, other: Aggregator | Mapping[str, _T]) -> Self:
+        if isinstance(other, Aggregator):
+            other_aggregate = other.aggregate
+            other_counts = other.counts
         else:
-            self.aggregate = other.aggregate
+            other_aggregate = {}
+            other_counts = collections.defaultdict[str, int]()
+            for key, value in other.items():
+                other_aggregate[key] = self._aggregate(value)
+                other_counts[key] = self._count(value)
 
-        for key, count in other.counts.items():
-            self.counts[key] += count
+        if self.aggregate:  # fail if new elements are added after start
+            for key, value in other_aggregate.items():
+                self.aggregate[key] += value
+                self.counts[key] += other_counts[key]
+        else:
+            self.aggregate = other_aggregate
+            self.counts = other_counts
+        self._cached_reduce = {}
         return self
-
-    def __setitem__(self, key: str, value: _T) -> None:
-        self.aggregate[key] = self._aggregate(value)
-        self.counts[key] = self._count(value)
-        return
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -145,7 +140,4 @@ class TorchAverager(Aggregator[torch.Tensor]):
     @staticmethod
     @override
     def _aggregate(value: torch.Tensor) -> torch.Tensor:
-        if value.dim() > 1:
-            raise exceptions.MetricsNotAVectorError(list(value.shape))
-        else:
-            return value.sum(0)
+        return value.sum()
