@@ -140,7 +140,8 @@ class MetricBase(
                outputs: _Output_contra,
                targets: _Target_contra) -> dict[str, torch.Tensor]:
         results = self.calculate(outputs, targets)
-        self._aggregator += results
+        self._aggregator += {key: value.detach()
+                             for key, value in results.items()}
         return results
 
     @override
