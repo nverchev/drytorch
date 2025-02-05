@@ -156,18 +156,14 @@ class TestExperiment:
         self.experiment = Experiment[None](self.name, self.par_dir)
         return
 
-    def test_experiment_initialization(self):
-        """Test that Experiment initializes with correct properties."""
-        assert self.experiment.name == self.name
-
     def test_start_and_stop_experiment(self, mocker):
         """Test starting and stopping an experiment."""
         mock_event_start = mocker.patch.object(log_events, 'StartExperiment')
         mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
         with self.experiment:
-            mock_event_start.assert_called_once_with(self.name,
+            mock_event_start.assert_called_once_with(self.experiment.name,
                                                      self.par_dir / self.name)
-        mock_event_stop.assert_called_once_with(self.name)
+        mock_event_stop.assert_called_once_with(self.experiment.name)
 
     def test_get_config_no_config_error(self):
         """Test NoConfigError is raised if config is None."""

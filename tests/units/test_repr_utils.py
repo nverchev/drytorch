@@ -36,12 +36,11 @@ class TestDefaultName:
         assert str(self.obj._default_name) == self.obj.__class__.__name__
         self.obj_1 = _TestClass()
 
-        dfdfd=str(self.obj_1._default_name)
-        assert dfdfd == f'{self.obj.__class__.__name__}_1'
+        name = str(self.obj_1._default_name)
+        assert name == f'{self.obj.__class__.__name__}_1'
 
     def test_subclass_name(self) -> None:
         """Test DefaultName generates incremental names starting from 0."""
-        assert str(self.obj._default_name) == self.obj.__class__.__name__
         sub_obj = _TestSubClass()
         assert str(sub_obj._default_name) == sub_obj.__class__.__name__
 
