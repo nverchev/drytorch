@@ -229,6 +229,10 @@ class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
     model: ModelProtocol[_Input, _Output]
     calculator: MetricCalculatorProtocol[_Output, _Target]
 
+    @property
+    def name(self) -> str:
+        """The name of the model."""
+
 
 @runtime_checkable
 class TrainerProtocol(Protocol[_Input, _Target, _Output]):
@@ -243,6 +247,10 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     learning_scheme: LearningProtocol
     calculator: LossCalculatorProtocol[_Output, _Target]
     validation: EvaluationProtocol[_Input, _Target, _Output] | None
+
+    @property
+    def name(self) -> str:
+        """The name of the model."""
 
     @property
     def terminated(self) -> bool:
