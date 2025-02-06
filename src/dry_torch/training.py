@@ -1,5 +1,6 @@
 """Classes for training a model."""
 
+import copy
 from typing import Self, Optional, TypeVar
 from typing_extensions import override
 import warnings
@@ -111,9 +112,10 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         Args:
             val_loader: the loader for validation.
         """
+        calculator_copy = copy.deepcopy(self.calculator)
         validation = evaluating.Validation(self.model,
                                            loader=val_loader,
-                                           calculator=self.calculator)
+                                           calculator=calculator_copy)
 
         val_hook = hooks.StaticHook(validation)
         self.post_epoch_hooks.register(val_hook)

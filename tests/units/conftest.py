@@ -85,6 +85,7 @@ def mock_loss(mocker) -> p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]:
     mock.forward = mocker.Mock(return_value=mock_loss_value)
     mock.name = 'Loss'
     mock.compute = mocker.Mock(return_value={'Loss': torch.tensor(1)})
+    mock.__deepcopy__ = mocker.Mock(return_value={mock})
     return mock
 
 
