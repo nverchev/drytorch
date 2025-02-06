@@ -330,6 +330,11 @@ class MetricMonitor:
         self._best_result = value
         return
 
+    @property
+    def current_result(self) -> float:
+        """Recalculate the current result."""
+        return self.aggregate_fn(self._monitor_log)
+
     def register_metric(self, instance: p.TrainerProtocol) -> None:
         """
         Register new metric.
@@ -367,11 +372,10 @@ class MetricMonitor:
 
         if len(self._monitor_log) <= 1:
             return True
+        current_result = self.current_result
 
-        aggregate_result = self.aggregate_fn(self._monitor_log)
-
-        if self.is_best(aggregate_result):
-            self.best_result = aggregate_result
+        if self.is_best(current_result):
+            self.best_result = current_result
             self._patience_countdown = self.patience
             return True
         self._patience_countdown -= 1
