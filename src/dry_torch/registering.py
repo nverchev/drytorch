@@ -6,7 +6,6 @@ experiments at the time of calling. The experiment must be the same. Then the
 Experiment class is called to create the log events.
 
 Attributes:
-    ALL_CALLERS: A dictionary that maps caller IDs to experiments.
     ALL_MODULES: A dictionary that maps module instances to experiments.
 """
 
