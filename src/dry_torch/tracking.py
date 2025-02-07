@@ -256,13 +256,12 @@ class Experiment(Generic[_T]):
         self.__class__._current_config = self.config
         log_events.StartExperiment(self.name, self.dir)
 
-    @staticmethod
-    def stop() -> None:
+    def stop(self) -> None:
         """Stop the experiment, clearing it from the active experiment."""
-        if Experiment._current is not None:
-            name = Experiment._current.name
-            Experiment._current = None
-            log_events.StopExperiment(name)
+        name = Experiment.current().name
+        Experiment._current = None
+        self.__class__._current_config = None
+        log_events.StopExperiment(name)
 
     @classmethod
     def current(cls) -> Experiment:
@@ -301,24 +300,11 @@ class Experiment(Generic[_T]):
             raise exceptions.NoConfigError()
         return cfg
 
-    def create_child(self, name: str, config: _U) -> Experiment[_T | _U]:
-        """Create a child experiment with a new name and configuration.
-
-        Args:
-            name: The name of the child experiment.
-            config: Configuration for the child experiment.
-
-        Returns:
-            Experiment: The created child experiment.
-        """
-        child = ChildExperiment(name, self, config)
-        return child
-
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(name={self.name})'
 
 
-class ChildExperiment(Experiment[_T | _U]):
+class ChildExperiment(Experiment[_U]):
     """Manages experiment metadata, configuration, and tracking.
 
     Attributes:
@@ -328,20 +314,47 @@ class ChildExperiment(Experiment[_T | _U]):
         trackers: Dispatcher for publishing events.
     """
 
-    _current_config: Optional[_T | _U] = None
+    _current_config: Optional[_U] = None
 
     def __init__(self,
                  name: str,
-                 parent: Experiment[_T],
                  config: Optional[_U] = None) -> None:
         """
         Args:
             name: The name of the experiment. Defaults to class name.
-            parent: The parent Experiment.
             config: Configuration for the experiment.
         """
-        super().__init__(name, parent.dir, config)
-        self.parent = parent
-        self.metadata_manager = parent.metadata_manager
-        self.trackers = parent.trackers
-        self.__class__.past_experiments.add(self)
+        super().__init__(name, '', config)
+
+
+class ParentExperiment(Experiment[_T], Generic[_T, _U]):
+    """Manages experiment metadata, configuration, and tracking.
+
+    Attributes:
+        dir: The directory for storing experiment files.
+        config: Configuration object for the experiment.
+        metadata_manager: Manager for recording metadata.
+        trackers: Dispatcher for publishing events.
+    """
+    children = list[ChildExperiment[_U]]()
+
+    def register_child(self, child: ChildExperiment[_U]):
+        """Register children experiments."""
+        child.metadata_manager = self.metadata_manager
+        for tracker in self.trackers.named_trackers.values():
+            try:
+                child.trackers.register(tracker)
+            except exceptions.TrackerAlreadyRegisteredError:
+                pass
+        child.dir = self.dir / child.name
+        self.children.append(child)
+
+    @classmethod
+    def get_child_config(cls) -> _U:
+        """Get the configuration of the child that is currently active."""
+        for child in cls.children:
+            try:
+                return child.get_config()
+            except exceptions.NoConfigError:
+                continue
+        raise exceptions.NoConfigError

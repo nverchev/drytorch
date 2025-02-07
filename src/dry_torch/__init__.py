@@ -14,6 +14,8 @@ from dry_torch.learning import LearningScheme
 from dry_torch.learning import Model
 from dry_torch.tracking import DEFAULT_TRACKERS
 from dry_torch.tracking import Experiment
+from dry_torch.tracking import ChildExperiment
+from dry_torch.tracking import ParentExperiment
 from dry_torch.tracking import Tracker
 from dry_torch.training import Trainer
 
