@@ -10,6 +10,7 @@ from dry_torch import exceptions
 from dry_torch import log_events
 from dry_torch.tracking import EventDispatcher, Experiment, MetadataManager
 from dry_torch.tracking import Tracker
+from tests.units.conftest import experiment_current_original
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -154,6 +155,13 @@ class TestExperiment:
         self.name = 'TestExperiment'
         self.par_dir = tmp_path
         self.experiment = Experiment[None](self.name, self.par_dir)
+        setattr(self.experiment, 'current', experiment_current_original)
+        setattr(Experiment,
+                'current',
+                experiment_current_original)
+        setattr(self.experiment.__class__,
+                'current',
+                experiment_current_original)
         return
 
     def test_start_and_stop_experiment(self, mocker):
@@ -171,9 +179,8 @@ class TestExperiment:
             with pytest.raises(exceptions.NoConfigError):
                 Experiment.get_config()
 
-
-def test_no_active_experiment_error(experiment_current_original):
-    """Test that error is called when no experiment is active."""
-    with pytest.raises(exceptions.NoActiveExperimentError):
-        # Experiment.current has been stored in experiment_current_original
-        _ = experiment_current_original()
+    def test_no_active_experiment_error(self):
+        """Test that error is called when no experiment is active."""
+        with pytest.raises(exceptions.NoActiveExperimentError):
+            # Experiment.current has been stored in experiment_current_original
+            _ = self.experiment.current()

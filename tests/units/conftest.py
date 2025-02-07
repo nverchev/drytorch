@@ -1,8 +1,6 @@
 """Configuration module with mockups."""
 
 import pytest
-
-from typing import Callable
 import pathlib
 
 import torch
@@ -10,14 +8,10 @@ import torch
 from dry_torch import protocols as p
 from dry_torch import Experiment
 
-
-@pytest.fixture(autouse=True, scope='session')
-def experiment_current_original() -> Callable[[], Experiment]:
-    """Stores the original current method from Experiment."""
-    return Experiment.current
+experiment_current_original = Experiment.current
 
 
-@pytest.fixture(autouse=True, scope='session')
+@pytest.fixture(autouse=True, scope='module')
 def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     """Fixture for a mock experiment."""
     mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
