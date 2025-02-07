@@ -155,9 +155,7 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
     Returns:
         a readable representation of the object.
     """
-    obj_repr = repr(obj) if has_own_repr(obj) else obj.__class__.__name__
-    obj_repr = obj_repr.split('(', 1)[0]  # for dataclasses syntax
-
+    class_name = obj.__class__.__name__
     dict_attr = getattr(obj, '__dict__', {})
     dict_attr |= {name: getattr(obj, name)
                   for name in getattr(obj, '__slots__', [])}
@@ -171,9 +169,9 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
         dict_str[k] = recursive_repr(v, max_size=max_size)
 
     if dict_str:
-        return {'object': obj_repr} | dict_str
+        return {'class': class_name} | dict(sorted(dict_str.items()))
 
-    return obj_repr
+    return repr(obj) if has_own_repr(obj) else class_name
 
 
 @recursive_repr.register
