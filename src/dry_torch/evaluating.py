@@ -128,10 +128,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
             self.outputs_list.append(outputs)
 
     def __repr__(self) -> str:
-        return self.name + f'for model {self.model.name}'
-
-    def __str__(self) -> str:
-        return str(self.name)
+        return str(self.name) + f' for model {self.model.name}'
 
 
 class Diagnostic(Evaluation[_Input, _Target, _Output]):
