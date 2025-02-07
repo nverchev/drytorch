@@ -81,19 +81,16 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
         """Calculate the count of a value."""
         return self.aggregate.keys()
 
+    @staticmethod
+    def _reduce(aggregated: _T, count: int) -> _T:
+        return aggregated / count
+
     def reduce(self) -> dict[str, _T]:
         """Return the averages values."""
         if not self._cached_reduce:
             self._cached_reduce = {key: self._reduce(value, self.counts[key])
                                    for key, value in self.aggregate.items()}
         return self._cached_reduce
-
-    def __bool__(self) -> bool:
-        return bool(self.aggregate)
-
-    @staticmethod
-    def _reduce(aggregated: _T, count: int) -> _T:
-        return aggregated / count
 
     @staticmethod
     @abc.abstractmethod
@@ -104,6 +101,16 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _aggregate(value: _T) -> _T:
         ...
+
+    def __bool__(self) -> bool:
+        return bool(self.aggregate)
+
+    def __deepcopy__(self, memo: dict) -> Self:
+        cls = self.__class__
+        result = cls.__new__(cls)
+        for k, v in self.__dict__.items():
+            result.__dict__[k] = copy.deepcopy(v, memo)
+        return result
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f'(counts={self.counts})'

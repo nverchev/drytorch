@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Callable, Hashable
+import copy
 import operator
 from typing import Any, Mapping, Protocol, Optional, Self, TypeVar
 from typing import runtime_checkable
@@ -155,12 +156,16 @@ class MetricBase(
                   outputs: _Output_contra,
                   targets: _Target_contra) -> dict[str, torch.Tensor]:
         """
-        Actual method responsible for the calculations.
+        Method responsible for the calculations.
 
         Args:
             outputs: model outputs.
             targets: ground truth.
         """
+
+    def copy(self) -> Self:
+        """Creates a (deep)copy of self."""
+        return self.__deepcopy__({})
 
     def __or__(
             self,
@@ -168,6 +173,13 @@ class MetricBase(
     ) -> MetricCollection[_Output_contra, _Target_contra]:
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
         return MetricCollection(**named_metric_fun)
+
+    def __deepcopy__(self, memo: dict) -> Self:
+        cls = self.__class__
+        result = cls.__new__(cls)
+        for k, v in self.__dict__.items():
+            result.__dict__[k] = copy.deepcopy(v, memo)
+        return result
 
 
 class MetricCollection(MetricBase[_Output_contra, _Target_contra]):
