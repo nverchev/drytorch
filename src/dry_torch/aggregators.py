@@ -108,6 +108,9 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
     def __deepcopy__(self, memo: dict) -> Self:
         cls = self.__class__
         result = cls.__new__(cls)
+        result.aggregate = copy.deepcopy(self.aggregate)
+        result.counts = copy.copy(self.counts)
+        result._cached_reduce = {}
         for k, v in self.__dict__.items():
             result.__dict__[k] = copy.deepcopy(v, memo)
         return result
