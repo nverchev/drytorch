@@ -1,3 +1,5 @@
+"""Tests for the yaml tracker module."""
+
 from hypothesis import given, assume
 from hypothesis.strategies import text, characters
 
@@ -12,7 +14,7 @@ from dry_torch.trackers.yaml_dumper import has_short_repr
 
 def test_short_repr():
     """Test short_repr function."""
-    assert has_short_repr('a' * (MAX_LENGTH_SHORT_REPR)) is True
+    assert has_short_repr('a' * MAX_LENGTH_SHORT_REPR) is True
     assert has_short_repr('a' * (MAX_LENGTH_SHORT_REPR + 1)) is False
     lit_str = repr_utils.LiteralStr('test')
     assert has_short_repr(lit_str) is False  # Should be False for LiteralStr
