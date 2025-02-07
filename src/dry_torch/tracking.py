@@ -23,6 +23,7 @@ from dry_torch import protocols as p
 from dry_torch import repr_utils
 
 _T = TypeVar('_T')
+_U = TypeVar('_U')
 
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
@@ -300,5 +301,47 @@ class Experiment(Generic[_T]):
             raise exceptions.NoConfigError()
         return cfg
 
+    def create_child(self, name: str, config: _U) -> Experiment[_T | _U]:
+        """Create a child experiment with a new name and configuration.
+
+        Args:
+            name: The name of the child experiment.
+            config: Configuration for the child experiment.
+
+        Returns:
+            Experiment: The created child experiment.
+        """
+        child = ChildExperiment(name, self, config)
+        return child
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(name={self.name})'
+
+
+class ChildExperiment(Experiment[_T | _U]):
+    """Manages experiment metadata, configuration, and tracking.
+
+    Attributes:
+        dir: The directory for storing experiment files.
+        config: Configuration object for the experiment.
+        metadata_manager: Manager for recording metadata.
+        trackers: Dispatcher for publishing events.
+    """
+
+    _current_config: Optional[_T | _U] = None
+
+    def __init__(self,
+                 name: str,
+                 parent: Experiment[_T],
+                 config: Optional[_U] = None) -> None:
+        """
+        Args:
+            name: The name of the experiment. Defaults to class name.
+            parent: The parent Experiment.
+            config: Configuration for the experiment.
+        """
+        super().__init__(name, parent.dir, config)
+        self.parent = parent
+        self.metadata_manager = parent.metadata_manager
+        self.trackers = parent.trackers
+        self.__class__.past_experiments.add(self)
