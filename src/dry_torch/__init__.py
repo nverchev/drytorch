@@ -7,15 +7,15 @@ from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Test
 from dry_torch.evaluating import Validation
 from dry_torch.exceptions import FailedOptionalImportWarning
+from dry_torch.experiments import ChildExperiment
+from dry_torch.experiments import Experiment
+from dry_torch.experiments import ParentExperiment
 from dry_torch.metrics import Loss
 from dry_torch.metrics import Metric
 from dry_torch.loading import DataLoader
 from dry_torch.learning import LearningScheme
 from dry_torch.learning import Model
 from dry_torch.tracking import DEFAULT_TRACKERS
-from dry_torch.tracking import Experiment
-from dry_torch.tracking import ChildExperiment
-from dry_torch.tracking import ParentExperiment
 from dry_torch.tracking import Tracker
 from dry_torch.training import Trainer
 

@@ -5,8 +5,7 @@ import pathlib
 
 import torch
 
-from dry_torch import protocols as p
-from dry_torch import Experiment
+from dry_torch import protocols as p, Experiment
 
 experiment_current_original = Experiment.current
 
@@ -20,7 +19,7 @@ def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     mock_experiment.metadata_manager = session_mocker.Mock()
     mock_experiment.metadata_manager.record_model_call = session_mocker.Mock()
     mock_experiment.metadata_manager.register_model = session_mocker.Mock()
-    session_mocker.patch('dry_torch.tracking.Experiment.current',
+    session_mocker.patch('dry_torch.experiments.Experiment.current',
                          return_value=mock_experiment)
     session_mocker.patch('dry_torch.registering.register_model')
     session_mocker.patch('dry_torch.registering.record_model_call')

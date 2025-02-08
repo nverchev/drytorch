@@ -6,9 +6,9 @@ import pytest
 import functools
 
 import dry_torch
-from dry_torch import exceptions
+from dry_torch import exceptions, Experiment
 from dry_torch import log_events
-from dry_torch.tracking import EventDispatcher, Experiment, MetadataManager
+from dry_torch.tracking import EventDispatcher, MetadataManager
 from dry_torch.tracking import Tracker
 from tests.units.conftest import experiment_current_original
 

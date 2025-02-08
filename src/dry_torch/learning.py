@@ -11,11 +11,11 @@ import dataclasses
 
 from dry_torch import checkpoint
 from dry_torch import exceptions
+from dry_torch import experiments
 from dry_torch import protocols as p
 from dry_torch import repr_utils
 from dry_torch import registering
 from dry_torch import schedulers
-from dry_torch import tracking
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,
@@ -266,7 +266,7 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
-        exp_dir = tracking.Experiment.current().dir
+        exp_dir = experiments.Experiment.current().dir
         self._checkpoint = checkpoint.CheckpointIO(model,
                                                    self.optimizer,
                                                    par_dir=exp_dir)

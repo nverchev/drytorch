@@ -14,11 +14,11 @@ from typing import Any
 from torch import nn
 
 from dry_torch import exceptions
+from dry_torch import experiments
 from dry_torch import protocols as p
 from dry_torch import repr_utils
-from dry_torch import tracking
 
-ALL_MODULES = dict[nn.Module, tracking.Experiment]()
+ALL_MODULES = dict[nn.Module, experiments.Experiment]()
 
 
 def record_model_call(x: Any, model: p.ModelProtocol) -> None:
@@ -29,7 +29,7 @@ def record_model_call(x: Any, model: p.ModelProtocol) -> None:
         x: The object to document.
         model: The model that the object calls.
     """
-    exp = tracking.Experiment.current()
+    exp = experiments.Experiment.current()
     name = getattr(x, 'name', '') or repr_utils.StrWithTS(x.__class__.__name__)
     exp.metadata_manager.record_model_call(name, model.name, x)
     module = model.module
@@ -43,14 +43,14 @@ def record_model_call(x: Any, model: p.ModelProtocol) -> None:
     return
 
 
-def register_model(model: p.ModelProtocol) -> tracking.Experiment:
+def register_model(model: p.ModelProtocol) -> experiments.Experiment:
     """
     Records mode inl the current experiment.
 
     Args:
         model: The model to register.
     """
-    exp = tracking.Experiment.current()
+    exp = experiments.Experiment.current()
     module = model.module
     if module in ALL_MODULES:
         raise exceptions.NameAlreadyRegisteredError(exp.name)
