@@ -2,10 +2,12 @@
 
 import pytest
 
+import pathlib
+
 import numpy as np
 import torch
 
-from dry_torch.repr_utils import DefaultName, LiteralStr, Omitted
+from dry_torch.repr_utils import DefaultName, LiteralStr, Omitted, StrWithTS
 from dry_torch.repr_utils import limit_size, has_own_repr, recursive_repr
 
 
@@ -20,6 +22,22 @@ class _TestClass:
 class _TestSubClass(_TestClass):
     def __init__(self) -> None:
         super().__init__()
+
+
+class TestStringWithTS:
+    """Test formatting as expected."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up the DefaultName class."""
+        self.str = 'test'
+        self.str_with_ts = StrWithTS(self.str)
+
+    def test_str_method(self):
+        assert str(self.str_with_ts) == self.str
+
+    def test_pathlib(self):
+        assert pathlib.Path(self.str_with_ts) != pathlib.Path(self.str)
 
 
 class TestDefaultName:

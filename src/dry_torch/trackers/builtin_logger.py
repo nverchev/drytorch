@@ -173,18 +173,19 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartEpoch) -> None:
-        final_epoch = str(event.final_epoch)
+        final_epoch = event.final_epoch
         if final_epoch is not None:
-            fix_len = len(final_epoch)
-            final_epoch = '/' + final_epoch
+            final_epoch_str = str(final_epoch)
+            fix_len = len(final_epoch_str)
+            final_epoch_str = '/' + final_epoch_str
         else:
             fix_len = 1
-
-        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch)s: \r'
+            final_epoch_str = ''
+        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch_str)s: \r'
 
         logger.log(INFO_LEVELS.epoch,
                    epoch_msg,
-                   {'epoch': event.epoch, 'final_epoch': final_epoch})
+                   {'epoch': event.epoch, 'final_epoch_str': final_epoch_str})
         logger.log(INFO_LEVELS.metrics, '')
         return
 
@@ -262,8 +263,8 @@ class BuiltinLogger(tracking.Tracker):
         message_parts = [
             '%(source)s: Updated %(model_name)s optimizer at epoch %(epoch)d',
         ]
-        if event.scheduler_name is not None:
-            message_parts.append('New learning rate: %(scheduler_name)s')
+        if event.base_lr is not None:
+            message_parts.append('New learning rate: %(learning_rate)s')
         if event.scheduler_name is not None:
             message_parts.append('New scheduler: %(scheduler_name)s')
 
@@ -273,6 +274,6 @@ class BuiltinLogger(tracking.Tracker):
                     'model_name': str(event.model_name),
                     'epoch': event.epoch,
                     'learning_rate': event.base_lr,
-                    'scheduler_name': event.scheduler_name},
+                    'scheduler_name': event.scheduler_name}
         logger.log(INFO_LEVELS.training, msg, log_args)
         return

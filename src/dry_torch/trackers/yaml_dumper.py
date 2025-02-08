@@ -1,7 +1,9 @@
+"""Module for YAML settings and the YAML dumper."""
+
+from collections.abc import Sequence
 import functools
 import pathlib
-from collections.abc import Sequence
-from typing import Any
+from typing import Any, Optional
 
 import yaml  # type: ignore
 
@@ -15,7 +17,8 @@ MAX_LENGTH_SHORT_REPR = 10
 """Sequences with strings longer than this will be represented in flow style."""
 
 
-def has_short_repr(obj: object, max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
+def has_short_repr(obj: object,
+                   max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
     """Function that indicates whether an object has a short representation."""
     if isinstance(obj, repr_utils.LiteralStr):
         return False
@@ -71,15 +74,31 @@ yaml.add_representer(repr_utils.Omitted, represent_omitted)
 
 
 class YamlDumper(tracking.Tracker):
+    """
+    Tracker that dumps metadata in a YAML file.
 
-    def __init__(self, par_dir: pathlib.Path = pathlib.Path('experiments')):
+    Attributes:
+        par_dir: Path where to dump metadata. Defaults uses exp_pat_dir.
+    """
+
+    def __init__(self, par_dir: Optional[pathlib.Path] = None):
+        """
+        Args:
+            par_dir: Path where to dump metadata. Defaults uses exp_pat_dir.
+        """
         super().__init__()
         self.par_dir = par_dir
-        self.exp_name: str
+        self._exp_dir: Optional[pathlib.Path] = None
 
     @property
-    def exp_path(self) -> pathlib.Path:
-        path = self.par_dir / self.exp_name
+    def dir_path(self) -> pathlib.Path:
+        """Return the directory where the files will be saved."""
+        if self._exp_dir is None:
+            raise RuntimeError('Accessed outside experiment scope.')
+        if self.par_dir is None:
+            path = self._exp_dir / 'metadata'
+        else:
+            path = self.par_dir
         path.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -89,38 +108,39 @@ class YamlDumper(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
-        self.exp_name = event.exp_name
+        self._exp_dir = event.exp_dir
+
+    @notify.register
+    def _(self, event: log_events.StopExperiment) -> None:
+        _not_used = event
+        self._exp_dir = None
 
     @notify.register
     def _(self, event: log_events.ModelCreation) -> None:
-        self.dump(event.metadata, event.model_name)
+        model_name = event.model_name
+        self._version(event.metadata, str(model_name), model_name)
         return
 
     @notify.register
     def _(self, event: log_events.CallModel) -> None:
-        event.name = self.dump(event.metadata, event.name)
+        model_name = event.model_name
+        self._version(event.metadata, str(model_name), event.name)
         return
 
-    def dump(self,
-             metadata: dict[str, Any],
-             file_name: str) -> str:
-        metadata_path = self.exp_path / 'metadata'
-        metadata_path.mkdir(parents=True, exist_ok=True)
-        file_path = metadata_path / file_name
-        file_path = file_path.with_suffix('.yaml')
+    def _version(self,
+                 metadata: dict[str, Any],
+                 sub_folder: str,
+                 file_name: str) -> None:
+        directory = self.dir_path / sub_folder
+        directory.mkdir(exist_ok=True)
+        self._dump(metadata, directory / file_name)
+        if file_name != str(file_name):
+            self._dump(metadata, directory / str(file_name))
+        return
 
-        yaml_str = yaml.dump(metadata, sort_keys=False)
-        # if file_path.exists():
-        #     with file_path.open('r') as metadata_file:
-        #         file_out = metadata_file.read()
-        #         if file_out != yaml_str:
-        #             warnings.warn(
-        #                 exceptions.MetadataNotMatchingWarning(file_name,
-        #                                                       file_path)
-        #             )
-        #             now = datetime.datetime.now().isoformat(timespec='seconds')
-        #             file_name = file_name + '.' + now
-        #             file_path = file_path.with_stem(file_name)
-        with file_path.open('w') as metadata_file:
-            metadata_file.write(yaml_str)
-        return file_name
+    @staticmethod
+    def _dump(metadata: dict[str, Any], file_path: pathlib.Path) -> None:
+
+        with file_path.with_suffix('.yaml').open('w') as metadata_file:
+            yaml.dump(metadata, metadata_file)
+        return

@@ -7,8 +7,8 @@ import sys
 
 from tqdm import auto  # type: ignore
 
-from src.dry_torch import log_events
-from src.dry_torch import tracking
+from dry_torch import log_events
+from dry_torch import tracking
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
@@ -39,7 +39,6 @@ class EpochBar:
 
     def update(self, metrics: Mapping[str, Any]) -> None:
         """Adds batch and metric information to the bar."""
-        self.pbar.update()
         self.epoch_seen += self.batch_size
         if self.epoch_seen >= self.num_samples:
             self.epoch_seen = self.num_samples
@@ -49,6 +48,7 @@ class EpochBar:
                           for metric_name, metric_value in metrics.items()}
         monitor_dict = monitor_seen | monitor_metric
         self.pbar.set_postfix(monitor_dict, refresh=False)
+        self.pbar.update()
         if self.last_epoch:
             self.pbar.close()
         return
@@ -101,7 +101,7 @@ class TqdmLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.IterateBatch) -> None:
-        desc = event.source.rjust(15)
+        desc = str(event.source).rjust(15)
         bar = EpochBar(event.num_iter,
                        event.dataset_size,
                        leave=self.leave,
