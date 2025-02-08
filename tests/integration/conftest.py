@@ -12,7 +12,7 @@ from tests.integration.simple_classes import IdentityDataset, Linear
 from tests.integration.simple_classes import TorchData, TorchTuple
 
 
-@pytest.fixture(autouse=True, scope='session')
+@pytest.fixture(autouse=True, scope='package')
 def experiment(tmpdir_factory) -> Experiment:
     """Fixture of an experiment."""
     dry_torch.remove_all_default_trackers()
