@@ -16,7 +16,8 @@ _U = TypeVar('_U', covariant=True)
 
 
 class Experiment(Generic[_T]):
-    """Manages experiment metadata, configuration, and tracking.
+    """
+    Manages experiment metadata, configuration, and tracking.
 
     Attributes:
         dir: The directory for storing experiment files.
@@ -120,7 +121,9 @@ class Experiment(Generic[_T]):
 
 
 class ChildExperiment(Experiment[_T]):
-    """Manages experiment metadata, configuration, and tracking.
+    """
+    This class shares settings with a Parent experiment. See ParentExperiment.
+
 
     Attributes:
         dir: The directory for storing experiment files.
@@ -128,8 +131,6 @@ class ChildExperiment(Experiment[_T]):
         metadata_manager: Manager for recording metadata.
         trackers: Dispatcher for publishing events.
     """
-
-    _current_config: Optional[_T] = None
 
     def __init__(self,
                  name: str,
@@ -143,7 +144,14 @@ class ChildExperiment(Experiment[_T]):
 
 
 class ParentExperiment(Experiment[_T], Generic[_T, _U]):
-    """Manages experiment metadata, configuration, and tracking.
+    """
+    This class is for an overarching experiment that contains smaller ones.
+
+    It connects experiments that are dependent to each other. In practice, it
+    shares the metadata where the models are registered, allowing to be used
+    across different experiments. It also defines trackers used by all the
+    children and allows to get configurations shared by all the children.
+
 
     Attributes:
         dir: The directory for storing experiment files.
@@ -154,7 +162,12 @@ class ParentExperiment(Experiment[_T], Generic[_T, _U]):
     children = list[ChildExperiment[_U]]()
 
     def register_child(self, child: ChildExperiment[_U]):
-        """Register children experiments."""
+        """
+        Register children experiments.
+
+        Args:
+            child: The child experiment to register.
+        """
         child.metadata_manager = self.metadata_manager
         for tracker in self.trackers.named_trackers.values():
             try:
@@ -166,7 +179,7 @@ class ParentExperiment(Experiment[_T], Generic[_T, _U]):
 
     @classmethod
     def get_child_config(cls) -> _U:
-        """Get the configuration of the child that is currently active."""
+        """Return the configuration of the child that is currently active."""
         for child in cls.children:
             try:
                 return child.get_config()
