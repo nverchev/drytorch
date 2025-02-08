@@ -11,7 +11,7 @@ from dry_torch import log_events
 from dry_torch import repr_utils
 from dry_torch import tracking
 
-_T = TypeVar('_T')
+_T = TypeVar('_T', covariant=True)
 _U = TypeVar('_U', covariant=True)
 
 
