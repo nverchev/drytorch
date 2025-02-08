@@ -15,22 +15,12 @@ from dry_torch.metrics import Metric
 from dry_torch.loading import DataLoader
 from dry_torch.learning import LearningScheme
 from dry_torch.learning import Model
-from dry_torch.tracking import DEFAULT_TRACKERS
+from dry_torch.tracking import remove_all_default_trackers
+from dry_torch.tracking import extend_default_trackers
 from dry_torch.tracking import Tracker
 from dry_torch.training import Trainer
 
 from dry_torch.trackers import builtin_logger
-
-
-def extend_default_trackers(tracker_list: list[Tracker]) -> None:
-    """Add a list of trackers to the default ones."""
-    for tracker in tracker_list:
-        DEFAULT_TRACKERS[tracker.__class__.__name__] = tracker
-
-
-def remove_all_default_trackers() -> None:
-    """Remove all default trackers."""
-    DEFAULT_TRACKERS.clear()
 
 
 def add_standard_trackers_to_default_trackers() -> None:

@@ -4,23 +4,24 @@ import pytest
 import importlib
 
 import dry_torch
+from dry_torch.tracking import DEFAULT_TRACKERS
 from dry_torch import FailedOptionalImportWarning
 
 
 def test_standard_trackers():
     """Test adding standard trackers."""
     dry_torch.remove_all_default_trackers()
-    assert not dry_torch.DEFAULT_TRACKERS
+    assert not DEFAULT_TRACKERS
     dry_torch.add_standard_trackers_to_default_trackers()
-    assert dry_torch.DEFAULT_TRACKERS
+    assert DEFAULT_TRACKERS
 
 
 def test_remove_trackers():
     """Test removing all default trackers."""
     dry_torch.add_standard_trackers_to_default_trackers()
-    assert dry_torch.DEFAULT_TRACKERS
+    assert DEFAULT_TRACKERS
     dry_torch.remove_all_default_trackers()
-    assert not dry_torch.DEFAULT_TRACKERS
+    assert not DEFAULT_TRACKERS
 
 
 def test_failed_import_warning():

@@ -193,3 +193,14 @@ class EventDispatcher:
         """Remove all trackers from the experiment."""
         for tracker_name in list(self.named_trackers):
             self.remove(tracker_name)
+
+
+def extend_default_trackers(tracker_list: list[Tracker]) -> None:
+    """Add a list of trackers to the default ones."""
+    for tracker in tracker_list:
+        DEFAULT_TRACKERS[tracker.__class__.__name__] = tracker
+
+
+def remove_all_default_trackers() -> None:
+    """Remove all default trackers."""
+    DEFAULT_TRACKERS.clear()
