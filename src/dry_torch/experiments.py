@@ -12,7 +12,7 @@ from dry_torch import repr_utils
 from dry_torch import tracking
 
 _T = TypeVar('_T')
-_U = TypeVar('_U')
+_U = TypeVar('_U', covariant=True)
 
 
 class Experiment(Generic[_T]):
@@ -119,7 +119,7 @@ class Experiment(Generic[_T]):
         return f'{self.__class__.__name__}(name={self.name})'
 
 
-class ChildExperiment(Experiment[_U]):
+class ChildExperiment(Experiment[_T]):
     """Manages experiment metadata, configuration, and tracking.
 
     Attributes:
@@ -129,11 +129,11 @@ class ChildExperiment(Experiment[_U]):
         trackers: Dispatcher for publishing events.
     """
 
-    _current_config: Optional[_U] = None
+    _current_config: Optional[_T] = None
 
     def __init__(self,
                  name: str,
-                 config: Optional[_U] = None) -> None:
+                 config: Optional[_T] = None) -> None:
         """
         Args:
             name: The name of the experiment. Defaults to class name.
