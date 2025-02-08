@@ -19,7 +19,7 @@ class TestTrainer:
         self.trainer = Trainer(
             mock_model,
             learning_scheme=mock_learning_scheme,
-            calculator=mock_loss,
+            loss=mock_loss,
             loader=mock_loader,
             name='TestTrainer'
         )
@@ -59,7 +59,7 @@ class TestTrainer:
         loss_value = torch.FloatTensor([invalid_value])
         loss_value.requires_grad = True
         mock = mocker.MagicMock(return_value=loss_value)
-        self.trainer.calculator.forward = mock
+        self.trainer.objective.forward = mock
         self.trainer.train(3)
         mock.assert_called_once()
 
@@ -68,7 +68,7 @@ class TestTrainer:
         loss_value = torch.ones(2, 1)
         loss_value.requires_grad = True
         mock = mocker.MagicMock(return_value=loss_value)
-        self.trainer.calculator.forward = mock
+        self.trainer.objective.forward = mock
         with pytest.raises(exceptions.LossNotScalarError):
             self.trainer.train(1)
 

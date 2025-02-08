@@ -15,7 +15,7 @@ class TestDiagnostic:
             mock_model,
             name=self.name,
             loader=mock_loader,
-            calculator=mock_metric,
+            metric=mock_metric,
             mixed_precision=True,
         )
 

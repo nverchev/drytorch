@@ -1,14 +1,14 @@
 """Init file for the dry_torch package."""
 import warnings
 
-from dry_torch.metrics import Loss
-from dry_torch.metrics import Metric
 from dry_torch.checkpoint import CheckpointIO
 from dry_torch.checkpoint import ModelStateIO
 from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Test
 from dry_torch.evaluating import Validation
 from dry_torch.exceptions import FailedOptionalImportWarning
+from dry_torch.metrics import Loss
+from dry_torch.metrics import Metric
 from dry_torch.loading import DataLoader
 from dry_torch.learning import LearningScheme
 from dry_torch.learning import Model

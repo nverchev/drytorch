@@ -201,7 +201,7 @@ class TestEarlyStoppingCallback:
         mock_trainer.terminate_training.assert_not_called()  # type: ignore
 
     def test_stops_on_plateau(self, mock_trainer):
-        mock_trainer.validation.calculator.higher_is_better = True
+        mock_trainer.validation.objective.higher_is_better = True
 
         # best result + patience + terminate = 2 + patience
         for _ in range(self.callback.monitor.patience + 2):

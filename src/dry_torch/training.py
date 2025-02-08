@@ -28,7 +28,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
     Attributes:
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
-        calculator: processes the model outputs and targets.
+        objective: processes the model outputs and targets.
         learning_scheme: contains optimizer settings and scheduling.
         mixed_precision: whether it uses mixed precision computing.
         outputs_list: list of optionally stored outputs
@@ -41,7 +41,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             /,
             *,
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            calculator: p.LossCalculatorProtocol[_Output, _Target],
+            loss: p.LossCalculatorProtocol[_Output, _Target],
             learning_scheme: p.LearningProtocol,
             name: str = '',
             mixed_precision: bool = False,
@@ -50,7 +50,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         Args:
             model: the model containing the weights to evaluate.
             loader: provides inputs and targets in batches.
-            calculator: processes the model outputs and targets.
+            loss: processes the model outputs and targets.
             learning_scheme: contains optimizer settings and scheduling.
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
@@ -58,11 +58,11 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         """
         super().__init__(model,
                          loader=loader,
-                         calculator=calculator,
+                         metric=loss,
                          mixed_precision=mixed_precision,
                          name=name)
         self.model: p.ModelProtocol[_Input, _Output]
-        self.calculator: p.LossCalculatorProtocol[_Output, _Target] = calculator
+        self.objective: p.LossCalculatorProtocol[_Output, _Target] = loss
         self.learning_scheme = learning_scheme
         self.validation: Optional[evaluating.Validation] = None
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
@@ -112,10 +112,10 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         Args:
             val_loader: the loader for validation.
         """
-        calculator_copy = copy.deepcopy(self.calculator)
+        calculator_copy = copy.deepcopy(self.objective)
         validation = evaluating.Validation(self.model,
                                            loader=val_loader,
-                                           calculator=calculator_copy)
+                                           metric=calculator_copy)
 
         val_hook = hooks.StaticHook(validation)
         self.post_epoch_hooks.register(val_hook)
@@ -209,7 +209,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
 
     @override
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
-        loss_value = self.calculator.forward(outputs, targets)
+        loss_value = self.objective.forward(outputs, targets)
         try:
             if torch.isinf(loss_value) or torch.isnan(loss_value):
                 raise exceptions.ConvergenceError(loss_value.item())

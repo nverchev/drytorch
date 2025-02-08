@@ -224,10 +224,10 @@ class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
 
     Attributes:
         model: the model to evaluate.
-        calculator: object that calculates the metrics
+        objective: object that calculates the metrics
     """
     model: ModelProtocol[_Input, _Output]
-    calculator: MetricCalculatorProtocol[_Output, _Target]
+    objective: MetricCalculatorProtocol[_Output, _Target]
 
     @property
     def name(self) -> str:
@@ -241,11 +241,11 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
 
     Attributes:
         model: the model to train.
-        calculator: object that calculates the metrics and loss
+        objective: object that calculates the metrics and loss
     """
     model: ModelProtocol[_Input, _Output]
     learning_scheme: LearningProtocol
-    calculator: LossCalculatorProtocol[_Output, _Target]
+    objective: LossCalculatorProtocol[_Output, _Target]
     validation: EvaluationProtocol[_Input, _Target, _Output] | None
 
     @property

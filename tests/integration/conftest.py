@@ -99,4 +99,4 @@ def identity_trainer(linear_model,
                    name='MyTrainer',
                    loader=identity_loader,
                    learning_scheme=standard_learning_scheme,
-                   calculator=square_loss_calc)
+                   loss=square_loss_calc)

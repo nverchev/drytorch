@@ -101,7 +101,7 @@ def mock_validation(mocker, mock_metric) -> p.EvaluationProtocol:
     """Fixture for a mock validation."""
     mock = mocker.create_autospec(spec=p.EvaluationProtocol, instance=True)
     mock.name = 'mock_validation'
-    mock.calculator = mock_metric
+    mock.objective = mock_metric
     return mock
 
 
@@ -115,12 +115,13 @@ def mock_trainer(mocker,
     mock.model = mock_model
     mock.name = 'mock_trainer'
     mock.model.epoch = 3
-    mock.calculator = mock_loss
+    mock.objective = mock_loss
     mock.validation = mock_validation
     mock.terminated = False
 
     def _terminate_training(reason: str):
         mock.terminated = True
+        _unused = reason
 
     mock.terminate_training = mocker.Mock(side_effect=_terminate_training)
     return mock

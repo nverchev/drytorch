@@ -9,10 +9,10 @@ from typing_extensions import override
 import torch
 
 from dry_torch import apply_ops
-from dry_torch import metrics
 from dry_torch import exceptions
 from dry_torch import loading
 from dry_torch import log_events
+from dry_torch import metrics
 from dry_torch import protocols as p
 from dry_torch import registering
 from dry_torch import repr_utils
@@ -34,7 +34,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
     Attributes:
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
-        calculator: processes the model outputs and targets.
+        objective: processes the model outputs and targets.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
@@ -47,7 +47,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
             /,
             *,
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            calculator: p.MetricCalculatorProtocol[_Output, _Target],
+            metric: p.MetricCalculatorProtocol[_Output, _Target],
             name: str = '',
             mixed_precision: bool = False,
     ) -> None:
@@ -55,7 +55,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         Args:
             model: the model containing the weights to evaluate.
             loader: provides inputs and targets in batches.
-            calculator: processes the model outputs and targets.
+            metric: processes the model outputs and targets.
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
             mixed_precision: whether to use mixed precision computing.
@@ -64,7 +64,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         self.model = model
         self._name = name
         self.loader = loader
-        self.calculator = calculator
+        self.objective = metric
         device_is_cuda = self.model.device.type == 'cuda'
         self.mixed_precision = mixed_precision and device_is_cuda
         self.outputs_list = list[_Output]()
@@ -87,15 +87,15 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         self._registered = True
         return
 
-    def _log_metrics(self, metrics: Mapping[str, Any]) -> None:
+    def _log_metrics(self, computed_metrics: Mapping[str, Any]) -> None:
         log_events.FinalMetrics(model_name=self.model.name,
                                 source=self.name,
                                 epoch=self.model.epoch,
-                                metrics=metrics)
+                                metrics=computed_metrics)
         return
 
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
-        self.calculator.update(outputs, targets)
+        self.objective.update(outputs, targets)
 
     def _run_forward(self, inputs: _Input) -> _Output:
         with torch.autocast(device_type=self.model.device.type,
@@ -104,18 +104,18 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
 
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
-        self.calculator.reset()
+        self.objective.reset()
         num_samples = loading.check_dataset_length(self.loader.dataset)
         pbar = log_events.IterateBatch(self.name, len(self.loader), num_samples)
         for batch in self.loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
             outputs = self._run_forward(inputs)
             self._run_backwards(outputs, targets)
-            pbar.update(metrics.repr_metrics(self.calculator))
+            pbar.update(metrics.repr_metrics(self.objective))
             if store_outputs:
                 self._store(outputs)
 
-        self._log_metrics(metrics.repr_metrics(self.calculator))
+        self._log_metrics(metrics.repr_metrics(self.objective))
 
     def _store(self, outputs: _Output) -> None:
         try:
@@ -140,7 +140,7 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
     Attributes:
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
-        calculator: processes the model outputs and targets.
+        objective: processes the model outputs and targets.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
@@ -167,7 +167,7 @@ class Validation(Diagnostic[_Input, _Target, _Output]):
     Attributes:
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
-        calculator: processes the model outputs and targets.
+        objective: processes the model outputs and targets.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
@@ -180,7 +180,7 @@ class Test(Diagnostic[_Input, _Target, _Output]):
     Attributes:
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
-        calculator: processes the model outputs and targets.
+        objective: processes the model outputs and targets.
         mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
