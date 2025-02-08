@@ -9,7 +9,7 @@ from typing_extensions import override
 import torch
 
 from dry_torch import apply_ops
-from dry_torch import calculating
+from dry_torch import metrics
 from dry_torch import exceptions
 from dry_torch import loading
 from dry_torch import log_events
@@ -107,16 +107,15 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         self.calculator.reset()
         num_samples = loading.check_dataset_length(self.loader.dataset)
         pbar = log_events.IterateBatch(self.name, len(self.loader), num_samples)
-        metrics: Mapping[str, Any] = {}
         for batch in self.loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
             outputs = self._run_forward(inputs)
             self._run_backwards(outputs, targets)
-            pbar.update(calculating.repr_metrics(self.calculator))
+            pbar.update(metrics.repr_metrics(self.calculator))
             if store_outputs:
                 self._store(outputs)
 
-        self._log_metrics(metrics)
+        self._log_metrics(metrics.repr_metrics(self.calculator))
 
     def _store(self, outputs: _Output) -> None:
         try:

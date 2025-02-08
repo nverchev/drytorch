@@ -8,7 +8,7 @@ import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar
 from typing_extensions import override
 
-from dry_torch import calculating
+from dry_torch import metrics
 from dry_torch import exceptions
 from dry_torch import protocols as p
 from dry_torch import schedulers
@@ -346,7 +346,7 @@ class MetricMonitor:
             MetricNotFoundError: If the specified metric is not found.
         """
         monitor = self._get_monitor(instance)
-        last_metrics = calculating.repr_metrics(monitor.calculator)
+        last_metrics = metrics.repr_metrics(monitor.calculator)
 
         if self.metric_name is None:
             self.metric_name = list(last_metrics.keys())[0]

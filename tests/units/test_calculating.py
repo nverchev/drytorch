@@ -6,10 +6,10 @@ import torch
 
 from dry_torch import exceptions
 from dry_torch import protocols as p
-from dry_torch.calculating import Metric, MetricCollection
-from dry_torch.calculating import Loss, CompositionalLoss
-from dry_torch.calculating import dict_apply, from_torchmetrics
-from dry_torch.calculating import repr_metrics
+from dry_torch.metrics import Metric, MetricCollection
+from dry_torch.metrics import Loss, CompositionalLoss
+from dry_torch.metrics import dict_apply, from_torchmetrics
+from dry_torch.metrics import repr_metrics
 
 
 @pytest.fixture()

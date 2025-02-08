@@ -1,8 +1,8 @@
 """Init file for the dry_torch package."""
 import warnings
 
-from dry_torch.calculating import Loss
-from dry_torch.calculating import Metric
+from dry_torch.metrics import Loss
+from dry_torch.metrics import Metric
 from dry_torch.checkpoint import CheckpointIO
 from dry_torch.checkpoint import ModelStateIO
 from dry_torch.evaluating import Diagnostic
