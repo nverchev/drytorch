@@ -42,7 +42,7 @@ class Experiment(Generic[_T]):
             config: Configuration for the experiment.
         """
         self._name = name
-        self.dir = pathlib.Path(par_dir) / str(self.name)
+        self.dir = pathlib.Path(par_dir) / format(self.name, 's')
         self.config = config
         self.metadata_manager = tracking.MetadataManager()
         self.trackers = tracking.EventDispatcher(self.name)
@@ -174,7 +174,7 @@ class ParentExperiment(Experiment[_T], Generic[_T, _U]):
                 child.trackers.register(tracker)
             except exceptions.TrackerAlreadyRegisteredError:
                 pass
-        child.dir = self.dir / child.name
+        child.dir = self.dir / f'{child.name:s}'
         self.children.append(child)
 
     @classmethod

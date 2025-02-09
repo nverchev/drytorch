@@ -78,16 +78,20 @@ class YamlDumper(tracking.Tracker):
     Tracker that dumps metadata in a YAML file.
 
     Attributes:
-        par_dir: Path where to dump metadata. Defaults uses exp_pat_dir.
+        par_dir: Directory where to dump metadata. If None, the one of the
+            current experiment is used.
     """
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
         """
         Args:
-            par_dir: Path where to dump metadata. Defaults uses exp_pat_dir.
+            par_dir: Directory where to dump metadata. Defaults uses the one of
+                the current experiment.
         """
         super().__init__()
         self.par_dir = par_dir
+        self.metadata_folder = 'metadata'
+        self.archive_folder = 'archive'
         self._exp_dir: Optional[pathlib.Path] = None
 
     @property
@@ -96,9 +100,9 @@ class YamlDumper(tracking.Tracker):
         if self._exp_dir is None:
             raise RuntimeError('Accessed outside experiment scope.')
         if self.par_dir is None:
-            path = self._exp_dir / 'metadata'
+            path = self._exp_dir / self.metadata_folder
         else:
-            path = self.par_dir
+            path = self.par_dir / self.metadata_folder
         path.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -118,13 +122,13 @@ class YamlDumper(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.ModelCreation) -> None:
         model_name = event.model_name
-        self._version(event.metadata, str(model_name), model_name)
+        self._version(event.metadata, f'{model_name:s}', model_name)
         return
 
     @notify.register
     def _(self, event: log_events.CallModel) -> None:
         model_name = event.model_name
-        self._version(event.metadata, str(model_name), event.name)
+        self._version(event.metadata, f'{model_name:s}', event.name)
         return
 
     def _version(self,
@@ -132,15 +136,17 @@ class YamlDumper(tracking.Tracker):
                  sub_folder: str,
                  file_name: str) -> None:
         directory = self.dir_path / sub_folder
-        directory.mkdir(exist_ok=True)
-        self._dump(metadata, directory / file_name)
-        if file_name != str(file_name):
-            self._dump(metadata, directory / str(file_name))
+        archive_directory = directory / self.archive_folder
+        archive_directory.mkdir(exist_ok=True, parents=True)
+        self._dump(metadata, directory / f'{file_name:s}')
+        self._dump(metadata, archive_directory / file_name)
         return
 
     @staticmethod
     def _dump(metadata: dict[str, Any], file_path: pathlib.Path) -> None:
 
-        with file_path.with_suffix('.yaml').open('w') as metadata_file:
+        file_with_suffix = file_path.with_suffix(file_path.suffix + '.yaml')
+
+        with file_with_suffix.open('w') as metadata_file:
             yaml.dump(metadata, metadata_file)
         return
