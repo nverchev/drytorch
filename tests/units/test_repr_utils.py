@@ -34,7 +34,7 @@ class TestStringWithTS:
         self.str_with_ts = StrWithTS(self.str)
 
     def test_str_method(self):
-        assert str(self.str_with_ts) == self.str
+        assert f'{self.str_with_ts:s}' == self.str
 
     def test_pathlib(self):
         assert pathlib.Path(self.str_with_ts) != pathlib.Path(self.str)
