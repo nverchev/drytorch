@@ -34,7 +34,7 @@ class TestStringWithTS:
         self.str_with_ts = StrWithTS(self.str)
 
     def test_str_method(self):
-        assert f'{self.str_with_ts:s}' == self.str
+        assert format(self.str_with_ts, 's') == self.str
 
     def test_pathlib(self):
         assert pathlib.Path(self.str_with_ts) != pathlib.Path(self.str)
@@ -51,16 +51,16 @@ class TestDefaultName:
     def test_default_name(self) -> None:
         """Test DefaultName class generates incremental names."""
 
-        assert f'{self.obj._name:s}' == self.obj.__class__.__name__
+        assert format(self.obj._name, 's') == self.obj.__class__.__name__
         self.obj_1 = _TestClass()
 
-        name = f'{self.obj_1._name:s}'
+        name = format(self.obj_1._name, 's')
         assert name == f'{self.obj.__class__.__name__}_1'
 
     def test_subclass_name(self) -> None:
         """Test DefaultName generates incremental names starting from 0."""
         sub_obj = _TestSubClass()
-        assert f'{sub_obj._name:s}' == sub_obj.__class__.__name__
+        assert format(sub_obj._name, 's') == sub_obj.__class__.__name__
 
 
 # Test classes for recursive representation

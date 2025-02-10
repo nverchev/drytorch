@@ -20,11 +20,11 @@ class StrWithTS(str):
     """A string that adds a timestamp."""
     ts_fmt = '%Y-%m-%dT%H:%M:%S'
 
-    def __new__(cls, suffix: str) -> StrWithTS:
-        str_with_timestamp = f'{suffix}.{datetime.datetime.now():{cls.ts_fmt}}'
+    def __new__(cls, str_: str) -> StrWithTS:
+        str_with_timestamp = f'{str_}.{datetime.datetime.now():{cls.ts_fmt}}'
         return cast(StrWithTS, super().__new__(cls, str_with_timestamp))
 
-    def __format__(self, format_spec: Optional[str]) -> str:
+    def __format__(self, format_spec: str) -> str:
         if format_spec is None:
             return super().__format__('s')
         return self.split('.', maxsplit=1)[0].__format__('s')

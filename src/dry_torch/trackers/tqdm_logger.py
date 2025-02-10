@@ -101,7 +101,7 @@ class TqdmLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.IterateBatch) -> None:
-        desc = str(event.source).rjust(15)
+        desc = format(event.source, 's').rjust(15)
         bar = EpochBar(event.num_iter,
                        event.dataset_size,
                        leave=self.leave,

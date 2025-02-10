@@ -121,13 +121,13 @@ class YamlDumper(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.ModelCreation) -> None:
         model_name = event.model_name
-        self._version(event.metadata, f'{model_name:s}', model_name)
+        self._version(event.metadata, format(model_name, 's'), model_name)
         return
 
     @notify.register
     def _(self, event: log_events.CallModel) -> None:
         model_name = event.model_name
-        self._version(event.metadata, f'{model_name:s}', event.name)
+        self._version(event.metadata, format(model_name, 's'), event.name)
         return
 
     def _version(self,
@@ -137,7 +137,7 @@ class YamlDumper(tracking.Tracker):
         directory = self.dir_path / sub_folder / self.metadata_folder
         archive_directory = directory / self.archive_folder
         archive_directory.mkdir(exist_ok=True, parents=True)
-        self._dump(metadata, directory / f'{file_name:s}')
+        self._dump(metadata, directory / format(file_name, 's'))
         self._dump(metadata, archive_directory / file_name)
         return
 

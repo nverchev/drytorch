@@ -38,7 +38,7 @@ class TestModel:
         """Test Model's clone method creates a deep copy."""
         cloned_name = 'cloned_model'
         cloned_model = complex_model.clone(cloned_name)
-        assert f'{cloned_name:s}' == 'cloned_model'
+        assert format(cloned_name, 's') == 'cloned_model'
         assert cloned_model is not complex_model
         assert cloned_model.module != complex_model.module
 

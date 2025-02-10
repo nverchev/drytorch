@@ -174,7 +174,7 @@ class ParentExperiment(Experiment[_T], Generic[_T, _U]):
                 child.trackers.register(tracker)
             except exceptions.TrackerAlreadyRegisteredError:
                 pass
-        child.dir = self.dir / f'{child.name:s}'
+        child.dir = self.dir / format(child.name, 's')
         self.children.append(child)
 
     @classmethod
