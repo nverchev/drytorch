@@ -36,8 +36,9 @@ class TestModel:
 
     def test_model_clone(self, complex_model: Model) -> None:
         """Test Model's clone method creates a deep copy."""
-        cloned_model = complex_model.clone('cloned_model')
-        assert str(cloned_model.name) == 'cloned_model'
+        cloned_name = 'cloned_model'
+        cloned_model = complex_model.clone(cloned_name)
+        assert f'{cloned_name:s}' == 'cloned_model'
         assert cloned_model is not complex_model
         assert cloned_model.module != complex_model.module
 
