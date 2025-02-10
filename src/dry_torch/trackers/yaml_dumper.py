@@ -100,10 +100,9 @@ class YamlDumper(tracking.Tracker):
         if self._exp_dir is None:
             raise RuntimeError('Accessed outside experiment scope.')
         if self.par_dir is None:
-            path = self._exp_dir / self.metadata_folder
+            path = self._exp_dir
         else:
-            path = self.par_dir / self.metadata_folder
-        path.mkdir(parents=True, exist_ok=True)
+            path = self.par_dir
         return path
 
     @functools.singledispatchmethod
@@ -135,7 +134,7 @@ class YamlDumper(tracking.Tracker):
                  metadata: dict[str, Any],
                  sub_folder: str,
                  file_name: str) -> None:
-        directory = self.dir_path / sub_folder
+        directory = self.dir_path / sub_folder / self.metadata_folder
         archive_directory = directory / self.archive_folder
         archive_directory.mkdir(exist_ok=True, parents=True)
         self._dump(metadata, directory / f'{file_name:s}')
