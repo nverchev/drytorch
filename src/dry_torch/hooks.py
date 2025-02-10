@@ -711,3 +711,17 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
             scheduler: Scheduler to be modified.
         """
         return schedulers.WarmupScheduler(epoch, scheduler)
+
+
+def mean_aggregation(window: int) -> Callable[[Sequence[float]], float]:
+    """
+    Aggregates recent values by taking the mean.
+
+    Args:
+        window: number of items to aggregate.
+    """
+
+    def _mean(float_list: Sequence[float], /) -> float:
+        return sum(float_list[-window:]) / window
+
+    return _mean
