@@ -19,15 +19,14 @@ class EpochBar:
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
 
     def __init__(self,
-                 total: int,
+                 batch_size: int,
                  num_samples: int,
                  leave: bool,
                  out: SupportsWrite[str],
                  desc: str) -> None:
-
-        self.batch_size = num_samples // total
+        self.batch_size = batch_size
         self.num_samples = num_samples
-        self.pbar = auto.tqdm(total=total,
+        self.pbar = auto.tqdm(total=num_samples // batch_size,
                               leave=leave,
                               file=out,
                               desc=desc,
@@ -102,7 +101,7 @@ class TqdmLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.IterateBatch) -> None:
         desc = format(event.source, 's').rjust(15)
-        bar = EpochBar(event.num_iter,
+        bar = EpochBar(event.batch_size,
                        event.dataset_size,
                        leave=self.leave,
                        out=self.out,

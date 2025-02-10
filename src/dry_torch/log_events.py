@@ -149,12 +149,12 @@ class IterateBatch(Event):
 
     Attributes:
         source: The object calling the iteration.
-        num_iter: The number of iterations planned.
+        batch_size: The size of the mini-batch.
         dataset_size: The size of the dataset.
         push_updates: callbacks from loggers that require push updates.
     """
     source: str
-    num_iter: int
+    batch_size: int
     dataset_size: int
     push_updates: list[
         Callable[[Mapping[str, Any]], None]
