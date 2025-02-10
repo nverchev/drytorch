@@ -168,8 +168,8 @@ class TestExperiment:
         mock_event_start = mocker.patch.object(log_events, 'StartExperiment')
         mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
         with self.experiment:
-            mock_event_start.assert_called_once_with(self.experiment.name,
-                                                     self.par_dir / self.name)
+            path = self.par_dir / format(self.name, 's')
+            mock_event_start.assert_called_once_with(self.experiment.name, path)
         mock_event_stop.assert_called_once_with(self.experiment.name)
 
     def test_get_config_no_config_error(self):
