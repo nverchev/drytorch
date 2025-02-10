@@ -67,7 +67,7 @@ class ModelStateIO:
         paths: Path manager for directories and checkpoints.
 
     """
-    definition = 'model state'
+    definition = 'state'
 
     def __init__(self, model: p.ModelProtocol, par_dir: pathlib.Path) -> None:
         self.model = model
@@ -117,7 +117,7 @@ class CheckpointIO(ModelStateIO):
         model: The model instance for which paths are managed.
         optimizer: The optimizer instance.
     """
-    definition = 'model and optimizer states'
+    definition = 'checkpoint'
 
     def __init__(self,
                  model: p.ModelProtocol,
