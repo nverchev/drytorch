@@ -148,6 +148,7 @@ def iterate_batch_event() -> log_events.IterateBatch:
     return log_events.IterateBatch(
         source="training_loop",
         num_iter=5,
+        batch_size=32,
         dataset_size=1600,
         push_updates=[]
     )

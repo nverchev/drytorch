@@ -43,7 +43,7 @@ class EpochBar:
         last_epoch = self.pbar.n == self.num_iter - 1
         if self.batch_size is not None:
             if last_epoch:
-                self.epoch_seen += self.num_samples
+                self.epoch_seen = self.num_samples
             else:
                 self.epoch_seen += self.batch_size
             monitor_seen = {self.seen_str: self.epoch_seen}

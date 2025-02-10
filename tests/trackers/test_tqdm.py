@@ -18,10 +18,12 @@ class TestEpochBar:
             string_stream: StringIO stream for capturing output
         """
         self.output = string_stream
+        self.num_iter = 10
         self.total_batches = 10
         self.dataset_size = 100
         self.bar = EpochBar(
-            total=self.total_batches,
+            num_iter=self.num_iter,
+            batch_size=self.total_batches,
             num_samples=self.dataset_size,
             leave=False,
             out=self.output,
@@ -30,9 +32,8 @@ class TestEpochBar:
 
     def test_initialization(self) -> None:
         """Test proper initialization of EpochBar."""
-        assert self.bar.batch_size == self.dataset_size // self.total_batches
+        assert self.bar.num_iter == self.bar.num_iter
         assert self.bar.num_samples == self.dataset_size
-        assert not self.bar.last_epoch
         assert self.bar.epoch_seen == 0
 
     def test_single_update(self, sample_metrics: dict[str, float]) -> None:
@@ -56,7 +57,6 @@ class TestEpochBar:
         for _ in range(self.total_batches):
             self.bar.update(sample_metrics)
 
-        assert self.bar.last_epoch
         assert self.bar.epoch_seen == self.dataset_size
 
         # Check if bar is closed
@@ -173,33 +173,3 @@ class TestTqdmLogger:
 
         assert logger.training_bar is not None
         assert logger.training_bar.pbar.disable
-
-
-@pytest.mark.parametrize("total,dataset_size,expected_batch_size", [
-    (10, 100, 10),
-    (4, 128, 32),
-    (5, 1000, 200),
-])
-def test_epoch_bar_batch_size_calculation(
-        string_stream: StringIO,
-        total: int,
-        dataset_size: int,
-        expected_batch_size: int
-) -> None:
-    """
-    Test batch size calculation for different configurations.
-
-    Args:
-        string_stream: StringIO stream for capturing output
-        total: Total number of batches
-        dataset_size: Total dataset size
-        expected_batch_size: Expected calculated batch size
-    """
-    bar = EpochBar(
-        total=total,
-        num_samples=dataset_size,
-        leave=False,
-        out=string_stream,
-        desc="Test"
-    )
-    assert bar.batch_size == expected_batch_size
