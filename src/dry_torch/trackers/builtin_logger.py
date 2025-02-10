@@ -163,7 +163,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartTraining) -> None:
         logger.log(INFO_LEVELS.training,
                    'Training %(model_name)s started.',
-                   {'model_name': str(event.model_name)})
+                   {'model_name': format(event.model_name, 's')})
         return
 
     @notify.register
@@ -193,7 +193,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.SaveModel) -> None:
         logger.log(INFO_LEVELS.checkpoint,
                    f'Saving %(name)s %(definition)s in: %(location)s.',
-                   {'name': str(event.model_name),
+                   {'name': format(event.model_name, 's'),
                     'definition': event.definition.capitalize(),
                     'location': event.location}
                    )
@@ -203,7 +203,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.LoadModel) -> None:
         logger.log(INFO_LEVELS.checkpoint,
                    f'Loading %(name)s %(definition)s at epoch %(epoch)d.',
-                   {'name': str(event.model_name),
+                   {'name': format(event.model_name, 's'),
                     'definition': event.definition.capitalize(),
                     'epoch': event.epoch}
                    )
@@ -226,7 +226,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.Test) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Testing %(model_name)s started.',
-                   {'model_name': str(event.model_name)})
+                   {'model_name': format(event.model_name, 's')})
         return
 
     @notify.register
@@ -237,7 +237,7 @@ class BuiltinLogger(tracking.Tracker):
             'Reason: %(reason)s'
         ])
         log_args = {'source': event.source,
-                    'model_name': str(event.model_name),
+                    'model_name': format(event.model_name, 's'),
                     'reason': event.reason,
                     'epoch': event.epoch}
         logger.log(INFO_LEVELS.training, msg, log_args)
@@ -247,14 +247,14 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
-                   {'name': str(event.exp_name)})
+                   {'name': format(event.exp_name, 's')})
         return
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
-                   {'name': str(event.exp_name)})
+                   {'name': format(event.exp_name, 's')})
         return
 
     @notify.register
@@ -271,7 +271,7 @@ class BuiltinLogger(tracking.Tracker):
         msg = '.\n'.join(message_parts) + '.'
 
         log_args = {'source': event.source,
-                    'model_name': str(event.model_name),
+                    'model_name': format(event.model_name, 's'),
                     'epoch': event.epoch,
                     'learning_rate': event.base_lr,
                     'scheduler_name': event.scheduler_name}
