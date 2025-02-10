@@ -23,20 +23,23 @@ logger = logging.getLogger('dry_torch')
 
 class InfoLevels(NamedTuple):
     """NamedTuple that defines different levels of information for logging."""
-    internal: int
+    experiment: int
     metrics: int
     epoch: int
+    change_settings: int
     checkpoint: int
     training: int
-    experiment: int
+    test: int
 
 
-INFO_LEVELS = InfoLevels(internal=19,
-                         metrics=21,
-                         epoch=23,
-                         checkpoint=25,
-                         training=27,
-                         experiment=28)
+INFO_LEVELS = InfoLevels(experiment=21,
+                         metrics=23,
+                         epoch=25,
+                         change_settings=26,
+                         checkpoint=27,
+                         training=28,
+                         test=29,
+                         )
 
 for name, level in INFO_LEVELS._asdict().items():
     logging.addLevelName(level, name.center(10))
@@ -63,8 +66,6 @@ class InfoFormatter(logging.Formatter):
     def _info_fmt(level_no: Optional[int] = None) -> str:
         if level_no == INFO_LEVELS.training:
             return '[%(asctime)s] - %(message)s\n'
-        if level_no == INFO_LEVELS.epoch:
-            return '%(message)s'
         return '%(message)s\n'
 
 
@@ -181,12 +182,11 @@ class BuiltinLogger(tracking.Tracker):
         else:
             fix_len = 1
             final_epoch_str = ''
-        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch_str)s: \r'
+        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch_str)s:'
 
         logger.log(INFO_LEVELS.epoch,
                    epoch_msg,
                    {'epoch': event.epoch, 'final_epoch_str': final_epoch_str})
-        logger.log(INFO_LEVELS.metrics, '')
         return
 
     @notify.register
@@ -224,7 +224,7 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.Test) -> None:
-        logger.log(INFO_LEVELS.experiment,
+        logger.log(INFO_LEVELS.test,
                    'Testing %(model_name)s started.',
                    {'model_name': format(event.model_name, 's')})
         return
@@ -251,9 +251,9 @@ class BuiltinLogger(tracking.Tracker):
         return
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StopExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
-                   'Running experiment: %(name)s.',
+                   'Experiment: %(name)s stopped.',
                    {'name': format(event.exp_name, 's')})
         return
 
@@ -275,5 +275,5 @@ class BuiltinLogger(tracking.Tracker):
                     'epoch': event.epoch,
                     'learning_rate': event.base_lr,
                     'scheduler_name': event.scheduler_name}
-        logger.log(INFO_LEVELS.training, msg, log_args)
+        logger.log(INFO_LEVELS.change_settings, msg, log_args)
         return

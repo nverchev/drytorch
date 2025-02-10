@@ -62,7 +62,7 @@ def configured_logger(
 
     logger.handlers.clear()
     logger.addHandler(test_handler)
-    logger.setLevel(INFO_LEVELS.internal)
+    logger.setLevel(INFO_LEVELS.metrics)
 
     yield logger
 
@@ -89,23 +89,6 @@ def test_info_formatter_training_level() -> None:
     assert formatted.endswith("Test message\n")
     assert "[" in formatted  # Check for timestamp
 
-
-def test_info_formatter_epoch_level() -> None:
-    """Tests the InfoFormatter's formatting for epoch level logs."""
-    formatter = InfoFormatter()
-    record = logging.LogRecord(
-        name='test',
-        level=INFO_LEVELS.epoch,
-        pathname='test.py',
-        lineno=1,
-        msg='Test message',
-        args=(),
-        exc_info=None
-    )
-    record.levelno = INFO_LEVELS.epoch
-
-    formatted = formatter.format(record)
-    assert formatted == "Test message"
 
 
 class TestBuiltinLogger:
