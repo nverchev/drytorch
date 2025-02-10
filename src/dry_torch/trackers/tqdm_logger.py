@@ -19,36 +19,42 @@ class EpochBar:
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
 
     def __init__(self,
-                 batch_size: int,
+                 batch_size: int | None,
+                 num_iter: int,
                  num_samples: int,
                  leave: bool,
                  out: SupportsWrite[str],
                  desc: str) -> None:
         self.batch_size = batch_size
         self.num_samples = num_samples
-        self.pbar = auto.tqdm(total=num_samples // batch_size,
+        self.num_iter = num_iter
+        self.pbar = auto.tqdm(total=num_iter,
                               leave=leave,
                               file=out,
                               desc=desc,
                               bar_format=self.fmt)
         self.seen_str = 'Samples'
         self.epoch_seen = 0
-        self.last_epoch = False
         return
 
     def update(self, metrics: Mapping[str, Any]) -> None:
         """Adds batch and metric information to the bar."""
-        self.epoch_seen += self.batch_size
-        if self.epoch_seen >= self.num_samples:
-            self.epoch_seen = self.num_samples
-            self.last_epoch = True
-        monitor_seen: dict[str, int] = {self.seen_str: self.epoch_seen}
+        monitor_seen: dict[str, int | str]
+        last_epoch = self.pbar.n == self.num_iter - 1
+        if self.batch_size is not None:
+            if last_epoch:
+                self.epoch_seen += self.num_samples
+            else:
+                self.epoch_seen += self.batch_size
+            monitor_seen = {self.seen_str: self.epoch_seen}
+        else:
+            monitor_seen = {self.seen_str: '?'}
         monitor_metric = {metric_name: f'{metric_value:.3e}'
                           for metric_name, metric_value in metrics.items()}
         monitor_dict = monitor_seen | monitor_metric
         self.pbar.set_postfix(monitor_dict, refresh=False)
         self.pbar.update()
-        if self.last_epoch:
+        if last_epoch:
             self.pbar.close()
         return
 
@@ -102,6 +108,7 @@ class TqdmLogger(tracking.Tracker):
     def _(self, event: log_events.IterateBatch) -> None:
         desc = format(event.source, 's').rjust(15)
         bar = EpochBar(event.batch_size,
+                       event.num_iter,
                        event.dataset_size,
                        leave=self.leave,
                        out=self.out,

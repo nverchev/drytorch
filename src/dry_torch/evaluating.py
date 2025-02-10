@@ -108,6 +108,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         num_samples = loading.check_dataset_length(self.loader.dataset)
         pbar = log_events.IterateBatch(self.name,
                                        self.loader.batch_size,
+                                       len(self.loader),
                                        num_samples)
         for batch in self.loader:
             inputs, targets = apply_ops.apply_to(batch, self.model.device)
