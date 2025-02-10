@@ -212,7 +212,7 @@ class BuiltinLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.FinalMetrics) -> None:
         log_msg_list: list[str] = ['%(desc)-24s']
-        desc = event.source.rjust(15) + ': '
+        desc = format(event.source, 's').rjust(15) + ': '
         log_args: dict[str, str | float] = {'desc': desc}
         for metric, value in event.metrics.items():
             log_msg_list.append(f'%({metric})16s=%({metric}_value)4e')
