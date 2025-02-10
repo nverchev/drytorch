@@ -79,8 +79,11 @@ class HydraLink(tracking.Tracker):
 
     @notify.register
     def _(self, _event: log_events.StopExperiment) -> None:
-        self.dir.unlink()
-        shutil.copytree(self.hydra_dir, self.dir)
+        try:
+            self.dir.unlink()
+            shutil.copytree(self.hydra_dir, self.dir)
+        except RuntimeError:
+            pass
         self._exp_dir = None
         self._counter = 0
         builtin_logger.disable_propagation()
