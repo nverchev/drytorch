@@ -33,14 +33,11 @@ def record_model_call(x: Any, model: p.ModelProtocol) -> None:
     name = getattr(x, 'name', '') or repr_utils.StrWithTS(x.__class__.__name__)
     exp.metadata_manager.record_model_call(name, model.name, x)
     module = model.module
-    try:
+    if module in ALL_MODULES:
         model_exp = ALL_MODULES[module]
-    except KeyError:
-        raise exceptions.ModelNotRegisteredError(model.name, exp.name)
-    else:
-        if exp is not model_exp:
-            raise exceptions.ModelNotRegisteredError(model.name, exp.name)
-    return
+        if exp is model_exp:
+            return
+    raise exceptions.ModelNotRegisteredError(model.name, exp.name)
 
 
 def register_model(model: p.ModelProtocol) -> experiments.Experiment:
