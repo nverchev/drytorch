@@ -25,7 +25,7 @@ class PathManager:
 
     def __init__(self, model: p.ModelProtocol, par_dir: pathlib.Path) -> None:
         self.model = model
-        self.model_dir = par_dir / model.name
+        self.model_dir = par_dir / f'{model.name:s}'
 
     @property
     def checkpoint_dir(self) -> pathlib.Path:
