@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pathlib
 from types import TracebackType
-from typing import Generic, Optional, TypeVar
+from typing import Generic, Optional, TypeVar, Any
+
+from typing_extensions import override
 
 from dry_torch import exceptions
 from dry_torch import log_events
@@ -120,7 +122,7 @@ class Experiment(Generic[_T]):
         return f'{self.__class__.__name__}(name={self.name})'
 
 
-class ChildExperiment(Experiment[_T]):
+class ChildExperiment(Experiment[_U]):
     """
     This class shares settings with a Parent experiment. See ParentExperiment.
 
@@ -131,16 +133,29 @@ class ChildExperiment(Experiment[_T]):
         metadata_manager: Manager for recording metadata.
         trackers: Dispatcher for publishing events.
     """
+    parent: Optional[ParentExperiment[Any, _U]] = None
 
     def __init__(self,
                  name: str,
-                 config: Optional[_T] = None) -> None:
+                 config: Optional[_U] = None) -> None:
         """
         Args:
             name: The name of the experiment. Defaults to class name.
             config: Configuration for the experiment.
         """
         super().__init__(name, '', config)
+
+    @override
+    def start(self) -> None:
+        super().start()
+        if self.parent is not None:
+            self.parent.__class__._current_config = self.parent.config
+
+    @override
+    def stop(self) -> None:
+        super().stop()
+        if self.parent is not None:
+            self.parent.__class__._current_config = None
 
 
 class ParentExperiment(Experiment[_T], Generic[_T, _U]):
@@ -176,6 +191,8 @@ class ParentExperiment(Experiment[_T], Generic[_T, _U]):
                 pass
         child.dir = self.dir / format(child.name, 's')
         self.children.append(child)
+        child.parent = self
+        return
 
     @classmethod
     def get_child_config(cls) -> _U:

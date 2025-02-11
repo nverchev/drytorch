@@ -13,7 +13,7 @@ from dry_torch import metrics
 from dry_torch import protocols as p
 from dry_torch import schedulers
 
-_T = TypeVar('_T', covariant=True)
+_T = TypeVar('_T', contravariant=True)
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
 
