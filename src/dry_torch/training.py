@@ -68,8 +68,8 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
         self._scaler = amp.GradScaler(enabled=mixed_precision)
-        self.pre_epoch_hooks = hooks.HookRegistry[Self]()
-        self.post_epoch_hooks = hooks.HookRegistry[Self]()
+        self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
+        self.post_epoch_hooks = hooks.HookRegistry[Trainer]()
         self._terminated = False
         return
 
@@ -139,13 +139,13 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
     def terminate_training(self, reason: str) -> None:
         """Prevent the trainer from continue the training."""
         self._terminated = True
-        log_events.TerminatedTraining(model_name=self.model.name,
-                                      source=self.name,
+        log_events.TerminatedTraining(source=self.name,
+                                      model_name=self.model.name,
                                       epoch=self.model.epoch,
                                       reason=reason)
         return
 
-    def train(self: Self, num_epochs: int) -> None:
+    def train(self, num_epochs: int) -> None:
         """
         Train the module for the specified number of epochs.
 
@@ -156,7 +156,10 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             warnings.warn(exceptions.TerminatedTrainingWarning())
             return
         final_epoch = self.model.epoch + num_epochs
-        log_events.StartTraining(self.model.name, self.model.epoch, final_epoch)
+        log_events.StartTraining(source=self.name,
+                                 model_name=self.model.name,
+                                 start_epoch=self.model.epoch,
+                                 end_epoch=final_epoch)
         for _ in range(num_epochs):
             log_events.StartEpoch(self.model.epoch + 1, final_epoch)
             self.pre_epoch_hooks.execute(self)
@@ -165,7 +168,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             log_events.EndEpoch()
             if self.terminated:
                 break
-        log_events.EndTraining()
+        log_events.EndTraining(self.name)
         return
 
     def train_until(self: Self, epoch: int) -> None:
