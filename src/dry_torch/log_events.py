@@ -114,10 +114,12 @@ class StartTraining(Event):
     Event logged when training starts.
 
     Attributes:
+        source: The object training the model.
         model_name: The name of the model.
         start_epoch: The starting epoch of the training.
         end_epoch: The ending epoch of the training.
     """
+    source: str
     model_name: str
     start_epoch: int
     end_epoch: int
@@ -180,18 +182,26 @@ class TerminatedTraining(Event):
     Event logged when training is terminated.
 
     Attributes:
+        source: The object calling the termination.
+        model_name: The name of the model.
         epoch: The epoch at which training was terminated.
         reason: The cause of the termination.
     """
-    model_name: str
     source: str
+    model_name: str
     epoch: int
     reason: str
 
 
 @dataclasses.dataclass
 class EndTraining(Event):
-    """Event logged when training ends."""
+    """
+    Event logged when training ends.
+
+    Attributes:
+        source: The object training the model.
+    """
+    source: str
     pass
 
 
@@ -201,9 +211,11 @@ class Test(Event):
     Event logged when a test is performed.
 
     Attributes:
+        source: The object calling the test.
         model_name: The name of the model.
         test_name: The name of the test.
     """
+    source: str
     model_name: str
     test_name: str
 
