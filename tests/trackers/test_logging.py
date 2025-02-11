@@ -18,11 +18,12 @@ import io
 from typing import Generator
 
 from dry_torch import log_events
-from dry_torch.trackers.builtin_logger import BuiltinLogger, InfoFormatter
+from dry_torch.trackers.builtin_logger import BuiltinLogger, DryTorchFormatter
 from dry_torch.trackers.builtin_logger import enable_default_handler
 from dry_torch.trackers.builtin_logger import enable_propagation
 from dry_torch.trackers.builtin_logger import disable_default_handler
 from dry_torch.trackers.builtin_logger import disable_propagation
+from dry_torch.trackers.builtin_logger import set_formatter
 from dry_torch.trackers.builtin_logger import INFO_LEVELS
 
 logger = logging.getLogger('dry_torch')
@@ -40,7 +41,7 @@ def test_handler(string_stream: io.StringIO) -> logging.StreamHandler:
         logging.StreamHandler: Configured handler for testing
     """
     handler = logging.StreamHandler(string_stream)
-    handler.setFormatter(InfoFormatter())
+    handler.setFormatter(DryTorchFormatter())
     return handler
 
 
@@ -72,8 +73,8 @@ def configured_logger(
 
 
 def test_info_formatter_training_level() -> None:
-    """Tests the InfoFormatter's formatting for training level logs."""
-    formatter = InfoFormatter()
+    """Tests DryTorchFormatter for training level logs."""
+    formatter = DryTorchFormatter()
     record = logging.LogRecord(
         name='test',
         level=INFO_LEVELS.training,
@@ -89,6 +90,18 @@ def test_info_formatter_training_level() -> None:
     assert formatted.endswith("Test message\n")
     assert "[" in formatted  # Check for timestamp
 
+
+@pytest.mark.skip
+def test_set_formatter_training_level(string_stream) -> None:
+    """Tests DryTorchFormatter formatter style."""
+
+    enable_default_handler()
+    set_formatter(style='dry_torch')
+
+    logger.log(INFO_LEVELS.epoch, '2')
+    logger.log(INFO_LEVELS.metrics, '3')
+    logger.log(INFO_LEVELS.checkpoint, '4')
+    assert string_stream.getvalue() == '4'
 
 
 class TestBuiltinLogger:

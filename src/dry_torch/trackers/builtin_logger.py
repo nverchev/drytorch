@@ -12,8 +12,8 @@ Attributes:
 import functools
 import logging
 import sys
-from typing import NamedTuple, Optional
-from typing_extensions import override
+from typing import NamedTuple
+from typing_extensions import override, Literal
 
 from dry_torch import log_events
 from dry_torch import tracking
@@ -23,20 +23,20 @@ logger = logging.getLogger('dry_torch')
 
 class InfoLevels(NamedTuple):
     """NamedTuple that defines different levels of information for logging."""
-    experiment: int
     metrics: int
     epoch: int
-    change_settings: int
+    param_update: int
     checkpoint: int
+    experiment: int
     training: int
     test: int
 
 
-INFO_LEVELS = InfoLevels(experiment=21,
-                         metrics=23,
+INFO_LEVELS = InfoLevels(metrics=23,
                          epoch=25,
-                         change_settings=26,
+                         param_update=26,
                          checkpoint=27,
+                         experiment=21,
                          training=28,
                          test=29,
                          )
@@ -45,28 +45,33 @@ for name, level in INFO_LEVELS._asdict().items():
     logging.addLevelName(level, name.center(10))
 
 
-class InfoFormatter(logging.Formatter):
-    """
-    Custom formatter to format log messages based on their level.
-
-    It adds a timestamp to logs of level training. When the logger level is
-    set to a value higher than metrics, it overwrites the current epoch's log.
-    """
-
+class DryTorchFormatter(logging.Formatter):
+    """Default formatter for the dry_torch logger."""
     default_msec_format = ''
 
     @override
     def format(self, record: logging.LogRecord) -> str:
-        # if record.msg[-1:] != '\r':
-        #     record.msg += '\n'
         self._style._fmt = self._info_fmt(record.levelno)
         return super().format(record)
 
     @staticmethod
-    def _info_fmt(level_no: Optional[int] = None) -> str:
-        if level_no == INFO_LEVELS.training:
+    def _info_fmt(level_no: int) -> str:
+        if level_no >= INFO_LEVELS.experiment:
             return '[%(asctime)s] - %(message)s\n'
         return '%(message)s\n'
+
+
+class ProgressFormatter(DryTorchFormatter):
+    """Formatter that dynamically overwrites metrics and epoch logs."""
+
+    @staticmethod
+    def _info_fmt(level_no: int) -> str:
+        if level_no == INFO_LEVELS.metrics:
+            return '[%(asctime)s] - %(message)s\r'
+        if level_no == INFO_LEVELS.epoch:
+            return '[%(asctime)s] - %(message)s'
+        else:
+            return DryTorchFormatter._info_fmt(level_no)
 
 
 class DryTorchFilter(logging.Filter):
@@ -102,7 +107,7 @@ def enable_default_handler() -> None:
     global logger
     logger.handlers.clear()
 
-    formatter = InfoFormatter()
+    formatter = DryTorchFormatter()
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.terminator = ''
     stdout_handler.setFormatter(formatter)
@@ -113,9 +118,7 @@ def enable_default_handler() -> None:
 
 
 def disable_propagation() -> None:
-    """
-    This function reverts the changes made by enable_propagation
-    """
+    """This function reverts the changes made by enable_propagation."""
     global logger
 
     logger.propagate = False
@@ -125,6 +128,23 @@ def disable_propagation() -> None:
             if isinstance(log_filter, DryTorchFilter):
                 handler.removeFilter(log_filter)
                 break
+    return
+
+
+def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
+    """Set the formatter for the stdout handler of the dry_torch logger."""
+    global logger
+
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            if hasattr(handler.stream, 'name'):
+                if handler.stream.name == '<stdout>':
+                    if style == 'progress':
+                        handler.formatter = ProgressFormatter()
+                    elif style == 'dry_torch':
+                        handler.formatter = DryTorchFormatter()
+                    else:
+                        raise ValueError('Invalid formatter style.')
     return
 
 
@@ -275,5 +295,5 @@ class BuiltinLogger(tracking.Tracker):
                     'epoch': event.epoch,
                     'learning_rate': event.base_lr,
                     'scheduler_name': event.scheduler_name}
-        logger.log(INFO_LEVELS.change_settings, msg, log_args)
+        logger.log(INFO_LEVELS.param_update, msg, log_args)
         return
