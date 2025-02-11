@@ -23,6 +23,7 @@ logger = logging.getLogger('dry_torch')
 
 class InfoLevels(NamedTuple):
     """NamedTuple that defines different levels of information for logging."""
+    internal: int
     metrics: int
     epoch: int
     param_update: int
@@ -32,11 +33,12 @@ class InfoLevels(NamedTuple):
     test: int
 
 
-INFO_LEVELS = InfoLevels(metrics=23,
-                         epoch=25,
-                         param_update=26,
-                         checkpoint=27,
-                         experiment=21,
+INFO_LEVELS = InfoLevels(internal=19,
+                         metrics=21,
+                         epoch=23,
+                         param_update=25,
+                         checkpoint=26,
+                         experiment=27,
                          training=28,
                          test=29,
                          )
@@ -231,11 +233,11 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.FinalMetrics) -> None:
-        log_msg_list: list[str] = ['%(desc)-24s']
+        log_msg_list: list[str] = ['%(desc)s']
         desc = format(event.source, 's').rjust(15) + ': '
         log_args: dict[str, str | float] = {'desc': desc}
         for metric, value in event.metrics.items():
-            log_msg_list.append(f'%({metric})16s=%({metric}_value)4e')
+            log_msg_list.append(f'%({metric})s=%({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
         logger.log(INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
@@ -272,7 +274,7 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
-        logger.log(INFO_LEVELS.experiment,
+        logger.log(INFO_LEVELS.internal,
                    'Experiment: %(name)s stopped.',
                    {'name': format(event.exp_name, 's')})
         return
