@@ -3,6 +3,7 @@
 import pytest
 
 import torch
+from typing_extensions import reveal_type
 
 import dry_torch
 from dry_torch import DataLoader, LearningScheme, Model, Experiment
@@ -90,13 +91,16 @@ def standard_learning_scheme() -> LearningScheme:
 
 
 @pytest.fixture
-def identity_trainer(linear_model,
-                     standard_learning_scheme,
-                     square_loss_calc,
-                     identity_loader) -> Trainer:
+def identity_trainer(
+        linear_model: Model[TorchTuple, TorchData],
+        standard_learning_scheme: LearningScheme,
+        square_loss_calc: Loss[TorchData, torch.Tensor],
+        identity_loader: DataLoader[tuple[TorchTuple, torch.Tensor]]
+) -> Trainer:
     """Instantiate a trainer for the linear model using the identity dataset."""
-    return Trainer(linear_model,
-                   name='MyTrainer',
-                   loader=identity_loader,
-                   learning_scheme=standard_learning_scheme,
-                   loss=square_loss_calc)
+    trainer = Trainer(linear_model,
+                      name='MyTrainer',
+                      loader=identity_loader,
+                      learning_scheme=standard_learning_scheme,
+                      loss=square_loss_calc)
+    return trainer
