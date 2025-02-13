@@ -32,7 +32,8 @@ class EpochBar:
                               leave=leave,
                               file=out,
                               desc=desc,
-                              bar_format=self.fmt)
+                              bar_format=self.fmt,
+                              colour='green')
         self.seen_str = 'Samples'
         self.epoch_seen = 0
         return
@@ -73,7 +74,8 @@ class TrainingBar:
                                 leave=False,
                                 position=0,
                                 file=out,
-                                disable=disable)
+                                disable=disable,
+                                colour='blue')
         self.start_epoch = start_epoch
         self.end_epoch = end_epoch
 

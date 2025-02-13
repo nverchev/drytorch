@@ -254,11 +254,11 @@ class BuiltinLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.TerminatedTraining) -> None:
 
-        msg = '.\n'.join([
+        msg = '. '.join([
             '%(source)s: Training %(model_name)s terminated at epoch %(epoch)d',
-            'Reason: %(reason)s'
+            'Reason: %(reason)s',
         ])
-        log_args = {'source': event.source,
+        log_args = {'source': format(event.source, 's'),
                     'model_name': format(event.model_name, 's'),
                     'reason': event.reason,
                     'epoch': event.epoch}
