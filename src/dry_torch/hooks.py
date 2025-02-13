@@ -722,6 +722,7 @@ def mean_aggregation(window: int) -> Callable[[Sequence[float]], float]:
     """
 
     def _mean(float_list: Sequence[float], /) -> float:
-        return sum(float_list[-window:]) / window
+        clipped_window = min(window, len(float_list))
+        return sum(float_list[-clipped_window:]) / clipped_window
 
     return _mean
