@@ -167,6 +167,16 @@ class MetricBase(
         """Creates a (deep)copy of self."""
         return self.__deepcopy__({})
 
+    def merge_state(self: Self, other: Self) -> None:
+        """
+        Merge metric states.
+
+        Args:
+            other: Metric to be merged with.
+        """
+        self._aggregator += other._aggregator
+        return
+
     def __or__(
             self,
             other: MetricBase[_Output_contra, _Target_contra]
