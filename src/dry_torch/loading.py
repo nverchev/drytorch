@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from typing import Final, TypeVar, overload
+from typing import Final, Optional, TypeVar, overload
 
 import numpy as np
 import torch
@@ -104,16 +104,20 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
             self,
             dataset: data.Dataset[_Data_co],
             batch_size: int,
+            pin_memory: Optional[bool] = None,
     ) -> None:
         """
         Args:
             dataset: The dataset to load data from.
             batch_size: Number of samples per batch.
+            pin_memory: Pin memory for faster GPU training. Defaults to true
+                when GPU is available.
         """
         self.batch_size = batch_size
         self.dataset = dataset
         self.dataset_len = check_dataset_length(dataset)
-        self._pin_memory: bool = torch.cuda.is_available()
+        cuda_flag = torch.cuda.is_available()
+        self._pin_memory = cuda_flag if pin_memory is None else pin_memory
 
     def get_loader(self) -> data.DataLoader[_Data_co]:
         """
@@ -131,15 +135,6 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
                                  shuffle=shuffle,
                                  pin_memory=self._pin_memory)
         return loader
-
-    def set_pin_memory(self, value: bool) -> None:
-        """
-        Sets whether to pin memory in GPU training.
-
-        Args:
-            value: If True, pin memory for faster GPU training.
-        """
-        self._pin_memory = value
 
     def split(
             self,
