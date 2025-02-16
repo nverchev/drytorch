@@ -210,8 +210,8 @@ class Metric(MetricBase[_Output_contra, _Target_contra]):
                  name: str,
                  higher_is_better: Optional[bool] = None) -> None:
         super().__init__(**{name: fun})
-        self.name = name
         self.fun = fun
+        self.name = name
         self.higher_is_better = higher_is_better
 
     @override
@@ -424,9 +424,10 @@ class Loss(
             *,
             name: str,
             higher_is_better: bool = False):
-        super(LossBase, self).__init__(fun,
-                                       name=name,
-                                       higher_is_better=higher_is_better)
+        Metric.__init__(self,
+                        fun,
+                        name=name,
+                        higher_is_better=higher_is_better)
         self.criterion = operator.itemgetter(self.name)
         self.formula = f'[{name}]'
         return
