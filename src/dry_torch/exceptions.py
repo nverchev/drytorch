@@ -75,6 +75,14 @@ class ModelNotFoundError(DryTorchException, FileNotFoundError):
         super().__init__(checkpoint_directory)
 
 
+class ModuleAlreadyRegisteredError(DryTorchException, TypeError):
+    msg = 'Module has already been registered from model {} in experiment {}.'
+
+    def __init__(self, model_name: str, exp_name: str) -> None:
+        self.model_name = model_name
+        super().__init__(str(model_name), exp_name)
+
+
 class NameAlreadyRegisteredError(DryTorchException, ValueError):
     msg = 'Name {} has already been registered in the current experiment.'
 
@@ -83,8 +91,7 @@ class NameAlreadyRegisteredError(DryTorchException, ValueError):
 
 
 class NamedTupleOnlyError(DryTorchException, TypeError):
-    msg = ('The only accepted subtypes of tuple are namedtuple constructs. '
-           'Got {}.')
+    msg = 'The only accepted subtypes of tuple are namedtuple classes. Got {}.'
 
     def __init__(self, tuple_type: str) -> None:
         self.tuple_type = tuple_type

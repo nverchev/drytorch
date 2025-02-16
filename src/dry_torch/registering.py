@@ -50,7 +50,7 @@ def register_model(model: p.ModelProtocol) -> experiments.Experiment:
     exp = experiments.Experiment.current()
     module = model.module
     if module in ALL_MODULES:
-        raise exceptions.NameAlreadyRegisteredError(exp.name)
+        raise exceptions.ModuleAlreadyRegisteredError(model.name, exp.name)
     ALL_MODULES[module] = exp
     exp.metadata_manager.register_model(model)
     return exp

@@ -38,7 +38,7 @@ def test_register_model_already_registered(mock_experiment, mock_model) -> None:
     """Test error when registering a model that is already registered."""
     ALL_MODULES[mock_model.module] = mock_experiment
 
-    with pytest.raises(exceptions.NameAlreadyRegisteredError):
+    with pytest.raises(exceptions.ModuleAlreadyRegisteredError):
         register_model(mock_model)
 
 
