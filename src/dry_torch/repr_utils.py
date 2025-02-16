@@ -19,6 +19,7 @@ import torch
 class StrWithTS(str):
     """A string that adds a timestamp."""
     ts_fmt = '%Y-%m-%dT%H:%M:%S'
+    len_ts = 20  # len('.2017-01-12T14:12:06')
 
     def __new__(cls, str_: str) -> StrWithTS:
         str_with_timestamp = f'{str_}.{datetime.datetime.now():{cls.ts_fmt}}'
@@ -27,7 +28,7 @@ class StrWithTS(str):
     def __format__(self, format_spec: str) -> str:
         if format_spec is None:
             return super().__format__('s')
-        return self.split('.', maxsplit=1)[0].__format__('s')
+        return self[:-self.len_ts].__format__('s')
 
 
 class DefaultName:
