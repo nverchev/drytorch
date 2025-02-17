@@ -10,6 +10,7 @@ from dry_torch.learning import LearningScheme, Model, ModelOptimizer
 
 class ComplexModule(torch.nn.Module):
     """Example for an arbitrarily complex module."""
+
     def __init__(self):
         super().__init__()
         self.linear = torch.nn.Linear(1, 2)
@@ -33,14 +34,6 @@ class TestModel:
         """Test Model's increment_epoch method increases the epoch count."""
         complex_model.increment_epoch()
         assert complex_model.epoch == 1
-
-    def test_model_clone(self, complex_model: Model) -> None:
-        """Test Model's clone method creates a deep copy."""
-        cloned_name = 'cloned_model'
-        cloned_model = complex_model.clone(cloned_name)
-        assert format(cloned_name, 's') == 'cloned_model'
-        assert cloned_model is not complex_model
-        assert cloned_model.module != complex_model.module
 
 
 class TestModelOptimizerGlobalLR:

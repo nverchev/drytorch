@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from typing import Any, Optional, Self, TypedDict, TypeVar, cast
-import copy
+from typing import Any, Optional, TypedDict, TypeVar, cast
 
 import torch
 from torch import cuda
@@ -192,18 +191,6 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         return self.module(inputs)
 
-    def clone(self, new_name: str) -> Self:
-        """
-        Return a deepcopy of the object.
-        """
-        cloned_model = self._copy_module()
-        cloned = self.__class__(
-            cloned_model,
-            name=new_name,
-            device=self.device,
-        )
-        return cloned
-
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
         self.epoch += 1
@@ -219,11 +206,6 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
     def to(self, device: torch.device) -> None:
         """Forward the homonymous method."""
         self.device = device
-
-    def _copy_module(
-            self
-    ) -> p.ModuleProtocol[_Input_contra, _Output_co]:
-        return copy.deepcopy(self.module)
 
     @staticmethod
     def _default_device() -> torch.device:
