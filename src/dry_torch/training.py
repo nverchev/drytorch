@@ -1,7 +1,6 @@
 """Classes for training a model."""
 
-import copy
-from typing import Self, Optional, TypeVar
+from typing import Self, Optional, TypeVar, cast
 from typing_extensions import override
 import warnings
 
@@ -62,7 +61,11 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
                          mixed_precision=mixed_precision,
                          name=name)
         self.model: p.ModelProtocol[_Input, _Output]
-        self.objective: p.LossCalculatorProtocol[_Output, _Target] = loss
+        # covariance not available for protocols, specify the type explicitly
+        self.objective: p.LossCalculatorProtocol[_Output, _Target] = cast(
+            p.LossCalculatorProtocol[_Output, _Target],
+            self.objective
+        )
         self.learning_scheme = learning_scheme
         self.validation: Optional[evaluating.Validation] = None
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
@@ -112,10 +115,9 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         Args:
             val_loader: the loader for validation.
         """
-        calculator_copy = copy.deepcopy(self.objective)
         validation = evaluating.Validation(self.model,
                                            loader=val_loader,
-                                           metric=calculator_copy)
+                                           metric=self.objective)
 
         val_hook = hooks.StaticHook(validation)
         self.post_epoch_hooks.register(val_hook)

@@ -1,6 +1,8 @@
 """Classes for the evaluation of a model."""
-import sys
+
 import abc
+import copy
+import sys
 from typing import Any, Mapping, TypeVar
 import warnings
 
@@ -64,7 +66,8 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         self.model = model
         self._name = name
         self.loader = loader
-        self.objective = metric
+        self.objective = copy.deepcopy(metric)
+        self.objective.reset()
         device_is_cuda = self.model.device.type == 'cuda'
         self.mixed_precision = mixed_precision and device_is_cuda
         self.outputs_list = list[_Output]()
