@@ -1,6 +1,8 @@
 """This module defines schedulers for the learning rates."""
+
 from abc import abstractmethod
 import dataclasses
+from typing import Optional
 
 import numpy as np
 
@@ -69,15 +71,24 @@ class CosineScheduler(AbstractScheduler):
             curve until its minimum C0.
         min_decay: the fraction of the initial value that it returned at the
             end (C0 + C) / C0.
+        restart: whether to restart the annealing every decay_steps epochs.
+        restart_value: learning rate value at restart (does not affect minimum).
     """
 
     decay_steps: int = 250
     min_decay: float = 0.01
+    restart: bool = False
+    restart_value: Optional[float] = None
 
     def _compute(self, base_lr: float, epoch: int) -> float:
         min_lr = self.min_decay * base_lr
         if epoch >= self.decay_steps:
-            return min_lr
+            if self.restart:
+                epoch %= self.decay_steps
+                if self.restart_value is not None:
+                    base_lr = self.restart_value
+            else:
+                return min_lr
         from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
         return min_lr + (base_lr - min_lr) * (1 + from_1_to_minus1) / 2
 
