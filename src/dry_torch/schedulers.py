@@ -2,7 +2,6 @@
 
 from abc import abstractmethod
 import dataclasses
-from typing import Optional
 
 import numpy as np
 
@@ -61,32 +60,29 @@ class ExponentialScheduler(AbstractScheduler):
 @dataclasses.dataclass
 class CosineScheduler(AbstractScheduler):
     """
-    Learning rate with cosine decay.
+    Learning rate with cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
-    The cosine function is f(x) = C0 + C(1 + cos(C2x)) specified by the
-    following parameters. It remains constant after reaching the minimum value.
+    C0 = C0(base_value) and C1 = C1(base_value) are defined so that:
+        f(x) = base_value when epoch = x = 0.
 
     Attributes:
-        decay_steps: the epochs (C2 * pi) were the schedule follows a cosine
-            curve until its minimum C0.
-        min_decay: the fraction of the initial value that it returned at the
-            end (C0 + C) / C0.
+        decay_steps: C2 = epochs to reach maximum decay.
+        min_decay: proportion of base_value for the minimum CO.
         restart: whether to restart the annealing every decay_steps epochs.
-        restart_value: learning rate value at restart (does not affect minimum).
+        restart_factor: factor of base learning rate value at restart.
     """
 
     decay_steps: int = 250
     min_decay: float = 0.01
     restart: bool = False
-    restart_value: Optional[float] = None
+    restart_factor: float = 1.
 
     def _compute(self, base_lr: float, epoch: int) -> float:
         min_lr = self.min_decay * base_lr
         if epoch >= self.decay_steps:
             if self.restart:
                 epoch %= self.decay_steps
-                if self.restart_value is not None:
-                    base_lr = self.restart_value
+                base_lr = self.restart_factor * base_lr
             else:
                 return min_lr
         from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
