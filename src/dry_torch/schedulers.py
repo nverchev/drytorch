@@ -79,10 +79,10 @@ class CosineScheduler(AbstractScheduler):
 
     def _compute(self, base_lr: float, epoch: int) -> float:
         min_lr = self.min_decay * base_lr
-        if epoch >= self.decay_steps:
+        if epoch > self.decay_steps:
             if self.restart:
                 epoch %= self.decay_steps
-                base_lr = self.restart_factor * base_lr
+                base_lr *= self.restart_factor
             else:
                 return min_lr
         from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
