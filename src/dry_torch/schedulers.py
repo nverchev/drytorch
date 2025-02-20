@@ -20,41 +20,50 @@ class AbstractScheduler(p.SchedulerProtocol):
             epoch: the current epoch.
         Returns:
             scheduled value for the learning rate.
+        Raises:
+            ValueError: if base_lr or epoch are non-positive.
         """
+        if base_lr < 0 or epoch < 0:
+            raise ValueError('Base learning rate and epoch must be positive.')
         return self._compute(base_lr, epoch)
 
     @abstractmethod
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        ...
+    def _compute(self, start_value: float, epoch: int) -> float:
+        """
+        Function for the scheduler.
+
+        Args:
+            start_value: value when epoch = 0.
+            epoch: variable of the function.
+        """
 
 
+# Need frozen=True to have it as default value
 @dataclasses.dataclass(frozen=True)
 class ConstantScheduler(AbstractScheduler):
-    """
-    Constant learning rate.
+    """Constant learning rate."""
 
-    Attributes:
-        factor: multiplicative factor for the base learning rate.
-    """
-    factor: float = 1.0
-
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        return self.factor * base_lr
+    def _compute(self, start_value: float, epoch: int) -> float:
+        return start_value
 
 
 @dataclasses.dataclass
 class ExponentialScheduler(AbstractScheduler):
     """
-    Schedule following an exponential decay.
+    Schedule following an exponential decay: f(x) = Cd^x.
+
+    C is the base learning rate. Return value has a minimum value C0.
 
     Attributes:
-        exp_decay: exponential decay parameter d for the curve f(x) = Ce^(dx).
+        exp_decay: exponential decay parameter d for the curve: f(x) = Cd^x.
+        min_decay: proportion of base learning rate for the minimum CO.
     """
     exp_decay: float = .975
     min_decay: float = 0.00
 
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        return max(base_lr * self.exp_decay ** epoch, self.min_decay)
+    def _compute(self, start_value: float, epoch: int) -> float:
+        min_value = self.min_decay * start_value
+        return max(start_value * self.exp_decay ** epoch, min_value)
 
 
 @dataclasses.dataclass
@@ -63,10 +72,10 @@ class CosineScheduler(AbstractScheduler):
     Learning rate with cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
     C0 = C0(base_value) and C1 = C1(base_value) are defined so that:
-        f(x) = base_value when epoch = x = 0.
+        f(x) = base_value when epoch = 0.
 
     Attributes:
-        decay_steps: C2 = epochs to reach maximum decay.
+        decay_steps: C2 = epoch to reach maximum decay.
         min_decay: proportion of base_value for the minimum CO.
         restart: whether to restart the annealing every decay_steps epochs.
         restart_factor: factor of base learning rate value at restart.
@@ -77,16 +86,15 @@ class CosineScheduler(AbstractScheduler):
     restart: bool = False
     restart_factor: float = 1.
 
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        min_lr = self.min_decay * base_lr
+    def _compute(self, start_value: float, epoch: int) -> float:
+        min_lr = self.min_decay * start_value
         if epoch > self.decay_steps:
             if self.restart:
-                epoch %= self.decay_steps
-                base_lr *= self.restart_factor
+                epoch = epoch % self.decay_steps or self.decay_steps
             else:
                 return min_lr
         from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
-        return min_lr + (base_lr - min_lr) * (1 + from_1_to_minus1) / 2
+        return min_lr + (start_value - min_lr) * (1 + from_1_to_minus1) / 2
 
 
 @dataclasses.dataclass
@@ -105,10 +113,11 @@ class WarmupScheduler(AbstractScheduler):
     warmup_steps: int = 10
     scheduler: p.SchedulerProtocol = ConstantScheduler()
 
-    def _compute(self, base_lr: float, epoch: int) -> float:
+    def _compute(self, start_value: float, epoch: int) -> float:
         if epoch < self.warmup_steps:
-            return base_lr * (epoch / self.warmup_steps)
-        return self.scheduler(base_lr, epoch - self.warmup_steps)
+            return start_value * (epoch / self.warmup_steps)
+
+        return self.scheduler(start_value, epoch - self.warmup_steps)
 
     def __repr__(self) -> str:
         wrapped_repr = self.scheduler.__repr__()
@@ -116,17 +125,17 @@ class WarmupScheduler(AbstractScheduler):
 
 
 @dataclasses.dataclass
-class CompositionScheduler(AbstractScheduler):
+class FactorScheduler(AbstractScheduler):
     """
-    Compose two schedulers as in function composition.
+    Modifies start value to an existing scheduler.
 
     Attributes:
-        scheduler_a: second scheduler to call.
-        scheduler_b: first scheduler to call.
+        factor: factor for the start value of the scheduler.
+        scheduler: the scheduler to call.
     """
 
-    scheduler_a: p.SchedulerProtocol
-    scheduler_b: p.SchedulerProtocol
+    factor: float
+    scheduler: p.SchedulerProtocol
 
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        return self.scheduler_a(self.scheduler_b(base_lr, epoch), epoch)
+    def _compute(self, start_value: float, epoch: int) -> float:
+        return self.scheduler(self.factor * start_value, epoch)

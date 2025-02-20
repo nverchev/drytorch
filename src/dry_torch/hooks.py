@@ -686,9 +686,8 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
             epoch: Not used
             scheduler: Scheduler to be modified.
         """
-        scaled_scheduler = schedulers.ConstantScheduler(self.factor)
         # composition is in reverse order such as in f \circle g
-        return schedulers.CompositionScheduler(scheduler, scaled_scheduler)
+        return schedulers.FactorScheduler(self.factor, scheduler)
 
 
 class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):

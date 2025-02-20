@@ -243,7 +243,7 @@ class TestReduceLROnPlateau:
         )
 
     def test_reduces_lr_and_respects_cooldown(self, mocker, mock_trainer):
-        scheduler = schedulers.ConstantScheduler(1.0)
+        scheduler = schedulers.ConstantScheduler()
         mock_trainer.learning_scheme = mocker.Mock
         mock_trainer.learning_scheme.scheduler = scheduler
 
@@ -267,7 +267,7 @@ class TestRestartScheduleOnPlateau:
         )
 
     def test_restarts_schedule_on_plateau(self, mocker, mock_trainer):
-        scheduler = schedulers.ConstantScheduler(1.0)
+        scheduler = schedulers.ConstantScheduler()
         mock_trainer.learning_scheme = mocker.Mock
         mock_trainer.learning_scheme.scheduler = scheduler
 

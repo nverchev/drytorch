@@ -4,7 +4,7 @@ import pytest
 
 import numpy as np
 
-from dry_torch.schedulers import CompositionScheduler, ConstantScheduler
+from dry_torch.schedulers import FactorScheduler, ConstantScheduler
 from dry_torch.schedulers import CosineScheduler, ExponentialScheduler
 from dry_torch.schedulers import WarmupScheduler
 
@@ -140,16 +140,15 @@ class TestCompositionScheduler:
         """Set up different schedulers with warmup for testing."""
         self.base_lr = 0.01
         self.factor = 0.1
-        self.scaled_scheduler = ConstantScheduler(self.factor)
         self.exp_scheduler = ExponentialScheduler(exp_decay=0.9,
                                                   min_decay=self.base_lr)
-        self.composed_scheduler = CompositionScheduler(self.scaled_scheduler,
-                                                       self.exp_scheduler)
+        self.composed_scheduler = FactorScheduler(self.factor,
+                                                  self.exp_scheduler)
         return
 
     @pytest.mark.parametrize('epoch', [10, 30, 50])
     def test_epochs(self, epoch) -> None:
         """Test that warmup increases linearly."""
-        expected_lr = self.exp_scheduler(self.base_lr, epoch) * self.factor
+        expected_lr = self.exp_scheduler(self.base_lr * self.factor, epoch)
         assert self.composed_scheduler(self.base_lr, epoch) == expected_lr
 
