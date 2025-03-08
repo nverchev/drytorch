@@ -160,8 +160,9 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
     """
     class_name = obj.__class__.__name__
     dict_attr = getattr(obj, '__dict__', {})
-    dict_attr |= {name: getattr(obj, name)
-                  for name in getattr(obj, '__slots__', [])}
+    if not dict_attr:
+        dict_attr = {name: getattr(obj, name)
+                     for name in getattr(obj, '__slots__', [])}
     dict_str: dict[str, Any] = {}
     for k, v in dict_attr.items():
         if k[0] == '_' or v is obj or v is None:
