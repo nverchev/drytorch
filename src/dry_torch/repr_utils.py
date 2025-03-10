@@ -204,7 +204,10 @@ def _(obj: None, *, max_size: int = 10) -> None:
 @recursive_repr.register
 def _(obj: numbers.Number, *, max_size: int = 10) -> numbers.Number:
     if hasattr(obj, 'item'):
-        obj = obj.item()
+        try:
+            obj = obj.item()
+        except (TypeError, NotImplementedError):
+            pass
     _not_used = max_size
     return obj
 
