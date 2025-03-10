@@ -168,8 +168,13 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
         if k[0] == '_' or v is obj or v is None:
             continue
         if hasattr(v, '__len__'):
-            if not v.__len__():
+            try:
+                len_v = v.__len__()
+            except (TypeError, NotImplementedError):
                 continue
+            else:
+                if not len_v:
+                    continue
         dict_str[k] = recursive_repr(v, max_size=max_size)
 
     if dict_str:
