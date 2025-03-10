@@ -291,8 +291,10 @@ class ModelOptimizer:
                 dict(params=getattr(self.module, k).parameters(), lr=v)
                 for k, v in lr.items()
             ]
-            if not self._params_lr_contains_all_params():
-                raise exceptions.MissingParamError(repr(self.module), list(lr))
+            # FIXME This does not work as intentended
+            # if not self._params_lr_contains_all_params():
+            #     module_names = list(self.module.named_modules())
+            #     raise exceptions.MissingParamError(module_names, list(lr))
         return
 
     def update_learning_rate(
@@ -336,6 +338,7 @@ class ModelOptimizer:
     def __repr__(self) -> str:
         desc = '{}(module={}, optimizer={})'
         return desc.format(self.__class__.__name__,
+                           self.model.name,
                            self.optimizer.__class__.__name__)
 
 

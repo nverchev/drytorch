@@ -49,14 +49,15 @@ class MetricNotFoundError(DryTorchException, ValueError):
 
 
 class MissingParamError(DryTorchException, ValueError):
-    msg = 'Parameter groups {} in input learning rate miss some parameters.'
+    msg = 'Parameter groups in input learning rate miss parameters {}.'
 
     def __init__(self,
-                 model_architecture: str,
+                 module_names: list[str],
                  lr_param_groups: list[str]) -> None:
-        self.model_architecture = model_architecture
+        self.module_names = module_names
         self.lr_param_groups = lr_param_groups
-        super().__init__(lr_param_groups)
+        self.missing = set(module_names) - set(lr_param_groups)
+        super().__init__(self.missing)
 
 
 class ModelNotRegisteredError(DryTorchException, TypeError):
