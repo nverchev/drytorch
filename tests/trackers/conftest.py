@@ -59,7 +59,6 @@ def sample_metrics() -> dict[str, float]:
 def start_experiment_event(tmpdir_factory) -> log_events.StartExperiment:
     """Provides a StartExperiment event instance."""
     temp_dir = tmpdir_factory.mktemp('experiments')
-
     return log_events.StartExperiment(
         exp_name="test_experiment",
         exp_dir=pathlib.Path(temp_dir) / 'test_experiment'
@@ -181,10 +180,10 @@ def test_event() -> log_events.Test:
 
 
 @pytest.fixture
-def final_metrics_event(
-        sample_metrics: Mapping[str, float]) -> log_events.FinalMetrics:
+def epoch_metrics_event(
+        sample_metrics: Mapping[str, float]) -> log_events.EpochMetrics:
     """Provides a FinalMetrics event instance."""
-    return log_events.FinalMetrics(
+    return log_events.EpochMetrics(
         model_name="test_model",
         source="validation",
         epoch=10,
