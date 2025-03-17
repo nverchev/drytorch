@@ -187,7 +187,7 @@ class TestBuiltinLogger:
 
     def test_final_metrics_event(
             self,
-            final_metrics_event: log_events.FinalMetrics,
+            final_metrics_event: log_events.EpochMetrics,
     ) -> None:
         """Tests handling of FinalMetrics event."""
         self.logger.notify(final_metrics_event)

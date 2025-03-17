@@ -38,7 +38,7 @@ class HydraLink(tracking.Tracker):
             raise RuntimeError('Hydra has not started.')
 
         self._exp_dir: Optional[pathlib.Path] = None
-        self._link_name = '.hydra'
+        self._link_name = 'run'
         self._counter = 0
 
     @property

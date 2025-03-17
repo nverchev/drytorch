@@ -21,7 +21,7 @@ def test_epoch_logs(
         start_epoch_event: log_events.StartEpoch,
         iterate_batch_event: log_events.IterateBatch,
         end_epoch_event: log_events.EndEpoch,
-        final_metrics_event: log_events.FinalMetrics,
+        final_metrics_event: log_events.EpochMetrics,
 ):
     """
     Tests logging of epoch-related events.

@@ -232,7 +232,7 @@ class BuiltinLogger(tracking.Tracker):
         return
 
     @notify.register
-    def _(self, event: log_events.FinalMetrics) -> None:
+    def _(self, event: log_events.EpochMetrics) -> None:
         log_msg_list: list[str] = ['%(desc)s']
         desc = format(event.source, 's').rjust(15) + ': '
         log_args: dict[str, str | float] = {'desc': desc}
