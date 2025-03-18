@@ -29,12 +29,12 @@ class CSVDumper(abstract_dumper.AbstractDumper):
                  dialect: csv.Dialect = DryTorchDialect()) -> None:
         """
         Args:
-            par_dir: Directory where to dump metadata. Defaults uses the current
-                experiment's one.
-            dialect: class with format specification
+            par_dir: directory where to dump metadata. Defaults to the one for
+                the current experiment.
+            dialect: class with format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
-        self.dialect = dialect
+        self._dialect = dialect
         self._exp_dir: Optional[pathlib.Path] = None
 
     @override
@@ -47,14 +47,22 @@ class CSVDumper(abstract_dumper.AbstractDumper):
         model_name = str(event.model_name)
         file_path = self.csv_path(model_name, event.source)
         with file_path.open('a') as log:
-            writer = csv.writer(log, dialect=self.dialect)
+            writer = csv.writer(log, dialect=self._dialect)
             if not log.tell():
                 writer.writerow(['Epoch', *event.metrics])
             writer.writerow([event.epoch, *event.metrics.values()])
         return
 
     def csv_path(self, model_name: str, source: str) -> pathlib.Path:
-        """Return path to the csv file."""
+        """
+        Return path to the csv file.
+
+        Args:
+            model_name: name of the model.
+            source: source of the metrics.
+        Returns:
+            path to the csv file.
+        """
         model_path = self.par_dir / str(model_name)
         model_path.mkdir(exist_ok=True)
         return (model_path / str(source)).with_suffix('.csv')
@@ -63,9 +71,19 @@ class CSVDumper(abstract_dumper.AbstractDumper):
                  model_name: str,
                  source: str,
                  ) -> tuple[list[str], list[list[Any]]]:
+        """
+        Reads the CSV file associated with the given model and source.
 
+        Args:
+            model_name: name of the model.
+            source: source of the metrics.
+
+        Returns:
+            column headers and the data as list of list (of float when using
+                the default dialect).
+        """
         file_path = self.csv_path(model_name, source)
         with file_path.open() as log:
-            reader = csv.reader(log, dialect=self.dialect)
+            reader = csv.reader(log, dialect=self._dialect)
             columns = next(reader)
             return columns, list(reader)
