@@ -20,12 +20,17 @@ class HydraLink(abstract_dumper.AbstractDumper):
     Attributes:
         hydra_folder: folder where the logs are grouped.
         hydra_dir: directory where hydra saves the run.
+        link_name: name of the folder with the link.
     """
 
-    def __init__(self, par_dir: Optional[pathlib.Path] = None) -> None:
+    def __init__(self,
+                 par_dir: Optional[pathlib.Path] = None,
+                 copy_hydra: bool = True) -> None:
         """
         Args:
             par_dir: parent directory for experiment data.
+            copy_hydra: if True, copy the hydra folder content at the end of the
+                run replacing the link folder
         """
         super().__init__(par_dir)
         self.hydra_folder = 'hydra_runs'
@@ -36,17 +41,17 @@ class HydraLink(abstract_dumper.AbstractDumper):
         if not self.hydra_dir.exists():
             raise RuntimeError('Hydra has not started.')
 
-        self._exp_dir: Optional[pathlib.Path] = None
-        self._link_name = 'run'
+        self._copy_hydra = copy_hydra
+        self.link_name = 'run'
         self._counter = 0
 
     @property
     def dir(self) -> pathlib.Path:
         """Return the directory where the files will be saved."""
         if self._counter:
-            link_name = self._link_name + f'_{self._counter}'
+            link_name = self.link_name + f'_{self._counter}'
         else:
-            link_name = self._link_name
+            link_name = self.link_name
 
         return self.par_dir / link_name
 
@@ -71,11 +76,9 @@ class HydraLink(abstract_dumper.AbstractDumper):
 
     @notify.register
     def _(self, _event: log_events.StopExperiment) -> None:
-        try:
+        if self._copy_hydra:
             self.dir.unlink()
             shutil.copytree(self.hydra_dir, self.dir)
-        except RuntimeError:
-            pass
         self._exp_dir = None
         self._counter = 0
         builtin_logger.disable_propagation()
