@@ -1,7 +1,7 @@
 import csv
 import functools
 import pathlib
-from typing import Optional, cast
+from typing import Iterator, Optional, cast
 
 from dry_torch import log_events
 from dry_torch.trackers import abstract_dumper
@@ -54,8 +54,14 @@ class CSVDumper(abstract_dumper.AbstractDumper):
         model_path.mkdir(exist_ok=True, parents=True)
         return (model_path / str(source)).with_suffix('.csv')
 
-    def read_csv(self, model_name, source: str) -> list[list[int | float]]:
+    def read_csv(self,
+                 model_name,
+                 source: str
+                 ) -> tuple[list[str], list[list[float]]]:
+
         file_path = self.csv_path(model_name, source)
-        with file_path.open('r') as log:
+        with file_path.open() as log:
             reader = csv.reader(log, dialect=self.dialect)
-            return cast(list[list[int | float]], list(reader))
+            columns = next(reader)
+            return columns, cast(list[list[float]], list(reader))
+

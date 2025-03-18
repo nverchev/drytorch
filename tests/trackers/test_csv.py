@@ -2,7 +2,6 @@
 
 import pytest
 
-import csv
 from src.dry_torch.trackers.csv_dumper import CSVDumper
 
 
@@ -26,11 +25,12 @@ class TestCsvDumper:
                                          str(epoch_metrics_event.source))
         assert csv_path.exists()
 
-        rows = self.tracker.read_csv(epoch_metrics_event.model_name,
-                                     epoch_metrics_event.source)
+        columns, rows = self.tracker.read_csv(epoch_metrics_event.model_name,
+                                              epoch_metrics_event.source)
 
-        assert rows[0] == ['Epoch', *sample_metrics.keys()]
-        assert rows[1] == [epoch_metrics_event.epoch, *sample_metrics.values()]
+        assert columns == ['Epoch', *sample_metrics.keys()]
+        assert rows[0] == [epoch_metrics_event.epoch,
+                           *sample_metrics.values()]
 
         self.tracker.notify(epoch_metrics_event)
 
@@ -39,9 +39,9 @@ class TestCsvDumper:
                                          str(epoch_metrics_event.source))
         assert csv_path.exists()
 
-        rows = self.tracker.read_csv(epoch_metrics_event.model_name,
-                                     epoch_metrics_event.source)
+        columns, rows = self.tracker.read_csv(epoch_metrics_event.model_name,
+                                              epoch_metrics_event.source)
 
-        assert rows[0] == ['Epoch', *sample_metrics.keys()]
+        assert columns == ['Epoch', *sample_metrics.keys()]
+        assert rows[0] == [epoch_metrics_event.epoch, *sample_metrics.values()]
         assert rows[1] == [epoch_metrics_event.epoch, *sample_metrics.values()]
-        assert rows[2] == [epoch_metrics_event.epoch, *sample_metrics.values()]
