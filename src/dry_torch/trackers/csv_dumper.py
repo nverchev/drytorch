@@ -1,14 +1,18 @@
+"""Tracker that dumps metrics in a CSV file."""
+
 import csv
 import functools
 import pathlib
-from typing import Iterator, Optional, cast
+from typing import Any, Optional
+
+from typing_extensions import override
 
 from dry_torch import log_events
 from dry_torch.trackers import abstract_dumper
 
 
 class DryTorchDialect(csv.Dialect):
-    """Describe the usual properties of Excel-generated CSV files."""
+    """Dialect similar to excel that convert number to float."""
     delimiter = ','
     quotechar = '"'
     doublequote = True
@@ -33,6 +37,7 @@ class CSVDumper(abstract_dumper.AbstractDumper):
         self.dialect = dialect
         self._exp_dir: Optional[pathlib.Path] = None
 
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
@@ -51,17 +56,16 @@ class CSVDumper(abstract_dumper.AbstractDumper):
     def csv_path(self, model_name: str, source: str) -> pathlib.Path:
         """Return path to the csv file."""
         model_path = self.par_dir / str(model_name)
-        model_path.mkdir(exist_ok=True, parents=True)
+        model_path.mkdir(exist_ok=True)
         return (model_path / str(source)).with_suffix('.csv')
 
     def read_csv(self,
-                 model_name,
-                 source: str
-                 ) -> tuple[list[str], list[list[float]]]:
+                 model_name: str,
+                 source: str,
+                 ) -> tuple[list[str], list[list[Any]]]:
 
         file_path = self.csv_path(model_name, source)
         with file_path.open() as log:
             reader = csv.reader(log, dialect=self.dialect)
             columns = next(reader)
-            return columns, cast(list[list[float]], list(reader))
-
+            return columns, list(reader)

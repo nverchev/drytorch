@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Mapping
 import sys
 
 from tqdm import auto  # type: ignore
+from typing_extensions import override
 
 from dry_torch import log_events
 from dry_torch import tracking
@@ -102,6 +103,7 @@ class TqdmLogger(tracking.Tracker):
         self.enable_training_bar = enable_training_bar
         self.training_bar: TrainingBar | None = None
 
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)

@@ -6,18 +6,18 @@ import shutil
 from typing import Optional
 
 import hydra
+from typing_extensions import override
 
-from dry_torch import tracking
 from dry_torch import log_events
+from dry_torch.trackers import abstract_dumper
 from dry_torch.trackers import builtin_logger
 
 
-class HydraLink(tracking.Tracker):
+class HydraLink(abstract_dumper.AbstractDumper):
     """
     Tracker that links that organize Hydra logs.
 
     Attributes:
-        par_dir: parent directory for where to group the logs.
         hydra_folder: folder where the logs are grouped.
         hydra_dir: directory where hydra saves the run.
     """
@@ -27,8 +27,7 @@ class HydraLink(tracking.Tracker):
         Args:
             par_dir: parent directory for experiment data.
         """
-        super().__init__()
-        self.par_dir = par_dir
+        super().__init__(par_dir)
         self.hydra_folder = 'hydra_runs'
         # get hydra configuration
         hydra_config = hydra.core.hydra_config.HydraConfig.get()  # type: ignore
@@ -49,16 +48,9 @@ class HydraLink(tracking.Tracker):
         else:
             link_name = self._link_name
 
-        if self._exp_dir is None:
-            raise RuntimeError('Accessed outside experiment scope.')
-        if self.par_dir is None:
-            target_folder = self._exp_dir / self.hydra_folder
-        else:
-            target_folder = self.par_dir / self.hydra_folder
+        return self.par_dir / link_name
 
-        target_folder.mkdir(exist_ok=True, parents=True)
-        return target_folder / link_name
-
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)

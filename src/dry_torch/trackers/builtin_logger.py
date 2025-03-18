@@ -178,6 +178,7 @@ class BuiltinLogger(tracking.Tracker):
     def __init__(self) -> None:
         super().__init__()
 
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)

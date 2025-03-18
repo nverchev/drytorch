@@ -5,6 +5,8 @@ import functools
 import pathlib
 from typing import Optional
 
+from typing_extensions import override
+
 from dry_torch import log_events
 from dry_torch import tracking
 
@@ -31,8 +33,10 @@ class AbstractDumper(tracking.Tracker, metaclass=abc.ABCMeta):
             path = self._exp_dir
         else:
             path = self._par_dir
+        path.mkdir(exist_ok=True)
         return path
 
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)

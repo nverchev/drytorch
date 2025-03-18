@@ -4,12 +4,13 @@ from collections.abc import Sequence
 import functools
 import pathlib
 from typing import Any, Optional
+from typing_extensions import override
 
 import yaml  # type: ignore
 
 from dry_torch import log_events
 from dry_torch import repr_utils
-from dry_torch import tracking
+from dry_torch.trackers import abstract_dumper
 
 MAX_LENGTH_PLAIN_REPR = 30
 """Sequences longer than this will be represented in flow style by yaml."""
@@ -17,50 +18,24 @@ MAX_LENGTH_SHORT_REPR = 10
 """Sequences with strings longer than this will be represented in flow style."""
 
 
-class YamlDumper(tracking.Tracker):
-    """
-    Tracker that dumps metadata in a YAML file.
-
-    Attributes:
-        par_dir: Directory where to dump metadata. If None, the one of the
-            current experiment is used.
-    """
+class YamlDumper(abstract_dumper.AbstractDumper):
+    """Tracker that dumps metadata in a YAML file."""
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
         """
         Args:
-            par_dir: Directory where to dump metadata. Defaults uses the one of
-                the current experiment.
+            par_dir: Directory where to dump metadata. Defaults uses the current
+                experiment's one.
         """
-        super().__init__()
-        self.par_dir = par_dir
+        super().__init__(par_dir)
         self.metadata_folder = 'metadata'
         self.archive_folder = 'archive'
         self._exp_dir: Optional[pathlib.Path] = None
 
-    @property
-    def dir_path(self) -> pathlib.Path:
-        """Return the directory where the files will be saved."""
-        if self._exp_dir is None:
-            raise RuntimeError('Accessed outside experiment scope.')
-        if self.par_dir is None:
-            path = self._exp_dir
-        else:
-            path = self.par_dir
-        return path
-
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
-        self._exp_dir = event.exp_dir
-
-    @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
-        _not_used = event
-        self._exp_dir = None
 
     @notify.register
     def _(self, event: log_events.ModelCreation) -> None:
@@ -78,7 +53,7 @@ class YamlDumper(tracking.Tracker):
                  metadata: dict[str, Any],
                  sub_folder: str,
                  file_name: str) -> None:
-        directory = self.dir_path / sub_folder / self.metadata_folder
+        directory = self.par_dir / sub_folder / self.metadata_folder
         archive_directory = directory / self.archive_folder
         archive_directory.mkdir(exist_ok=True, parents=True)
         self._dump(metadata, directory / format(file_name, 's'))
@@ -87,7 +62,6 @@ class YamlDumper(tracking.Tracker):
 
     @staticmethod
     def _dump(metadata: dict[str, Any], file_path: pathlib.Path) -> None:
-
         file_with_suffix = file_path.with_suffix(file_path.suffix + '.yaml')
 
         with file_with_suffix.open('w') as metadata_file:
