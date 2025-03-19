@@ -31,9 +31,11 @@ class StartExperiment(Event):
     Attributes:
         exp_name: The name of the experiment.
         exp_dir: The directory where the experiment is stored.
+        config: Configuration for the experiment.
     """
     exp_name: str
     exp_dir: pathlib.Path
+    config: Any = None
 
 
 @dataclasses.dataclass

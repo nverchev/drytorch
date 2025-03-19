@@ -72,7 +72,7 @@ class Experiment(Generic[_T]):
         log_events.Event.set_auto_publish(self.trackers.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
-        log_events.StartExperiment(self.name, self.dir)
+        log_events.StartExperiment(self.name, self.dir, self.config)
 
     def stop(self) -> None:
         """Stop the experiment, clearing it from the active experiment."""
