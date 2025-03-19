@@ -12,7 +12,7 @@ from dry_torch.trackers import abstract_dumper
 
 
 class DryTorchDialect(csv.Dialect):
-    """Dialect similar to excel that convert number to float."""
+    """Dialect similar to excel that converts numbers to floats."""
     delimiter = ','
     quotechar = '"'
     doublequote = True
