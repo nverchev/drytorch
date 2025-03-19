@@ -18,13 +18,13 @@ import io
 from typing import Generator
 
 from dry_torch import log_events
-from dry_torch.trackers.builtin_logger import BuiltinLogger, DryTorchFormatter
-from dry_torch.trackers.builtin_logger import enable_default_handler
-from dry_torch.trackers.builtin_logger import enable_propagation
-from dry_torch.trackers.builtin_logger import disable_default_handler
-from dry_torch.trackers.builtin_logger import disable_propagation
-from dry_torch.trackers.builtin_logger import set_formatter
-from dry_torch.trackers.builtin_logger import INFO_LEVELS
+from dry_torch.trackers.logging import BuiltinLogger, DryTorchFormatter
+from dry_torch.trackers.logging import enable_default_handler
+from dry_torch.trackers.logging import enable_propagation
+from dry_torch.trackers.logging import disable_default_handler
+from dry_torch.trackers.logging import disable_propagation
+from dry_torch.trackers.logging import set_formatter
+from dry_torch.trackers.logging import INFO_LEVELS
 
 logger = logging.getLogger('dry_torch')
 

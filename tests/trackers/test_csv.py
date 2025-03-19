@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.dry_torch.trackers.csv_dumper import CSVDumper
+from src.dry_torch.trackers.csv import CSVDumper
 
 
 class TestCsvDumper:

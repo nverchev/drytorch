@@ -3,7 +3,7 @@ import pytest
 from io import StringIO
 
 from dry_torch import log_events
-from dry_torch.trackers.tqdm_logger import EpochBar, TrainingBar, TqdmLogger
+from dry_torch.trackers.tqdm import EpochBar, TrainingBar, TqdmLogger
 
 
 class TestEpochBar:

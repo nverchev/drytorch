@@ -9,7 +9,7 @@ from typing import Generator
 import hydra
 from omegaconf import DictConfig
 
-from dry_torch.trackers.hydra_link import HydraLink
+from dry_torch.trackers.hydra import HydraLink
 from dry_torch import log_events
 
 @pytest.mark.skip

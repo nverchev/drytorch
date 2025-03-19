@@ -10,7 +10,7 @@ from typing_extensions import override
 
 from dry_torch import log_events
 from dry_torch.trackers import abstract_dumper
-from dry_torch.trackers import builtin_logger
+from dry_torch.trackers import logging
 
 
 class HydraLink(abstract_dumper.AbstractDumper):
@@ -71,7 +71,7 @@ class HydraLink(abstract_dumper.AbstractDumper):
                 break
 
         self.dir.symlink_to(self.hydra_dir, target_is_directory=True)
-        builtin_logger.enable_propagation()
+        logging.enable_propagation()
         return
 
     @notify.register
@@ -81,4 +81,4 @@ class HydraLink(abstract_dumper.AbstractDumper):
             shutil.copytree(self.hydra_dir, self.dir)
         self._exp_dir = None
         self._counter = 0
-        builtin_logger.disable_propagation()
+        logging.disable_propagation()
