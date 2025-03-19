@@ -6,7 +6,7 @@ import dataclasses
 import datetime
 from sqlalchemy import orm, select
 
-from dry_torch.trackers.sqlalchemy_backend import SQLConnection, LoggedMetrics
+from dry_torch.trackers.sqlalchemy import SQLConnection, LoggedMetrics
 
 
 class TestSQLConnection:
@@ -89,82 +89,16 @@ class TestSQLConnection:
         with pytest.raises(RuntimeError):
             self.tracker.notify(epoch_metrics_event)
 
-    def test_get_metrics(self, epoch_metrics_event):
+    def test_get_metric(self, epoch_metrics_event):
+        """Test get_metric method."""
         self.tracker.notify(epoch_metrics_event)
 
-        # Get metrics for the experiment
-        epochs, metrics = self.tracker.get_metrics(
-            model_name=epoch_metrics_event.model_name,
-            source=epoch_metrics_event.source,
-            exp_name=self.exp_name,
-        )
-        assert epochs == [epoch_metrics_event.epoch]
-        assert metrics == {k: [v] for k, v in
-                           epoch_metrics_event.metrics.items()}
-    #
-    # def test_create_pivoted_view(self, epoch_metrics_events):
-    #     """Test creating and querying a pivoted view of metrics."""
-    #     # This is an implementation for the feature you wanted to add
-    #     # Add multiple events
-    #     for event in epoch_metrics_events:
-    #         self.tracker.notify(event)
-    #
-    #     # Implement a create_pivoted_view method in the tracker
-    #     # This is just a simple implementation for testing purposes
-    #     with self.tracker.Session() as session:
-    #         # Get distinct metric names for this experiment
-    #         metric_names = [row[0] for row in session.query(
-    #             LoggedMetrics.metric_name
-    #         ).filter(
-    #             LoggedMetrics.experiment == self.exp_name
-    #         ).distinct()]
-    #
-    #         # Build case statements for each metric
-    #         case_statements = []
-    #         for metric_name in metric_names:
-    #             case_stmt = sqlalchemy.case(
-    #                 [(LoggedMetrics.metric_name == metric_name,
-    #                   LoggedMetrics.metric_value)],
-    #                 else_=None
-    #             ).label(f"metric_{metric_name}")
-    #             case_statements.append(case_stmt)
-    #
-    #         # Create a select statement for the view
-    #         query = select(
-    #             LoggedMetrics.experiment,
-    #             LoggedMetrics.model_name,
-    #             LoggedMetrics.source,
-    #             LoggedMetrics.epoch,
-    #             *case_statements
-    #         ).where(
-    #             LoggedMetrics.experiment == self.exp_name
-    #         ).group_by(
-    #             LoggedMetrics.experiment,
-    #             LoggedMetrics.model_name,
-    #             LoggedMetrics.source,
-    #             LoggedMetrics.epoch
-    #         )
-    #
-    #         # Execute the query
-    #         results = session.execute(query).all()
-    #
-    #         # Verify results
-    #         assert len(results) == len(
-    #             set(event.epoch for event in epoch_metrics_events))
-    #
-    #         # Check if all epochs are present
-    #         epochs = [result.epoch for result in results]
-    #         for event in epoch_metrics_events:
-    #             assert event.epoch in epochs
-    #
-    #         # Check if metrics are correctly pivoted
-    #         for result in results:
-    #             # Find the corresponding event
-    #             event = next((e for e in epoch_metrics_events if
-    #                           e.epoch == result.epoch), None)
-    #             assert event is not None
-    #
-    #             # Check each metric
-    #             for metric_name in event.metrics:
-    #                 pivoted_value = getattr(result, f"metric_{metric_name}")
-    #                 assert pivoted_value == event.metrics[metric_name]
+        for metric_name, value in epoch_metrics_event.metrics.items():
+            epochs, values = self.tracker.get_metrics(
+                model_name=epoch_metrics_event.model_name,
+                source=epoch_metrics_event.source,
+                metric_name=metric_name,
+                exp_name=self.exp_name,
+            )
+            assert epochs == [epoch_metrics_event.epoch]
+            assert values == [value]

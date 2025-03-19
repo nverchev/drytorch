@@ -4,8 +4,7 @@ from typing import Optional
 from typing_extensions import override
 
 import sqlalchemy
-from sqlalchemy import orm, select, case, String, Float, Integer, func
-from sqlalchemy import URL
+from sqlalchemy import orm
 
 from dry_torch import log_events
 from dry_torch import tracking
@@ -45,21 +44,21 @@ class SQLConnection(tracking.Tracker):
                  username: Optional[str] = None,
                  password: Optional[str] = None,
                  host: Optional[str] = None,
-                 database: Optional[str] = None) -> None:
+                 database: str | None = 'logged_metrics.db') -> None:
         """
         Args:
             drivername: see sqlalchemy.engine.URL.create documentation
             username: see sqlalchemy.engine.URL.create documentation
             password: see sqlalchemy.engine.URL.create documentation
             host: see sqlalchemy.engine.URL.create documentation
-            database: see sqlalchemy.engine.URL.create documentation
+            database: see sqlalchemy.engine.URL.create documentation.
         """
         super().__init__()
-        self.url = URL.create(drivername,
-                              username=username,
-                              password=password,
-                              host=host,
-                              database=database)
+        self.url = sqlalchemy.URL.create(drivername,
+                                         username=username,
+                                         password=password,
+                                         host=host,
+                                         database=database)
         self.engine = sqlalchemy.create_engine(self.url)
         self.Session = orm.sessionmaker(bind=self.engine)
         Base.metadata.create_all(bind=self.engine)
@@ -104,18 +103,19 @@ class SQLConnection(tracking.Tracker):
             self,
             model_name: str,
             source: str,
+            metric_name: str,
             exp_name: Optional[str] = None,
-    ) -> tuple[list[int], dict[str, list[float]]]:
+    ) -> tuple[list[int], list[float]]:
         """
-        Get a pivoted view of metrics.
+        Filter the dataset to obtain metric values.
 
         Args:
             exp_name: name of the experiment. Defaults to current one.
             model_name: name of the model
+            metric_name: the name of the requested metric
             source: name of the source
-
         Returns:
-            epochs and metrics
+            epochs and values of the requested metric
         """
         if exp_name is not None:
             if self._exp_name is None:
@@ -124,26 +124,16 @@ class SQLConnection(tracking.Tracker):
 
         with self.Session() as session:
             # Get all distinct metric names for this experiment
-            query = select(LoggedMetrics.epoch,
-                           LoggedMetrics.metric_name,
-                           LoggedMetrics.metric_value)
-            if exp_name is not None:
-                query = query.where(
-                    LoggedMetrics.model_name == model_name,
-                )
-            if model_name is not None:
-                query = query.where(
-                    LoggedMetrics.model_name == model_name,
-                )
-            if source is not None:
-                query = query.where(
-                    LoggedMetrics.source == source,
-                )
+            query = sqlalchemy.select(LoggedMetrics.epoch,
+                                      LoggedMetrics.metric_value)
+            query = query.where(LoggedMetrics.model_name == model_name,
+                                LoggedMetrics.source == source,
+                                LoggedMetrics.metric_name == metric_name,
+                                LoggedMetrics.experiment == exp_name)
+
             epochs = list[int]()
-            metrics = dict[str, list[float]]()
+            values = list[float]()
             for row in session.execute(query):
-                if not epochs or epochs[-1] != row[0]:
-                    epochs.append(row[0])
-                metrics.setdefault(row[1], []).append(row[2])
-            assert {len(values) for values in metrics.values()} == {len(epochs)}
-            return epochs, metrics
+                epochs.append(row[0])
+                values.append(row[1])
+            return epochs, values
