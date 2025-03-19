@@ -187,13 +187,13 @@ class TestBuiltinLogger:
 
     def test_final_metrics_event(
             self,
-            final_metrics_event: log_events.EpochMetrics,
+            epoch_metrics_event: EpochMetrics,
     ) -> None:
         """Tests handling of FinalMetrics event."""
-        self.logger.notify(final_metrics_event)
+        self.logger.notify(epoch_metrics_event)
         output = self.stream.getvalue()
-        assert final_metrics_event.source in output
-        for metric_name in final_metrics_event.metrics:
+        assert epoch_metrics_event.source in output
+        for metric_name in epoch_metrics_event.metrics:
             assert metric_name in output
 
     def test_terminated_training_event(

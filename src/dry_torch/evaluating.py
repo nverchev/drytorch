@@ -91,10 +91,10 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
         return
 
     def _log_metrics(self, computed_metrics: Mapping[str, Any]) -> None:
-        log_events.EpochMetrics(model_name=self.model.name,
-                                source=self.name,
-                                epoch=self.model.epoch,
-                                metrics=computed_metrics)
+        log_events.Metrics(model_name=self.model.name,
+                           source=self.name,
+                           epoch=self.model.epoch,
+                           metrics=computed_metrics)
         return
 
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:

@@ -181,9 +181,9 @@ def test_event() -> log_events.Test:
 
 @pytest.fixture
 def epoch_metrics_event(
-        sample_metrics: Mapping[str, float]) -> log_events.EpochMetrics:
+        sample_metrics: Mapping[str, float]) -> log_events.Metrics:
     """Provides a FinalMetrics event instance."""
-    return log_events.EpochMetrics(
+    return log_events.Metrics(
         model_name="test_model",
         source="validation",
         epoch=10,

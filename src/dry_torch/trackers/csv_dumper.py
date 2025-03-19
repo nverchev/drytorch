@@ -43,7 +43,7 @@ class CSVDumper(abstract_dumper.AbstractDumper):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EpochMetrics) -> None:
+    def _(self, event: log_events.Metrics) -> None:
         model_name = str(event.model_name)
         file_path = self.csv_path(model_name, event.source)
         with file_path.open('a') as log:

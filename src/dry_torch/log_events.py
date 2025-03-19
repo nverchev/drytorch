@@ -221,7 +221,7 @@ class Test(Event):
 
 
 @dataclasses.dataclass
-class EpochMetrics(Event):
+class Metrics(Event):
     """
     Event logged when metrics from the dataset are aggregated.
 

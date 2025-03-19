@@ -81,7 +81,7 @@ class SQLConnection(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EpochMetrics) -> None:
+    def _(self, event: log_events.Metrics) -> None:
         if self._exp_name is None:
             raise RuntimeError('Access outside experiment scope.')
         with self.Session() as session:
