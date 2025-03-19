@@ -27,9 +27,9 @@ class AbstractDumper(tracking.Tracker, metaclass=abc.ABCMeta):
     @property
     def par_dir(self) -> pathlib.Path:
         """Return the directory where the files will be saved."""
-        if self._exp_dir is None:
-            raise RuntimeError('Accessed outside experiment scope.')
         if self._par_dir is None:
+            if self._exp_dir is None:
+                raise RuntimeError('Access outside experiment scope.')
             path = self._exp_dir
         else:
             path = self._par_dir
