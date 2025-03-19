@@ -20,7 +20,7 @@ from dry_torch.tracking import extend_default_trackers
 from dry_torch.tracking import Tracker
 from dry_torch.training import Trainer
 
-from dry_torch.trackers import builtin_logger
+from dry_torch.trackers import logging
 
 
 def add_standard_trackers_to_default_trackers() -> None:
@@ -35,7 +35,7 @@ def add_standard_trackers_to_default_trackers() -> None:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
 
     else:
-        from dry_torch.trackers import tqdm_logger
+        from dry_torch.trackers import tqdm
         tracker_list.append(tqdm_logger.TqdmLogger())
 
     try:
@@ -43,7 +43,7 @@ def add_standard_trackers_to_default_trackers() -> None:
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('yaml', ie))
     else:
-        from dry_torch.trackers import yaml_dumper
+        from dry_torch.trackers import yaml
         tracker_list.append(yaml_dumper.YamlDumper())
     extend_default_trackers(tracker_list)
 
