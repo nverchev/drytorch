@@ -9,7 +9,6 @@ import wandb
 from wandb.sdk import wandb_run
 from wandb.sdk import wandb_settings
 
-
 from dry_torch import log_events
 from dry_torch import tracking
 
@@ -19,12 +18,17 @@ class Wandb(tracking.Tracker):
 
     def __init__(
             self,
-            par_dir: Optional[pathlib.Path] = None,
-            settings: wandb_settings.Settings = wandb_settings.Settings()
+            settings: wandb_settings.Settings = wandb_settings.Settings(),
+            resume_previous_run: bool = False,
     ) -> None:
+        """
+        Args:
+            settings: Settings object from wandb containing all init arguments.
+            resume_previous_run: resume previous run from the project.
+        """
         super().__init__()
-        self.par_dir = par_dir
         self.settings = settings
+        self.resume_previous_run = resume_previous_run
         self.run: wandb_run.Run | None = None
 
     @override
@@ -35,12 +39,19 @@ class Wandb(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         # prioritize settings
-        project = event.exp_name if self.settings.project is None else None
-        root_dir = event.exp_dir if self.par_dir is None else None
-        self.run = wandb.init(dir=root_dir,
+        project = self.settings.project or format(event.exp_name, 's')
+        root_dir = self.settings.root_dir or event.exp_dir
+        run_id: Optional[str] = self.settings.run_id
+        if self.resume_previous_run:
+            runs = wandb.Api().runs(project)
+            run_id = runs[len(runs) - 1].id
+
+        self.run = wandb.init(id=run_id,
+                              dir=root_dir,
                               project=project,
                               config=event.config,
-                              settings=self.settings)
+                              settings=self.settings,
+                              resume='allow')
 
     @notify.register
     def _(self, _: log_events.StopExperiment) -> None:
@@ -49,21 +60,9 @@ class Wandb(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
-        plot_names = {f'{event.model_name}/{event.source}-{name}': value
+        if self.run is None:
+            raise RuntimeError('Access outside experiment scope.')
+        plot_names = {f'{event.model_name:s}/{event.source:s}-{name}': value
                       for name, value in event.metrics.items()}
         self.run.log(plot_names, step=event.epoch)
         return
-
-    # TODO: add image support
-    # @notify.register
-    # def _(self, event: log_events.Images) -> None:
-    #     if not self.initialized or not self.log_images:
-    #         return
-    #
-    #     try:
-    #         images_dict = {
-    #             f'{event.model_name}/{event.source}-{name}': wandb.Image(img)
-    #             for name, img in event.images.items()}
-    #         wandb.log(images_dict, step=event.step)
-    #     except Exception as e:
-    #         logger.error(f"Failed to log images: {str(e)}")
