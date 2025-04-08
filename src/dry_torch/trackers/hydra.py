@@ -53,7 +53,7 @@ class HydraLink(abstract_dumper.AbstractDumper):
         else:
             link_name = self.link_name
 
-        return self.par_dir / link_name
+        return self.par_dir / self.hydra_folder / link_name
 
     @override
     @functools.singledispatchmethod
