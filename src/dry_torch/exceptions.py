@@ -1,6 +1,7 @@
 """Library specific exceptions."""
 
 import pathlib
+import traceback
 from typing import Any
 
 import torch
@@ -12,6 +13,11 @@ class DryTorchException(Exception):
 
     def __init__(self, *args: Any) -> None:
         super().__init__(self.msg.format(*args))
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        cls.__name__ = '[dry_torch] ' + cls.__name__
+        super().__init_subclass__(**kwargs)
+        return
 
 
 class ConvergenceError(DryTorchException, ValueError):
@@ -182,9 +188,10 @@ class TerminatedTrainingWarning(DryTorchException, UserWarning):
 
 
 class TrackerError(DryTorchException, UserWarning):
-    msg = 'Tracker {} encountered the following error and was skipped: \n {}'
+    msg = 'Tracker {} encountered the following error and was skipped:\n{}'
 
     def __init__(self, subscriber_name: str, error: BaseException) -> None:
         self.subscriber_name = subscriber_name
         self.error = error
-        super().__init__(subscriber_name, str(error))
+        formatted_traceback = traceback.format_exc()
+        super().__init__(subscriber_name, formatted_traceback)
