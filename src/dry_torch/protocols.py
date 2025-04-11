@@ -233,6 +233,15 @@ class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
     def name(self) -> str:
         """The name of the model."""
 
+    def get_batches(self) -> Iterator[tuple[_Input, _Target]]:
+        """
+        Get the batches ready for use.
+
+        Returns:
+            Batches of data (Inputs, Targets) on the same device as the model
+        """
+        ...
+
 
 @runtime_checkable
 class TrainerProtocol(Protocol[_Input, _Target, _Output]):
@@ -251,6 +260,15 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     @property
     def name(self) -> str:
         """The name of the model."""
+
+    def get_batches(self) -> Iterator[tuple[_Input, _Target]]:
+        """
+        Get the batches ready for use.
+
+        Returns:
+            Batches of data (Inputs, Targets) on the same device as the model
+        """
+        ...
 
     @property
     def terminated(self) -> bool:
