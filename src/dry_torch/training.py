@@ -5,7 +5,6 @@ from typing_extensions import override
 import warnings
 
 import torch
-from torch.cuda import amp
 
 from dry_torch import evaluating
 from dry_torch import exceptions
@@ -70,7 +69,8 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self.validation: Optional[evaluating.Validation] = None
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
         self._optimizer = self._model_optimizer.optimizer
-        self._scaler = amp.GradScaler(enabled=mixed_precision)
+        self._scaler = torch.amp.GradScaler(model.device.type,
+                                            enabled=mixed_precision)
         self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
         self.post_epoch_hooks = hooks.HookRegistry[Trainer]()
         self._terminated = False
