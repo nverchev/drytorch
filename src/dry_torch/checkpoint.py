@@ -93,17 +93,19 @@ class ModelStateIO:
                              location=str(self.paths.epoch_dir),
                              epoch=self.model.epoch)
         self.model.module.load_state_dict(
-            torch.load(self.paths.state_path, map_location=self.model.device))
+            torch.load(self.paths.state_path,
+                       map_location=self.model.device,
+                       weights_only=False))  # serialization problem otherwise
 
     def _get_last_saved_epoch(self) -> int:
         checkpoint_directory = self.paths.checkpoint_dir
-        past_epochs = [
-            int(path.stem.rsplit('_', 1)[-1])
-            for path in checkpoint_directory.iterdir() if path.is_dir()
-        ]
-        if not past_epochs:
+        all_epochs = [d for d in checkpoint_directory.iterdir() if d.is_dir()]
+
+        if not all_epochs:
             raise exceptions.ModelNotFoundError(checkpoint_directory)
-        return max(past_epochs)
+
+        last_epoch_dir = max(all_epochs, key=lambda d: d.stat().st_ctime)
+        return int(last_epoch_dir.stem.rsplit('_', 1)[-1])
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(module={self.model.name})"
@@ -143,7 +145,8 @@ class CheckpointIO(ModelStateIO):
         try:
             self.optimizer.load_state_dict(
                 torch.load(self.paths.optimizer_path,
-                           map_location=self.model.device),
+                           map_location=self.model.device,
+                           weights_only=False),
             )
         except ValueError as ve:
             warnings.warn(exceptions.OptimizerNotLoadedWarning(ve))
