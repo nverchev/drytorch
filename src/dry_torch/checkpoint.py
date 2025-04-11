@@ -103,12 +103,19 @@ class ModelStateIO:
 
         if not all_epochs:
             raise exceptions.ModelNotFoundError(checkpoint_directory)
-
-        last_epoch_dir = max(all_epochs, key=lambda d: d.stat().st_ctime)
-        return int(last_epoch_dir.stem.rsplit('_', 1)[-1])
+        last_epoch_dir = max(all_epochs, key=self._creation_time)
+        return self._get_epoch(last_epoch_dir)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(module={self.model.name})"
+        return f'{self.__class__.__name__}(module={self.model.name})'
+
+    @staticmethod
+    def _creation_time(directory: pathlib.Path) -> float:
+        return directory.stat().st_ctime
+
+    @staticmethod
+    def _get_epoch(directory: pathlib.Path) -> int:
+        return int(directory.stem.rsplit('_', 1)[-1])
 
 
 class CheckpointIO(ModelStateIO):
