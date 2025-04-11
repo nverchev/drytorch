@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Callable, Sequence
 import operator
-from typing import Generic, Literal, Optional, ParamSpec, TypeVar
+from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
 from typing_extensions import override
 
 from dry_torch import exceptions
@@ -408,7 +408,7 @@ class MetricMonitor:
     def _get_monitor(self, instance: p.TrainerProtocol) -> p.EvaluationProtocol:
         if self.optional_monitor is None:
             if instance.validation is None:
-                return instance  # type: ignore
+                return cast(p.EvaluationProtocol, instance)  # correct
             return instance.validation
         return self.optional_monitor
 
