@@ -256,3 +256,18 @@ class UpdateLearningRate(Event):
     epoch: int
     base_lr: Optional[Mapping[str, float] | float] = None
     scheduler_name: Optional[str] = None
+
+
+@dataclasses.dataclass
+class PlotMetric(Event):
+    """
+    Event logged when the learning rate is updated.
+
+    Attributes:
+        model_name: The name of the model that produced the metrics.
+        metric_name: The name of the metric to plot.
+        start_epoch: The number of epoch from which to start the plot.
+    """
+    model_name: str
+    metric_name: str
+    start_epoch: int
