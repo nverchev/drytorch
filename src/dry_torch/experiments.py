@@ -57,29 +57,21 @@ class Experiment(Generic[_T]):
         return self._name
 
     def __enter__(self) -> None:
-        return self.start()
+        log_events.Event.set_auto_publish(self.trackers.publish)
+        Experiment._current = self
+        self.__class__._current_config = self.config
+        log_events.StartExperiment(self.name, self.dir, self.config)
+        return
 
     def __exit__(self,
                  exc_type: type[BaseException],
                  exc_val: BaseException,
                  exc_tb: TracebackType) -> None:
-        return self.stop()
-
-    def start(self) -> None:
-        """Start the experiment, setting it as the current active experiment."""
-        if Experiment._current is not None:
-            self.stop()
-        log_events.Event.set_auto_publish(self.trackers.publish)
-        Experiment._current = self
-        self.__class__._current_config = self.config
-        log_events.StartExperiment(self.name, self.dir, self.config)
-
-    def stop(self) -> None:
-        """Stop the experiment, clearing it from the active experiment."""
         name = Experiment.current().name
         Experiment._current = None
         self.__class__._current_config = None
         log_events.StopExperiment(name)
+        return
 
     @classmethod
     def current(cls) -> Experiment:
@@ -93,12 +85,6 @@ class Experiment(Generic[_T]):
         if Experiment._current is None:
             raise exceptions.NoActiveExperimentError()
         return Experiment._current
-
-    @classmethod
-    def quit(cls) -> None:
-        """Stop the current experiment if one is active."""
-        if Experiment._current is not None:
-            Experiment._current.stop()
 
     @classmethod
     def get_config(cls) -> _T:
@@ -146,14 +132,17 @@ class ChildExperiment(Experiment[_U]):
         super().__init__(name, '', config)
 
     @override
-    def start(self) -> None:
-        super().start()
+    def __enter__(self) -> None:
+        super().__enter__()
         if self.parent is not None:
             self.parent.__class__._current_config = self.parent.config
 
     @override
-    def stop(self) -> None:
-        super().stop()
+    def __exit__(self,
+                 exc_type: type[BaseException],
+                 exc_val: BaseException,
+                 exc_tb: TracebackType) -> None:
+        super().__exit__(exc_type, exc_val, exc_tb)
         if self.parent is not None:
             self.parent.__class__._current_config = None
 
