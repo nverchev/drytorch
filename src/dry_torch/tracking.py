@@ -12,8 +12,7 @@ import abc
 from abc import abstractmethod
 import functools
 from typing import Any
-import warnings
-import weakref
+import warnings\
 
 from dry_torch import exceptions
 from dry_torch import log_events
@@ -92,9 +91,6 @@ class MetadataManager:
 
 class Tracker(metaclass=abc.ABCMeta):
     """Abstract base class for tracking events with priority ordering."""
-
-    def __init__(self) -> None:
-        weakref.finalize(self, self.notify, log_events.StopExperiment(''))
 
     @functools.singledispatchmethod
     @abstractmethod
