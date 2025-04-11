@@ -20,31 +20,30 @@ from dry_torch.tracking import extend_default_trackers
 from dry_torch.tracking import Tracker
 from dry_torch.training import Trainer
 
-from dry_torch.trackers import logging
+from dry_torch.trackers import logging as builtin_logging
+from dry_torch.trackers import csv as builtin_csv
 
 
 def add_standard_trackers_to_default_trackers() -> None:
     """Add a list of trackers to the default ones."""
     tracker_list: list[Tracker] = [
-        builtin_logger.BuiltinLogger(),
+        builtin_logging.BuiltinLogger(),
     ]
     try:
-        import tqdm
+        from dry_torch.trackers import tqdm
 
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
 
     else:
-        from dry_torch.trackers import tqdm
-        tracker_list.append(tqdm_logger.TqdmLogger())
+        tracker_list.append(tqdm.TqdmLogger())
 
     try:
-        import yaml  # type: ignore
+        from dry_torch.trackers import yaml
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('yaml', ie))
     else:
-        from dry_torch.trackers import yaml
-        tracker_list.append(yaml_dumper.YamlDumper())
+        tracker_list.append(yaml.YamlDumper())
     extend_default_trackers(tracker_list)
 
 
