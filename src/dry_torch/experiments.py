@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pathlib
 from types import TracebackType
-from typing import Generic, Optional, TypeVar, Any
+from typing import Generic, Optional, TypeVar, Any, Self
 
 from typing_extensions import override
 
@@ -56,12 +56,12 @@ class Experiment(Generic[_T]):
         """The name of the experiment."""
         return self._name
 
-    def __enter__(self) -> None:
+    def __enter__(self) -> Self:
         log_events.Event.set_auto_publish(self.trackers.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
         log_events.StartExperiment(self.name, self.dir, self.config)
-        return
+        return self
 
     def __exit__(self,
                  exc_type: type[BaseException],
@@ -132,10 +132,10 @@ class ChildExperiment(Experiment[_U]):
         super().__init__(name, '', config)
 
     @override
-    def __enter__(self) -> None:
-        super().__enter__()
+    def __enter__(self) -> Self:
         if self.parent is not None:
             self.parent.__class__._current_config = self.parent.config
+        return super().__enter__()
 
     @override
     def __exit__(self,
