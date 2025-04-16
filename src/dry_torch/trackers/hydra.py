@@ -9,11 +9,11 @@ import hydra
 from typing_extensions import override
 
 from dry_torch import log_events
-from dry_torch.trackers import abstract_dumper
+from dry_torch.trackers import base_classes
 from dry_torch.trackers import logging
 
 
-class HydraLink(abstract_dumper.AbstractDumper):
+class HydraLink(base_classes.AbstractDumper):
     """
     Tracker that links that organize Hydra logs.
 
@@ -53,7 +53,9 @@ class HydraLink(abstract_dumper.AbstractDumper):
         else:
             link_name = self.link_name
 
-        return self.par_dir / self.hydra_folder / link_name
+        hydra_local_folder = self.par_dir / self.hydra_folder
+        hydra_local_folder.mkdir(exist_ok=True)
+        return hydra_local_folder / link_name
 
     @override
     @functools.singledispatchmethod
