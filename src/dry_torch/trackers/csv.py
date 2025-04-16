@@ -10,7 +10,6 @@ from typing_extensions import override
 import dry_torch.trackers.base_classes
 from dry_torch import log_events
 from dry_torch.trackers import base_classes
-from dry_torch.trackers import memory
 
 
 class DryTorchDialect(csv.Dialect):
@@ -29,7 +28,8 @@ class CSVDumper(base_classes.AbstractDumper,
 
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
-                 dialect: csv.Dialect = DryTorchDialect()) -> None:
+                 dialect: csv.Dialect = DryTorchDialect(),
+                 resume_run: bool = False) -> None:
         """
         Args:
             par_dir: directory where to dump metadata. Defaults to the one for
@@ -37,6 +37,7 @@ class CSVDumper(base_classes.AbstractDumper,
             dialect: class with format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
+        self.active_run = resume_run
         self._dialect = dialect
         self._exp_dir: Optional[pathlib.Path] = None
 
@@ -47,6 +48,7 @@ class CSVDumper(base_classes.AbstractDumper,
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
+        self.active_run = True
         model_name = format(event.model_name, 's')
         source_name = format(event.source, 's')
         file_address = self.file_name(model_name, source_name)
@@ -130,9 +132,10 @@ class CSVDumper(base_classes.AbstractDumper,
             model_name: name of the model.
             max_epoch: maximum number of epochs to load. Defaults to all.
         """
-        model_name = format(model_name, 's')
-        sources = self.find_sources(model_name)
         out = dict[str, tuple[list[int], dict[str, list[float]]]]()
-        for source in sources:
-            out[source] = self.read_csv(model_name, source, max_epoch)
+        if self.active_run:  # ensure metrics come from current run
+            model_name = format(model_name, 's')
+            sources = self.find_sources(model_name)
+            for source in sources:
+                out[source] = self.read_csv(model_name, source, max_epoch)
         return out
