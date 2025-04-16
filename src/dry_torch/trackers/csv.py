@@ -7,9 +7,10 @@ from typing import Optional
 
 from typing_extensions import override
 
+import dry_torch.trackers.base_classes
 from dry_torch import log_events
-from dry_torch.trackers import abstract_dumper
-from dry_torch.trackers import plotting
+from dry_torch.trackers import base_classes
+from dry_torch.trackers import memory
 
 
 class DryTorchDialect(csv.Dialect):
@@ -22,7 +23,8 @@ class DryTorchDialect(csv.Dialect):
     quoting = csv.QUOTE_NONNUMERIC
 
 
-class CSVDumper(abstract_dumper.AbstractDumper, plotting.MetricLoader):
+class CSVDumper(base_classes.AbstractDumper,
+                dry_torch.trackers.base_classes.MetricLoader):
     """Tracker that dumps metrics into a CSV file."""
 
     def __init__(self,
@@ -76,9 +78,9 @@ class CSVDumper(abstract_dumper.AbstractDumper, plotting.MetricLoader):
         path = self.csv_path(model_name)
         return (path / source_name).with_suffix('.csv')
 
-    def find_source(self, model_name: str) -> list[str]:
+    def find_sources(self, model_name: str) -> set[str]:
         path = self.csv_path(model_name)
-        return [file.name for file in path.glob('*.csv')]
+        return {file.stem for file in path.glob('*.csv')}
 
     def read_csv(self,
                  model_name: str,
@@ -102,15 +104,19 @@ class CSVDumper(abstract_dumper.AbstractDumper, plotting.MetricLoader):
             columns = next(reader)
             metric_names = columns[3:]
             epochs = list[int]()
-            metric_values = dict[str, list[float]]()
+            named_metric_values = dict[str, list[float]]()
             for row in reader:
                 epoch = int(row[2])
-                if max_epoch is not None and epoch > max_epoch:
-                    break
+                if epochs and epochs[-1] >= epoch:  # only load last run
+                    epochs.clear()
+                    named_metric_values.clear()
                 epochs.append(epoch)
+                if max_epoch is not None and epoch > max_epoch:
+                    continue
                 for metric, value in zip(metric_names, row[3:]):
-                    metric_values.setdefault(metric, []).append(float(value))
-            return epochs, metric_values
+                    value_list = named_metric_values.setdefault(metric, [])
+                    value_list.append(float(value))
+            return epochs, named_metric_values
 
     def load_metrics(
             self,
@@ -125,7 +131,7 @@ class CSVDumper(abstract_dumper.AbstractDumper, plotting.MetricLoader):
             max_epoch: maximum number of epochs to load. Defaults to all.
         """
         model_name = format(model_name, 's')
-        sources = self.find_source(model_name)
+        sources = self.find_sources(model_name)
         out = dict[str, tuple[list[int], dict[str, list[float]]]]()
         for source in sources:
             out[source] = self.read_csv(model_name, source, max_epoch)
