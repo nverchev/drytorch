@@ -4,7 +4,6 @@ from typing import Generator
 import pytest
 
 import torch
-from typing_extensions import reveal_type
 
 import dry_torch
 from dry_torch import DataLoader, LearningScheme, Model, Experiment
@@ -104,5 +103,4 @@ def identity_trainer(
                       loader=identity_loader,
                       learning_scheme=standard_learning_scheme,
                       loss=square_loss_calc)
-    reveal_type(trainer)
     return trainer
