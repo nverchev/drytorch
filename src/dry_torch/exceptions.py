@@ -20,6 +20,10 @@ class DryTorchException(Exception):
         return
 
 
+class TrackerException(DryTorchException):
+    msg = '{}'
+
+
 class AccessOutsideScopeError(DryTorchException, ValueError):
     msg = 'Operation only allowed within an experiment scope.'
 
