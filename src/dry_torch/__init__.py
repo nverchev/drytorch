@@ -1,8 +1,6 @@
 """Init file for the dry_torch package."""
 import warnings
 
-from dry_torch.checkpointing import CheckpointPathManager
-from dry_torch.checkpointing import LocalCheckpoint
 from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Test
 from dry_torch.evaluating import Validation
