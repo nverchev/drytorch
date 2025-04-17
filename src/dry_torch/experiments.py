@@ -57,9 +57,9 @@ class Experiment(Generic[_T]):
         return self._name
 
     def __enter__(self) -> Self:
-        log_events.Event.set_auto_publish(self.trackers.publish)
         Experiment._current = self
         self.__class__._current_config = self.config
+        log_events.Event.set_auto_publish(self.trackers.publish)
         log_events.StartExperiment(self.name, self.dir, self.config)
         return self
 

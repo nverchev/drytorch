@@ -28,6 +28,10 @@ class AccessOutsideScopeError(DryTorchException, ValueError):
     msg = 'Operation only allowed within an experiment scope.'
 
 
+class CheckpointNotFullyInitializedError(DryTorchException, ValueError):
+    msg = 'The checkpoint did not register any model.'
+
+
 class ConvergenceError(DryTorchException, ValueError):
     msg = 'The module did not converge (criterion is {}).'
 

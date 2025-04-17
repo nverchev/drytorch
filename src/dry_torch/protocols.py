@@ -218,6 +218,22 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         """Increments the epoch by 1."""
 
 
+class CheckpointProtocol(Protocol):
+    """Protocol that stores and loads weight for a ModelProtocol class."""
+
+    def register_model(self, model: ModelProtocol):
+        """Register the model to manage."""
+
+    def register_optimizer(self, optimizer: torch.optim.Optimizer):
+        """Register the optimizer connected to the model."""
+
+    def save(self) -> None:
+        """Saves the model and optimizer state dictionaries."""
+
+    def load(self, epoch: int = -1) -> None:
+        """Loads the model and optimizer state dictionaries."""
+
+
 class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
     """
     Protocol for a class that validates a model.

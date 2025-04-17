@@ -8,9 +8,7 @@ import torch
 from torch import cuda
 import dataclasses
 
-from dry_torch import checkpoint
-from dry_torch import exceptions
-from dry_torch import experiments
+from dry_torch import checkpointing
 from dry_torch import protocols as p
 from dry_torch import repr_utils
 from dry_torch import registering
@@ -156,6 +154,7 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
             /,
             name: str = '',
             device: Optional[torch.device] = None,
+            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint()
     ) -> None:
         """
         Args:
@@ -169,8 +168,9 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
         self._name = name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
-        exp = registering.register_model(self)
-        self._model_state_io = checkpoint.ModelStateIO(self, exp.dir)
+        registering.register_model(self)
+        self._checkpoint = checkpoint
+        self._checkpoint.register_model(self)
 
     @property
     def device(self) -> torch.device:
@@ -197,11 +197,11 @@ class Model(p.ModelProtocol[_Input_contra, _Output_co]):
 
     def load_state(self, epoch=-1) -> None:
         """Load the weights and epoch of the model"""
-        self._model_state_io.load(epoch=epoch)
+        self._checkpoint.load(epoch=epoch)
 
     def save_state(self) -> None:
         """Save the weights and epoch of the model"""
-        self._model_state_io.save()
+        self._checkpoint.save()
 
     def to(self, device: torch.device) -> None:
         """Forward the homonymous method."""
@@ -237,7 +237,9 @@ class ModelOptimizer:
     def __init__(
             self,
             model: p.ModelProtocol[_Input_contra, _Output_co],
-            learning_scheme: p.LearningProtocol
+            learning_scheme: p.LearningProtocol,
+            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint()
+
     ) -> None:
         self.model = model
         self.module = model.module
@@ -248,10 +250,9 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
-        exp_dir = experiments.Experiment.current().dir
-        self._checkpoint = checkpoint.CheckpointIO(model,
-                                                   self.optimizer,
-                                                   par_dir=exp_dir)
+        self._checkpoint = checkpoint
+        self._checkpoint.register_model(model)
+        self._checkpoint.register_optimizer(self.optimizer)
 
     def get_opt_params(self) -> list[_OptParams]:
         """
@@ -291,7 +292,7 @@ class ModelOptimizer:
                 dict(params=getattr(self.module, k).parameters(), lr=v)
                 for k, v in lr.items()
             ]
-            # FIXME This does not work as intentended
+            # FIXME: This does not work as intended
             # if not self._params_lr_contains_all_params():
             #     module_names = list(self.module.named_modules())
             #     raise exceptions.MissingParamError(module_names, list(lr))
