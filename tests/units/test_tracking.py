@@ -1,4 +1,6 @@
 """Tests for the tracking module."""
+
+import dataclasses
 from typing import Optional
 
 import pytest
@@ -19,14 +21,24 @@ def remove_trackers() -> None:
     return
 
 
+@dataclasses.dataclass
 class _SimpleEvent(log_events.Event):
     """Simple Event subclass for testing."""
     pass
 
 
+@dataclasses.dataclass
 class _UndefinedEvent(log_events.Event):
     """Event subclass that is not handled by tracker."""
     pass
+
+
+class TestEvent:
+
+    def test_no_auto_publish(self):
+        """Test the error raises correctly when instantiating the class."""
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            _SimpleEvent()
 
 
 class _SimpleTracker(Tracker):
@@ -134,15 +146,15 @@ class TestEventDispatcher:
 
     def test_publish_event_calls_tracker_notify(self):
         """Test publishing an event calls notify on registered trackers."""
+        _SimpleEvent.set_auto_publish(self.dispatcher.publish)
         simple_event = _SimpleEvent()
-        self.dispatcher.publish(event=simple_event)
         assert self.tracker.last_event is simple_event
 
     def test_handle_tracker_exceptions(self):
         """Test handling of tracker exceptions."""
-        simple_event = _UndefinedEvent()
+        _UndefinedEvent.set_auto_publish(self.dispatcher.publish)
         with pytest.warns(exceptions.TrackerError):
-            self.dispatcher.publish(event=simple_event)
+            _UndefinedEvent()
 
 
 class TestExperiment:
@@ -169,7 +181,9 @@ class TestExperiment:
         mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
         with self.experiment:
             path = self.par_dir / format(self.name, 's')
-            mock_event_start.assert_called_once_with(self.experiment.name, path)
+            mock_event_start.assert_called_once_with(self.experiment.name,
+                                                     path,
+                                                     None)
         mock_event_stop.assert_called_once_with(self.experiment.name)
 
     def test_get_config_no_config_error(self):
