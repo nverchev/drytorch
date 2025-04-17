@@ -10,7 +10,7 @@ import yaml  # type: ignore
 
 from dry_torch import log_events
 from dry_torch import repr_utils
-from dry_torch.trackers import abstract_dumper
+from dry_torch.trackers import base_classes
 
 MAX_LENGTH_PLAIN_REPR = 30
 """Sequences longer than this will be represented in flow style by yaml."""
@@ -18,7 +18,7 @@ MAX_LENGTH_SHORT_REPR = 10
 """Sequences with strings longer than this will be represented in flow style."""
 
 
-class YamlDumper(abstract_dumper.AbstractDumper):
+class YamlDumper(base_classes.AbstractDumper):
     """Tracker that dumps metadata in a YAML file."""
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):

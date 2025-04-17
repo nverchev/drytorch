@@ -11,6 +11,7 @@ from typing_extensions import override
 from dry_torch import log_events
 from dry_torch.trackers import base_classes
 from dry_torch.trackers import logging
+from dry_torch import exceptions
 
 
 class HydraLink(base_classes.AbstractDumper):
@@ -39,7 +40,7 @@ class HydraLink(base_classes.AbstractDumper):
         str_dir = hydra_config.runtime.output_dir
         self.hydra_dir = pathlib.Path(str_dir)
         if not self.hydra_dir.exists():
-            raise RuntimeError('Hydra has not started.')
+            raise exceptions.TrackerException('Hydra has not started.')
 
         self._copy_hydra = copy_hydra
         self.link_name = 'run'

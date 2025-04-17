@@ -13,7 +13,7 @@ from sqlalchemy import orm
 
 from dry_torch import log_events
 from dry_torch import tracking
-
+from dry_torch import exceptions
 
 class Base(orm.DeclarativeBase):
     ...
@@ -179,7 +179,7 @@ class SQLConnection(tracking.Tracker):
     def run(self) -> Run:
         """The current run."""
         if self._run is None:
-            raise RuntimeError('Access outside experiment scope.')
+            raise exceptions.AccessOutsideScopeError()
         return self._run
 
     @override
@@ -194,7 +194,8 @@ class SQLConnection(tracking.Tracker):
             if self.resume_run:
                 run_or_none = self._get_last_run(exp_name_short)
                 if run_or_none is None:
-                    warnings.warn('No previous runs. Starting a new one.')
+                    msg = 'SQLConnection: No previous runs. Starting a new one.'
+                    warnings.warn(msg)
                 self._run = run_or_none
             if self._run is None:
                 self._run = Run()

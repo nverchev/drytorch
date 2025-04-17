@@ -1,7 +1,6 @@
 """Tracker wrapping wandb (Weights and Biases)."""
 
 import functools
-import pathlib
 from typing import Optional
 from typing_extensions import override
 
@@ -11,7 +10,7 @@ from wandb.sdk import wandb_settings
 
 from dry_torch import log_events
 from dry_torch import tracking
-
+from dry_torch import exceptions
 
 class Wandb(tracking.Tracker):
     """Tracker for wandb library."""
@@ -61,7 +60,7 @@ class Wandb(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
         if self.run is None:
-            raise RuntimeError('Access outside experiment scope.')
+            raise exceptions.AccessOutsideScopeError()
         plot_names = {f'{event.model_name:s}/{event.source:s}-{name}': value
                       for name, value in event.metrics.items()}
         self.run.log(plot_names, step=event.epoch)
