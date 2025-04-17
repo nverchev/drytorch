@@ -29,12 +29,18 @@ def test_failed_import_warning():
     with pytest.MonkeyPatch().context() as mp:
         original_import = __import__
 
-        def _mock_import(name: str, *args, **kwargs):
-            if name == 'tqdm':
-                raise ImportError
-            if name == 'yaml':
-                raise ModuleNotFoundError
-            return original_import(name, *args, **kwargs)
+        def _mock_import(name: str,
+                         globals=None,
+                         locals=None,
+                         fromlist=(),
+                         level=0):
+            if name == 'dry_torch.trackers' and fromlist:
+                if 'tqdm' in fromlist:
+                    raise ImportError()
+                if 'yaml' in fromlist:
+                    raise ModuleNotFoundError()
+
+            return original_import(name, globals, locals, fromlist, level)
 
         mp.setattr('builtins.__import__', _mock_import)
 
