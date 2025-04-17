@@ -14,7 +14,8 @@ class TestTrainer:
               mock_model,
               mock_learning_scheme,
               mock_loss,
-              mock_loader):
+              mock_loader,
+              mocker):
         """Set up a Trainer instance with mock components."""
         self.trainer = Trainer(
             mock_model,
@@ -23,22 +24,39 @@ class TestTrainer:
             loader=mock_loader,
             name='TestTrainer'
         )
-
-    def test_call_events(self, mocker) -> None:
-        """Test train method invokes the necessary hooks and events."""
-        start_training_event = mocker.patch(
+        self.start_training_event = mocker.patch(
             'dry_torch.log_events.StartTraining')
-        end_training_event = mocker.patch(
+        self.end_training_event = mocker.patch(
             'dry_torch.log_events.EndTraining')
+        self.start_epoch_event = mocker.patch(
+            'dry_torch.log_events.StartEpoch'
+        )
+        self.end_epoch_event = mocker.patch(
+            'dry_torch.log_events.EndEpoch'
+        )
+        self.iterate_event = mocker.patch(
+            'dry_torch.log_events.IterateBatch'
+        )
+        self.metrics_event = mocker.patch(
+            'dry_torch.log_events.Metrics'
+        )
+        self.terminated_event = mocker.patch(
+            'dry_torch.log_events.TerminatedTraining'
+        )
+
+    def test_call_events(self) -> None:
+        """Test train method invokes the necessary hooks and events."""
 
         self.trainer.train(2)
 
-        start_training_event.assert_called_once_with(
+        self.start_training_event.assert_called_once_with(
             source=self.trainer.name,
             model_name=self.trainer.model.name,
             start_epoch=self.trainer.model.epoch,
             end_epoch=self.trainer.model.epoch + 2)
-        end_training_event.assert_called_once()
+        self.end_training_event.assert_called_once()
+        self.start_epoch_event.assert_called()
+        self.end_epoch_event.assert_called()
         return
 
     def test_call_validation(self, mocker, mock_loader) -> None:
@@ -78,6 +96,7 @@ class TestTrainer:
         self.trainer.terminate_training(reason='This is a test.')
         with pytest.warns(exceptions.TerminatedTrainingWarning):
             self.trainer()
+        self.terminated_event.assert_called_once()
 
     def test_train_until(self, mocker) -> None:
         """Test train_until correctly calculates the remaining epochs."""
