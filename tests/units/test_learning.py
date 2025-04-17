@@ -15,7 +15,8 @@ class ComplexModule(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(1, 2)
         self.relu = torch.nn.ReLU()
-        self.linear2 = torch.nn.Linear(2, 1)
+        self.linear2 = torch.nn.Sequential(torch.nn.Linear(2, 1),
+                                           torch.nn.Linear(1, 1))
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Standard forward."""
