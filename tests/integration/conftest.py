@@ -1,4 +1,5 @@
 """Configuration module with objects from the package."""
+from typing import Generator
 
 import pytest
 
@@ -14,13 +15,13 @@ from tests.integration.simple_classes import TorchData, TorchTuple
 
 
 @pytest.fixture(autouse=True, scope='package')
-def experiment(tmpdir_factory) -> Experiment:
+def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
     """Fixture of an experiment."""
     dry_torch.remove_all_default_trackers()
     par_dir = tmpdir_factory.mktemp('experiments')
-    exp = Experiment[None](name='TestExperiment', par_dir=par_dir)
-    exp.start()
-    return exp
+    with Experiment[None](name='TestExperiment', par_dir=par_dir) as exp:
+        yield exp
+    return
 
 
 @pytest.fixture
@@ -103,4 +104,5 @@ def identity_trainer(
                       loader=identity_loader,
                       learning_scheme=standard_learning_scheme,
                       loss=square_loss_calc)
+    reveal_type(trainer)
     return trainer
