@@ -1,4 +1,5 @@
 """Classes for wrapping a torch module and its optimizer."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
@@ -9,6 +10,7 @@ from torch import cuda
 import dataclasses
 
 from dry_torch import checkpointing
+from dry_torch import exceptions
 from dry_torch import protocols as p
 from dry_torch import repr_utils
 from dry_torch import registering
@@ -292,10 +294,9 @@ class ModelOptimizer:
                 dict(params=getattr(self.module, k).parameters(), lr=v)
                 for k, v in lr.items()
             ]
-            # FIXME: This does not work as intended
-            # if not self._params_lr_contains_all_params():
-            #     module_names = list(self.module.named_modules())
-            #     raise exceptions.MissingParamError(module_names, list(lr))
+            if not self._params_lr_contains_all_params():
+                module_names = list(self.module.named_modules())
+                raise exceptions.MissingParamError(module_names, list(lr))
         return
 
     def update_learning_rate(
