@@ -8,16 +8,20 @@ import dataclasses
 import pathlib
 from typing import Any, Optional, Mapping
 
+from dry_torch import exceptions
+
 
 class Event(metaclass=abc.ABCMeta):
     """Class for logging events"""
-    _auto_publish: Callable[[Event], None] = lambda self: None
+    _auto_publish: Optional[Callable[[Event], None]] = None
 
     def __post_init__(self):
+        if self.__class__._auto_publish is None:
+            raise exceptions.AccessOutsideScopeError()
         self.__class__._auto_publish(self)
 
     @classmethod
-    def set_auto_publish(cls, func: Callable[[Event], None]) -> None:
+    def set_auto_publish(cls, func: Optional[Callable[[Event], None]]) -> None:
         """Specify how to notify subscribers upon creation."""
         cls._auto_publish = func
         return

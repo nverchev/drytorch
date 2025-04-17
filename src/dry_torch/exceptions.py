@@ -20,6 +20,10 @@ class DryTorchException(Exception):
         return
 
 
+class AccessOutsideScopeError(DryTorchException, ValueError):
+    msg = 'Operation only allowed within an experiment scope.'
+
+
 class ConvergenceError(DryTorchException, ValueError):
     msg = 'The module did not converge (criterion is {}).'
 

@@ -67,10 +67,10 @@ class Experiment(Generic[_T]):
                  exc_type: type[BaseException],
                  exc_val: BaseException,
                  exc_tb: TracebackType) -> None:
-        name = Experiment.current().name
+        log_events.Event.set_auto_publish(None)
         Experiment._current = None
         self.__class__._current_config = None
-        log_events.StopExperiment(name)
+        log_events.StopExperiment(self.name)
         return
 
     @classmethod
