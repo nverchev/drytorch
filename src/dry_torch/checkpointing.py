@@ -159,7 +159,7 @@ class LocalCheckpoint(AbstractCheckpoint):
 
     def load(self, epoch: int = -1) -> None:
         """Loads the model and optimizer state dictionaries."""
-        super().load()
+        super().load(epoch)
         self.model.module.load_state_dict(
             torch.load(self.paths.state_path,
                        map_location=self.model.device,
