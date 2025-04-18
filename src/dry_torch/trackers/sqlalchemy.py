@@ -15,6 +15,7 @@ from dry_torch import log_events
 from dry_torch import tracking
 from dry_torch import exceptions
 
+
 class Base(orm.DeclarativeBase):
     ...
 
@@ -273,6 +274,9 @@ class SQLConnection(tracking.Tracker):
                 short_name = str(source.source_name_short)
                 sources = named_sources.setdefault(short_name, [])
                 sources.append(source)
+            if not named_sources:
+                msg = f'No sources for model {model_name}.'
+                raise exceptions.TrackerException(self, msg)
             return named_sources
 
     def _get_last_run(self, exp_name: str) -> Run | None:
