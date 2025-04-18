@@ -40,7 +40,7 @@ class HydraLink(base_classes.AbstractDumper):
         str_dir = hydra_config.runtime.output_dir
         self.hydra_dir = pathlib.Path(str_dir)
         if not self.hydra_dir.exists():
-            raise exceptions.TrackerException('Hydra has not started.')
+            raise exceptions.TrackerException(self, 'Hydra has not started.')
 
         self._copy_hydra = copy_hydra
         self.link_name = 'run'

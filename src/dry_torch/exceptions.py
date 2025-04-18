@@ -21,7 +21,11 @@ class DryTorchException(Exception):
 
 
 class TrackerException(DryTorchException):
-    msg = '{}'
+    msg = '{}: {}'
+
+    def __init__(self, tracker: Any, tracker_msg: str) -> None:
+        self.tracker = tracker
+        super().__init__(tracker.__class__.__name__, tracker_msg)
 
 
 class AccessOutsideScopeError(DryTorchException, ValueError):
