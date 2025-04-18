@@ -11,6 +11,7 @@ from dry_torch import exceptions
 from dry_torch import log_events
 from dry_torch.trackers import base_classes
 
+
 class DryTorchDialect(csv.Dialect):
     """Dialect similar to excel that converts numbers to floats."""
     delimiter = ','
@@ -22,8 +23,12 @@ class DryTorchDialect(csv.Dialect):
 
 
 class CSVDumper(base_classes.AbstractDumper,
-                dry_torch.trackers.base_classes.MetricLoader):
-    """Tracker that dumps metrics into a CSV file."""
+                base_classes.MetricLoader):
+    """
+    Tracker that dumps metrics into a CSV file.
+
+    Attributes:
+        resume_run: resume previous run from the project."""
 
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
@@ -36,7 +41,8 @@ class CSVDumper(base_classes.AbstractDumper,
             dialect: class with format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
-        self.active_run = resume_run
+        self.resume_run = resume_run
+        self._active_run = False
         self._dialect = dialect
         self._exp_dir: Optional[pathlib.Path] = None
 
@@ -47,7 +53,7 @@ class CSVDumper(base_classes.AbstractDumper,
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
-        self.active_run = True
+        self._active_run = True
         model_name = format(event.model_name, 's')
         source_name = format(event.source, 's')
         file_address = self.file_name(model_name, source_name)
@@ -123,20 +129,12 @@ class CSVDumper(base_classes.AbstractDumper,
                     value_list.append(float(value))
             return epochs, named_metric_values
 
-    def load_metrics(
-            self,
-            model_name: str,
-            max_epoch: Optional[int] = None,
-    ) -> dict[str, tuple[list[int], dict[str, list[float]]]]:
-        """
-        Loads metrics from the CSV file.
+    def _load_metrics(self,
+                      model_name: str,
+                      max_epoch: int = -1) -> dict[str, base_classes.LogTuple]:
 
-        Args:
-            model_name: name of the model.
-            max_epoch: maximum number of epochs to load. Defaults to all.
-        """
         out = dict[str, tuple[list[int], dict[str, list[float]]]]()
-        if self.active_run:  # ensure metrics come from current run
+        if self._active_run or self.resume_run:
             model_name = format(model_name, 's')
             sources = self._find_sources(model_name)
             for source in sources:

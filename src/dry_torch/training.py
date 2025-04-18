@@ -163,11 +163,16 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
                                  start_epoch=self.model.epoch,
                                  end_epoch=final_epoch)
         for _ in range(num_epochs):
-            log_events.StartEpoch(self.model.epoch + 1, final_epoch)
+            log_events.StartEpoch(source=self.name,
+                                  model_name=self.model.name,
+                                  start_epoch=self.model.epoch + 1,
+                                  end_epoch=final_epoch)
             self.pre_epoch_hooks.execute(self)
             self.__call__()
             self.post_epoch_hooks.execute(self)
-            log_events.EndEpoch()
+            log_events.EndEpoch(source=self.name,
+                                model_name=self.model.name,
+                                end_epoch=final_epoch)
             if self.terminated:
                 break
         log_events.EndTraining(self.name)

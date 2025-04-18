@@ -137,17 +137,30 @@ class StartEpoch(Event):
     Event logged when an epoch starts.
 
     Attributes:
-        epoch: The epoch number.
-        final_epoch: The final epoch number for the current training session.
+        source: The object training the model.
+        model_name: The name of the model.
+        start_epoch: The epoch number.
+        end_epoch: The final epoch number for the current training session.
     """
-    epoch: int
-    final_epoch: Optional[int] = None
+    source: str
+    model_name: str
+    start_epoch: int
+    end_epoch: Optional[int] = None
 
 
 @dataclasses.dataclass
 class EndEpoch(Event):
-    """Event logged when an epoch ends."""
-    pass
+    """
+    Event logged when an epoch ends.
+
+    Attributes
+        source: The object training the model.
+        model_name: The name of the model.
+        end_epoch: The ending epoch of the training.
+    """
+    source: str
+    model_name: str
+    end_epoch: int
 
 
 @dataclasses.dataclass

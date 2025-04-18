@@ -1,3 +1,5 @@
+"""Define the TensorBoard tracker."""
+
 import functools
 import pathlib
 from typing import Optional
@@ -33,7 +35,7 @@ class TensorBoard(tracking.Tracker):
 
         # Determine log directory
         if self.resume_run:
-            retrieved = self.get_last_run()
+            retrieved = self._get_last_run()
             if retrieved is None:
                 msg = 'TensorBoard: No previous runs. Starting a new one.'
                 warnings.warn(msg)
@@ -58,7 +60,7 @@ class TensorBoard(tracking.Tracker):
                 pass
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, _: log_events.StopExperiment) -> None:
         if self.writer:
             self.writer.close()
             self.writer = None
@@ -73,7 +75,7 @@ class TensorBoard(tracking.Tracker):
             full_name = f'{event.model_name:s}/{event.source:s}-{name}'
             self.writer.add_scalar(full_name, value, global_step=event.epoch)
 
-    def get_last_run(self) -> Optional[pathlib.Path]:
+    def _get_last_run(self) -> Optional[pathlib.Path]:
 
         if not self.par_dir.exists():
             return None

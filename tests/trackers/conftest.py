@@ -120,7 +120,8 @@ def load_model_event() -> log_events.LoadModel:
 def start_training_event() -> log_events.StartTraining:
     """Provides a StartTraining event instance."""
     return log_events.StartTraining(
-        model_name="test_model",
+        source='test_source',
+        model_name='test_model',
         start_epoch=0,
         end_epoch=100
     )
@@ -129,16 +130,18 @@ def start_training_event() -> log_events.StartTraining:
 @pytest.fixture
 def start_epoch_event() -> log_events.StartEpoch:
     """Provides a StartEpoch event instance."""
-    return log_events.StartEpoch(
-        epoch=5,
-        final_epoch=100
-    )
+    return log_events.StartEpoch(source='test_source',
+                                 model_name='test_model',
+                                 start_epoch=5,
+                                 end_epoch=100)
 
 
 @pytest.fixture
 def end_epoch_event() -> log_events.EndEpoch:
     """Provides an EndEpoch event instance."""
-    return log_events.EndEpoch()
+    return log_events.EndEpoch(source='test_source',
+                               model_name='test_model',
+                               end_epoch=100)
 
 
 @pytest.fixture
@@ -167,16 +170,16 @@ def terminated_training_event() -> log_events.TerminatedTraining:
 @pytest.fixture
 def end_training_event() -> log_events.EndTraining:
     """Provides an EndTraining event instance."""
-    return log_events.EndTraining()
+    return log_events.EndTraining(source='test_source')
 
 
 @pytest.fixture
 def test_event() -> log_events.Test:
     """Provides a Test event instance."""
-    return log_events.Test(
-        model_name="test_model",
-        test_name="validation_test"
-    )
+    return log_events.Test(source='test_Test',
+                           model_name='test_model',
+                           test_name='my_test'
+                           )
 
 
 @pytest.fixture

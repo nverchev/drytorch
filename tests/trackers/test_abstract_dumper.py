@@ -2,7 +2,7 @@
 
 import pytest
 
-from dry_torch.trackers.abstract_dumper import AbstractDumper
+from dry_torch.trackers.base_classes import AbstractDumper
 
 
 class TestAbstractDumper:

@@ -12,8 +12,14 @@ from dry_torch import log_events
 from dry_torch import tracking
 from dry_torch import exceptions
 
+
 class Wandb(tracking.Tracker):
-    """Tracker for wandb library."""
+    """
+    Tracker for the wandb library.
+    
+    Attributes:
+        resume_run: resume previous run from the project.
+    """
 
     def __init__(
             self,
@@ -26,9 +32,16 @@ class Wandb(tracking.Tracker):
             resume_previous_run: resume previous run from the project.
         """
         super().__init__()
-        self.settings = settings
-        self.resume_previous_run = resume_previous_run
-        self.run: wandb_run.Run | None = None
+        self.resume_run = resume_previous_run
+        self._settings = settings
+        self._run: wandb_run.Run | None = None
+
+    @property
+    def run(self) -> wandb_run.Run:
+        """Wandb run."""
+        if self._run is None:
+            exceptions.AccessOutsideScopeError()
+        return self._run
 
     @override
     @functools.singledispatchmethod
@@ -38,24 +51,24 @@ class Wandb(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         # prioritize settings
-        project = self.settings.project or format(event.exp_name, 's')
-        root_dir = self.settings.root_dir or event.exp_dir
-        run_id: Optional[str] = self.settings.run_id
-        if self.resume_previous_run:
+        project = self._settings.project or format(event.exp_name, 's')
+        root_dir = self._settings.root_dir or event.exp_dir
+        run_id: Optional[str] = self._settings.run_id
+        if self.resume_run:
             runs = wandb.Api().runs(project)
             run_id = runs[len(runs) - 1].id
 
-        self.run = wandb.init(id=run_id,
-                              dir=root_dir,
-                              project=project,
-                              config=event.config,
-                              settings=self.settings,
-                              resume='allow')
+        self._run = wandb.init(id=run_id,
+                               dir=root_dir,
+                               project=project,
+                               config=event.config,
+                               settings=self._settings,
+                               resume='allow')
 
     @notify.register
     def _(self, _: log_events.StopExperiment) -> None:
         wandb.finish()
-        self.run = None
+        self._run = None
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:

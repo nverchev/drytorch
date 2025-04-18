@@ -197,7 +197,7 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartEpoch) -> None:
-        final_epoch = event.final_epoch
+        final_epoch = event.end_epoch
         if final_epoch is not None:
             final_epoch_str = str(final_epoch)
             fix_len = len(final_epoch_str)
@@ -205,11 +205,11 @@ class BuiltinLogger(tracking.Tracker):
         else:
             fix_len = 1
             final_epoch_str = ''
-        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch_str)s:'
+        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch)s:'
 
         logger.log(INFO_LEVELS.epoch,
                    epoch_msg,
-                   {'epoch': event.epoch, 'final_epoch_str': final_epoch_str})
+                   {'epoch': event.start_epoch, 'final_epoch': final_epoch_str})
         return
 
     @notify.register

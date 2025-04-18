@@ -12,8 +12,8 @@ import sqlalchemy
 from sqlalchemy import orm
 
 from dry_torch import log_events
-from dry_torch import tracking
 from dry_torch import exceptions
+from dry_torch.trackers import base_classes
 
 
 class Base(orm.DeclarativeBase):
@@ -144,7 +144,7 @@ class Log(orm.MappedAsDataclass, Base):
     )
 
 
-class SQLConnection(tracking.Tracker):
+class SQLConnection(base_classes.MetricLoader):
     """
     Tracker that creates a connection to a SQL databases using sqlalchemy.
 
@@ -155,7 +155,6 @@ class SQLConnection(tracking.Tracker):
         engine: the sqlalchemy Engine for the connection.
         Session: the Session class to initiate a sqlalchemy session.
         resume_run: resume the previous run instead of create a new one.
-
     """
     default_url = sqlalchemy.URL.create('sqlite', database='metrics.db')
 
@@ -260,12 +259,10 @@ class SQLConnection(tracking.Tracker):
                 values.append(log.value)
             return epochs, named_metric_values
 
-    def _find_run_sources(self,
-                          model_name: str,
-                          run: Run) -> dict[str, list[Source]]:
+    def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
         with self.Session() as session:
             query = session.query(Source).where(
-                Source.run_id.is_(run.run_id),
+                Source.run_id.is_(self.run.run_id),
                 Source.model_name_short.is_(model_name),
             )
             named_sources = dict[str, list[Source]]()
@@ -286,26 +283,11 @@ class SQLConnection(tracking.Tracker):
             ).order_by(Run.run_id.desc()).limit(1)
             return session.scalars(query).first()
 
-    def load_metrics(
-            self,
-            model_name: str,
-            max_epoch: Optional[int] = None,
-    ) -> dict[str, tuple[list[int], dict[str, list[float]]]]:
-        """
-        Loads metrics from the CSV file.
-
-        Args:
-            model_name: name of the model.
-            max_epoch: maximum number of epochs to load. Defaults to all.
-
-        Returns:
-            current epochs and named metric values by source.
-
-        Raises:
-            RuntimeError if called outside the experiment scope.
-        """
+    def _load_metrics(self,
+                      model_name: str,
+                      max_epoch: int = -1) -> dict[str, base_classes.LogTuple]:
         model_name_short = format(model_name, 's')
-        last_sources = self._find_run_sources(model_name_short, self.run)
+        last_sources = self._find_sources(model_name_short, )
         out = dict[str, tuple[list[int], dict[str, list[float]]]]()
         for source_name, run_sources in last_sources.items():
             out[source_name] = self._get_run_metrics(run_sources,
