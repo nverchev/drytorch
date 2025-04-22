@@ -68,18 +68,16 @@ class TestMetadataManager:
         self.max_items_repr = 10
         self.manager = MetadataManager(max_items_repr=self.max_items_repr)
 
-    def test_record_model_call(self, mocker) -> None:
+    def test_record_model_call(self, mocker, mock_model) -> None:
         """Test recording metadata creates the event."""
         mock_obj = mocker.Mock()
-        mock_model_name = 'test_model'
-        mock_name = 'test_caller'
-
+        mock_obj.name = 'mock obj'
         mock_log_event = mocker.patch('dry_torch.log_events.CallModel')
-        self.manager.record_model_call(mock_name, mock_model_name, mock_obj)
-        assert mock_name in self.manager.used_names
+        self.manager.record_model_call(mock_obj, mock_model)
+        assert mock_obj.name in self.manager.used_names
         mock_log_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
-            self.manager.record_model_call(mock_name, mock_model_name, mock_obj)
+            self.manager.record_model_call(mock_obj, mock_model)
 
     def test_register_model(self, mocker, mock_model) -> None:
         """Test registering a model creates the event."""
@@ -182,6 +180,7 @@ class TestExperiment:
         with self.experiment:
             path = self.par_dir / format(self.name, 's')
             mock_event_start.assert_called_once_with(self.experiment.name,
+                                                     self.experiment.created_at,
                                                      path,
                                                      None)
         mock_event_stop.assert_called_once_with(self.experiment.name)

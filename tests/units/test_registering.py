@@ -19,9 +19,8 @@ def test_record_model_call(mock_experiment, mock_model) -> None:
     ALL_MODULES[mock_model.module] = mock_experiment
     record_model_call(caller, mock_model)
 
-    manager.record_model_call.assert_called_once_with(caller.name,
-                                                      mock_model.name,
-                                                      caller)
+    manager.record_model_call.assert_called_once_with(caller,
+                                                      mock_model)
 
 
 def test_register_model(mock_experiment, mock_model) -> None:

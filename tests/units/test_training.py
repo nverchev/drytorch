@@ -50,7 +50,7 @@ class TestTrainer:
         self.trainer.train(2)
 
         self.start_training_event.assert_called_once_with(
-            source=self.trainer.name,
+            source_name=self.trainer.name,
             model_name=self.trainer.model.name,
             start_epoch=self.trainer.model.epoch,
             end_epoch=self.trainer.model.epoch + 2)
