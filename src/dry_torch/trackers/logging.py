@@ -187,7 +187,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartTraining) -> None:
         logger.log(INFO_LEVELS.training,
                    'Training %(model_name)s started.',
-                   {'model_name': format(event.model_name, 's')})
+                   {'model_name': event.model_name})
         return
 
     @notify.register
@@ -209,14 +209,14 @@ class BuiltinLogger(tracking.Tracker):
 
         logger.log(INFO_LEVELS.epoch,
                    epoch_msg,
-                   {'epoch': event.start_epoch, 'final_epoch': final_epoch_str})
+                   {'epoch': event.epoch, 'final_epoch': final_epoch_str})
         return
 
     @notify.register
     def _(self, event: log_events.SaveModel) -> None:
         logger.log(INFO_LEVELS.checkpoint,
                    f'Saving %(name)s %(definition)s in: %(location)s.',
-                   {'name': format(event.model_name, 's'),
+                   {'name': event.model_name,
                     'definition': event.definition.capitalize(),
                     'location': event.location}
                    )
@@ -226,7 +226,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.LoadModel) -> None:
         logger.log(INFO_LEVELS.checkpoint,
                    f'Loading %(name)s %(definition)s at epoch %(epoch)d.',
-                   {'name': format(event.model_name, 's'),
+                   {'name': event.model_name,
                     'definition': event.definition.capitalize(),
                     'epoch': event.epoch}
                    )
@@ -235,7 +235,7 @@ class BuiltinLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
         log_msg_list: list[str] = ['%(desc)s']
-        desc = format(event.source, 's').rjust(15) + ': '
+        desc = event.source_name.rjust(15) + ': '
         log_args: dict[str, str | float] = {'desc': desc}
         for metric, value in event.metrics.items():
             log_msg_list.append(f'%({metric})s=%({metric}_value)4e')
@@ -249,7 +249,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.Test) -> None:
         logger.log(INFO_LEVELS.test,
                    'Testing %(model_name)s started.',
-                   {'model_name': format(event.model_name, 's')})
+                   {'model_name': event.model_name})
         return
 
     @notify.register
@@ -259,8 +259,8 @@ class BuiltinLogger(tracking.Tracker):
             '%(source)s: Training %(model_name)s terminated at epoch %(epoch)d',
             'Reason: %(reason)s',
         ])
-        log_args = {'source': format(event.source, 's'),
-                    'model_name': format(event.model_name, 's'),
+        log_args = {'source': event.source_name,
+                    'model_name': event.model_name,
                     'reason': event.reason,
                     'epoch': event.epoch}
         logger.log(INFO_LEVELS.training, msg, log_args)
@@ -270,14 +270,14 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
-                   {'name': format(event.exp_name, 's')})
+                   {'name': event.exp_name})
         return
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
         logger.log(INFO_LEVELS.internal,
                    'Experiment: %(name)s stopped.',
-                   {'name': format(event.exp_name, 's')})
+                   {'name': event.exp_name})
         return
 
     @notify.register
@@ -293,8 +293,8 @@ class BuiltinLogger(tracking.Tracker):
 
         msg = '.\n'.join(message_parts) + '.'
 
-        log_args = {'source': event.source,
-                    'model_name': format(event.model_name, 's'),
+        log_args = {'source': event.source_name,
+                    'model_name': event.model_name,
                     'epoch': event.epoch,
                     'learning_rate': event.base_lr,
                     'scheduler_name': event.scheduler_name}

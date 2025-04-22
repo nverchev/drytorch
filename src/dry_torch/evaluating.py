@@ -24,7 +24,11 @@ _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
+class Versioned(repr_utils.Versioned):
+    pass
+
+
+class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
     """
     Abstract class for evaluating a model on a given dataset.
 
@@ -34,6 +38,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
     testing of the model.
 
     Attributes:
+        created_at: timestamp at creation.
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
@@ -63,6 +68,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
             mixed_precision: whether to use mixed precision computing.
                 Defaults to False.
         """
+        super().__init__()
         self.model = model
         self._name = name
         self.loader = loader
@@ -101,7 +107,7 @@ class Evaluation(p.EvaluationProtocol[_Input, _Target, _Output]):
 
     def _log_metrics(self, computed_metrics: Mapping[str, Any]) -> None:
         log_events.Metrics(model_name=self.model.name,
-                           source=self.name,
+                           source_name=self.name,
                            epoch=self.model.epoch,
                            metrics=computed_metrics)
         return
@@ -211,6 +217,6 @@ class Test(Diagnostic[_Input, _Target, _Output]):
         Args:
             store_outputs: whether to store model outputs. Defaults to False
         """
-        log_events.Test(self.name, self.model.name, self.name)
+        log_events.Test(self.name, self.model.name)
         super().__call__(store_outputs)
         return

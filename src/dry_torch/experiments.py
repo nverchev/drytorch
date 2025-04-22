@@ -17,11 +17,12 @@ _T = TypeVar('_T', covariant=True)
 _U = TypeVar('_U', covariant=True)
 
 
-class Experiment(Generic[_T]):
+class Experiment(repr_utils.Versioned, Generic[_T]):
     """
     Manages experiment metadata, configuration, and tracking.
 
     Attributes:
+        created_at: timestamp at creation.
         dir: The directory for storing experiment files.
         config: Configuration object for the experiment.
         metadata_manager: Manager for recording metadata.
@@ -43,8 +44,9 @@ class Experiment(Generic[_T]):
             par_dir: Parent directory for experiment data.
             config: Configuration for the experiment.
         """
+        super().__init__()
         self._name = name
-        self.dir = pathlib.Path(par_dir) / format(self.name, 's')
+        self.dir = pathlib.Path(par_dir) / self.name
         self.config = config
         self.metadata_manager = tracking.MetadataManager()
         self.trackers = tracking.EventDispatcher(self.name)
@@ -60,7 +62,10 @@ class Experiment(Generic[_T]):
         Experiment._current = self
         self.__class__._current_config = self.config
         log_events.Event.set_auto_publish(self.trackers.publish)
-        log_events.StartExperiment(self.name, self.dir, self.config)
+        log_events.StartExperiment(self.name,
+                                   self.created_at,
+                                   self.dir,
+                                   self.config)
         return self
 
     def __exit__(self,
@@ -178,7 +183,7 @@ class ParentExperiment(Experiment[_T], Generic[_T, _U]):
                 child.trackers.register(tracker)
             except exceptions.TrackerAlreadyRegisteredError:
                 pass
-        child.dir = self.dir / format(child.name, 's')
+        child.dir = self.dir / child.name
         self.children.append(child)
         child.parent = self
         return

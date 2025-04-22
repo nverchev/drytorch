@@ -51,7 +51,7 @@ class Wandb(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         # prioritize settings
-        project = self._settings.project or format(event.exp_name, 's')
+        project = self._settings.project or event.exp_name
         root_dir = self._settings.root_dir or event.exp_dir
         run_id: Optional[str] = self._settings.run_id
         if self.resume_run:
@@ -74,7 +74,7 @@ class Wandb(tracking.Tracker):
     def _(self, event: log_events.Metrics) -> None:
         if self.run is None:
             raise exceptions.AccessOutsideScopeError()
-        plot_names = {f'{event.model_name:s}/{event.source:s}-{name}': value
+        plot_names = {f'{event.model_name}/{event.source_name}-{name}': value
                       for name, value in event.metrics.items()}
         self.run.log(plot_names, step=event.epoch)
         return

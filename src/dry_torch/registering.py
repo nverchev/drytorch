@@ -16,22 +16,20 @@ from torch import nn
 from dry_torch import exceptions
 from dry_torch import experiments
 from dry_torch import protocols as p
-from dry_torch import repr_utils
 
 ALL_MODULES = dict[nn.Module, experiments.Experiment]()
 
 
-def record_model_call(x: Any, model: p.ModelProtocol) -> None:
+def record_model_call(source: Any, model: p.ModelProtocol) -> None:
     """
     Records metadata in the current experiment.
 
     Args:
-        x: The object to document.
+        source: The object to document.
         model: The model that the object calls.
     """
     exp = experiments.Experiment.current()
-    name = getattr(x, 'name', '') or repr_utils.StrWithTS(x.__class__.__name__)
-    exp.metadata_manager.record_model_call(name, model.name, x)
+    exp.metadata_manager.record_model_call(source, model)
     module = model.module
     if module in ALL_MODULES:
         model_exp = ALL_MODULES[module]

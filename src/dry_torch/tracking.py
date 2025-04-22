@@ -40,18 +40,25 @@ class MetadataManager:
         self.used_names = set[str]()
         self.max_items_repr = max_items_repr
 
-    def record_model_call(self, name: str, model_name: str, obj: Any) -> None:
+    def record_model_call(self, source: Any, model: p.ModelProtocol) -> None:
         """
-        Records metadata of a given named object.
+        Records metadata of an object that calls the model.
 
         Args:
-            name: The name associated to the object.
-            model_name: The name of the model linked to the object.
-            obj: The object to document.
+            source: the object calling the model.
+            model: the model that is called.
         """
-        self._register_name(name)
-        metadata = self.extract_metadata(obj, max_size=self.max_items_repr)
-        log_events.CallModel(name, model_name, metadata)
+
+        source_name = getattr(source, 'name', '') or source.__class__.__name__
+        source_version = self._get_version(source)
+        model_version = self._get_version(model)
+        self._register_name(source_name)
+        metadata = self.extract_metadata(source, max_size=self.max_items_repr)
+        log_events.CallModel(source_name,
+                             source_version,
+                             model.name,
+                             model_version,
+                             metadata)
         return
 
     def register_model(self, model: p.ModelProtocol) -> None:
@@ -63,7 +70,8 @@ class MetadataManager:
         """
         self._register_name(model.name)
         metadata = {'module': repr_utils.LiteralStr(repr(model.module))}
-        log_events.ModelCreation(model.name, metadata)
+        model_version = self._get_version(model)
+        log_events.ModelCreation(model.name, model_version, metadata)
         return
 
     def _register_name(self, name: str) -> None:
@@ -87,6 +95,10 @@ class MetadataManager:
             warnings.warn(exceptions.RecursionWarning())
             metadata = {}
         return metadata
+
+    @staticmethod
+    def _get_version(x: Any) -> str:
+        return getattr(x, 'created_at', '') or repr_utils.Versioned().created_at
 
 
 class Tracker(metaclass=abc.ABCMeta):

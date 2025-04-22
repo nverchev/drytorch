@@ -42,7 +42,7 @@ class CSVDumper(base_classes.AbstractDumper,
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
-        self._active_run = False
+        self._active_sources = set[str]()
         self._dialect = dialect
         self._exp_dir: Optional[pathlib.Path] = None
 
@@ -53,16 +53,27 @@ class CSVDumper(base_classes.AbstractDumper,
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
-        self._active_run = True
-        model_name = format(event.model_name, 's')
-        source_name = format(event.source, 's')
-        file_address = self.file_name(model_name, source_name)
+        file_address = self.file_name(event.model_name, event.source_name)
+        metric_names = tuple(event.metrics)
+        headers = ('Model', 'Source', 'Epoch', *metric_names)
+        if event.source_name not in self._active_sources:
+            if self.resume_run:
+                with file_address.open() as log:
+                    reader = csv.reader(log, dialect=self._dialect)
+                    previous_headers = tuple(next(reader))
+                    if headers != previous_headers:
+                        msg = (f'Current {headers=} and previous headers='
+                               f'{previous_headers} do not correspond')
+                        raise exceptions.TrackerException(self, msg)
+            else:
+                with file_address.open('w') as log:  # reset the file.
+                    writer = csv.writer(log, dialect=self._dialect)
+                    writer.writerow(headers)
+            self._active_sources.add(event.source_name)
         with file_address.open('a') as log:
             writer = csv.writer(log, dialect=self._dialect)
-            if not log.tell():
-                writer.writerow(['Model', 'Source', 'Epoch', *event.metrics])
             writer.writerow([event.model_name,
-                             event.source,
+                             event.source_name,
                              event.epoch,
                              *event.metrics.values()])
         return
@@ -134,9 +145,13 @@ class CSVDumper(base_classes.AbstractDumper,
                       max_epoch: int = -1) -> dict[str, base_classes.LogTuple]:
 
         out = dict[str, tuple[list[int], dict[str, list[float]]]]()
-        if self._active_run or self.resume_run:
-            model_name = format(model_name, 's')
+        if self._active_sources:
+            sources = self._active_sources
+        elif self.resume_run:
+            model_name = model_name
             sources = self._find_sources(model_name)
-            for source in sources:
-                out[source] = self.read_csv(model_name, source, max_epoch)
+        else:
+            sources = set()
+        for source in sources:
+            out[source] = self.read_csv(model_name, source, max_epoch)
         return out

@@ -141,7 +141,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
     def terminate_training(self, reason: str) -> None:
         """Prevent the trainer from continue the training."""
         self._terminated = True
-        log_events.TerminatedTraining(source=self.name,
+        log_events.TerminatedTraining(source_name=self.name,
                                       model_name=self.model.name,
                                       epoch=self.model.epoch,
                                       reason=reason)
@@ -158,21 +158,21 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             warnings.warn(exceptions.TerminatedTrainingWarning())
             return
         final_epoch = self.model.epoch + num_epochs
-        log_events.StartTraining(source=self.name,
+        log_events.StartTraining(source_name=self.name,
                                  model_name=self.model.name,
                                  start_epoch=self.model.epoch,
                                  end_epoch=final_epoch)
         for _ in range(num_epochs):
-            log_events.StartEpoch(source=self.name,
+            log_events.StartEpoch(source_name=self.name,
                                   model_name=self.model.name,
-                                  start_epoch=self.model.epoch + 1,
+                                  epoch=self.model.epoch + 1,
                                   end_epoch=final_epoch)
             self.pre_epoch_hooks.execute(self)
             self.__call__()
             self.post_epoch_hooks.execute(self)
-            log_events.EndEpoch(source=self.name,
+            log_events.EndEpoch(source_name=self.name,
                                 model_name=self.model.name,
-                                end_epoch=final_epoch)
+                                epoch=final_epoch)
             if self.terminated:
                 break
         log_events.EndTraining(self.name)
@@ -210,7 +210,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         """
         scheduler_name = None if scheduler is None else repr(scheduler)
         log_events.UpdateLearningRate(model_name=self.model.name,
-                                      source=self.name,
+                                      source_name=self.name,
                                       epoch=self.model.epoch,
                                       base_lr=base_lr,
                                       scheduler_name=scheduler_name)

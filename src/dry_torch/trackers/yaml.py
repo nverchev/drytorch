@@ -39,25 +39,31 @@ class YamlDumper(base_classes.AbstractDumper):
 
     @notify.register
     def _(self, event: log_events.ModelCreation) -> None:
-        model_name = event.model_name
-        self._version(event.metadata, format(model_name, 's'), model_name)
+        self._version(event.metadata,
+                      event.model_name,
+                      event.model_name,
+                      event.model_version)
         return
 
     @notify.register
     def _(self, event: log_events.CallModel) -> None:
         model_name = event.model_name
-        self._version(event.metadata, format(model_name, 's'), event.name)
+        self._version(event.metadata,
+                      model_name,
+                      event.source_name,
+                      event.source_version)
         return
 
     def _version(self,
                  metadata: dict[str, Any],
                  sub_folder: str,
-                 file_name: str) -> None:
+                 file_name: str,
+                 file_version: str) -> None:
         directory = self.par_dir / sub_folder / self.metadata_folder
-        archive_directory = directory / self.archive_folder
+        archive_directory = directory / self.archive_folder / file_name
         archive_directory.mkdir(exist_ok=True, parents=True)
-        self._dump(metadata, directory / format(file_name, 's'))
-        self._dump(metadata, archive_directory / file_name)
+        self._dump(metadata, directory / file_name)
+        self._dump(metadata, archive_directory / file_version)
         return
 
     @staticmethod
@@ -89,12 +95,6 @@ def represent_literal_str(dumper: yaml.Dumper,
                                    style='|')
 
 
-def represent_str_with_ts(dumper: yaml.Dumper,
-                          str_with_ts: repr_utils.StrWithTS) -> yaml.Node:
-    """YAML representer for strings with timestamps."""
-    return dumper.represent_scalar('tag:yaml.org,2002:str', str_with_ts)
-
-
 def represent_sequence(
         dumper: yaml.Dumper,
         sequence: Sequence,
@@ -118,7 +118,6 @@ def represent_omitted(dumper: yaml.Dumper,
 
 
 yaml.add_representer(repr_utils.LiteralStr, represent_literal_str)
-yaml.add_representer(repr_utils.StrWithTS, represent_str_with_ts)
 yaml.add_representer(list, represent_sequence)
 yaml.add_representer(tuple, represent_sequence)
 yaml.add_representer(set, represent_sequence)

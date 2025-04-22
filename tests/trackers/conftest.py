@@ -132,7 +132,7 @@ def start_epoch_event() -> log_events.StartEpoch:
     """Provides a StartEpoch event instance."""
     return log_events.StartEpoch(source='test_source',
                                  model_name='test_model',
-                                 start_epoch=5,
+                                 epoch=5,
                                  end_epoch=100)
 
 
@@ -141,7 +141,7 @@ def end_epoch_event() -> log_events.EndEpoch:
     """Provides an EndEpoch event instance."""
     return log_events.EndEpoch(source='test_source',
                                model_name='test_model',
-                               end_epoch=100)
+                               epoch=100)
 
 
 @pytest.fixture

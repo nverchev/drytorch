@@ -33,11 +33,13 @@ class StartExperiment(Event):
     Event logged when an experiment starts.
 
     Attributes:
-        exp_name: The name of the experiment.
-        exp_dir: The directory where the experiment is stored.
-        config: Configuration for the experiment.
+        exp_name: the name of the experiment.
+        exp_version: the version of the experiment.
+        exp_dir: the directory where the experiment is stored.
+        config: configuration for the experiment.
     """
     exp_name: str
+    exp_version: str
     exp_dir: pathlib.Path
     config: Any = None
 
@@ -48,7 +50,7 @@ class StopExperiment(Event):
     Event logged when an experiment stops.
 
     Attributes:
-        exp_name: The name of the experiment.
+        exp_name: the name of the experiment.
     """
     exp_name: str
 
@@ -59,10 +61,12 @@ class ModelCreation(Event):
     Event logged when a model is created.
 
     Attributes:
-        model_name: The name of the model.
+        model_name: the name of the model.
+        model_version: the version of the model.
         metadata: Additional metadata about the model.
     """
     model_name: str
+    model_version: str
     metadata: dict[str, Any]
 
 
@@ -72,12 +76,16 @@ class CallModel(Event):
     Event logged when a model is called by another class (caller).
 
     Attributes:
-        name: The name of the caller.
-        model_name: The name of the model that was called.
-        metadata: Additional metadata about the caller.
+        source_name: the name of the caller.
+        source_version: the version of the caller.
+        model_name: the name of the model that was called.
+        model_version: the version of the model called.
+        metadata: additional metadata about the caller.
     """
-    name: str
+    source_name: str
+    source_version: str
     model_name: str
+    model_version: str
     metadata: dict[str, Any]
 
 
@@ -87,10 +95,10 @@ class SaveModel(Event):
     Event logged when a checkpoint is saved.
 
     Attributes:
-        model_name: The name of the model.
-        definition: Specifies what was saved.
-        location: The location where the model is saved.
-        epoch: The epoch at which the model was saved.
+        model_name: the name of the model.
+        definition: specifies what was saved.
+        location: the location where the model is saved.
+        epoch: the epoch at which the model was saved.
     """
     model_name: str
     definition: str
@@ -103,10 +111,10 @@ class LoadModel(Event):
     """Event logged when a model is loaded.
 
     Attributes:
-        model_name: The name of the model.
-        definition: Specifies what was is loaded.
-        location: The location where the model is loaded from.
-        epoch: The epoch at which the model was loaded.
+        model_name: the name of the model.
+        definition: specifies what was is loaded.
+        location: the location where the model is loaded from.
+        epoch: the epoch at which the model was loaded.
     """
     model_name: str
     definition: str
@@ -120,12 +128,12 @@ class StartTraining(Event):
     Event logged when training starts.
 
     Attributes:
-        source: The object training the model.
-        model_name: The name of the model.
-        start_epoch: The starting epoch of the training.
-        end_epoch: The ending epoch of the training.
+        source_name: the object training the model.
+        model_name: the name of the model.
+        start_epoch: the starting epoch of the training.
+        end_epoch: the ending epoch of the training.
     """
-    source: str
+    source_name: str
     model_name: str
     start_epoch: int
     end_epoch: int
@@ -137,14 +145,14 @@ class StartEpoch(Event):
     Event logged when an epoch starts.
 
     Attributes:
-        source: The object training the model.
-        model_name: The name of the model.
-        start_epoch: The epoch number.
-        end_epoch: The final epoch number for the current training session.
+        source_name: the name of object training the model.
+        model_name: the name of the model.
+        epoch: the epoch number.
+        end_epoch: the final epoch number for the current training session.
     """
-    source: str
+    source_name: str
     model_name: str
-    start_epoch: int
+    epoch: int
     end_epoch: Optional[int] = None
 
 
@@ -154,13 +162,13 @@ class EndEpoch(Event):
     Event logged when an epoch ends.
 
     Attributes
-        source: The object training the model.
-        model_name: The name of the model.
-        end_epoch: The ending epoch of the training.
+        source_name: the name of object training the model.
+        model_name: the name of the model.
+        epoch: the epoch that was trained.
     """
-    source: str
+    source_name: str
     model_name: str
-    end_epoch: int
+    epoch: int
 
 
 @dataclasses.dataclass
@@ -169,13 +177,13 @@ class IterateBatch(Event):
     Event logged to create during batch iteration.
 
     Attributes:
-        source: The object calling the iteration.
-        batch_size: The size of the mini-batch.
-        num_iter: The number of iterations planned.
-        dataset_size: The size of the dataset.
+        source_name: the object calling the iteration.
+        batch_size: the size of the mini-batch.
+        num_iter: the number of iterations planned.
+        dataset_size: the size of the dataset.
         push_updates: callbacks from loggers that require push updates.
     """
-    source: str
+    source_name: str
     batch_size: int | None
     num_iter: int
     dataset_size: int
@@ -188,7 +196,7 @@ class IterateBatch(Event):
         Push the updated metrics to the loggers.
 
         Args:
-            metrics: Mapping from the metric names to the calculated values.
+            metrics: calculated values by metric name.
         """
         for update in self.push_updates:
             update(metrics)
@@ -201,12 +209,12 @@ class TerminatedTraining(Event):
     Event logged when training is terminated.
 
     Attributes:
-        source: The object calling the termination.
-        model_name: The name of the model.
-        epoch: The epoch at which training was terminated.
-        reason: The cause of the termination.
+        source_name: the name object calling the termination.
+        model_name: the name of the model.
+        epoch: the epoch at which training was terminated.
+        reason: the cause of the termination.
     """
-    source: str
+    source_name: str
     model_name: str
     epoch: int
     reason: str
@@ -218,9 +226,9 @@ class EndTraining(Event):
     Event logged when training ends.
 
     Attributes:
-        source: The object training the model.
+        source_name: The name of the object training the model.
     """
-    source: str
+    source_name: str
     pass
 
 
@@ -230,13 +238,11 @@ class Test(Event):
     Event logged when a test is performed.
 
     Attributes:
-        source: The object calling the test.
-        model_name: The name of the model.
-        test_name: The name of the test.
+        source_name: the name of object calling the test.
+        model_name: the name of the model.
     """
-    source: str
+    source_name: str
     model_name: str
-    test_name: str
 
 
 @dataclasses.dataclass
@@ -245,13 +251,13 @@ class Metrics(Event):
     Event logged when metrics from the dataset are aggregated.
 
     Attributes:
-        model_name: The name of the model.
-        source: The name of the object that computed the metrics.
-        epoch: The number of epoch the model was trained.
-        metrics: The aggregated metrics.
+        model_name: the name of the model.
+        source_name: the name of the object that computed the metrics.
+        epoch: the number of epoch the model was trained.
+        metrics: the aggregated metrics.
     """
     model_name: str
-    source: str
+    source_name: str
     epoch: int
     metrics: Mapping[str, float]
 
@@ -262,29 +268,14 @@ class UpdateLearningRate(Event):
     Event logged when the learning rate is updated.
 
     Attributes:
-        model_name: The name of the model.
-        source: The name of the object that computed the metrics.
-        epoch: The number of epoch the model was trained.
-        base_lr: New value(s) for the learning rate(s).
-        scheduler_name: The representation of the scheduler.
+        model_name: the name of the model.
+        source_name: the name of the object that computed the metrics.
+        epoch: the number of epoch the model was trained.
+        base_lr: new value(s) for the learning rate(s).
+        scheduler_name: the representation of the scheduler.
     """
     model_name: str
-    source: str
+    source_name: str
     epoch: int
     base_lr: Optional[Mapping[str, float] | float] = None
     scheduler_name: Optional[str] = None
-
-
-@dataclasses.dataclass
-class PlotMetric(Event):
-    """
-    Event logged when the learning rate is updated.
-
-    Attributes:
-        model_name: The name of the model that produced the metrics.
-        metric_name: The name of the metric to plot.
-        start_epoch: The number of epoch from which to start the plot.
-    """
-    model_name: str
-    metric_name: str
-    start_epoch: int

@@ -16,19 +16,18 @@ import numpy as np
 import torch
 
 
-class StrWithTS(str):
-    """A string that adds a timestamp."""
+class Versioned:
+    """Mixin saving instantiation timestamp."""
     ts_fmt = '%Y-%m-%dT%H:%M:%S'
-    len_ts = 20  # len('.2017-01-12T14:12:06')
 
-    def __new__(cls, str_: str) -> StrWithTS:
-        str_with_timestamp = f'{str_}.{datetime.datetime.now():{cls.ts_fmt}}'
-        return cast(StrWithTS, super().__new__(cls, str_with_timestamp))
+    def __init__(self, *args, **kwargs) -> None:
+        self._created_at = datetime.datetime.now().strftime(self.ts_fmt)
+        super().__init__(*args, **kwargs)
 
-    def __format__(self, format_spec: str) -> str:
-        if format_spec is None:
-            return super().__format__('s')
-        return self[:-self.len_ts].__format__('s')
+    @property
+    def created_at(self) -> str:
+        """Read only timestamp."""
+        return self._created_at
 
 
 class DefaultName:
@@ -49,7 +48,7 @@ class DefaultName:
         count_iter = self._prefixes.setdefault(value, itertools.count())
         if count_value := next(count_iter):
             value = f'{value}_{count_value}'
-        instance.__name = StrWithTS(value)
+        instance.__name = value
         return
 
 

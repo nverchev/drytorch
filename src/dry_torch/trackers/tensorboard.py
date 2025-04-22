@@ -72,7 +72,7 @@ class TensorBoard(tracking.Tracker):
 
         # Log scalar metrics
         for name, value in event.metrics.items():
-            full_name = f'{event.model_name:s}/{event.source:s}-{name}'
+            full_name = f'{event.model_name}/{event.source_name}-{name}'
             self.writer.add_scalar(full_name, value, global_step=event.epoch)
 
     def _get_last_run(self) -> Optional[pathlib.Path]:

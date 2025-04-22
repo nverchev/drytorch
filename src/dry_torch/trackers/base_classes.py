@@ -107,10 +107,8 @@ class MemoryMetrics(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
-        model_name = format(event.model_name, 's')
-        event_source = format(event.source, 's')
-        source_dict = self.model_metrics.setdefault(model_name, {})
-        epochs, logs_dict = source_dict.setdefault(event_source, ([], {}))
+        source_dict = self.model_metrics.setdefault(event.model_name, {})
+        epochs, logs_dict = source_dict.setdefault(event.source_name, ([], {}))
         epochs.append(event.epoch)
         for metric_name, metric_value in event.metrics.items():
             logs_dict.setdefault(metric_name, []).append(metric_value)
@@ -146,9 +144,10 @@ class BasePlotter(MemoryMetrics):
             its entirety.
         """
         super().__init__(metric_loader)
-        self.model_names = model_names
-        self.metric_names = metric_names
-        self.start = start_epoch
+        self._model_names = model_names
+        self._metric_names = metric_names
+        self._start = start_epoch
+        self._removed_start = False
 
     @override
     @functools.singledispatchmethod
@@ -158,25 +157,25 @@ class BasePlotter(MemoryMetrics):
     @notify.register
     def _(self, event: log_events.EndEpoch) -> None:
         super().notify(event)
-        model_name = format(event.model_name, 's')
-        if self.model_names and model_name not in self.model_names:
+        if self._model_names and event.model_name not in self._model_names:
             return
-        source_dict = self.model_metrics.get(model_name, {})
-        start = 1 if self.start < 2 * event.epoch else self.start
+        source_dict = self.model_metrics.get(event.model_name, {})
+        if event.epoch >= 2 * self._start and self._removed_start:
+            source_dict = self._remove_start(source_dict, self._start)
+            self._removed_start = True
+
         if source_dict:
-            if self.metric_names:
-                metric_names: Iterable[str] = self.metric_names
+            if self._metric_names:
+                metric_names: Iterable[str] = self._metric_names
             else:
                 all_metrics = (list(logs[1]) for logs in source_dict.values())
                 metric_names = sum(all_metrics, [])
 
             for metric_name in metric_names:
-                filtered_sources = self._filter_epochs_and_metrics(
-                    source_dict,
-                    metric_name=metric_name,
-                    start=start
-                )
-                self._plot_metric(model_name, metric_name, **filtered_sources)
+                filtered_sources = self._filter_metric(source_dict, metric_name)
+                self._plot_metric(event.model_name,
+                                  metric_name,
+                                  **filtered_sources)
         return
 
     def plot(self,
@@ -193,27 +192,25 @@ class BasePlotter(MemoryMetrics):
             metric_names: the metric to plot. Defaults to all.
             start: the epoch from which to start plotting. Defaults to 1.
         """
-        model_sources = self.model_metrics.get(model_name, {})
-        if not model_sources and self.metric_loader is not None:
-            model_sources = self.metric_loader.load_metrics(model_name)
-        if not model_sources:
+        source_dict = self.model_metrics.get(model_name, {})
+        if not source_dict and self.metric_loader is not None:
+            source_dict = self.metric_loader.load_metrics(model_name)
+        if not source_dict:
             msg = f'No model named {model_name} has been found.'
             raise exceptions.TrackerException(self, msg)
         if source_names:
-            model_sources = {source: logs
-                             for source, logs in model_sources.items()
-                             if source in source_names}
+            source_dict = {source: logs
+                           for source, logs in source_dict.items()
+                           if source in source_names}
+        source_dict = self._remove_start(source_dict, start)
         if metric_names:
-            metric_names: Iterable[str] = metric_names
+            metric_names = metric_names
         else:
-            all_metrics = (list(logs[1]) for logs in model_sources.values())
+            all_metrics = (list(logs[1]) for logs in source_dict.values())
             metric_names = sum(all_metrics, [])
 
         for metric_name in metric_names:
-            filtered_sources = self._filter_epochs_and_metrics(model_sources,
-                                                               metric_name,
-                                                               start)
-
+            filtered_sources = self._filter_metric(source_dict, metric_name)
             self._plot_metric(model_name, metric_name, **filtered_sources)
 
     @abc.abstractmethod
@@ -224,20 +221,28 @@ class BasePlotter(MemoryMetrics):
         ...
 
     @staticmethod
-    def _filter_epochs_and_metrics(
-            sourced_metrics: dict[str, LogTuple],
-            metric_name: str = 'Loss',
-            start: int = 0,
-    ) -> dict[str, tuple[list[int], list[float]]]:
+    def _remove_start(source_dict: dict[str, LogTuple],
+                      start: int) -> dict[str, LogTuple]:
 
-        source_dict = dict[str, tuple[list[int], list[float]]]()
-        metric_dict: dict[str, list[float]]
-        for source_name, (epochs, metric_dict) in sourced_metrics.items():
+        out = dict[str, LogTuple]()
+
+        for source_name, (epochs, metric_dict) in source_dict.items():
             new_epochs = list[int]()
-            values = list[float]()
-            for epoch, value in zip(epochs, metric_dict[metric_name]):
-                if epoch >= start:
-                    new_epochs.append(epoch)
-                    values.append(value)
-            source_dict[source_name] = (new_epochs, values)
-        return source_dict
+            new_metric_dict = dict[str, list[float]]()
+            for metric_name in metric_dict:
+                for epoch, value in zip(epochs, metric_dict[metric_name]):
+                    if epoch >= start:
+                        new_epochs.append(epoch)
+                        value_list = new_metric_dict.setdefault(metric_name, [])
+                        value_list.append(value)
+            out[source_name] = (new_epochs, new_metric_dict)
+        return out
+
+    @staticmethod
+    def _filter_metric(
+            source_dict: dict[str, LogTuple],
+            metric_name: str,
+    ) -> dict[str, tuple[list[int], list[float]]]:
+        return {source: (epochs, metrics[metric_name])
+                for source, (epochs, metrics) in source_dict.items() if epochs}
+
