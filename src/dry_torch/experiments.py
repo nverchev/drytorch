@@ -22,7 +22,6 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
     Manages experiment metadata, configuration, and tracking.
 
     Attributes:
-        created_at: timestamp at creation.
         dir: The directory for storing experiment files.
         config: Configuration object for the experiment.
         metadata_manager: Manager for recording metadata.
@@ -113,7 +112,7 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
         return f'{self.__class__.__name__}(name={self.name})'
 
 
-class ChildExperiment(Experiment[_U]):
+class SubExperiment(Experiment[_U]):
     """
     This class shares settings with a Parent experiment. See ParentExperiment.
 
@@ -124,7 +123,7 @@ class ChildExperiment(Experiment[_U]):
         metadata_manager: Manager for recording metadata.
         trackers: Dispatcher for publishing events.
     """
-    parent: Optional[ParentExperiment[Any, _U]] = None
+    parent: Optional[MainExperiment[Any, _U]] = None
 
     def __init__(self,
                  name: str,
@@ -152,7 +151,7 @@ class ChildExperiment(Experiment[_U]):
             self.parent.__class__._current_config = None
 
 
-class ParentExperiment(Experiment[_T], Generic[_T, _U]):
+class MainExperiment(Experiment[_T], Generic[_T, _U]):
     """
     This class is for an overarching experiment that contains smaller ones.
 
@@ -168,9 +167,9 @@ class ParentExperiment(Experiment[_T], Generic[_T, _U]):
         metadata_manager: Manager for recording metadata.
         trackers: Dispatcher for publishing events.
     """
-    children = list[ChildExperiment[_U]]()
+    children = list[SubExperiment[_U]]()
 
-    def register_child(self, child: ChildExperiment[_U]):
+    def register_child(self, child: SubExperiment[_U]):
         """
         Register children experiments.
 

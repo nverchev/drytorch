@@ -145,7 +145,6 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
     Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
-        created_at: timestamp at creation.
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
     """

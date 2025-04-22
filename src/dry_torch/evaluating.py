@@ -38,7 +38,6 @@ class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
     testing of the model.
 
     Attributes:
-        created_at: timestamp at creation.
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
