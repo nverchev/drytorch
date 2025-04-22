@@ -172,8 +172,8 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
         registering.register_model(self)
-        self._checkpoint = checkpoint
-        self._checkpoint.register_model(self)
+        self.checkpoint = checkpoint
+        self.checkpoint.register_model(self)
 
     @property
     def device(self) -> torch.device:
@@ -200,11 +200,11 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
 
     def load_state(self, epoch=-1) -> None:
         """Load the weights and epoch of the model"""
-        self._checkpoint.load(epoch=epoch)
+        self.checkpoint.load(epoch=epoch)
 
     def save_state(self) -> None:
         """Save the weights and epoch of the model"""
-        self._checkpoint.save()
+        self.checkpoint.save()
 
     def to(self, device: torch.device) -> None:
         """Forward the homonymous method."""
@@ -253,9 +253,8 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
-        self._checkpoint = checkpoint
-        self._checkpoint.register_model(model)
-        self._checkpoint.register_optimizer(self.optimizer)
+        self.checkpoint = self.model.checkpoint
+        self.checkpoint.register_optimizer(self.optimizer)
 
     def get_opt_params(self) -> list[_OptParams]:
         """
@@ -326,11 +325,11 @@ class ModelOptimizer:
 
     def load(self, epoch: int = -1) -> None:
         """Load model and optimizer state from a checkpoint."""
-        self._checkpoint.load(epoch=epoch)
+        self.checkpoint.load(epoch=epoch)
 
     def save(self) -> None:
         """Save model and optimizer state in a checkpoint."""
-        self._checkpoint.save()
+        self.checkpoint.save()
 
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(count_params(elem['params'])
