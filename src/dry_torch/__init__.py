@@ -5,9 +5,9 @@ from dry_torch.evaluating import Diagnostic
 from dry_torch.evaluating import Test
 from dry_torch.evaluating import Validation
 from dry_torch.exceptions import FailedOptionalImportWarning
-from dry_torch.experiments import ChildExperiment
+from dry_torch.experiments import SubExperiment
 from dry_torch.experiments import Experiment
-from dry_torch.experiments import ParentExperiment
+from dry_torch.experiments import MainExperiment
 from dry_torch.metrics import Loss
 from dry_torch.metrics import Metric
 from dry_torch.loading import DataLoader

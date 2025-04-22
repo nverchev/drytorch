@@ -5,12 +5,17 @@ import pathlib
 from typing import Optional
 import warnings
 
+import numpy
 import torch
 
 from dry_torch import log_events
 from dry_torch import exceptions
 from dry_torch import experiments
 from dry_torch import protocols as p
+
+SAFE_GLOBALS = [getattr(numpy.dtypes, name) for name in numpy.dtypes.__all__]
+SAFE_GLOBALS.extend([numpy.core.multiarray.scalar, numpy.dtype])  # type: ignore
+torch.serialization.add_safe_globals(SAFE_GLOBALS)
 
 
 class CheckpointPathManager:
@@ -163,14 +168,14 @@ class LocalCheckpoint(AbstractCheckpoint):
         self.model.module.load_state_dict(
             torch.load(self.paths.state_path,
                        map_location=self.model.device,
-                       weights_only=False))  # serialization problem otherwise
+                       weights_only=True))
 
         if self.optimizer is not None:
             try:
                 self.optimizer.load_state_dict(
                     torch.load(self.paths.optimizer_path,
                                map_location=self.model.device,
-                               weights_only=False),
+                               weights_only=True),
                 )
             except ValueError as ve:
                 warnings.warn(exceptions.OptimizerNotLoadedWarning(ve))

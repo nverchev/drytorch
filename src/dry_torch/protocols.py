@@ -197,9 +197,11 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     Attributes:
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
+        checkpoint: the object responsible for saving and loading the model.
     """
     module: torch.nn.Module
     epoch: int
+    checkpoint: CheckpointProtocol
 
     @property
     def device(self) -> torch.device:
