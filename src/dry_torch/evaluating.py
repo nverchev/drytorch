@@ -89,7 +89,7 @@ class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
         Get the batches ready for use.
 
         Returns:
-            Batches of data (Inputs, Targets) on the same device as the model
+            Batches of data on the same device as the model.
         """
         return (apply_ops.apply_to(batch, self.model.device)
                 for batch in self.loader)
