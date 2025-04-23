@@ -8,8 +8,9 @@ import numpy as np
 import torch
 from torch.utils import data
 
-from dry_torch import protocols as p
+from dry_torch import apply_ops
 from dry_torch import exceptions
+from dry_torch import protocols as p
 
 _Data_co = TypeVar('_Data_co',
                    bound=tuple[p.InputType, p.TargetType],
@@ -119,14 +120,19 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         cuda_flag = torch.cuda.is_available()
         self._pin_memory = cuda_flag if pin_memory is None else pin_memory
 
-    def get_loader(self) -> data.DataLoader[_Data_co]:
+    def get_loader(
+            self,
+            inference: Optional[bool] = None,
+    ) -> data.DataLoader[_Data_co]:
+
         """
         Creates a DataLoader instance with runtime settings.
 
         Returns:
             A configured PyTorch DataLoader instance.
         """
-        inference = torch.is_inference_mode_enabled()
+        if inference is None:
+            inference = torch.is_inference_mode_enabled()
         drop_last: bool = not inference
         shuffle: bool = not inference
         loader = data.DataLoader(self.dataset,
@@ -220,3 +226,27 @@ def check_dataset_length(dataset: data.Dataset) -> int:
     if hasattr(dataset, '__len__'):
         return dataset.__len__()
     raise exceptions.DatasetHasNoLengthError()
+
+
+def take_from_dataset(
+        dataset: data.Dataset[_Data_co],
+        num_samples: int = 1,
+        preserve_order: bool = True,
+        device: torch.device = torch.device('cpu')) -> _Data_co:
+    """
+    Samples a batch of elements from a dataset and transfers them to device.
+
+    Arguments:
+        dataset: the dataset where to sample from.
+        num_samples: the number of samples to take.
+        preserve_order: take samples in order or randomly otherwise.
+        device: device where to store the sample.
+
+    Returns:
+        The desired number of samples in a batch.
+    """
+    loader = data.DataLoader(dataset,
+                             batch_size=num_samples,
+                             shuffle=not preserve_order)
+
+    return next((apply_ops.apply_to(batch, device) for batch in loader))
