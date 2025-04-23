@@ -76,7 +76,7 @@ class CSVDumper(base_classes.AbstractDumper,
                              event.source_name,
                              event.epoch,
                              *event.metrics.values()])
-        return
+        return super().notify(event)
 
     def _csv_path(self, model_name: str) -> pathlib.Path:
         path = self.par_dir / model_name / 'csv_metrics'

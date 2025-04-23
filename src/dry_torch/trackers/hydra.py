@@ -75,13 +75,14 @@ class HydraLink(base_classes.AbstractDumper):
 
         self.dir.symlink_to(self.hydra_dir, target_is_directory=True)
         logging.enable_propagation()
-        return
+        return super().notify(event)
 
     @notify.register
-    def _(self, _event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperiment) -> None:
         if self._copy_hydra:
             self.dir.unlink()
             shutil.copytree(self.hydra_dir, self.dir)
         self._exp_dir = None
         self._counter = 0
         logging.disable_propagation()
+        return super().notify(event)

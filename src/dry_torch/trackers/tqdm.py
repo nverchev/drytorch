@@ -162,7 +162,7 @@ class TqdmLogger(tracking.Tracker):
                        out=self._out,
                        desc=desc)
         event.push_updates.append(bar.update)
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartTraining) -> None:
@@ -170,10 +170,10 @@ class TqdmLogger(tracking.Tracker):
                                          event.end_epoch,
                                          out=self._out,
                                          disable=not self._enable_training_bar)
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartEpoch) -> None:
         if self._training_bar is not None:
             self._training_bar.update(event.epoch)
-        return
+        return super().notify(event)

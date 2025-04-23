@@ -188,12 +188,12 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.training,
                    'Training %(model_name)s started.',
                    {'model_name': event.model_name})
-        return
+        return super().notify(event)
 
     @notify.register
-    def _(self, _event: log_events.EndTraining) -> None:
+    def _(self, event: log_events.EndTraining) -> None:
         logger.log(INFO_LEVELS.training, 'Training ended.')
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartEpoch) -> None:
@@ -210,7 +210,7 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.epoch,
                    epoch_msg,
                    {'epoch': event.epoch, 'final_epoch': final_epoch_str})
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.SaveModel) -> None:
@@ -220,7 +220,7 @@ class BuiltinLogger(tracking.Tracker):
                     'definition': event.definition.capitalize(),
                     'location': event.location}
                    )
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.LoadModel) -> None:
@@ -230,7 +230,7 @@ class BuiltinLogger(tracking.Tracker):
                     'definition': event.definition.capitalize(),
                     'epoch': event.epoch}
                    )
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
@@ -243,14 +243,14 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
                    log_args)
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.Test) -> None:
         logger.log(INFO_LEVELS.test,
                    'Testing %(model_name)s started.',
                    {'model_name': event.model_name})
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.TerminatedTraining) -> None:
@@ -264,21 +264,21 @@ class BuiltinLogger(tracking.Tracker):
                     'reason': event.reason,
                     'epoch': event.epoch}
         logger.log(INFO_LEVELS.training, msg, log_args)
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         logger.log(INFO_LEVELS.experiment,
                    'Running experiment: %(name)s.',
                    {'name': event.exp_name})
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
         logger.log(INFO_LEVELS.internal,
                    'Experiment: %(name)s stopped.',
                    {'name': event.exp_name})
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.UpdateLearningRate) -> None:
@@ -299,4 +299,4 @@ class BuiltinLogger(tracking.Tracker):
                     'learning_rate': event.base_lr,
                     'scheduler_name': event.scheduler_name}
         logger.log(INFO_LEVELS.param_update, msg, log_args)
-        return
+        return super().notify(event)

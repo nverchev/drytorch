@@ -58,17 +58,19 @@ class TensorBoard(tracking.Tracker):
                                         metric_dict={})
             except TypeError:
                 pass
+        return super().notify(event)
 
     @notify.register
-    def _(self, _: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperiment) -> None:
         if self.writer:
             self.writer.close()
             self.writer = None
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
         if not self.writer:
-            return
+            return super().notify(event)
 
         # Log scalar metrics
         for name, value in event.metrics.items():

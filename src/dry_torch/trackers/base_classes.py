@@ -112,7 +112,7 @@ class MemoryMetrics(tracking.Tracker):
         epochs.append(event.epoch)
         for metric_name, metric_value in event.metrics.items():
             logs_dict.setdefault(metric_name, []).append(metric_value)
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.LoadModel) -> None:
@@ -120,7 +120,7 @@ class MemoryMetrics(tracking.Tracker):
             return
         metrics = self.metric_loader.load_metrics(event.model_name, event.epoch)
         self.model_metrics[event.model_name] = metrics
-        return
+        return super().notify(event)
 
 
 class BasePlotter(MemoryMetrics):
@@ -245,4 +245,3 @@ class BasePlotter(MemoryMetrics):
     ) -> dict[str, tuple[list[int], list[float]]]:
         return {source: (epochs, metrics[metric_name])
                 for source, (epochs, metrics) in source_dict.items() if epochs}
-

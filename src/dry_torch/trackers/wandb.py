@@ -40,7 +40,7 @@ class Wandb(tracking.Tracker):
     def run(self) -> wandb_run.Run:
         """Wandb run."""
         if self._run is None:
-            exceptions.AccessOutsideScopeError()
+            raise exceptions.AccessOutsideScopeError()
         return self._run
 
     @override
@@ -64,11 +64,13 @@ class Wandb(tracking.Tracker):
                                config=event.config,
                                settings=self._settings,
                                resume='allow')
+        return super().notify(event)
 
     @notify.register
-    def _(self, _: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperiment) -> None:
         wandb.finish()
         self._run = None
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
@@ -77,4 +79,4 @@ class Wandb(tracking.Tracker):
         plot_names = {f'{event.model_name}/{event.source_name}-{name}': value
                       for name, value in event.metrics.items()}
         self.run.log(plot_names, step=event.epoch)
-        return
+        return super().notify(event)

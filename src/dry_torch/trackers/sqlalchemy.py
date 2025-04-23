@@ -226,7 +226,7 @@ class SQLConnection(base_classes.MetricLoader):
             session.add(source)
             session.commit()
             self._sources[event.source_name] = source
-        return
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
@@ -239,7 +239,7 @@ class SQLConnection(base_classes.MetricLoader):
                               value=value)
                 session.add(new_row)
             session.commit()
-        return
+        return super().notify(event)
 
     def _get_run_metrics(
             self,
