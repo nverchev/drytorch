@@ -21,17 +21,17 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
     It keeps count of the number of samples in the arguments and allows a
     precise sample average in case of unequal sample sizes.
 
-    Args:
-        kwargs: keyword _T arguments (alternative syntax).
-
     Attributes:
         aggregate: a dictionary with the aggregated values.
         counts: a dictionary with the count of the total elements.
     """
     __slots__ = ('aggregate', 'counts', '_cached_reduce')
 
-    def __init__(self,
-                 **kwargs: _T):
+    def __init__(self, **kwargs: _T):
+        """
+        Args:
+            kwargs: keyword _T arguments (alternative syntax).
+        """
         self.aggregate: dict[str, _T] = {}
         self.counts = collections.defaultdict[str, int](int)
         self.__iadd__(kwargs)
@@ -120,10 +120,7 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
 
 
 class Averager(Aggregator[float]):
-    """ Subclass of Aggregator with an implementation for torch.Tensor.
-
-    It accepts only s with no more than one non-squeezable dimension,
-     typically the one for the batch. """
+    """Subclass of Aggregator with an implementation for float values."""
 
     @staticmethod
     @override
@@ -137,10 +134,7 @@ class Averager(Aggregator[float]):
 
 
 class TorchAverager(Aggregator[torch.Tensor]):
-    """ Subclass of Aggregator with an implementation for torch.Tensor.
-
-    It accepts only s with no more than one non-squeezable dimension,
-     typically the one for the batch. """
+    """Subclass of Aggregator with an implementation for torch.Tensor."""
 
     @staticmethod
     @override
