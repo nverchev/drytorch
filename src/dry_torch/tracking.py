@@ -11,8 +11,8 @@ from __future__ import annotations
 import abc
 from abc import abstractmethod
 import functools
-from typing import Any
-import warnings\
+from typing import Any, Self, cast
+import warnings
 
 from dry_torch import exceptions
 from dry_torch import log_events
@@ -114,6 +114,25 @@ class Tracker(metaclass=abc.ABCMeta):
             event: The event to notify about.
         """
         return
+
+    @classmethod
+    def current(cls) -> Self:
+        """
+        Get the registered tracker that is already registered.
+
+        Returns:
+            the instance of the tracker registered to the current experiment.
+
+        Raises:
+            TrackerNotRegisteredError if the tracker is not registered.
+        """
+        from dry_torch.experiments import Experiment
+        exp = Experiment.current()
+        try:
+            self = exp.trackers.named_trackers[cls.__name__]
+        except KeyError:
+            raise exceptions.TrackerNotRegisteredError(cls.__name__, exp.name)
+        return cast(Self, self)
 
 
 class EventDispatcher:
