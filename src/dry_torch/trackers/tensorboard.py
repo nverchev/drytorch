@@ -4,11 +4,13 @@ import functools
 import pathlib
 from typing import Optional
 from typing_extensions import override
+import warnings
+
 import torch.utils.tensorboard
 
 from dry_torch import log_events
 from dry_torch import tracking
-import warnings
+from dry_torch import exceptions
 
 
 class TensorBoard(tracking.Tracker):
@@ -23,7 +25,14 @@ class TensorBoard(tracking.Tracker):
         super().__init__()
         self.par_dir = par_dir
         self.resume_run = resume_run
-        self.writer: Optional[torch.utils.tensorboard.SummaryWriter] = None
+        self._writer: Optional[torch.utils.tensorboard.SummaryWriter] = None
+
+    @property
+    def writer(self) -> torch.utils.tensorboard.SummaryWriter:
+        """The active SummaryWriter instance."""
+        if self._writer is None:
+            raise exceptions.AccessOutsideScopeError()
+        return self._writer
 
     @override
     @functools.singledispatchmethod
@@ -47,7 +56,7 @@ class TensorBoard(tracking.Tracker):
             root_dir = self.par_dir / event.exp_name
 
         # Initialize TensorBoard SummaryWriter
-        self.writer = torch.utils.tensorboard.SummaryWriter(
+        self._writer = torch.utils.tensorboard.SummaryWriter(
             log_dir=root_dir.as_posix(),
         )
 
@@ -62,15 +71,12 @@ class TensorBoard(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
-        if self.writer:
-            self.writer.close()
-            self.writer = None
+        self.writer.close()
+        self._writer = None
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
-        if not self.writer:
-            return super().notify(event)
 
         # Log scalar metrics
         for name, value in event.metrics.items():
@@ -78,9 +84,6 @@ class TensorBoard(tracking.Tracker):
             self.writer.add_scalar(full_name, value, global_step=event.epoch)
 
     def _get_last_run(self) -> Optional[pathlib.Path]:
-
-        if not self.par_dir.exists():
-            return None
 
         # Get all subdirectories
         all_dirs = [d for d in self.par_dir.iterdir() if d.is_dir()]
