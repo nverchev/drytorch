@@ -45,6 +45,7 @@ class CSVDumper(base_classes.AbstractDumper,
         self._active_sources = set[str]()
         self._dialect = dialect
         self._exp_dir: Optional[pathlib.Path] = None
+        self._base_headers = ('Model', 'Source', 'Epoch')
 
     @override
     @functools.singledispatchmethod
@@ -55,7 +56,7 @@ class CSVDumper(base_classes.AbstractDumper,
     def _(self, event: log_events.Metrics) -> None:
         file_address = self.file_name(event.model_name, event.source_name)
         metric_names = tuple(event.metrics)
-        headers = ('Model', 'Source', 'Epoch', *metric_names)
+        headers = self._base_headers + metric_names
         if event.source_name not in self._active_sources:
             if self.resume_run:
                 with file_address.open() as log:
@@ -123,19 +124,21 @@ class CSVDumper(base_classes.AbstractDumper,
         file_address = self.file_name(model_name, source)
         with file_address.open() as log:
             reader = csv.reader(log, dialect=self._dialect)
-            columns = next(reader)
-            metric_names = columns[3:]
+            headers = next(reader)
+            len_base = len(self._base_headers)
+            metric_names = headers[len_base:]
             epochs = list[int]()
             named_metric_values = dict[str, list[float]]()
+            epoch_column = self._base_headers.index('Epoch')
             for row in reader:
-                epoch = int(row[2])
+                epoch = int(row[epoch_column])
                 if epochs and epochs[-1] >= epoch:  # only load last run
                     epochs.clear()
                     named_metric_values.clear()
-                epochs.append(epoch)
-                if max_epoch is not None and epoch > max_epoch:
+                if max_epoch != -1 and epoch > max_epoch:
                     continue
-                for metric, value in zip(metric_names, row[3:]):
+                epochs.append(epoch)
+                for metric, value in zip(metric_names, row[len_base:]):
                     value_list = named_metric_values.setdefault(metric, [])
                     value_list.append(float(value))
             return epochs, named_metric_values
@@ -148,7 +151,6 @@ class CSVDumper(base_classes.AbstractDumper,
         if self._active_sources:
             sources = self._active_sources
         elif self.resume_run:
-            model_name = model_name
             sources = self._find_sources(model_name)
         else:
             sources = set()
