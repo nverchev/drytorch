@@ -198,7 +198,10 @@ class LocalCheckpoint(AbstractCheckpoint):
 
     @staticmethod
     def _creation_time(directory: pathlib.Path) -> float:
-        return directory.stat().st_ctime
+        creation_time = 0.
+        for file in directory.iterdir():
+            creation_time = max(creation_time, file.stat().st_ctime)
+        return creation_time
 
     @staticmethod
     def _get_epoch(directory: pathlib.Path) -> int:
