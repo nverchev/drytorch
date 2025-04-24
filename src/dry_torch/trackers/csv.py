@@ -108,7 +108,7 @@ class CSVDumper(base_classes.AbstractDumper,
     def read_csv(self,
                  model_name: str,
                  source: str,
-                 max_epoch: Optional[int] = None,
+                 max_epoch: int = -1,
                  ) -> tuple[list[int], dict[str, list[float]]]:
         """
         Reads the CSV file associated with the given model and source.
@@ -148,10 +148,11 @@ class CSVDumper(base_classes.AbstractDumper,
                       max_epoch: int = -1) -> dict[str, base_classes.LogTuple]:
 
         out = dict[str, tuple[list[int], dict[str, list[float]]]]()
-        if self._active_sources:
-            sources = self._active_sources
-        elif self.resume_run:
+
+        if self.resume_run:
             sources = self._find_sources(model_name)
+        elif self._active_sources:
+            sources = self._active_sources
         else:
             sources = set()
         for source in sources:
