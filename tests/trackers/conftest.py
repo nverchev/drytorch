@@ -174,12 +174,12 @@ def end_training_event() -> log_events.EndTraining:
 
 
 @pytest.fixture
-def test_event() -> log_events.Test:
+def test_event() -> log_events.StartTest:
     """Provides a Test event instance."""
-    return log_events.Test(source='test_Test',
-                           model_name='test_model',
-                           test_name='my_test'
-                           )
+    return log_events.StartTest(source='test_Test',
+                                model_name='test_model',
+                                test_name='my_test'
+                                )
 
 
 @pytest.fixture

@@ -246,7 +246,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.Test) -> None:
+    def _(self, event: log_events.StartTest) -> None:
         logger.log(INFO_LEVELS.test,
                    'Testing %(model_name)s started.',
                    {'model_name': event.model_name})

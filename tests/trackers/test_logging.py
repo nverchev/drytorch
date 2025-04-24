@@ -63,7 +63,7 @@ def configured_logger(
 
     logger.handlers.clear()
     logger.addHandler(test_handler)
-    logger.setLevel(INFO_LEVELS.metrics)
+    logger.setLevel(INFO_LEVELS.logs)
 
     yield logger
 
@@ -145,13 +145,13 @@ class TestBuiltinLogger:
         """Tests handling of StartEpoch event with final epoch specified."""
         self.logger.notify(start_epoch_event)
         start = start_epoch_event.epoch
-        end = start_epoch_event.final_epoch
+        end = start_epoch_event.end_epoch
         expected = f'====> Epoch   {start}/{end}:'
         assert expected in self.stream.getvalue()
 
     def test_start_epoch_without_final_epoch(self) -> None:
         """Tests handling of StartEpoch event without final epoch specified."""
-        event = log_events.StartEpoch(epoch=1, final_epoch=None)
+        event = log_events.StartEpoch(epoch=1, end_epoch=None)
         self.logger.notify(event)
         assert '====> Epoch 1:' in self.stream.getvalue()
 
@@ -179,7 +179,7 @@ class TestBuiltinLogger:
         expected = f'Loading {model_name} {definition} at epoch {epoch}.'
         assert expected in self.stream.getvalue()
 
-    def test_test_event(self, test_event: log_events.Test) -> None:
+    def test_test_event(self, test_event: log_events.StartTest) -> None:
         """Tests handling of Test event."""
         self.logger.notify(test_event)
         model_name = test_event.model_name
@@ -193,7 +193,7 @@ class TestBuiltinLogger:
         self.logger.notify(epoch_metrics_event)
         output = self.stream.getvalue()
         assert epoch_metrics_event.source in output
-        for metric_name in epoch_metrics_event.metrics:
+        for metric_name in epoch_metrics_event.logs:
             assert metric_name in output
 
     def test_terminated_training_event(
@@ -252,5 +252,5 @@ def test_enable_disable_default_handler(
     enable_default_handler()
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.StreamHandler)
-    assert logger.level == INFO_LEVELS.metrics
+    assert logger.level == INFO_LEVELS.logs
     assert logger.propagate is False

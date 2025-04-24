@@ -233,9 +233,22 @@ class EndTraining(Event):
 
 
 @dataclasses.dataclass
-class Test(Event):
+class StartTest(Event):
     """
-    Event logged when a test is performed.
+    Event logged when a test is started.
+
+    Attributes:
+        source_name: the name of object calling the test.
+        model_name: the name of the model.
+    """
+    source_name: str
+    model_name: str
+
+
+@dataclasses.dataclass
+class EndTest(Event):
+    """
+    Event logged when a test is ended.
 
     Attributes:
         source_name: the name of object calling the test.
