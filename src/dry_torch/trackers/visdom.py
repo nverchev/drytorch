@@ -107,7 +107,14 @@ class VisdomPlotter(base_classes.BasePlotter):
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         env = event.exp_name
-        self._viz = visdom.Visdom(server=self.server, port=self.port, env=env)
+        try:
+            self._viz = visdom.Visdom(server=self.server,
+                                      port=self.port,
+                                      env=env)
+        except ConnectionRefusedError as cre:
+            msg = 'server not available.'
+            raise exceptions.TrackerException(self, msg) from cre
+
         return super().notify(event)
 
     @notify.register
