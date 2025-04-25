@@ -159,13 +159,16 @@ class EventDispatcher:
         Args:
             event: The event to publish.
         """
+        to_be_removed = list[str]()
         for tracker in self.named_trackers.values():
             try:
                 tracker.notify(event)
             except Exception as err:
                 name = tracker.__class__.__name__
                 warnings.warn(exceptions.TrackerError(name, err))
-                self.remove(name)
+                to_be_removed.append(name)
+        for name in to_be_removed:
+            self.remove(name)
 
     def _register_tracker(self, name: str, tracker: Tracker) -> None:
         """
