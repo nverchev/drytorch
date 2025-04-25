@@ -172,7 +172,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             self.post_epoch_hooks.execute(self)
             log_events.EndEpoch(source_name=self.name,
                                 model_name=self.model.name,
-                                epoch=final_epoch)
+                                epoch=self.model.epoch)
             if self.terminated:
                 break
         log_events.EndTraining(self.name)
