@@ -3,9 +3,10 @@
 import functools
 from typing import Optional, Iterable, TypedDict
 
+import numpy as np
 from typing_extensions import override
 
-import numpy as np
+import numpy.typing as npt
 import visdom
 
 from dry_torch.trackers import base_classes
@@ -19,6 +20,11 @@ class VisdomOpts(TypedDict, total=False):
 
     See: https://github.com/fossasia/visdom/blob/master/py/visdom/__init__.py.
     """
+    title: str
+    xlabel: str
+    ylabel: str
+    zlabel: str
+
     # Layout & Size
     width: int
     height: int
@@ -32,9 +38,10 @@ class VisdomOpts(TypedDict, total=False):
     markers: bool
     markersymbol: str
     markersize: float
-    markercolor: np.ndarray
+    markercolor: npt.NDArray
     markerborderwidth: float
-    dash: np.ndarray  # e.g., np.array(['solid', 'dash'])
+    mode: str
+    dash: npt.NDArray[np.str_]  # e.g., np.array(['solid', 'dash'])
 
     # Axis limits
     xmin: float
@@ -43,7 +50,7 @@ class VisdomOpts(TypedDict, total=False):
     ymax: float
 
     # Colors & Style
-    linecolor: np.ndarray  # shape: (num_lines, 3) RGB
+    linecolor: npt.NDArray  # shape: (num_lines, 3) RGB
     colormap: str  # matplotlib-style colormap name (for some plots)
 
     # Legend
@@ -60,7 +67,7 @@ class VisdomOpts(TypedDict, total=False):
     textlabels: list[str]  # used in bar, scatter, etc.
 
 
-class VisdomPlotter(base_classes.BasePlotter):
+class VisdomPlotter(base_classes.BasePlotter[str]):
     """
     Tracker that uses visdom as backend.
 
@@ -77,16 +84,17 @@ class VisdomPlotter(base_classes.BasePlotter):
             model_names: Iterable[str] = (),
             metric_names: Iterable[str] = (),
             metric_loader: Optional[base_classes.MetricLoader] = None,
-            start_epoch: int = 1,
+            start: int = 1,
     ) -> None:
         """
         Args:
             model_names: the names of the models to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
-            start_epoch: epoch from which plot starts.
+            start: if positive the epoch from which to start plotting.
+                if negative the last number of epochs. Defaults to all.
         """
-        super().__init__(model_names, metric_names, metric_loader, start_epoch)
+        super().__init__(model_names, metric_names, metric_loader, start)
         self.server = server
         self.port = port
         self.opts: VisdomOpts = opts or {}
@@ -110,11 +118,13 @@ class VisdomPlotter(base_classes.BasePlotter):
         try:
             self._viz = visdom.Visdom(server=self.server,
                                       port=self.port,
-                                      env=env)
-        except ConnectionRefusedError as cre:
+                                      env=env,
+                                      raise_exceptions=True)
+        except ConnectionError as cre:
             msg = 'server not available.'
             raise exceptions.TrackerException(self, msg) from cre
-
+        else:
+            self.viz.close(env=event.exp_name)  # close all the windows
         return super().notify(event)
 
     @notify.register
@@ -126,24 +136,32 @@ class VisdomPlotter(base_classes.BasePlotter):
     def _plot_metric(self,
                      model_name: str,
                      metric_name: str,
-                     **sources: tuple[list[int], list[float]]) -> None:
+                     **sources: npt.NDArray[np.float64]) -> str:
 
-        layout = dict(xlabel='Epoch',
-                      ylabel=metric_name,
-                      title=model_name,
-                      showlegend=True)
-
+        layout = VisdomOpts(xlabel='Epoch',
+                            ylabel=metric_name,
+                            title=model_name,
+                            showlegend=True)
+        scatter_opts = VisdomOpts(mode='markers', markersymbol='24')
         opts = self.opts | layout
         win = '_'.join((model_name, metric_name))
-        for source, (epochs, values) in sources.items():
-            self.viz.scatter(None, None,
-                             win=win, update='remove', name=source)
-            self.viz.line(X=np.array(epochs),
-                          Y=np.array(values),
-                          opts=opts,
-                          update='append',
-                          win=win,
-                          name=source,
-                          )
+        for name, log in sources.items():
+            self.viz.scatter(None, win=win, update='remove', name=name)
+            if log.shape[0] > 1:
+                self.viz.line(X=log[:, 0],
+                              Y=log[:, 1],
+                              opts=opts,
+                              update='append',
+                              win=win,
+                              name=name,
+                              )
+            else:
+                self.viz.scatter(X=log[:, 0],
+                                 Y=log[:, 1],
+                                 opts=opts | scatter_opts,
+                                 update='append',
+                                 win=win,
+                                 name=name,
+                                 )
 
-        return
+        return win
