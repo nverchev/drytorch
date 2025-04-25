@@ -165,6 +165,7 @@ class EventDispatcher:
             except Exception as err:
                 name = tracker.__class__.__name__
                 warnings.warn(exceptions.TrackerError(name, err))
+                self.remove(name)
 
     def _register_tracker(self, name: str, tracker: Tracker) -> None:
         """
