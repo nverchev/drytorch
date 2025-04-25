@@ -3,8 +3,10 @@
 import abc
 import functools
 import pathlib
-from typing import Optional, Iterable
+from typing import Optional, Iterable, TypeVar, Generic
 
+import numpy as np
+import numpy.typing as npt
 from typing_extensions import override
 
 from dry_torch import exceptions
@@ -13,6 +15,7 @@ from dry_torch import log_events
 from dry_torch import tracking
 
 LogTuple = tuple[list[int], dict[str, list[float]]]
+Plot = TypeVar('Plot')
 
 
 class AbstractDumper(tracking.Tracker, metaclass=abc.ABCMeta):
@@ -123,21 +126,21 @@ class MemoryMetrics(tracking.Tracker):
         return super().notify(event)
 
 
-class BasePlotter(MemoryMetrics):
+class BasePlotter(MemoryMetrics, Generic[Plot]):
     """Abstract class for plotting trajectory from sources. """
 
     def __init__(self,
                  model_names: Iterable[str] = (),
                  metric_names: Iterable[str] = (),
                  metric_loader: Optional[MetricLoader] = None,
-                 start_epoch: int = 1) -> None:
+                 start: int = 1) -> None:
         """
         Args:
             model_names: the names of the models to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
-            start_epoch: epoch from which plot starts.
-
+            start: if positive the epoch from which to start plotting.
+                if negative the last number of epochs. Defaults to all.
         Note:
             start_epoch allows you to exclude the initial epochs from the graph.
             During the first 2 * start_epoch epochs, the graph is shown in
@@ -146,7 +149,7 @@ class BasePlotter(MemoryMetrics):
         super().__init__(metric_loader)
         self._model_names = model_names
         self._metric_names = metric_names
-        self._start = start_epoch
+        self._start = start
         self._removed_start = False
 
     @override
@@ -157,12 +160,23 @@ class BasePlotter(MemoryMetrics):
     @notify.register
     def _(self, event: log_events.EndEpoch) -> None:
         super().notify(event)
-        if self._model_names and event.model_name not in self._model_names:
+        if self._start < 0:
+            start = max(1, event.epoch + self._start)
+        else:
+            start = self._start if event.epoch >= 2 * self._start else 1
+        self._update_plot(model_name=event.model_name,
+                          start=start)
+
+    @notify.register
+    def _(self, event: log_events.EndTest) -> None:
+        super().notify(event)
+        start = max(1, self._start)
+        self._update_plot(model_name=event.model_name, start=start)
+
+    def _update_plot(self, model_name: str, start: int) -> None:
+        if self._model_names and model_name not in self._model_names:
             return
-        source_dict = self.model_metrics.get(event.model_name, {})
-        if event.epoch >= 2 * self._start and self._removed_start:
-            source_dict = self._remove_start(source_dict, self._start)
-            self._removed_start = True
+        source_dict = self.model_metrics.get(model_name, {})
 
         if source_dict:
             if self._metric_names:
@@ -172,17 +186,19 @@ class BasePlotter(MemoryMetrics):
                 metric_names = sum(all_metrics, [])
 
             for metric_name in metric_names:
-                filtered_sources = self._filter_metric(source_dict, metric_name)
-                self._plot_metric(event.model_name,
+                processed_sources = self._process_source(source_dict,
+                                                         metric_name,
+                                                         start)
+                self._plot_metric(model_name,
                                   metric_name,
-                                  **filtered_sources)
+                                  **processed_sources)
         return
 
     def plot(self,
              model_name: str,
              source_names: Iterable[str] = (),
              metric_names: Iterable[str] = (),
-             start: int = 1) -> None:
+             start_epoch: int = 1) -> list[Plot]:
         """
         Plots the learning curves.
 
@@ -190,8 +206,13 @@ class BasePlotter(MemoryMetrics):
             model_name: the name of the model to plot.
             source_names: the names of the sources to plot. Defaults to all.
             metric_names: the metric to plot. Defaults to all.
-            start: the epoch from which to start plotting. Defaults to 1.
+            start_epoch: the epoch from which to start plotting. Defaults to 1.
+
+        Returns:
+            references to the plot objects or windows depending on the backend.
         """
+        if start_epoch < 1:
+            raise ValueError('Start epoch must be positive.')
         source_dict = self.model_metrics.get(model_name, {})
         if not source_dict and self.metric_loader is not None:
             source_dict = self.metric_loader.load_metrics(model_name)
@@ -202,41 +223,36 @@ class BasePlotter(MemoryMetrics):
             source_dict = {source: logs
                            for source, logs in source_dict.items()
                            if source in source_names}
-        source_dict = self._remove_start(source_dict, start)
         if metric_names:
             metric_names = metric_names
         else:
             all_metrics = (list(logs[1]) for logs in source_dict.values())
             metric_names = sum(all_metrics, [])
 
+        plots = list[Plot]()
         for metric_name in metric_names:
-            filtered_sources = self._filter_metric(source_dict, metric_name)
-            self._plot_metric(model_name, metric_name, **filtered_sources)
+            processed_sources = self._process_source(source_dict,
+                                                     metric_name,
+                                                     start_epoch)
+            plots.append(self._plot_metric(model_name, metric_name,
+                                           **processed_sources))
+        return plots
 
     @abc.abstractmethod
     def _plot_metric(self,
                      model_name: str,
                      metric_name: str,
-                     **sources: tuple[list[int], list[float]]) -> None:
+                     **sources: npt.NDArray[np.float64]) -> Plot:
         ...
 
-    @staticmethod
-    def _remove_start(source_dict: dict[str, LogTuple],
-                      start: int) -> dict[str, LogTuple]:
-
-        out = dict[str, LogTuple]()
-
-        for source_name, (epochs, metric_dict) in source_dict.items():
-            new_epochs = list[int]()
-            new_metric_dict = dict[str, list[float]]()
-            for metric_name in metric_dict:
-                for epoch, value in zip(epochs, metric_dict[metric_name]):
-                    if epoch >= start:
-                        new_epochs.append(epoch)
-                        value_list = new_metric_dict.setdefault(metric_name, [])
-                        value_list.append(value)
-            out[source_name] = (new_epochs, new_metric_dict)
-        return out
+    def _process_source(self,
+                        source_dict: dict[str, LogTuple],
+                        metric_name: str,
+                        start: int):
+        sources = self._filter_metric(source_dict, metric_name)
+        sources = dict(sorted(sources.items(), key=self._len_source))
+        np_sources = self._source_to_numpy(sources)
+        return self._filter_by_epoch(np_sources, start)
 
     @staticmethod
     def _filter_metric(
@@ -245,3 +261,27 @@ class BasePlotter(MemoryMetrics):
     ) -> dict[str, tuple[list[int], list[float]]]:
         return {source: (epochs, metrics[metric_name])
                 for source, (epochs, metrics) in source_dict.items() if epochs}
+
+    @staticmethod
+    def _filter_by_epoch(sources: dict[str, npt.NDArray[np.float64]],
+                         start: int) -> dict[str, npt.NDArray[np.float64]]:
+        if start == 1:
+            return sources
+
+        filtered = {}
+        for name, data in sources.items():
+            mask = data[:, 0] >= start  # epoch is in column 0
+            if np.any(mask):
+                filtered[name] = data[mask]
+        return filtered
+
+    @staticmethod
+    def _len_source(source: tuple[str, tuple[list[int], list[float]]]) -> int:
+        return -len(source[1][0])  # reverse by length, does not change if same
+
+    @staticmethod
+    def _source_to_numpy(
+            sources: dict[str, tuple[list[int], list[float]]]
+    ) -> dict[str, npt.NDArray[np.float64]]:
+        return {name: np.column_stack((epochs, values))
+                for name, (epochs, values) in sources.items()}
