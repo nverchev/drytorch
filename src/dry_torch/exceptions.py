@@ -21,7 +21,7 @@ class DryTorchException(Exception):
 
 
 class TrackerException(DryTorchException):
-    msg = '{}: {}'
+    msg = '[{}] {}'
 
     def __init__(self, tracker: Any, tracker_msg: str) -> None:
         self.tracker = tracker
