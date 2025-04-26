@@ -230,7 +230,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
             metric_names = sum(all_metrics, [])
 
         plots = list[Plot]()
-        self._prepare_layout(model_name, metric_names)
+        self._prepare_layout(model_name, list(metric_names))
         for metric_name in metric_names:
             processed_sources = self._process_source(source_dict,
                                                      metric_name,
@@ -247,7 +247,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
                      **sources: npt.NDArray[np.float64]) -> Plot:
         ...
 
-    def _prepare_layout(self) -> None:
+    def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
         return
 
     def _process_source(self,
