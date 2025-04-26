@@ -2,10 +2,9 @@
 
 import functools
 from typing import Optional, Iterable, TypedDict
-
-import numpy as np
 from typing_extensions import override
 
+import numpy as np
 import numpy.typing as npt
 import visdom
 
@@ -88,6 +87,9 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     ) -> None:
         """
         Args:
+            server: address of the server.
+            port: the port for the connection:
+            opts: plot options.
             model_names: the names of the models to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
