@@ -26,7 +26,7 @@ class TestWandb:
             dir=start_experiment_event.exp_dir,
             project=start_experiment_event.exp_name,
             config=start_experiment_event.config,
-            settings=self.tracker.settings
+            settings=self.tracker._settings
         )
 
     def test_notify_stop_experiment(self, stop_experiment_event):

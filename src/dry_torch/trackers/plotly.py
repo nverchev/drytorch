@@ -1,4 +1,5 @@
 """Plotting with plotly."""
+from typing_extensions import override
 
 from dry_torch.trackers.base_classes import BasePlotter
 
@@ -10,6 +11,7 @@ import plotly.graph_objs as go  # type: ignore
 class PlotlyPlotter(BasePlotter[go.Figure]):
     """Tracker that create new plots each call (no update) using plotly."""
 
+    @override
     def _plot_metric(self,
                      model_name: str,
                      metric_name: str,

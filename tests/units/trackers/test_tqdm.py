@@ -86,8 +86,8 @@ class TestTrainingBar:
 
     def test_initialization(self) -> None:
         """Test proper initialization of TrainingBar."""
-        assert self.bar.start_epoch == self.start_epoch
-        assert self.bar.end_epoch == self.end_epoch
+        assert self.bar._start_epoch == self.start_epoch
+        assert self.bar._end_epoch == self.end_epoch
 
     def test_update(self) -> None:
         """Test updating the training progress bar."""
@@ -100,7 +100,7 @@ class TestTrainingBar:
     def test_close(self) -> None:
         """Test closing the training bar."""
         self.bar.close()
-        assert self.bar.pbar.disable
+        assert self.bar._pbar.disable
 
 
 class TestTqdmLogger:
@@ -142,11 +142,11 @@ class TestTqdmLogger:
     ) -> None:
         """Test handling of StartTraining event."""
         self.logger.notify(start_training_event)
-        training_bar = self.logger.training_bar
+        training_bar = self.logger._training_bar
 
         assert training_bar is not None
-        assert training_bar.start_epoch == start_training_event.start_epoch
-        assert training_bar.end_epoch == start_training_event.end_epoch
+        assert training_bar._start_epoch == start_training_event.start_epoch
+        assert training_bar._end_epoch == start_training_event.end_epoch
 
     def test_start_epoch_event(
             self,
@@ -171,5 +171,5 @@ class TestTqdmLogger:
         logger = TqdmLogger(enable_training_bar=False)
         logger.notify(start_training_event)
 
-        assert logger.training_bar is not None
-        assert logger.training_bar.pbar.disable
+        assert logger._training_bar is not None
+        assert logger._training_bar._pbar.disable

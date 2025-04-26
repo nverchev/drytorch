@@ -7,8 +7,8 @@ import pytest
 
 from dry_torch import log_events
 
-from dry_torch.trackers.builtin_logger import BuiltinLogger
-from dry_torch.trackers.tqdm_logger import TqdmLogger
+from dry_torch.trackers.logging import BuiltinLogger
+from dry_torch.trackers.tqdm import TqdmLogger
 
 
 logger = logging.getLogger('dry_torch')
@@ -21,7 +21,7 @@ def test_epoch_logs(
         start_epoch_event: log_events.StartEpoch,
         iterate_batch_event: log_events.IterateBatch,
         end_epoch_event: log_events.EndEpoch,
-        final_metrics_event: log_events.EpochMetrics,
+        epoch_metrics_event: EpochMetrics,
 ):
     """
     Tests logging of epoch-related events.
@@ -46,6 +46,6 @@ def test_epoch_logs(
         time.sleep(1)
         iterate_batch_event.update(sample_metrics)
         print(string_stream.getvalue())
-    _notify(final_metrics_event)
+    _notify(epoch_metrics_event)
     _notify(end_epoch_event)
     print(string_stream.getvalue())

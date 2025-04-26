@@ -6,7 +6,7 @@ import dataclasses
 import datetime
 from sqlalchemy import orm, select
 
-from dry_torch.trackers.sqlalchemy import SQLConnection, LoggedMetrics
+from dry_torch.trackers.sqlalchemy import SQLConnection, Log
 
 
 class TestSQLConnection:
@@ -40,11 +40,11 @@ class TestSQLConnection:
         # Check records in the database
         with self.tracker.Session() as session:
             records = session.execute(
-                select(LoggedMetrics).where(
-                    LoggedMetrics.experiment == self.exp_name,
-                    LoggedMetrics.model_name == epoch_metrics_event.model_name,
-                    LoggedMetrics.source == epoch_metrics_event.source,
-                    LoggedMetrics.epoch == epoch_metrics_event.epoch
+                select(Log).where(
+                    Log.experiment == self.exp_name,
+                    Log.model == epoch_metrics_event.model_name,
+                    Log.source == epoch_metrics_event.source,
+                    Log.epoch == epoch_metrics_event.epoch
                 )
             ).scalars().all()
 
@@ -52,7 +52,7 @@ class TestSQLConnection:
             assert len(records) == len(sample_metrics)
 
             # Check if each metric is correctly stored
-            stored_metrics = {record.metric_name: record.metric_value
+            stored_metrics = {record.metric: record.value
                               for record in records}
             for metric_name, expected_value in sample_metrics.items():
                 assert metric_name in stored_metrics
@@ -69,10 +69,10 @@ class TestSQLConnection:
         with self.tracker.Session() as session:
             for event in epoch_metrics_events:
                 records = session.execute(
-                    select(LoggedMetrics).where(
-                        LoggedMetrics.experiment == self.exp_name,
-                        LoggedMetrics.model_name == event.model_name,
-                        LoggedMetrics.source == event.source,
+                    select(Log).where(
+                        Log.experiment == self.exp_name,
+                        Log.model == event.model_name,
+                        Log.source == event.source,
                     )
                 ).scalars().all()
 
@@ -94,7 +94,7 @@ class TestSQLConnection:
         self.tracker.notify(epoch_metrics_event)
 
         for metric_name, value in epoch_metrics_event.metrics.items():
-            epochs, values = self.tracker.get_metrics(
+            epochs, values = self.tracker._get_run_metrics(
                 model_name=epoch_metrics_event.model_name,
                 source=epoch_metrics_event.source,
                 metric_name=metric_name,
