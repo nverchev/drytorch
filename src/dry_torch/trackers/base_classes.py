@@ -3,7 +3,7 @@
 import abc
 import functools
 import pathlib
-from typing import Optional, Iterable, TypeVar, Generic
+from typing import Generic, Iterable, Optional, TypeAlias, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -14,7 +14,7 @@ from dry_torch import experiments
 from dry_torch import log_events
 from dry_torch import tracking
 
-LogTuple = tuple[list[int], dict[str, list[float]]]
+LogTuple: TypeAlias = tuple[list[int], dict[str, list[float]]]
 Plot = TypeVar('Plot')
 
 
@@ -230,11 +230,13 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
             metric_names = sum(all_metrics, [])
 
         plots = list[Plot]()
+        self._prepare_layout(model_name, metric_names)
         for metric_name in metric_names:
             processed_sources = self._process_source(source_dict,
                                                      metric_name,
                                                      start_epoch)
-            plots.append(self._plot_metric(model_name, metric_name,
+            plots.append(self._plot_metric(model_name,
+                                           metric_name,
                                            **processed_sources))
         return plots
 
@@ -245,10 +247,13 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
                      **sources: npt.NDArray[np.float64]) -> Plot:
         ...
 
+    def _prepare_layout(self) -> None:
+        return
+
     def _process_source(self,
                         source_dict: dict[str, LogTuple],
                         metric_name: str,
-                        start: int):
+                        start: int) -> dict[str, npt.NDArray[np.float64]]:
         sources = self._filter_metric(source_dict, metric_name)
         sources = dict(sorted(sources.items(), key=self._len_source))
         np_sources = self._source_to_numpy(sources)
