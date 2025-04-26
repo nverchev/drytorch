@@ -1,16 +1,34 @@
 # dry_torch
-    This class manages training and general utilities for a Pytorch model.
 
-    The motivation for using this class is the following:
-        I) Inheritance allows user defined class for complex models and / or training by only adding minimal code
-            1) Compartmentalization - the methods can be easily extended and overridden
-            2) Flexible containers - the trainer uses dictionaries that can handle complex inputs / outputs
-            3) Hooks that grant further possibilities of customization
-        II) Already implemented complex functionalities during training:
-            1) Scheduler for the learning rate decay and different learning rates for different parameters' groups
-            2) Mixed precision training using torch.cuda.amp
-            3) Visualization of the learning curves using the visdom library
-        III) Utilities for logging, metrics and investigation of the model's outputs
-            1) Simplified pipeline for logging, saving and loading a model
-            2) The class attempts full model documentation
-            3) DictList allows indexing of complex outputs for output exploration
+This library provides abstraction for machine learning project that 
+interfaces with PyTorch.
+
+## Philosophy
+In spirit with the Don't Repeat Yourself principle, this library implements 
+common functionalities with minimal requirements to meet the project-specific
+necessities.
+
+### The functionalities include:
+- adaptive data loading 
+- metrics with automatic formatting
+- composable schedulers classes
+- learning schemes with structured learning rates
+- automatic metadata extraction
+- training cycle with hooks
+- simplified checkpointing
+
+### The flexibility is obtained through:
+- Classes communicate through protocols expressing necessary conditions.
+- Classes are build from abstract classes providing an initial implementation.
+- Generic variables ensure type safety for user classes throughout the project.
+
+### Interfaces to external loggers and trackers:
+- Event system send notifications to external classes (hydra, wandb, ...)
+- Optional dependencies for the interfaces
+- Easy to maintain
+
+### Principled:
+- Experimenting and monitoring only possible within an experiment scope
+- Discourage dependencies between experiments
+- Prevent accidentally mixing experiment
+
