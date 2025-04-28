@@ -1,34 +1,31 @@
 # dry_torch
+Following the Don't Repeat Yourself principles, this library offers:
+- Functionalities for a wide range of machine-learning applications.
+- Modularity allows you to easily build project-specific classes and data type.
+- Decoupling external trackers and loggers from the training cycle. 
+- Design uses independent experiment scopes to actively encourage best practice.
 
-This library provides abstraction for machine learning project that 
-interfaces with PyTorch.
+### Functionalities:
+- adaptive data loading.
+- metrics with automatic formatting.
+- composable schedulers classes.
+- learning schemes with structured learning rates.
+- automatic metadata extraction.
+- training cycle with hooks.
+- simplified checkpointing.
 
-## Philosophy
-In spirit with the Don't Repeat Yourself principle, this library implements 
-common functionalities with minimal requirements to meet the project-specific
-necessities.
-
-### The functionalities include:
-- adaptive data loading 
-- metrics with automatic formatting
-- composable schedulers classes
-- learning schemes with structured learning rates
-- automatic metadata extraction
-- training cycle with hooks
-- simplified checkpointing
-
-### The flexibility is obtained through:
+### Modularity:
 - Classes communicate through protocols expressing necessary conditions.
 - Classes are build from abstract classes providing an initial implementation.
-- Generic variables ensure type safety for user classes throughout the project.
+- Type safety and hints for user data classes thanks to generic annotations.
 
-### Interfaces to external loggers and trackers:
-- Event system send notifications to external classes (hydra, wandb, ...)
-- Optional dependencies for the interfaces
-- Easy to maintain
+### Decoupling:
+- Event system send notifications to optional external libraries.
+- Already implemented trackers (hydra, wandb, tensorboard, ...).
+- Only required dependency: PyTorch and NumPy.
 
-### Principled:
-- Experimenting and monitoring only possible within an experiment scope
-- Discourage dependencies between experiments
-- Prevent accidentally mixing experiment
+### Design:
+- Training and evaluating within an experiment scope.
+- Discourage dependencies between experiments.
+- Prevent accidentally mixing experiments by passing wrong configuration files.
 
