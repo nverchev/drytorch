@@ -1,4 +1,4 @@
-"""This module defines schedulers for the learning rates."""
+"""Module containing schedulers for the learning rates."""
 
 from abc import abstractmethod
 import dataclasses
@@ -13,7 +13,7 @@ class AbstractScheduler(p.SchedulerProtocol):
 
     def __call__(self, base_lr: float, epoch: int) -> float:
         """
-        Modifies the learning rate according to a schedule.
+        Modify the learning rate according to a schedule.
 
         Args:
             base_lr: initial learning rate.
@@ -30,11 +30,13 @@ class AbstractScheduler(p.SchedulerProtocol):
     @abstractmethod
     def _compute(self, start_value: float, epoch: int) -> float:
         """
-        Function for the scheduler.
+        Compute the scheduled value.
 
         Args:
-            start_value: value when epoch = 0.
+            start_value: value when epoch is 0.
             epoch: variable of the function.
+        Return:
+            the value for learning rate to use.
         """
 
 
@@ -50,7 +52,7 @@ class ConstantScheduler(AbstractScheduler):
 @dataclasses.dataclass
 class ExponentialScheduler(AbstractScheduler):
     """
-    Schedule following an exponential decay: f(x) = Cd^x.
+    Schedule exponential decay: f(x) = Cd^x.
 
     C is the base learning rate. Return value has a minimum value C0.
 
@@ -69,7 +71,7 @@ class ExponentialScheduler(AbstractScheduler):
 @dataclasses.dataclass
 class CosineScheduler(AbstractScheduler):
     """
-    Learning rate with cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
+    Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
     C0 = C0(base_value) and C1 = C1(base_value) are defined so that:
         f(x) = base_value when epoch = 0.
@@ -106,8 +108,8 @@ class WarmupScheduler(AbstractScheduler):
     After warmup, delegates to the wrapped scheduler with adjusted epochs.
 
     Attributes:
-        warmup_steps: Number of epochs for the linear warmup phase.
-        scheduler: The base scheduler to wrap with warmup.
+        warmup_steps: number of epochs for the linear warmup phase.
+        scheduler: the base scheduler to wrap with warmup.
     """
 
     warmup_steps: int = 10
@@ -127,7 +129,7 @@ class WarmupScheduler(AbstractScheduler):
 @dataclasses.dataclass
 class FactorScheduler(AbstractScheduler):
     """
-    Modifies start value to an existing scheduler.
+    Modify start value to an existing scheduler.
 
     Attributes:
         factor: factor for the start value of the scheduler.

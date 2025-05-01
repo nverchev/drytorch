@@ -1,17 +1,18 @@
-"""This module defines internal protocols."""
+"""Module containing internal protocols."""
+
 from __future__ import annotations
 
 import abc
 from collections.abc import Iterator, Mapping, MutableSequence
 from typing import Any, Optional, Protocol, SupportsIndex, TypeAlias, TypeVar
-from typing import runtime_checkable
+from typing import runtime_checkable, Union
 
 import torch
 from torch.utils import data
 
 _T = TypeVar('_T')
 
-Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
+Tensors: TypeAlias = Union[torch.Tensor, MutableSequence[torch.Tensor]]
 
 
 @runtime_checkable
@@ -20,8 +21,8 @@ class NamedTupleProtocol(Protocol[_T]):
     Optional protocol for the input and target types.
 
     Correctly handled by the default collate function.
-    NamedTuples with different values are currently interpreted as Generic[Any].
-    At the moment, this protocol won't support these interfaces
+    NamedTuples containing different types are currently interpreted as
+    Generic[Any]. At the moment, this protocol won't support these interfaces.
     """
     _fields: tuple
 
@@ -68,16 +69,15 @@ class LoaderProtocol(Protocol[_Data_co]):
     Attributes:
         batch_size: the batch size.
         dataset: dataset
-
     """
     batch_size: Optional[int]
     dataset: data.Dataset
 
     def __iter__(self) -> Iterator[_Data_co]:
-        """returns an iterator over the dataset in batches"""
+        """Return an iterator over the dataset in batches"""
 
     def __len__(self) -> int:
-        """returns the number of batches in the dataset"""
+        """Return the number of batches in the dataset"""
 
 
 class SchedulerProtocol(Protocol):
@@ -87,13 +87,13 @@ class SchedulerProtocol(Protocol):
 
     def __call__(self, base_lr: float, epoch: int) -> float:
         """
-        Modifies the learning rate according to a schedule.
+        Modify the learning rate according to a schedule.
 
         Args:
             base_lr: initial learning rate.
             epoch: the current epoch.
         Returns:
-            scheduled value for the learning rate.
+            The scheduled value for the learning rate.
         """
 
 
@@ -117,14 +117,11 @@ class MetricCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
         Args:
             outputs: model outputs.
             targets: ground truth.
-
-        Returns:
-            return value will not be used.
         """
 
     @abc.abstractmethod
     def compute(self) -> Mapping[str, torch.Tensor] | torch.Tensor | None:
-        """Return a Mapping from the metric names to the calculated values."""
+        """Return a mapping from the metric names to the calculated values."""
 
     @abc.abstractmethod
     def reset(self) -> Any:
@@ -145,7 +142,7 @@ class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
             targets: ground truth.
 
         Returns:
-              the computed loss.
+            The computed loss.
         """
 
     @abc.abstractmethod
@@ -158,14 +155,11 @@ class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
         Args:
             outputs: model outputs.
             targets: ground truth.
-
-        Returns:
-            return value will not be used.
         """
 
     @abc.abstractmethod
     def compute(self) -> Mapping[str, torch.Tensor] | torch.Tensor | None:
-        """Return a Mapping from the metric names to the calculated values."""
+        """Return a mapping from the metric names to the calculated values."""
 
     @abc.abstractmethod
     def reset(self) -> Any:
@@ -203,6 +197,10 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     epoch: int
     checkpoint: CheckpointProtocol
 
+    @abc.abstractmethod
+    def __call__(self, inputs: _Input_contra) -> _Output_co:
+        """Call the module forward method."""
+
     @property
     def device(self) -> torch.device:
         """The device where the weights are stored."""
@@ -212,12 +210,8 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         """The name of the model."""
 
     @abc.abstractmethod
-    def __call__(self, inputs: _Input_contra) -> _Output_co:
-        """Calls the module forward method."""
-
-    @abc.abstractmethod
     def increment_epoch(self):
-        """Increments the epoch by 1."""
+        """Increment the epoch by 1."""
 
 
 class CheckpointProtocol(Protocol):
@@ -230,10 +224,10 @@ class CheckpointProtocol(Protocol):
         """Register the optimizer connected to the model."""
 
     def save(self) -> None:
-        """Saves the model and optimizer state dictionaries."""
+        """Save the model and optimizer state dictionaries."""
 
     def load(self, epoch: int = -1) -> None:
-        """Loads the model and optimizer state dictionaries."""
+        """Load the model and optimizer state dictionaries."""
 
 
 class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
@@ -250,15 +244,6 @@ class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
     @property
     def name(self) -> str:
         """The name of the model."""
-
-    def get_batches(self) -> Iterator[tuple[_Input, _Target]]:
-        """
-        Get the batches ready for use.
-
-        Returns:
-            Batches of data (Inputs, Targets) on the same device as the model
-        """
-        ...
 
 
 @runtime_checkable
@@ -279,30 +264,26 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     def name(self) -> str:
         """The name of the model."""
 
-    def get_batches(self) -> Iterator[tuple[_Input, _Target]]:
-        """
-        Get the batches ready for use.
-
-        Returns:
-            Batches of data (Inputs, Targets) on the same device as the model
-        """
-        ...
-
     @property
     def terminated(self) -> bool:
-        """Training has terminated."""
+        """If true, this trainer should not be used for training anymore."""
 
     def train(self, num_epochs: int) -> None:
-        """Trains the model."""
+        """
+        Train the module for the specified number of epochs.
+
+        Args:
+            num_epochs: the number of epochs for which train the module.
+        """
 
     def terminate_training(self, reason: str) -> None:
-        """Terminate the training."""
+        """Prevent the trainer from continue the training."""
 
     def save_checkpoint(self) -> None:
-        """Save the model weights, the optimizer state and the logs."""
+        """Save model and optimizer state in a checkpoint."""
 
     def load_checkpoint(self, epoch: int = -1) -> None:
-        """Load the model weights, the optimizer state and the logs."""
+        """Load model and optimizer state from a checkpoint."""
 
     def update_learning_rate(
             self,
@@ -310,7 +291,9 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
             scheduler: Optional[SchedulerProtocol],
     ) -> None:
         """
-        It updates the learning rates for each parameters' group in the
+        Update the learning rate(s).
+
+        It updates the learning rates for each parameter's group in the
         optimizer based on input learning rate and scheduler.
 
         Args:

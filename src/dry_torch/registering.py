@@ -1,5 +1,5 @@
 """
-Module that register models and records when they are called.
+Module registering models and records when they are called.
 
 Callers and models are registered in global variables that keep track of the
 experiments at the time of calling. The experiment must be the same. Then the
@@ -22,11 +22,11 @@ ALL_MODULES = dict[nn.Module, experiments.Experiment]()
 
 def record_model_call(source: Any, model: p.ModelProtocol) -> None:
     """
-    Records metadata in the current experiment.
+    Record metadata in the current experiment.
 
     Args:
-        source: The object to document.
-        model: The model that the object calls.
+        source: the object to document.
+        model: the model that the object calls.
     """
     exp = experiments.Experiment.current()
     exp.metadata_manager.record_model_call(source, model)
@@ -35,20 +35,22 @@ def record_model_call(source: Any, model: p.ModelProtocol) -> None:
         model_exp = ALL_MODULES[module]
         if exp is model_exp:
             return
+
     raise exceptions.ModelNotRegisteredError(model.name, exp.name)
 
 
-def register_model(model: p.ModelProtocol) -> experiments.Experiment:
+def register_model(model: p.ModelProtocol) -> None:
     """
-    Records mode inl the current experiment.
+    Record mode in the current experiment.
 
     Args:
-        model: The model to register.
+        model: the model to register.
     """
     exp = experiments.Experiment.current()
     module = model.module
     if module in ALL_MODULES:
         raise exceptions.ModuleAlreadyRegisteredError(model.name, exp.name)
+
     ALL_MODULES[module] = exp
     exp.metadata_manager.register_model(model)
-    return exp
+    return

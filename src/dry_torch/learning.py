@@ -1,4 +1,4 @@
-"""Classes for wrapping a torch module and its optimizer."""
+"""Module containing classes for wrapping a torch module and its optimizer."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ import dataclasses
 from dry_torch import checkpointing
 from dry_torch import exceptions
 from dry_torch import protocols as p
-from dry_torch import repr_utils
 from dry_torch import registering
+from dry_torch import repr_utils
 from dry_torch import schedulers
 
 _Input_contra = TypeVar('_Input_contra',
@@ -175,6 +175,9 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         self.checkpoint = checkpoint
         self.checkpoint.register_model(self)
 
+    def __call__(self, inputs: _Input_contra) -> _Output_co:
+        return self.module(inputs)
+
     @property
     def device(self) -> torch.device:
         """The device where the weights are stored."""
@@ -190,9 +193,6 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
     def name(self):
         """The name of the model."""
         return self._name
-
-    def __call__(self, inputs: _Input_contra) -> _Output_co:
-        return self.module(inputs)
 
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
@@ -218,13 +218,15 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
     def _validate_module(torch_model) -> torch.nn.Module:
         if not isinstance(torch_model, torch.nn.Module):
             raise TypeError('torch_module must be a torch.nn.Module subclass')
+
         return torch_model
 
 
 class ModelOptimizer:
     """
     Bundle the module and its optimizer.
-    Support different learning rates to separate parameters groups.
+
+    It supports different learning rates to separate parameters' groups.
 
     Args:
         model: the model to be optimized.
@@ -241,8 +243,6 @@ class ModelOptimizer:
             self,
             model: p.ModelProtocol[_Input_contra, _Output_co],
             learning_scheme: p.LearningProtocol,
-            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint()
-
     ) -> None:
         self.model = model
         self.module = model.module
@@ -256,29 +256,16 @@ class ModelOptimizer:
         self.checkpoint = self.model.checkpoint
         self.checkpoint.register_optimizer(self.optimizer)
 
-    def get_opt_params(self) -> list[_OptParams]:
-        """
-        Learning rates for each parameter updated according to the scheduler
-        and the current epoch.
-        """
-        return [
-            dict(params=g['params'], lr=self.get_scheduled_lr(g['lr']))
-            for g in self._params_lr
-        ]
-
-    def get_scheduled_lr(self, lr: float) -> float:
-        """
-        Update the base learning rate according to the scheduler.
-
-        Args:
-            lr: base learning rate.
-        """
-        return self.scheduler(lr, self.model.epoch)
+    def __repr__(self) -> str:
+        desc = '{}(module={}, optimizer={})'
+        return desc.format(self.__class__.__name__,
+                           self.model.name,
+                           self.optimizer.__class__.__name__)
 
     @property
     def base_lr(self) -> float | dict[str, float]:
         """
-        The learning rate(s) for the module parameters.
+        Learning rate(s) for the module parameters.
         """
         return self._lr
 
@@ -297,7 +284,31 @@ class ModelOptimizer:
             if not self._params_lr_contains_all_params():
                 module_names = list(self.module.named_modules())
                 raise exceptions.MissingParamError(module_names, list(lr))
+
         return
+
+    def get_opt_params(self) -> list[_OptParams]:
+        """
+        Learning rates for each parameter updated according to the scheduler
+        and the current epoch.
+        """
+        return [
+            _OptParams(params=g['params'], lr=self.get_scheduled_lr(g['lr']))
+            for g in self._params_lr
+        ]
+
+    def get_scheduled_lr(self, lr: float) -> float:
+        """
+        Update the base learning rate according to the scheduler.
+
+        Args:
+            lr: base learning rate.
+        """
+        return self.scheduler(lr, self.model.epoch)
+
+    def load(self, epoch: int = -1) -> None:
+        """Load model and optimizer state from a checkpoint."""
+        self.checkpoint.load(epoch=epoch)
 
     def update_learning_rate(
             self,
@@ -305,27 +316,26 @@ class ModelOptimizer:
             scheduler: Optional[p.SchedulerProtocol] = None,
     ) -> None:
         """
-        It updates the learning rates for each parameters' group in the
+        Update the learning rates for each parameter's group in the
         optimizer based on input learning rate(s) and scheduler.
 
         Args:
-            base_lr: Initial learning rates for named parameters or global
+            base_lr: initial learning rates for named parameters or global
                 value. Default keeps the original learning rates.
             scheduler: scheduler for the learning rates. Default keeps the
                 original scheduler.
         """
         if scheduler is not None:
             self.scheduler = scheduler
+
         if base_lr is not None:
             self.base_lr = base_lr
+
         for g, up_g in zip(self.optimizer.param_groups,
                            self.get_opt_params()):
             g['lr'] = up_g['lr']
-        return
 
-    def load(self, epoch: int = -1) -> None:
-        """Load model and optimizer state from a checkpoint."""
-        self.checkpoint.load(epoch=epoch)
+        return
 
     def save(self) -> None:
         """Save model and optimizer state in a checkpoint."""
@@ -337,13 +347,7 @@ class ModelOptimizer:
         total_params_model = count_params(self.module.parameters())
         return total_params_lr == total_params_model
 
-    def __repr__(self) -> str:
-        desc = '{}(module={}, optimizer={})'
-        return desc.format(self.__class__.__name__,
-                           self.model.name,
-                           self.optimizer.__class__.__name__)
-
 
 def count_params(params: Iterator) -> int:
-    """Counts the number of parameters."""
+    """Count the number of parameters."""
     return sum(1 for _ in params)

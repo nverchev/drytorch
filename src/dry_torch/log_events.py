@@ -1,4 +1,4 @@
-"""Classes that contain event information for logging purposes."""
+"""Classes containing logging event classes."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from dry_torch import exceptions
 
 
 class Event(metaclass=abc.ABCMeta):
-    """Class for logging events"""
+    """Class for logging events."""
     _auto_publish: Optional[Callable[[Event], None]] = None
 
     def __post_init__(self):
@@ -112,7 +112,7 @@ class LoadModel(Event):
 
     Attributes:
         model_name: the name of the model.
-        definition: specifies what was is loaded.
+        definition: specifies what was loaded.
         location: the location where the model is loaded from.
         epoch: the epoch at which the model was loaded.
     """
@@ -128,7 +128,7 @@ class StartTraining(Event):
     Event logged when training starts.
 
     Attributes:
-        source_name: the object training the model.
+        source_name: the object that is training a model.
         model_name: the name of the model.
         start_epoch: the starting epoch of the training.
         end_epoch: the ending epoch of the training.
@@ -145,7 +145,7 @@ class StartEpoch(Event):
     Event logged when an epoch starts.
 
     Attributes:
-        source_name: the name of object training the model.
+        source_name: the name of object that is training a model.
         model_name: the name of the model.
         epoch: the epoch number.
         end_epoch: the final epoch number for the current training session.
@@ -162,7 +162,7 @@ class EndEpoch(Event):
     Event logged when an epoch ends.
 
     Attributes
-        source_name: the name of object training the model.
+        source_name: the name of object that is training a model.
         model_name: the name of the model.
         epoch: the epoch that was trained.
     """
@@ -226,7 +226,7 @@ class EndTraining(Event):
     Event logged when training ends.
 
     Attributes:
-        source_name: The name of the object training the model.
+        source_name: The name of the object that is training a model.
     """
     source_name: str
     pass
@@ -266,7 +266,7 @@ class Metrics(Event):
     Attributes:
         model_name: the name of the model.
         source_name: the name of the object that computed the metrics.
-        epoch: the number of epoch the model was trained.
+        epoch: the number of epochs the model was trained.
         metrics: the aggregated metrics.
     """
     model_name: str
@@ -283,7 +283,7 @@ class UpdateLearningRate(Event):
     Attributes:
         model_name: the name of the model.
         source_name: the name of the object that computed the metrics.
-        epoch: the number of epoch the model was trained.
+        epoch: the number of epochs the model was trained.
         base_lr: new value(s) for the learning rate(s).
         scheduler_name: the representation of the scheduler.
     """
