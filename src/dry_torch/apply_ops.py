@@ -1,4 +1,4 @@
-"""This module contains functions for nested containers."""
+"""Module containing functions for nested containers."""
 
 from collections.abc import Callable, MutableMapping, MutableSequence
 import copy
@@ -16,13 +16,13 @@ def recursive_apply(obj: _C,
                     expected_type: Type[_T],
                     func: Callable[[_T], _T]) -> _C:
     """
-    Function that looks for an expected type and applies a given function.
+    Look for an expected type and apply a given function.
 
     The implementation is similar to default_convert in
     github.com/pytorch/pytorch/blob/main/torch/utils/data/_utils/collate.py.
     It makes a copy of a MutableMapping or MutableSequence container and
     modifies the elements of the expected type using the functions or act
-    recursively on other containers. In case the obj is a namedtuple, the
+    recursively on other containers. If obj is a namedtuple, the
     function uses the class constructor to create a new instance with the
     modified elements. Note that when applied after default_convert, the only
     objects of type tuple are namedtuple classes.
@@ -54,12 +54,14 @@ def recursive_apply(obj: _C,
         sequence = copy.copy(obj)
         for i, value in enumerate(obj):
             sequence[i] = recursive_apply(value, expected_type, func)
+
         return sequence  # type: ignore
 
     if isinstance(obj, tuple):
         new = (recursive_apply(item, expected_type, func) for item in obj)
         if obj.__class__ == tuple:
             return tuple(list(new))  # type: ignore
+
         try:
             return obj.__class__(*new)  # type: ignore
         except TypeError:
@@ -75,8 +77,8 @@ def apply(obj: _C,
     """
     Extend recursive_apply supports.
 
-    If the input has attributes, it calls recursive_apply, set the
-    attributes of a copy of the class to the new values, and returns it.
+    If the input has attributes, it calls recursive_apply, creates a new
+    instance and sets the attributes of new instance to the new values.
 
     Args:
         obj: container or class containing other containers and tensors.
@@ -107,6 +109,7 @@ def apply(obj: _C,
                                     expected_type=expected_type,
                                     func=func)
                     )
+
         return obj_copy
     else:
         return recursive_apply(obj,
@@ -116,7 +119,7 @@ def apply(obj: _C,
 
 def apply_to(obj: _C, device: torch.device) -> _C:
     """
-    Function that changes the device of tensors inside a container.
+    Change the device of tensors inside a container.
 
     Args:
         obj: container or class containing other containers and tensors.
@@ -134,7 +137,7 @@ def apply_to(obj: _C, device: torch.device) -> _C:
 
 def apply_cpu_detach(obj: _C) -> _C:
     """
-    Function that detaches and stores in cpu the tensors inside a container.
+    Detach and store in cpu the tensors inside a container.
 
     Args:
          obj: container or class containing other containers and tensors.

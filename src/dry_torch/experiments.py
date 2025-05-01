@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pathlib
 from types import TracebackType
-from typing import Generic, Optional, TypeVar, Any, Self
+from typing import Any, Generic, Optional, Self, TypeGuard, TypeVar
 
 from typing_extensions import override
 
@@ -19,13 +19,13 @@ _U = TypeVar('_U', covariant=True)
 
 class Experiment(repr_utils.Versioned, Generic[_T]):
     """
-    Manages experiment metadata, configuration, and tracking.
+    Manage experiment metadata, configuration, and tracking.
 
     Attributes:
-        dir: The directory for storing experiment files.
-        config: Configuration object for the experiment.
-        metadata_manager: Manager for recording metadata.
-        trackers: Dispatcher for publishing events.
+        dir: the directory for storing experiment files.
+        config: configuration object for the experiment.
+        metadata_manager: manager for recording metadata.
+        trackers: dispatcher for publishing events.
     """
 
     past_experiments: set[Experiment] = set()
@@ -39,9 +39,9 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
                  config: Optional[_T] = None) -> None:
         """
         Args:
-            name: The name of the experiment. Defaults to class name.
-            par_dir: Parent directory for experiment data.
-            config: Configuration for the experiment.
+            name: the name of the experiment. Defaults to class name.
+            par_dir: parent directory for experiment data.
+            config: configuration for the experiment.
         """
         super().__init__()
         self._name = name
@@ -52,12 +52,8 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
         self.trackers.register(**tracking.DEFAULT_TRACKERS)
         self.__class__.past_experiments.add(self)
 
-    @property
-    def name(self) -> str:
-        """The name of the experiment."""
-        return self._name
-
     def __enter__(self) -> Self:
+        """Start the experiment scope."""
         Experiment._current = self
         self.__class__._current_config = self.config
         log_events.Event.set_auto_publish(self.trackers.publish)
@@ -71,59 +67,125 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
                  exc_type: type[BaseException],
                  exc_val: BaseException,
                  exc_tb: TracebackType) -> None:
+        """Conclude the experiment scope."""
         log_events.StopExperiment(self.name)
         log_events.Event.set_auto_publish(None)
         Experiment._current = None
         self.__class__._current_config = None
         return
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(name={self.name})'
+
+    @property
+    def name(self) -> str:
+        """The name of the experiment plus a possible counter."""
+        return self._name
+
     @classmethod
     def current(cls) -> Experiment:
-        """Return the current active experiment if exists or start a new one.
+        """
+        Return the current active experiment if exists or start a new one.
 
         Returns:
-            Experiment: The current active experiment.
+            Experiment: the currently active experiment.
         Raises:
-            NoActiveExperimentError: If there is no active experiment.
+            NoActiveExperimentError: if there is no active experiment.
         """
         if Experiment._current is None:
             raise exceptions.NoActiveExperimentError()
+
         return Experiment._current
 
     @classmethod
     def get_config(cls) -> _T:
-        """Retrieve the configuration of the current experiment.
+        """
+        Retrieve the configuration of the current experiment.
 
         Returns:
-            _T: Configuration object of the current experiment.
+            _T: configuration object of the current experiment.
 
         Raises:
-            NoActiveExperimentError: If there is no active experiment.
-            NoConfigError: If there is no configuration available.
+            NoActiveExperimentError: if there is no active experiment.
+            NoConfigError: if there is no configuration available.
         """
-        cfg = cls._current_config
-        if Experiment._current is None:
-            raise exceptions.NoActiveExperimentError()
-        if cfg is None:
-            raise exceptions.NoConfigError()
-        return cfg
+        if not isinstance(Experiment.current(), cls):
+            raise exceptions.NoActiveExperimentError(cls)
 
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(name={self.name})'
+        config = cls._current_config
+        if config is None:
+            raise exceptions.NoConfigurationError()
+
+        return config
+
+
+class MainExperiment(Experiment[_T], Generic[_T, _U]):
+    """
+    Experiment containing smaller units (see SubExperiment).
+
+    The experiment manages trackers, metadata and shared configurations (_T)
+    and calls the currently active registered sub-experiment for the
+    more specific configurations (_U).
+
+    Attributes:
+        dir: the directory for storing experiment files.
+        config: configuration object for the experiment.
+        metadata_manager: manager for recording metadata.
+        trackers: dispatcher for publishing events.
+    """
+    sub_experiments: set[SubExperiment[_U]] = set()
+
+    def register_sub(self, sub: SubExperiment[_U]):
+        """
+        Register sub-experiments.
+
+        Args:
+            sub: The sub experiment to register.
+        """
+        sub.metadata_manager = self.metadata_manager
+        for tracker in self.trackers.named_trackers.values():
+            try:
+                sub.trackers.register(tracker)
+            except exceptions.TrackerAlreadyRegisteredError:
+                pass
+
+        sub.dir = self.dir / sub.name
+        self.sub_experiments.add(sub)
+        sub.main_experiment = self
+        return
+
+    @classmethod
+    def get_sub_config(cls) -> _U:
+        """Return the configuration of the child that is currently active."""
+        exp = Experiment.current()
+        if not cls._is_registered(exp):
+            raise exceptions.ActiveExperimentNotRegistered(exp.__class__, cls)
+
+        config = exp.get_config()
+        if config is None:
+            raise exceptions.NoConfigurationError()
+
+        return config
+
+    @classmethod
+    def _is_registered(cls, exp: Experiment) -> TypeGuard[SubExperiment[_U]]:
+        return exp in cls.sub_experiments
 
 
 class SubExperiment(Experiment[_U]):
     """
-    This class shares settings with a Parent experiment. See ParentExperiment.
+    Experimental unit part of a larger experiment (see MainExperiment).
 
+    This class handles different specifications for the same configuration (_U)
+    concurring in the same main experiment.
 
     Attributes:
-        dir: The directory for storing experiment files.
-        config: Configuration object for the experiment.
-        metadata_manager: Manager for recording metadata.
-        trackers: Dispatcher for publishing events.
+        dir: the directory for storing experiment files.
+        config: configuration object for the experiment.
+        metadata_manager: manager for recording metadata.
+        trackers: dispatcher for publishing events.
     """
-    parent: Optional[MainExperiment[Any, _U]] = None
+    main_experiment: Optional[MainExperiment[Any, _U]] = None
 
     def __init__(self,
                  name: str,
@@ -137,8 +199,11 @@ class SubExperiment(Experiment[_U]):
 
     @override
     def __enter__(self) -> Self:
-        if self.parent is not None:
-            self.parent.__class__._current_config = self.parent.config
+        if self.main_experiment is None:
+            raise exceptions.SubExperimentNotRegisteredError(self.__class__)
+
+        main_cls = self.main_experiment.__class__
+        main_cls._current_config = self.main_experiment.config
         return super().__enter__()
 
     @override
@@ -147,52 +212,8 @@ class SubExperiment(Experiment[_U]):
                  exc_val: BaseException,
                  exc_tb: TracebackType) -> None:
         super().__exit__(exc_type, exc_val, exc_tb)
-        if self.parent is not None:
-            self.parent.__class__._current_config = None
+        if self.main_experiment is None:
+            raise exceptions.SubExperimentNotRegisteredError(self.__class__)
 
-
-class MainExperiment(Experiment[_T], Generic[_T, _U]):
-    """
-    This class is for an overarching experiment that contains smaller ones.
-
-    It connects experiments that are dependent to each other. In practice, it
-    shares the metadata where the models are registered, allowing to be used
-    across different experiments. It also defines trackers used by all the
-    children and allows to get configurations shared by all the children.
-
-
-    Attributes:
-        dir: The directory for storing experiment files.
-        config: Configuration object for the experiment.
-        metadata_manager: Manager for recording metadata.
-        trackers: Dispatcher for publishing events.
-    """
-    children = list[SubExperiment[_U]]()
-
-    def register_child(self, child: SubExperiment[_U]):
-        """
-        Register children experiments.
-
-        Args:
-            child: The child experiment to register.
-        """
-        child.metadata_manager = self.metadata_manager
-        for tracker in self.trackers.named_trackers.values():
-            try:
-                child.trackers.register(tracker)
-            except exceptions.TrackerAlreadyRegisteredError:
-                pass
-        child.dir = self.dir / child.name
-        self.children.append(child)
-        child.parent = self
+        self.main_experiment.__class__._current_config = None
         return
-
-    @classmethod
-    def get_child_config(cls) -> _U:
-        """Return the configuration of the child that is currently active."""
-        for child in cls.children:
-            try:
-                return child.get_config()
-            except exceptions.NoConfigError:
-                continue
-        raise exceptions.NoConfigError

@@ -1,4 +1,5 @@
-"""Classes for batching a dateset."""
+"""Module containing classes nad utilities for batching a dateset."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
@@ -20,19 +21,27 @@ _T = TypeVar('_T')
 
 
 class Sliced(Sequence[_T]):
-    """It slices a sequence keeping the reference to it."""
+    """
+    Slice a sequence keeping the reference to it.
+
+    Attributes:
+            seq: the sequence to keep reference to.
+            slice: the slice to use.
+    """
 
     def __init__(self,
                  seq: Sequence[_T],
                  slice_: slice) -> None:
+        """
+        Args:
+            seq: the sequence to keep reference to.
+            slice_: the slice to use.
+        """
         self.seq: Final = seq
         self.slice = slice_
         # take advantage of range implementation
-        self.range = range(len(self.seq))[slice_]
-        self.sliced = self.seq[slice_]
-
-    def __len__(self) -> int:
-        return len(self.range)
+        self._range = range(len(self.seq))[slice_]
+        self._sliced = self.seq[slice_]
 
     @overload
     def __getitem__(self, idx: int) -> _T:
@@ -44,34 +53,45 @@ class Sliced(Sequence[_T]):
 
     def __getitem__(self, idx: int | slice) -> _T | Sequence[_T]:
         if isinstance(idx, int):
-            return self.sliced[idx]
+            return self._sliced[idx]
         else:  # slice
             # calculate new slice relative to original data
-            new_range = self.range[idx]
+            new_range = self._range[idx]
             return Sliced(self.seq, self.range_to_slice(new_range))
+
+    def __len__(self) -> int:
+        return len(self._range)
 
     def __repr__(self) -> str:
         return self.seq.__repr__() + f'[{self.slice.__repr__()}]'
 
     @staticmethod
     def range_to_slice(r: range) -> slice:
-        """Converts a range to the corresponding slice."""
+        """Convert a range to the corresponding slice."""
         return slice(r.start, r.stop, r.step)
 
 
 class Permutation(Sequence[int]):
-    """Sliceable pseudo-random permutation."""
+    """
+    Sliceable pseudo-random permutation.
+
+    Attributes:
+        size: the length of the permutation.
+        seed: seed for the random generator.
+    """
 
     def __init__(self,
                  size: int,
                  seed: int | None):
+        """
+        Args:
+            size: the length of the permutation.
+            seed: seed for the random generator.
+        """
         self.size = size
         self.seed = np.random.randint(2 ** 16) if seed is None else seed
         rng = np.random.RandomState(self.seed)
         self._new_indices = rng.permutation(self.size).tolist()
-
-    def __len__(self) -> int:
-        return self.size
 
     @overload
     def __getitem__(self, idx: int) -> int:
@@ -84,23 +104,25 @@ class Permutation(Sequence[int]):
     def __getitem__(self, idx: int | slice) -> int | Sequence[int]:
         return self._new_indices[idx]
 
+    def __len__(self) -> int:
+        return self.size
+
     def __repr__(self) -> str:
-        return f"Permutation(size={self.size}, seed={self.seed})"
+        return f'Permutation(size={self.size}, seed={self.seed})'
 
 
 class DataLoader(p.LoaderProtocol[_Data_co]):
+
     """
-    A data-loader class with runtime settings.
+        A data-loader class with runtime settings.
 
-    This class wraps PyTorch's DataLoader with additional functionalities and
-    annotations.
+        This class wraps PyTorch's DataLoader with additional functionalities.
 
-    Attributes:
-        batch_size: Number of samples per batch.
-        dataset: The dataset being loaded.
-        dataset_len: Length of the dataset.
-    """
-
+        Attributes:
+            batch_size: number of samples per batch.
+            dataset: the dataset being loaded.
+            dataset_len: length of the dataset.
+        """
     def __init__(
             self,
             dataset: data.Dataset[_Data_co],
@@ -109,9 +131,9 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
     ) -> None:
         """
         Args:
-            dataset: The dataset to load data from.
-            batch_size: Number of samples per batch.
-            pin_memory: Pin memory for faster GPU training. Defaults to true
+            dataset: the dataset to load data from.
+            batch_size: number of samples per batch.
+            pin_memory: pin memory for faster GPU training. Defaults to true
                 when GPU is available.
         """
         self.batch_size = batch_size
@@ -120,19 +142,32 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         cuda_flag = torch.cuda.is_available()
         self._pin_memory = cuda_flag if pin_memory is None else pin_memory
 
+    def __iter__(self) -> Iterator[_Data_co]:
+        return self.get_loader().__iter__()
+
+    def __len__(self) -> int:
+        if torch.is_inference_mode_enabled():  # drop_last is true
+            return num_batches(self.dataset_len, self.batch_size)
+
+        return self.dataset_len // self.batch_size
+
     def get_loader(
             self,
             inference: Optional[bool] = None,
     ) -> data.DataLoader[_Data_co]:
 
         """
-        Creates a DataLoader instance with runtime settings.
+        Create a DataLoader instance with runtime settings.
 
+        Args:
+            inference: whether to use inference settings.
+                Default checks torch global state.
         Returns:
             A configured PyTorch DataLoader instance.
         """
         if inference is None:
             inference = torch.is_inference_mode_enabled()
+
         drop_last: bool = not inference
         shuffle: bool = not inference
         loader = data.DataLoader(self.dataset,
@@ -160,7 +195,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
             A tuple of (DataLoader, DataLoader).
 
         Raises:
-            ValueError: If split is not between 0 and 1.
+            ValueError: if split is not between 0 and 1.
         """
         if split < 0 or split > 1:
             raise ValueError('split must be between 0 and 1.')
@@ -180,28 +215,37 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         second_dataset = data.Subset(
             self.dataset, Sliced(indices, slice(first_size, dataset_size))
         )
-
         first_loader = DataLoader(first_dataset, self.batch_size)
         second_loader = DataLoader(second_dataset, self.batch_size)
-
         return first_loader, second_loader
 
-    def __iter__(self) -> Iterator[_Data_co]:
-        return self.get_loader().__iter__()
 
-    def __len__(self) -> int:
-        if torch.is_inference_mode_enabled():  # drop_last is true
-            return num_batches(self.dataset_len, self.batch_size)
-        return self.dataset_len // self.batch_size
+def check_dataset_length(dataset: data.Dataset) -> int:
+    """
+    Checks if a dataset has a valid length.
+
+    Args:
+        dataset: dataset to check.
+
+    Returns:
+        Length of the dataset.
+
+    Raises:
+        DatasetHasNoLengthError: if the dataset has no __len__ method.
+    """
+    if hasattr(dataset, '__len__'):
+        return dataset.__len__()
+
+    raise exceptions.DatasetHasNoLengthError()
 
 
 def num_batches(dataset_len: int, batch_size: int) -> int:
     """
-    Calculates the number of batches in a dataset.
+    Calculate the number of batches in a dataset.
 
     Args:
-        dataset_len: Length of the dataset.
-        batch_size: Size of each batch.
+        dataset_len: length of the dataset.
+        batch_size: size of each batch.
 
     Returns:
         Total number of batches, including partial batches.
@@ -210,31 +254,13 @@ def num_batches(dataset_len: int, batch_size: int) -> int:
     return num_full_batches + bool(last_batch_size)
 
 
-def check_dataset_length(dataset: data.Dataset) -> int:
-    """
-    Checks if a dataset has a valid length.
-
-    Args:
-        dataset: Dataset to check.
-
-    Returns:
-        Length of the dataset.
-
-    Raises:
-        DatasetHasNoLengthError: If the dataset has no __len__ method.
-    """
-    if hasattr(dataset, '__len__'):
-        return dataset.__len__()
-    raise exceptions.DatasetHasNoLengthError()
-
-
 def take_from_dataset(
         dataset: data.Dataset[_Data_co],
         num_samples: int = 1,
         preserve_order: bool = True,
         device: torch.device = torch.device('cpu')) -> _Data_co:
     """
-    Samples a batch of elements from a dataset and transfers them to device.
+    Sample a batch of elements from a dataset and transfers them to a device.
 
     Arguments:
         dataset: the dataset where to sample from.
@@ -248,5 +274,4 @@ def take_from_dataset(
     loader = data.DataLoader(dataset,
                              batch_size=num_samples,
                              shuffle=not preserve_order)
-
     return next((apply_ops.apply_to(batch, device) for batch in loader))

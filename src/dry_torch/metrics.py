@@ -1,5 +1,5 @@
 """
-Classes to create and combine loss and metrics.
+Module containing classes to create and combine loss and metrics.
 
 The interface is similar to https://github.com/Lightning-AI/torchmetrics,
 with stricter typing and slightly different constructions. One difference is
@@ -77,7 +77,7 @@ def from_torchmetrics(
 ) -> p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]:
     """Wrapper of a CompositionalMetric for integration."""
 
-    class TorchMetricCompositionalMetric(
+    class _TorchMetricCompositionalMetric(
         p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]
     ):
         name = 'Loss'
@@ -102,7 +102,6 @@ def from_torchmetrics(
             dict_output = dict[str, torch.Tensor]()
             metric_list = list[p.MetricCalculatorProtocol | float | None]()
             metric_list.append(self.metric)
-
             while metric_list:
                 metric_ = metric_list.pop()
                 if isinstance(metric_, self.metric.__class__):
@@ -112,9 +111,10 @@ def from_torchmetrics(
                 else:
                     if isinstance(value := metric_.compute(), torch.Tensor):
                         dict_output[metric_.__class__.__name__] = value
+
             return dict_output
 
-    return TorchMetricCompositionalMetric(metric)
+    return _TorchMetricCompositionalMetric(metric)
 
 
 class MetricBase(
@@ -131,9 +131,9 @@ class MetricBase(
 
     @override
     def compute(self: Self) -> dict[str, torch.Tensor]:
-        """Return a Mapping from the metric name to the calculated value."""
         if not self._aggregator:
             warnings.warn(exceptions.ComputedBeforeUpdatedWarning(self))
+
         return self._aggregator.reduce()
 
     @override
@@ -147,7 +147,6 @@ class MetricBase(
 
     @override
     def reset(self: Self) -> None:
-        """Reset cached values."""
         self._aggregator.clear()
         return
 
@@ -164,7 +163,7 @@ class MetricBase(
         """
 
     def copy(self) -> Self:
-        """Creates a (deep)copy of self."""
+        """Create a (deep)copy of self."""
         return self.__deepcopy__({})
 
     def merge_state(self: Self, other: Self) -> None:
@@ -172,7 +171,7 @@ class MetricBase(
         Merge metric states.
 
         Args:
-            other: Metric to be merged with.
+            other: metric to be merged with.
         """
         self._aggregator += other._aggregator
         return
@@ -189,6 +188,7 @@ class MetricBase(
         result = cls.__new__(cls)
         for k, v in self.__dict__.items():
             result.__dict__[k] = copy.deepcopy(v, memo)
+
         return result
 
 
@@ -226,6 +226,7 @@ class LossBase(
     p.LossCalculatorProtocol[_Output_contra, _Target_contra],
     metaclass=abc.ABCMeta,
 ):
+    """Collection of metrics, one of which serves as a loss."""
     name = 'Loss'
     higher_is_better: bool
     formula: str
@@ -265,9 +266,6 @@ class LossBase(
             op_fmt: str,
             requires_parentheses: bool = True,
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """
-        Helper method to combine two losses or apply an operation with a float.
-        """
         if isinstance(other, LossBase):
             named_metric_fun = self.named_metric_fun | other.named_metric_fun
             str_first = self.formula
@@ -295,11 +293,16 @@ class LossBase(
             str_second = self._remove_outer_parentheses(str_second)
 
         formula = op_fmt.format(str_first, str_second)
-
         return CompositionalLoss(criterion=_combined,
                                  higher_is_better=self.higher_is_better,
                                  formula=formula,
                                  **named_metric_fun)
+
+    def __neg__(self) -> CompositionalLoss:
+        return CompositionalLoss(criterion=lambda x: -self.criterion(x),
+                                 higher_is_better=not self.higher_is_better,
+                                 formula=f'-{self.formula}',
+                                 **self.named_metric_fun)
 
     def __add__(
             self,
@@ -352,28 +355,27 @@ class LossBase(
         else:
             higher_is_better = not self.higher_is_better
             formula = f'1 / {self.formula}{_str_other_op(-other)}'
+
         return CompositionalLoss(criterion=lambda x: self.criterion(x) ** other,
                                  higher_is_better=higher_is_better,
                                  formula=formula,
                                  **self.named_metric_fun)
 
-    def __neg__(self) -> CompositionalLoss:
-        return CompositionalLoss(criterion=lambda x: -self.criterion(x),
-                                 higher_is_better=not self.higher_is_better,
-                                 formula=f'-{self.formula}',
-                                 **self.named_metric_fun)
-
-    def _check_same_direction(self, other: LossBase):
-        if self.higher_is_better ^ other.higher_is_better:
-            raise ValueError()
-
     def __repr__(self):
         return f'{self.__class__.__name__}({self.formula})'
+
+    def _check_same_direction(self, other: LossBase) -> None:
+        if self.higher_is_better ^ other.higher_is_better:
+            msg = 'Losses {} and {} have opposite directions for optimizations.'
+            raise ValueError(msg.format(self, other))
+
+        return
 
     @staticmethod
     def _remove_outer_parentheses(formula: str) -> str:
         if formula.startswith('(') and formula.endswith(')'):
             return formula[1:-1]
+
         return formula
 
 
@@ -381,6 +383,7 @@ class CompositionalLoss(
     LossBase[_Output_contra, _Target_contra],
     MetricCollection[_Output_contra, _Target_contra]
 ):
+    """Loss resulting from an operation between other two losses."""
 
     def __init__(
             self,
@@ -397,14 +400,15 @@ class CompositionalLoss(
         self.formula = f'({self._simplify_formula(formula)})'
         return
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}{self.formula}'
+
+    @override
     def calculate(self: Self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> dict[str, torch.Tensor]:
         all_metrics = super().calculate(outputs, targets)
         return {self.name: self.criterion(all_metrics)} | all_metrics
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}{self.formula}'
 
     @staticmethod
     def _simplify_formula(formula: str) -> str:
@@ -415,6 +419,7 @@ class Loss(
     LossBase[_Output_contra, _Target_contra],
     Metric[_Output_contra, _Target_contra],
 ):
+    """Class for a simple loss."""
     higher_is_better: bool
 
     def __init__(
@@ -424,6 +429,12 @@ class Loss(
             *,
             name: str,
             higher_is_better: bool = False):
+        """
+        Args:
+            fun: the callable to calculate the loss.
+            name: the name for the loss.
+            higher_is_better: the direction for optimization.
+        """
         Metric.__init__(self,
                         fun,
                         name=name,
@@ -444,9 +455,9 @@ def dict_apply(
     Apply the given tensor callables to the provided outputs and targets.
 
     Args:
-        dict_fun: A dictionary of named callables (outputs, targets) -> Tensor.
-        outputs: The outputs to apply the tensor callables to.
-        targets: The targets to apply the tensor callables to.
+        dict_fun: a dictionary of named callables (outputs, targets) -> Tensor.
+        outputs: the outputs to apply the tensor callables to.
+        targets: the targets to apply the tensor callables to.
 
     Returns:
         A dictionary containing the resulting values.
@@ -456,10 +467,12 @@ def dict_apply(
 
 
 def repr_metrics(calculator: p.MetricCalculatorProtocol) -> Mapping[str, float]:
-    """Represents the metrics as a mapping of named values."""
+    """Represent the metrics as a mapping of named values."""
     metrics = calculator.compute()
     if isinstance(metrics, Mapping):
         return {name: value.item() for name, value in metrics.items()}
+
     if isinstance(metrics, torch.Tensor):
         return {calculator.__class__.__name__: metrics.item()}
+
     return {}

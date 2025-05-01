@@ -1,11 +1,10 @@
-"""Classes for the evaluation of a model."""
+"""Module containing classes for the evaluation of a model."""
 
 import abc
 import copy
 import sys
-from typing import Any, Mapping, TypeVar, Iterator
+from typing import Any, Iterator, Mapping, TypeVar
 import warnings
-
 from typing_extensions import override
 
 import torch
@@ -24,18 +23,16 @@ _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Versioned(repr_utils.Versioned):
-    pass
-
-
-class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
+class Evaluation(
+    repr_utils.Versioned,
+    p.EvaluationProtocol[_Input, _Target, _Output]
+):
     """
     Abstract class for evaluating a model on a given dataset.
 
     It coordinates the batching from a loader with the processing of the
-    model output.
-    Subclasses need to implement the __call__ method for training, validation or
-    testing of the model.
+    model output. Subclasses need to implement the __call__ method for training,
+    validation or testing of the model.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -79,12 +76,24 @@ class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
         self._registered = False
         return
 
+    @abc.abstractmethod
+    def __call__(self) -> None:
+        """Abstract method for model evaluation."""
+        if not self._registered:
+            registering.record_model_call(self, self.model)
+
+        self._registered = True
+        return
+
+    def __repr__(self) -> str:
+        return str(self.name) + f' for model {self.model.name}'
+
     @property
     def name(self) -> str:
         """The name of the model."""
         return self._name
 
-    def get_batches(self) -> Iterator[tuple[_Input, _Target]]:
+    def _get_batches(self) -> Iterator[tuple[_Input, _Target]]:
         """
         Get the batches ready for use.
 
@@ -94,30 +103,14 @@ class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
         return (apply_ops.apply_to(batch, self.model.device)
                 for batch in self.loader)
 
-    @abc.abstractmethod
-    def __call__(self) -> None:
-        """
-        Abstract method to be implemented by subclasses for model evaluation.
-        """
-        if not self._registered:
-            registering.record_model_call(self, self.model)
-        self._registered = True
-        return
-
-    def _log_metrics(self, computed_metrics: Mapping[str, Any]) -> None:
-        log_events.Metrics(model_name=self.model.name,
-                           source_name=self.name,
-                           epoch=self.model.epoch,
-                           metrics=computed_metrics)
-        return
-
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
         self.objective.update(outputs, targets)
 
-    def _run_forward(self, inputs: _Input) -> _Output:
-        with torch.autocast(device_type=self.model.device.type,
-                            enabled=self.mixed_precision):
-            return self.model(inputs)
+    def _run_batch(self, batch: tuple[_Input, _Target], ) -> _Output:
+        inputs, targets = batch
+        outputs = self._run_forward(inputs)
+        self._run_backwards(outputs, targets)
+        return outputs
 
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
@@ -127,18 +120,25 @@ class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
                                        self.loader.batch_size,
                                        len(self.loader),
                                        num_samples)
-        for batch in self.get_batches():
+        for batch in self._get_batches():
             outputs = self._run_batch(batch)
             pbar.update(metrics.repr_metrics(self.objective))
             if store_outputs:
                 self._store(outputs)
+
         self._log_metrics(metrics.repr_metrics(self.objective))
 
-    def _run_batch(self, batch: tuple[_Input, _Target], ) -> _Output:
-        inputs, targets = batch
-        outputs = self._run_forward(inputs)
-        self._run_backwards(outputs, targets)
-        return outputs
+    def _run_forward(self, inputs: _Input) -> _Output:
+        with torch.autocast(device_type=self.model.device.type,
+                            enabled=self.mixed_precision):
+            return self.model(inputs)
+
+    def _log_metrics(self, computed_metrics: Mapping[str, Any]) -> None:
+        log_events.Metrics(model_name=self.model.name,
+                           source_name=self.name,
+                           epoch=self.model.epoch,
+                           metrics=computed_metrics)
+        return
 
     def _store(self, outputs: _Output) -> None:
         try:
@@ -148,9 +148,6 @@ class Evaluation(Versioned, p.EvaluationProtocol[_Input, _Target, _Output]):
             warnings.warn(exceptions.CannotStoreOutputWarning(err))
         else:
             self.outputs_list.append(outputs)
-
-    def __repr__(self) -> str:
-        return str(self.name) + f' for model {self.model.name}'
 
 
 class Diagnostic(Evaluation[_Input, _Target, _Output]):
@@ -192,7 +189,7 @@ class Validation(Diagnostic[_Input, _Target, _Output]):
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
         mixed_precision: whether to use mixed precision computing.
-        outputs_list: list of optionally stored outputs
+        outputs_list: list of optionally stored outputs.
     """
 
 
@@ -205,7 +202,7 @@ class Test(Diagnostic[_Input, _Target, _Output]):
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
         mixed_precision: whether to use mixed precision computing.
-        outputs_list: list of optionally stored outputs
+        outputs_list: list of optionally stored outputs.
     """
 
     @override

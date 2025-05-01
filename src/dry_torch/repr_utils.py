@@ -1,4 +1,4 @@
-"""Utilities to extract readable documentation from any object."""
+"""Module containing utilities to extract readable representations."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import itertools
 import math
 import numbers
 import types
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -26,7 +26,7 @@ class Versioned:
 
     @property
     def created_at(self) -> str:
-        """Read only timestamp."""
+        """Read-only timestamp."""
         return self._created_at
 
 
@@ -34,8 +34,6 @@ class DefaultName:
     """Add a counter to a prefix"""
 
     def __init__(self):
-        """
-        """
         self._prefixes = dict[str, itertools.count]()
 
     def __get__(self, instance: Any, objtype: Optional[type] = None) -> str:
@@ -48,6 +46,7 @@ class DefaultName:
         count_iter = self._prefixes.setdefault(value, itertools.count())
         if count_value := next(count_iter):
             value = f'{value}_{count_value}'
+
         instance.__name = value
         return
 
@@ -66,9 +65,9 @@ else:
         Context manager to temporarily set Pandas display options.
 
         Args:
-            precision: Number of digits of precision for floating point output.
-            max_rows: Maximum number of rows to display.
-            max_columns: Maximum number of columns to display.
+            precision: number of digits of precision for floating point output.
+            max_rows: maximum number of rows to display.
+            max_columns: maximum number of columns to display.
         """
 
         def __init__(self,
@@ -96,7 +95,6 @@ else:
             for key, value in self.original_options.items():
                 pd.set_option(key, value)
 
-
     PandasObject = pd.core.base.PandasObject
 
 
@@ -106,23 +104,24 @@ class LiteralStr(str):
 
 @dataclasses.dataclass(frozen=True)
 class Omitted:
-    """Class for objects that represent omitted values in an iterable."""
+    """Represent omitted values in an iterable."""
     count: float = math.nan
 
 
 def has_own_repr(obj: Any) -> bool:
-    """Function that indicates whether __repr__ has been overridden."""
+    """Indicate whether __repr__ has been overridden."""
     return not obj.__repr__().endswith(str(hex(id(obj))) + '>')
 
 
 def limit_size(container: Iterable, max_size: int) -> list:
-    """Function that limits the size of iterables and adds an Omitted object."""
+    """Limit the size of iterables and adds an Omitted object."""
     # prevents infinite iterators
     if hasattr(container, '__len__'):
         listed = list(container)
         if len(listed) > max_size:
             omitted = [Omitted(len(listed) - max_size)]
             listed = listed[:max_size // 2] + omitted + listed[-max_size // 2:]
+
     else:
         listed = []
         iter_container = container.__iter__()
@@ -132,8 +131,10 @@ def limit_size(container: Iterable, max_size: int) -> list:
                 listed.append(value)
             except StopIteration:
                 break
+
         else:
             listed.append([Omitted()])
+
     return listed
 
 
@@ -148,24 +149,26 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
     instance.
 
     Arrays are represented using pandas and numpy array representation. Numbers
-    are return as they are or converted to python types.
+    are returned as they are or converted to python types.
 
     Args:
         obj: the object to represent.
         max_size: max length of iterators and arrays.
 
     Returns:
-        a readable representation of the object.
+        A readable representation of the object.
     """
     class_name = obj.__class__.__name__
     dict_attr = getattr(obj, '__dict__', {})
     if not dict_attr:
         dict_attr = {name: getattr(obj, name)
                      for name in getattr(obj, '__slots__', [])}
+
     dict_str: dict[str, Any] = {}
     for k, v in dict_attr.items():
         if k[0] == '_' or v is obj or v is None:
             continue
+
         if hasattr(v, '__len__'):
             try:
                 len_v = v.__len__()
@@ -174,6 +177,7 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
             else:
                 if not len_v:
                     continue
+
         dict_str[k] = recursive_repr(v, max_size=max_size)
 
     if dict_str:

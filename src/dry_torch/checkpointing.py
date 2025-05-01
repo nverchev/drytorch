@@ -1,4 +1,4 @@
-"""Classes to save model state and its optimizer state."""
+"""Module containing classes to save model state and its optimizer state."""
 
 import abc
 import pathlib
@@ -20,7 +20,7 @@ torch.serialization.add_safe_globals(SAFE_GLOBALS)
 
 class CheckpointPathManager:
     """
-    Manages paths for the experiment.
+    Manage paths for the experiment.
 
     Attributes:
         model: the model whose paths are to be managed.
@@ -45,6 +45,7 @@ class CheckpointPathManager:
                 return experiments.Experiment.current().dir
             except exceptions.NoActiveExperimentError:
                 raise exceptions.AccessOutsideScopeError
+
         return self._root_dir
 
     @property
@@ -88,17 +89,28 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         self._model: p.ModelProtocol | None = None
         self._optimizer: torch.optim.Optimizer | None = None
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(module={self.model.name})'
+
     @property
     def model(self):
         """The registered model to be saved and loaded."""
         if self._model is None:
-            raise exceptions.CheckpointNotFullyInitializedError()
+            raise exceptions.CheckpointNotInitializedError()
         return self._model
 
     @property
     def optimizer(self) -> torch.optim.Optimizer | None:
         """The registered optimizer for the model."""
         return self._optimizer
+
+    def load(self, epoch: int = -1) -> None:
+        """Load the model and optimizer state dictionaries."""
+        self._update_epoch(epoch)
+        log_events.LoadModel(model_name=self.model.name,
+                             definition=self._get_definition(),
+                             location=self._get_location(),
+                             epoch=self.model.epoch)
 
     def register_model(self, model: p.ModelProtocol):
         """Register the model to manage."""
@@ -108,68 +120,51 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         """Register the optimizer connected to the model."""
         self._optimizer = optimizer
 
+    def save(self) -> None:
+        """Save the model and optimizer state dictionaries."""
+        log_events.SaveModel(model_name=self.model.name,
+                             definition=self._get_definition(),
+                             location=self._get_location(),
+                             epoch=self.model.epoch)
+
     def _get_definition(self) -> str:
         return 'model_state' if self.optimizer is None else 'checkpoint'
+
+    @abc.abstractmethod
+    def _get_last_saved_epoch(self) -> int:
+        ...
 
     @abc.abstractmethod
     def _get_location(self) -> str:
         ...
 
     def _update_epoch(self, epoch: int):
+        if epoch < -1:
+            ValueError('Epoch must be larger than -1.')
         epoch = epoch if epoch >= 0 else self._get_last_saved_epoch()
         self.model.epoch = epoch
 
-    def save(self) -> None:
-        """Saves the model and optimizer state dictionaries."""
-        log_events.SaveModel(model_name=self.model.name,
-                             definition=self._get_definition(),
-                             location=self._get_location(),
-                             epoch=self.model.epoch)
-
-    def load(self, epoch: int = -1) -> None:
-        """Loads the model and optimizer state dictionaries."""
-        self._update_epoch(epoch)
-        log_events.LoadModel(model_name=self.model.name,
-                             definition=self._get_definition(),
-                             location=self._get_location(),
-                             epoch=self.model.epoch)
-
-    @abc.abstractmethod
-    def _get_last_saved_epoch(self) -> int:
-        ...
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(module={self.model.name})'
-
 
 class LocalCheckpoint(AbstractCheckpoint):
-    """Manages locally saving and loading the model state and optimizer."""
+    """Manage locally saving and loading the model state and optimizer."""
 
     def __init__(self) -> None:
         super().__init__()
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(module={self.model.name})'
 
     @property
     def paths(self) -> CheckpointPathManager:
         """Path manager for directories and checkpoints."""
         return CheckpointPathManager(self.model)
 
-    def save(self) -> None:
-        """Saves the model and optimizer state dictionaries."""
-
-        super().save()
-        torch.save(self.model.module.state_dict(), self.paths.state_path)
-        if self.optimizer is not None:
-            torch.save(self.optimizer.state_dict(), self.paths.optimizer_path)
-        return
-
     def load(self, epoch: int = -1) -> None:
-        """Loads the model and optimizer state dictionaries."""
         super().load(epoch)
         self.model.module.load_state_dict(
             torch.load(self.paths.state_path,
                        map_location=self.model.device,
                        weights_only=True))
-
         if self.optimizer is not None:
             try:
                 self.optimizer.load_state_dict(
@@ -179,28 +174,35 @@ class LocalCheckpoint(AbstractCheckpoint):
                 )
             except ValueError as ve:
                 warnings.warn(exceptions.OptimizerNotLoadedWarning(ve))
+
+        return
+
+    def save(self) -> None:
+        super().save()
+        torch.save(self.model.module.state_dict(), self.paths.state_path)
+        if self.optimizer is not None:
+            torch.save(self.optimizer.state_dict(), self.paths.optimizer_path)
+
         return
 
     def _get_last_saved_epoch(self) -> int:
         checkpoint_directory = self.paths.checkpoint_dir
         all_epochs = [d for d in checkpoint_directory.iterdir() if d.is_dir()]
-
         if not all_epochs:
             raise exceptions.ModelNotFoundError(checkpoint_directory)
+
         last_epoch_dir = max(all_epochs, key=self._creation_time)
         return self._get_epoch(last_epoch_dir)
 
     def _get_location(self) -> str:
         return str(self.paths.epoch_dir)
 
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(module={self.model.name})'
-
     @staticmethod
     def _creation_time(directory: pathlib.Path) -> float:
         creation_time = 0.
         for file in directory.iterdir():
             creation_time = max(creation_time, file.stat().st_ctime)
+
         return creation_time
 
     @staticmethod

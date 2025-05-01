@@ -1,4 +1,4 @@
-"""Classes for training a model."""
+"""Module containing classes for training a model."""
 
 from typing import Self, Optional, TypeVar, cast
 from typing_extensions import override
@@ -30,7 +30,6 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         learning_scheme: contains optimizer settings and scheduling.
         mixed_precision: whether it uses mixed precision computing.
         outputs_list: list of optionally stored outputs
-
     """
 
     def __init__(
@@ -76,9 +75,9 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self._terminated = False
         return
 
+    @override
     @property
     def terminated(self) -> bool:
-        """If true, this trainer should not be used for training anymore."""
         return self._terminated
 
     @override
@@ -107,7 +106,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
     ) -> None:
         """
-        Add loader for validation with same metrics as for training.
+        Add loader for validation with the same metrics as for training.
 
         If different validation loaders are added, they will all be performed
         but only the last will be stored as the instance validation.
@@ -124,6 +123,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self.validation = validation
         return
 
+    @override
     def load_checkpoint(self, epoch: int = -1) -> None:
         """
         Load model and optimizer state from a checkpoint.
@@ -134,12 +134,12 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         """
         self._model_optimizer.load(epoch=epoch)
 
+    @override
     def save_checkpoint(self) -> None:
-        """Save model and optimizer state in a checkpoint."""
         self._model_optimizer.save()
 
+    @override
     def terminate_training(self, reason: str) -> None:
-        """Prevent the trainer from continue the training."""
         self._terminated = True
         log_events.TerminatedTraining(source_name=self.name,
                                       model_name=self.model.name,
@@ -147,13 +147,8 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
                                       reason=reason)
         return
 
+    @override
     def train(self, num_epochs: int) -> None:
-        """
-        Train the module for the specified number of epochs.
-
-        Args:
-            num_epochs: the number of epochs for which train the module.
-        """
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning())
             return
@@ -193,13 +188,16 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             warnings.warn(exceptions.PastEpochWarning(epoch, self.model.epoch))
         return
 
+    @override
     def update_learning_rate(
             self,
             base_lr: Optional[float | dict[str, float]] = None,
             scheduler: Optional[p.SchedulerProtocol] = None,
     ) -> None:
         """
-        It updates the learning rates for each parameters' group in the
+        Update the learning rate(s).
+
+        It updates the learning rates for each parameter's group in the
         optimizer based on input learning rate(s) and scheduler.
 
         Args:
