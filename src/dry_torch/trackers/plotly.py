@@ -1,4 +1,5 @@
-"""Plotting with plotly."""
+"""Module containing a plotter class using plotly."""
+
 from typing_extensions import override
 
 from dry_torch.trackers.base_classes import BasePlotter
@@ -17,7 +18,6 @@ class PlotlyPlotter(BasePlotter[go.Figure]):
                      metric_name: str,
                      **sources: npt.NDArray[np.float64]) -> go.Figure:
         data = list[go.Scatter | go.Bar]()
-
         for name, log in sources.items():
             if log.shape[0] == 1:
                 marker = go.scatter.Marker(symbol=24, size=20)

@@ -1,19 +1,19 @@
-"""Creates a progress meter tailored for specific events."""
+"""Module containing a tqdm tracker for progress bars."""
 
 from __future__ import annotations
 
 import functools
 from typing import TYPE_CHECKING, Any, Mapping
-import sys
-
-from tqdm import auto  # type: ignore
 from typing_extensions import override
-
-from dry_torch import log_events
-from dry_torch import tracking
+import sys
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
+
+from tqdm import auto  # type: ignore
+
+from dry_torch import log_events
+from dry_torch import tracking
 
 
 class EpochBar:
@@ -31,10 +31,10 @@ class EpochBar:
         """
         Args:
             batch_size: how many samples are in one batch.
-            num_iter: number of expected iterations.
-            num_samples: total number of samples.
+            num_iter: the number of expected iterations.
+            num_samples: the total number of samples.
             leave: whether to leave the bar in after the epoch.
-            out: stream where to flush the bar.
+            out: the stream where to flush the bar.
             desc: description to contextualize the bar.
         """
         self.batch_size = batch_size
@@ -52,7 +52,7 @@ class EpochBar:
 
     def update(self, metrics: Mapping[str, Any]) -> None:
         """
-        Updates the bar and displays last batch metrics values.
+        Update the bar and displays last batch metrics values.
 
         Args:
             metrics: the values from the last batch by metric name.
@@ -67,6 +67,7 @@ class EpochBar:
             monitor_seen = {self.seen_str: self.epoch_seen}
         else:
             monitor_seen = {self.seen_str: '?'}
+
         monitor_metric = {metric_name: f'{metric_value:.3e}'
                           for metric_name, metric_value in metrics.items()}
         monitor_dict = monitor_seen | monitor_metric
@@ -74,11 +75,12 @@ class EpochBar:
         self.pbar.update()
         if last_epoch:
             self.pbar.close()
+
         return
 
 
 class TrainingBar:
-    """Class that creates a bar for the training progress."""
+    """Create a bar for the training progress."""
 
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}'
 
@@ -91,8 +93,8 @@ class TrainingBar:
         Args:
             start_epoch: the epoch from which the bar should start.
             end_epoch: the epoch where the bar should end.
-            out: stream where to flush the bar.
-            disable: if true this class will not produce any output.
+            out: the stream where to flush the bar.
+            disable: if true, this class will not produce any output.
         """
         self._pbar = auto.trange(start_epoch,
                                  end_epoch,
@@ -107,7 +109,7 @@ class TrainingBar:
 
     def update(self, current_epoch: int) -> None:
         """
-        Updates the bar and display the current epoch.
+        Update the bar and display the current epoch.
 
         Args:
             current_epoch: the current epoch.
@@ -124,7 +126,7 @@ class TrainingBar:
 
 
 class TqdmLogger(tracking.Tracker):
-    """Tracker that creates an epoch progress bar."""
+    """Create an epoch progress bar."""
 
     def __init__(self,
                  leave: bool = False,
@@ -134,10 +136,10 @@ class TqdmLogger(tracking.Tracker):
         Args:
             leave: whether to leave the bar after completion.
             enable_training_bar: create a bar for the overall training progress.
-            out: stream where to flush the bar.
+            out: the stream where to flush the bar.
 
         Note:
-            enable the training bar only if out support two progress bars and
+            enable the training bar only if out support two progress bars, and
             there is no other logger or printer streaming there.
         """
 
@@ -176,4 +178,5 @@ class TqdmLogger(tracking.Tracker):
     def _(self, event: log_events.StartEpoch) -> None:
         if self._training_bar is not None:
             self._training_bar.update(event.epoch)
+
         return super().notify(event)

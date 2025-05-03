@@ -1,9 +1,9 @@
 """
-This module sets up custom logging configurations for the 'dry_torch' logger.
+Module containing custom logging configurations for the 'dry_torch' logger.
 
 It defines and implements a formatter that formats log messages according to
-the levels defined in the INFO_LEVELS variable.
-By default, it prints to stdout and does not propagate to the main root.
+the levels defined in the INFO_LEVELS variable. By default, it prints to
+stdout and does not propagate to the main root.
 
 Attributes:
     INFO_LEVELS: InfoLevels object for global settings.
@@ -12,8 +12,8 @@ Attributes:
 import functools
 import logging
 import sys
-from typing import NamedTuple
-from typing_extensions import override, Literal
+from typing import NamedTuple, Literal
+from typing_extensions import override
 
 from dry_torch import log_events
 from dry_torch import tracking
@@ -60,6 +60,7 @@ class DryTorchFormatter(logging.Formatter):
     def _info_fmt(level_no: int) -> str:
         if level_no >= INFO_LEVELS.experiment:
             return '[%(asctime)s] - %(message)s\n'
+
         return '%(message)s\n'
 
 
@@ -70,7 +71,7 @@ class ProgressFormatter(DryTorchFormatter):
     def _info_fmt(level_no: int) -> str:
         if level_no == INFO_LEVELS.metrics:
             return '[%(asctime)s] - %(message)s\r'
-        if level_no == INFO_LEVELS.epoch:
+        elif level_no == INFO_LEVELS.epoch:
             return '[%(asctime)s] - %(message)s'
         else:
             return DryTorchFormatter._info_fmt(level_no)
@@ -85,19 +86,19 @@ class DryTorchFilter(logging.Filter):
 
 
 def get_verbosity() -> int:
-    """This function gets the verbosity level of the 'dry_torch' logger."""
+    """Get the verbosity level of the 'dry_torch' logger."""
     return logger.level
 
 
 def set_verbosity(level_no: int):
-    """This function sets the verbosity level of the 'dry_torch' logger."""
+    """Set the verbosity level of the 'dry_torch' logger."""
     global logger
     logger.setLevel(level_no)
     return
 
 
 def disable_default_handler() -> None:
-    """This function disable the handler and filter of the local logger."""
+    """Disable the handler and filter of the local logger."""
     logger.setLevel(logging.NOTSET)
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
@@ -105,7 +106,7 @@ def disable_default_handler() -> None:
 
 
 def enable_default_handler() -> None:
-    """This function sets up the default logging configuration."""
+    """Set up the default logging configuration."""
     global logger
     logger.handlers.clear()
 
@@ -120,9 +121,8 @@ def enable_default_handler() -> None:
 
 
 def disable_propagation() -> None:
-    """This function reverts the changes made by enable_propagation."""
+    """Revert the changes made by enable_propagation."""
     global logger
-
     logger.propagate = False
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
@@ -130,13 +130,13 @@ def disable_propagation() -> None:
             if isinstance(log_filter, DryTorchFilter):
                 handler.removeFilter(log_filter)
                 break
+
     return
 
 
 def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
     """Set the formatter for the stdout handler of the dry_torch logger."""
     global logger
-
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
             if hasattr(handler.stream, 'name'):
@@ -147,12 +147,13 @@ def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
                         handler.formatter = DryTorchFormatter()
                     else:
                         raise ValueError('Invalid formatter style.')
+
     return
 
 
 def enable_propagation(deduplicate_stdout: bool = True) -> None:
     """
-    This function allows logs to propagate to the root logger.
+    Propagate to the root logger.
 
     Args:
         deduplicate_stdout: whether to remove local messages from stdout.
@@ -167,6 +168,7 @@ def enable_propagation(deduplicate_stdout: bool = True) -> None:
                 if hasattr(handler.stream, 'name'):
                     if handler.stream.name == '<stdout>':
                         handler.addFilter(DryTorchFilter())
+
     return
 
 
@@ -174,7 +176,7 @@ enable_default_handler()
 
 
 class BuiltinLogger(tracking.Tracker):
-
+    """Tracker that streams logging messages through the built-in logger."""
     def __init__(self) -> None:
         super().__init__()
 
@@ -205,8 +207,8 @@ class BuiltinLogger(tracking.Tracker):
         else:
             fix_len = 1
             final_epoch_str = ''
-        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch)s:'
 
+        epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch)s:'
         logger.log(INFO_LEVELS.epoch,
                    epoch_msg,
                    {'epoch': event.epoch, 'final_epoch': final_epoch_str})
@@ -240,6 +242,7 @@ class BuiltinLogger(tracking.Tracker):
         for metric, value in event.metrics.items():
             log_msg_list.append(f'%({metric})s=%({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
+
         logger.log(INFO_LEVELS.metrics,
                    '\t'.join(log_msg_list),
                    log_args)
@@ -254,7 +257,6 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.TerminatedTraining) -> None:
-
         msg = '. '.join([
             '%(source)s: Training %(model_name)s terminated at epoch %(epoch)d',
             'Reason: %(reason)s',
@@ -288,6 +290,7 @@ class BuiltinLogger(tracking.Tracker):
         ]
         if event.base_lr is not None:
             message_parts.append('New learning rate: %(learning_rate)s')
+
         if event.scheduler_name is not None:
             message_parts.append('New scheduler: %(scheduler_name)s')
 

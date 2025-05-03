@@ -1,27 +1,27 @@
-"""Contains the HydraLink tracker."""
+"""Module containing the HydraLink tracker."""
 
 import functools
 import pathlib
 import shutil
 from typing import Optional
-
-import hydra
 from typing_extensions import override
 
+import hydra
+
+from dry_torch import exceptions
 from dry_torch import log_events
 from dry_torch.trackers import base_classes
 from dry_torch.trackers import logging
-from dry_torch import exceptions
 
 
 class HydraLink(base_classes.AbstractDumper):
     """
-    Tracker that links that organize Hydra logs.
+    Link current Hydra metadata to experiment.
 
     Attributes:
-        hydra_folder: folder where the logs are grouped.
-        hydra_dir: directory where hydra saves the run.
-        link_name: name of the folder with the link.
+        hydra_folder: the folder where the logs are grouped.
+        hydra_dir: the directory where hydra saves the run.
+        link_name: the name of the folder with the link.
     """
 
     def __init__(self,
@@ -29,9 +29,9 @@ class HydraLink(base_classes.AbstractDumper):
                  copy_hydra: bool = True) -> None:
         """
         Args:
-            par_dir: parent directory for experiment data.
+            par_dir: the directory where to dump metadata. Defaults to the
             copy_hydra: if True, copy the hydra folder content at the end of the
-                run replacing the link folder
+                experiment's scope, replacing the link folder.
         """
         super().__init__(par_dir)
         self.hydra_folder = 'hydra_runs'
@@ -82,6 +82,7 @@ class HydraLink(base_classes.AbstractDumper):
         if self._copy_hydra:
             self.dir.unlink()
             shutil.copytree(self.hydra_dir, self.dir)
+
         self._exp_dir = None
         self._counter = 0
         logging.disable_propagation()

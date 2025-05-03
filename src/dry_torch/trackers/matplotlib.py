@@ -2,7 +2,6 @@
 
 import math
 from typing import Iterable, Optional, TypeAlias
-
 from typing_extensions import override
 
 import matplotlib.pyplot as plt
@@ -29,8 +28,8 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             model_names: the names of the models to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
-            start: if positive the epoch from which to start plotting.
-                if negative the last number of epochs. Defaults to all.
+            start: if positive, the epoch from which to start plotting;
+                if negative, the last number of epochs. Defaults to all.
         """
         super().__init__(model_names, metric_names, metric_loader, start)
         self.model_figures = dict[str, tuple[plt.Figure, dict[str, plt.Axes]]]()
@@ -55,6 +54,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
                     else:
                         ax = fig.add_subplot(n_rows, n_cols, (row, col))
                         axes_dict[metric_name] = ax
+
             self.model_figures[model_name] = (fig, axes_dict)
             plt.show(block=False)
 
@@ -63,49 +63,37 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
                      model_name: str,
                      metric_name: str,
                      **sources: npt.NDArray[np.float64]) -> Plot:
-
-        # Get or create the appropriate figure and axis
         fig, dict_axes = self.model_figures[model_name]
         ax = dict_axes[metric_name]
-
-        # Clear existing scatter plots from the axis
         for collection in ax.collections[:]:
             collection.remove()
 
-        # Get existing lines
         dict_lines = {line.get_label(): line for line in ax.get_lines()}
-
-        # Update or create plots for each source
         for name, log in sources.items():
             if name in dict_lines:
-                # Update existing line
                 line = dict_lines[name]
                 line.set_xdata(log[:, 0])
                 line.set_ydata(log[:, 1])
             elif log.shape[0] == 1:
-                # Create a scatter plot for single point
+                # Create a scatter plot for a single point
                 ax.scatter(log[:, 0],
                            log[:, 1],
                            s=200,
                            label=name,
                            marker='D')
             else:
-                # Create a new line
                 ax.plot(log[:, 0], log[:, 1], label=name)
 
-        # Update the plot
         ax.relim()
         ax.autoscale_view()
         ax.legend()
-
-        # Draw the updated figure
         fig.canvas.draw()
         fig.canvas.flush_events()
-
         return fig, ax
 
     def close_all(self):
         """Close all figures associated with this plotter."""
         for fig, _ in self.model_figures.values():
             plt.close(fig)
+
         self.model_figures.clear()

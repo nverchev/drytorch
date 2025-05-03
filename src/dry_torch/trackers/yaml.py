@@ -1,4 +1,10 @@
-"""Module for YAML settings and the YAML dumper."""
+"""
+Module containing YAML options and dumper.
+
+Attributes:
+    MAX_LENGTH_PLAIN_REPR: Maximum length for sequences in plain style.
+    MAX_LENGTH_SHORT_REPR: Maximum string length in Sequences in plain style.
+"""
 
 from collections.abc import Sequence
 import functools
@@ -13,9 +19,7 @@ from dry_torch import repr_utils
 from dry_torch.trackers import base_classes
 
 MAX_LENGTH_PLAIN_REPR = 30
-"""Sequences longer than this will be represented in flow style by yaml."""
 MAX_LENGTH_SHORT_REPR = 10
-"""Sequences with strings longer than this will be represented in flow style."""
 
 
 class YamlDumper(base_classes.AbstractDumper):
@@ -24,7 +28,7 @@ class YamlDumper(base_classes.AbstractDumper):
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
         """
         Args:
-            par_dir: Directory where to dump metadata. Defaults uses the current
+            par_dir: directory where to dump metadata. Defaults uses the current
                 experiment's one.
         """
         super().__init__(par_dir)
@@ -69,21 +73,22 @@ class YamlDumper(base_classes.AbstractDumper):
     @staticmethod
     def _dump(metadata: dict[str, Any], file_path: pathlib.Path) -> None:
         file_with_suffix = file_path.with_suffix(file_path.suffix + '.yaml')
-
         with file_with_suffix.open('w') as metadata_file:
             yaml.dump(metadata, metadata_file)
+
         return
 
 
 def has_short_repr(obj: object,
                    max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
-    """Function that indicates whether an object has a short representation."""
+    """Indicate whether an object has a short representation."""
     if isinstance(obj, repr_utils.LiteralStr):
         return False
     elif isinstance(obj, str):
         return obj.__len__() <= max_length
     elif hasattr(obj, '__len__'):
         return False
+
     return True
 
 
@@ -105,6 +110,7 @@ def represent_sequence(
     if len(sequence) <= max_length_for_plain:
         if all(has_short_repr(elem) for elem in sequence):
             flow_style = True
+
     return dumper.represent_sequence(tag=u'tag:yaml.org,2002:seq',
                                      sequence=sequence,
                                      flow_style=flow_style)

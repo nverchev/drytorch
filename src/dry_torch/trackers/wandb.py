@@ -1,4 +1,4 @@
-"""Tracker wrapping wandb (Weights and Biases)."""
+"""Module containing a tracker calling Weights and Biases."""
 
 import functools
 from typing import Optional
@@ -8,14 +8,14 @@ import wandb
 from wandb.sdk import wandb_run
 from wandb.sdk import wandb_settings
 
+from dry_torch import exceptions
 from dry_torch import log_events
 from dry_torch import tracking
-from dry_torch import exceptions
 
 
 class Wandb(tracking.Tracker):
     """
-    Tracker for the wandb library.
+    Tracker that wraps a run for the wandb library.
     
     Attributes:
         resume_run: resume previous run from the project.
@@ -28,7 +28,7 @@ class Wandb(tracking.Tracker):
     ) -> None:
         """
         Args:
-            settings: Settings object from wandb containing all init arguments.
+            settings: settings object from wandb containing all init arguments.
             resume_previous_run: resume previous run from the project.
         """
         super().__init__()
@@ -38,9 +38,10 @@ class Wandb(tracking.Tracker):
 
     @property
     def run(self) -> wandb_run.Run:
-        """Wandb run."""
+        """Active wandb run instance."""
         if self._run is None:
             raise exceptions.AccessOutsideScopeError()
+
         return self._run
 
     @override
@@ -76,6 +77,7 @@ class Wandb(tracking.Tracker):
     def _(self, event: log_events.Metrics) -> None:
         if self.run is None:
             raise exceptions.AccessOutsideScopeError()
+
         plot_names = {f'{event.model_name}/{event.source_name}-{name}': value
                       for name, value in event.metrics.items()}
         self.run.log(plot_names, step=event.epoch)

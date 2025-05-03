@@ -1,16 +1,16 @@
-"""Tracker for visualizations on visdom."""
+"""Module containing a tracker for visualizations on visdom."""
 
 import functools
-from typing import Optional, Iterable, TypedDict
+from typing import Iterable, Optional, TypedDict
 from typing_extensions import override
 
 import numpy as np
 import numpy.typing as npt
 import visdom
 
-from dry_torch.trackers import base_classes
 from dry_torch import exceptions
 from dry_torch import log_events
+from dry_torch.trackers import base_classes
 
 
 class VisdomOpts(TypedDict, total=False):
@@ -71,7 +71,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     Tracker that uses visdom as backend.
 
     Attributes:
-        server: address for the visdom server.
+        server: the address for the visdom server.
         port: the port for the server.
     """
 
@@ -87,14 +87,14 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     ) -> None:
         """
         Args:
-            server: address of the server.
+            server: the address of the server.
             port: the port for the connection:
             opts: plot options.
             model_names: the names of the models to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
-            start: if positive the epoch from which to start plotting.
-                if negative the last number of epochs. Defaults to all.
+            start: if positive, the epoch from which to start plotting;
+                if negative, the last number of epochs. Defaults to all.
         """
         super().__init__(model_names, metric_names, metric_loader, start)
         self.server = server
@@ -107,6 +107,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         """The active Visdom instance."""
         if self._viz is None:
             raise exceptions.AccessOutsideScopeError()
+
         return self._viz
 
     @override
@@ -127,6 +128,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             raise exceptions.TrackerException(self, msg) from cre
         else:
             self.viz.close(env=event.exp_name)  # close all the windows
+
         return super().notify(event)
 
     @notify.register

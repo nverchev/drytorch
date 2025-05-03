@@ -1,4 +1,4 @@
-"""Table classes and tracker that uses sqlalchemy to track metrics."""
+"""Module containing sqlalchemy Table classes and a tracker to track metrics."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ import warnings
 import sqlalchemy
 from sqlalchemy import orm
 
-from dry_torch import log_events
 from dry_torch import exceptions
+from dry_torch import log_events
 from dry_torch.trackers import base_classes
 
 
@@ -27,9 +27,9 @@ class Run(orm.MappedAsDataclass, Base):
     A new run is created for each experiment scope, unless specified.
 
     Attributes:
-        run_id: unique id for the table.
-        experiments: list of experiments in the same run
-        sources: list of sources from experiments
+        run_id: the unique id for the table.
+        experiments: the list of experiments in the same run
+        sources: the list of sources from experiments
     """
     __tablename__ = 'runs'
     run_id: orm.Mapped[int] = orm.mapped_column(
@@ -52,10 +52,10 @@ class Experiment(orm.MappedAsDataclass, Base):
     Table for experiments.
 
     Attributes:
-        experiment_id: unique id for the table.
-        experiment_name: experiment's name.
-        experiment_version: experiment's version.
-        run_id: id of the run for the experiment.
+        experiment_id: the unique id for the table.
+        experiment_name: the experiment's name.
+        experiment_version: the experiment's version.
+        run_id: the id of the run for the experiment.
         run: the entry for the run for the experiment.
     """
     __tablename__ = 'experiments'
@@ -78,14 +78,14 @@ class Source(orm.MappedAsDataclass, Base):
     Table for sources.
 
     Attributes:
-        source_id: unique id for the table.
-        model_name: model's name.
-        model_version: model's version.
-        source_name: source's name.
-        source_version: source's version.
-        run_id: id of the run for the experiment.
+        source_id: the unique id for the table.
+        model_name: the model's name.
+        model_version: the model's version.
+        source_name: the source's name.
+        source_version: the source's version.
+        run_id: the id of the run for the experiment.
         run: the entry for the run for the experiment.
-        logs: list of logs originating from the source.
+        logs: the list of logs originating from the source.
     """
     __tablename__ = 'sources'
     source_id: orm.Mapped[int] = orm.mapped_column(
@@ -113,10 +113,10 @@ class Log(orm.MappedAsDataclass, Base):
     Table for the logs of the metrics.
 
     Attributes:
-        log_id: unique id for the table.
+        log_id: the unique id for the table.
         source_id: the id of the source creating the log.
         source: the entry for source creating the log.
-        epoch: number of epochs the model has been trained.
+        epoch: the number of epochs the model has been trained.
         metric_name: the name of the metric.
         value: the value of the metric.
         created_at: the timestamp for the entry creation.
@@ -164,7 +164,7 @@ class SQLConnection(base_classes.MetricLoader):
 
         """
         Args:
-            engine: engine for the sqlalchemy session. Default uses default_url.
+            engine: the engine for the session. Default uses default_url.
             resume_run: whether to resume the previous run.
         """
         super().__init__()
@@ -180,6 +180,7 @@ class SQLConnection(base_classes.MetricLoader):
         """The current run."""
         if self._run is None:
             raise exceptions.AccessOutsideScopeError()
+
         return self._run
 
     @override
@@ -195,7 +196,9 @@ class SQLConnection(base_classes.MetricLoader):
                 if run_or_none is None:
                     msg = 'SQLConnection: No previous runs. Starting a new one.'
                     warnings.warn(msg)
+
                 self._run = run_or_none
+
             if self._run is None:
                 self._run = Run()
 
@@ -238,6 +241,7 @@ class SQLConnection(base_classes.MetricLoader):
                               metric_name=metric_name,
                               value=value)
                 session.add(new_row)
+
             session.commit()
         return super().notify(event)
 
@@ -253,6 +257,7 @@ class SQLConnection(base_classes.MetricLoader):
             )
             if max_epoch != -1:
                 query = query.where(Log.epoch <= max_epoch)
+
             epochs = list[int]()
             named_metric_values = dict[str, list[float]]()
             for log in query:
@@ -260,8 +265,10 @@ class SQLConnection(base_classes.MetricLoader):
                 epoch = log.epoch
                 if not epochs or epochs[-1] != epoch:
                     epochs.append(epoch)
+
                 values = named_metric_values.setdefault(log.metric_name, [])
                 values.append(log.value)
+
             return epochs, named_metric_values
 
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
@@ -276,9 +283,11 @@ class SQLConnection(base_classes.MetricLoader):
                 source = cast(Source, source)  # fixing wrong annotation
                 sources = named_sources.setdefault(source.source_name, [])
                 sources.append(source)
+
             if not named_sources:
                 msg = f'No sources for model {model_name}.'
                 raise exceptions.TrackerException(self, msg)
+
             return named_sources
 
     def _get_last_run(self, exp_name: str) -> Run | None:
@@ -296,4 +305,5 @@ class SQLConnection(base_classes.MetricLoader):
         for source_name, run_sources in last_sources.items():
             out[source_name] = self._get_run_metrics(run_sources,
                                                      max_epoch=max_epoch)
+
         return out

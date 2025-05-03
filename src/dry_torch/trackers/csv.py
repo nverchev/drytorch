@@ -1,4 +1,4 @@
-"""Tracker that dumps metrics in a CSV file."""
+"""Module containing a tracker that dumps metrics in a CSV file."""
 
 import csv
 import functools
@@ -25,7 +25,7 @@ class DryTorchDialect(csv.Dialect):
 class CSVDumper(base_classes.AbstractDumper,
                 base_classes.MetricLoader):
     """
-    Tracker that dumps metrics into a CSV file.
+    Dump metrics into a CSV file.
 
     Attributes:
         resume_run: resume previous run from the project."""
@@ -36,9 +36,9 @@ class CSVDumper(base_classes.AbstractDumper,
                  resume_run: bool = False) -> None:
         """
         Args:
-            par_dir: directory where to dump metadata. Defaults to the one for
-                the current experiment.
-            dialect: class with format specification. Defaults to local dialect.
+            par_dir: the directory where to dump metadata. Defaults to the
+                one for the current experiment.
+            dialect: the format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
@@ -66,10 +66,12 @@ class CSVDumper(base_classes.AbstractDumper,
                         msg = (f'Current {headers=} and previous headers='
                                f'{previous_headers} do not correspond')
                         raise exceptions.TrackerException(self, msg)
+
             else:
                 with file_address.open('w') as log:  # reset the file.
                     writer = csv.writer(log, dialect=self._dialect)
                     writer.writerow(headers)
+
             self._active_sources.add(event.source_name)
         with file_address.open('a') as log:
             writer = csv.writer(log, dialect=self._dialect)
@@ -86,13 +88,13 @@ class CSVDumper(base_classes.AbstractDumper,
 
     def file_name(self, model_name: str, source_name: str) -> pathlib.Path:
         """
-        Return path to the csv file.
+        Return the path to the csv file.
 
         Args:
-            model_name: name of the model.
-            source_name: source of the metrics.
+            model_name: the name of the model.
+            source_name: the source of the metrics.
         Returns:
-            path to the csv file.
+            The path to the csv file.
         """
         path = self._csv_path(model_name)
         return (path / source_name).with_suffix('.csv')
@@ -103,6 +105,7 @@ class CSVDumper(base_classes.AbstractDumper,
         if not named_sources:
             msg = f'No sources for model {model_name}.'
             raise exceptions.TrackerException(self, msg)
+
         return named_sources
 
     def read_csv(self,
@@ -111,15 +114,14 @@ class CSVDumper(base_classes.AbstractDumper,
                  max_epoch: int = -1,
                  ) -> tuple[list[int], dict[str, list[float]]]:
         """
-        Reads the CSV file associated with the given model and source.
+        Read the CSV file associated with the given model and source.
 
         Args:
-            model_name: name of the model.
-            source: source of the metrics.
-            max_epoch: maximum number of epochs to load. Defaults to all.
+            model_name: the name of the model.
+            source: the source of the metrics.
+            max_epoch: the maximum number of epochs to load. Defaults to all.
         Returns:
-            column headers and the data as list of list (of float when using
-                the default dialect).
+            Epochs and relative value for each metric.
         """
         file_address = self.file_name(model_name, source)
         with file_address.open() as log:
@@ -132,15 +134,18 @@ class CSVDumper(base_classes.AbstractDumper,
             epoch_column = self._base_headers.index('Epoch')
             for row in reader:
                 epoch = int(row[epoch_column])
-                if epochs and epochs[-1] >= epoch:  # only load last run
+                if epochs and epochs[-1] >= epoch:  # only load the last run
                     epochs.clear()
                     named_metric_values.clear()
+
                 if max_epoch != -1 and epoch > max_epoch:
                     continue
+
                 epochs.append(epoch)
                 for metric, value in zip(metric_names, row[len_base:]):
                     value_list = named_metric_values.setdefault(metric, [])
                     value_list.append(float(value))
+
             return epochs, named_metric_values
 
     def _load_metrics(self,
@@ -155,6 +160,8 @@ class CSVDumper(base_classes.AbstractDumper,
             sources = self._active_sources
         else:
             sources = set()
+
         for source in sources:
             out[source] = self.read_csv(model_name, source, max_epoch)
+
         return out
