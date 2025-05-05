@@ -1,6 +1,5 @@
 """Module containing classes for the evaluation of a model."""
 
-import abc
 import copy
 import sys
 from typing import Any, Iterator, Mapping, TypeVar
@@ -23,10 +22,34 @@ _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Evaluation(
-    repr_utils.Versioned,
-    p.EvaluationProtocol[_Input, _Target, _Output]
-):
+class Source(repr_utils.Versioned):
+    """
+    Class that documents itself when the model is first called.
+
+    Attributes:
+        model: the model containing the weights to evaluate.
+    """
+
+    def __init__(self, model: p.ModelProtocol):
+        """
+        Args:
+            model: the model containing the weights to evaluate.
+        """
+        super().__init__()
+        self.model = model
+        self._registered = False
+        return
+
+    def __call__(self) -> None:
+        """Record call."""
+        if not self._registered:
+            registering.record_model_call(self, self.model)
+
+        self._registered = True
+        return
+
+
+class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
     """
     Abstract class for evaluating a model on a given dataset.
 
@@ -64,7 +87,7 @@ class Evaluation(
             mixed_precision: whether to use mixed precision computing.
                 Defaults to False.
         """
-        super().__init__()
+        super().__init__(model)
         self.model = model
         self._name = name
         self.loader = loader
@@ -72,17 +95,6 @@ class Evaluation(
         self.objective.reset()
         self.mixed_precision = mixed_precision
         self.outputs_list = list[_Output]()
-        self._metadata_recorded = False
-        self._registered = False
-        return
-
-    @abc.abstractmethod
-    def __call__(self) -> None:
-        """Abstract method for model evaluation."""
-        if not self._registered:
-            registering.record_model_call(self, self.model)
-
-        self._registered = True
         return
 
     def __repr__(self) -> str:
