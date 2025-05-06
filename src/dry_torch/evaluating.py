@@ -51,11 +51,11 @@ class Source(repr_utils.Versioned):
 
 class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
     """
-    Abstract class for evaluating a model on a given dataset.
+    Class for evaluating a model on a given dataset.
 
     It coordinates the batching from a loader with the processing of the
     model output. Subclasses need to implement the __call__ method for training,
-    validation or testing of the model.
+    validating or testing the model.
 
     Attributes:
         model: the model containing the weights to evaluate.
