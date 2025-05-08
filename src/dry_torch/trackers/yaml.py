@@ -22,7 +22,7 @@ MAX_LENGTH_PLAIN_REPR = 30
 MAX_LENGTH_SHORT_REPR = 10
 
 
-class YamlDumper(base_classes.AbstractDumper):
+class YamlDumper(base_classes.Dumper):
     """Tracker that dumps metadata in a YAML file."""
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):

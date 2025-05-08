@@ -18,7 +18,7 @@ LogTuple: TypeAlias = tuple[list[int], dict[str, list[float]]]
 Plot = TypeVar('Plot')
 
 
-class AbstractDumper(tracking.Tracker, metaclass=abc.ABCMeta):
+class Dumper(tracking.Tracker):
     """Dump metrics or metadata in a custom directory."""
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
@@ -86,8 +86,7 @@ class MetricLoader(tracking.Tracker, abc.ABC):
             return {}
 
         if max_epoch < -1:
-            msg = 'Max epoch should not be less than -1.'
-            raise exceptions.TrackerException(self, msg)
+            raise ValueError('Max epoch should not be less than -1.')
 
         return self._load_metrics(model_name, max_epoch)
 
@@ -99,11 +98,16 @@ class MetricLoader(tracking.Tracker, abc.ABC):
 
 
 class MemoryMetrics(tracking.Tracker):
-    """Keep all metrics in memory."""
+    """
+    Keep all metrics in memory.
+
+    Attributes:
+        model_metrics: all metrics recorded in this session.
+    """
 
     def __init__(self, metric_loader: Optional[MetricLoader] = None) -> None:
         super().__init__()
-        self.metric_loader = metric_loader
+        self._metric_loader = metric_loader
         self.model_metrics = dict[str, dict[str, LogTuple]]()
 
     @override
@@ -123,10 +127,11 @@ class MemoryMetrics(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.LoadModel) -> None:
-        if self.metric_loader is None:
+        if self._metric_loader is None:
             return None
 
-        metrics = self.metric_loader.load_metrics(event.model_name, event.epoch)
+        metrics = self._metric_loader.load_metrics(event.model_name,
+                                                   event.epoch)
         self.model_metrics[event.model_name] = metrics
         return super().notify(event)
 
@@ -137,15 +142,15 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
     def __init__(self,
                  model_names: Iterable[str] = (),
                  metric_names: Iterable[str] = (),
-                 metric_loader: Optional[MetricLoader] = None,
-                 start: int = 1) -> None:
+                 start: int = 1,
+                 metric_loader: Optional[MetricLoader] = None) -> None:
         """
         Args:
             model_names: the names of the models to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
-            metric_loader: a tracker that can load metrics from a previous run.
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
+            metric_loader: a tracker that can load metrics from a previous run.
         Note:
             start_epoch allows you to exclude the initial epochs from the graph.
             During the first 2 * start_epoch epochs, the graph is shown in
@@ -222,8 +227,8 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
             raise ValueError('Start epoch must be positive.')
 
         source_dict = self.model_metrics.get(model_name, {})
-        if not source_dict and self.metric_loader is not None:
-            source_dict = self.metric_loader.load_metrics(model_name)
+        if not source_dict and self._metric_loader is not None:
+            source_dict = self._metric_loader.load_metrics(model_name)
 
         if not source_dict:
             msg = f'No model named {model_name} has been found.'

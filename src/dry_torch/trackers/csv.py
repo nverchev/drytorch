@@ -22,7 +22,7 @@ class DryTorchDialect(csv.Dialect):
     quoting = csv.QUOTE_NONNUMERIC
 
 
-class CSVDumper(base_classes.AbstractDumper,
+class CSVDumper(base_classes.Dumper,
                 base_classes.MetricLoader):
     """
     Dump metrics into a CSV file.

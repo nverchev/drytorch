@@ -14,7 +14,7 @@ from dry_torch.trackers import base_classes
 from dry_torch.trackers import logging
 
 
-class HydraLink(base_classes.AbstractDumper):
+class HydraLink(base_classes.Dumper):
     """
     Link current Hydra metadata to experiment.
 
