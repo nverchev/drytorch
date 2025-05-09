@@ -81,6 +81,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             port: int = 8097,
             opts: Optional[VisdomOpts] = None,
             model_names: Iterable[str] = (),
+            source_names: Iterable[str] = (),
             metric_names: Iterable[str] = (),
             metric_loader: Optional[base_classes.MetricLoader] = None,
             start: int = 1,
@@ -92,11 +93,16 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             opts: plot options.
             model_names: the names of the models to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
+            source_names: the names of the sources to plot. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
         """
-        super().__init__(model_names, metric_names, metric_loader, start)
+        super().__init__(model_names,
+                         source_names,
+                         metric_names,
+                         start,
+                         metric_loader)
         self.server = server
         self.port = port
         self.opts: VisdomOpts = opts or {}
@@ -140,16 +146,16 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     def _plot_metric(self,
                      model_name: str,
                      metric_name: str,
-                     **sources: npt.NDArray[np.float64]) -> str:
+                     **sourced_array: base_classes.NpArray) -> str:
 
         layout = VisdomOpts(xlabel='Epoch',
                             ylabel=metric_name,
                             title=model_name,
                             showlegend=True)
         scatter_opts = VisdomOpts(mode='markers', markersymbol='24')
-        opts = self.opts | layout
+        opts = self.opts | layout  # type: ignore
         win = '_'.join((model_name, metric_name))
-        for name, log in sources.items():
+        for name, log in sourced_array.items():
             self.viz.scatter(None, win=win, update='remove', name=name)
             if log.shape[0] > 1:
                 self.viz.line(X=log[:, 0],

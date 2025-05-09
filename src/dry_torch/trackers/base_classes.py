@@ -14,7 +14,13 @@ from dry_torch import exceptions
 from dry_torch import experiments
 from dry_torch import tracking
 
-LogTuple: TypeAlias = tuple[list[int], dict[str, list[float]]]
+HistoryMetric: TypeAlias = tuple[list[int], list[float]]
+HistoryMetrics: TypeAlias = tuple[list[int], dict[str, list[float]]]
+SourcedMetric: TypeAlias = dict[str, HistoryMetric]
+SourcedMetrics: TypeAlias = dict[str, HistoryMetrics]
+NpArray: TypeAlias = npt.NDArray[np.float64]
+SourcedArray: TypeAlias = dict[str, NpArray]
+
 Plot = TypeVar('Plot')
 
 
@@ -63,7 +69,7 @@ class MetricLoader(tracking.Tracker, abc.ABC):
 
     def load_metrics(self,
                      model_name: str,
-                     max_epoch: int = -1) -> dict[str, LogTuple]:
+                     max_epoch: int = -1) -> SourcedMetrics:
         """
         Load metrics stored by the tracker.
 
@@ -93,7 +99,7 @@ class MetricLoader(tracking.Tracker, abc.ABC):
     @abc.abstractmethod
     def _load_metrics(self,
                       model_name: str,
-                      max_epoch: int = -1) -> dict[str, LogTuple]:
+                      max_epoch: int = -1) -> SourcedMetrics:
         ...
 
 
@@ -102,13 +108,13 @@ class MemoryMetrics(tracking.Tracker):
     Keep all metrics in memory.
 
     Attributes:
-        model_metrics: all metrics recorded in this session.
+        model_dict: all metrics recorded in this session.
     """
 
     def __init__(self, metric_loader: Optional[MetricLoader] = None) -> None:
         super().__init__()
         self._metric_loader = metric_loader
-        self.model_metrics = dict[str, dict[str, LogTuple]]()
+        self.model_dict = dict[str, SourcedMetrics]()
 
     @override
     @functools.singledispatchmethod
@@ -117,8 +123,9 @@ class MemoryMetrics(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
-        source_dict = self.model_metrics.setdefault(event.model_name, {})
-        epochs, logs_dict = source_dict.setdefault(event.source_name, ([], {}))
+        sourced_metrics = self.model_dict.setdefault(event.model_name, {})
+        epochs, logs_dict = sourced_metrics.setdefault(event.source_name,
+                                                       ([], {}))
         epochs.append(event.epoch)
         for metric_name, metric_value in event.metrics.items():
             logs_dict.setdefault(metric_name, []).append(metric_value)
@@ -132,7 +139,7 @@ class MemoryMetrics(tracking.Tracker):
 
         metrics = self._metric_loader.load_metrics(event.model_name,
                                                    event.epoch)
-        self.model_metrics[event.model_name] = metrics
+        self.model_dict[event.model_name] = metrics
         return super().notify(event)
 
 
@@ -141,12 +148,14 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
 
     def __init__(self,
                  model_names: Iterable[str] = (),
+                 source_names: Iterable[str] = (),
                  metric_names: Iterable[str] = (),
                  start: int = 1,
                  metric_loader: Optional[MetricLoader] = None) -> None:
         """
         Args:
             model_names: the names of the models to plot. Defaults to all.
+            source_names: the names of the sources to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
@@ -158,6 +167,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         """
         super().__init__(metric_loader)
         self._model_names = model_names
+        self._source_names = source_names
         self._metric_names = metric_names
         self._start = start
         self._removed_start = False
@@ -183,27 +193,6 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         super().notify(event)
         start = max(1, self._start)
         self._update_plot(model_name=event.model_name, start=start)
-
-    def _update_plot(self, model_name: str, start: int) -> None:
-        if self._model_names and model_name not in self._model_names:
-            return
-
-        source_dict = self.model_metrics.get(model_name, {})
-        if source_dict:
-            if self._metric_names:
-                metric_names: Iterable[str] = self._metric_names
-            else:
-                all_metrics = (list(logs[1]) for logs in source_dict.values())
-                metric_names = sum(all_metrics, [])
-
-            for metric_name in metric_names:
-                processed_sources = self._process_source(source_dict,
-                                                         metric_name,
-                                                         start)
-                self._plot_metric(model_name,
-                                  metric_name,
-                                  **processed_sources)
-
         return
 
     def plot(self,
@@ -226,34 +215,43 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         if start_epoch < 1:
             raise ValueError('Start epoch must be positive.')
 
-        source_dict = self.model_metrics.get(model_name, {})
-        if not source_dict and self._metric_loader is not None:
-            source_dict = self._metric_loader.load_metrics(model_name)
+        sourced_metrics = self.model_dict.get(model_name, {})
+        if not sourced_metrics and self._metric_loader is not None:
+            sourced_metrics = self._metric_loader.load_metrics(model_name)
 
-        if not source_dict:
-            msg = f'No model named {model_name} has been found.'
-            raise exceptions.TrackerException(self, msg)
-
-        if source_names:
-            source_dict = {source: logs
-                           for source, logs in source_dict.items()
-                           if source in source_names}
-
-        if metric_names:
-            metric_names = metric_names
+        if sourced_metrics:
+            self.model_dict[model_name] = sourced_metrics
         else:
-            all_metrics = (list(logs[1]) for logs in source_dict.values())
-            metric_names = sum(all_metrics, [])
+            msg = f'No model named {model_name} has been found.'
+            raise ValueError(msg)
+
+        return self._plot(model_name, source_names, metric_names, start_epoch)
+
+    def _plot(self,
+              model_name: str,
+              source_names: Iterable[str],
+              metric_names: Iterable[str],
+              start: int) -> list[Plot]:
+
+        sourced_metrics = self.model_dict.get(model_name, {})
+        if source_names:
+            sourced_metrics = {source: sourced_metrics[source]
+                               for source in source_names
+                               if source in sourced_metrics}
+        if not metric_names:
+            all_metrics = (set(logs[1]) for logs in sourced_metrics.values())
+            metric_names = sorted(set().union(*all_metrics))
 
         plots = list[Plot]()
         self._prepare_layout(model_name, list(metric_names))
         for metric_name in metric_names:
-            processed_sources = self._process_source(source_dict,
+            processed_sources = self._process_source(sourced_metrics,
                                                      metric_name,
-                                                     start_epoch)
-            plots.append(self._plot_metric(model_name,
-                                           metric_name,
-                                           **processed_sources))
+                                                     start)
+            if processed_sources:
+                plots.append(self._plot_metric(model_name,
+                                               metric_name,
+                                               **processed_sources))
 
         return plots
 
@@ -261,37 +259,47 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
     def _plot_metric(self,
                      model_name: str,
                      metric_name: str,
-                     **sources: npt.NDArray[np.float64]) -> Plot:
+                     **sourced_array: NpArray) -> Plot:
         ...
 
     def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
         return
 
     def _process_source(self,
-                        source_dict: dict[str, LogTuple],
+                        sourced_metrics: SourcedMetrics,
                         metric_name: str,
-                        start: int) -> dict[str, npt.NDArray[np.float64]]:
-        sources = self._filter_metric(source_dict, metric_name)
-        sources = dict(sorted(sources.items(), key=self._len_source))
-        np_sources = self._source_to_numpy(sources)
-        return self._filter_by_epoch(np_sources, start)
+                        start: int) -> SourcedArray:
+        sourced_metric = self._filter_metric(sourced_metrics, metric_name)
+        ordered_sources = self._order_sources(sourced_metric)
+        sourced_array = self._source_to_numpy(ordered_sources)
+        return self._filter_by_epoch(sourced_array, start)
+
+    def _update_plot(self, model_name: str, start: int) -> None:
+        if self._model_names and model_name not in self._model_names:
+            return
+
+        self._plot(model_name, self._source_names, self._metric_names, start)
+        return
+
+    @classmethod
+    def _order_sources(cls, sources: SourcedMetric) -> SourcedMetric:
+        return dict(sorted(sources.items(), key=cls._len_source))
 
     @staticmethod
-    def _filter_metric(
-            source_dict: dict[str, LogTuple],
-            metric_name: str,
-    ) -> dict[str, tuple[list[int], list[float]]]:
-        return {source: (epochs, metrics[metric_name])
-                for source, (epochs, metrics) in source_dict.items() if epochs}
+    def _filter_metric(sourced_metrics: SourcedMetrics,
+                       metric_name: str) -> SourcedMetric:
+        return {source_name: (epochs, metrics[metric_name])
+                for source_name, (epochs, metrics) in sourced_metrics.items()
+                if epochs and metric_name in metrics}
 
     @staticmethod
-    def _filter_by_epoch(sources: dict[str, npt.NDArray[np.float64]],
-                         start: int) -> dict[str, npt.NDArray[np.float64]]:
+    def _filter_by_epoch(sourced_array: SourcedArray,
+                         start: int) -> SourcedArray:
         if start == 1:
-            return sources
+            return sourced_array
 
         filtered = {}
-        for name, data in sources.items():
+        for name, data in sourced_array.items():
             mask = data[:, 0] >= start  # epoch is in column 0
             if np.any(mask):
                 filtered[name] = data[mask]
@@ -299,12 +307,10 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         return filtered
 
     @staticmethod
-    def _len_source(source: tuple[str, tuple[list[int], list[float]]]) -> int:
-        return -len(source[1][0])  # reverse by length, does not change if same
+    def _len_source(source_pair: tuple[str, HistoryMetric]) -> int:
+        return -len(source_pair[1][0])  # does not reverse when equal
 
     @staticmethod
-    def _source_to_numpy(
-            sources: dict[str, tuple[list[int], list[float]]]
-    ) -> dict[str, npt.NDArray[np.float64]]:
+    def _source_to_numpy(sourced_metric: SourcedMetric) -> SourcedArray:
         return {name: np.column_stack((epochs, values))
-                for name, (epochs, values) in sources.items()}
+                for name, (epochs, values) in sourced_metric.items()}

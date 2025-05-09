@@ -112,7 +112,7 @@ class CSVDumper(base_classes.Dumper,
                  model_name: str,
                  source: str,
                  max_epoch: int = -1,
-                 ) -> tuple[list[int], dict[str, list[float]]]:
+                 ) -> base_classes.HistoryMetrics:
         """
         Read the CSV file associated with the given model and source.
 
@@ -150,9 +150,9 @@ class CSVDumper(base_classes.Dumper,
 
     def _load_metrics(self,
                       model_name: str,
-                      max_epoch: int = -1) -> dict[str, base_classes.LogTuple]:
+                      max_epoch: int = -1) -> base_classes.SourcedMetrics:
 
-        out = dict[str, tuple[list[int], dict[str, list[float]]]]()
+        out: base_classes.SourcedMetrics = {}
 
         if self.resume_run:
             sources = self._find_sources(model_name)

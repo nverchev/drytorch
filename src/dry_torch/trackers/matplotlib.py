@@ -5,8 +5,6 @@ from typing import Iterable, Optional, TypeAlias
 from typing_extensions import override
 
 import matplotlib.pyplot as plt
-import numpy as np
-import numpy.typing as npt
 
 from dry_torch.trackers import base_classes
 
@@ -19,6 +17,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
     def __init__(
             self,
             model_names: Iterable[str] = (),
+            source_names: Iterable[str] = (),
             metric_names: Iterable[str] = (),
             metric_loader: Optional[base_classes.MetricLoader] = None,
             start: int = 1,
@@ -26,12 +25,17 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
         """
         Args:
             model_names: the names of the models to plot. Defaults to all.
+            source_names: the names of the sources to plot. Defaults to all.
             metric_names: the names of the metrics to plot. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
         """
-        super().__init__(model_names, metric_names, metric_loader, start)
+        super().__init__(model_names,
+                         source_names,
+                         metric_names,
+                         start,
+                         metric_loader)
         self.model_figures = dict[str, tuple[plt.Figure, dict[str, plt.Axes]]]()
         plt.ion()
 
@@ -62,14 +66,14 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
     def _plot_metric(self,
                      model_name: str,
                      metric_name: str,
-                     **sources: npt.NDArray[np.float64]) -> Plot:
+                     **sourced_array: base_classes.NpArray) -> Plot:
         fig, dict_axes = self.model_figures[model_name]
         ax = dict_axes[metric_name]
         for collection in ax.collections[:]:
             collection.remove()
 
         dict_lines = {line.get_label(): line for line in ax.get_lines()}
-        for name, log in sources.items():
+        for name, log in sourced_array.items():
             if name in dict_lines:
                 line = dict_lines[name]
                 line.set_xdata(log[:, 0])

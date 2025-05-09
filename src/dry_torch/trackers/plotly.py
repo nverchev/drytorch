@@ -2,23 +2,21 @@
 
 from typing_extensions import override
 
-from dry_torch.trackers.base_classes import BasePlotter
-
-import numpy as np
-import numpy.typing as npt
 import plotly.graph_objs as go  # type: ignore
 
+from dry_torch.trackers import base_classes
 
-class PlotlyPlotter(BasePlotter[go.Figure]):
+
+class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
     """Tracker that create new plots each call (no update) using plotly."""
 
     @override
     def _plot_metric(self,
                      model_name: str,
                      metric_name: str,
-                     **sources: npt.NDArray[np.float64]) -> go.Figure:
+                     **sourced_array: base_classes.NpArray) -> go.Figure:
         data = list[go.Scatter | go.Bar]()
-        for name, log in sources.items():
+        for name, log in sourced_array.items():
             if log.shape[0] == 1:
                 marker = go.scatter.Marker(symbol=24, size=20)
                 data.append(go.Scatter(x=log[:, 0],

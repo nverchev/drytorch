@@ -249,7 +249,7 @@ class SQLConnection(base_classes.MetricLoader):
             self,
             sources: list[Source],
             max_epoch: int,
-    ) -> tuple[list[int], dict[str, list[float]]]:
+    ) -> base_classes.HistoryMetrics:
         with self.Session() as session:
             sources = [session.merge(source) for source in sources]
             query = session.query(Log).where(
@@ -299,9 +299,9 @@ class SQLConnection(base_classes.MetricLoader):
 
     def _load_metrics(self,
                       model_name: str,
-                      max_epoch: int = -1) -> dict[str, base_classes.LogTuple]:
+                      max_epoch: int = -1) -> base_classes.SourcedMetrics:
         last_sources = self._find_sources(model_name)
-        out = dict[str, tuple[list[int], dict[str, list[float]]]]()
+        out: base_classes.SourcedMetrics = {}
         for source_name, run_sources in last_sources.items():
             out[source_name] = self._get_run_metrics(run_sources,
                                                      max_epoch=max_epoch)
