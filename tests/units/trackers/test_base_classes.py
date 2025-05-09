@@ -391,7 +391,6 @@ class TestBasePlotter:
         ordered_sources = plotter._order_sources(sourced_metric)
         list_ordered = list(ordered_sources)
         list_sourced = list(sourced_metric)
-
         assert ordered_sources == sourced_metric  # same mapping
         assert list_ordered[2] == list_sourced[0]  # source having fewer epochs
         assert list_ordered[:2] == list_sourced[1:]  # order is kept otherwise
@@ -409,6 +408,7 @@ class TestBasePlotter:
         assert filtered_sources[example_source_name].shape == (1, 2)
         assert filtered_sources[example_source_name][0][0] == start
 
+        # Test _process_source
         pipelined = plotter._process_source(example_sourced_metrics,
                                             example_loss_name,
                                             start=start)
