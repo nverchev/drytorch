@@ -2,16 +2,16 @@
 
 import pytest
 
-from src.dry_torch.trackers.csv import CSVDumper
+from dry_torch.trackers.csv import CSVDumper
 
 
 class TestCsvDumper:
     """Tests for the HydraLink tracker with actual Hydra integration."""
 
-    @pytest.fixture
-    def tracker(self, start_experiment_mock_event, tmp_path) -> CSVDumper:
+    @pytest.fixture(scope='class')
+    def tracker(self, tmp_path_factory) -> CSVDumper:
         """Set up the instance."""
-        return CSVDumper(tmp_path)
+        return CSVDumper(tmp_path_factory.mktemp("test_csv"))
 
     def test_notify_with_epoch_metrics_new_file(self,
                                                 tracker,
