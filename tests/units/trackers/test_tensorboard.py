@@ -19,51 +19,35 @@ class TestTensorBoard:
 
     @pytest.fixture(scope='class')
     def tracker_with_resume(self) -> TensorBoard:
-        """Set up the instance."""
+        """Set up the instance with resume."""
         return TensorBoard(resume_run=True)
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker, start_experiment_mock_event):
+    def setup(self, mocker):
         """Setup test environment."""
         self.summary_writer_mock = mocker.patch(
-            'torch.utils.tensorboard.SummaryWriter')
-        self.add_hparams_mock = mocker.patch.object(
-            torch.utils.tensorboard.SummaryWriter,
-            'add_hparams'
-        )
-        self.add_scalar_mock = mocker.patch.object(
-            torch.utils.tensorboard.SummaryWriter,
-            'add_scalar'
-        )
-        self.add_image_mock = mocker.patch.object(
-            torch.utils.tensorboard.SummaryWriter,
-            'add_image'
-        )
-        self.close_mock = mocker.patch.object(
-            torch.utils.tensorboard.SummaryWriter,
-            'close'
+            'torch.utils.tensorboard.SummaryWriter',
         )
 
-        self.tracker = TensorBoard()
-        self.tracker.notify(start_experiment_mock_event)
-
-    def test_notify_start_experiment(self, start_experiment_mock_event):
-        """Test StartExperiment notification."""
-        # Verify SummaryWriter was initialized with correct directory
+    def test_notify_stop_and_start_experiment(self,
+                                              tracker,
+                                              start_experiment_mock_event,
+                                              stop_experiment_mock_event):
+        """Test experiment notifications."""
+        start_experiment_mock_event.config = {'simple_config': 3}
+        tracker.notify(start_experiment_mock_event)
+        log_dir = start_experiment_mock_event.exp_dir / tracker.folder_name
         self.summary_writer_mock.assert_called_once_with(
-            log_dir=start_experiment_mock_event.exp_dir.as_posix()
+            log_dir=log_dir.as_posix()
         )
-
-        # Verify hyperparameters were logged
-        self.add_hparams_mock.assert_called_once_with(
+        writer = tracker.writer
+        writer.add_hparams.assert_called_once_with(
             hparam_dict=start_experiment_mock_event.config,
             metric_dict={}
         )
-
-    def test_notify_stop_experiment(self, stop_experiment_mock_event):
-        """Test StopExperiment notification."""
-        self.tracker.notify(stop_experiment_mock_event)
-        self.close_mock.assert_called_once()
+        tracker.notify(stop_experiment_mock_event)
+        writer.close.assert_called_once()
+        assert tracker._writer is None
 
     def test_notify_metrics(self, epoch_metrics_mock_event, sample_metrics):
         """Test Metrics notification."""
@@ -82,7 +66,8 @@ class TestTensorBoard:
         # Check that add_scalar was called for each metric with correct parameters
         self.add_scalar_mock.assert_has_calls(expected_calls, any_order=True)
 
-    def test_notify_images(self, mocker, epoch_images_mock_event, sample_images):
+    def test_notify_images(self, mocker, epoch_images_mock_event,
+                           sample_images):
         """Test Images notification."""
         self.tracker.notify(epoch_images_mock_event)
 
@@ -123,3 +108,13 @@ class TestTensorBoard:
         # Verify no logging methods were called
         self.add_scalar_mock.assert_not_called()
         self.add_image_mock.assert_not_called()
+
+    def test_get_last_run(self, tracker, tmp_path):
+        assert not tracker._get_last_run(tmp_path)
+
+        for i in range(3):
+            folder_name = str(i)
+            path = tmp_path / folder_name
+            path.mkdir()
+
+        assert tracker._get_last_run(tmp_path) == tmp_path / '2'
