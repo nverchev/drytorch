@@ -14,7 +14,16 @@ from dry_torch import tracking
 
 
 class TensorBoard(tracking.Tracker):
-    """Tracker that wraps the TensorBoard SummaryWriter."""
+    """
+    Tracker that wraps the TensorBoard SummaryWriter.
+
+    Class Attributes:
+        folder_name: name of the folder containing the output.
+
+    Attributes:
+        par_dir: the directory where to dump metadata.
+        resume_run: load previous session having the same directory.
+    """
     folder_name = 'tensorboard_runs'
 
     def __init__(
@@ -22,6 +31,13 @@ class TensorBoard(tracking.Tracker):
             par_dir: pathlib.Path = pathlib.Path(folder_name),
             resume_run: bool = False
     ) -> None:
+        """
+        Args:
+            par_dir: the directory where to dump metadata. Defaults to the
+                one for the current experiment.
+            dialect: the format specification. Defaults to local dialect.
+            resume_run: load previous session having the same directory.
+        """
         super().__init__()
         self.par_dir = par_dir
         self.resume_run = resume_run

@@ -14,6 +14,11 @@ class TestCsvDumper:
         """Set up the instance."""
         return CSVDumper(tmp_path)
 
+    @pytest.fixture
+    def tracker_with_resume(self, tracker) -> CSVDumper:
+        """Set up the instance with resume."""
+        return CSVDumper(tracker.par_dir, resume_run=True)
+
     def test_file_name(self, tracker):
         """Test file name corresponds to expected."""
         file_address = tracker.file_name('model_name',
@@ -48,15 +53,15 @@ class TestCsvDumper:
             assert example_named_metrics[metric] == value[0] == value[1]
 
     def test_load_metrics(self,
-                      tracker,
-                      epoch_metrics_mock_event):
+                          tracker,
+                          tracker_with_resume,
+                          epoch_metrics_mock_event):
         """Test _load_metrics gets the correct epochs."""
         model_name = epoch_metrics_mock_event.model_name
         source_name = epoch_metrics_mock_event.source_name
         assert tracker._load_metrics(model_name) == {}
         tracker.notify(epoch_metrics_mock_event)
         assert source_name in tracker._load_metrics(model_name)
-        new_tracker = CSVDumper(par_dir=tracker.par_dir, resume_run=True)
-        assert source_name in new_tracker._load_metrics(model_name)
+        assert source_name in tracker_with_resume._load_metrics(model_name)
         with pytest.raises(TrackerException):
-            _ = new_tracker._load_metrics('wrong_name')
+            _ = tracker_with_resume._load_metrics('wrong_name')

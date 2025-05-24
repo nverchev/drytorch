@@ -27,8 +27,13 @@ class CSVDumper(base_classes.Dumper,
     """
     Dump metrics into a CSV file.
 
+    Class Attributes:
+        folder_name: name of the folder containing the output.
+
     Attributes:
-        resume_run: resume previous run from the project."""
+        par_dir: the directory where to dump metadata.
+        resume_run: load previous session having the same directory.
+    """
 
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
@@ -39,6 +44,7 @@ class CSVDumper(base_classes.Dumper,
             par_dir: the directory where to dump metadata. Defaults to the
                 one for the current experiment.
             dialect: the format specification. Defaults to local dialect.
+            resume_run: load previous session having the same directory.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
