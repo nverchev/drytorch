@@ -20,8 +20,8 @@ from dry_torch.trackers.logging import get_verbosity
 from dry_torch.trackers.logging import set_formatter
 
 
-class SubStream(io.StringIO):
-    """Mock class that has the name of stdout"""
+class MockStdout(io.StringIO):
+    """String stream that has the name of the stdout stream."""
     name = '<stdout>'
 
 
@@ -32,9 +32,9 @@ def logger() -> logging.Logger:
 
 
 @pytest.fixture()
-def mock_stdout() -> SubStream:
+def mock_stdout() -> MockStdout:
     """Fixture for the library logger."""
-    return SubStream()
+    return MockStdout()
 
 
 @pytest.fixture
@@ -44,11 +44,25 @@ def stream_handler(string_stream) -> logging.StreamHandler:
 
 
 @pytest.fixture
-def stdout_mock_handler(mock_stdout,
-                        string_stream) -> logging.StreamHandler:
-    """Mocks a handler to stdout because pytest redirects the handler."""
+def mock_stdout_handler(mock_stdout) -> logging.StreamHandler:
+    """Handler that uses the stdout mock as stream."""
     stdout_handler = logging.StreamHandler(mock_stdout)
     return stdout_handler
+
+
+@pytest.fixture()
+def example_record() -> logging.LogRecord:
+    """Set up the instance."""
+    record = logging.LogRecord(
+        name='testing',
+        level=0,
+        pathname='test.py',
+        lineno=1,
+        msg='Test message',
+        args=(),
+        exc_info=None
+    )
+    return record
 
 
 class TestBuiltinLogger:
@@ -211,21 +225,6 @@ class TestBuiltinLogger:
         assert expected in output
 
 
-@pytest.fixture()
-def example_record() -> logging.LogRecord:
-    """Set up the instance."""
-    record = logging.LogRecord(
-        name='testing',
-        level=0,
-        pathname='test.py',
-        lineno=1,
-        msg='Test message',
-        args=(),
-        exc_info=None
-    )
-    return record
-
-
 class TestDryTorchFilter:
     """Test DryTorchFilter."""
 
@@ -285,17 +284,17 @@ class TestProgressFormatter:
         assert formatted.startswith('[')  # Check for timestamp
 
 
-def test_set_formatter_style(stdout_mock_handler, logger) -> None:
+def test_set_formatter_style(mock_stdout_handler, logger) -> None:
     """Tests set formatter style."""
-    logger.addHandler(stdout_mock_handler)
+    logger.addHandler(mock_stdout_handler)
     set_formatter(style='dry_torch')
-    assert isinstance(stdout_mock_handler.formatter, DryTorchFormatter)
+    assert isinstance(mock_stdout_handler.formatter, DryTorchFormatter)
     set_formatter(style='progress')
-    assert isinstance(stdout_mock_handler.formatter, ProgressFormatter)
+    assert isinstance(mock_stdout_handler.formatter, ProgressFormatter)
 
 
 def test_enable_propagation(logger,
-                            stdout_mock_handler,
+                            mock_stdout_handler,
                             mock_stdout,
                             stream_handler,
                             string_stream) -> None:
@@ -304,7 +303,7 @@ def test_enable_propagation(logger,
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(stream_handler)
-    root_logger.addHandler(stdout_mock_handler)
+    root_logger.addHandler(mock_stdout_handler)
     enable_propagation()
     logger.error('test error 1')
     assert string_stream.getvalue() == 'test error 1\n'
