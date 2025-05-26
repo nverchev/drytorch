@@ -319,7 +319,6 @@ def test_enable_disable_default_handler(logger) -> None:
     disable_default_handler()
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.NullHandler)
-
     enable_default_handler()
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.StreamHandler)
