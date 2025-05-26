@@ -53,6 +53,19 @@ class CSVDumper(base_classes.Dumper,
         self._exp_dir: Optional[pathlib.Path] = None
         self._base_headers = ('Model', 'Source', 'Epoch')
 
+    def file_name(self, model_name: str, source_name: str) -> pathlib.Path:
+        """
+        Return the path to the csv file.
+
+        Args:
+            model_name: the name of the model.
+            source_name: the source of the metrics.
+        Returns:
+            The path to the csv file.
+        """
+        path = self._get_folder_path(model_name)
+        return (path / source_name).with_suffix('.csv')
+
     @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
@@ -86,33 +99,6 @@ class CSVDumper(base_classes.Dumper,
                              event.epoch,
                              *event.metrics.values()])
         return super().notify(event)
-
-    def _get_folder_path(self, model_name: str) -> pathlib.Path:
-        path = self.par_dir / model_name / 'csv_metrics'
-        path.mkdir(exist_ok=True, parents=True)
-        return path
-
-    def file_name(self, model_name: str, source_name: str) -> pathlib.Path:
-        """
-        Return the path to the csv file.
-
-        Args:
-            model_name: the name of the model.
-            source_name: the source of the metrics.
-        Returns:
-            The path to the csv file.
-        """
-        path = self._get_folder_path(model_name)
-        return (path / source_name).with_suffix('.csv')
-
-    def _find_sources(self, model_name: str) -> set[str]:
-        path = self._get_folder_path(model_name)
-        named_sources = {file.stem for file in path.glob('*.csv')}
-        if not named_sources:
-            msg = f'No sources for model {model_name}.'
-            raise exceptions.TrackerException(self, msg)
-
-        return named_sources
 
     def read_csv(self,
                  model_name: str,
@@ -153,6 +139,20 @@ class CSVDumper(base_classes.Dumper,
                     value_list.append(float(value))
 
             return epochs, named_metric_values
+
+    def _get_folder_path(self, model_name: str) -> pathlib.Path:
+        path = self.par_dir / model_name / 'csv_metrics'
+        path.mkdir(exist_ok=True, parents=True)
+        return path
+
+    def _find_sources(self, model_name: str) -> set[str]:
+        path = self._get_folder_path(model_name)
+        named_sources = {file.stem for file in path.glob('*.csv')}
+        if not named_sources:
+            msg = f'No sources for model {model_name}.'
+            raise exceptions.TrackerException(self, msg)
+
+        return named_sources
 
     def _load_metrics(self,
                       model_name: str,
