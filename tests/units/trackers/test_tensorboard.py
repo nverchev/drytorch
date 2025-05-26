@@ -1,26 +1,38 @@
 """Test TensorBoard tracker"""
-
 import pytest
 
-import torch
-import torch.utils.tensorboard
+from typing import Generator
+import time
 
-from dry_torch import log_events
+from dry_torch import exceptions
 from dry_torch.trackers.tensorboard import TensorBoard
 
 
 class TestTensorBoard:
     """Tests for the TensorBoard tracker."""
 
-    @pytest.fixture(scope='class')
-    def tracker(self) -> TensorBoard:
+    @pytest.fixture
+    def tracker(self, tmp_path) -> TensorBoard:
         """Set up the instance."""
-        return TensorBoard()
+        return TensorBoard(par_dir=tmp_path)
 
-    @pytest.fixture(scope='class')
-    def tracker_with_resume(self) -> TensorBoard:
+    @pytest.fixture
+    def tracker_with_resume(self, tmp_path) -> TensorBoard:
         """Set up the instance with resume."""
         return TensorBoard(resume_run=True)
+
+    @pytest.fixture
+    def tracker_started(
+            self,
+            start_experiment_mock_event,
+            stop_experiment_mock_event,
+    ) -> Generator[TensorBoard, None, None]:
+        """Set up the instance with resume."""
+        tracker = TensorBoard()
+        tracker.notify(start_experiment_mock_event)
+        yield tracker
+        tracker.notify(stop_experiment_mock_event)
+        return
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker):
@@ -36,7 +48,7 @@ class TestTensorBoard:
         """Test experiment notifications."""
         start_experiment_mock_event.config = {'simple_config': 3}
         tracker.notify(start_experiment_mock_event)
-        log_dir = start_experiment_mock_event.exp_dir / tracker.folder_name
+        log_dir = tracker.par_dir / TensorBoard.folder_name
         self.summary_writer_mock.assert_called_once_with(
             log_dir=log_dir.as_posix()
         )
@@ -49,72 +61,48 @@ class TestTensorBoard:
         writer.close.assert_called_once()
         assert tracker._writer is None
 
-    def test_notify_metrics(self, epoch_metrics_mock_event, sample_metrics):
-        """Test Metrics notification."""
-        self.tracker.notify(epoch_metrics_mock_event)
-
-        # Verify metrics were logged with correct naming
-        expected_calls = [
-            mocker.call(
-                f'{epoch_metrics_mock_event.model_name}/{epoch_metrics_mock_event.source}-{name}',
-                value,
-                global_step=epoch_metrics_mock_event.epoch
-            )
-            for name, value in sample_metrics.items()
-        ]
-
-        # Check that add_scalar was called for each metric with correct parameters
-        self.add_scalar_mock.assert_has_calls(expected_calls, any_order=True)
-
-    def test_notify_images(self, mocker, epoch_images_mock_event,
-                           sample_images):
-        """Test Images notification."""
-        self.tracker.notify(epoch_images_mock_event)
-
-        # Verify images were logged with correct naming
-        expected_calls = [
-            mocker.call(
-                f'{epoch_images_mock_event.model}/{epoch_images_mock_event.source}-{name}',
-                img,
-                global_step=epoch_images_mock_event.epoch
-            )
-            for name, img in sample_images.items()
-        ]
-
-        # Check that add_image was called for each image with correct parameters
-        self.add_image_mock.assert_has_calls(expected_calls, any_order=True)
-
-    def test_custom_log_dir(self, mocker, start_experiment_mock_event):
-        """Test custom log directory specification."""
-        custom_log_dir = "/custom/log/path"
-        tracker = tensorboard.TensorBoard(log_dir=custom_log_dir)
-
-        # Simulate start experiment
-        tracker.notify(start_experiment_mock_event)
-
-        # Verify SummaryWriter was initialized with custom directory
+    def test_resume(self,
+                    tracker_with_resume,
+                    start_experiment_mock_event,
+                    stop_experiment_mock_event):
+        """Test resume previous run."""
+        start_experiment_mock_event.config = {'simple_config': 3}
+        tracker_with_resume.notify(start_experiment_mock_event)
+        log_dir = start_experiment_mock_event.exp_dir / TensorBoard.folder_name
         self.summary_writer_mock.assert_called_once_with(
-            log_dir=custom_log_dir
+            log_dir=log_dir.as_posix()
+        )
+        self.summary_writer_mock.reset_mock()
+        tracker_with_resume.notify(stop_experiment_mock_event)
+        # new name should be ignored
+        start_experiment_mock_event.exp_name = 'test_experiment_2'
+        tracker_with_resume.notify(start_experiment_mock_event)
+        self.summary_writer_mock.assert_called_once_with(
+            log_dir=log_dir.as_posix()
         )
 
-    def test_no_logging_before_start(self, epoch_metrics_mock_event):
-        """Test that no logging occurs before experiment start."""
-        # Create a new tracker without starting an experiment
-        tracker = tensorboard.TensorBoard()
+    def test_notify_metrics(self,
+                            tracker_started,
+                            epoch_metrics_mock_event):
+        """Test there is one call for each metrics"""
+        tracker_started.notify(epoch_metrics_mock_event)
+        n_metrics = len(epoch_metrics_mock_event.metrics)
+        assert tracker_started.writer.add_scalar.call_count == n_metrics
 
-        # Attempt to log metrics
-        tracker.notify(epoch_metrics_mock_event)
+    def test_no_logging_before_start(self,
+                                     tracker,
+                                     epoch_metrics_mock_event):
+        """Test no logging occurs before experiment start."""
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            tracker.notify(epoch_metrics_mock_event)
 
-        # Verify no logging methods were called
-        self.add_scalar_mock.assert_not_called()
-        self.add_image_mock.assert_not_called()
-
-    def test_get_last_run(self, tracker, tmp_path):
-        assert not tracker._get_last_run(tmp_path)
-
-        for i in range(3):
+    def test_get_last_run(self, tmp_path):
+        """Test last created folder is selected."""
+        assert not TensorBoard._get_last_run(tmp_path)
+        for i in range(3, 0, -1):
             folder_name = str(i)
             path = tmp_path / folder_name
             path.mkdir()
+            time.sleep(0.01)
 
-        assert tracker._get_last_run(tmp_path) == tmp_path / '2'
+        assert TensorBoard._get_last_run(tmp_path) == tmp_path / '1'
