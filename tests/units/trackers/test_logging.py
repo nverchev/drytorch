@@ -176,11 +176,11 @@ class TestBuiltinLogger:
             epoch_metrics_mock_event,
     ) -> None:
         """Tests handling of FinalMetrics event."""
+        epoch_metrics_mock_event.source_name = 'test_source'
+        epoch_metrics_mock_event.metrics = {'loss': 1.2, 'accuracy': .81}
         tracker.notify(epoch_metrics_mock_event)
-        output = self.stream.getvalue()
-        assert epoch_metrics_mock_event.source_name in output
-        for metric_name in epoch_metrics_mock_event.metrics:
-            assert metric_name in output
+        expected = 'test_source:    loss=1.200000e+00   accuracy=8.100000e-01\n'
+        assert self.stream.getvalue().expandtabs(4).endswith(expected)
 
     def test_terminated_training_event(
             self,
