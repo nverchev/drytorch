@@ -33,150 +33,9 @@ class InfoLevels(NamedTuple):
     test: int
 
 
-INFO_LEVELS = InfoLevels(internal=19,
-                         metrics=21,
-                         epoch=23,
-                         param_update=25,
-                         checkpoint=26,
-                         experiment=27,
-                         training=28,
-                         test=29,
-                         )
-
-for name, level in INFO_LEVELS._asdict().items():
-    logging.addLevelName(level, name.center(10))
-
-
-class DryTorchFormatter(logging.Formatter):
-    """Default formatter for the dry_torch logger."""
-    default_msec_format = ''
-
-    @override
-    def format(self, record: logging.LogRecord) -> str:
-        self._style._fmt = self._info_fmt(record.levelno)
-        return super().format(record)
-
-    @staticmethod
-    def _info_fmt(level_no: int) -> str:
-        if level_no >= INFO_LEVELS.experiment:
-            return '[%(asctime)s] - %(message)s\n'
-
-        return '%(message)s\n'
-
-
-class ProgressFormatter(DryTorchFormatter):
-    """Formatter that dynamically overwrites metrics and epoch logs."""
-
-    @staticmethod
-    def _info_fmt(level_no: int) -> str:
-        if level_no == INFO_LEVELS.metrics:
-            return '[%(asctime)s] - %(message)s\r'
-        elif level_no == INFO_LEVELS.epoch:
-            return '[%(asctime)s] - %(message)s'
-        else:
-            return DryTorchFormatter._info_fmt(level_no)
-
-
-class DryTorchFilter(logging.Filter):
-    """Filter that excludes logs from 'dry_torch'."""
-
-    @override
-    def filter(self, record: logging.LogRecord) -> bool:
-        return 'dry_torch' not in record.name
-
-
-def get_verbosity() -> int:
-    """Get the verbosity level of the 'dry_torch' logger."""
-    return logger.level
-
-
-def set_verbosity(level_no: int):
-    """Set the verbosity level of the 'dry_torch' logger."""
-    global logger
-    logger.setLevel(level_no)
-    return
-
-
-def disable_default_handler() -> None:
-    """Disable the handler and filter of the local logger."""
-    logger.setLevel(logging.NOTSET)
-    logger.handlers.clear()
-    logger.addHandler(logging.NullHandler())
-    return
-
-
-def enable_default_handler() -> None:
-    """Set up the default logging configuration."""
-    global logger
-    logger.handlers.clear()
-
-    formatter = DryTorchFormatter()
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.terminator = ''
-    stdout_handler.setFormatter(formatter)
-    logger.addHandler(stdout_handler)
-    logger.setLevel(INFO_LEVELS.metrics)
-    logger.propagate = False
-    return
-
-
-def disable_propagation() -> None:
-    """Revert the changes made by enable_propagation."""
-    global logger
-    logger.propagate = False
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers:
-        for log_filter in handler.filters:
-            if isinstance(log_filter, DryTorchFilter):
-                handler.removeFilter(log_filter)
-                break
-
-    return
-
-
-def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
-    """Set the formatter for the stdout handler of the dry_torch logger."""
-    global logger
-    for handler in logger.handlers:
-        if isinstance(handler, logging.StreamHandler):
-            if hasattr(handler.stream, 'name'):
-                if handler.stream.name == '<stdout>':
-                    if style == 'progress':
-                        handler.formatter = ProgressFormatter()
-                    elif style == 'dry_torch':
-                        handler.formatter = DryTorchFormatter()
-                    else:
-                        raise ValueError('Invalid formatter style.')
-
-    return
-
-
-def enable_propagation(deduplicate_stdout: bool = True) -> None:
-    """
-    Propagate to the root logger.
-
-    Args:
-        deduplicate_stdout: whether to remove local messages from stdout.
-    """
-    global logger
-
-    logger.propagate = True
-    if deduplicate_stdout:
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers:
-            if isinstance(handler, logging.StreamHandler):
-                if hasattr(handler.stream, 'name'):
-                    if handler.stream.name == '<stdout>':
-                        handler.addFilter(DryTorchFilter())
-
-    return
-
-
-enable_default_handler()
-
-
 class BuiltinLogger(tracking.Tracker):
     """Tracker that streams logging messages through the built-in logger."""
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -303,3 +162,143 @@ class BuiltinLogger(tracking.Tracker):
                     'scheduler_name': event.scheduler_name}
         logger.log(INFO_LEVELS.param_update, msg, log_args)
         return super().notify(event)
+
+
+class DryTorchFilter(logging.Filter):
+    """Filter that excludes logs from 'dry_torch'."""
+
+    @override
+    def filter(self, record: logging.LogRecord) -> bool:
+        return 'dry_torch' not in record.name
+
+
+class DryTorchFormatter(logging.Formatter):
+    """Default formatter for the dry_torch logger."""
+    default_msec_format = ''
+
+    @override
+    def format(self, record: logging.LogRecord) -> str:
+        self._style._fmt = self._info_fmt(record.levelno)
+        return super().format(record)
+
+    @staticmethod
+    def _info_fmt(level_no: int) -> str:
+        if level_no >= INFO_LEVELS.experiment:
+            return '[%(asctime)s] - %(message)s\n'
+
+        return '%(message)s\n'
+
+
+class ProgressFormatter(DryTorchFormatter):
+    """Formatter that dynamically overwrites metrics and epoch logs."""
+
+    @staticmethod
+    def _info_fmt(level_no: int) -> str:
+        if level_no == INFO_LEVELS.metrics:
+            return '[%(asctime)s] - %(message)s\r'
+        elif level_no == INFO_LEVELS.epoch:
+            return '[%(asctime)s] - %(message)s'
+        else:
+            return DryTorchFormatter._info_fmt(level_no)
+
+
+def get_verbosity() -> int:
+    """Get the verbosity level of the 'dry_torch' logger."""
+    return logger.level
+
+
+def set_verbosity(level_no: int):
+    """Set the verbosity level of the 'dry_torch' logger."""
+    global logger
+    logger.setLevel(level_no)
+    return
+
+
+def disable_default_handler() -> None:
+    """Disable the handler and filter of the local logger."""
+    logger.setLevel(logging.NOTSET)
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    return
+
+
+def enable_default_handler() -> None:
+    """Set up the default logging configuration."""
+    global logger
+    logger.handlers.clear()
+
+    formatter = DryTorchFormatter()
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.terminator = ''
+    stdout_handler.setFormatter(formatter)
+    logger.addHandler(stdout_handler)
+    logger.setLevel(INFO_LEVELS.metrics)
+    logger.propagate = False
+    return
+
+
+def disable_propagation() -> None:
+    """Revert the changes made by enable_propagation."""
+    global logger
+    logger.propagate = False
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        for log_filter in handler.filters:
+            if isinstance(log_filter, DryTorchFilter):
+                handler.removeFilter(log_filter)
+                break
+
+    return
+
+
+def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
+    """Set the formatter for the stdout handler of the dry_torch logger."""
+    global logger
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            if hasattr(handler.stream, 'name'):
+                if handler.stream.name == '<stdout>':
+                    if style == 'progress':
+                        handler.formatter = ProgressFormatter()
+                    elif style == 'dry_torch':
+                        handler.formatter = DryTorchFormatter()
+                    else:
+                        raise ValueError('Invalid formatter style.')
+
+    return
+
+
+def enable_propagation(deduplicate_stdout: bool = True) -> None:
+    """
+    Propagate to the root logger.
+
+    Args:
+        deduplicate_stdout: whether to remove local messages from stdout.
+    """
+    global logger
+
+    logger.propagate = True
+    if deduplicate_stdout:
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                if hasattr(handler.stream, 'name'):
+                    if handler.stream.name == '<stdout>':
+                        handler.addFilter(DryTorchFilter())
+
+    return
+
+
+INFO_LEVELS = InfoLevels(internal=19,
+                         metrics=21,
+                         epoch=23,
+                         param_update=25,
+                         checkpoint=26,
+                         experiment=27,
+                         training=28,
+                         test=29,
+                         )
+for name, level in INFO_LEVELS._asdict().items():
+    logging.addLevelName(level, name.center(10))
+
+enable_default_handler()
