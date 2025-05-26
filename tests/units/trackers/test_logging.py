@@ -1,250 +1,322 @@
-"""
-Test suite for the dry_torch logging module.
-
-This module contains pytest-based tests for verifying the functionality of:
-- Custom formatters
-- Logging level configurations
-- Event handling
-- Logger configuration management
-
-The tests use pytest fixtures for setup and teardown, and include
-comprehensive type hints and documentation.
-"""
+"""Tests for the tracker.logging module."""
 
 import pytest
 
-import logging
 import io
+import logging
 from typing import Generator
 
 from dry_torch import log_events
-from dry_torch.trackers.logging import BuiltinLogger, DryTorchFormatter
+from dry_torch.trackers.logging import INFO_LEVELS
+from dry_torch.trackers.logging import BuiltinLogger
+from dry_torch.trackers.logging import DryTorchFilter
+from dry_torch.trackers.logging import DryTorchFormatter
+from dry_torch.trackers.logging import ProgressFormatter
 from dry_torch.trackers.logging import enable_default_handler
 from dry_torch.trackers.logging import enable_propagation
 from dry_torch.trackers.logging import disable_default_handler
 from dry_torch.trackers.logging import disable_propagation
+from dry_torch.trackers.logging import get_verbosity
 from dry_torch.trackers.logging import set_formatter
-from dry_torch.trackers.logging import INFO_LEVELS
-
-logger = logging.getLogger('dry_torch')
 
 
-@pytest.fixture
-def test_handler(string_stream: io.StringIO) -> logging.StreamHandler:
-    """
-    Creates a StreamHandler with InfoFormatter for testing.
+class SubStream(io.StringIO):
+    """Mock class that has the name of stdout"""
+    name = '<stdout>'
 
-    Args:
-        string_stream: StringIO stream for capturing output
 
-    Returns:
-        logging.StreamHandler: Configured handler for testing
-    """
-    handler = logging.StreamHandler(string_stream)
-    handler.setFormatter(DryTorchFormatter())
-    return handler
+@pytest.fixture()
+def logger() -> logging.Logger:
+    """Fixture for the library logger."""
+    return logging.getLogger('dry_torch')
+
+
+@pytest.fixture()
+def mock_stdout() -> SubStream:
+    """Fixture for the library logger."""
+    return SubStream()
 
 
 @pytest.fixture
-def configured_logger(
-        test_handler: logging.StreamHandler,
-) -> Generator[logging.Logger, None, None]:
-    """
-    Sets up the logger with temporary configuration .
-
-    Args:
-        test_handler: StreamHandler to use for testing
-
-    Yields:
-        logging.Logger: Configured logger instance
-    """
-    original_handlers = logger.handlers.copy()
-    original_level = logger.level
-
-    logger.handlers.clear()
-    logger.addHandler(test_handler)
-    logger.setLevel(INFO_LEVELS.logs)
-
-    yield logger
-
-    logger.handlers.clear()
-    logger.handlers.extend(original_handlers)
-    logger.setLevel(original_level)
+def stream_handler(string_stream) -> logging.StreamHandler:
+    """StreamHandler with library formatter."""
+    return logging.StreamHandler(string_stream)
 
 
-def test_info_formatter_training_level() -> None:
-    """Tests DryTorchFormatter for training level logs."""
-    formatter = DryTorchFormatter()
-    record = logging.LogRecord(
-        name='test',
-        level=INFO_LEVELS.training,
-        pathname='test.py',
-        lineno=1,
-        msg='Test message',
-        args=(),
-        exc_info=None
-    )
-    record.levelno = INFO_LEVELS.training
-
-    formatted = formatter.format(record)
-    assert formatted.endswith("Test message\n")
-    assert "[" in formatted  # Check for timestamp
-
-
-@pytest.mark.skip
-def test_set_formatter_training_level(string_stream) -> None:
-    """Tests DryTorchFormatter formatter style."""
-
-    enable_default_handler()
-    set_formatter(style='dry_torch')
-
-    logger.log(INFO_LEVELS.epoch, '2')
-    logger.log(INFO_LEVELS.metrics, '3')
-    logger.log(INFO_LEVELS.checkpoint, '4')
-    assert string_stream.getvalue() == '4'
+@pytest.fixture
+def stdout_mock_handler(mock_stdout,
+                        string_stream) -> logging.StreamHandler:
+    """Mocks a handler to stdout because pytest redirects the handler."""
+    stdout_handler = logging.StreamHandler(mock_stdout)
+    return stdout_handler
 
 
 class TestBuiltinLogger:
     """ Test suite for the BuiltinLogger class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self,
-              configured_logger: logging.Logger,
-              string_stream: io.StringIO) -> None:
-        """
-        Automatically setup test environment before each test.
-
-        Args:
-            configured_logger: Pre-configured logger instance
-            string_stream: StringIO stream for capturing output
-        """
-        self.logger = BuiltinLogger()
+    def setup(
+            self,
+            logger,
+            string_stream,
+            stream_handler,
+    ) -> Generator[None, None, None]:
+        """Sets up a logger with temporary configuration."""
         self.stream = string_stream
+        original_handlers = logger.handlers.copy()
+        original_level = logger.level
+        logger.handlers.clear()
+        logger.addHandler(stream_handler)
+        logger.setLevel(INFO_LEVELS.internal)
+        yield
+
+        logger.handlers.clear()
+        logger.handlers.extend(original_handlers)
+        logger.setLevel(original_level)
+        return
+
+    @pytest.fixture
+    def tracker(self) -> BuiltinLogger:
+        """Sets up the logger with temporary configuration."""
+        return BuiltinLogger()
 
     def test_start_training_event(
             self,
-            start_training_event: log_events.StartTraining,
+            tracker,
+            start_training_mock_event: log_events.StartTraining,
     ) -> None:
         """Tests handling of StartTraining event."""
-        self.logger.notify(start_training_event)
-        expected = f'Training {start_training_event.model_name} started.'
+        start_training_mock_event.model_name = 'my_model'
+        tracker.notify(start_training_mock_event)
+        expected = f'Training my_model started.'
         assert expected in self.stream.getvalue()
 
     def test_end_training_event(
             self,
-            end_training_event: log_events.EndTraining,
+            tracker,
+            end_training_mock_event,
     ) -> None:
         """Tests handling of EndTraining event."""
-        self.logger.notify(end_training_event)
+        tracker.notify(end_training_mock_event)
         assert 'Training ended.' in self.stream.getvalue()
 
     def test_start_epoch_event_with_final_epoch(
             self,
-            start_epoch_event: log_events.StartEpoch,
+            tracker,
+            start_epoch_mock_event,
     ) -> None:
         """Tests handling of StartEpoch event with final epoch specified."""
-        self.logger.notify(start_epoch_event)
-        start = start_epoch_event.epoch
-        end = start_epoch_event.end_epoch
-        expected = f'====> Epoch   {start}/{end}:'
+        start_epoch_mock_event.epoch = 4
+        start_epoch_mock_event.end_epoch = 10
+        tracker.notify(start_epoch_mock_event)
+        expected = f'====> Epoch  4/10:'
         assert expected in self.stream.getvalue()
 
-    def test_start_epoch_without_final_epoch(self) -> None:
+    def test_start_epoch_without_final_epoch(self,
+                                             tracker,
+                                             start_epoch_mock_event) -> None:
         """Tests handling of StartEpoch event without final epoch specified."""
-        event = log_events.StartEpoch(epoch=1, end_epoch=None)
-        self.logger.notify(event)
-        assert '====> Epoch 1:' in self.stream.getvalue()
+        start_epoch_mock_event.epoch = 12
+        start_epoch_mock_event.end_epoch = None
+        tracker.notify(start_epoch_mock_event)
+        assert f'====> Epoch 12:' in self.stream.getvalue()
 
     def test_save_model_event(
             self,
-            save_model_event: log_events.SaveModel,
+            tracker,
+            save_model_mock_event,
     ) -> None:
         """Tests handling of SaveModel event."""
-        self.logger.notify(save_model_event)
-        model_name = save_model_event.model_name
-        definition = save_model_event.definition.capitalize()
-        location = save_model_event.location
-        expected = f'Saving {model_name} {definition} in: {location}.'
+        save_model_mock_event.model_name = 'my_model'
+        save_model_mock_event.definition = 'weights'
+        save_model_mock_event.location = 'folder'
+        tracker.notify(save_model_mock_event)
+        expected = f'Saving my_model weights in: folder.'
         assert expected in self.stream.getvalue()
 
     def test_load_model_event(
             self,
-            load_model_event: log_events.LoadModel,
+            tracker,
+            load_model_mock_event,
     ) -> None:
         """Tests handling of LoadModel event."""
-        self.logger.notify(load_model_event)
-        model_name = load_model_event.model_name
-        definition = load_model_event.definition.capitalize()
-        epoch = load_model_event.epoch
-        expected = f'Loading {model_name} {definition} at epoch {epoch}.'
+        load_model_mock_event.model_name = 'my_model'
+        load_model_mock_event.definition = 'weights'
+        load_model_mock_event.location = 'folder'
+        load_model_mock_event.epoch = 3
+        tracker.notify(load_model_mock_event)
+        expected = f'Loading my_model weights at epoch 3.'
         assert expected in self.stream.getvalue()
 
-    def test_test_event(self, test_event: log_events.StartTest) -> None:
+    def test_test_event(self,
+                        tracker,
+                        start_test_mock_event) -> None:
         """Tests handling of Test event."""
-        self.logger.notify(test_event)
-        model_name = test_event.model_name
-        assert f'Testing {model_name} started.' in self.stream.getvalue()
+        start_test_mock_event.model_name = 'my_model'
+        tracker.notify(start_test_mock_event)
+        assert f'Testing my_model started.' in self.stream.getvalue()
 
     def test_final_metrics_event(
             self,
-            epoch_metrics_event: EpochMetrics,
+            tracker,
+            epoch_metrics_mock_event,
     ) -> None:
         """Tests handling of FinalMetrics event."""
-        self.logger.notify(epoch_metrics_event)
+        tracker.notify(epoch_metrics_mock_event)
         output = self.stream.getvalue()
-        assert epoch_metrics_event.source in output
-        for metric_name in epoch_metrics_event.logs:
+        assert epoch_metrics_mock_event.source_name in output
+        for metric_name in epoch_metrics_mock_event.metrics:
             assert metric_name in output
 
     def test_terminated_training_event(
             self,
-            terminated_training_event: log_events.TerminatedTraining,
+            tracker,
+            terminated_training_mock_event,
     ) -> None:
         """Tests handling of TerminatedTraining event."""
-        self.logger.notify(terminated_training_event)
+        terminated_training_mock_event.source_name = 'my_source'
+        terminated_training_mock_event.model_name = 'my_model'
+        terminated_training_mock_event.epoch = 10
+        terminated_training_mock_event.reason = 'Test terminate'
+        tracker.notify(terminated_training_mock_event)
+        expected = 'my_source: Training my_model terminated at epoch 10. '
+        expected += 'Reason: Test terminate'
         output = self.stream.getvalue()
-        assert terminated_training_event.source in output
-        assert terminated_training_event.model_name in output
-        assert str(terminated_training_event.epoch) in output
-        assert terminated_training_event.reason in output
+        assert expected in output
 
     def test_update_learning_rate_event(
             self,
-            update_learning_rate_event: log_events.UpdateLearningRate,
+            tracker,
+            update_learning_rate_mock_event,
     ) -> None:
         """Tests handling of UpdateLearningRate event."""
-        self.logger.notify(update_learning_rate_event)
+        update_learning_rate_mock_event.source_name = 'my_source'
+        update_learning_rate_mock_event.model_name = 'my_model'
+        update_learning_rate_mock_event.epoch = 10
+        update_learning_rate_mock_event.scheduler_name = None
+        update_learning_rate_mock_event.base_lr = None
+        tracker.notify(update_learning_rate_mock_event)
         output = self.stream.getvalue()
-        assert update_learning_rate_event.source in output
-        assert update_learning_rate_event.model_name in output
-        assert str(update_learning_rate_event.epoch) in output
-        if update_learning_rate_event.scheduler_name:
-            assert update_learning_rate_event.scheduler_name in output
+        expected = 'Updated my_model optimizer at epoch 10.'
+        assert expected in output
+        update_learning_rate_mock_event.base_lr = 0.001
+        tracker.notify(update_learning_rate_mock_event)
+        output = self.stream.getvalue()
+        expected += '\nNew learning rate: 0.001.'
+        assert expected in output
+        update_learning_rate_mock_event.scheduler_name = 'my_scheduler'
+        tracker.notify(update_learning_rate_mock_event)
+        output = self.stream.getvalue()
+        expected += '\nNew scheduler: my_scheduler.'
+        assert expected in output
 
 
-def test_enable_disable_propagation(configured_logger: logging.Logger) -> None:
-    """
-    Tests enabling and disabling of log propagation.
+@pytest.fixture()
+def example_record() -> logging.LogRecord:
+    """Set up the instance."""
+    record = logging.LogRecord(
+        name='testing',
+        level=0,
+        pathname='test.py',
+        lineno=1,
+        msg='Test message',
+        args=(),
+        exc_info=None
+    )
+    return record
 
-    Args:
-        configured_logger: Pre-configured logger instance
-    """
+
+class TestDryTorchFilter:
+    """Test DryTorchFilter."""
+
+    @pytest.fixture()
+    def dry_filter(self) -> DryTorchFilter:
+        """Set up the instance."""
+        return DryTorchFilter()
+
+    def test_filter(self, dry_filter, example_record) -> None:
+        """Set up the instance."""
+        assert dry_filter.filter(example_record)
+        example_record.name = 'testing_dry_torch'
+        assert not dry_filter.filter(example_record)
+
+
+class TestDryTorchFormatter:
+    """Test DryTorchFormatter."""
+
+    @pytest.fixture()
+    def formatter(self) -> DryTorchFormatter:
+        """Set up the instance."""
+        return DryTorchFormatter()
+
+    def test_format_experiment_level(self, formatter, example_record) -> None:
+        """Test formatting at experiment level."""
+        example_record.levelno = INFO_LEVELS.experiment
+        formatted = formatter.format(example_record)
+        assert formatted.endswith('Test message\n')
+        assert formatted.startswith('[')  # Check for timestamp
+
+    def test_format_other_level(self, formatter, example_record) -> None:
+        """Test formatting at epoch level."""
+        formatted = formatter.format(example_record)
+        assert formatted == 'Test message\n'
+
+
+class TestProgressFormatter:
+    """Tests ProgressFormatter."""
+
+    @pytest.fixture()
+    def formatter(self) -> ProgressFormatter:
+        """Set up the instance."""
+        return ProgressFormatter()
+
+    def test_format_metric_level(self, formatter, example_record) -> None:
+        """Test formatting at metric level."""
+        example_record.levelno = INFO_LEVELS.metrics
+        formatted = formatter.format(example_record)
+        assert formatted.endswith('Test message\r')
+        assert formatted.startswith('[')  # Check for timestamp
+
+    def test_format_epoch_level(self, formatter, example_record) -> None:
+        """Test formatting at epoch level."""
+        example_record.levelno = INFO_LEVELS.epoch
+        formatted = formatter.format(example_record)
+        assert formatted.endswith('Test message')
+        assert formatted.startswith('[')  # Check for timestamp
+
+
+def test_set_formatter_style(stdout_mock_handler, logger) -> None:
+    """Tests set formatter style."""
+    logger.addHandler(stdout_mock_handler)
+    set_formatter(style='dry_torch')
+    assert isinstance(stdout_mock_handler.formatter, DryTorchFormatter)
+    set_formatter(style='progress')
+    assert isinstance(stdout_mock_handler.formatter, ProgressFormatter)
+
+
+def test_enable_propagation(logger,
+                            stdout_mock_handler,
+                            mock_stdout,
+                            stream_handler,
+                            string_stream) -> None:
+    """Tests enabling and disabling of log propagation."""
+    logger.handlers.clear()
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(stream_handler)
+    root_logger.addHandler(stdout_mock_handler)
     enable_propagation()
-    assert logger.propagate is True
-
+    logger.error('test error 1')
+    assert string_stream.getvalue() == 'test error 1\n'
+    assert mock_stdout.getvalue() == ''
+    disable_default_handler()
     disable_propagation()
-    assert logger.propagate is False
+    logger.error('test error 2')
+    assert 'test error 2' not in string_stream.getvalue()
 
 
-def test_enable_disable_default_handler(
-        configured_logger: logging.Logger,
-) -> None:
-    """
-    Tests enabling and disabling of default handler.
-
-    Args:
-        configured_logger: Pre-configured logger instance
-    """
+def test_enable_disable_default_handler(logger) -> None:
+    """Tests enabling and disabling of default handler."""
     disable_default_handler()
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.NullHandler)
@@ -252,5 +324,5 @@ def test_enable_disable_default_handler(
     enable_default_handler()
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.StreamHandler)
-    assert logger.level == INFO_LEVELS.logs
+    assert logger.level == get_verbosity()
     assert logger.propagate is False
