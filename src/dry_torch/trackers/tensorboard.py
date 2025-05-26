@@ -10,7 +10,6 @@ import torch.utils.tensorboard
 
 from dry_torch import exceptions
 from dry_torch import log_events
-from dry_torch import tracking
 from dry_torch.trackers import base_classes
 
 
@@ -22,7 +21,6 @@ class TensorBoard(base_classes.Dumper):
         folder_name: name of the folder containing the output.
 
     Attributes:
-        par_dir: the directory where to dump metadata.
         resume_run: load previous session having the same directory.
     """
     folder_name = 'tensorboard_runs'
@@ -36,7 +34,6 @@ class TensorBoard(base_classes.Dumper):
         Args:
             par_dir: the directory where to dump metadata. Defaults to the
                 one for the current experiment.
-            dialect: the format specification. Defaults to local dialect.
             resume_run: load previous session having the same directory.
         """
         super().__init__(par_dir)
