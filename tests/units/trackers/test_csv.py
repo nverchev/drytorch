@@ -19,7 +19,7 @@ class TestCsvDumper:
         """Set up the instance with resume."""
         return CSVDumper(tracker.par_dir, resume_run=True)
 
-    def test_file_name(self, tracker):
+    def test_file_name(self, tracker) -> None:
         """Test file name corresponds to expected."""
         file_address = tracker.file_name('model_name',
                                          'source_name')
@@ -28,7 +28,7 @@ class TestCsvDumper:
 
     def test_notify_metrics_event(self,
                                   tracker,
-                                  epoch_metrics_mock_event):
+                                  epoch_metrics_mock_event) -> None:
         """Test file is created."""
         tracker.notify(epoch_metrics_mock_event)
         csv_path = tracker.file_name(epoch_metrics_mock_event.model_name,
@@ -38,7 +38,7 @@ class TestCsvDumper:
     def test_read_csv(self,
                       tracker,
                       epoch_metrics_mock_event,
-                      example_named_metrics):
+                      example_named_metrics) -> None:
         """Test read_csv gets the correct epochs."""
         for epoch in (1, 2, 3, 1, 2, 3):
             epoch_metrics_mock_event.epoch = epoch
@@ -55,7 +55,7 @@ class TestCsvDumper:
     def test_load_metrics(self,
                           tracker,
                           tracker_with_resume,
-                          epoch_metrics_mock_event):
+                          epoch_metrics_mock_event) -> None:
         """Test _load_metrics gets the correct epochs."""
         model_name = epoch_metrics_mock_event.model_name
         source_name = epoch_metrics_mock_event.source_name

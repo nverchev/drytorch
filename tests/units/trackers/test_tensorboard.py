@@ -35,16 +35,19 @@ class TestTensorBoard:
         return
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker):
+    def setup(self, mocker) -> None:
         """Setup test environment."""
         self.summary_writer_mock = mocker.patch(
             'torch.utils.tensorboard.SummaryWriter',
         )
+        return
 
-    def test_notify_stop_and_start_experiment(self,
-                                              tracker,
-                                              start_experiment_mock_event,
-                                              stop_experiment_mock_event):
+    def test_notify_stop_and_start_experiment(
+            self,
+            tracker,
+            start_experiment_mock_event,
+            stop_experiment_mock_event,
+    ) -> None:
         """Test experiment notifications."""
         start_experiment_mock_event.config = {'simple_config': 3}
         tracker.notify(start_experiment_mock_event)
@@ -64,7 +67,7 @@ class TestTensorBoard:
     def test_resume(self,
                     tracker_with_resume,
                     start_experiment_mock_event,
-                    stop_experiment_mock_event):
+                    stop_experiment_mock_event) -> None:
         """Test resume previous run."""
         start_experiment_mock_event.config = {'simple_config': 3}
         tracker_with_resume.notify(start_experiment_mock_event)
@@ -83,7 +86,7 @@ class TestTensorBoard:
 
     def test_notify_metrics(self,
                             tracker_started,
-                            epoch_metrics_mock_event):
+                            epoch_metrics_mock_event) -> None:
         """Test there is one call for each metrics"""
         tracker_started.notify(epoch_metrics_mock_event)
         n_metrics = len(epoch_metrics_mock_event.metrics)
@@ -91,12 +94,12 @@ class TestTensorBoard:
 
     def test_no_logging_before_start(self,
                                      tracker,
-                                     epoch_metrics_mock_event):
+                                     epoch_metrics_mock_event) -> None:
         """Test no logging occurs before experiment start."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
             tracker.notify(epoch_metrics_mock_event)
 
-    def test_get_last_run(self, tmp_path):
+    def test_get_last_run(self, tmp_path) -> None:
         """Test last created folder is selected."""
         assert not TensorBoard._get_last_run(tmp_path)
         for i in range(3, 0, -1):

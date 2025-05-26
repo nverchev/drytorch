@@ -301,7 +301,7 @@ class TestBasePlotter:
         mock_plot.assert_called_once_with(model_name=example_model_name,
                                           start=true_start)
 
-    def test_plot_validation(self, example_model_name, start, plotter):
+    def test_plot_validation(self, example_model_name, start, plotter) -> None:
         """Test validation."""
         if start <= 0:
             with pytest.raises(ValueError):
@@ -310,7 +310,7 @@ class TestBasePlotter:
             with pytest.raises(ValueError):
                 plotter.plot('wrong_name', start_epoch=start)
 
-    def test_plot_load(self, example_model_name, plotter_with_loader):
+    def test_plot_load(self, example_model_name, plotter_with_loader) -> None:
         """Test loading."""
         assert example_model_name not in plotter_with_loader.model_dict
         plotter_with_loader.plot(example_model_name)
@@ -379,7 +379,7 @@ class TestBasePlotter:
                             example_loss_name,
                             example_source_name,
                             example_sourced_metrics,
-                            plotter):
+                            plotter) -> None:
         """Test all the pre_processing helper functions."""
         # Test _filter_metric
         sourced_metric = plotter._filter_metric(example_sourced_metrics,
