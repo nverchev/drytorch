@@ -78,7 +78,7 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.checkpoint,
                    f'Saving %(name)s %(definition)s in: %(location)s.',
                    {'name': event.model_name,
-                    'definition': event.definition.capitalize(),
+                    'definition': event.definition,
                     'location': event.location}
                    )
         return super().notify(event)
@@ -88,7 +88,7 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.checkpoint,
                    f'Loading %(name)s %(definition)s at epoch %(epoch)d.',
                    {'name': event.model_name,
-                    'definition': event.definition.capitalize(),
+                    'definition': event.definition,
                     'epoch': event.epoch}
                    )
         return super().notify(event)
@@ -118,7 +118,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.TerminatedTraining) -> None:
         msg = '. '.join([
             '%(source)s: Training %(model_name)s terminated at epoch %(epoch)d',
-            'Reason: %(reason)s',
+            'Reason: %(reason)s.',
         ])
         log_args = {'source': event.source_name,
                     'model_name': event.model_name,
@@ -202,18 +202,6 @@ class ProgressFormatter(DryTorchFormatter):
             return DryTorchFormatter._info_fmt(level_no)
 
 
-def get_verbosity() -> int:
-    """Get the verbosity level of the 'dry_torch' logger."""
-    return logger.level
-
-
-def set_verbosity(level_no: int):
-    """Set the verbosity level of the 'dry_torch' logger."""
-    global logger
-    logger.setLevel(level_no)
-    return
-
-
 def disable_default_handler() -> None:
     """Disable the handler and filter of the local logger."""
     logger.setLevel(logging.NOTSET)
@@ -226,7 +214,6 @@ def enable_default_handler() -> None:
     """Set up the default logging configuration."""
     global logger
     logger.handlers.clear()
-
     formatter = DryTorchFormatter()
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.terminator = ''
@@ -251,23 +238,6 @@ def disable_propagation() -> None:
     return
 
 
-def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
-    """Set the formatter for the stdout handler of the dry_torch logger."""
-    global logger
-    for handler in logger.handlers:
-        if isinstance(handler, logging.StreamHandler):
-            if hasattr(handler.stream, 'name'):
-                if handler.stream.name == '<stdout>':
-                    if style == 'progress':
-                        handler.formatter = ProgressFormatter()
-                    elif style == 'dry_torch':
-                        handler.formatter = DryTorchFormatter()
-                    else:
-                        raise ValueError('Invalid formatter style.')
-
-    return
-
-
 def enable_propagation(deduplicate_stdout: bool = True) -> None:
     """
     Propagate to the root logger.
@@ -276,16 +246,42 @@ def enable_propagation(deduplicate_stdout: bool = True) -> None:
         deduplicate_stdout: whether to remove local messages from stdout.
     """
     global logger
-
     logger.propagate = True
     if deduplicate_stdout:
         root_logger = logging.getLogger()
         for handler in root_logger.handlers:
             if isinstance(handler, logging.StreamHandler):
-                if hasattr(handler.stream, 'name'):
-                    if handler.stream.name == '<stdout>':
-                        handler.addFilter(DryTorchFilter())
+                if getattr(handler.stream, 'name', None) == '<stdout>':
+                    handler.addFilter(DryTorchFilter())
 
+    return
+
+
+def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
+    """Set the formatter for the stdout handler of the dry_torch logger."""
+    global logger
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            if getattr(handler.stream, 'name', None) == '<stdout>':
+                if style == 'progress':
+                    handler.formatter = ProgressFormatter()
+                elif style == 'dry_torch':
+                    handler.formatter = DryTorchFormatter()
+                else:
+                    raise ValueError('Invalid formatter style.')
+
+    return
+
+
+def get_verbosity() -> int:
+    """Get the verbosity level of the 'dry_torch' logger."""
+    return logger.level
+
+
+def set_verbosity(level_no: int):
+    """Set the verbosity level of the 'dry_torch' logger."""
+    global logger
+    logger.setLevel(level_no)
     return
 
 
