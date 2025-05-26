@@ -27,8 +27,13 @@ class CSVDumper(base_classes.Dumper,
     """
     Dump metrics into a CSV file.
 
+    Class Attributes:
+        folder_name: name of the folder containing the output.
+
     Attributes:
-        resume_run: resume previous run from the project."""
+        par_dir: the directory where to dump metadata.
+        resume_run: load previous session having the same directory.
+    """
 
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
@@ -39,6 +44,7 @@ class CSVDumper(base_classes.Dumper,
             par_dir: the directory where to dump metadata. Defaults to the
                 one for the current experiment.
             dialect: the format specification. Defaults to local dialect.
+            resume_run: load previous session having the same directory.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
@@ -81,7 +87,7 @@ class CSVDumper(base_classes.Dumper,
                              *event.metrics.values()])
         return super().notify(event)
 
-    def _csv_path(self, model_name: str) -> pathlib.Path:
+    def _get_folder_path(self, model_name: str) -> pathlib.Path:
         path = self.par_dir / model_name / 'csv_metrics'
         path.mkdir(exist_ok=True, parents=True)
         return path
@@ -96,11 +102,11 @@ class CSVDumper(base_classes.Dumper,
         Returns:
             The path to the csv file.
         """
-        path = self._csv_path(model_name)
+        path = self._get_folder_path(model_name)
         return (path / source_name).with_suffix('.csv')
 
     def _find_sources(self, model_name: str) -> set[str]:
-        path = self._csv_path(model_name)
+        path = self._get_folder_path(model_name)
         named_sources = {file.stem for file in path.glob('*.csv')}
         if not named_sources:
             msg = f'No sources for model {model_name}.'

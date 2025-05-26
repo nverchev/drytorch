@@ -11,19 +11,35 @@ import torch.utils.tensorboard
 from dry_torch import exceptions
 from dry_torch import log_events
 from dry_torch import tracking
+from dry_torch.trackers import base_classes
 
 
-class TensorBoard(tracking.Tracker):
-    """Tracker that wraps the TensorBoard SummaryWriter."""
+class TensorBoard(base_classes.Dumper):
+    """
+    Tracker that wraps the TensorBoard SummaryWriter.
+
+    Class Attributes:
+        folder_name: name of the folder containing the output.
+
+    Attributes:
+        par_dir: the directory where to dump metadata.
+        resume_run: load previous session having the same directory.
+    """
     folder_name = 'tensorboard_runs'
 
     def __init__(
             self,
-            par_dir: pathlib.Path = pathlib.Path(folder_name),
+            par_dir: Optional[pathlib.Path] = None,
             resume_run: bool = False
     ) -> None:
-        super().__init__()
-        self.par_dir = par_dir
+        """
+        Args:
+            par_dir: the directory where to dump metadata. Defaults to the
+                one for the current experiment.
+            dialect: the format specification. Defaults to local dialect.
+            resume_run: load previous session having the same directory.
+        """
+        super().__init__(par_dir)
         self.resume_run = resume_run
         self._writer: Optional[torch.utils.tensorboard.SummaryWriter] = None
 
@@ -42,17 +58,18 @@ class TensorBoard(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
+        super().notify(event)
         if self.resume_run:
-            retrieved = self._get_last_run()
+            retrieved = self._get_last_run(self.par_dir)
             if retrieved is None:
                 msg = 'TensorBoard: No previous runs. Starting a new one.'
                 warnings.warn(msg)
-                root_dir = self.par_dir / event.exp_name
+                root_dir = self.par_dir / self.folder_name
             else:
                 root_dir = retrieved
 
         else:
-            root_dir = self.par_dir / event.exp_name
+            root_dir = self.par_dir / self.folder_name
 
         self._writer = torch.utils.tensorboard.SummaryWriter(
             log_dir=root_dir.as_posix(),
@@ -64,7 +81,7 @@ class TensorBoard(tracking.Tracker):
             except TypeError:
                 pass
 
-        return super().notify(event)
+        return
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
@@ -80,8 +97,9 @@ class TensorBoard(tracking.Tracker):
 
         return super().notify(event)
 
-    def _get_last_run(self) -> Optional[pathlib.Path]:
-        all_dirs = [d for d in self.par_dir.iterdir() if d.is_dir()]
+    @staticmethod
+    def _get_last_run(main_dir: pathlib.Path) -> Optional[pathlib.Path]:
+        all_dirs = [d for d in main_dir.iterdir() if d.is_dir()]
         if not all_dirs:
             return None
 
