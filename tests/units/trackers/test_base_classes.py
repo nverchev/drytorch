@@ -62,7 +62,7 @@ def metric_loader(example_sourced_metrics) -> MetricLoader:
 
 
 class TestDumper:
-    """Tests for the AbstractDumper."""
+    """Tests for AbstractDumper."""
 
     @pytest.fixture(scope='class',
                     params=[None, pathlib.Path('test')],
@@ -99,7 +99,7 @@ class TestDumper:
 
 
 class TestMetricLoader:
-    """Tests for the Metric Loader."""
+    """Tests for Metric Loader."""
 
     def test_correct_functioning(self,
                                  example_model_name,
@@ -130,7 +130,7 @@ class TestMetricLoader:
 
 
 class TestMemoryMetrics:
-    """Tests for the MemoryMetrics class."""
+    """Tests for MemoryMetrics."""
 
     @pytest.fixture(scope='class')
     def tracker(self, metric_loader) -> MemoryMetrics:
@@ -179,7 +179,7 @@ class TestMemoryMetrics:
 
 
 class TestBasePlotter:
-    """Tests for the BasePlotter class."""
+    """Tests for BasePlotter."""
 
     @pytest.fixture(scope='class', params=[-5, -1, 2, 3])
     def start(self, request) -> int:
