@@ -91,9 +91,21 @@ class EpochBar:
 
 
 class TrainingBar:
-    """Create a bar for the training progress."""
+    """
+    Create a bar for the training progress.
+
+    Class Attributes:
+        fmt: the formatting of the bar.
+        desc: the name for the iteration.
+        color: the color of the bar.
+
+    Attributes:
+        pbar: the wrapped tqdm bar.
+    """
 
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}'
+    desc = 'Epoch'
+    color = 'blue'
 
     def __init__(self,
                  start_epoch: int,
@@ -107,14 +119,14 @@ class TrainingBar:
             out: the stream where to flush the bar.
             disable: if true, this class will not produce any output.
         """
-        self._pbar = auto.trange(start_epoch,
-                                 end_epoch,
-                                 desc='Epoch:',
-                                 leave=False,
-                                 position=0,
-                                 file=out,
-                                 disable=disable,
-                                 colour='blue')
+        self.pbar = auto.trange(start_epoch,
+                                end_epoch,
+                                desc=f'{self.desc}:',
+                                leave=False,
+                                position=0,
+                                file=out,
+                                disable=disable,
+                                colour=self.color)
         self._start_epoch = start_epoch
         self._end_epoch = end_epoch
 
@@ -125,14 +137,14 @@ class TrainingBar:
         Args:
             current_epoch: the current epoch.
         """
-        self._pbar.update()
-        description = f'Epoch: {current_epoch} / {self._end_epoch}'
-        self._pbar.set_description(description)
+        self.pbar.update()
+        description = f'{self.desc}: {current_epoch} / {self._end_epoch}'
+        self.pbar.set_description(description)
         return
 
     def close(self) -> None:
         """Close the tqdm bar."""
-        self._pbar.close()
+        self.pbar.close()
         return
 
 
