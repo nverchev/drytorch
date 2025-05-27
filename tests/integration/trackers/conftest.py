@@ -229,45 +229,6 @@ def update_learning_rate_event(
 
 
 @pytest.fixture
-def event_workflow(
-        start_experiment_event,
-        model_creation_event,
-        load_model_event,
-        start_training_event,
-        start_epoch_event,
-        call_model_event,
-        iterate_batch_event,
-        epoch_metrics_event,
-        update_learning_rate_event,
-        terminated_training_event,
-        end_training_event,
-        start_test_event,
-        end_test_event,
-        save_model_event,
-        stop_experiment_event,
-) -> tuple[log_events.Event, ...]:
-    """Yields events in typical order of execution."""
-    event_tuple = (
-        start_experiment_event,
-        model_creation_event,
-        load_model_event,
-        start_training_event,
-        start_epoch_event,
-        call_model_event,
-        iterate_batch_event,
-        epoch_metrics_event,
-        update_learning_rate_event,
-        terminated_training_event,
-        end_training_event,
-        start_test_event,
-        end_test_event,
-        save_model_event,
-        stop_experiment_event,
-    )
-    return event_tuple
-
-
-@pytest.fixture
 def string_stream() -> Generator[io.StringIO, None, None]:
     """Provides a StringIO object for capturing progress bar output."""
     output = io.StringIO()
