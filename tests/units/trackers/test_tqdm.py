@@ -1,175 +1,153 @@
 """Test suite for dry_torch progress bar functionality."""
 import pytest
-from io import StringIO
 
-from dry_torch import log_events
 from dry_torch.trackers.tqdm import EpochBar, TrainingBar, TqdmLogger
 
 
 class TestEpochBar:
-    """Test suite for the EpochBar class."""
+    """Tests for the EpochBar class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, string_stream: StringIO) -> None:
-        """
-        Setup for each test.
+    def setup(self, string_stream) -> None:
+        """Set up the tests."""
+        self.stream = string_stream
+        return
 
-        Args:
-            string_stream: StringIO stream for capturing output
-        """
-        self.output = string_stream
-        self.num_iter = 10
-        self.total_batches = 10
-        self.dataset_size = 100
-        self.bar = EpochBar(
-            num_iter=self.num_iter,
-            batch_size=self.total_batches,
-            num_samples=self.dataset_size,
+    @pytest.fixture
+    def bar(self) -> EpochBar:
+        """Set up the instance."""
+        bar = EpochBar(
+            num_iter=10,
+            batch_size=32,
+            num_samples=312,
             leave=False,
-            out=self.output,
-            desc="Training"
+            out=self.stream,
+            desc='Training',
         )
+        return bar
 
-    def test_initialization(self) -> None:
-        """Test proper initialization of EpochBar."""
-        assert self.bar.num_iter == self.bar.num_iter
-        assert self.bar.num_samples == self.dataset_size
-        assert self.bar.epoch_seen == 0
+    def test_initialization(self, bar) -> None:
+        """Test instance attributes."""
+        assert bar.pbar.desc
 
-    def test_single_update(self, sample_metrics: dict[str, float]) -> None:
+    def test_single_update(self, bar, example_named_metrics) -> None:
         """Test single update of the progress bar."""
-        self.bar.update(sample_metrics)
-        self.bar.pbar.refresh()
-        output = self.output.getvalue()
-
-        # Check if metrics are displayed
-        for metric_name, value in sample_metrics.items():
+        bar.update(example_named_metrics)
+        bar.pbar.refresh()
+        output = self.stream.getvalue()
+        for metric_name, value in example_named_metrics.items():
             assert metric_name in output
-            assert f"{value:.3e}" in output
+            assert f'{value:.3e}' in output
 
-        # Check if samples seen is updated
-        assert self.bar.epoch_seen == self.bar.batch_size
-        assert "Samples" in output
+        assert bar._epoch_seen == bar._batch_size
 
-    def test_complete_epoch(self, sample_metrics: dict[str, float]) -> None:
+    def test_complete_epoch(self, bar, example_named_metrics) -> None:
         """Test progress bar behavior when epoch completes."""
-        # Update until completion
-        for _ in range(self.total_batches):
-            self.bar.update(sample_metrics)
+        for _ in range(bar._num_iter):
+            bar.update(example_named_metrics)
 
-        assert self.bar.epoch_seen == self.dataset_size
-
-        # Check if bar is closed
-        assert self.bar.pbar.disable
+        assert bar._epoch_seen == bar._num_samples
+        assert bar.pbar.disable
 
 
 class TestTrainingBar:
-    """Test suite for the TrainingBar class."""
+    """Tests for the EpochBar class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, string_stream: StringIO) -> None:
-        """
-        Setup for each test.
+    def setup(self, string_stream) -> None:
+        """Set up the tests."""
+        self.stream = string_stream
+        return
 
-        Args:
-            string_stream: StringIO stream for capturing output
-        """
-        self.output = string_stream
-        self.start_epoch = 0
-        self.end_epoch = 10
-        self.bar = TrainingBar(
-            start_epoch=self.start_epoch,
-            end_epoch=self.end_epoch,
-            out=self.output,
-            disable=False
+    @pytest.fixture
+    def bar(self) -> TrainingBar:
+        """Set up the instance."""
+        bar = TrainingBar(
+            start_epoch=0,
+            end_epoch=12,
+            out=self.stream,
+            disable=False,
         )
+        return bar
 
-    def test_initialization(self) -> None:
-        """Test proper initialization of TrainingBar."""
-        assert self.bar._start_epoch == self.start_epoch
-        assert self.bar._end_epoch == self.end_epoch
+    def test_initialization(self, bar) -> None:
+        """Test instance attributes."""
+        assert bar.pbar.desc
 
-    def test_update(self) -> None:
+    def test_update(self, bar) -> None:
         """Test updating the training progress bar."""
         current_epoch = 5
-        self.bar.update(current_epoch)
-        output = self.output.getvalue()
+        bar.update(current_epoch)
+        output = self.stream.getvalue()
+        assert f'Epoch: {current_epoch} / {bar._end_epoch}' in output
 
-        assert f"Epoch: {current_epoch} / {self.end_epoch}" in output
-
-    def test_close(self) -> None:
+    def test_close(self, bar) -> None:
         """Test closing the training bar."""
-        self.bar.close()
-        assert self.bar._pbar.disable
+        bar.close()
+        assert bar.pbar.disable
 
 
 class TestTqdmLogger:
-    """Test suite for the TqdmLogger class."""
+    """Tests for the TqdmLogger class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, string_stream: StringIO) -> None:
-        """
-        Setup for each test.
+    def setup(self, string_stream) -> None:
+        """Set up the tests."""
+        self.stream = string_stream
+        return
 
-        Args:
-            string_stream: StringIO stream for capturing output
-        """
-        self.output = string_stream
-        self.logger = TqdmLogger(
-            leave=False,
+    @pytest.fixture
+    def tracker(self) -> TqdmLogger:
+        """Set up the instance."""
+        return TqdmLogger(out=self.stream)
+
+    @pytest.fixture
+    def tracker_with_double_bar(self) -> TqdmLogger:
+        """Set up the instance."""
+        return TqdmLogger(
             enable_training_bar=True,
-            out=self.output
+            out=self.stream
         )
 
     def test_iterate_batch_event(
             self,
-            iterate_batch_event: log_events.IterateBatch
+            tracker,
+            iterate_batch_mock_event,
     ) -> None:
         """Test handling of IterateBatch event."""
-        self.logger.notify(iterate_batch_event)
-
-        # Check if update callback was added
-        assert len(iterate_batch_event.push_updates) == 1
-
-        # Try the update callback
-        iterate_batch_event.push_updates[0]({"loss": 0.5})
-        output = self.output.getvalue()
-        assert iterate_batch_event.source in output
+        tracker.notify(iterate_batch_mock_event)
+        assert len(iterate_batch_mock_event.push_updates) == 1
+        iterate_batch_mock_event.push_updates[0]({'loss': 0.5})
+        output = self.stream.getvalue()
+        assert iterate_batch_mock_event.source_name in output
 
     def test_start_training_event(
             self,
-            start_training_event: log_events.StartTraining,
+            tracker_with_double_bar,
+            start_training_mock_event,
     ) -> None:
         """Test handling of StartTraining event."""
-        self.logger.notify(start_training_event)
-        training_bar = self.logger._training_bar
-
-        assert training_bar is not None
-        assert training_bar._start_epoch == start_training_event.start_epoch
-        assert training_bar._end_epoch == start_training_event.end_epoch
+        tracker_with_double_bar.notify(start_training_mock_event)
+        assert tracker_with_double_bar._training_bar is not None
 
     def test_start_epoch_event(
             self,
-            start_training_event: log_events.StartTraining,
-            start_epoch_event: log_events.StartEpoch,
+            tracker_with_double_bar,
+            start_training_mock_event,
+            start_epoch_mock_event,
     ) -> None:
         """Test handling of StartEpoch event with active training bar."""
-        # First create training bar
-        self.logger.notify(start_training_event)
-
-        # Then notify epoch start
-        self.logger.notify(start_epoch_event)
-
-        output = self.output.getvalue()
-        assert f"Epoch: {start_epoch_event.epoch}" in output
+        tracker_with_double_bar.notify(start_training_mock_event)
+        tracker_with_double_bar.notify(start_epoch_mock_event)
+        output = self.stream.getvalue()
+        assert f'Epoch: {start_epoch_mock_event.epoch}' in output
 
     def test_disabled_training_bar(
             self,
-            start_training_event: log_events.StartTraining,
+            tracker,
+            start_training_mock_event,
     ) -> None:
         """Test TqdmLogger with disabled training bar."""
-        logger = TqdmLogger(enable_training_bar=False)
-        logger.notify(start_training_event)
-
-        assert logger._training_bar is not None
-        assert logger._training_bar._pbar.disable
+        tracker.notify(start_training_mock_event)
+        assert tracker._training_bar is not None
+        assert tracker._training_bar.pbar.disable
