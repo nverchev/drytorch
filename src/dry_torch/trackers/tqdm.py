@@ -17,9 +17,21 @@ from dry_torch import tracking
 
 
 class EpochBar:
-    """Bar that displays current epoch's metrics and progress."""
+    """
+    Bar that displays current epoch's metrics and progress.
+
+    Class Attributes:
+        fmt: the formatting of the bar.
+        seen_str: the name for the elements of the batches.
+        color: the color of the bar.
+
+    Attributes:
+        pbar: the wrapped tqdm bar.
+    """
 
     fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
+    seen_str = 'Samples'
+    color = 'green'
 
     def __init__(self,
                  batch_size: int | None,
@@ -37,17 +49,16 @@ class EpochBar:
             out: the stream where to flush the bar.
             desc: description to contextualize the bar.
         """
-        self.batch_size = batch_size
-        self.num_samples = num_samples
-        self.num_iter = num_iter
+        self._batch_size = batch_size
+        self._num_samples = num_samples
+        self._num_iter = num_iter
         self.pbar = auto.tqdm(total=num_iter,
                               leave=leave,
                               file=out,
                               desc=desc,
                               bar_format=self.fmt,
-                              colour='green')
-        self.seen_str = 'Samples'
-        self.epoch_seen = 0
+                              colour=self.color)
+        self._epoch_seen = 0
         return
 
     def update(self, metrics: Mapping[str, Any]) -> None:
@@ -58,13 +69,13 @@ class EpochBar:
             metrics: the values from the last batch by metric name.
         """
         monitor_seen: dict[str, int | str]
-        last_epoch = self.pbar.n == self.num_iter - 1
-        if self.batch_size is not None:
+        last_epoch = self.pbar.n == self._num_iter - 1
+        if self._batch_size is not None:
             if last_epoch:
-                self.epoch_seen = self.num_samples
+                self._epoch_seen = self._num_samples
             else:
-                self.epoch_seen += self.batch_size
-            monitor_seen = {self.seen_str: self.epoch_seen}
+                self._epoch_seen += self._batch_size
+            monitor_seen = {self.seen_str: self._epoch_seen}
         else:
             monitor_seen = {self.seen_str: '?'}
 
