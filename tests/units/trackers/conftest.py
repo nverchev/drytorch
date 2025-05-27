@@ -38,16 +38,14 @@ def example_named_metrics(example_loss_name) -> dict[str, float]:
     return {
         example_loss_name: 0.456,
         'accuracy': 0.892,
-        'precision': 0.878
+        'precision': 0.878,
     }
 
 
 @pytest.fixture(scope='package')
 def example_metadata() -> dict[str, Any]:
     """Example for metadata."""
-    return {
-        'architecture': 'ResNet18'
-    }
+    return {'architecture': 'ResNet18'}
 
 
 @pytest.fixture
