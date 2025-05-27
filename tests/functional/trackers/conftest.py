@@ -5,9 +5,16 @@ import pytest
 import datetime
 import io
 import pathlib
-from typing import Any, Mapping, Generator
+from typing import Any, Generator
 
 from dry_torch import log_events
+
+
+@pytest.fixture(scope='package', autouse=True)
+def allow_event_creation_outside_scope() -> None:
+    """Allows the creation of events outside an experiment"""
+    log_events.Event.set_auto_publish(lambda x: None)
+    return
 
 
 @pytest.fixture(scope='package')
@@ -40,7 +47,6 @@ def example_named_metrics(example_loss_name) -> dict[str, float]:
     return {
         example_loss_name: 0.456,
         'accuracy': 0.892,
-        'precision': 0.878,
     }
 
 
@@ -168,7 +174,7 @@ def terminated_training_event(
         model_name=example_model_name,
         source_name=example_source_name,
         epoch=45,
-        reason='testing termination',
+        reason='test event',
     )
 
 
@@ -220,6 +226,45 @@ def update_learning_rate_event(
         base_lr=0.0001,
         scheduler_name='CosineAnnealingLR',
     )
+
+
+@pytest.fixture
+def event_workflow(
+        start_experiment_event,
+        model_creation_event,
+        load_model_event,
+        start_training_event,
+        start_epoch_event,
+        call_model_event,
+        iterate_batch_event,
+        epoch_metrics_event,
+        update_learning_rate_event,
+        terminated_training_event,
+        end_training_event,
+        start_test_event,
+        end_test_event,
+        save_model_event,
+        stop_experiment_event,
+) -> tuple[log_events.Event, ...]:
+    """Yields events in typical order of execution."""
+    event_tuple = (
+        start_experiment_event,
+        model_creation_event,
+        load_model_event,
+        start_training_event,
+        start_epoch_event,
+        call_model_event,
+        iterate_batch_event,
+        epoch_metrics_event,
+        update_learning_rate_event,
+        terminated_training_event,
+        end_training_event,
+        start_test_event,
+        end_test_event,
+        save_model_event,
+        stop_experiment_event,
+    )
+    return event_tuple
 
 
 @pytest.fixture
