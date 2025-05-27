@@ -75,7 +75,7 @@ class TestBuiltinLogger:
             string_stream,
             stream_handler,
     ) -> Generator[None, None, None]:
-        """Sets up a logger with temporary configuration."""
+        """Set up a logger with temporary configuration."""
         self.stream = string_stream
         original_handlers = logger.handlers.copy()
         original_level = logger.level
@@ -91,7 +91,7 @@ class TestBuiltinLogger:
 
     @pytest.fixture
     def tracker(self) -> BuiltinLogger:
-        """Sets up the logger with temporary configuration."""
+        """Set up the instance."""
         return BuiltinLogger()
 
     def test_start_training_event(
@@ -110,7 +110,7 @@ class TestBuiltinLogger:
             tracker,
             end_training_mock_event,
     ) -> None:
-        """Tests handling of EndTraining event."""
+        """Test handling of EndTraining event."""
         tracker.notify(end_training_mock_event)
         assert 'Training ended.' in self.stream.getvalue()
 
@@ -119,7 +119,7 @@ class TestBuiltinLogger:
             tracker,
             start_epoch_mock_event,
     ) -> None:
-        """Tests handling of StartEpoch event with final epoch specified."""
+        """Test handling of StartEpoch event with final epoch specified."""
         start_epoch_mock_event.epoch = 4
         start_epoch_mock_event.end_epoch = 10
         tracker.notify(start_epoch_mock_event)
@@ -129,7 +129,7 @@ class TestBuiltinLogger:
     def test_start_epoch_without_final_epoch(self,
                                              tracker,
                                              start_epoch_mock_event) -> None:
-        """Tests handling of StartEpoch event without final epoch specified."""
+        """Test handling of StartEpoch event without final epoch specified."""
         start_epoch_mock_event.epoch = 12
         start_epoch_mock_event.end_epoch = None
         tracker.notify(start_epoch_mock_event)
@@ -140,7 +140,7 @@ class TestBuiltinLogger:
             tracker,
             save_model_mock_event,
     ) -> None:
-        """Tests handling of SaveModel event."""
+        """Test handling of SaveModel event."""
         save_model_mock_event.model_name = 'my_model'
         save_model_mock_event.definition = 'weights'
         save_model_mock_event.location = 'folder'
@@ -153,7 +153,7 @@ class TestBuiltinLogger:
             tracker,
             load_model_mock_event,
     ) -> None:
-        """Tests handling of LoadModel event."""
+        """Test handling of LoadModel event."""
         load_model_mock_event.model_name = 'my_model'
         load_model_mock_event.definition = 'weights'
         load_model_mock_event.location = 'folder'
@@ -165,7 +165,7 @@ class TestBuiltinLogger:
     def test_test_event(self,
                         tracker,
                         start_test_mock_event) -> None:
-        """Tests handling of Test event."""
+        """Test handling of Test event."""
         start_test_mock_event.model_name = 'my_model'
         tracker.notify(start_test_mock_event)
         assert f'Testing my_model started.' in self.stream.getvalue()
@@ -175,7 +175,7 @@ class TestBuiltinLogger:
             tracker,
             epoch_metrics_mock_event,
     ) -> None:
-        """Tests handling of FinalMetrics event."""
+        """Test handling of FinalMetrics event."""
         epoch_metrics_mock_event.source_name = 'test_source'
         epoch_metrics_mock_event.metrics = {'loss': 1.2, 'accuracy': .81}
         tracker.notify(epoch_metrics_mock_event)
@@ -187,7 +187,7 @@ class TestBuiltinLogger:
             tracker,
             terminated_training_mock_event,
     ) -> None:
-        """Tests handling of TerminatedTraining event."""
+        """Test handling of TerminatedTraining event."""
         terminated_training_mock_event.source_name = 'my_source'
         terminated_training_mock_event.model_name = 'my_model'
         terminated_training_mock_event.epoch = 10
@@ -203,7 +203,7 @@ class TestBuiltinLogger:
             tracker,
             update_learning_rate_mock_event,
     ) -> None:
-        """Tests handling of UpdateLearningRate event."""
+        """Test handling of UpdateLearningRate event."""
         update_learning_rate_mock_event.source_name = 'my_source'
         update_learning_rate_mock_event.model_name = 'my_model'
         update_learning_rate_mock_event.epoch = 10
@@ -285,7 +285,7 @@ class TestProgressFormatter:
 
 
 def test_set_formatter_style(mock_stdout_handler, logger) -> None:
-    """Tests set formatter style."""
+    """Test setting formatter style."""
     logger.addHandler(mock_stdout_handler)
     set_formatter(style='dry_torch')
     assert isinstance(mock_stdout_handler.formatter, DryTorchFormatter)
@@ -298,7 +298,7 @@ def test_enable_propagation(logger,
                             mock_stdout,
                             stream_handler,
                             string_stream) -> None:
-    """Tests enabling and disabling of log propagation."""
+    """Test enabling and disabling of log propagation."""
     logger.handlers.clear()
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
@@ -315,7 +315,7 @@ def test_enable_propagation(logger,
 
 
 def test_enable_disable_default_handler(logger) -> None:
-    """Tests enabling and disabling of default handler."""
+    """Test enabling and disabling of default handler."""
     disable_default_handler()
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.NullHandler)

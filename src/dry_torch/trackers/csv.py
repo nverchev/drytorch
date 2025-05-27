@@ -31,9 +31,9 @@ class CSVDumper(base_classes.Dumper,
         folder_name: name of the folder containing the output.
 
     Attributes:
-        par_dir: the directory where to dump metadata.
         resume_run: load previous session having the same directory.
     """
+    folder_name = 'csv_metrics'
 
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
@@ -60,6 +60,7 @@ class CSVDumper(base_classes.Dumper,
         Args:
             model_name: the name of the model.
             source_name: the source of the metrics.
+
         Returns:
             The path to the csv file.
         """
@@ -141,7 +142,7 @@ class CSVDumper(base_classes.Dumper,
             return epochs, named_metric_values
 
     def _get_folder_path(self, model_name: str) -> pathlib.Path:
-        path = self.par_dir / model_name / 'csv_metrics'
+        path = self.par_dir / model_name / self.folder_name
         path.mkdir(exist_ok=True, parents=True)
         return path
 
