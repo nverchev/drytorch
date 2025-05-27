@@ -10,7 +10,8 @@ from dry_torch.trackers.logging import BuiltinLogger
 from dry_torch.trackers.logging import INFO_LEVELS
 from dry_torch.trackers.logging import set_verbosity
 
-expected_internal_level = """Running experiment: test_model.
+expected_internal_level = """
+Running experiment: test_model.
 Loading test_model checkpoint at epoch 10.
 Training test_model started.
 ====> Epoch   5/100:
@@ -25,9 +26,10 @@ Training ended.
 Testing test_model started.
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
 Experiment: test_model stopped.
-"""
+""".strip()
 
-expected_metrics_level = """Running experiment: test_model.
+expected_metrics_level = """
+Running experiment: test_model.
 Loading test_model checkpoint at epoch 10.
 Training test_model started.
 ====> Epoch   5/100:
@@ -41,9 +43,10 @@ test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-"""
+""".strip()
 
-expected_epoch_level = """Running experiment: test_model.
+expected_epoch_level = """
+Running experiment: test_model.
 Loading test_model checkpoint at epoch 10.
 Training test_model started.
 ====> Epoch   5/100:
@@ -55,9 +58,10 @@ test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-"""
+""".strip()
 
-expected_param_update_level = """Running experiment: test_model.
+expected_param_update_level = """
+Running experiment: test_model.
 Loading test_model checkpoint at epoch 10.
 Training test_model started.
 test_source: Updated test_model optimizer at epoch 5.
@@ -67,31 +71,34 @@ test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-"""
+""".strip()
 
-expected_checkpoint_level = """Running experiment: test_model.
+expected_checkpoint_level = """
+Running experiment: test_model.
 Loading test_model checkpoint at epoch 10.
 Training test_model started.
 test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-"""
+""".strip()
 
-expected_experiment_level = """Running experiment: test_model.
+expected_experiment_level = """
+Running experiment: test_model.
 Training test_model started.
 test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
-"""
+""".strip()
 
-expected_training_level = """Training test_model started.
+expected_training_level = """
+Training test_model started.
 test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
-"""
+""".strip()
 
-expected_test_level = 'Testing test_model started.\n'
+expected_test_level = 'Testing test_model started.'
 
 expected_dict = {
     INFO_LEVELS.internal: expected_internal_level,
@@ -143,8 +150,8 @@ def event_workflow(
         model_creation_event,
         load_model_event,
         start_training_event,
-        start_epoch_event,
         call_model_event,
+        start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,
         update_learning_rate_event,
@@ -160,8 +167,8 @@ def event_workflow(
         start_experiment_event,
         model_creation_event,
         load_model_event,
-        start_training_event,
         call_model_event,
+        start_training_event,
         start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,
@@ -188,4 +195,4 @@ def test_typical_workflow(setup,
     tracker = BuiltinLogger()
     for event in event_workflow:
         tracker.notify(event)
-    assert string_stream.getvalue() == expected_dict[info_level]
+    assert string_stream.getvalue().strip() == expected_dict[info_level]
