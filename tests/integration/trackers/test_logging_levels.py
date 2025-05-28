@@ -24,6 +24,7 @@ New scheduler: CosineAnnealingLR.
 test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
+     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
 Experiment: test_model stopped.
 """.strip()
@@ -42,6 +43,7 @@ New scheduler: CosineAnnealingLR.
 test_source: Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
 Testing test_model started.
+     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
 """.strip()
 
@@ -179,6 +181,8 @@ def event_workflow(
         terminated_training_event,
         end_training_event,
         start_test_event,
+        iterate_batch_event,
+        epoch_metrics_event,
         end_test_event,
         save_model_event,
         stop_experiment_event,
