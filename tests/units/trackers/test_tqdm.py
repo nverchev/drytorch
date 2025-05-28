@@ -66,6 +66,7 @@ class TestTrainingBar:
             start_epoch=0,
             end_epoch=12,
             out=self.stream,
+            leave=False,
             disable=False,
         )
         return bar

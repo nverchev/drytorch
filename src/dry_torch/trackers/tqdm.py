@@ -111,6 +111,7 @@ class TrainingBar:
                  start_epoch: int,
                  end_epoch: int,
                  out: SupportsWrite[str],
+                 leave: bool,
                  disable: bool) -> None:
         """
         Args:
@@ -158,7 +159,7 @@ class TqdmLogger(tracking.Tracker):
                  out: SupportsWrite[str] = sys.stdout) -> None:
         """
         Args:
-            leave: whether to leave the bar after completion.
+            leave: whether to leave the outer bar after completion.
             enable_training_bar: create a bar for the overall training progress.
             out: the stream where to flush the bar.
 
@@ -184,7 +185,7 @@ class TqdmLogger(tracking.Tracker):
         bar = EpochBar(event.batch_size,
                        event.num_iter,
                        event.dataset_size,
-                       leave=self._leave,
+                       leave=self._leave and not self._enable_training_bar,
                        out=self._out,
                        desc=desc)
         event.push_updates.append(bar.update)
@@ -195,6 +196,7 @@ class TqdmLogger(tracking.Tracker):
         self._training_bar = TrainingBar(event.start_epoch,
                                          event.end_epoch,
                                          out=self._out,
+                                         leave=self._leave,
                                          disable=not self._enable_training_bar)
         return super().notify(event)
 
