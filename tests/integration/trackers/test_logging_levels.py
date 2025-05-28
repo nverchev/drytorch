@@ -3,6 +3,7 @@
 import pytest
 
 import logging
+import pathlib
 from typing import Generator
 
 from dry_torch import log_events
@@ -10,107 +11,16 @@ from dry_torch.trackers.logging import BuiltinLogger
 from dry_torch.trackers.logging import INFO_LEVELS
 from dry_torch.trackers.logging import set_verbosity
 
-expected_internal_level = """
-Running experiment: test_model.
-Loading test_model checkpoint at epoch 10.
-Training test_model started.
-====> Epoch   5/100:
-     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
-====> Epoch   5/100:
-     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
-test_source: Updated test_model optimizer at epoch 5.
-New learning rate: 0.0001.
-New scheduler: CosineAnnealingLR.
-test_source: Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-Experiment: test_model stopped.
-""".strip()
-
-expected_metrics_level = """
-Running experiment: test_model.
-Loading test_model checkpoint at epoch 10.
-Training test_model started.
-====> Epoch   5/100:
-     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
-====> Epoch   5/100:
-     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
-test_source: Updated test_model optimizer at epoch 5.
-New learning rate: 0.0001.
-New scheduler: CosineAnnealingLR.
-test_source: Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-     test_model: 	loss=4.560000e-01	accuracy=8.920000e-01
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-""".strip()
-
-expected_epoch_level = """
-Running experiment: test_model.
-Loading test_model checkpoint at epoch 10.
-Training test_model started.
-====> Epoch   5/100:
-====> Epoch   5/100:
-test_source: Updated test_model optimizer at epoch 5.
-New learning rate: 0.0001.
-New scheduler: CosineAnnealingLR.
-test_source: Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-""".strip()
-
-expected_param_update_level = """
-Running experiment: test_model.
-Loading test_model checkpoint at epoch 10.
-Training test_model started.
-test_source: Updated test_model optimizer at epoch 5.
-New learning rate: 0.0001.
-New scheduler: CosineAnnealingLR.
-test_source: Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-""".strip()
-
-expected_checkpoint_level = """
-Running experiment: test_model.
-Loading test_model checkpoint at epoch 10.
-Training test_model started.
-test_source: Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-""".strip()
-
-expected_experiment_level = """
-Running experiment: test_model.
-Training test_model started.
-test_source: Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-""".strip()
-
-expected_training_level = """
-Training test_model started.
-test_source: Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-""".strip()
-
-expected_test_level = 'Testing test_model started.'
-
-expected_dict = {
-    INFO_LEVELS.internal: expected_internal_level,
-    INFO_LEVELS.metrics: expected_metrics_level,
-    INFO_LEVELS.epoch: expected_epoch_level,
-    INFO_LEVELS.param_update: expected_param_update_level,
-    INFO_LEVELS.checkpoint: expected_checkpoint_level,
-    INFO_LEVELS.experiment: expected_experiment_level,
-    INFO_LEVELS.training: expected_training_level,
-    INFO_LEVELS.test: expected_test_level,
+expected_path_folder = pathlib.Path() / 'expected_logs'
+expected_path_dict = {
+    INFO_LEVELS.internal: expected_path_folder / 'internal_logging.txt',
+    INFO_LEVELS.metrics: expected_path_folder / 'metrics_logging.txt',
+    INFO_LEVELS.epoch: expected_path_folder / 'epoch_logging.txt',
+    INFO_LEVELS.param_update: expected_path_folder / 'param_update_logging.txt',
+    INFO_LEVELS.checkpoint: expected_path_folder / 'checkpoint_logging.txt',
+    INFO_LEVELS.experiment: expected_path_folder / 'experiment_logging.txt',
+    INFO_LEVELS.training: expected_path_folder / 'training_logging.txt',
+    INFO_LEVELS.test: expected_path_folder / 'test_logging.txt',
 }
 
 
@@ -156,6 +66,7 @@ def event_workflow(
         start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,
+        end_epoch_event,
         update_learning_rate_event,
         terminated_training_event,
         end_training_event,
@@ -174,9 +85,11 @@ def event_workflow(
         start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,
+        end_epoch_event,
         start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,
+        end_epoch_event,
         update_learning_rate_event,
         terminated_training_event,
         end_training_event,
@@ -191,12 +104,16 @@ def event_workflow(
 
 
 @pytest.mark.parametrize('info_level', list(INFO_LEVELS))
-def test_typical_workflow(setup,
-                          event_workflow,
-                          string_stream,
-                          info_level):
+def test_all_events(setup,
+                    event_workflow,
+                    string_stream,
+                    info_level):
+    """Test unformatted logs for every level."""
     set_verbosity(info_level)
     tracker = BuiltinLogger()
     for event in event_workflow:
         tracker.notify(event)
-    assert string_stream.getvalue().strip() == expected_dict[info_level]
+    with expected_path_dict[info_level].open() as file:
+        expected = file.read().strip()
+    actual = string_stream.getvalue().strip().expandtabs(4)
+    assert actual == expected
