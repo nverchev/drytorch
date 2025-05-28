@@ -111,6 +111,10 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
                              definition=self._get_definition(),
                              location=self._get_location(),
                              epoch=self.model.epoch)
+    def remove_model(self):
+        """Remove registered model."""
+        self._model = None
+        self._optimizer = None
 
     def register_model(self, model: p.ModelProtocol):
         """Register the model to manage."""
