@@ -58,14 +58,15 @@ def set_tuning_trackers(enable_training_bar: bool = True) -> None:
         Redirected stdout does not always support multiple tqdm bar
     """
     remove_all_default_trackers()
-    builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.training)
     tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
     try:
         from dry_torch.trackers import tqdm
 
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
+        builtin_logging.set_formatter('progress')
     else:
+        builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.training)
         tracker_list.append(
             tqdm.TqdmLogger(enable_training_bar=enable_training_bar)
         )
