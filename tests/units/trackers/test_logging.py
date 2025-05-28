@@ -21,7 +21,7 @@ from dry_torch.trackers.logging import set_formatter
 
 
 class MockStdout(io.StringIO):
-    """String stream that has the name of the stdout stream."""
+    """Class that overwrites StringIO name."""
     name = '<stdout>'
 
 
@@ -31,9 +31,9 @@ def logger() -> logging.Logger:
     return logging.getLogger('dry_torch')
 
 
-@pytest.fixture()
-def mock_stdout() -> MockStdout:
-    """Fixture for the library logger."""
+@pytest.fixture
+def mock_stdout(string_stream) -> MockStdout:
+    """String stream that has the name of the stdout stream."""
     return MockStdout()
 
 
@@ -253,12 +253,12 @@ class TestDryTorchFormatter:
         example_record.levelno = INFO_LEVELS.experiment
         formatted = formatter.format(example_record)
         assert formatted.endswith('Test message\n')
-        assert formatted.startswith('[')  # Check for timestamp
+        assert formatted.startswith('\r[')  # Check for timestamp
 
     def test_format_other_level(self, formatter, example_record) -> None:
         """Test formatting at epoch level."""
         formatted = formatter.format(example_record)
-        assert formatted == 'Test message\n'
+        assert formatted == '\rTest message\n'
 
 
 class TestProgressFormatter:
@@ -274,14 +274,12 @@ class TestProgressFormatter:
         example_record.levelno = INFO_LEVELS.metrics
         formatted = formatter.format(example_record)
         assert formatted.endswith('Test message\r')
-        assert formatted.startswith('[')  # Check for timestamp
 
     def test_format_epoch_level(self, formatter, example_record) -> None:
         """Test formatting at epoch level."""
         example_record.levelno = INFO_LEVELS.epoch
         formatted = formatter.format(example_record)
         assert formatted.endswith('Test message')
-        assert formatted.startswith('[')  # Check for timestamp
 
 
 def test_set_formatter_style(mock_stdout_handler, logger) -> None:
@@ -294,10 +292,10 @@ def test_set_formatter_style(mock_stdout_handler, logger) -> None:
 
 
 def test_enable_propagation(logger,
-                            mock_stdout_handler,
                             mock_stdout,
-                            stream_handler,
-                            string_stream) -> None:
+                            mock_stdout_handler,
+                            string_stream,
+                            stream_handler) -> None:
     """Test enabling and disabling of log propagation."""
     logger.handlers.clear()
     root_logger = logging.getLogger()

@@ -153,7 +153,7 @@ class BuiltinLogger(tracking.Tracker):
         if event.scheduler_name is not None:
             message_parts.append('New scheduler: %(scheduler_name)s')
 
-        msg = '.\n'.join(message_parts) + '.'
+        msg = '. '.join(message_parts) + '.'
 
         log_args = {'source': event.source_name,
                     'model_name': event.model_name,
@@ -184,9 +184,9 @@ class DryTorchFormatter(logging.Formatter):
     @staticmethod
     def _info_fmt(level_no: int) -> str:
         if level_no >= INFO_LEVELS.experiment:
-            return '[%(asctime)s] - %(message)s\n'
+            return '\r[%(asctime)s] - %(message)s\n'
 
-        return '%(message)s\n'
+        return '\r%(message)s\n'
 
 
 class ProgressFormatter(DryTorchFormatter):
@@ -195,9 +195,9 @@ class ProgressFormatter(DryTorchFormatter):
     @staticmethod
     def _info_fmt(level_no: int) -> str:
         if level_no == INFO_LEVELS.metrics:
-            return '[%(asctime)s] - %(message)s\r'
+            return '\t%(message)s\r'
         elif level_no == INFO_LEVELS.epoch:
-            return '[%(asctime)s] - %(message)s'
+            return '%(message)s'
         else:
             return DryTorchFormatter._info_fmt(level_no)
 
