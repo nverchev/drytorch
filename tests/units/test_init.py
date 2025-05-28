@@ -9,16 +9,19 @@ from dry_torch import FailedOptionalImportWarning
 
 
 def test_standard_trackers():
-    """Test adding standard trackers."""
-    dry_torch.remove_all_default_trackers()
-    assert not DEFAULT_TRACKERS
-    dry_torch.add_standard_trackers_to_default_trackers()
+    """Test setting standard trackers adds trackers."""
+    dry_torch.set_standard_trackers()
+    assert DEFAULT_TRACKERS
+
+
+def test_tuning_trackers():
+    """Test setting tuning trackers adds trackers."""
+    dry_torch.set_tuning_trackers()
     assert DEFAULT_TRACKERS
 
 
 def test_remove_trackers():
     """Test removing all default trackers."""
-    dry_torch.add_standard_trackers_to_default_trackers()
     assert DEFAULT_TRACKERS
     dry_torch.remove_all_default_trackers()
     assert not DEFAULT_TRACKERS

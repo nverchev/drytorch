@@ -22,8 +22,9 @@ from dry_torch.trackers import logging as builtin_logging
 from dry_torch.trackers import csv as builtin_csv
 
 
-def add_default_trackers() -> None:
+def set_standard_trackers() -> None:
     """Add default trackers to experiments."""
+    remove_all_default_trackers()
     tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
     try:
         from dry_torch.trackers import tqdm
@@ -46,4 +47,31 @@ def add_default_trackers() -> None:
     return
 
 
-add_default_trackers()
+def set_tuning_trackers(enable_training_bar: bool = True) -> None:
+    """
+    Add default trackers to experiments.
+
+    Args:
+        enable_training_bar: Create an outer tqdm bar for the training pregress.
+
+    Note:
+        Redirected stdout does not always support multiple tqdm bar
+    """
+    remove_all_default_trackers()
+    builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.training)
+    tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
+    try:
+        from dry_torch.trackers import tqdm
+
+    except (ImportError, ModuleNotFoundError) as ie:
+        warnings.warn(FailedOptionalImportWarning('tqdm', ie))
+    else:
+        tracker_list.append(
+            tqdm.TqdmLogger(enable_training_bar=enable_training_bar)
+        )
+
+    extend_default_trackers(tracker_list)
+    return
+
+
+set_standard_trackers()
