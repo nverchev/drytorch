@@ -8,46 +8,6 @@ from typing import Any, Generator
 from dry_torch import log_events
 
 
-@pytest.fixture(scope='package')
-def example_exp_name() -> str:
-    """Example name for the experiment."""
-    return 'test_model'
-
-
-@pytest.fixture(scope='package')
-def example_source_name() -> str:
-    """Example name for the source."""
-    return 'test_source'
-
-
-@pytest.fixture(scope='package')
-def example_model_name() -> str:
-    """Example name for the model."""
-    return 'test_model'
-
-
-@pytest.fixture(scope='package')
-def example_loss_name() -> str:
-    """Example mapping for metrics."""
-    return 'loss'
-
-
-@pytest.fixture(scope='package')
-def example_named_metrics(example_loss_name) -> dict[str, float]:
-    """Example mapping for metrics."""
-    return {
-        example_loss_name: 0.456,
-        'accuracy': 0.892,
-        'precision': 0.878,
-    }
-
-
-@pytest.fixture(scope='package')
-def example_metadata() -> dict[str, Any]:
-    """Example for metadata."""
-    return {'architecture': 'ResNet18'}
-
-
 @pytest.fixture
 def start_experiment_mock_event(mocker,
                                 tmp_path,
