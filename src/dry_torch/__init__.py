@@ -31,7 +31,9 @@ def add_default_trackers() -> None:
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
     else:
-        tracker_list.append(tqdm.TqdmLogger())
+        tracker_list.append(tqdm.TqdmLogger(leave=True))
+        # metrics logs redundant because already visible in progress bar.
+        builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.epoch)
 
     try:
         from dry_torch.trackers import yaml
@@ -41,6 +43,7 @@ def add_default_trackers() -> None:
         tracker_list.append(yaml.YamlDumper())
 
     extend_default_trackers(tracker_list)
+    return
 
 
 add_default_trackers()
