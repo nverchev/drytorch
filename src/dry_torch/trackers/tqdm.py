@@ -126,6 +126,7 @@ class TrainingBar:
                                 position=0,
                                 file=out,
                                 disable=disable,
+                                bar_format=self.fmt,
                                 colour=self.color)
         self._start_epoch = start_epoch
         self._end_epoch = end_epoch
