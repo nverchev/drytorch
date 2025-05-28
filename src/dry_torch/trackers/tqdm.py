@@ -111,22 +111,19 @@ class TrainingBar:
                  start_epoch: int,
                  end_epoch: int,
                  out: SupportsWrite[str],
-                 leave: bool,
-                 disable: bool) -> None:
+                 leave: bool) -> None:
         """
         Args:
             start_epoch: the epoch from which the bar should start.
             end_epoch: the epoch where the bar should end.
             out: the stream where to flush the bar.
-            disable: if true, this class will not produce any output.
         """
         self.pbar = auto.trange(start_epoch,
                                 end_epoch,
                                 desc=f'{self.desc}:',
-                                leave=False,
+                                leave=leave,
                                 position=0,
                                 file=out,
-                                disable=disable,
                                 bar_format=self.fmt,
                                 colour=self.color)
         self._start_epoch = start_epoch
@@ -193,11 +190,11 @@ class TqdmLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartTraining) -> None:
-        self._training_bar = TrainingBar(event.start_epoch,
-                                         event.end_epoch,
-                                         out=self._out,
-                                         leave=self._leave,
-                                         disable=not self._enable_training_bar)
+        if self._enable_training_bar:
+            self._training_bar = TrainingBar(event.start_epoch,
+                                             event.end_epoch,
+                                             out=self._out,
+                                             leave=self._leave)
         return super().notify(event)
 
     @notify.register
@@ -205,4 +202,12 @@ class TqdmLogger(tracking.Tracker):
         if self._training_bar is not None:
             self._training_bar.update(event.epoch)
 
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.EndTraining) -> None:
+        if self._training_bar is not None:
+            self._training_bar.close()
+
+        self._training_bar = None
         return super().notify(event)
