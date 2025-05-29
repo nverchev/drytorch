@@ -21,7 +21,7 @@ class TestEpochBar:
             batch_size=32,
             num_samples=312,
             leave=False,
-            out=self.stream,
+            file=self.stream,
             desc='Training',
         )
         return bar
@@ -65,7 +65,7 @@ class TestTrainingBar:
         bar = TrainingBar(
             start_epoch=0,
             end_epoch=12,
-            out=self.stream,
+            file=self.stream,
             leave=False,
             disable=False,
         )
@@ -100,14 +100,14 @@ class TestTqdmLogger:
     @pytest.fixture
     def tracker(self) -> TqdmLogger:
         """Set up the instance."""
-        return TqdmLogger(out=self.stream)
+        return TqdmLogger(file=self.stream)
 
     @pytest.fixture
     def tracker_with_double_bar(self) -> TqdmLogger:
         """Set up the instance."""
         return TqdmLogger(
             enable_training_bar=True,
-            out=self.stream
+            file=self.stream
         )
 
     def test_iterate_batch_event(

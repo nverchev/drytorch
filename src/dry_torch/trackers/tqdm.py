@@ -20,6 +20,8 @@ class EpochBar:
     """
     Bar that displays current epoch's metrics and progress.
 
+    This class is also used to display metrics and progress during evaluation.
+
     Class Attributes:
         fmt: the formatting of the bar.
         seen_str: the name for the elements of the batches.
@@ -38,7 +40,7 @@ class EpochBar:
                  num_iter: int,
                  num_samples: int,
                  leave: bool,
-                 out: SupportsWrite[str],
+                 file: SupportsWrite[str],
                  desc: str) -> None:
         """
         Args:
@@ -46,7 +48,7 @@ class EpochBar:
             num_iter: the number of expected iterations.
             num_samples: the total number of samples.
             leave: whether to leave the bar in after the epoch.
-            out: the stream where to flush the bar.
+            file: the stream where to flush the bar.
             desc: description to contextualize the bar.
         """
         self._batch_size = batch_size
@@ -54,7 +56,7 @@ class EpochBar:
         self._num_iter = num_iter
         self.pbar = auto.tqdm(total=num_iter,
                               leave=leave,
-                              file=out,
+                              file=file,
                               desc=desc,
                               bar_format=self.fmt,
                               colour=self.color)
@@ -110,20 +112,20 @@ class TrainingBar:
     def __init__(self,
                  start_epoch: int,
                  end_epoch: int,
-                 out: SupportsWrite[str],
+                 file: SupportsWrite[str],
                  leave: bool) -> None:
         """
         Args:
             start_epoch: the epoch from which the bar should start.
             end_epoch: the epoch where the bar should end.
-            out: the stream where to flush the bar.
+            file: the stream where to flush the bar.
         """
         self.pbar = auto.trange(start_epoch,
                                 end_epoch,
                                 desc=f'{self.desc}:',
                                 leave=leave,
                                 position=0,
-                                file=out,
+                                file=file,
                                 bar_format=self.fmt,
                                 colour=self.color)
         self._start_epoch = start_epoch
@@ -151,14 +153,14 @@ class TqdmLogger(tracking.Tracker):
     """Create an epoch progress bar."""
 
     def __init__(self,
-                 leave: bool = False,
+                 leave: bool = True,
                  enable_training_bar: bool = False,
-                 out: SupportsWrite[str] = sys.stdout) -> None:
+                 file: SupportsWrite[str] = sys.stdout) -> None:
         """
         Args:
-            leave: whether to leave the outer bar after completion.
+            leave: whether to leave the epoch bar after completion.
             enable_training_bar: create a bar for the overall training progress.
-            out: the stream where to flush the bar.
+            file: the stream where to flush the bar.
 
         Note:
             enable the training bar only if out support two progress bars, and
@@ -167,7 +169,7 @@ class TqdmLogger(tracking.Tracker):
 
         super().__init__()
         self._leave = leave
-        self._out = out
+        self._file = file
         self._enable_training_bar = enable_training_bar
         self._training_bar: TrainingBar | None = None
 
@@ -182,8 +184,8 @@ class TqdmLogger(tracking.Tracker):
         bar = EpochBar(event.batch_size,
                        event.num_iter,
                        event.dataset_size,
-                       leave=self._leave and not self._enable_training_bar,
-                       out=self._out,
+                       leave=self._leave and self._training_bar is None,
+                       file=self._file,
                        desc=desc)
         event.push_updates.append(bar.update)
         return super().notify(event)
@@ -193,7 +195,7 @@ class TqdmLogger(tracking.Tracker):
         if self._enable_training_bar:
             self._training_bar = TrainingBar(event.start_epoch,
                                              event.end_epoch,
-                                             out=self._out,
+                                             file=self._file,
                                              leave=self._leave)
         return super().notify(event)
 
@@ -205,9 +207,17 @@ class TqdmLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndTraining) -> None:
+    def _(self, event: log_events.TerminatedTraining) -> None:
         if self._training_bar is not None:
             self._training_bar.close()
+            self._training_bar = None
 
-        self._training_bar = None
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.EndTraining) -> None:
+        if self._training_bar is not None:
+            # bar should be already closed
+            self._training_bar = None
+
         return super().notify(event)

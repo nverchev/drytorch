@@ -14,6 +14,7 @@ from dry_torch.metrics import Metric
 from dry_torch.loading import DataLoader
 from dry_torch.learning import LearningScheme
 from dry_torch.learning import Model
+from dry_torch.trackers.logging import set_verbosity, INFO_LEVELS
 from dry_torch.tracking import remove_all_default_trackers
 from dry_torch.tracking import extend_default_trackers
 from dry_torch.tracking import Tracker
@@ -32,7 +33,7 @@ def set_standard_trackers() -> None:
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
     else:
-        tracker_list.append(tqdm.TqdmLogger(leave=True))
+        tracker_list.append(tqdm.TqdmLogger())
         # metrics logs redundant because already visible in progress bar.
         builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.epoch)
 
@@ -64,6 +65,7 @@ def set_tuning_trackers(enable_training_bar: bool = True) -> None:
 
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
+        set_verbosity(INFO_LEVELS.metrics)
         builtin_logging.set_formatter('progress')
     else:
         builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.training)
