@@ -3,20 +3,25 @@ Module containing custom logging configurations for the 'dry_torch' logger.
 
 It defines and implements a formatter that formats log messages according to
 the levels defined in the INFO_LEVELS variable. By default, it prints to
-stdout and does not propagate to the main root.
+stream and does not propagate to the main root.
 
 Attributes:
     INFO_LEVELS: InfoLevels object for global settings.
 """
 
+from __future__ import annotations
+
 import functools
 import logging
-import sys
-from typing import NamedTuple, Literal
+from typing import NamedTuple, Literal, TYPE_CHECKING
 from typing_extensions import override
+import sys
 
 from dry_torch import log_events
 from dry_torch import tracking
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsWrite
 
 logger = logging.getLogger('dry_torch')
 
@@ -210,15 +215,15 @@ def disable_default_handler() -> None:
     return
 
 
-def enable_default_handler() -> None:
+def enable_default_handler(stream: SupportsWrite[str] = sys.stderr) -> None:
     """Set up the default logging configuration."""
     global logger
     logger.handlers.clear()
     formatter = DryTorchFormatter()
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.terminator = ''
-    stdout_handler.setFormatter(formatter)
-    logger.addHandler(stdout_handler)
+    stream_handler = logging.StreamHandler(stream)
+    stream_handler.terminator = ''
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
     logger.setLevel(INFO_LEVELS.metrics)
     logger.propagate = False
     return
@@ -238,31 +243,33 @@ def disable_propagation() -> None:
     return
 
 
-def enable_propagation(deduplicate_stdout: bool = True) -> None:
+def enable_propagation(deduplicate_stream: bool = True) -> None:
     """
     Propagate to the root logger.
 
     Args:
-        deduplicate_stdout: whether to remove local messages from stdout.
+        deduplicate_stream: whether to remove local messages from stream.
     """
     global logger
     logger.propagate = True
-    if deduplicate_stdout:
+    if deduplicate_stream:
         root_logger = logging.getLogger()
         for handler in root_logger.handlers:
             if isinstance(handler, logging.StreamHandler):
-                if getattr(handler.stream, 'name', None) == '<stdout>':
+                if handler.stream in (h.stream for h in logger.handlers
+                                      if isinstance(h, logging.StreamHandler)):
                     handler.addFilter(DryTorchFilter())
 
     return
 
 
 def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
-    """Set the formatter for the stdout handler of the dry_torch logger."""
+    """Set the formatter for the stream handler of the dry_torch logger."""
     global logger
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
-            if getattr(handler.stream, 'name', None) == '<stdout>':
+            if handler.stream in (h.stream for h in logger.handlers
+                                  if isinstance(h, logging.StreamHandler)):
                 if style == 'progress':
                     handler.formatter = ProgressFormatter()
                 elif style == 'dry_torch':
