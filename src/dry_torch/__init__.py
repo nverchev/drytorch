@@ -1,5 +1,6 @@
 """Init file for the dry_torch package."""
 
+import sys
 import warnings
 
 from dry_torch.evaluating import Diagnostic
@@ -14,13 +15,39 @@ from dry_torch.metrics import Metric
 from dry_torch.loading import DataLoader
 from dry_torch.learning import LearningScheme
 from dry_torch.learning import Model
-from dry_torch.trackers.logging import set_verbosity, INFO_LEVELS
 from dry_torch.tracking import remove_all_default_trackers
 from dry_torch.tracking import extend_default_trackers
 from dry_torch.tracking import Tracker
 from dry_torch.training import Trainer
 from dry_torch.trackers import logging as builtin_logging
 from dry_torch.trackers import csv as builtin_csv
+
+
+def set_hydra_style_trackers() -> None:
+    """These trackers work well in combination to the hydra settings."""
+    remove_all_default_trackers()
+    # Hydra logs to stdout
+    builtin_logging.enable_default_handler(sys.stdout)
+    builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.metrics)
+    builtin_logging.enable_propagation()
+    tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
+    try:
+        from dry_torch.trackers import tqdm
+
+    except (ImportError, ModuleNotFoundError) as ie:
+        warnings.warn(FailedOptionalImportWarning('tqdm', ie))
+    else:
+        tracker_list.append(tqdm.TqdmLogger(leave=False))
+
+    try:
+        from dry_torch.trackers import yaml
+    except (ImportError, ModuleNotFoundError) as ie:
+        warnings.warn(FailedOptionalImportWarning('yaml', ie))
+    else:
+        tracker_list.append(yaml.YamlDumper())
+
+    extend_default_trackers(tracker_list)
+    return
 
 
 def set_standard_trackers() -> None:
@@ -65,7 +92,7 @@ def set_tuning_trackers(enable_training_bar: bool = True) -> None:
 
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
-        set_verbosity(INFO_LEVELS.metrics)
+        builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.metrics)
         builtin_logging.set_formatter('progress')
     else:
         builtin_logging.set_verbosity(builtin_logging.INFO_LEVELS.training)
