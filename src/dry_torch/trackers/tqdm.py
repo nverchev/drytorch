@@ -155,7 +155,7 @@ class TqdmLogger(tracking.Tracker):
     def __init__(self,
                  leave: bool = True,
                  enable_training_bar: bool = False,
-                 file: SupportsWrite[str] = sys.stdout) -> None:
+                 file: SupportsWrite[str] = sys.stderr) -> None:
         """
         Args:
             leave: whether to leave the epoch bar after completion.
