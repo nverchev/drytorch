@@ -268,14 +268,12 @@ def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
     global logger
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
-            if handler.stream in (h.stream for h in logger.handlers
-                                  if isinstance(h, logging.StreamHandler)):
-                if style == 'progress':
-                    handler.formatter = ProgressFormatter()
-                elif style == 'dry_torch':
-                    handler.formatter = DryTorchFormatter()
-                else:
-                    raise ValueError('Invalid formatter style.')
+            if style == 'progress':
+                handler.formatter = ProgressFormatter()
+            elif style == 'dry_torch':
+                handler.formatter = DryTorchFormatter()
+            else:
+                raise ValueError('Invalid formatter style.')
 
     return
 
