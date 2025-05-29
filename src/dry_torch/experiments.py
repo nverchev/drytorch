@@ -106,10 +106,10 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
             _T: configuration object of the current experiment.
 
         Raises:
-            NoActiveExperimentError: if there is no active experiment.
+            NoActiveExperimentError: if the experiment is not active.
             NoConfigError: if there is no configuration available.
         """
-        if not isinstance(Experiment.current(), cls):
+        if not cls._check_if_active():
             raise exceptions.NoActiveExperimentError(cls)
 
         config = cls._current_config
@@ -117,6 +117,10 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
             raise exceptions.NoConfigurationError()
 
         return config
+
+    @classmethod
+    def _check_if_active(cls) -> bool:
+        return isinstance(Experiment.current(), cls)
 
 
 class MainExperiment(Experiment[_T], Generic[_T, _U]):
@@ -166,6 +170,14 @@ class MainExperiment(Experiment[_T], Generic[_T, _U]):
             raise exceptions.NoConfigurationError()
 
         return config
+
+    @classmethod
+    @override
+    def _check_if_active(cls) -> bool:
+        current_exp = Experiment.current()
+        if current_exp in cls.sub_experiments:
+            return True
+        return isinstance(current_exp, cls)
 
     @classmethod
     def _is_registered(cls, exp: Experiment) -> TypeGuard[SubExperiment[_U]]:
