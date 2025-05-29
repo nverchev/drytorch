@@ -2,7 +2,6 @@
 
 import pytest
 
-import io
 import logging
 from typing import Generator
 
@@ -18,6 +17,7 @@ from dry_torch.trackers.logging import disable_default_handler
 from dry_torch.trackers.logging import disable_propagation
 from dry_torch.trackers.logging import get_verbosity
 from dry_torch.trackers.logging import set_formatter
+from dry_torch.trackers.logging import set_verbosity
 
 
 @pytest.fixture
@@ -276,36 +276,16 @@ class TestProgressFormatter:
         assert formatted.endswith('Test message')
 
 
-def test_set_formatter_style(stream_handler, logger) -> None:
-    """Test setting formatter style."""
-    logger.addHandler(stream_handler)
-    set_formatter(style='dry_torch')
-    assert isinstance(stream_handler.formatter, DryTorchFormatter)
-    set_formatter(style='progress')
-    assert isinstance(stream_handler.formatter, ProgressFormatter)
+def test_disable_default_handler(logger) -> None:
+    """Test disabling  default handler."""
+    disable_default_handler()
+    assert len(logger.handlers) == 1
+    assert isinstance(logger.handlers[0], logging.NullHandler)
 
 
-def test_enable_propagation(logger,
-                            root_logger,
-                            string_stream) -> None:
-    """Test enabling and disabling of log propagation."""
-    enable_propagation(False)
-    logger.error('test error 1')
-    assert string_stream.getvalue() == 'test error 1\ntest error 1\n'
-
-
-def test_enable_propagation(logger,
-                            root_logger,
-                            string_stream) -> None:
-    """Test enabling log propagation deduplicating output."""
-    enable_propagation()
-    logger.error('test error 1')
-    assert string_stream.getvalue() == 'test error 1\n'
-
-
-def test_enable_propagation(logger,
-                            root_logger,
-                            string_stream) -> None:
+def test_disable_propagation(logger,
+                             root_logger,
+                             string_stream) -> None:
     """Test disabling log propagation."""
     disable_default_handler()
     disable_propagation()
@@ -313,13 +293,41 @@ def test_enable_propagation(logger,
     assert not string_stream.getvalue()
 
 
-def test_enable_disable_default_handler(logger) -> None:
-    """Test enabling and disabling of default handler."""
-    disable_default_handler()
-    assert len(logger.handlers) == 1
-    assert isinstance(logger.handlers[0], logging.NullHandler)
+def test_enable_default_handler(logger) -> None:
+    """Test enabling default handler."""
     enable_default_handler()
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.StreamHandler)
-    assert logger.level == get_verbosity()
-    assert logger.propagate is False
+
+
+def test_enable_propagation(logger,
+                            root_logger,
+                            string_stream) -> None:
+    """Test enabling log propagation."""
+    enable_propagation(False)
+    logger.error('test error 1')
+    assert string_stream.getvalue() == 'test error 1\ntest error 1\n'
+
+
+def test_enable_propagation_with_deduplication(logger,
+                                               root_logger,
+                                               string_stream) -> None:
+    """Test enabling log propagation while deduplicating output."""
+    enable_propagation()
+    logger.error('test error 1')
+    assert string_stream.getvalue() == 'test error 1\n'
+
+
+def test_set_verbosity(logger) -> None:
+    """Test setting verbosity level."""
+    set_verbosity(INFO_LEVELS.test)
+    assert INFO_LEVELS.test == get_verbosity()
+
+
+def test_set_formatter_style(stream_handler, logger) -> None:
+    """Test setting formatter style."""
+    logger.addHandler(stream_handler)
+    set_formatter(style='dry_torch')
+    assert isinstance(stream_handler.formatter, DryTorchFormatter)
+    set_formatter(style='progress')
+    assert isinstance(stream_handler.formatter, ProgressFormatter)

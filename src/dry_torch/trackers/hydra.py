@@ -11,7 +11,6 @@ import hydra
 from dry_torch import exceptions
 from dry_torch import log_events
 from dry_torch.trackers import base_classes
-from dry_torch.trackers import logging
 
 
 class HydraLink(base_classes.Dumper):
@@ -74,7 +73,6 @@ class HydraLink(base_classes.Dumper):
                 break
 
         self.dir.symlink_to(self.hydra_dir, target_is_directory=True)
-        logging.enable_propagation()
         return super().notify(event)
 
     @notify.register
@@ -85,5 +83,4 @@ class HydraLink(base_classes.Dumper):
 
         self._exp_dir = None
         self._counter = 0
-        logging.disable_propagation()
         return super().notify(event)
