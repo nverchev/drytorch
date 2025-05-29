@@ -20,34 +20,28 @@ from dry_torch.trackers.logging import get_verbosity
 from dry_torch.trackers.logging import set_formatter
 
 
-class MockStdout(io.StringIO):
-    """Class that overwrites StringIO name."""
-    name = '<stdout>'
-
-
-@pytest.fixture()
-def logger() -> logging.Logger:
-    """Fixture for the library logger."""
-    return logging.getLogger('dry_torch')
-
-
-@pytest.fixture
-def mock_stdout(string_stream) -> MockStdout:
-    """String stream that has the name of the stdout stream."""
-    return MockStdout()
-
-
 @pytest.fixture
 def stream_handler(string_stream) -> logging.StreamHandler:
     """StreamHandler with library formatter."""
     return logging.StreamHandler(string_stream)
 
 
-@pytest.fixture
-def mock_stdout_handler(mock_stdout) -> logging.StreamHandler:
-    """Handler that uses the stdout mock as stream."""
-    stdout_handler = logging.StreamHandler(mock_stdout)
-    return stdout_handler
+@pytest.fixture()
+def logger(stream_handler) -> logging.Logger:
+    """Fixture for the library logger."""
+    logger = logging.getLogger('dry_torch')
+    logger.handlers.clear()
+    logger.addHandler(stream_handler)
+    return logger
+
+
+@pytest.fixture()
+def root_logger(string_stream) -> logging.Logger:
+    """Fixture for the library logger."""
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(logging.StreamHandler(string_stream))
+    return root_logger
 
 
 @pytest.fixture()
@@ -216,12 +210,12 @@ class TestBuiltinLogger:
         update_learning_rate_mock_event.base_lr = 0.001
         tracker.notify(update_learning_rate_mock_event)
         output = self.stream.getvalue()
-        expected += '\nNew learning rate: 0.001.'
+        expected += ' New learning rate: 0.001.'
         assert expected in output
         update_learning_rate_mock_event.scheduler_name = 'my_scheduler'
         tracker.notify(update_learning_rate_mock_event)
         output = self.stream.getvalue()
-        expected += '\nNew scheduler: my_scheduler.'
+        expected += ' New scheduler: my_scheduler.'
         assert expected in output
 
 
@@ -282,34 +276,41 @@ class TestProgressFormatter:
         assert formatted.endswith('Test message')
 
 
-def test_set_formatter_style(mock_stdout_handler, logger) -> None:
+def test_set_formatter_style(stream_handler, logger) -> None:
     """Test setting formatter style."""
-    logger.addHandler(mock_stdout_handler)
+    logger.addHandler(stream_handler)
     set_formatter(style='dry_torch')
-    assert isinstance(mock_stdout_handler.formatter, DryTorchFormatter)
+    assert isinstance(stream_handler.formatter, DryTorchFormatter)
     set_formatter(style='progress')
-    assert isinstance(mock_stdout_handler.formatter, ProgressFormatter)
+    assert isinstance(stream_handler.formatter, ProgressFormatter)
 
 
 def test_enable_propagation(logger,
-                            mock_stdout,
-                            mock_stdout_handler,
-                            string_stream,
-                            stream_handler) -> None:
+                            root_logger,
+                            string_stream) -> None:
     """Test enabling and disabling of log propagation."""
-    logger.handlers.clear()
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    root_logger.addHandler(stream_handler)
-    root_logger.addHandler(mock_stdout_handler)
+    enable_propagation(False)
+    logger.error('test error 1')
+    assert string_stream.getvalue() == 'test error 1\ntest error 1\n'
+
+
+def test_enable_propagation(logger,
+                            root_logger,
+                            string_stream) -> None:
+    """Test enabling log propagation deduplicating output."""
     enable_propagation()
     logger.error('test error 1')
     assert string_stream.getvalue() == 'test error 1\n'
-    assert mock_stdout.getvalue() == ''
+
+
+def test_enable_propagation(logger,
+                            root_logger,
+                            string_stream) -> None:
+    """Test disabling log propagation."""
     disable_default_handler()
     disable_propagation()
-    logger.error('test error 2')
-    assert 'test error 2' not in string_stream.getvalue()
+    logger.error('test error 3')
+    assert not string_stream.getvalue()
 
 
 def test_enable_disable_default_handler(logger) -> None:
