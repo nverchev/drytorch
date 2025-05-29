@@ -2,7 +2,7 @@
 
 import pathlib
 import traceback
-from typing import Any
+from typing import Any, Optional
 
 import torch
 
@@ -152,7 +152,15 @@ class NamedTupleOnlyError(DryTorchException):
 
 
 class NoActiveExperimentError(DryTorchException):
-    msg = 'No experiment has been started.'
+    msg = 'No experiment {}has been started.'
+
+    def __init__(self, experiment_class: Optional[type] = None) -> None:
+        self.experiment_class = experiment_class
+        if experiment_class is not None:
+            specify_string = f'of class {experiment_class.__class__.__name__} '
+        else:
+            specify_string = ''
+        super().__init__(specify_string)
 
 
 class NoConfigurationError(DryTorchException):
