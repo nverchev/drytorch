@@ -3,7 +3,7 @@
 import pytest
 import datetime
 import io
-from typing import Any, Generator
+from typing import Generator
 
 from dry_torch import log_events
 

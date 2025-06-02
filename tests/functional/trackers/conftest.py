@@ -167,8 +167,8 @@ def epoch_metrics_event(example_source_name,
                         example_named_metrics) -> log_events.Metrics:
     """Provides a FinalMetrics event instance."""
     return log_events.Metrics(
-        model_name=example_source_name,
-        source_name=example_model_name,
+        model_name=example_model_name,
+        source_name=example_source_name,
         epoch=10,
         metrics=example_named_metrics,
     )
