@@ -4,8 +4,9 @@ from typing import NamedTuple
 import pytest
 import torch
 
-from dry_torch.apply_ops import recursive_apply
+from dry_torch import exceptions
 from dry_torch.apply_ops import apply_to
+from dry_torch.apply_ops import recursive_apply
 
 
 class _TorchTuple(NamedTuple):
@@ -28,7 +29,7 @@ def test_recursive_apply() -> None:
         return 2 * x
 
     # fail because it expects torch.Tensors and not int
-    with pytest.raises(TypeError):
+    with pytest.raises(exceptions.FuncNotApplicableError):
         recursive_apply(obj=dict_data,
                         expected_type=expected_type,
                         func=_times_two)
