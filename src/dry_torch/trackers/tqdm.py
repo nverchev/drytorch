@@ -184,7 +184,7 @@ class TqdmLogger(tracking.Tracker):
         bar = EpochBar(event.batch_size,
                        event.num_iter,
                        event.dataset_size,
-                       leave=self._leave and self._training_bar is not None,
+                       leave=self._leave and self._training_bar is None,
                        file=self._file,
                        desc=desc)
         event.push_updates.append(bar.update)
