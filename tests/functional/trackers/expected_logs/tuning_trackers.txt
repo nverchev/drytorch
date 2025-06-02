@@ -1,5 +1,5 @@
 [2024-01-01 12:00:00] - Training test_model started.
-[2024-01-01 12:00:00] - test_source: Training test_model terminated at epoch 45. Reason: test event.
+[2024-01-01 12:00:00] - Training test_model terminated at epoch 45. Reason: test event.
 Epoch: 5 / 100:   3%|3         | 3/100
 [2024-01-01 12:00:00] - Training ended.
 [2024-01-01 12:00:00] - Testing test_model started.

@@ -28,13 +28,18 @@ def logger() -> logging.Logger:
     return logging.getLogger('dry_torch')
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, )
 def setup(
         monkeypatch,
         logger,
         string_stream,
 ) -> Generator[None, None, None]:
     """Set up a logger with temporary configuration."""
+
+    def _mock_format_time(*_, **__):
+        fixed_time = datetime.datetime(2024, 1, 1, 12)
+        return fixed_time.strftime('%Y-%m-%d %H:%M:%S')
+
     # fix timestamp for reproducibility
     monkeypatch.setattr(logging.Formatter, 'formatTime', _mock_format_time)
     # remove elapsed time prints for reproducibility
@@ -170,11 +175,6 @@ def test_tuning_mode_no_tqdm(example_named_metrics,
     with expected_path.open() as file:
         expected = file.read().strip()
     assert _get_cleaned_value(string_stream) == expected
-
-
-def _mock_format_time(*_, **__):
-    fixed_time = datetime.datetime(2024, 1, 1, 12)
-    return fixed_time.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def _notify_workflow(event_workflow: tuple[log_events.Event, ...],

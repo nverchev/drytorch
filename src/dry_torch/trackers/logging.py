@@ -53,7 +53,8 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartTraining) -> None:
         logger.log(INFO_LEVELS.training,
                    'Training %(model_name)s started.',
-                   {'model_name': event.model_name})
+                   {'model_name': event.model_name,
+                    'source_name': event.source_name})
         return super().notify(event)
 
     @notify.register
@@ -101,7 +102,7 @@ class BuiltinLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
         log_msg_list: list[str] = ['%(desc)s']
-        desc = event.source_name.rjust(15) + ': '
+        desc = _to_desc(event.source_name)
         log_args: dict[str, str | float] = {'desc': desc}
         for metric, value in event.metrics.items():
             log_msg_list.append(f'%({metric})s=%({metric}_value)4e')
@@ -122,11 +123,10 @@ class BuiltinLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.TerminatedTraining) -> None:
         msg = '. '.join([
-            '%(source)s: Training %(model_name)s terminated at epoch %(epoch)d',
+            'Training %(model_name)s terminated at epoch %(epoch)d',
             'Reason: %(reason)s.',
         ])
-        log_args = {'source': event.source_name,
-                    'model_name': event.model_name,
+        log_args = {'model_name': event.model_name,
                     'reason': event.reason,
                     'epoch': event.epoch}
         logger.log(INFO_LEVELS.training, msg, log_args)
@@ -150,7 +150,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.UpdateLearningRate) -> None:
 
         message_parts = [
-            '%(source)s: Updated %(model_name)s optimizer at epoch %(epoch)d',
+            'Updated %(model_name)s optimizer at epoch %(epoch)d',
         ]
         if event.base_lr is not None:
             message_parts.append('New learning rate: %(learning_rate)s')
@@ -160,8 +160,7 @@ class BuiltinLogger(tracking.Tracker):
 
         msg = '. '.join(message_parts) + '.'
 
-        log_args = {'source': event.source_name,
-                    'model_name': event.model_name,
+        log_args = {'model_name': event.model_name,
                     'epoch': event.epoch,
                     'learning_rate': event.base_lr,
                     'scheduler_name': event.scheduler_name}
@@ -288,6 +287,10 @@ def set_verbosity(level_no: int):
     global logger
     logger.setLevel(level_no)
     return
+
+
+def _to_desc(text: str) -> str:
+    return text.rjust(15) + ': '
 
 
 INFO_LEVELS = InfoLevels(internal=19,
