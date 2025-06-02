@@ -74,7 +74,6 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-    "--ignore=tests/functional",
 #    "--cov=.",
 #    "--cov-report=term-missing",
 #    "--cov-report=html",
