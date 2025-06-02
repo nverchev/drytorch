@@ -1,1 +1,1 @@
-"""Unit testing using mockups."""
+"""Package for unit tests."""
