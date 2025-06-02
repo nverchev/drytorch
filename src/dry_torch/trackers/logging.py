@@ -79,6 +79,12 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
+    def _(self, event: log_events.EndEpoch) -> None:
+        logger.log(INFO_LEVELS.internal,
+                   'Epoch completed.')
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.SaveModel) -> None:
         logger.log(INFO_LEVELS.model_state,
                    f'Saving %(name)s %(definition)s in: %(location)s.',
@@ -117,6 +123,12 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(INFO_LEVELS.test,
                    'Testing %(model_name)s started.',
                    {'model_name': event.model_name})
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.EndTest) -> None:
+        logger.log(INFO_LEVELS.internal,
+                   'Test executed without errors.')
         return super().notify(event)
 
     @notify.register
