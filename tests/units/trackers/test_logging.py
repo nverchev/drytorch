@@ -187,7 +187,7 @@ class TestBuiltinLogger:
         terminated_training_mock_event.epoch = 10
         terminated_training_mock_event.reason = 'Test terminate'
         tracker.notify(terminated_training_mock_event)
-        expected = 'my_source: Training my_model terminated at epoch 10. '
+        expected = 'Training my_model terminated at epoch 10. '
         expected += 'Reason: Test terminate'
         output = self.stream.getvalue()
         assert expected in output
