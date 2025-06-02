@@ -39,7 +39,7 @@ class TestExperiment:
     def test_get_config_no_config_error(self):
         """Test NoConfigError is raised if config is None."""
         with self.experiment:
-            with pytest.raises(exceptions.NoConfigError):
+            with pytest.raises(exceptions.NoConfigurationError):
                 Experiment.get_config()
 
     def test_no_active_experiment_error(self):
