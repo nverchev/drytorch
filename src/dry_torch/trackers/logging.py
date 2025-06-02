@@ -263,7 +263,7 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
     return
 
 
-def set_formatter(style: Literal['progress', 'dry_torch']) -> None:
+def set_formatter(style: Literal['dry_torch', 'progress']) -> None:
     """Set the formatter for the stream handler of the dry_torch logger."""
     global logger
     for handler in logger.handlers:
