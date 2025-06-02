@@ -80,7 +80,6 @@ def event_workflow(
 def test_standard_trackers(event_workflow,
                            example_named_metrics,
                            string_stream):
-    """Test the two bars are correctly updated by the events."""
     trackers = list[tracking.Tracker]()
     trackers.append(TqdmLogger(file=string_stream, enable_training_bar=True))
     _notify_workflow(event_workflow, trackers, example_named_metrics)
