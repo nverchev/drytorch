@@ -224,7 +224,7 @@ def enable_default_handler(stream: SupportsWrite[str] = sys.stderr) -> None:
     stream_handler.terminator = ''
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
-    logger.setLevel(INFO_LEVELS.metrics)
+    logger.setLevel(logging.NOTSET)
     logger.propagate = False
     return
 

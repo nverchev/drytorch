@@ -2,6 +2,7 @@
 import pytest
 
 import importlib
+import os
 
 import dry_torch
 from dry_torch.tracking import DEFAULT_TRACKERS
@@ -10,21 +11,19 @@ from dry_torch import FailedOptionalImportWarning
 
 def test_standard_trackers():
     """Test setting standard trackers adds trackers."""
-    dry_torch.set_standard_trackers()
+    dry_torch.initialize_trackers()
     assert DEFAULT_TRACKERS
 
 
-def test_tuning_trackers():
-    """Test setting tuning trackers adds trackers."""
-    dry_torch.set_tuning_trackers()
-    assert DEFAULT_TRACKERS
-
-
-def test_remove_trackers():
-    """Test removing all default trackers."""
-    assert DEFAULT_TRACKERS
+def test_env_trackers():
+    """Test setting standard trackers adds trackers."""
     dry_torch.remove_all_default_trackers()
+    os.environ['DRY_TORCH_INIT_MODE'] = 'none'
+    importlib.reload(dry_torch)
     assert not DEFAULT_TRACKERS
+    os.environ['DRY_TORCH_INIT_MODE'] = 'hydra'
+    importlib.reload(dry_torch)
+    assert DEFAULT_TRACKERS
 
 
 def test_failed_import_warning():
