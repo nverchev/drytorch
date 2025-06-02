@@ -35,15 +35,15 @@ def setup(
         string_stream,
 ) -> Generator[None, None, None]:
     """Set up a logger with temporary configuration."""
-    # FIXME: reroute stderr / stdout instead
-    enable_default_handler(stream=string_stream)
+    # fix timestamp for reproducibility
+    monkeypatch.setattr(logging.Formatter, 'formatTime', _mock_format_time)
     # remove elapsed time prints for reproducibility
     epoch_bar_fmt = EpochBar.fmt
     EpochBar.fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}{postfix}'
     training_bar_fmt = TrainingBar.fmt
     TrainingBar.fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}'
-    # fix timestamp for reproducibility
-    monkeypatch.setattr(logging.Formatter, 'formatTime', _mock_format_time)
+    # FIXME: reroute stderr / stdout instead
+    enable_default_handler(stream=string_stream)
     yield
 
     enable_default_handler()
