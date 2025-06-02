@@ -14,10 +14,10 @@ from dry_torch.trackers.tqdm import TqdmLogger
 from dry_torch.trackers.tqdm import EpochBar
 from dry_torch.trackers.tqdm import TrainingBar
 from dry_torch.trackers.logging import BuiltinLogger
+from dry_torch.trackers.logging import enable_default_handler
 from dry_torch.trackers.logging import INFO_LEVELS
+from dry_torch.trackers.logging import set_formatter
 from dry_torch.trackers.logging import set_verbosity
-from dry_torch.trackers.logging import DryTorchFormatter
-from dry_torch.trackers.logging import ProgressFormatter
 
 expected_path_folder = pathlib.Path() / 'expected_logs'
 
@@ -28,26 +28,15 @@ def logger() -> logging.Logger:
     return logging.getLogger('dry_torch')
 
 
-@pytest.fixture
-def stream_handler(string_stream) -> logging.StreamHandler:
-    """Handler that uses the stdout mock as stream."""
-    stdout_handler = logging.StreamHandler(string_stream)
-    return stdout_handler
-
-
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def setup(
         monkeypatch,
         logger,
-        stream_handler,
+        string_stream,
 ) -> Generator[None, None, None]:
     """Set up a logger with temporary configuration."""
-    original_handlers = logger.handlers.copy()
-    original_level = logger.level
-    logger.handlers.clear()
-    stream_handler.setFormatter(DryTorchFormatter())
-    stream_handler.terminator = ''
-    logger.addHandler(stream_handler)
+    # FIXME: reroute stderr / stdout instead
+    enable_default_handler(stream=string_stream)
     # remove elapsed time prints for reproducibility
     epoch_bar_fmt = EpochBar.fmt
     EpochBar.fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}{postfix}'
@@ -57,9 +46,7 @@ def setup(
     monkeypatch.setattr(logging.Formatter, 'formatTime', _mock_format_time)
     yield
 
-    logger.handlers.clear()
-    logger.handlers.extend(original_handlers)
-    logger.setLevel(original_level)
+    enable_default_handler()
     EpochBar.fmt = epoch_bar_fmt
     TrainingBar.fmt = training_bar_fmt
     return
@@ -105,11 +92,10 @@ def event_workflow(
     return event_tuple
 
 
-def test_standard_trackers(setup,
-                           example_named_metrics,
-                           event_workflow,
-                           string_stream):
-    """Test stdout output on standard workflow."""
+def test_standard_mode(example_named_metrics,
+                       event_workflow,
+                       string_stream):
+    """Test standard mode on typical workflow."""
     set_verbosity(INFO_LEVELS.epoch)
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
@@ -121,11 +107,10 @@ def test_standard_trackers(setup,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_standard_trackers_no_tqdm(setup,
-                                   example_named_metrics,
-                                   event_workflow,
-                                   string_stream):
-    """Test stdout output on standard workflow when tqdm is not available."""
+def test_standard_mode_no_tqdm(example_named_metrics,
+                               event_workflow,
+                               string_stream):
+    """Test standard mode on typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.metrics)
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
@@ -136,11 +121,27 @@ def test_standard_trackers_no_tqdm(setup,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_tuning_trackers(setup,
-                         example_named_metrics,
-                         event_workflow,
-                         string_stream):
-    """Test stdout output on tuning workflow."""
+def test_hydra_mode(example_named_metrics,
+                    event_workflow,
+                    string_stream):
+    """Test hydra mode on typical workflow."""
+    set_verbosity(INFO_LEVELS.metrics)
+    trackers = list[tracking.Tracker]()
+    trackers.append(BuiltinLogger())
+    trackers.append(TqdmLogger(file=string_stream, leave=False))
+    _notify_workflow(event_workflow, trackers, example_named_metrics)
+    # some output is overwritten
+    assert '\r' in string_stream.getvalue()
+    expected_path = expected_path_folder / 'standard_trackers_no_tqdm.txt'
+    with expected_path.open() as file:
+        expected = file.read().strip()
+    assert _get_cleaned_value(string_stream) == expected
+
+
+def test_tuning_mode(example_named_metrics,
+                     event_workflow,
+                     string_stream):
+    """Test tuning mode on typical workflow."""
     set_verbosity(INFO_LEVELS.training)
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
@@ -154,32 +155,12 @@ def test_tuning_trackers(setup,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_tuning_trackers_no_training_bar(setup,
-                                         example_named_metrics,
-                                         event_workflow,
-                                         string_stream):
-    """Test stdout output on tuning workflow without the training bar."""
-    set_verbosity(INFO_LEVELS.training)
-    trackers = list[tracking.Tracker]()
-    trackers.append(BuiltinLogger())
-    trackers.append(TqdmLogger(file=string_stream))
-    _notify_workflow(event_workflow, trackers, example_named_metrics)
-    # some output is overwritten
-    assert '\r' in string_stream.getvalue()
-    expected_path = expected_path_folder / 'tuning_trackers_no_training_bar.txt'
-    with expected_path.open() as file:
-        expected = file.read().strip()
-    assert _get_cleaned_value(string_stream) == expected
-
-
-def test_tuning_trackers_no_tqdm(setup,
-                                 stream_handler,
-                                 example_named_metrics,
-                                 event_workflow,
-                                 string_stream):
-    """Test stdout output on tuning workflow when tqdm is not available."""
+def test_tuning_mode_no_tqdm(example_named_metrics,
+                             event_workflow,
+                             string_stream):
+    """Test tuning mode on typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.metrics)
-    stream_handler.setFormatter(ProgressFormatter())
+    set_formatter('progress')
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
     _notify_workflow(event_workflow, trackers, example_named_metrics)

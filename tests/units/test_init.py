@@ -47,6 +47,7 @@ def test_failed_import_warning():
         mp.setattr('builtins.__import__', _mock_import)
 
         with pytest.warns(FailedOptionalImportWarning) as warning_info:
+            os.environ['DRY_TORCH_INIT_MODE'] = 'standard'
             importlib.reload(dry_torch)
 
     warnings = [str(w.message) for w in warning_info]
