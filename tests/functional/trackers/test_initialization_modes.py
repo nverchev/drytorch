@@ -1,4 +1,5 @@
-"""Tests that tqdm functioning when using training and epoch bars."""
+"""Tests the initialization modes whether tqdm is present or not."""
+
 import pytest
 
 import datetime
