@@ -265,15 +265,15 @@ class TestProgressFormatter:
 
     def test_format_metric_level(self, formatter, example_record) -> None:
         """Test formatting at metric level."""
-        example_record.levelno = INFO_LEVELS.metrics
+        example_record.levelno = INFO_LEVELS.epoch
         formatted = formatter.format(example_record)
-        assert formatted.endswith('Test message\r')
+        assert formatted.endswith('...\r')
 
     def test_format_epoch_level(self, formatter, example_record) -> None:
         """Test formatting at epoch level."""
-        example_record.levelno = INFO_LEVELS.epoch
+        example_record.levelno = INFO_LEVELS.model_state
         formatted = formatter.format(example_record)
-        assert formatted.endswith('Test message')
+        assert formatted.endswith('\r')
 
 
 def test_disable_default_handler(logger) -> None:
