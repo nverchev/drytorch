@@ -164,7 +164,7 @@ def test_tuning_mode_no_tqdm(example_named_metrics,
                              event_workflow,
                              string_stream):
     """Test tuning mode on typical workflow when tqdm is not available."""
-    set_verbosity(INFO_LEVELS.metrics)
+    set_verbosity(INFO_LEVELS.epoch)
     set_formatter('progress')
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())

@@ -31,8 +31,7 @@ class InfoLevels(NamedTuple):
     internal: int
     metrics: int
     epoch: int
-    param_update: int
-    checkpoint: int
+    model_state: int
     experiment: int
     training: int
     test: int
@@ -81,7 +80,7 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.SaveModel) -> None:
-        logger.log(INFO_LEVELS.checkpoint,
+        logger.log(INFO_LEVELS.model_state,
                    f'Saving %(name)s %(definition)s in: %(location)s.',
                    {'name': event.model_name,
                     'definition': event.definition,
@@ -91,7 +90,7 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.LoadModel) -> None:
-        logger.log(INFO_LEVELS.checkpoint,
+        logger.log(INFO_LEVELS.model_state,
                    f'Loading %(name)s %(definition)s at epoch %(epoch)d.',
                    {'name': event.model_name,
                     'definition': event.definition,
@@ -164,7 +163,7 @@ class BuiltinLogger(tracking.Tracker):
                     'epoch': event.epoch,
                     'learning_rate': event.base_lr,
                     'scheduler_name': event.scheduler_name}
-        logger.log(INFO_LEVELS.param_update, msg, log_args)
+        logger.log(INFO_LEVELS.model_state, msg, log_args)
         return super().notify(event)
 
 
@@ -198,10 +197,10 @@ class ProgressFormatter(DryTorchFormatter):
 
     @staticmethod
     def _info_fmt(level_no: int) -> str:
-        if level_no == INFO_LEVELS.metrics:
-            return '\t%(message)s\r'
-        elif level_no == INFO_LEVELS.epoch:
-            return '%(message)s'
+        if level_no == INFO_LEVELS.epoch:
+            return '%(message)s ...\r'
+        elif level_no == INFO_LEVELS.model_state:
+            return '%(message)s\r'
         else:
             return DryTorchFormatter._info_fmt(level_no)
 
@@ -296,8 +295,7 @@ def _to_desc(text: str) -> str:
 INFO_LEVELS = InfoLevels(internal=19,
                          metrics=21,
                          epoch=23,
-                         param_update=25,
-                         checkpoint=26,
+                         model_state=25,
                          experiment=27,
                          training=28,
                          test=29,

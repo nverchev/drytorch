@@ -1,7 +1,0 @@
-Running experiment: test_model.
-Loading test_model checkpoint at epoch 10.
-Training test_model started.
-Training test_model terminated at epoch 45. Reason: test event.
-Training ended.
-Testing test_model started.
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.

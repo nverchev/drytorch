@@ -75,6 +75,7 @@ def initialize_trackers(
     except (ImportError, ModuleNotFoundError) as ie:
         warnings.warn(FailedOptionalImportWarning('tqdm', ie))
         if mode == 'tuning':
+            verbosity = builtin_logging.INFO_LEVELS.epoch
             builtin_logging.set_formatter('progress')
 
     else:
