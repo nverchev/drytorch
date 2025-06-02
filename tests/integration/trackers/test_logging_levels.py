@@ -11,7 +11,7 @@ from dry_torch.trackers.logging import BuiltinLogger
 from dry_torch.trackers.logging import INFO_LEVELS
 from dry_torch.trackers.logging import set_verbosity
 
-expected_path_folder = pathlib.Path() / 'expected_logs'
+expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 expected_path_dict = {
     INFO_LEVELS.internal: expected_path_folder / 'internal_logging.txt',
     INFO_LEVELS.metrics: expected_path_folder / 'metrics_logging.txt',

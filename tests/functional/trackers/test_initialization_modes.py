@@ -20,7 +20,7 @@ from dry_torch.trackers.logging import INFO_LEVELS
 from dry_torch.trackers.logging import set_formatter
 from dry_torch.trackers.logging import set_verbosity
 
-expected_path_folder = pathlib.Path() / 'expected_logs'
+expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 
 
 @pytest.fixture()
