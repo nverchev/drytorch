@@ -1,4 +1,4 @@
-"""Tests for the scheduler module."""
+"""Tests for the "schedulers" module."""
 
 import pytest
 

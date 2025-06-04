@@ -1,4 +1,5 @@
-"""Tests for the calculating module."""
+"""Tests for the "metrics" module."""
+
 from collections.abc import Callable
 
 import pytest

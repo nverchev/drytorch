@@ -1,4 +1,4 @@
-"""Tests for the yaml tracker module."""
+"""Tests for the "yaml" module."""
 
 from hypothesis import given, assume
 from hypothesis.strategies import text, characters

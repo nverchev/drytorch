@@ -1,4 +1,4 @@
-"""Tests for the hooks module."""
+"""Tests for the "hooks" module."""
 
 import pytest
 

@@ -1,4 +1,4 @@
-"""Test csv dumper"""
+"""Test "csv" module"""
 
 import pytest
 

@@ -1,4 +1,4 @@
-"""Tests for the aggregators module."""
+"""Tests for the "aggregators" module."""
 
 import pytest
 

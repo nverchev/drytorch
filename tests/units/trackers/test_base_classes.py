@@ -1,4 +1,5 @@
-"""Tests for the base_classes module."""
+"""Tests for the "base_classes" module."""
+
 import pytest
 
 import functools

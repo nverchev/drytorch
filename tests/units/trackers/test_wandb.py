@@ -1,4 +1,4 @@
-"""Test wandb tracker"""
+"""Tests for the "wandb" module."""
 
 import pytest
 from wandb.sdk import wandb_settings

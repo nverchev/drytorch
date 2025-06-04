@@ -1,4 +1,5 @@
-"""Test suite for dry_torch progress bar functionality."""
+"""Tests for the "tqdm" module."""
+
 import pytest
 
 from dry_torch.trackers.tqdm import EpochBar, TrainingBar, TqdmLogger

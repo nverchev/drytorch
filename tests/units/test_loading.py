@@ -1,4 +1,4 @@
-"""Test for the loading module."""
+"""Tests for the "loading" module."""
 
 import pytest
 
