@@ -2,169 +2,101 @@
 
 import pytest
 
-import pathlib
-import shutil
-from typing import Generator
-
-import hydra
-from omegaconf import DictConfig
-
+from dry_torch import exceptions
 from dry_torch.trackers.hydra import HydraLink
-from dry_torch import log_events
 
-@pytest.mark.skip
+
 class TestHydraLink:
-    """Tests for the HydraLink tracker with actual Hydra integration."""
+    """Tests for the HydraLink tracker."""
 
     @pytest.fixture(autouse=True)
-    def setup(self) -> Generator[None, None, None]:
-        """Setup test environment with actual hydra configuration."""
-        self.base_dir = pathlib.Path(__file__).parent
+    def setup(self, mocker, tmp_path) -> None:
+        """Setup test environment."""
+        self.hydra_output_dir = (tmp_path / 'outputs').resolve()
+        self.hydra_output_dir.mkdir()
+        mock_config = mocker.MagicMock()
+        mock_config.runtime.output_dir = self.hydra_output_dir.as_posix()
+        mocker.patch(
+            'hydra.core.hydra_config.HydraConfig.get',
+            return_value=mock_config
+        )
+        return
 
-        # Initialize config directory
-        config_dir = self.base_dir / "conf"
-        config_dir.mkdir(parents=True)
+    @pytest.fixture
+    def tracker(self, tmp_path) -> HydraLink:
+        """Set up the instance."""
+        return HydraLink(par_dir=tmp_path)
 
-        # Create basic config file
-        config_yaml = """
-        defaults:
-          - _self_
-        output_dir: ${hydra:runtime.output_dir}
-        """
-        with open(config_dir / 'config.yaml', 'w') as f:
-            f.write(config_yaml)
-        with open(config_dir / '__init__.py', 'w') as f:
-            f.write('')
-        yield
+    @pytest.fixture
+    def tracker_no_copy(self, tmp_path) -> HydraLink:
+        """Set up the instance with copy_hydra=False."""
+        return HydraLink(par_dir=tmp_path, copy_hydra=False)
 
-        try:
-            shutil.rmtree(config_dir)
-        except FileNotFoundError:
-            pass
+    def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
+        """Test initialization with valid Hydra configuration."""
+        assert tracker.par_dir == tmp_path
+        assert isinstance(tracker.hydra_folder, str)
+        assert isinstance(tracker.link_name, str)
+        assert tracker.hydra_dir == self.hydra_output_dir
 
-    def test_initialization(self) -> None:
-        """Test HydraLink initialization with actual Hydra config."""
+    def test_init_without_hydra_raises_exception(self, tmp_path) -> None:
+        """Test initialization fails without existing Hydra output directory."""
+        self.hydra_output_dir.rmdir()
+        with pytest.raises(exceptions.TrackerException):
+            HydraLink(par_dir=tmp_path / 'not_existing')
 
-        @hydra.main(config_path="conf", config_name="config", version_base=None)
-        def _app(_cfg: DictConfig) -> None:
-            tracker = HydraLink(par_dir=self.base_dir)
-            assert isinstance(tracker.par_dir, pathlib.Path)
-            assert isinstance(tracker.hydra_dir, pathlib.Path)
-            assert tracker._exp_dir is None
-            assert tracker._counter == 0
+    def test_dir_property(self, tracker, tmp_path) -> None:
+        """Test dir property returns correct path with counter."""
+        tracker._counter = 2
+        hydra_path = tmp_path / tracker.hydra_folder
+        expected_dir = hydra_path / f'{tracker.link_name}_2'
+        assert tracker.dir == expected_dir
+        assert hydra_path.exists()
 
-        _app()
-
-    def test_dir_access_before_experiment(self) -> None:
-        """Test accessing dir property before experiment starts raises error."""
-
-        @hydra.main(config_path="conf", config_name="config", version_base=None)
-        def test_app(_cfg: DictConfig) -> None:
-            tracker = HydraLink(par_dir=self.base_dir)
-            with pytest.raises(RuntimeError,
-                               match="Accessed outside experiment scope"):
-                _ = tracker.dir
-
-        test_app()
-
-    def test_start_experiment(
+    def test_notify_start_experiment_creates_symlink(
             self,
-            start_experiment_event: log_events.StartExperiment
+            tracker,
+            start_experiment_mock_event,
     ) -> None:
-        """Test handling of StartExperiment event with actual Hydra.
+        """Test start experiment notification creates symlink."""
+        tracker.notify(start_experiment_mock_event)
+        assert tracker.dir.is_symlink()
+        assert tracker.dir.resolve() == self.hydra_output_dir
 
-        Args:
-            start_experiment_event: StartExperiment event fixture
-        """
-
-        @hydra.main(config_path="conf", config_name="config", version_base=None)
-        def test_app(_cfg: DictConfig) -> None:
-            tracker = HydraLink(par_dir=self.base_dir)
-            tracker.notify(start_experiment_event)
-
-            # Check if experiment directory is set
-            assert tracker._exp_dir == start_experiment_event.exp_dir
-
-            # Verify symlink creation
-            symlink_path = self.base_dir / ".hydra"
-            assert symlink_path.is_symlink()
-            assert symlink_path.resolve() == tracker.hydra_dir
-
-        test_app()
-
-    def test_multiple_start_experiments(
+    def test_notify_start_experiment_handles_existing_link(
             self,
-            start_experiment_event: log_events.StartExperiment
+            tracker,
+            start_experiment_mock_event,
     ) -> None:
-        """Test handling multiple StartExperiment events with actual Hydra.
+        """Test counter increments when existing symlink."""
+        # Create existing link
+        link_dir = tracker.dir
+        link_dir.symlink_to(tracker.hydra_dir, target_is_directory=True)
+        tracker.notify(start_experiment_mock_event)
+        assert tracker._counter == 1
 
-        Args:
-            start_experiment_event: StartExperiment event fixture
-        """
-
-        @hydra.main(config_path="conf", config_name="config", version_base=None)
-        def test_app(_cfg: DictConfig) -> None:
-            tracker = HydraLink(par_dir=self.base_dir)
-
-            # First experiment
-            tracker.notify(start_experiment_event)
-            first_link = self.base_dir / ".hydra"
-            assert first_link.is_symlink()
-
-            # Second experiment (should create .hydra_1)
-            tracker.notify(start_experiment_event)
-            second_link = self.base_dir / ".hydra_1"
-            assert second_link.is_symlink()
-
-            assert tracker._counter == 1
-
-        test_app()
-
-    def test_stop_experiment(
+    def test_notify_stop_experiment_with_copy(
             self,
-            start_experiment_event: log_events.StartExperiment,
-            stop_experiment_event: log_events.StopExperiment
+            tracker,
+            start_experiment_mock_event,
+            stop_experiment_mock_event,
     ) -> None:
-        """Test handling of StopExperiment event with actual Hydra.
+        """Test stop experiment notification copies hydra folder."""
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(stop_experiment_mock_event)
+        assert tracker.dir.is_dir()
+        assert tracker._exp_dir is None
+        assert tracker._counter == 0
 
-        Args:
-            start_experiment_event: StartExperiment event fixture
-            stop_experiment_event: StopExperiment event fixture
-        """
-
-        @hydra.main(config_path="conf", config_name="config", version_base=None)
-        def test_app(_cfg: DictConfig) -> None:
-            tracker = HydraLink(par_dir=self.base_dir)
-
-            # Start experiment first
-            tracker.notify(start_experiment_event)
-            initial_link = self.base_dir / ".hydra"
-
-            # Create some test files in Hydra directory
-            (tracker.hydra_dir / "config.yaml").touch()
-            (tracker.hydra_dir / "output.log").touch()
-
-            # Stop experiment
-            tracker.notify(stop_experiment_event)
-
-            # Verify symlink is replaced with directory
-            assert not initial_link.is_symlink()
-            assert initial_link.is_dir()
-
-            # Verify content is copied
-            assert (initial_link / "config.yaml").exists()
-            assert (initial_link / "output.log").exists()
-
-            # Verify experiment directory is reset
-            assert tracker._exp_dir is None
-
-        test_app()
-
-    def test_error_when_hydra_not_started(self) -> None:
-        """Test initialization fails when Hydra directory doesn't exist."""
-        # Temporarily clear Hydra's initialized state
-        hydra.core.global_hydra.GlobalHydra.instance().clear()  # type: ignore
-
-        with pytest.raises(RuntimeError, match="Hydra has not started"):
-            # Try to initialize tracker without Hydra context
-            HydraLink(par_dir=self.base_dir)
+    def test_notify_stop_experiment_without_copy(
+            self,
+            tracker_no_copy,
+            start_experiment_mock_event,
+            stop_experiment_mock_event,
+    ) -> None:
+        """Test stop experiment notification without copying."""
+        tracker_no_copy.notify(start_experiment_mock_event)
+        tracker_no_copy.notify(stop_experiment_mock_event)
+        assert tracker_no_copy.dir.is_symlink()
+        assert tracker_no_copy._exp_dir is None
+        assert tracker_no_copy._counter == 0
