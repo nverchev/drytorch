@@ -2,10 +2,9 @@
 Module containing classes to create and combine loss and metrics.
 
 The interface is similar to https://github.com/Lightning-AI/torchmetrics,
-with stricter typing and slightly different constructions. One difference is
-that torchmetrics MetricCollection and CompositionalMetric contain the
-metrics they aggregate and can change their state, while here there is a more
-functional approach.
+with stricter typing and simpler construction. MetricCollection and
+CompositionalMetric from torchmetrics change their state; here a functional
+approach is preferred.
 """
 
 from __future__ import annotations
@@ -37,6 +36,8 @@ _Target_contra = TypeVar('_Target_contra',
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
+_Tensor = torch.Tensor
+
 
 @runtime_checkable
 class TorchMetricCompositionalMetricProtocol(Protocol):
@@ -51,34 +52,34 @@ class TorchMetricCompositionalMetricProtocol(Protocol):
     metric_b: p.MetricCalculatorProtocol | float | None
 
     def update(self,
-               outputs: torch.Tensor,
-               targets: torch.Tensor) -> Any:
+               outputs: _Tensor,
+               targets: _Tensor) -> Any:
         """See torchmetrics documentation."""
 
     def reset(self) -> Any:
         """See torchmetrics documentation."""
 
-    def compute(self) -> Mapping[str, torch.Tensor] | torch.Tensor | None:
+    def compute(self) -> Mapping[str, _Tensor] | _Tensor | None:
         """See torchmetrics documentation."""
 
     def forward(self,
-                outputs: torch.Tensor,
-                targets: torch.Tensor) -> torch.Tensor:
+                outputs: _Tensor,
+                targets: _Tensor) -> _Tensor:
         """See torchmetrics documentation."""
 
     def __call__(self,
-                 outputs: torch.Tensor,
-                 targets: torch.Tensor) -> torch.Tensor:
+                 outputs: _Tensor,
+                 targets: _Tensor) -> _Tensor:
         """See torchmetrics documentation."""
 
 
 def from_torchmetrics(
         metric: TorchMetricCompositionalMetricProtocol
-) -> p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]:
+) -> p.LossCalculatorProtocol[_Tensor, _Tensor]:
     """Wrapper of a CompositionalMetric for integration."""
 
     class _TorchMetricCompositionalMetric(
-        p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]
+        p.LossCalculatorProtocol[_Tensor, _Tensor]
     ):
         name = 'Loss'
 
@@ -86,20 +87,20 @@ def from_torchmetrics(
             self.metric = _metric
 
         def update(self,
-                   outputs: torch.Tensor,
-                   targets: torch.Tensor) -> Any:
+                   outputs: _Tensor,
+                   targets: _Tensor) -> Any:
             self.metric.update(outputs, targets)
 
         def reset(self) -> Any:
             self.metric.reset()
 
         def forward(self,
-                    outputs: torch.Tensor,
-                    targets: torch.Tensor) -> torch.Tensor:
+                    outputs: _Tensor,
+                    targets: _Tensor) -> _Tensor:
             return self.metric(outputs, targets)
 
-        def compute(self) -> dict[str, torch.Tensor]:
-            dict_output = dict[str, torch.Tensor]()
+        def compute(self) -> dict[str, _Tensor]:
+            dict_output = dict[str, _Tensor]()
             metric_list = list[p.MetricCalculatorProtocol | float | None]()
             metric_list.append(self.metric)
             while metric_list:
@@ -109,7 +110,7 @@ def from_torchmetrics(
                 elif isinstance(metric_, (float, int)) or metric_ is None:
                     continue
                 else:
-                    if isinstance(value := metric_.compute(), torch.Tensor):
+                    if isinstance(value := metric_.compute(), _Tensor):
                         dict_output[metric_.__class__.__name__] = value
 
             return dict_output
@@ -121,16 +122,17 @@ class MetricBase(
     p.MetricCalculatorProtocol[_Output_contra, _Target_contra],
     metaclass=abc.ABCMeta
 ):
-    def __init__(self,
-                 **metric_fun: Callable[
-                     [_Output_contra, _Target_contra], torch.Tensor
-                 ],
-                 ) -> None:
+    def __init__(
+            self,
+            **metric_fun: Callable[
+                [_Output_contra, _Target_contra], _Tensor,
+            ],
+    ) -> None:
         self._aggregator = aggregators.TorchAverager()
         self.named_metric_fun = metric_fun
 
     @override
-    def compute(self: Self) -> dict[str, torch.Tensor]:
+    def compute(self: Self) -> dict[str, _Tensor]:
         if not self._aggregator:
             warnings.warn(exceptions.ComputedBeforeUpdatedWarning(self))
 
@@ -139,7 +141,7 @@ class MetricBase(
     @override
     def update(self: Self,
                outputs: _Output_contra,
-               targets: _Target_contra) -> dict[str, torch.Tensor]:
+               targets: _Target_contra) -> dict[str, _Tensor]:
         results = self.calculate(outputs, targets)
         self._aggregator += {key: value.detach()
                              for key, value in results.items()}
@@ -153,7 +155,7 @@ class MetricBase(
     @abc.abstractmethod
     def calculate(self: Self,
                   outputs: _Output_contra,
-                  targets: _Target_contra) -> dict[str, torch.Tensor]:
+                  targets: _Target_contra) -> dict[str, _Tensor]:
         """
         Method responsible for the calculations.
 
@@ -197,14 +199,14 @@ class MetricCollection(MetricBase[_Output_contra, _Target_contra]):
     @override
     def calculate(self,
                   outputs: _Output_contra,
-                  targets: _Target_contra) -> dict[str, torch.Tensor]:
+                  targets: _Target_contra) -> dict[str, _Tensor]:
         return dict_apply(self.named_metric_fun, outputs, targets)
 
 
 class Metric(MetricBase[_Output_contra, _Target_contra]):
 
     def __init__(self,
-                 fun: Callable[[_Output_contra, _Target_contra], torch.Tensor],
+                 fun: Callable[[_Output_contra, _Target_contra], _Tensor],
                  /,
                  *,
                  name: str,
@@ -217,7 +219,7 @@ class Metric(MetricBase[_Output_contra, _Target_contra]):
     @override
     def calculate(self: Self,
                   outputs: _Output_contra,
-                  targets: _Target_contra) -> dict[str, torch.Tensor]:
+                  targets: _Target_contra) -> dict[str, _Tensor]:
         return {self.name: self.fun(outputs, targets)}
 
 
@@ -233,19 +235,17 @@ class LossBase(
 
     def __init__(
             self,
-            criterion: Callable[[dict[str, torch.Tensor]], torch.Tensor],
-            **named_metric_fun: Callable[
-                [_Output_contra, _Target_contra], torch.Tensor
-            ],
+            criterion: Callable[[dict[str, _Tensor]], _Tensor],
+            **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
-        super().__init__(**named_metric_fun)
+        super().__init__(**named_fun)
         self.criterion = criterion
         return
 
     @override
     def forward(self,
                 outputs: _Output_contra,
-                targets: _Target_contra) -> torch.Tensor:
+                targets: _Target_contra) -> _Tensor:
         metrics = self.update(outputs, targets)
         return self.criterion(metrics).mean()
 
@@ -262,7 +262,7 @@ class LossBase(
     def _combine(
             self,
             other: LossBase[_Output_contra, _Target_contra] | float,
-            operation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+            operation: Callable[[_Tensor, _Tensor], _Tensor],
             op_fmt: str,
             requires_parentheses: bool = True,
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
@@ -274,7 +274,7 @@ class LossBase(
             # apply should combine losses that share the same direction
             self._check_same_direction(other)
 
-            def _combined(x: dict[str, torch.Tensor]) -> torch.Tensor:
+            def _combined(x: dict[str, _Tensor]) -> _Tensor:
                 return operation(self.criterion(x), other.criterion(x))
 
         elif isinstance(other, (float, int)):
@@ -282,8 +282,8 @@ class LossBase(
             str_first = str(other)
             str_second = self.formula
 
-            def _combined(x: dict[str, torch.Tensor]) -> torch.Tensor:
-                return operation(self.criterion(x), torch.tensor(other))
+            def _combined(x: dict[str, _Tensor]) -> _Tensor:
+                return operation(self.criterion(x), _Tensor(other))
 
         else:
             raise TypeError(f'Unsupported type for operation: {type(other)}')
@@ -387,15 +387,13 @@ class CompositionalLoss(
 
     def __init__(
             self,
-            criterion: Callable[[dict[str, torch.Tensor]], torch.Tensor],
+            criterion: Callable[[dict[str, _Tensor]], _Tensor],
             *,
             higher_is_better: bool,
             formula: str,
-            **named_metric_fun: Callable[
-                [_Output_contra, _Target_contra], torch.Tensor
-            ]
+            **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
-        super().__init__(criterion, **named_metric_fun)
+        super().__init__(criterion, **named_fun)
         self.higher_is_better = higher_is_better
         self.formula = f'({self._simplify_formula(formula)})'
         return
@@ -406,7 +404,7 @@ class CompositionalLoss(
     @override
     def calculate(self: Self,
                   outputs: _Output_contra,
-                  targets: _Target_contra) -> dict[str, torch.Tensor]:
+                  targets: _Target_contra) -> dict[str, _Tensor]:
         all_metrics = super().calculate(outputs, targets)
         return {self.name: self.criterion(all_metrics)} | all_metrics
 
@@ -424,7 +422,7 @@ class Loss(
 
     def __init__(
             self,
-            fun: Callable[[_Output_contra, _Target_contra], torch.Tensor],
+            fun: Callable[[_Output_contra, _Target_contra], _Tensor],
             /,
             *,
             name: str,
@@ -446,11 +444,11 @@ class Loss(
 
 def dict_apply(
         dict_fun: dict[str, Callable[
-            [_Output_contra, _Target_contra], torch.Tensor]
+            [_Output_contra, _Target_contra], _Tensor]
         ],
         outputs: _Output_contra,
         targets: _Target_contra,
-) -> dict[str, torch.Tensor]:
+) -> dict[str, _Tensor]:
     """
     Apply the given tensor callables to the provided outputs and targets.
 
@@ -472,7 +470,7 @@ def repr_metrics(calculator: p.MetricCalculatorProtocol) -> Mapping[str, float]:
     if isinstance(metrics, Mapping):
         return {name: value.item() for name, value in metrics.items()}
 
-    if isinstance(metrics, torch.Tensor):
+    if isinstance(metrics, _Tensor):
         return {calculator.__class__.__name__: metrics.item()}
 
     return {}
