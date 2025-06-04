@@ -1,4 +1,5 @@
 """Configuration module with objects from the package."""
+
 from typing import Generator
 
 import pytest
