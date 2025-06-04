@@ -368,7 +368,7 @@ class MetricMonitor:
             Otherwise, it is restored to the maximum.
         """
 
-        if not self._monitor_log:
+        if len(self._monitor_log) <= 1:
             return True
 
         current_result = self.average_fn(self._monitor_log)
