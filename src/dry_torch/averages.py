@@ -52,13 +52,16 @@ def get_moving_average(
         raise ValueError('threshold should be small and non-negative.')
 
     # how far back to go back before the weight drops below the threshold
-    stop = int(math.log(threshold / (1 - decay), decay)) + 2 if threshold else 0
+    if threshold:
+        stop = -int(math.log(threshold / (1 - decay), decay)) - 2
+    else:
+        stop = None
 
     def _mean(float_list: Sequence[float], /) -> float:
         total: float = 0
         total_weights: float = 0  # should get close to one
         weight = 1 - decay  # weights are normalized
-        for elem in float_list[:-stop:-1]:
+        for elem in float_list[:stop:-1]:
             total += weight * elem
             total_weights += weight
             weight *= decay
