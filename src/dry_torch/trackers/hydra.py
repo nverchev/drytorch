@@ -17,11 +17,15 @@ class HydraLink(base_classes.Dumper):
     """
     Link current Hydra metadata to experiment.
 
-    Attributes:
+    Class Attributes:
         hydra_folder: the folder where the logs are grouped.
-        hydra_dir: the directory where hydra saves the run.
         link_name: the name of the folder with the link.
+
+    Attributes:
+        hydra_dir: the directory where hydra saves the run.
     """
+    hydra_folder = 'hydra_runs'
+    link_name = 'run'
 
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
@@ -29,11 +33,11 @@ class HydraLink(base_classes.Dumper):
         """
         Args:
             par_dir: the directory where to dump metadata. Defaults to the
+                experiment folder.
             copy_hydra: if True, copy the hydra folder content at the end of the
                 experiment's scope, replacing the link folder.
         """
         super().__init__(par_dir)
-        self.hydra_folder = 'hydra_runs'
         # get hydra configuration
         hydra_config = hydra.core.hydra_config.HydraConfig.get()  # type: ignore
         str_dir = hydra_config.runtime.output_dir
@@ -42,7 +46,6 @@ class HydraLink(base_classes.Dumper):
             raise exceptions.TrackerException(self, 'Hydra has not started.')
 
         self._copy_hydra = copy_hydra
-        self.link_name = 'run'
         self._counter = 0
 
     @property
@@ -64,8 +67,6 @@ class HydraLink(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
-        self._exp_dir = event.exp_dir
-
         while True:
             if self.dir.exists():
                 self._counter += 1
@@ -81,6 +82,5 @@ class HydraLink(base_classes.Dumper):
             self.dir.unlink()
             shutil.copytree(self.hydra_dir, self.dir)
 
-        self._exp_dir = None
         self._counter = 0
         return super().notify(event)
