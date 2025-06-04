@@ -30,7 +30,7 @@ class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
         return TorchTuple(x), x
 
     def __len__(self) -> int:
-        return 1600
+        return 64
 
 
 class Linear(torch.nn.Module):
