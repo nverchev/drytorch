@@ -273,7 +273,7 @@ class MetricMonitor:
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine it from initial measurements.
-            average_fn: function to aggregate recent metric values. Default
+            average_fn: function to average recent metric values. Default
                 gets the last value.
         """
         if metric is None or isinstance(metric, str):
@@ -447,7 +447,7 @@ class EarlyStoppingCallback:
             patience: number of calls to wait before stopping.
                 Default 'auto' will determine this from initial measurements.
             best_is: whether higher or lower metric values are better.
-            aggregate_fn: function to aggregate recent metric values. Default
+            aggregate_fn: function to average recent metric values. Default
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
@@ -513,7 +513,7 @@ class PruneCallback:
             min_delta: minimum change required to qualify as an improvement.
             best_is: whether higher or lower metric values are better.
                Default 'auto' will determine this from initial measurements.
-            aggregate_fn: function to aggregate recent metric values. Default
+            aggregate_fn: function to average recent metric values. Default
                 gets the last value.
         """
         self.monitor = MetricMonitor(
@@ -580,7 +580,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
-            aggregate_fn: function to aggregate recent metric values. Default
+            aggregate_fn: function to average recent metric values. Default
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
@@ -667,7 +667,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
-            aggregate_fn: function to aggregate recent metric values. Default
+            aggregate_fn: function to average recent metric values. Default
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
             factor: factor by which to reduce the learning rate.
