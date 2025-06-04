@@ -1,4 +1,4 @@
-"""Tests for the tracker.logging module."""
+"""Tests for the "logging" module."""
 
 import pytest
 

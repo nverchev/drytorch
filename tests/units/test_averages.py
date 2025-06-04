@@ -1,4 +1,4 @@
-"""Tests for the average module."""
+"""Tests for the "averages" module."""
 
 import pytest
 

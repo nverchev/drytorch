@@ -1,4 +1,4 @@
-"""Tests for the tracking module."""
+"""Tests for the "tracking" module."""
 
 import dataclasses
 from typing import Optional

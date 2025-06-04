@@ -1,4 +1,4 @@
-"""Tests for the Plotly plotter in the trackers package."""
+"""Tests for the "plotly" module."""
 
 import pytest
 import numpy as np

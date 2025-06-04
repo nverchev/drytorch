@@ -1,4 +1,4 @@
-"""Test SQL connection tracker"""
+"""Tests for the "sqlalchemy" module."""
 
 import pytest
 import sqlalchemy

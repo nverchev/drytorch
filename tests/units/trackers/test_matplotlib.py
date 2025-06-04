@@ -1,4 +1,4 @@
-"""Tests for the matplotlib plotter in the trackers package."""
+"""Tests for the "matplotlib" module."""
 
 import math
 import pytest

@@ -1,4 +1,4 @@
-"""Tests for the repr_utils module."""
+"""Tests for the "repr_utils" module."""
 
 import pytest
 

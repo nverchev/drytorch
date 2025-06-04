@@ -1,4 +1,4 @@
-"""Test Hydra Link tracker"""
+"""Tests for the "hydra" module."""
 
 import pytest
 

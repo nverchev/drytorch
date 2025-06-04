@@ -1,4 +1,5 @@
-"""Test TensorBoard tracker"""
+"""Tests for the "tensorboard" module."""
+
 import pytest
 
 from typing import Generator

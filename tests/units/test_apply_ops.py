@@ -1,4 +1,4 @@
-"""Tests for the apply_ops module."""
+"""Tests for the "apply_ops" module."""
 
 from typing import NamedTuple
 import pytest

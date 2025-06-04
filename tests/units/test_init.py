@@ -1,4 +1,4 @@
-"""Test functions for default trackers."""
+"""Tests for the "__init__" module."""
 import pytest
 
 import importlib
