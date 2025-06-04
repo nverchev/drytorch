@@ -76,7 +76,7 @@ class TorchMetricCompositionalMetricProtocol(Protocol):
 def from_torchmetrics(
         metric: TorchMetricCompositionalMetricProtocol
 ) -> p.LossCalculatorProtocol[_Tensor, _Tensor]:
-    """Wrapper of a CompositionalMetric for integration."""
+    """Returns a wrapper of a CompositionalMetric for integration."""
 
     class _TorchMetricCompositionalMetric(
         p.LossCalculatorProtocol[_Tensor, _Tensor]
