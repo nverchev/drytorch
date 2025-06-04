@@ -4,29 +4,6 @@ import math
 from typing import Callable, Sequence
 
 
-def get_trailing_mean(window_size: int) -> Callable[[Sequence[float]], float]:
-    """
-    Return a trailing average by specifying window size.
-
-    Args:
-        window_size: number of items to aggregate.
-
-    Returns:
-        The windowed average function.
-
-    Raises:
-        ValueError if the window size is negative.
-    """
-    if window_size < 0:
-        raise ValueError('window_size must be positive.')
-
-    def _mean(float_list: Sequence[float], /) -> float:
-        clipped_window = min(window_size, len(float_list))
-        return sum(float_list[-clipped_window:]) / clipped_window
-
-    return _mean
-
-
 def get_moving_average(
         decay: float = 0.9,
         threshold: float = 1e-4,
@@ -67,5 +44,28 @@ def get_moving_average(
             weight *= decay
 
         return total / total_weights
+
+    return _mean
+
+
+def get_trailing_mean(window_size: int) -> Callable[[Sequence[float]], float]:
+    """
+    Return a trailing average by specifying window size.
+
+    Args:
+        window_size: number of items to aggregate.
+
+    Returns:
+        The windowed average function.
+
+    Raises:
+        ValueError if the window size is negative.
+    """
+    if window_size <= 0:
+        raise ValueError('window_size must be positive.')
+
+    def _mean(float_list: Sequence[float], /) -> float:
+        clipped_window = min(window_size, len(float_list))
+        return sum(float_list[-clipped_window:]) / clipped_window
 
     return _mean
