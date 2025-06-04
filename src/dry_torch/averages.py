@@ -1,12 +1,12 @@
-from __future__ import annotations
+"""Averages for a sequence that can be used to monitor metrics."""
 
 import math
 from typing import Callable, Sequence
 
 
-def get_sliding_mean(window_size: int) -> Callable[[Sequence[float]], float]:
+def get_trailing_mean(window_size: int) -> Callable[[Sequence[float]], float]:
     """
-    Return a sliding window average by specifying window size.
+    Return a trailing average by specifying window size.
 
     Args:
         window_size: number of items to aggregate.
@@ -15,10 +15,10 @@ def get_sliding_mean(window_size: int) -> Callable[[Sequence[float]], float]:
         The windowed average function.
 
     Raises:
-        ValueError if window size is negative.
+        ValueError if the window size is negative.
     """
     if window_size < 0:
-        raise ValueError('Window size must be positive.')
+        raise ValueError('window_size must be positive.')
 
     def _mean(float_list: Sequence[float], /) -> float:
         clipped_window = min(window_size, len(float_list))
@@ -42,14 +42,14 @@ def get_moving_average(
         The moving average function.
 
     Raises:
-        ValueError if decay is not between 0 and 1.
-        ValueError if threshold is negative or immediately hit.
+        ValueError if the decay is not between 0 and 1.
+        ValueError if the threshold is negative or immediately hit.
     """
     if not 0 < decay < 1:
-        raise ValueError('Decay must be between 0 and 1.')
+        raise ValueError('decay must be between 0 and 1.')
 
     if not 0 <= threshold <= decay * (1 - decay):
-        raise ValueError('Threshold should be small and non-negative.')
+        raise ValueError('threshold should be small and non-negative.')
 
     # how far back to go back before the weight drops below the threshold
     stop = int(math.log(threshold / (1 - decay), decay)) + 2 if threshold else 0
