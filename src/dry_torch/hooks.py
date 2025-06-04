@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Callable, Sequence
-import math
 import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
 from typing_extensions import override
@@ -252,9 +251,8 @@ class MetricMonitor:
         optional_monitor: evaluation protocol to monitor.
         min_delta: minimum change required to qualify as an improvement.
         patience: number of checks to wait before triggering callback.
-        aggregate_fn: function to aggregate recent metric values.
+        average_fn: function to average recent metric values.
     """
-    _get_last = operator.itemgetter(-1)
 
     def __init__(
             self,
@@ -263,7 +261,7 @@ class MetricMonitor:
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            aggregate_fn: Callable[[Sequence[float]], float] = _get_last,
+            average_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """
         Args:
@@ -275,8 +273,8 @@ class MetricMonitor:
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine it from initial measurements.
-            aggregate_fn: function to aggregate recent metric values. Default
-                get the last element.
+            average_fn: function to aggregate recent metric values. Default
+                gets the last value.
         """
         if metric is None or isinstance(metric, str):
             self.metric_name = metric
@@ -296,7 +294,7 @@ class MetricMonitor:
         if patience < 0:
             raise ValueError('Patience must be a non-negative integer.')
 
-        self.aggregate_fn = aggregate_fn
+        self.average_fn = average_fn
         self.min_delta = min_delta
         self.patience = patience
         self.optional_monitor = monitor
@@ -373,7 +371,7 @@ class MetricMonitor:
         if not self._monitor_log:
             return True
 
-        current_result = self.aggregate_fn(self._monitor_log)
+        current_result = self.average_fn(self._monitor_log)
 
         if self.is_best(current_result):
             self.best_result = current_result
@@ -450,7 +448,7 @@ class EarlyStoppingCallback:
                 Default 'auto' will determine this from initial measurements.
             best_is: whether higher or lower metric values are better.
             aggregate_fn: function to aggregate recent metric values. Default
-                get the last element.
+                gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
         self.monitor = MetricMonitor(
@@ -459,7 +457,7 @@ class EarlyStoppingCallback:
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,
-            aggregate_fn=aggregate_fn,
+            average_fn=aggregate_fn,
         )
         self.start_from_epoch = start_from_epoch
         return
@@ -516,7 +514,7 @@ class PruneCallback:
             best_is: whether higher or lower metric values are better.
                Default 'auto' will determine this from initial measurements.
             aggregate_fn: function to aggregate recent metric values. Default
-                get the last element.
+                gets the last value.
         """
         self.monitor = MetricMonitor(
             metric=metric,
@@ -524,7 +522,7 @@ class PruneCallback:
             min_delta=min_delta,
             patience=0,
             best_is=best_is,
-            aggregate_fn=aggregate_fn,
+            average_fn=aggregate_fn,
         )
         self.pruning = pruning
         return
@@ -583,7 +581,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
             aggregate_fn: function to aggregate recent metric values. Default
-                get the last element.
+                gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
         self.monitor = MetricMonitor(
@@ -592,7 +590,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,
-            aggregate_fn=aggregate_fn,
+            average_fn=aggregate_fn,
         )
         self.cooldown = cooldown
         self._cooldown_counter = 0
@@ -670,7 +668,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
             aggregate_fn: function to aggregate recent metric values. Default
-                get the last element.
+                gets the last value.
             cooldown: calls to skip after changing the schedule.
             factor: factor by which to reduce the learning rate.
         """
@@ -722,67 +720,3 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
             Modified scheduler.
         """
         return schedulers.WarmupScheduler(epoch, scheduler)
-
-
-def get_sliding_mean(window_size: int) -> Callable[[Sequence[float]], float]:
-    """
-    Return a sliding window average by specifying window size.
-
-    Args:
-        window_size: number of items to aggregate.
-
-    Returns:
-        The windowed average function.
-
-    Raises:
-        ValueError if window size is negative.
-    """
-    if window_size < 0:
-        raise ValueError('Window size must be positive.')
-
-    def _mean(float_list: Sequence[float], /) -> float:
-        clipped_window = min(window_size, len(float_list))
-        return sum(float_list[-clipped_window:]) / clipped_window
-
-    return _mean
-
-
-def get_moving_average(
-        decay: float = 0.9,
-        threshold: float = 1e-4,
-) -> Callable[[Sequence[float]], float]:
-    """
-    Return a moving average by specifying the decay.
-
-    Args:
-        decay: the closer to 0 the more the last elements have weight.
-        threshold: value below which the weight is considered negligible.
-
-    Returns:
-        The moving average function.
-
-    Raises:
-        ValueError if decay is not between 0 and 1.
-        ValueError if threshold is negative or immediately hit.
-    """
-    if not 0 < decay < 1:
-        raise ValueError('Decay must be between 0 and 1.')
-
-    if not 0 <= threshold <= decay * (1 - decay):
-        raise ValueError('Threshold should be small and non-negative.')
-
-    # how far back to go back before the weight drops below the threshold
-    stop = int(math.log(threshold / (1 - decay), decay)) + 2 if threshold else 0
-
-    def _mean(float_list: Sequence[float], /) -> float:
-        total: float = 0
-        total_weights: float = 0  # should get close to one
-        weight = 1 - decay  # weights are normalized
-        for elem in float_list[:-stop:-1]:
-            total += weight * elem
-            total_weights += weight
-            weight *= decay
-
-        return total / total_weights
-
-    return _mean
