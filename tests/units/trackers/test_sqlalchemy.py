@@ -1,104 +1,233 @@
 """Tests for the "sqlalchemy" module."""
+from typing import Generator
 
 import pytest
-import sqlalchemy
-import dataclasses
-import datetime
-from sqlalchemy import orm, select
 
-from dry_torch.trackers.sqlalchemy import SQLConnection, Log
+import warnings
+
+from dry_torch import exceptions
+from dry_torch.trackers.sqlalchemy import Experiment
+from dry_torch.trackers.sqlalchemy import Log
+from dry_torch.trackers.sqlalchemy import Run
+from dry_torch.trackers.sqlalchemy import Source
+from dry_torch.trackers.sqlalchemy import SQLConnection
 
 
 class TestSQLConnection:
     """Tests for the SQLConnection tracker."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, start_experiment_event) -> None:
-        """Setup test environment with in-memory SQLite database."""
-        # Use in-memory SQLite for testing
-        self.tracker = SQLConnection(drivername='sqlite', database=':memory:')
-        self.tracker.notify(start_experiment_event)
-        self.exp_name = start_experiment_event.exp_name
+    def setup(self, mocker) -> None:
+        """Setup test environment."""
+        self.mock_engine = 'mock_engine'
+        self.mock_context = mocker.Mock()
+        self.mock_session = mocker.MagicMock()
+        self.mock_session.__enter__.return_value = self.mock_context
+        self.MockSession = mocker.Mock(return_value=self.mock_session)
+        self.create_engine_mock = mocker.Mock(return_value=self.mock_engine)
+        self.make_mock_session = mocker.Mock(return_value=self.MockSession)
+        self.exp = mocker.create_autospec(Experiment, instance=True)
+        self.log = mocker.create_autospec(Log, instance=True)
+        self.run = mocker.create_autospec(Run, instance=True)
+        self.source = mocker.create_autospec(Source, instance=True)
+        mocker.patch('sqlalchemy.create_engine', self.create_engine_mock)
+        mocker.patch('sqlalchemy.orm.sessionmaker', self.make_mock_session)
+        mocker.patch('sqlalchemy.schema.MetaData.create_all')
+        mocker.patch('dry_torch.trackers.sqlalchemy.Experiment',
+                     return_value=self.exp)
+        mocker.patch('dry_torch.trackers.sqlalchemy.Log',
+                     return_value=self.log)
+        mocker.patch('dry_torch.trackers.sqlalchemy.Run',
+                     return_value=self.run)
+        mocker.patch('dry_torch.trackers.sqlalchemy.Source',
+                     return_value=self.source)
+        return
 
     @pytest.fixture
-    def epoch_metrics_events(self, epoch_metrics_event, sample_metrics):
-        """Create a list of epoch metrics events with different epochs."""
-        events = [epoch_metrics_event]
+    def tracker(self) -> SQLConnection:
+        """Set up the instance."""
+        return SQLConnection()
 
-        second_event = dataclasses.replace(epoch_metrics_event)
-        second_event.epoch += 1
-        events.append(second_event)
+    @pytest.fixture
+    def tracker_with_resume(self) -> SQLConnection:
+        """Set up the instance with resume."""
+        return SQLConnection(resume_run=True)
 
-        return events
+    @pytest.fixture
+    def tracker_started(
+            self,
+            tracker,
+            start_experiment_mock_event,
+            stop_experiment_mock_event,
+    ) -> Generator[SQLConnection, None, None]:
+        """Set up the instance with resume."""
+        tracker.notify(start_experiment_mock_event)
+        yield tracker
 
-    def test_notify_with_epoch_metrics(self, epoch_metrics_event,
-                                       sample_metrics):
-        """Test that metrics are correctly stored in the database."""
-        # Run the method
-        self.tracker.notify(epoch_metrics_event)
+        tracker.notify(stop_experiment_mock_event)
+        return
 
-        # Check records in the database
-        with self.tracker.Session() as session:
-            records = session.execute(
-                select(Log).where(
-                    Log.experiment == self.exp_name,
-                    Log.model == epoch_metrics_event.model_name,
-                    Log.source == epoch_metrics_event.source,
-                    Log.epoch == epoch_metrics_event.epoch
-                )
-            ).scalars().all()
+    def test_init_default(self, tracker) -> None:
+        """Test initialization with default parameters."""
+        self.create_engine_mock.assert_called_once_with(tracker.default_url)
+        self.make_mock_session.assert_called_once_with(bind=self.mock_engine)
+        assert tracker.resume_run is False
 
-            # Check if we have the correct number of metrics
-            assert len(records) == len(sample_metrics)
+    def test_init_with_resume(self, tracker_with_resume) -> None:
+        """Test initialization with resume_run=True."""
+        assert tracker_with_resume.resume_run is True
 
-            # Check if each metric is correctly stored
-            stored_metrics = {record.metric: record.value
-                              for record in records}
-            for metric_name, expected_value in sample_metrics.items():
-                assert metric_name in stored_metrics
-                assert stored_metrics[metric_name] == expected_value
+    def test_run_property_before_start_raises_exception(self, tracker) -> None:
+        """Test run property raises exception before experiment start."""
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            _ = tracker.run
 
-    def test_multiple_epochs(self, epoch_metrics_events):
-        """Test that multiple epochs are correctly stored."""
-        # Add all events
-        num_events = len(epoch_metrics_events)
-        for event in epoch_metrics_events:
-            self.tracker.notify(event)
+    def test_notify_start_experiment_creates_new_run(
+            self,
+            tracker_started,
+            start_experiment_mock_event,
+    ) -> None:
+        """Test start experiment notification creates new run and experiment."""
+        assert tracker_started.run == self.run
+        self.mock_context.add.assert_called_once_with(self.exp)
 
-        # Check records for each epoch
-        with self.tracker.Session() as session:
-            for event in epoch_metrics_events:
-                records = session.execute(
-                    select(Log).where(
-                        Log.experiment == self.exp_name,
-                        Log.model == event.model_name,
-                        Log.source == event.source,
-                    )
-                ).scalars().all()
+    def test_notify_start_stop_experiment(
+            self,
+            tracker_started,
+            stop_experiment_mock_event,
+    ) -> None:
+        """Test stop experiment notification cleans up state."""
+        tracker_started.notify(stop_experiment_mock_event)
+        assert tracker_started._run is None
 
-                # Check correct number of metrics for this epoch
-                assert len(records) == num_events * len(event.metrics)
-        print(records)
+    def test_notify_start_experiment_with_resume_no_previous_run(
+            self,
+            mocker,
+            tracker_with_resume,
+            start_experiment_mock_event,
+    ) -> None:
+        """Test start experiment with resume when no previous run exists."""
+        last_run = None
+        get_last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
+        get_last_run.return_value = last_run
+        with warnings.catch_warnings(record=True) as w:
+            tracker_with_resume.notify(start_experiment_mock_event)
+            assert 'No previous runs' in str(w[0].message)
+        run = tracker_with_resume.run
+        assert run == self.run
 
-    def test_experiment_scope(self, epoch_metrics_event, stop_experiment_event):
-        """Test that metrics cannot be added outside experiment scope."""
-        # Stop the experiment
-        self.tracker.notify(stop_experiment_event)
+    def test_notify_start_experiment_with_resume_existing_run(
+            self,
+            mocker,
+            tracker_with_resume,
+            start_experiment_mock_event,
+    ) -> None:
+        """Test start experiment with resume when previous run exists."""
+        # Create a previous run
+        last_run = mocker.Mock()
+        get_last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
+        get_last_run.return_value = last_run
+        tracker_with_resume.notify(start_experiment_mock_event)
+        resumed_run = tracker_with_resume.run
+        assert resumed_run == last_run
 
-        # Attempt to add metrics should raise an error
-        with pytest.raises(RuntimeError):
-            self.tracker.notify(epoch_metrics_event)
+    def test_notify_call_model(
+            self,
+            tracker_started,
+            call_model_mock_event,
+    ) -> None:
+        """Test call model notification creates source."""
+        tracker_started.notify(call_model_mock_event)
+        self.mock_context.add.assert_called_with(self.source)
+        assert call_model_mock_event.source_name in tracker_started._sources
 
-    def test_get_metric(self, epoch_metrics_event):
-        """Test get_metric method."""
-        self.tracker.notify(epoch_metrics_event)
+    def test_notify_metrics(
+            self,
+            tracker_started,
+            call_model_mock_event,
+            epoch_metrics_mock_event,
+    ) -> None:
+        """Test metrics notification creates log entries."""
+        tracker_started.notify(call_model_mock_event)
+        tracker_started.notify(epoch_metrics_mock_event)
+        self.mock_context.merge.assert_called_with(self.source)
+        self.mock_context.add.assert_called_with(self.log)
 
-        for metric_name, value in epoch_metrics_event.metrics.items():
-            epochs, values = self.tracker._get_run_metrics(
-                model_name=epoch_metrics_event.model_name,
-                source=epoch_metrics_event.source,
-                metric_name=metric_name,
-                exp_name=self.exp_name,
-            )
-            assert epochs == [epoch_metrics_event.epoch]
-            assert values == [value]
+    def test_find_sources_existing_model(
+            self,
+            mocker,
+            tracker_started,
+    ) -> None:
+        """Test _find_sources with existing model."""
+        self.source.source_name = 'test_source'
+        mock_query = mocker.MagicMock()
+        mock_query.where.return_value = mock_query
+        mock_query.__iter__.return_value = [self.source].__iter__()
+        self.mock_context.query.return_value = mock_query
+        assert 'test_source' in tracker_started._find_sources('test_model')
+
+    def test_find_sources_nonexistent_model(self,
+                                            mocker,
+                                            tracker_started) -> None:
+        """Test _find_sources with nonexistent model raises exception."""
+        mock_query = mocker.MagicMock()
+        mock_query.where.return_value = mock_query
+        mock_query.__iter__.return_value = [].__iter__()
+        self.mock_context.query.return_value = mock_query
+        with pytest.raises(exceptions.TrackerException):
+            tracker_started._find_sources('nonexistent_model')
+
+    def test_get_run_metrics(
+            self,
+            mocker,
+            tracker_started,
+    ) -> None:
+        """Test getting multiple metrics from same epoch ."""
+        mock_log = mocker.Mock()
+        mock_log.epoch = 1
+        mock_log.metric_name = 'test_model'
+        mock_log.value = 2.
+        mock_log2 = mocker.Mock()
+        mock_log2.epoch = 1
+        mock_log2.metric_name = 'test_model_2'
+        mock_log2.value = 4.
+        mock_log3 = mocker.Mock()
+        mock_log3.epoch = 2
+        mock_log3.metric_name = 'test_model'
+        mock_log3.value = 3.
+        mock_log4 = mocker.Mock()
+        mock_log4.epoch = 2
+        mock_log4.metric_name = 'test_model_2'
+        mock_log4.value = 5.
+
+        mock_list = [mock_log, mock_log2, mock_log3, mock_log4]
+        mock_query = mocker.MagicMock()
+        mock_query.where.return_value = mock_query
+        mock_query.__iter__.return_value = mock_list.__iter__()
+        self.mock_context.query.return_value = mock_query
+        epochs, metrics = tracker_started._get_run_metrics([], -1)
+        assert epochs == [1, 2]
+        assert metrics['test_model'] == [2, 3]
+        assert metrics['test_model_2'] == [4, 5]
+
+    def test_get_run_wrong_metrics(
+            self,
+            mocker,
+            tracker_started,
+    ) -> None:
+        """Test missing metric."""
+        mock_log3 = mocker.Mock()
+        mock_log3.epoch = 1
+        mock_log3.metric_name = 'test_model'
+        mock_log3.value = 3.
+        mock_log4 = mocker.Mock()
+        mock_log4.epoch = 2
+        mock_log4.metric_name = 'test_model_2'
+        mock_log4.value = 5.
+        mock_list = [mock_log3, mock_log4]
+        mock_query = mocker.MagicMock()
+        mock_query.where.return_value = mock_query
+        mock_query.__iter__.return_value = mock_list.__iter__()
+        self.mock_context.query.return_value = mock_query
+        with pytest.raises(exceptions.TrackerException):
+            _ = tracker_started._get_run_metrics([], -1)
