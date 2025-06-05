@@ -104,7 +104,12 @@ class LiteralStr(str):
 
 @dataclasses.dataclass(frozen=True)
 class Omitted:
-    """Represent omitted values in an iterable."""
+    """
+    Represent omitted values in an iterable.
+
+    Attributes:
+        count: how many elements have been omitted. Defaults to NAN (unknown).
+    """
     count: float = math.nan
 
 
