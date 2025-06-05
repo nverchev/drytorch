@@ -87,7 +87,6 @@ def apply(obj: _C,
 
     Returns:
         The container or class with the modified objects.
-
     """
     dict_attr: dict[str, Any] = {}
     if hasattr(obj, '__dict__'):

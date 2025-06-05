@@ -10,8 +10,8 @@ from typing_extensions import override
 
 from dry_torch import exceptions
 from dry_torch import log_events
-from dry_torch import repr_utils
 from dry_torch import tracking
+from dry_torch.utils import repr_utils
 
 _T = TypeVar('_T', covariant=True)
 _U = TypeVar('_U', covariant=True)

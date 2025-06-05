@@ -20,9 +20,9 @@ import warnings
 
 import torch
 
-from dry_torch import aggregators
 from dry_torch import exceptions
 from dry_torch import protocols as p
+from dry_torch.utils import aggregators
 
 _K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')

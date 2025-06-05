@@ -13,8 +13,8 @@ from dry_torch import checkpointing
 from dry_torch import exceptions
 from dry_torch import protocols as p
 from dry_torch import registering
-from dry_torch import repr_utils
 from dry_torch import schedulers
+from dry_torch.utils import repr_utils
 
 _Input_contra = TypeVar('_Input_contra',
                         bound=p.InputType,

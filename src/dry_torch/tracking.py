@@ -16,7 +16,7 @@ import warnings
 from dry_torch import exceptions
 from dry_torch import log_events
 from dry_torch import protocols as p
-from dry_torch import repr_utils
+from dry_torch.utils import repr_utils
 
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
 

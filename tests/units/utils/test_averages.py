@@ -2,8 +2,8 @@
 
 import pytest
 
-from dry_torch.averages import get_moving_average
-from dry_torch.averages import get_trailing_mean
+from dry_torch.utils.averages import get_moving_average
+from dry_torch.utils.averages import get_trailing_mean
 
 
 def test_trailing_mean_full_window():

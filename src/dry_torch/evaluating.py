@@ -8,14 +8,14 @@ from typing_extensions import override
 
 import torch
 
-from dry_torch import apply_ops
 from dry_torch import exceptions
 from dry_torch import loading
 from dry_torch import log_events
 from dry_torch import metrics
 from dry_torch import protocols as p
 from dry_torch import registering
-from dry_torch import repr_utils
+from dry_torch.utils import apply_ops
+from dry_torch.utils import repr_utils
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
