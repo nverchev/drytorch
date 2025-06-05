@@ -15,51 +15,16 @@ from dry_torch.utils.repr_utils import recursive_repr
 
 
 # Test class for DefaultName
-class _TestClass:
-    _name = DefaultName()
+class _NamedClass:
+    name = DefaultName()
 
     def __init__(self) -> None:
-        self._name = ''
+        self.name = ''
 
 
-class _TestSubClass(_TestClass):
+class _NamedSubClass(_NamedClass):
     def __init__(self) -> None:
         super().__init__()
-
-
-class TestVersioned:
-    """Test formatting as expected."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self) -> None:
-        """Set up the DefaultName class."""
-        self.versioned = Versioned()
-
-    def test_property(self):
-        assert self.versioned.created_at
-
-
-class TestDefaultName:
-    """Test DefaultName class generates incremental names."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self) -> None:
-        """Set up the DefaultName class."""
-        self.obj = _TestClass()
-
-    def test_default_name(self) -> None:
-        """Test DefaultName class generates incremental names."""
-
-        assert format(self.obj._name, 's') == self.obj.__class__.__name__
-        self.obj_1 = _TestClass()
-
-        name = format(self.obj_1._name, 's')
-        assert name == f'{self.obj.__class__.__name__}_1'
-
-    def test_subclass_name(self) -> None:
-        """Test DefaultName generates incremental names starting from 0."""
-        sub_obj = _TestSubClass()
-        assert format(sub_obj._name, 's') == sub_obj.__class__.__name__
 
 
 # Test classes for recursive representation
@@ -74,6 +39,46 @@ class _LongClass(_SimpleClass):
 
 class _SlottedClass(_SimpleClass):
     __slots__ = ('int_value', 'string_value')
+
+
+class TestVersioned:
+    """Test formatting as expected."""
+
+    @pytest.fixture
+    def versioned(self) -> Versioned:
+        """Set up the instance."""
+        return Versioned()
+
+    def test_property(self, versioned):
+        assert versioned.created_at
+
+
+class TestDefaultName:
+    """Test DefaultName class generates incremental names."""
+
+    @pytest.fixture
+    def class_instance(self) -> _NamedClass:
+        """Set up a class containing the descriptor."""
+        return _NamedClass()
+
+    @pytest.fixture
+    def other_instance(self) -> _NamedClass:
+        """Set up a second class containing the descriptor."""
+        return _NamedClass()
+
+    @pytest.fixture
+    def sub_class_instance(self) -> _NamedSubClass:
+        """Set up a subclass containing the descriptor."""
+        return _NamedSubClass()
+
+    def test_default_name(self,
+                          class_instance,
+                          other_instance,
+                          sub_class_instance) -> None:
+        """Test DefaultName class generates incremental names."""
+        assert class_instance.name == class_instance.__class__.__name__
+        assert other_instance.name == f'{class_instance.__class__.__name__}_1'
+        assert sub_class_instance.name == sub_class_instance.__class__.__name__
 
 
 # Scalar data that should remain unchanged in recursive representation
@@ -137,7 +142,7 @@ def test_limit_size() -> None:
 
 def test_has_own_repr() -> None:
     """Test has_own_repr function to check if __repr__ has been overridden."""
-    assert has_own_repr(_SimpleClass()) is False
+    assert has_own_repr(_NamedClass()) is False
 
     class _CustomReprClass:
         def __repr__(self):
