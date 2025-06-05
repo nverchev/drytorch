@@ -245,32 +245,6 @@ class SQLConnection(base_classes.MetricLoader):
             session.commit()
         return super().notify(event)
 
-    def _get_run_metrics(
-            self,
-            sources: list[Source],
-            max_epoch: int,
-    ) -> base_classes.HistoryMetrics:
-        with self.Session() as session:
-            sources = [session.merge(source) for source in sources]
-            query = session.query(Log).where(
-                Log.source_id.in_((source.source_id for source in sources)),
-            )
-            if max_epoch != -1:
-                query = query.where(Log.epoch <= max_epoch)
-
-            epochs = list[int]()
-            named_metric_values = dict[str, list[float]]()
-            for log in query:
-                log = cast(Log, log)  # fixing wrong annotation
-                epoch = log.epoch
-                if not epochs or epochs[-1] != epoch:
-                    epochs.append(epoch)
-
-                values = named_metric_values.setdefault(log.metric_name, [])
-                values.append(log.value)
-
-            return epochs, named_metric_values
-
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
         with self.Session() as session:
             run = session.merge(self.run)
@@ -296,6 +270,32 @@ class SQLConnection(base_classes.MetricLoader):
                 Experiment.experiment_name.is_(exp_name)
             ).order_by(Run.run_id.desc()).limit(1)
             return session.scalars(query).first()
+
+    def _get_run_metrics(
+            self,
+            sources: list[Source],
+            max_epoch: int,
+    ) -> base_classes.HistoryMetrics:
+        with self.Session() as session:
+            sources = [session.merge(source) for source in sources]
+            query = session.query(Log).where(
+                Log.source_id.in_((source.source_id for source in sources)),
+            )
+            if max_epoch != -1:
+                query = query.where(Log.epoch <= max_epoch)
+
+            epochs = list[int]()
+            named_metric_values = dict[str, list[float]]()
+            for log in query:
+                log = cast(Log, log)  # fixing wrong annotation
+                epoch = log.epoch
+                if not epochs or epochs[-1] != epoch:
+                    epochs.append(epoch)
+
+                values = named_metric_values.setdefault(log.metric_name, [])
+                values.append(log.value)
+
+            return epochs, named_metric_values
 
     def _load_metrics(self,
                       model_name: str,
