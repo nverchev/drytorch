@@ -295,7 +295,12 @@ class SQLConnection(base_classes.MetricLoader):
                 values = named_metric_values.setdefault(log.metric_name, [])
                 values.append(log.value)
 
-            return epochs, named_metric_values
+        for values in named_metric_values.values():
+            if len(values) != len(epochs):
+                msg = 'Missing or multiple entries given metric name and epoch.'
+                raise exceptions.TrackerException(self, msg)
+
+        return epochs, named_metric_values
 
     def _load_metrics(self,
                       model_name: str,
