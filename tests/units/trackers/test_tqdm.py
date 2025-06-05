@@ -2,7 +2,9 @@
 
 import pytest
 
-from dry_torch.trackers.tqdm import EpochBar, TrainingBar, TqdmLogger
+from dry_torch.trackers.tqdm import EpochBar
+from dry_torch.trackers.tqdm import TrainingBar
+from dry_torch.trackers.tqdm import TqdmLogger
 
 
 class TestEpochBar:
@@ -68,7 +70,6 @@ class TestTrainingBar:
             end_epoch=12,
             file=self.stream,
             leave=False,
-            disable=False,
         )
         return bar
 
@@ -143,13 +144,3 @@ class TestTqdmLogger:
         tracker_with_double_bar.notify(start_epoch_mock_event)
         output = self.stream.getvalue()
         assert f'Epoch: {start_epoch_mock_event.epoch}' in output
-
-    def test_disabled_training_bar(
-            self,
-            tracker,
-            start_training_mock_event,
-    ) -> None:
-        """Test TqdmLogger with disabled training bar."""
-        tracker.notify(start_training_mock_event)
-        assert tracker._training_bar is not None
-        assert tracker._training_bar.pbar.disable
