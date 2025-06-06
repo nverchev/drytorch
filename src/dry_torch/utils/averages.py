@@ -13,14 +13,14 @@ def get_moving_average(
 
     Args:
         decay: the closer to 0 the more the last elements have weight.
-        mass_coverage: cumulative weight coverage for efficiency.
+        mass_coverage: cumulative weight proportion before tail dropping.
 
     Returns:
         The moving average function.
 
     Raises:
         ValueError if the decay is not between 0 and 1.
-        ValueError if the threshold is negative or immediately hit.
+        ValueError if the mass_coverage is not between 1 - decay and 1.
     """
     if not 0 < decay < 1:
         raise ValueError('decay must be between 0 and 1.')
