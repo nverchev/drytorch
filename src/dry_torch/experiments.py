@@ -54,6 +54,9 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
 
     def __enter__(self) -> Self:
         """Start the experiment scope."""
+        current_exp = Experiment._current
+        if current_exp is not None:
+            raise exceptions.NestedScopeError(current_exp.name, self.name)
         Experiment._current = self
         self.__class__._current_config = self.config
         log_events.Event.set_auto_publish(self.trackers.publish)

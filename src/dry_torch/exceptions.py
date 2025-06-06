@@ -151,6 +151,15 @@ class NamedTupleOnlyError(DryTorchException):
         super().__init__(tuple_type)
 
 
+class NestedScopeError(DryTorchException):
+    msg = 'Cannot start Experiment {} within Experiment {} scope.'
+
+    def __init__(self, current_exp_name: str, new_exp_name: str) -> None:
+        self.current_exp_name = current_exp_name
+        self.new_exp_name = new_exp_name
+        super().__init__(current_exp_name, new_exp_name)
+
+
 class NoActiveExperimentError(DryTorchException):
     msg = 'No experiment {}has been started.'
 
