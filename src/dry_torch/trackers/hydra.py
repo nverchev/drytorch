@@ -79,6 +79,8 @@ class HydraLink(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
+        # call super to create par_dir first
+        super().notify(event)
         while True:
             if self.dir.exists():
                 self._counter += 1
@@ -86,7 +88,7 @@ class HydraLink(base_classes.Dumper):
                 break
 
         self.dir.symlink_to(self.hydra_dir, target_is_directory=True)
-        return super().notify(event)
+        return
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
