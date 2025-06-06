@@ -1,9 +1,24 @@
 """Module that tests training"""
 
+import pytest
+
+from typing import Generator
+
 import torch
 
-from dry_torch import schedulers
+import dry_torch
+from dry_torch import schedulers, Experiment
 from dry_torch import hooks
+
+
+@pytest.fixture(autouse=True, scope='module')
+def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
+    """Fixture of an experiment."""
+    dry_torch.remove_all_default_trackers()
+    par_dir = tmpdir_factory.mktemp('experiments')
+    with Experiment[None](name='TestExperiment', par_dir=par_dir) as exp:
+        yield exp
+    return
 
 
 def test_convergence(identity_trainer) -> None:

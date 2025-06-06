@@ -67,6 +67,11 @@ class TestSQLConnection:
         tracker.notify(stop_experiment_mock_event)
         return
 
+    def test_cleanup(self, tracker_started):
+        tracker_started.clean_up()
+        assert tracker_started._run == None
+        assert tracker_started._sources == {}
+
     def test_init_default(self, tracker) -> None:
         """Test initialization with default parameters."""
         self.create_engine_mock.assert_called_once_with(tracker.default_url)

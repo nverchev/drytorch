@@ -19,7 +19,10 @@ class TestWandb:
 
         self.tracker = wandb.Wandb()
         self.tracker.notify(start_experiment_event)
-
+    def test_cleanup(self, tracker):
+        tracker.clean_up()
+        assert tracker._training_bar is None
+        assert tracker._epoch_bar is None
     def test_notify_start_experiment(self, start_experiment_event):
         """Test StartExperiment notification."""
         self.init_mock.assert_called_once_with(

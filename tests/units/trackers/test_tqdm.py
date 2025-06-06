@@ -84,11 +84,6 @@ class TestTrainingBar:
         output = self.stream.getvalue()
         assert f'Epoch: {current_epoch} / {bar._end_epoch}' in output
 
-    def test_close(self, bar) -> None:
-        """Test closing the training bar."""
-        bar.close()
-        assert bar.pbar.disable
-
 
 class TestTqdmLogger:
     """Tests for the TqdmLogger class."""
@@ -111,6 +106,11 @@ class TestTqdmLogger:
             enable_training_bar=True,
             file=self.stream
         )
+
+    def test_cleanup(self, tracker):
+        tracker.clean_up()
+        assert tracker._training_bar is None
+        assert tracker._epoch_bar is None
 
     def test_iterate_batch_event(
             self,

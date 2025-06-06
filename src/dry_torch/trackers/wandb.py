@@ -45,6 +45,12 @@ class Wandb(tracking.Tracker):
         return self._run
 
     @override
+    def clean_up(self) -> None:
+        wandb.finish()
+        self._run = None
+        return
+
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
@@ -69,8 +75,7 @@ class Wandb(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
-        wandb.finish()
-        self._run = None
+        self.clean_up()
         return super().notify(event)
 
     @notify.register

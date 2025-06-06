@@ -116,6 +116,10 @@ class Tracker(metaclass=abc.ABCMeta):
         """
         return
 
+    def clean_up(self) -> None:
+        """Override to clean up the tracker."""
+        return
+
     @classmethod
     def current(cls) -> Self:
         """
@@ -169,6 +173,7 @@ class EventDispatcher:
             except Exception as err:
                 name = tracker.__class__.__name__
                 warnings.warn(exceptions.TrackerError(name, err))
+                tracker.clean_up()
                 to_be_removed.append(name)
 
         for name in to_be_removed:

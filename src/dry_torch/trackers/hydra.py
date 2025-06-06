@@ -61,6 +61,15 @@ class HydraLink(base_classes.Dumper):
         return hydra_local_folder / link_name
 
     @override
+    def clean_up(self) -> None:
+        if self._copy_hydra:
+            self.dir.unlink()
+            shutil.copytree(self.hydra_dir, self.dir)
+
+        self._counter = 0
+        return
+
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
@@ -78,9 +87,5 @@ class HydraLink(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
-        if self._copy_hydra:
-            self.dir.unlink()
-            shutil.copytree(self.hydra_dir, self.dir)
-
-        self._counter = 0
+        self.clean_up()
         return super().notify(event)

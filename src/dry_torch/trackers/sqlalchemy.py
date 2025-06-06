@@ -184,6 +184,12 @@ class SQLConnection(base_classes.MetricLoader):
         return self._run
 
     @override
+    def clean_up(self) -> None:
+        self._run = None
+        self._sources = {}
+        return
+
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
@@ -212,7 +218,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
-        self._run = None
+        self.clean_up()
         return super().notify(event)
 
     @notify.register

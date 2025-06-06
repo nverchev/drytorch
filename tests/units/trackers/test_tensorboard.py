@@ -43,6 +43,10 @@ class TestTensorBoard:
         )
         return
 
+    def test_cleanup(self, tracker_started):
+        tracker_started.clean_up()
+        assert tracker_started._writer is None
+
     def test_notify_stop_and_start_experiment(
             self,
             tracker,

@@ -117,6 +117,11 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         return self._viz
 
     @override
+    def clean_up(self) -> None:
+        self._viz = None
+        return
+
+    @override
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
@@ -139,7 +144,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
-        self._viz = None
+        self.clean_up()
         return super().notify(event)
 
     @override

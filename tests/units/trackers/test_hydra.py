@@ -32,6 +32,10 @@ class TestHydraLink:
         """Set up the instance with copy_hydra=False."""
         return HydraLink(par_dir=tmp_path, copy_hydra=False)
 
+    def test_cleanup(self, tracker_no_copy):
+        tracker_no_copy.clean_up()
+        assert tracker_no_copy._counter == 0
+
     def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
         """Test initialization with valid Hydra configuration."""
         assert tracker.par_dir == tmp_path
