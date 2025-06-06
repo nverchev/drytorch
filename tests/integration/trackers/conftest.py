@@ -4,7 +4,6 @@ import pytest
 
 import datetime
 import io
-import pathlib
 from typing import Generator
 
 from dry_torch import log_events
@@ -15,18 +14,6 @@ def allow_event_creation_outside_scope() -> None:
     """Allows the creation of events outside an experiment"""
     log_events.Event.set_auto_publish(lambda x: None)
     return
-
-
-@pytest.fixture()
-def start_experiment_event(tmp_path,
-                           example_exp_name) -> log_events.StartExperiment:
-    """Provides a StartExperiment event instance."""
-    return log_events.StartExperiment(
-        exp_name=example_exp_name,
-        exp_dir=pathlib.Path(tmp_path) / example_exp_name,
-        exp_version=datetime.datetime.now().strftime('%d/%m/%Y, %H:%M:%S'),
-        config=None,
-    )
 
 
 @pytest.fixture

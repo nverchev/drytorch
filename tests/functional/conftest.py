@@ -1,27 +1,14 @@
 """Configuration module with objects from the package."""
 
-from typing import Generator
-
 import pytest
 
 import torch
 
-import dry_torch
-from dry_torch import DataLoader, LearningScheme, Model, Experiment
+from dry_torch import DataLoader, LearningScheme, Model
 from dry_torch import Trainer, Loss, Metric
 
 from tests.integration.simple_classes import IdentityDataset, Linear
 from tests.integration.simple_classes import TorchData, TorchTuple
-
-
-@pytest.fixture(autouse=True, scope='package')
-def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
-    """Fixture of an experiment."""
-    dry_torch.remove_all_default_trackers()
-    par_dir = tmpdir_factory.mktemp('experiments')
-    with Experiment[None](name='TestExperiment', par_dir=par_dir) as exp:
-        yield exp
-    return
 
 
 @pytest.fixture
