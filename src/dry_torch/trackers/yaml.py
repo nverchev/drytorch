@@ -15,8 +15,8 @@ from typing_extensions import override
 import yaml  # type: ignore
 
 from dry_torch import log_events
-from dry_torch import repr_utils
 from dry_torch.trackers import base_classes
+from dry_torch.utils import repr_utils
 
 MAX_LENGTH_PLAIN_REPR = 30
 MAX_LENGTH_SHORT_REPR = 10
