@@ -62,9 +62,12 @@ class HydraLink(base_classes.Dumper):
 
     @override
     def clean_up(self) -> None:
-        if self._copy_hydra:
-            self.dir.unlink()
-            shutil.copytree(self.hydra_dir, self.dir)
+        try:
+            if self._copy_hydra and self.dir.is_symlink():
+                self.dir.unlink()
+                shutil.copytree(self.hydra_dir, self.dir)
+        except exceptions.AccessOutsideScopeError:
+            pass
 
         self._counter = 0
         return
