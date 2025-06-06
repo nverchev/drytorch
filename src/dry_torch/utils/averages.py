@@ -6,14 +6,14 @@ from typing import Callable, Sequence
 
 def get_moving_average(
         decay: float = 0.9,
-        threshold: float = 1e-4,
+        mass_coverage: float = 0.99,
 ) -> Callable[[Sequence[float]], float]:
     """
     Return a moving average by specifying the decay.
 
     Args:
         decay: the closer to 0 the more the last elements have weight.
-        threshold: value below which the weight is considered negligible.
+        mass_coverage: cumulative weight coverage for efficiency.
 
     Returns:
         The moving average function.
@@ -25,12 +25,12 @@ def get_moving_average(
     if not 0 < decay < 1:
         raise ValueError('decay must be between 0 and 1.')
 
-    if not 0 <= threshold <= decay * (1 - decay):
-        raise ValueError('threshold should be small and non-negative.')
+    if not 1 - decay <= mass_coverage <= 1:
+        raise ValueError('mass_coverage should be between 1 - decay and 1.')
 
     # how far back to go back before the weight drops below the threshold
-    if threshold:
-        stop = -int(math.log(threshold / (1 - decay), decay)) - 2
+    if mass_coverage < 1:
+        stop = -int(math.log(1 - mass_coverage, decay)) - 2
     else:
         stop = None
 
