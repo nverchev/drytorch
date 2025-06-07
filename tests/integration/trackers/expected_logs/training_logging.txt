@@ -1,4 +1,4 @@
 Training test_model started.
-Training test_model terminated at epoch 45. Reason: test event.
+Training test_model terminated at epoch 5. Reason: test event.
 Training ended.
 Testing test_model started.

@@ -4,6 +4,7 @@ import pytest
 
 import datetime
 import io
+import pathlib
 from typing import Generator
 
 from dry_torch import log_events
@@ -22,7 +23,7 @@ def start_experiment_event(tmp_path,
     """Provides a StartExperiment event instance."""
     return log_events.StartExperiment(
         exp_name=example_exp_name,
-        exp_dir=tmp_path / example_exp_name,
+        exp_dir=pathlib.Path(tmp_path) / example_exp_name,
         exp_version=datetime.datetime.now().strftime('%d/%m/%Y, %H:%M:%S'),
         config=None,
     )
@@ -60,56 +61,59 @@ def call_model_event(example_source_name,
 
 
 @pytest.fixture
-def save_model_event(example_model_name) -> log_events.SaveModel:
+def save_model_event(example_model_name, example_epoch) -> log_events.SaveModel:
     """Provides a SaveModel event instance."""
     return log_events.SaveModel(
         model_name=example_model_name,
         definition='checkpoint',
-        location='/path/to/checkpoints/model_epoch_10.pt',
-        epoch=10,
+        location=f'/path/to/checkpoints/model_epoch_{example_epoch}.pt',
+        epoch=example_epoch,
     )
 
 
 @pytest.fixture
-def load_model_event(example_model_name) -> log_events.LoadModel:
+def load_model_event(example_model_name, example_epoch) -> log_events.LoadModel:
     """Provides a LoadModel event instance."""
     return log_events.LoadModel(
         model_name=example_model_name,
         definition='checkpoint',
-        location='/path/to/checkpoints/model_epoch_10.pt',
-        epoch=10,
+        location='/path/to/checkpoints/model_epoch_{example_epoch}.pt',
+        epoch=example_epoch,
     )
 
 
 @pytest.fixture
 def start_training_event(example_source_name,
-                         example_model_name) -> log_events.StartTraining:
+                         example_model_name,
+                         example_epoch) -> log_events.StartTraining:
     """Provides a StartTraining event instance."""
     return log_events.StartTraining(
         source_name=example_source_name,
         model_name=example_model_name,
-        start_epoch=0,
-        end_epoch=100,
+        start_epoch=example_epoch,
+        end_epoch=example_epoch + 3,
     )
 
 
 @pytest.fixture
 def start_epoch_event(example_source_name,
-                      example_model_name) -> log_events.StartEpoch:
+                      example_model_name,
+                      example_epoch) -> log_events.StartEpoch:
     """Provides a StartEpoch event instance."""
     return log_events.StartEpoch(source_name=example_source_name,
                                  model_name=example_model_name,
-                                 epoch=5,
-                                 end_epoch=100)
+                                 epoch=example_epoch,
+                                 end_epoch=example_epoch + 3)
 
 
 @pytest.fixture
 def end_epoch_event(example_source_name,
-                    example_model_name) -> log_events.EndEpoch:
+                    example_model_name,
+                    example_epoch) -> log_events.EndEpoch:
     """Provides an EndEpoch event instance."""
     return log_events.EndEpoch(source_name=example_source_name,
                                model_name=example_model_name,
-                               epoch=100)
+                               epoch=example_epoch)
 
 
 @pytest.fixture
@@ -128,12 +132,13 @@ def iterate_batch_event(example_source_name) -> log_events.IterateBatch:
 def terminated_training_event(
         example_model_name,
         example_source_name,
+        example_epoch,
 ) -> log_events.TerminatedTraining:
     """Provides a TerminatedTraining event instance."""
     return log_events.TerminatedTraining(
         model_name=example_model_name,
         source_name=example_source_name,
-        epoch=45,
+        epoch=example_epoch,
         reason='test event',
     )
 
@@ -163,12 +168,13 @@ def end_test_event(example_source_name,
 @pytest.fixture
 def epoch_metrics_event(example_source_name,
                         example_model_name,
-                        example_named_metrics) -> log_events.Metrics:
+                        example_named_metrics,
+                        example_epoch) -> log_events.Metrics:
     """Provides a FinalMetrics event instance."""
     return log_events.Metrics(
         model_name=example_model_name,
         source_name=example_source_name,
-        epoch=10,
+        epoch=example_epoch,
         metrics=example_named_metrics,
     )
 
@@ -177,12 +183,13 @@ def epoch_metrics_event(example_source_name,
 def update_learning_rate_event(
         example_source_name,
         example_model_name,
+        example_epoch,
 ) -> log_events.UpdateLearningRate:
     """Provides an UpdateLearningRate event instance."""
     return log_events.UpdateLearningRate(
         source_name=example_source_name,
         model_name=example_model_name,
-        epoch=5,
+        epoch=example_epoch,
         base_lr=0.0001,
         scheduler_name='CosineAnnealingLR',
     )

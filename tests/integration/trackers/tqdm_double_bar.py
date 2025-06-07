@@ -10,23 +10,23 @@ from dry_torch.trackers.tqdm import TqdmLogger
 from dry_torch.trackers.tqdm import EpochBar
 from dry_torch.trackers.tqdm import TrainingBar
 
-expected = ('Epoch::   0%|\x1b[34m          \x1b[0m| 0/100\r'
-            'Epoch: 5 / 100:   1%|\x1b[34m1         \x1b[0m| 1/100\n'
+expected = ('Epoch::   0%|\x1b[34m          \x1b[0m| 0/3\r'
+            'Epoch: 5 / 8:  33%|\x1b[34m###3      \x1b[0m| 1/3\n'
             '\r'
             '    test_source:   0%|\x1b[32m          \x1b[0m| 0/5\x1b[A\n'
             '\r'
             '                                     \x1b[A\r'
-            'Epoch: 5 / 100:   2%|\x1b[34m2         \x1b[0m| 2/100\n'
+            'Epoch: 5 / 8:  67%|\x1b[34m######6   \x1b[0m| 2/3\n'
             '\r'
             '    test_source:   0%|\x1b[32m          \x1b[0m| 0/5\x1b[A\n'
             '\r'
             '                                     \x1b[A\r'
-            'Epoch: 5 / 100:   3%|\x1b[34m3         \x1b[0m| 3/100\n'
+            'Epoch: 5 / 8: 100%|\x1b[34m##########\x1b[0m| 3/3\n'
             '\r'
             '    test_source:   0%|\x1b[32m          \x1b[0m| 0/5\x1b[A\n'
             '\r'
             '                                     \x1b[A\r'
-            'Epoch: 5 / 100:   3%|\x1b[34m3         \x1b[0m| 3/100')
+            'Epoch: 5 / 8: 100%|\x1b[34m##########\x1b[0m| 3/3')
 
 
 @pytest.fixture(autouse=True)

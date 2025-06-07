@@ -1,11 +1,9 @@
 """Configuration module with objects from the package."""
-from typing import Generator
 
 import pytest
 
 import torch
 
-import dry_torch
 from dry_torch import DataLoader, LearningScheme, Model, Experiment
 from dry_torch import Trainer, Loss, Metric
 
@@ -71,7 +69,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
         """
         return ((outputs.output - targets) ** 2).mean()
 
-    return Loss(mse, name='Mse')
+    return Loss(mse, name='MSE')
 
 
 @pytest.fixture

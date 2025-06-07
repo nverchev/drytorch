@@ -24,6 +24,12 @@ def example_model_name() -> str:
 
 
 @pytest.fixture(scope='package')
+def example_epoch() -> int:
+    """Example name for the model."""
+    return 5
+
+
+@pytest.fixture(scope='package')
 def example_loss_name() -> str:
     """Example mapping for metrics."""
     return 'Test Loss'

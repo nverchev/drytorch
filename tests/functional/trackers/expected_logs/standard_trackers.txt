@@ -1,13 +1,15 @@
+[2024-01-01 12:00:00] - Running experiment: test_exp.
+Loading test_model checkpoint at epoch 5.
 [2024-01-01 12:00:00] - Training test_model started.
-====> Epoch   5/100:
+====> Epoch 5/8:
     test_source: 100%|##########| 5/5, Samples=1600, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
-====> Epoch   5/100:
+====> Epoch 6/8:
     test_source: 100%|##########| 5/5, Samples=1600, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
-Updated test_model optimizer at epoch 5. New learning rate: 0.0001. New scheduler: CosineAnnealingLR.
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_10.pt.
-====> Epoch   5/100:
+Updated test_model optimizer at epoch 6. New learning rate: 0.0001. New scheduler: CosineAnnealingLR.
+Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_6.pt.
+====> Epoch 7/8:
     test_source: 100%|##########| 5/5, Samples=1600, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
-[2024-01-01 12:00:00] - Training test_model terminated at epoch 45. Reason: test event.
+[2024-01-01 12:00:00] - Training test_model terminated at epoch 7. Reason: test event.
 [2024-01-01 12:00:00] - Training ended.
 [2024-01-01 12:00:00] - Testing test_model started.
     test_source: 100%|##########| 5/5, Samples=1600, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
