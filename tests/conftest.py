@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture(scope='package')
 def example_exp_name() -> str:
     """Example name for the experiment."""
-    return 'test_model'
+    return 'test_exp'
 
 
 @pytest.fixture(scope='package')
