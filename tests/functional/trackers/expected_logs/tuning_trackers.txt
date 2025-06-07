@@ -1,4 +1,4 @@
-[2024-01-01 12:00:00] - Training test_model started.
+[2024-01-01 12:00:00] - Training test_exp started.
 [2024-01-01 12:00:00] - Training test_model terminated at epoch 45. Reason: test event.
 Epoch: 5 / 100:   3%|3         | 3/100
 [2024-01-01 12:00:00] - Training ended.

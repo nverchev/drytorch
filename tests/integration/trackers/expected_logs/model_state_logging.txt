@@ -1,4 +1,4 @@
-Running experiment: test_model.
+Running experiment: test_exp.
 Loading test_model checkpoint at epoch 10.
 Training test_model started.
 Updated test_model optimizer at epoch 5. New learning rate: 0.0001. New scheduler: CosineAnnealingLR.

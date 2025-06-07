@@ -1,4 +1,4 @@
-Running experiment: test_model.
+Running experiment: test_exp.
 Loading test_model checkpoint at epoch 10.
 Training test_model started.
 ====> Epoch   5/100:

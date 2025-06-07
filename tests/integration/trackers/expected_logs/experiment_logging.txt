@@ -1,4 +1,4 @@
-Running experiment: test_model.
+Running experiment: test_exp.
 Training test_model started.
 Training test_model terminated at epoch 45. Reason: test event.
 Training ended.
