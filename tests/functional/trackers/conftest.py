@@ -196,3 +196,43 @@ def string_stream() -> Generator[io.StringIO, None, None]:
     yield output
     output.close()
     return
+
+
+@pytest.fixture
+def event_workflow(
+        start_training_event,
+        start_epoch_event,
+        iterate_batch_event,
+        epoch_metrics_event,
+        end_epoch_event,
+        update_learning_rate_event,
+        save_model_event,
+        terminated_training_event,
+        end_training_event,
+        start_test_event,
+        end_test_event,
+) -> tuple[log_events.Event, ...]:
+    """Yields events in typical order of execution."""
+    event_tuple = (
+        start_training_event,
+        start_epoch_event,
+        iterate_batch_event,
+        epoch_metrics_event,
+        end_epoch_event,
+        start_epoch_event,
+        iterate_batch_event,
+        epoch_metrics_event,
+        end_epoch_event,
+        update_learning_rate_event,
+        save_model_event,
+        start_epoch_event,
+        iterate_batch_event,
+        epoch_metrics_event,
+        terminated_training_event,
+        end_training_event,
+        start_test_event,
+        iterate_batch_event,
+        epoch_metrics_event,
+        end_test_event,
+    )
+    return event_tuple

@@ -1,4 +1,4 @@
-[2024-01-01 12:00:00] - Training test_exp started.
+[2024-01-01 12:00:00] - Training test_model started.
 ====> Epoch   5/100:
     test_source:    Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
 ====> Epoch   5/100:
