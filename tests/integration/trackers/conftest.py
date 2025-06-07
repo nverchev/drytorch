@@ -16,6 +16,18 @@ def allow_event_creation_outside_scope() -> None:
     return
 
 
+@pytest.fixture()
+def start_experiment_event(tmp_path,
+                           example_exp_name) -> log_events.StartExperiment:
+    """Provides a StartExperiment event instance."""
+    return log_events.StartExperiment(
+        exp_name=example_exp_name,
+        exp_dir=tmp_path / example_exp_name,
+        exp_version=datetime.datetime.now().strftime('%d/%m/%Y, %H:%M:%S'),
+        config=None,
+    )
+
+
 @pytest.fixture
 def stop_experiment_event(example_exp_name) -> log_events.StopExperiment:
     """Provides a StopExperiment event instance."""
