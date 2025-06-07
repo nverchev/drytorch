@@ -1,0 +1,2 @@
+[2024-01-01 12:00:00] - Running experiment: test_exp.
+    test_source:    Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
