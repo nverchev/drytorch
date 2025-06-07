@@ -1,4 +1,4 @@
-"""Tests for the "hydra" module."""
+"""Tests for the hydra log formatting."""
 
 import pytest
 
@@ -20,8 +20,8 @@ expected_log = expected_path_folder / 'hydra_log_file.txt'
 expected_out = expected_path_folder / 'hydra_out_file.txt'
 
 
-class TestHydraLink:
-    """Tests for the HydraLink tracker with actual Hydra integration."""
+class TestHydraFullCycle:
+    """Tests HydraLink integrates into hydra mode tracker's initialization."""
 
     # TODO: full_cycle fixture's scope should be changed to "class"
     @pytest.fixture(autouse=True)
@@ -36,8 +36,6 @@ class TestHydraLink:
         """Setup test environment with actual hydra configuration."""
         self.hydra_dir = tmp_path_factory.mktemp('outputs')
         run_dir_arg = f'++hydra.run.dir={self.hydra_dir.as_posix()}'
-        logger = logging.getLogger()
-        logger.setLevel(logging.CRITICAL)
 
         def _mock_format_time(*_, **__):
             fixed_time = datetime.datetime(2024, 1, 1, 12)
