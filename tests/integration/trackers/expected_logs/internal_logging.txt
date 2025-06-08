@@ -4,14 +4,10 @@ Training test_model started.
 ====> Epoch 5/8:
     test_source:    Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
 Epoch completed.
-====> Epoch 5/8:
-    test_source:    Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
-Epoch completed.
 Updated test_model optimizer at epoch 5. New learning rate: 0.0001. New scheduler: CosineAnnealingLR.
 Training test_model terminated at epoch 5. Reason: test event.
 Training ended.
 Testing test_model started.
-    test_source:    Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
 Test executed without errors.
 Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_5.pt.
 Experiment: test_exp stopped.

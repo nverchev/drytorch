@@ -1,4 +1,4 @@
-"""Tests the initialization modes whether tqdm is present or not."""
+"""Functional tests for modes in initialize_trackers (replicated logic)."""
 
 import pytest
 

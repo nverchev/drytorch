@@ -1,4 +1,4 @@
-"""Tests for the HydraLink creates a new local folder."""
+"""Functional tests for HydraLink."""
 
 import pytest
 
@@ -11,8 +11,8 @@ from dry_torch import Experiment
 from dry_torch.trackers.hydra import HydraLink
 
 
-class TestHydraLinkFolderCreation:
-    """Tests HydraLink creates a folder."""
+class TestHydraLinkFullCycle:
+    """Complete HydraLink session and tests it afterward."""
 
     @pytest.fixture(autouse=True)
     def full_cycle(self,

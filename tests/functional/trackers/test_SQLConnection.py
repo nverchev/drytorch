@@ -1,4 +1,4 @@
-"""Tests for the SQLConnection save and load metrics."""
+"""Functional tests for SQLConnection."""
 
 import pytest
 
@@ -13,8 +13,8 @@ from dry_torch.trackers.sqlalchemy import Source
 from dry_torch.trackers.sqlalchemy import SQLConnection
 
 
-class TestSQLConnectionFunctional:
-    """Tests for the SQLConnection tracker."""
+class TestSQLConnectionFullCycle:
+    """Complete SQLConnection session and tests it afterward."""
 
     @pytest.fixture
     def tracker(self) -> SQLConnection:

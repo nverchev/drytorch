@@ -1,4 +1,4 @@
-"""Tests the logs of a typical session for all the logging levels."""
+"""Tests the events' log filter for all the logging levels."""
 
 import pytest
 
@@ -79,12 +79,8 @@ def event_workflow(
         start_experiment_event,
         model_creation_event,
         load_model_event,
-        call_model_event,
         start_training_event,
-        start_epoch_event,
-        iterate_batch_event,
-        epoch_metrics_event,
-        end_epoch_event,
+        call_model_event,
         start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,
@@ -93,8 +89,6 @@ def event_workflow(
         terminated_training_event,
         end_training_event,
         start_test_event,
-        iterate_batch_event,
-        epoch_metrics_event,
         end_test_event,
         save_model_event,
         stop_experiment_event,

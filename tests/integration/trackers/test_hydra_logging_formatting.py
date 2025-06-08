@@ -1,4 +1,4 @@
-"""Tests for the hydra log formatting."""
+"""Tests HydraLink integrates into hydra mode tracker's initialization."""
 
 import pytest
 
@@ -21,7 +21,7 @@ expected_out = expected_path_folder / 'hydra_out_file.txt'
 
 
 class TestHydraFullCycle:
-    """Tests HydraLink integrates into hydra mode tracker's initialization."""
+    """Complete HydraLink session and tests it afterward."""
 
     # TODO: full_cycle fixture's scope should be changed to "class"
     @pytest.fixture(autouse=True)
