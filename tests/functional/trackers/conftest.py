@@ -11,7 +11,7 @@ from typing import Generator
 from dry_torch import log_events
 
 
-@pytest.fixture(scope='package', autouse=True)
+@pytest.fixture(autouse=True)
 def allow_event_creation_outside_scope() -> None:
     """Allows the creation of events outside an experiment"""
     log_events.Event.set_auto_publish(lambda x: None)
