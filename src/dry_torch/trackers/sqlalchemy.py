@@ -240,6 +240,10 @@ class SQLConnection(base_classes.MetricLoader):
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
         with self.Session() as session:
+            if event.source_name not in self._sources:
+                msg = f'Source {event.source_name} has not been registered.'
+                raise exceptions.TrackerException(self, msg)
+
             source = session.merge(self._sources[event.source_name])
             for i, (metric_name, value) in enumerate(event.metrics.items()):
                 new_row = Log(source=source,
