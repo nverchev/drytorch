@@ -290,21 +290,24 @@ class SQLConnection(base_classes.MetricLoader):
             if max_epoch != -1:
                 query = query.where(Log.epoch <= max_epoch)
 
-            epochs = list[int]()
+            named_epochs = dict[str, list[int]]()
             named_metric_values = dict[str, list[float]]()
+
             for log in query:
                 log = cast(Log, log)  # fixing wrong annotation
-                epoch = log.epoch
-                if not epochs or epochs[-1] != epoch:
-                    epochs.append(epoch)
-
+                epochs = named_epochs.setdefault(log.metric_name, [])
+                epochs.append(log.epoch)
                 values = named_metric_values.setdefault(log.metric_name, [])
                 values.append(log.value)
 
-        for values in named_metric_values.values():
-            if len(values) != len(epochs):
-                msg = 'Missing or multiple entries given metric name and epoch.'
+        name = ''
+        epochs = list[int]()
+        for next_name, next_epochs in named_epochs.items():
+            if epochs and epochs != next_epochs:
+                msg = f'{name} and {next_name} logs refer to different epochs.'
                 raise exceptions.TrackerException(self, msg)
+            epochs = next_epochs
+            name = next_name
 
         return epochs, named_metric_values
 
