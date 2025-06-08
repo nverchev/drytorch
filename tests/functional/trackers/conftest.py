@@ -167,10 +167,10 @@ def end_test_event(example_source_name,
 
 
 @pytest.fixture
-def epoch_metrics_event(example_source_name,
-                        example_model_name,
-                        example_named_metrics,
-                        example_epoch) -> log_events.Metrics:
+def metrics_event(example_source_name,
+                  example_model_name,
+                  example_named_metrics,
+                  example_epoch) -> log_events.Metrics:
     """Provides a FinalMetrics event instance."""
     return log_events.Metrics(
         model_name=example_model_name,
@@ -214,7 +214,7 @@ def event_workflow(
         start_training_event,
         start_epoch_event,
         iterate_batch_event,
-        epoch_metrics_event,
+        metrics_event,
         end_epoch_event,
         update_learning_rate_event,
         save_model_event,
@@ -227,7 +227,7 @@ def event_workflow(
     """Yields events in typical order of execution."""
     initial_epoch = start_training_event.start_epoch
     second_start_epoch_event = dataclasses.replace(start_epoch_event)
-    second_epoch_metrics_event = dataclasses.replace(epoch_metrics_event)
+    second_epoch_metrics_event = dataclasses.replace(metrics_event)
     second_end_epoch_event = dataclasses.replace(end_epoch_event)
     second_start_epoch_event.epoch += 1
     second_epoch_metrics_event.epoch += 1
@@ -238,12 +238,12 @@ def event_workflow(
     update_learning_rate_event.epoch += 1
     save_model_event.location = new_location
     third_start_epoch_event = dataclasses.replace(start_epoch_event)
-    third_epoch_metrics_event = dataclasses.replace(epoch_metrics_event)
+    third_epoch_metrics_event = dataclasses.replace(metrics_event)
     third_end_epoch_event = dataclasses.replace(end_epoch_event)
     third_start_epoch_event.epoch += 2
     third_epoch_metrics_event.epoch += 2
     third_end_epoch_event.epoch += 2
-    test_metrics_event = dataclasses.replace(epoch_metrics_event)
+    test_metrics_event = dataclasses.replace(metrics_event)
     test_metrics_event.epoch += 2
     terminated_training_event.epoch = start_training_event.start_epoch + 2
     event_tuple = (
@@ -254,7 +254,7 @@ def event_workflow(
         start_training_event,
         start_epoch_event,
         iterate_batch_event,
-        epoch_metrics_event,
+        metrics_event,
         end_epoch_event,
         second_start_epoch_event,
         iterate_batch_event,
