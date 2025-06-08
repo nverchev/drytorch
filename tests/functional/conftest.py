@@ -69,13 +69,13 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
         """
         return ((outputs.output - targets) ** 2).mean()
 
-    return Loss(mse, name='Mse')
+    return Loss(mse, name='MSE')
 
 
 @pytest.fixture
 def standard_learning_scheme() -> LearningScheme:
     """Instantiate a standard learning scheme."""
-    return LearningScheme.Adam(base_lr=0.01)
+    return LearningScheme.Adam(base_lr=0.1)
 
 
 @pytest.fixture

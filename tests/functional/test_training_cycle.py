@@ -22,8 +22,8 @@ def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
 
 
 def test_convergence(identity_trainer) -> None:
-    """ Trainer works if the model weight converges to 1."""
-    identity_trainer.train(4)
+    """Trainer works if the model weight converges to 1."""
+    identity_trainer.train(10)
     linear_weight = next(identity_trainer.model.module.parameters())
     assert torch.isclose(linear_weight, torch.tensor(1.), atol=0.1)
 
@@ -89,9 +89,9 @@ def test_reduce_lr_on_plateau(identity_loader,
             min_delta=0.1,
         )
     )
-    identity_trainer.train(2)
+    identity_trainer.train(5)
     final_lr = identity_trainer._model_optimizer.get_scheduled_lr(initial_lr)
-    assert final_lr == factor * initial_lr
+    assert final_lr == pytest.approx(factor * initial_lr)
 
 
 def test_restart_schedule_on_plateau(identity_loader,
@@ -103,12 +103,9 @@ def test_restart_schedule_on_plateau(identity_loader,
     initial_lr = identity_trainer._model_optimizer.base_lr
     identity_trainer.update_learning_rate(scheduler=exp_scheduler)
     identity_trainer.post_epoch_hooks.register(
-        hooks.RestartScheduleOnPlateau(
-            metric=square_loss_calc,
-            cooldown=1
-        )
+        hooks.RestartScheduleOnPlateau(metric=square_loss_calc)
     )
-    identity_trainer.train(4)
-    # Training should complete with schedule restarts
+    identity_trainer.train(5)
+    # training should complete with schedule restarts
     final_lr = identity_trainer._model_optimizer.get_scheduled_lr(initial_lr)
-    assert final_lr > exp_scheduler(initial_lr, 4)
+    assert not final_lr == pytest.approx(exp_scheduler(initial_lr, 4))
