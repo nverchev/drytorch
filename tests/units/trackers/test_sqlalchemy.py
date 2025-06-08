@@ -69,7 +69,7 @@ class TestSQLConnection:
 
     def test_cleanup(self, tracker_started):
         tracker_started.clean_up()
-        assert tracker_started._run == None
+        assert tracker_started._run is None
         assert tracker_started._sources == {}
 
     def test_init_default(self, tracker) -> None:
@@ -158,6 +158,18 @@ class TestSQLConnection:
         self.mock_context.merge.assert_called_with(self.source)
         self.mock_context.add.assert_called_with(self.log)
 
+    def test_unknown_source(
+            self,
+            tracker_started,
+            call_model_mock_event,
+            epoch_metrics_mock_event,
+    ) -> None:
+        """Test metrics notification from unknown source raises error."""
+        tracker_started.notify(call_model_mock_event)
+        epoch_metrics_mock_event.source_name = 'unknown_source'
+        with pytest.raises(exceptions.TrackerException):
+            tracker_started.notify(epoch_metrics_mock_event)
+
     def test_find_sources_existing_model(
             self,
             mocker,
@@ -234,5 +246,8 @@ class TestSQLConnection:
         mock_query.where.return_value = mock_query
         mock_query.__iter__.return_value = mock_list.__iter__()
         self.mock_context.query.return_value = mock_query
-        with pytest.raises(exceptions.TrackerException):
+        with pytest.raises(exceptions.TrackerException) as err:
             _ = tracker_started._get_run_metrics([], -1)
+        assert err.match('test_model')
+        assert err.match('test_model_2')
+
