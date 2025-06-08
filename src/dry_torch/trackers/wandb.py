@@ -24,15 +24,15 @@ class Wandb(tracking.Tracker):
     def __init__(
             self,
             settings: wandb_settings.Settings = wandb_settings.Settings(),
-            resume_previous_run: bool = False,
+            resume_run: bool = False,
     ) -> None:
         """
         Args:
             settings: settings object from wandb containing all init arguments.
-            resume_previous_run: resume previous run from the project.
+            resume_run: resume previous run from the project.
         """
         super().__init__()
-        self.resume_run = resume_previous_run
+        self.resume_run = resume_run
         self._settings = settings
         self._run: wandb_run.Run | None = None
 
