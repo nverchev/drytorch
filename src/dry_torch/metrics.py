@@ -283,7 +283,7 @@ class LossBase(
             str_second = self.formula
 
             def _combined(x: dict[str, _Tensor]) -> _Tensor:
-                return operation(self.criterion(x), _Tensor(other))
+                return operation(self.criterion(x), torch.tensor(other))
 
         else:
             raise TypeError(f'Unsupported type for operation: {type(other)}')
