@@ -66,11 +66,12 @@ class TestDumper:
     """Tests for AbstractDumper."""
 
     @pytest.fixture(scope='class',
-                    params=[None, pathlib.Path('test')],
+                    params=[None, 'test'],
                     ids=['default', 'custom_path'])
-    def par_dir(self, request) -> pathlib.Path | None:
+    def par_dir(self, request, tmp_path_factory) -> pathlib.Path | None:
         """Set up the path."""
-        return request.param
+
+        return None if request.param is None else tmp_path_factory.mktemp('tmp')
 
     @pytest.fixture
     def tracker(self, par_dir) -> Dumper:
