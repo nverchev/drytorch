@@ -23,7 +23,15 @@ MAX_LENGTH_SHORT_REPR = 10
 
 
 class YamlDumper(base_classes.Dumper):
-    """Tracker that dumps metadata in a YAML file."""
+    """
+    Tracker that dumps metadata in a YAML file.
+
+    Class Attributes:
+        metadata_folder: name for the folder that contains metadata.
+        archive_folder: namee for the folder that contains archived metadata.
+    """
+    metadata_folder = 'metadata'
+    archive_folder = 'archive'
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
         """
@@ -32,8 +40,6 @@ class YamlDumper(base_classes.Dumper):
                 experiment's one.
         """
         super().__init__(par_dir)
-        self.metadata_folder = 'metadata'
-        self.archive_folder = 'archive'
         self._exp_dir: Optional[pathlib.Path] = None
 
     @override
