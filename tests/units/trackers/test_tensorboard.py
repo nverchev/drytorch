@@ -12,6 +12,14 @@ from dry_torch.trackers.tensorboard import TensorBoard
 class TestTensorBoard:
     """Tests for the TensorBoard tracker."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker) -> None:
+        """Setup test environment."""
+        self.summary_writer_mock = mocker.patch(
+            'torch.utils.tensorboard.SummaryWriter',
+        )
+        return
+
     @pytest.fixture
     def tracker(self, tmp_path) -> TensorBoard:
         """Set up the instance."""
@@ -25,22 +33,15 @@ class TestTensorBoard:
     @pytest.fixture
     def tracker_started(
             self,
+            tracker,
             start_experiment_mock_event,
             stop_experiment_mock_event,
     ) -> Generator[TensorBoard, None, None]:
         """Set up the instance with resume."""
-        tracker = TensorBoard()
         tracker.notify(start_experiment_mock_event)
         yield tracker
-        tracker.notify(stop_experiment_mock_event)
-        return
 
-    @pytest.fixture(autouse=True)
-    def setup(self, mocker) -> None:
-        """Setup test environment."""
-        self.summary_writer_mock = mocker.patch(
-            'torch.utils.tensorboard.SummaryWriter',
-        )
+        tracker.notify(stop_experiment_mock_event)
         return
 
     def test_cleanup(self, tracker_started):
