@@ -1,6 +1,7 @@
 """Module containing a tracker calling Weights and Biases."""
 
 import functools
+import pathlib
 from typing import Optional
 from typing_extensions import override
 
@@ -10,28 +11,30 @@ from wandb.sdk import wandb_settings
 
 from dry_torch import exceptions
 from dry_torch import log_events
-from dry_torch import tracking
+from dry_torch.trackers.base_classes import Dumper
 
 
-class Wandb(tracking.Tracker):
+class Wandb(Dumper):
     """
     Tracker that wraps a run for the wandb library.
     
     Attributes:
         resume_run: resume previous run from the project.
     """
-
     def __init__(
             self,
+            par_dir: Optional[pathlib.Path] = None,
             settings: wandb_settings.Settings = wandb_settings.Settings(),
             resume_run: bool = False,
     ) -> None:
         """
         Args:
+            par_dir: the directory where to dump metadata. Overwrites settings.
+                Defaults uses the one for the current experiment.
             settings: settings object from wandb containing all init arguments.
             resume_run: resume previous run from the project.
         """
-        super().__init__()
+        super().__init__(par_dir)
         self.resume_run = resume_run
         self._settings = settings
         self._run: wandb_run.Run | None = None
@@ -57,21 +60,21 @@ class Wandb(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
-        # prioritize settings
+        # determine main directory
+        super().notify(event)
         project = self._settings.project or event.exp_name
-        root_dir = self._settings.root_dir or event.exp_dir
         run_id: Optional[str] = self._settings.run_id
         if self.resume_run:
             runs = wandb.Api().runs(project)
             run_id = runs[len(runs) - 1].id
 
         self._run = wandb.init(id=run_id,
-                               dir=root_dir,
+                               dir=self.par_dir,
                                project=project,
                                config=event.config,
                                settings=self._settings,
                                resume='allow')
-        return super().notify(event)
+        return
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
