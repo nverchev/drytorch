@@ -114,29 +114,30 @@ class TestSQLConnection:
 
         tracker.notify(start_experiment_event)
         tracker.notify(call_model_event)
-        with mocker.patch.object(sqlalchemy.orm.Session,
-                                 'add',
-                                 side_effect=_raise_integrity_error):
-            with pytest.raises(sqlalchemy_exc.IntegrityError):
-                tracker.notify(call_model_event)
+        mocker.patch.object(sqlalchemy.orm.Session,
+                            'add',
+                            side_effect=_raise_integrity_error)
+        with pytest.raises(sqlalchemy_exc.IntegrityError):
+            tracker.notify(call_model_event)
 
-            # verify database state is consistent (no partial commits)
-            with tracker.Session() as session:
-                sources = session.query(Source).all()
-                experiments = session.query(Experiment).all()
-                # second source should have been rolled back
-                assert len(experiments) == 1
-                assert len(sources) == 1
+        # verify database state is consistent (no partial commits)
+        with tracker.Session() as session:
+            sources = session.query(Source).all()
+            experiments = session.query(Experiment).all()
+            # second source should have been rolled back
+            assert len(experiments) == 1
+            assert len(sources) == 1
 
-    def test_resume_nonexistent_experiment(self,
-                                           memory_engine,
-                                           start_experiment_event) -> None:
-        """Test resume_run behavior when no previous runs exist."""
-        tracker = SQLConnection(engine=memory_engine, resume_run=True)
-        start_experiment_event.exp_name = 'nonexistent'
 
-        with pytest.warns(UserWarning, match="No previous runs"):
-            tracker.notify(start_experiment_event)
+def test_resume_nonexistent_experiment(self,
+                                       memory_engine,
+                                       start_experiment_event) -> None:
+    """Test resume_run behavior when no previous runs exist."""
+    tracker = SQLConnection(engine=memory_engine, resume_run=True)
+    start_experiment_event.exp_name = 'nonexistent'
 
-        # should create new run despite resume_run=True
-        assert tracker._run is not None
+    with pytest.warns(UserWarning, match="No previous runs"):
+        tracker.notify(start_experiment_event)
+
+    # should create new run despite resume_run=True
+    assert tracker._run is not None
