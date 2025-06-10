@@ -92,7 +92,7 @@ class TestMetadataManager:
         """Test metadata extraction with a recursive_repr wrapper."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('dry_torch.repr_utils.recursive_repr',
+        mocker.patch('dry_torch.utils.repr_utils.recursive_repr',
                      return_value={'key': 'value'})
 
         metadata = self.manager.extract_metadata(mock_obj, max_size=5)
@@ -102,7 +102,7 @@ class TestMetadataManager:
         """Test extract_metadata handles RecursionError gracefully."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('dry_torch.repr_utils.recursive_repr',
+        mocker.patch('dry_torch.utils.repr_utils.recursive_repr',
                      side_effect=RecursionError)
         with pytest.warns(exceptions.RecursionWarning):
             _ = self.manager.extract_metadata(mock_obj, max_size=5)
