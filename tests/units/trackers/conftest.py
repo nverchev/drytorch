@@ -17,7 +17,7 @@ def start_experiment_mock_event(mocker,
     # Set default attribute values
     mock.exp_name = example_exp_name
     mock.exp_dir = tmp_path / example_exp_name
-    mock.exp_version = datetime.datetime.now().strftime('%d/%m/%Y, %H:%M:%S')
+    mock.exp_version = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     mock.config = None
     return mock
 
@@ -40,7 +40,7 @@ def model_creation_mock_event(
     """Mock ModelCreation event instance."""
     mock = mocker.create_autospec(log_events.ModelCreation)
     mock.model_name = example_model_name
-    mock.model_version = datetime.datetime.now().strftime('%d/%m/%Y, %H:%M:%S')
+    mock.model_version = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     mock.metadata = example_metadata
     return mock
 
@@ -53,9 +53,9 @@ def call_model_mock_event(mocker,
     """Mock CallModel event instance."""
     mock = mocker.create_autospec(log_events.CallModel)
     mock.source_name = example_source_name
-    mock.source_version = datetime.datetime.now().strftime('%d/%m/%Y, %H:%M:%S')
+    mock.source_version = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     mock.model_name = example_model_name
-    mock.model_version = datetime.datetime.now().strftime('%d/%m/%Y, %H:%M:%S')
+    mock.model_version = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     mock.metadata = example_metadata
     return mock
 
