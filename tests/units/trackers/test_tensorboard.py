@@ -1,4 +1,5 @@
 """Tests for the "tensorboard" module."""
+import pathlib
 
 import pytest
 
@@ -71,21 +72,26 @@ class TestTensorBoard:
         assert tracker._writer is None
 
     def test_resume(self,
+                    mocker,
+                    tmp_path,
                     tracker_with_resume,
                     start_experiment_mock_event,
                     stop_experiment_mock_event) -> None:
         """Test resume previous run."""
         start_experiment_mock_event.config = {'simple_config': 3}
+        last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
+        last_run.return_value = tmp_path
         tracker_with_resume.notify(start_experiment_mock_event)
         log_dir = start_experiment_mock_event.exp_dir / TensorBoard.folder_name
         self.summary_writer_mock.assert_called_once_with(
-            log_dir=log_dir.as_posix()
+            log_dir=tmp_path.as_posix()
         )
         self.summary_writer_mock.reset_mock()
         tracker_with_resume.notify(stop_experiment_mock_event)
-        # new name should be ignored
-        start_experiment_mock_event.exp_name = 'test_experiment_2'
-        tracker_with_resume.notify(start_experiment_mock_event)
+        # mock case not previous experiment is retrieved
+        last_run.return_value = None
+        with pytest.warns(exceptions.DryTorchWarning):
+            tracker_with_resume.notify(start_experiment_mock_event)
         self.summary_writer_mock.assert_called_once_with(
             log_dir=log_dir.as_posix()
         )
