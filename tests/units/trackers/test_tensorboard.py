@@ -1,5 +1,4 @@
 """Tests for the "tensorboard" module."""
-import pathlib
 
 import pytest
 
