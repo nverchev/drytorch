@@ -13,7 +13,7 @@ class TestExperiment:
     def setup(self, tmp_path) -> None:
         """Set up an experiment."""
         self.par_dir = tmp_path
-        self.experiment = Experiment[None](self.name, self.par_dir)
+        self.experiment = Experiment[None]('Experiment', self.par_dir)
         setattr(self.experiment, 'current', experiment_current_original)
         setattr(Experiment,
                 'current',
