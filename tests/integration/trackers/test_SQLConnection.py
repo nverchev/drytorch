@@ -128,16 +128,15 @@ class TestSQLConnection:
             assert len(experiments) == 1
             assert len(sources) == 1
 
+    def test_resume_nonexistent_experiment(self,
+                                           memory_engine,
+                                           start_experiment_event) -> None:
+        """Test resume_run behavior when no previous runs exist."""
+        tracker = SQLConnection(engine=memory_engine, resume_run=True)
+        start_experiment_event.exp_name = 'nonexistent'
 
-def test_resume_nonexistent_experiment(self,
-                                       memory_engine,
-                                       start_experiment_event) -> None:
-    """Test resume_run behavior when no previous runs exist."""
-    tracker = SQLConnection(engine=memory_engine, resume_run=True)
-    start_experiment_event.exp_name = 'nonexistent'
+        with pytest.warns(UserWarning, match='No previous runs'):
+            tracker.notify(start_experiment_event)
 
-    with pytest.warns(UserWarning, match="No previous runs"):
-        tracker.notify(start_experiment_event)
-
-    # should create new run despite resume_run=True
-    assert tracker._run is not None
+        # should create new run despite resume_run=True
+        assert tracker._run is not None
