@@ -12,7 +12,6 @@ class TestExperiment:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path) -> None:
         """Set up an experiment."""
-        self.name = 'TestExperiment'
         self.par_dir = tmp_path
         self.experiment = Experiment[None](self.name, self.par_dir)
         setattr(self.experiment, 'current', experiment_current_original)
@@ -29,7 +28,7 @@ class TestExperiment:
         mock_event_start = mocker.patch.object(log_events, 'StartExperiment')
         mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
         with self.experiment:
-            path = self.par_dir / format(self.name, 's')
+            path = self.par_dir / self.experiment.name
             mock_event_start.assert_called_once_with(self.experiment.name,
                                                      self.experiment.created_at,
                                                      path,
