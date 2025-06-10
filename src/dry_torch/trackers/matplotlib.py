@@ -46,7 +46,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             n_rows = math.ceil(math.sqrt(n_metrics))
             n_cols = math.ceil(n_metrics / n_rows)
             fig = plt.Figure()
-            fig.suptitle(f'{model_name}', fontsize=16)
+            fig.suptitle(model_name, fontsize=16)
             fig.tight_layout()
             iter_metric = metric_names.__iter__()
             axes_dict = dict[str, plt.Axes]()
