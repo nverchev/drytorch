@@ -67,7 +67,7 @@ class TensorBoard(base_classes.Dumper):
             retrieved = self._get_last_run(self.par_dir)
             if retrieved is None:
                 msg = 'TensorBoard: No previous runs. Starting a new one.'
-                warnings.warn(msg)
+                warnings.warn(msg, exceptions.DryTorchWarning)
                 root_dir = self.par_dir / self.folder_name
             else:
                 root_dir = retrieved
