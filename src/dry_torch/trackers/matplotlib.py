@@ -36,11 +36,12 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
                          metric_names,
                          start,
                          metric_loader)
-        self.model_figures = dict[str, tuple[plt.Figure, dict[str, plt.Axes]]]()
+        self._model_figure = dict[str, tuple[plt.Figure, dict[str, plt.Axes]]]()
         plt.ion()
+        return
 
     def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
-        if model_name not in self.model_figures:
+        if model_name not in self._model_figure:
             n_metrics = len(metric_names)
             n_rows = math.ceil(math.sqrt(n_metrics))
             n_cols = math.ceil(n_metrics / n_rows)
@@ -59,7 +60,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
                         ax = fig.add_subplot(n_rows, n_cols, (row, col))
                         axes_dict[metric_name] = ax
 
-            self.model_figures[model_name] = (fig, axes_dict)
+            self._model_figure[model_name] = (fig, axes_dict)
             plt.show(block=False)
 
     @override
@@ -67,7 +68,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
                      model_name: str,
                      metric_name: str,
                      **sourced_array: base_classes.NpArray) -> Plot:
-        fig, dict_axes = self.model_figures[model_name]
+        fig, dict_axes = self._model_figure[model_name]
         ax = dict_axes[metric_name]
         for collection in ax.collections[:]:
             collection.remove()
@@ -97,7 +98,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
 
     def close_all(self):
         """Close all figures associated with this plotter."""
-        for fig, _ in self.model_figures.values():
+        for fig, _ in self._model_figure.values():
             plt.close(fig)
 
-        self.model_figures.clear()
+        self._model_figure.clear()
