@@ -1,91 +1,83 @@
 """Tests for the "wandb" module."""
 
 import pytest
-from wandb.sdk import wandb_settings
 
-from dry_torch import log_events
-from dry_torch.trackers import wandb
+from typing import Generator
+
+from dry_torch import exceptions
+from dry_torch.trackers.wandb import Wandb
 
 
 class TestWandb:
     """Tests for the Wandb tracker."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker, start_experiment_event):
-        """Setup test environment."""
+    def setup(self, mocker) -> None:
+        """Set up test environment."""
         self.init_mock = mocker.patch('wandb.init')
-        self.log_mock = mocker.patch('wandb.log')
         self.finish_mock = mocker.patch('wandb.finish')
+        return
 
-        self.tracker = wandb.Wandb()
-        self.tracker.notify(start_experiment_event)
-    def test_cleanup(self, tracker):
+    @pytest.fixture
+    def tracker(self) -> Wandb:
+        """Set up instance."""
+        return Wandb()
+
+    @pytest.fixture
+    def tracker_started(
+            self,
+            tracker,
+            start_experiment_mock_event,
+            stop_experiment_mock_event,
+    ) -> Generator[Wandb, None, None]:
+        """Set up started instance."""
+        tracker.notify(start_experiment_mock_event)
+        yield tracker
+
+        tracker.notify(stop_experiment_mock_event)
+        return
+
+    def test_init(self, tracker) -> None:
+        """Test initialization."""
+        assert isinstance(tracker.resume_run, bool)
+
+    def test_cleanup(self, tracker) -> None:
         tracker.clean_up()
-        assert tracker._training_bar is None
-        assert tracker._epoch_bar is None
-    def test_notify_start_experiment(self, start_experiment_event):
+        self.finish_mock.assert_called_once()
+        assert tracker._run is None
+
+    def test_notify_start_experiment(self,
+                                     mocker,
+                                     tracker_started,
+                                     start_experiment_mock_event) -> None:
         """Test StartExperiment notification."""
         self.init_mock.assert_called_once_with(
-            dir=start_experiment_event.exp_dir,
-            project=start_experiment_event.exp_name,
-            config=start_experiment_event.config,
-            settings=self.tracker._settings
+            id=None,
+            dir=start_experiment_mock_event.exp_dir,
+            project=start_experiment_mock_event.exp_name,
+            config=start_experiment_mock_event.config,
+            settings=mocker.ANY,
+            resume='allow'
         )
 
-    def test_notify_stop_experiment(self, stop_experiment_event):
-        """Test StopExperiment notification."""
-        self.tracker.notify(stop_experiment_event)
-        self.finish_mock.assert_called_once()
-
-    def test_notify_metrics(self, epoch_metrics_event, sample_metrics):
+    def test_notify_metrics(self,
+                            mocker,
+                            tracker_started,
+                            epoch_metrics_mock_event,
+                            example_named_metrics) -> None:
         """Test Metrics notification."""
-        self.tracker.notify(epoch_metrics_event)
+        log_mock = mocker.patch.object(tracker_started.run, 'log')
+        tracker_started.notify(epoch_metrics_mock_event)
+        model_name = epoch_metrics_mock_event.model_name
+        source_name = epoch_metrics_mock_event.source_name
+        expected_metrics = {f'{model_name}/{source_name}-{name}': value
+                            for name, value in example_named_metrics.items()}
+        log_mock.assert_called_once_with(expected_metrics,
+                                         step=epoch_metrics_mock_event.epoch)
 
-        expected_metrics = {
-            f'{epoch_metrics_event.model_name}/{epoch_metrics_event.source}-{name}': value
-            for name, value in sample_metrics.items()
-        }
-
-        self.log_mock.assert_called_once_with(
-            **expected_metrics,
-            step=epoch_metrics_event.epoch
-        )
-
-    def test_settings_priority(self, mocker, start_experiment_event):
-        """Test settings priority."""
-        init_mock = mocker.patch('wandb.init')
-
-        custom_settings = wandb_settings.Settings(project="custom_project")
-        tracker = wandb.Wandb(settings=custom_settings)
-
-        tracker.notify(start_experiment_event)
-
-        init_mock.assert_called_once_with(
-            dir=start_experiment_event.exp_dir,
-            project=None,
-            config=start_experiment_event.config,
-            settings=custom_settings
-        )
-
-    def test_settings_fallback(self, mocker):
-        """Test settings fallback to experiment parameters."""
-        init_mock = mocker.patch('wandb.init')
-
-        custom_settings = wandb_settings.Settings(project=None)
-        tracker = wandb.Wandb(settings=custom_settings)
-
-        start_event = log_events.StartExperiment(
-            exp_name="my_experiment",
-            exp_dir="/path/to/exp",
-            config={"param": "value"}
-        )
-
-        tracker.notify(start_event)
-
-        init_mock.assert_called_once_with(
-            dir=start_event.exp_dir,
-            project="my_experiment",
-            config=start_event.config,
-            settings=custom_settings
-        )
-
+    def test_notify_metrics_outside_scope(self,
+                                          tracker,
+                                          epoch_metrics_mock_event) -> None:
+        """Test Metrics notification outside scope."""
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            tracker.notify(epoch_metrics_mock_event)
