@@ -2,6 +2,8 @@
 
 from typing import Any
 
+import numpy as np
+
 import pytest
 
 
@@ -45,7 +47,9 @@ def example_named_metrics(example_loss_name) -> dict[str, float]:
     }
 
 
+# tests need primitive types
 @pytest.fixture(scope='package')
 def example_metadata() -> dict[str, Any]:
     """Example for metadata."""
-    return {'architecture': 'ResNet18'}
+    return {'architecture': 'ResNet18',
+            'long_list': [0] * 20}
