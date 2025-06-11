@@ -1,8 +1,8 @@
 """Tests for the "sqlalchemy" module."""
-from typing import Generator
 
 import pytest
 
+from typing import Generator
 import warnings
 
 from dry_torch import exceptions
