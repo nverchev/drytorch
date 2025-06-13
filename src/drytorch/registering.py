@@ -13,9 +13,9 @@ from typing import Any
 
 from torch import nn
 
-from dry_torch import exceptions
-from dry_torch import experiments
-from dry_torch import protocols as p
+from drytorch import exceptions
+from drytorch import experiments
+from drytorch import protocols as p
 
 ALL_MODULES = dict[nn.Module, experiments.Experiment]()
 

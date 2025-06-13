@@ -8,27 +8,27 @@ import torch
 
 
 class DryTorchException(Exception):
-    """Exception from the dry_torch package."""
+    """Exception from the drytorch package."""
     msg: str = ''
 
     def __init__(self, *args: Any) -> None:
         super().__init__(self.msg.format(*args))
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        cls.__name__ = '[dry_torch] ' + cls.__name__
+        cls.__name__ = '[drytorch] ' + cls.__name__
         super().__init_subclass__(**kwargs)
         return
 
 
 class DryTorchWarning(UserWarning):
-    """Warning from the dry_torch package."""
+    """Warning from the drytorch package."""
     msg: str = ''
 
     def __init__(self, *args: Any) -> None:
         super().__init__(self.msg.format(*args))
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        cls.__name__ = '[dry_torch] ' + cls.__name__
+        cls.__name__ = '[drytorch] ' + cls.__name__
         super().__init_subclass__(**kwargs)
         return
 

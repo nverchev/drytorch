@@ -8,10 +8,10 @@ import warnings
 import numpy
 import torch
 
-from dry_torch import log_events
-from dry_torch import exceptions
-from dry_torch import experiments
-from dry_torch import protocols as p
+from drytorch import log_events
+from drytorch import exceptions
+from drytorch import experiments
+from drytorch import protocols as p
 
 SAFE_GLOBALS = [getattr(numpy.dtypes, name) for name in numpy.dtypes.__all__]
 SAFE_GLOBALS.extend([numpy.core.multiarray.scalar, numpy.dtype])  # type: ignore

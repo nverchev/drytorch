@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 
 from tqdm import auto  # type: ignore
 
-from dry_torch import log_events
-from dry_torch import tracking
+from drytorch import log_events
+from drytorch import tracking
 
 
 class EpochBar:

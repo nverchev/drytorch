@@ -5,12 +5,12 @@ import pytest
 from typing import Generator
 import warnings
 
-from dry_torch import exceptions
-from dry_torch.trackers.sqlalchemy import Experiment
-from dry_torch.trackers.sqlalchemy import Log
-from dry_torch.trackers.sqlalchemy import Run
-from dry_torch.trackers.sqlalchemy import Source
-from dry_torch.trackers.sqlalchemy import SQLConnection
+from drytorch import exceptions
+from drytorch.trackers.sqlalchemy import Experiment
+from drytorch.trackers.sqlalchemy import Log
+from drytorch.trackers.sqlalchemy import Run
+from drytorch.trackers.sqlalchemy import Source
+from drytorch.trackers.sqlalchemy import SQLConnection
 
 
 class TestSQLConnection:
@@ -33,13 +33,13 @@ class TestSQLConnection:
         mocker.patch('sqlalchemy.create_engine', self.create_engine_mock)
         mocker.patch('sqlalchemy.orm.sessionmaker', self.make_mock_session)
         mocker.patch('sqlalchemy.schema.MetaData.create_all')
-        mocker.patch('dry_torch.trackers.sqlalchemy.Experiment',
+        mocker.patch('drytorch.trackers.sqlalchemy.Experiment',
                      return_value=self.exp)
-        mocker.patch('dry_torch.trackers.sqlalchemy.Log',
+        mocker.patch('drytorch.trackers.sqlalchemy.Log',
                      return_value=self.log)
-        mocker.patch('dry_torch.trackers.sqlalchemy.Run',
+        mocker.patch('drytorch.trackers.sqlalchemy.Run',
                      return_value=self.run)
-        mocker.patch('dry_torch.trackers.sqlalchemy.Source',
+        mocker.patch('drytorch.trackers.sqlalchemy.Source',
                      return_value=self.source)
         return
 

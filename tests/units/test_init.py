@@ -4,25 +4,25 @@ import pytest
 import importlib
 import os
 
-import dry_torch
-from dry_torch.tracking import DEFAULT_TRACKERS
-from dry_torch import FailedOptionalImportWarning
+import drytorch
+from drytorch.tracking import DEFAULT_TRACKERS
+from drytorch import FailedOptionalImportWarning
 
 
 def test_standard_trackers():
     """Test setting standard trackers adds trackers."""
-    dry_torch.initialize_trackers()
+    drytorch.initialize_trackers()
     assert DEFAULT_TRACKERS
 
 
 def test_env_trackers():
     """Test setting standard trackers adds trackers."""
-    dry_torch.remove_all_default_trackers()
-    os.environ['DRY_TORCH_INIT_MODE'] = 'none'
-    importlib.reload(dry_torch)
+    drytorch.remove_all_default_trackers()
+    os.environ['drytorch_INIT_MODE'] = 'none'
+    importlib.reload(drytorch)
     assert not DEFAULT_TRACKERS
-    os.environ['DRY_TORCH_INIT_MODE'] = 'hydra'
-    importlib.reload(dry_torch)
+    os.environ['drytorch_INIT_MODE'] = 'hydra'
+    importlib.reload(drytorch)
     assert DEFAULT_TRACKERS
 
 
@@ -36,7 +36,7 @@ def test_failed_import_warning():
                          locals=None,
                          fromlist=(),
                          level=0):
-            if name == 'dry_torch.trackers' and fromlist:
+            if name == 'drytorch.trackers' and fromlist:
                 if 'tqdm' in fromlist:
                     raise ImportError()
                 if 'yaml' in fromlist:
@@ -47,8 +47,8 @@ def test_failed_import_warning():
         mp.setattr('builtins.__import__', _mock_import)
 
         with pytest.warns(FailedOptionalImportWarning) as warning_info:
-            os.environ['DRY_TORCH_INIT_MODE'] = 'standard'
-            importlib.reload(dry_torch)
+            os.environ['drytorch_INIT_MODE'] = 'standard'
+            importlib.reload(drytorch)
 
     warnings = [str(w.message) for w in warning_info]
     assert any('tqdm' in w for w in warnings)

@@ -5,12 +5,12 @@ from collections.abc import Callable
 import pytest
 import torch
 
-from dry_torch import exceptions
-from dry_torch import protocols as p
-from dry_torch.metrics import Metric, MetricCollection
-from dry_torch.metrics import Loss, CompositionalLoss
-from dry_torch.metrics import dict_apply, from_torchmetrics
-from dry_torch.metrics import repr_metrics
+from drytorch import exceptions
+from drytorch import protocols as p
+from drytorch.metrics import Metric, MetricCollection
+from drytorch.metrics import Loss, CompositionalLoss
+from drytorch.metrics import dict_apply, from_torchmetrics
+from drytorch.metrics import repr_metrics
 
 
 @pytest.fixture()

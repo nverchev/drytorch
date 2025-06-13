@@ -13,10 +13,10 @@ import functools
 from typing import Any, Self, cast
 import warnings
 
-from dry_torch import exceptions
-from dry_torch import log_events
-from dry_torch import protocols as p
-from dry_torch.utils import repr_utils
+from drytorch import exceptions
+from drytorch import log_events
+from drytorch import protocols as p
+from drytorch.utils import repr_utils
 
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
@@ -131,7 +131,7 @@ class Tracker(metaclass=abc.ABCMeta):
         Raises:
             TrackerNotRegisteredError: if the tracker is not registered.
         """
-        from dry_torch.experiments import Experiment
+        from drytorch.experiments import Experiment
         exp = Experiment.current()
         try:
             self = exp.trackers.named_trackers[cls.__name__]

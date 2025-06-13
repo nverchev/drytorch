@@ -4,8 +4,8 @@ import pytest
 import time
 import torch
 
-from dry_torch import checkpointing, log_events
-from dry_torch import exceptions
+from drytorch import checkpointing, log_events
+from drytorch import exceptions
 
 
 class TestPathManager:

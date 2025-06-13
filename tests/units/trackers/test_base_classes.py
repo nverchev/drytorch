@@ -8,13 +8,13 @@ from typing_extensions import override
 
 import numpy as np
 
-from dry_torch import exceptions
-from dry_torch import log_events
-from dry_torch.trackers.base_classes import BasePlotter
-from dry_torch.trackers.base_classes import Dumper
-from dry_torch.trackers.base_classes import MetricLoader
-from dry_torch.trackers.base_classes import MemoryMetrics
-from dry_torch.trackers.base_classes import SourcedMetrics
+from drytorch import exceptions
+from drytorch import log_events
+from drytorch.trackers.base_classes import BasePlotter
+from drytorch.trackers.base_classes import Dumper
+from drytorch.trackers.base_classes import MetricLoader
+from drytorch.trackers.base_classes import MemoryMetrics
+from drytorch.trackers.base_classes import SourcedMetrics
 
 
 @pytest.fixture(scope='module')
@@ -125,7 +125,7 @@ class TestMetricLoader:
                             example_model_name,
                             metric_loader) -> None:
         """Test correct exception."""
-        patch = mocker.patch('dry_torch.experiments.Experiment.current')
+        patch = mocker.patch('drytorch.experiments.Experiment.current')
         patch.side_effect = exceptions.NoActiveExperimentError()
         with pytest.raises(exceptions.AccessOutsideScopeError):
             _ = metric_loader.load_metrics(example_model_name, 0)

@@ -7,8 +7,8 @@ import sys
 import hydra
 from omegaconf import DictConfig
 
-from dry_torch import Experiment
-from dry_torch.trackers.hydra import HydraLink
+from drytorch import Experiment
+from drytorch.trackers.hydra import HydraLink
 
 
 class TestHydraLinkFullCycle:

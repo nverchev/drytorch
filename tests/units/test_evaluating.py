@@ -2,8 +2,8 @@
 
 import pytest
 
-from dry_torch import exceptions
-from dry_torch import Diagnostic
+from drytorch import exceptions
+from drytorch import Diagnostic
 
 
 class TestDiagnostic:
@@ -23,7 +23,7 @@ class TestDiagnostic:
         """Test outputs are correctly stored if store_outputs flag is active."""
         mock_output = mocker.Mock()
         mock_apply_ops = mocker.patch(
-            'dry_torch.utils.apply_ops.apply_cpu_detach',
+            'drytorch.utils.apply_ops.apply_cpu_detach',
             return_value=mock_output)
 
         self.diagnostic._store(mock_output)
@@ -40,7 +40,7 @@ class TestDiagnostic:
         """Test warning is raised if output cannot be stored."""
         mock_output = mocker.Mock()
         mock_apply_ops = mocker.patch(
-            'dry_torch.utils.apply_ops.apply_cpu_detach',
+            'drytorch.utils.apply_ops.apply_cpu_detach',
             side_effect=error)
 
         with pytest.warns(exceptions.CannotStoreOutputWarning):

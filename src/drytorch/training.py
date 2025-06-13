@@ -6,12 +6,12 @@ import warnings
 
 import torch
 
-from dry_torch import evaluating
-from dry_torch import exceptions
-from dry_torch import learning
-from dry_torch import log_events
-from dry_torch import hooks
-from dry_torch import protocols as p
+from drytorch import evaluating
+from drytorch import exceptions
+from drytorch import learning
+from drytorch import log_events
+from drytorch import hooks
+from drytorch import protocols as p
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)

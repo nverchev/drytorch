@@ -10,10 +10,10 @@ import sys
 import hydra
 from omegaconf import DictConfig
 
-import dry_torch
-from dry_torch.trackers.logging import BuiltinLogger
-from dry_torch.trackers.tqdm import TqdmLogger
-from dry_torch.trackers.hydra import HydraLink
+import drytorch
+from drytorch.trackers.logging import BuiltinLogger
+from drytorch.trackers.tqdm import TqdmLogger
+from drytorch.trackers.hydra import HydraLink
 
 expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 expected_log = expected_path_folder / 'hydra_log_file.txt'
@@ -48,7 +48,7 @@ class TestHydraFullCycle:
 
             @hydra.main(version_base=None)
             def _app(_: DictConfig):
-                dry_torch.initialize_trackers(mode='hydra')
+                drytorch.initialize_trackers(mode='hydra')
                 trackers = (BuiltinLogger(),
                             TqdmLogger(leave=False),
                             HydraLink())

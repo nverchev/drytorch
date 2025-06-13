@@ -4,7 +4,7 @@ import pytest
 
 import yaml  # type: ignore
 
-from dry_torch.trackers.yaml import YamlDumper
+from drytorch.trackers.yaml import YamlDumper
 
 
 class TestSQLConnectionFullCycle:

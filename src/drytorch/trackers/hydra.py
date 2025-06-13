@@ -8,9 +8,9 @@ from typing_extensions import override
 
 import hydra
 
-from dry_torch import exceptions
-from dry_torch import log_events
-from dry_torch.trackers import base_classes
+from drytorch import exceptions
+from drytorch import log_events
+from drytorch.trackers import base_classes
 
 
 class HydraLink(base_classes.Dumper):

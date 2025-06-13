@@ -6,7 +6,7 @@ from typing import Generator
 
 from wandb.sdk import wandb_settings
 
-from dry_torch.trackers.wandb import Wandb
+from drytorch.trackers.wandb import Wandb
 
 
 class TestWandbFullCycle:

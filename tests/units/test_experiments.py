@@ -2,7 +2,7 @@
 
 import pytest
 
-from dry_torch import Experiment, log_events, exceptions
+from drytorch import Experiment, log_events, exceptions
 from tests.units.conftest import experiment_current_original
 
 

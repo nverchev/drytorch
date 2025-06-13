@@ -1,2 +1,2 @@
-[2024-01-01 12:00:00][dry_torch][experiment] - Running experiment: test_exp.
-[2024-01-01 12:00:00][dry_torch][ metrics  ] -     test_source:     Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
+[2024-01-01 12:00:00][drytorch][experiment] - Running experiment: test_exp.
+[2024-01-01 12:00:00][drytorch][ metrics  ] -     test_source:     Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01

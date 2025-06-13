@@ -4,12 +4,12 @@ import pytest
 
 from typing import Any
 
-from dry_torch import exceptions
-from dry_torch import schedulers
-from dry_torch.hooks import EarlyStoppingCallback, HookRegistry
-from dry_torch.hooks import MetricMonitor, PruneCallback, ReduceLROnPlateau
-from dry_torch.hooks import RestartScheduleOnPlateau, StaticHook
-from dry_torch.hooks import call_every, saving_hook, static_hook_class
+from drytorch import exceptions
+from drytorch import schedulers
+from drytorch.hooks import EarlyStoppingCallback, HookRegistry
+from drytorch.hooks import MetricMonitor, PruneCallback, ReduceLROnPlateau
+from drytorch.hooks import RestartScheduleOnPlateau, StaticHook
+from drytorch.hooks import call_every, saving_hook, static_hook_class
 
 Accuracy = 'Accuracy'
 Criterion = 'Loss'

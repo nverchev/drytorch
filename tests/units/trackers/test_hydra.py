@@ -2,8 +2,8 @@
 
 import pytest
 
-from dry_torch import exceptions
-from dry_torch.trackers.hydra import HydraLink
+from drytorch import exceptions
+from drytorch.trackers.hydra import HydraLink
 
 
 class TestHydraLink:

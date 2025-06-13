@@ -7,10 +7,10 @@ import threading
 import sqlalchemy
 from sqlalchemy import exc as sqlalchemy_exc
 
-from dry_torch import log_events
-from dry_torch.trackers.sqlalchemy import Experiment
-from dry_torch.trackers.sqlalchemy import Source
-from dry_torch.trackers.sqlalchemy import SQLConnection
+from drytorch import log_events
+from drytorch.trackers.sqlalchemy import Experiment
+from drytorch.trackers.sqlalchemy import Source
+from drytorch.trackers.sqlalchemy import SQLConnection
 
 
 @pytest.fixture

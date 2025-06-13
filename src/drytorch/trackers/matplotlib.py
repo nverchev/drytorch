@@ -6,7 +6,7 @@ from typing_extensions import override
 
 import matplotlib.pyplot as plt
 
-from dry_torch.trackers import base_classes
+from drytorch.trackers import base_classes
 
 Plot: TypeAlias = tuple[plt.Figure, plt.Axes]
 

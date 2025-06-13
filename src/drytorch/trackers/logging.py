@@ -1,5 +1,5 @@
 """
-Module containing custom logging configurations for the 'dry_torch' logger.
+Module containing custom logging configurations for the 'drytorch' logger.
 
 It defines and implements a formatter that formats log messages according to
 the levels defined in the INFO_LEVELS variable. By default, it prints to
@@ -17,13 +17,13 @@ from typing import NamedTuple, Literal, TYPE_CHECKING
 from typing_extensions import override
 import sys
 
-from dry_torch import log_events
-from dry_torch import tracking
+from drytorch import log_events
+from drytorch import tracking
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
-logger = logging.getLogger('dry_torch')
+logger = logging.getLogger('drytorch')
 
 
 class InfoLevels(NamedTuple):
@@ -180,15 +180,15 @@ class BuiltinLogger(tracking.Tracker):
 
 
 class DryTorchFilter(logging.Filter):
-    """Filter that excludes logs from 'dry_torch'."""
+    """Filter that excludes logs from 'drytorch'."""
 
     @override
     def filter(self, record: logging.LogRecord) -> bool:
-        return 'dry_torch' not in record.name
+        return 'drytorch' not in record.name
 
 
 class DryTorchFormatter(logging.Formatter):
-    """Default formatter for the dry_torch logger."""
+    """Default formatter for the drytorch logger."""
     default_msec_format = ''
 
     @override
@@ -273,14 +273,14 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
     return
 
 
-def set_formatter(style: Literal['dry_torch', 'progress']) -> None:
-    """Set the formatter for the stream handler of the dry_torch logger."""
+def set_formatter(style: Literal['drytorch', 'progress']) -> None:
+    """Set the formatter for the stream handler of the drytorch logger."""
     global logger
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
             if style == 'progress':
                 handler.formatter = ProgressFormatter()
-            elif style == 'dry_torch':
+            elif style == 'drytorch':
                 handler.formatter = DryTorchFormatter()
             else:
                 raise ValueError('Invalid formatter style.')
@@ -289,12 +289,12 @@ def set_formatter(style: Literal['dry_torch', 'progress']) -> None:
 
 
 def get_verbosity() -> int:
-    """Get the verbosity level of the 'dry_torch' logger."""
+    """Get the verbosity level of the 'drytorch' logger."""
     return logger.level
 
 
 def set_verbosity(level_no: int):
-    """Set the verbosity level of the 'dry_torch' logger."""
+    """Set the verbosity level of the 'drytorch' logger."""
     global logger
     logger.setLevel(level_no)
     return

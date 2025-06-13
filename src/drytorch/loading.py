@@ -9,9 +9,9 @@ import numpy as np
 import torch
 from torch.utils import data
 
-from dry_torch import exceptions
-from dry_torch import protocols as p
-from dry_torch.utils import apply_ops
+from drytorch import exceptions
+from drytorch import protocols as p
+from drytorch.utils import apply_ops
 
 _Data_co = TypeVar('_Data_co',
                    bound=tuple[p.InputType, p.TargetType],

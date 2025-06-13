@@ -5,7 +5,7 @@ import dataclasses
 
 import numpy as np
 
-from dry_torch import protocols as p
+from drytorch import protocols as p
 
 
 class AbstractScheduler(p.SchedulerProtocol):

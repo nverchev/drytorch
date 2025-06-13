@@ -8,10 +8,10 @@ from typing import Any, Generic, Optional, Self, TypeGuard, TypeVar
 
 from typing_extensions import override
 
-from dry_torch import exceptions
-from dry_torch import log_events
-from dry_torch import tracking
-from dry_torch.utils import repr_utils
+from drytorch import exceptions
+from drytorch import log_events
+from drytorch import tracking
+from drytorch.utils import repr_utils
 
 _T = TypeVar('_T', covariant=True)
 _U = TypeVar('_U', covariant=True)

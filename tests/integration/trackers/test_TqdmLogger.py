@@ -4,11 +4,11 @@ import pytest
 
 from typing import Generator
 
-from dry_torch import tracking
-from dry_torch import log_events
-from dry_torch.trackers.tqdm import TqdmLogger
-from dry_torch.trackers.tqdm import EpochBar
-from dry_torch.trackers.tqdm import TrainingBar
+from drytorch import tracking
+from drytorch import log_events
+from drytorch.trackers.tqdm import TqdmLogger
+from drytorch.trackers.tqdm import EpochBar
+from drytorch.trackers.tqdm import TrainingBar
 
 expected_out = ('Epoch::   0%|\x1b[34m          \x1b[0m| 0/3\r'
                 'Epoch: 5 / 8:  33%|\x1b[34m###3      \x1b[0m| 1/3\n'

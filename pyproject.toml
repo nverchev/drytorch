@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "dry-torch"
+name = "drytorch"
 version = "0.0.1"
 authors = [{ name = "Nicolas Vercheval", email = "nicolas.vercheval@ugent.be" }]
 description = "This package helps train, document and evaluate a Pytorch model."
@@ -29,7 +29,7 @@ default_trackers = [
 ]
 
 all_trackers = [
-    "dry-torch[default_trackers]",
+    "drytorch[default_trackers]",
     "visdom",
     "sqlalchemy",
     "wandb",
@@ -53,19 +53,19 @@ all = [
 
 
 #[tool.coverage.run]
-#source = ["dry_torch"]
+#source = ["drytorch"]
 
 [tool.setuptools.package-data]
-"dry_torch" = ["py.typed"]
+"drytorch" = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include-package-data = true
 
 [project.urls]
-Repository = "https://github.com/nverchev/dry_torch"
-Issues = "https://github.com/nverchev/dry_torch/issues"
-Changelog = "https://github.com/nverchev/dry_torch/blob/master/CHANGELOG.md"
+Repository = "https://github.com/nverchev/drytorch"
+Issues = "https://github.com/nverchev/drytorch/issues"
+Changelog = "https://github.com/nverchev/drytorch/blob/master/CHANGELOG.md"
 
 
 [tool.pytest.ini_options]

@@ -8,10 +8,10 @@ import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
 from typing_extensions import override
 
-from dry_torch import exceptions
-from dry_torch import metrics
-from dry_torch import protocols as p
-from dry_torch import schedulers
+from drytorch import exceptions
+from drytorch import metrics
+from drytorch import protocols as p
+from drytorch import schedulers
 
 _T = TypeVar('_T', contravariant=True)
 _P = ParamSpec('_P')
