@@ -6,11 +6,11 @@ from typing import Generator
 
 import sqlalchemy
 
-from dry_torch.trackers.sqlalchemy import Experiment
-from dry_torch.trackers.sqlalchemy import Log
-from dry_torch.trackers.sqlalchemy import Run
-from dry_torch.trackers.sqlalchemy import Source
-from dry_torch.trackers.sqlalchemy import SQLConnection
+from drytorch.trackers.sqlalchemy import Experiment
+from drytorch.trackers.sqlalchemy import Log
+from drytorch.trackers.sqlalchemy import Run
+from drytorch.trackers.sqlalchemy import Source
+from drytorch.trackers.sqlalchemy import SQLConnection
 
 
 class TestSQLConnectionFullCycle:

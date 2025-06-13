@@ -9,9 +9,9 @@ import wandb
 from wandb.sdk import wandb_run
 from wandb.sdk import wandb_settings
 
-from dry_torch import exceptions
-from dry_torch import log_events
-from dry_torch.trackers.base_classes import Dumper
+from drytorch import exceptions
+from drytorch import log_events
+from drytorch.trackers.base_classes import Dumper
 
 
 class Wandb(Dumper):

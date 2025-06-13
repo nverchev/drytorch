@@ -5,10 +5,10 @@ from hypothesis.strategies import text, characters
 
 import yaml  # type: ignore
 
-from dry_torch.utils import repr_utils
-from dry_torch.trackers.yaml import MAX_LENGTH_SHORT_REPR
-from dry_torch.trackers.yaml import MAX_LENGTH_PLAIN_REPR
-from dry_torch.trackers.yaml import has_short_repr
+from drytorch.utils import repr_utils
+from drytorch.trackers.yaml import MAX_LENGTH_SHORT_REPR
+from drytorch.trackers.yaml import MAX_LENGTH_PLAIN_REPR
+from drytorch.trackers.yaml import has_short_repr
 
 
 def test_short_repr():

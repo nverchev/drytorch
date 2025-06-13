@@ -4,8 +4,8 @@ import pytest
 
 import torch
 
-from dry_torch import Trainer
-from dry_torch import exceptions
+from drytorch import Trainer
+from drytorch import exceptions
 
 
 class TestTrainer:
@@ -25,23 +25,23 @@ class TestTrainer:
             name='TestTrainer'
         )
         self.start_training_event = mocker.patch(
-            'dry_torch.log_events.StartTraining')
+            'drytorch.log_events.StartTraining')
         self.end_training_event = mocker.patch(
-            'dry_torch.log_events.EndTraining')
+            'drytorch.log_events.EndTraining')
         self.start_epoch_event = mocker.patch(
-            'dry_torch.log_events.StartEpoch'
+            'drytorch.log_events.StartEpoch'
         )
         self.end_epoch_event = mocker.patch(
-            'dry_torch.log_events.EndEpoch'
+            'drytorch.log_events.EndEpoch'
         )
         self.iterate_event = mocker.patch(
-            'dry_torch.log_events.IterateBatch'
+            'drytorch.log_events.IterateBatch'
         )
         self.metrics_event = mocker.patch(
-            'dry_torch.log_events.Metrics'
+            'drytorch.log_events.Metrics'
         )
         self.terminated_event = mocker.patch(
-            'dry_torch.log_events.TerminatedTraining'
+            'drytorch.log_events.TerminatedTraining'
         )
 
     def test_call_events(self) -> None:

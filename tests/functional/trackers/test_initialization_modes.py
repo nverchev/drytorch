@@ -9,16 +9,16 @@ import pathlib
 import re
 from typing import Generator
 
-from dry_torch import tracking
-from dry_torch import log_events
-from dry_torch.trackers.tqdm import TqdmLogger
-from dry_torch.trackers.tqdm import EpochBar
-from dry_torch.trackers.tqdm import TrainingBar
-from dry_torch.trackers.logging import BuiltinLogger
-from dry_torch.trackers.logging import enable_default_handler
-from dry_torch.trackers.logging import INFO_LEVELS
-from dry_torch.trackers.logging import set_formatter
-from dry_torch.trackers.logging import set_verbosity
+from drytorch import tracking
+from drytorch import log_events
+from drytorch.trackers.tqdm import TqdmLogger
+from drytorch.trackers.tqdm import EpochBar
+from drytorch.trackers.tqdm import TrainingBar
+from drytorch.trackers.logging import BuiltinLogger
+from drytorch.trackers.logging import enable_default_handler
+from drytorch.trackers.logging import INFO_LEVELS
+from drytorch.trackers.logging import set_formatter
+from drytorch.trackers.logging import set_verbosity
 
 expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 
@@ -26,7 +26,7 @@ expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 @pytest.fixture()
 def logger() -> logging.Logger:
     """Fixture for the library logger."""
-    return logging.getLogger('dry_torch')
+    return logging.getLogger('drytorch')
 
 
 @pytest.fixture(autouse=True, )

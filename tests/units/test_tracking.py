@@ -7,10 +7,10 @@ import pytest
 
 import functools
 
-from dry_torch import exceptions, remove_all_default_trackers
-from dry_torch import log_events
-from dry_torch.tracking import EventDispatcher, MetadataManager
-from dry_torch.tracking import Tracker
+from drytorch import exceptions, remove_all_default_trackers
+from drytorch import log_events
+from drytorch.tracking import EventDispatcher, MetadataManager
+from drytorch.tracking import Tracker
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -71,7 +71,7 @@ class TestMetadataManager:
         """Test recording metadata creates the event."""
         mock_obj = mocker.Mock()
         mock_obj.name = 'mock obj'
-        mock_log_event = mocker.patch('dry_torch.log_events.CallModel')
+        mock_log_event = mocker.patch('drytorch.log_events.CallModel')
         self.manager.record_model_call(mock_obj, mock_model)
         assert mock_obj.name in self.manager.used_names
         mock_log_event.assert_called_once()
@@ -81,7 +81,7 @@ class TestMetadataManager:
     def test_register_model(self, mocker, mock_model) -> None:
         """Test registering a model creates the event."""
 
-        mock_log_event = mocker.patch('dry_torch.log_events.ModelCreation')
+        mock_log_event = mocker.patch('drytorch.log_events.ModelCreation')
         self.manager.register_model(mock_model)
         assert mock_model.name in self.manager.used_names
         mock_log_event.assert_called_once()
@@ -92,7 +92,7 @@ class TestMetadataManager:
         """Test metadata extraction with a recursive_repr wrapper."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('dry_torch.utils.repr_utils.recursive_repr',
+        mocker.patch('drytorch.utils.repr_utils.recursive_repr',
                      return_value={'key': 'value'})
 
         metadata = self.manager.extract_metadata(mock_obj, max_size=5)
@@ -102,7 +102,7 @@ class TestMetadataManager:
         """Test extract_metadata handles RecursionError gracefully."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('dry_torch.utils.repr_utils.recursive_repr',
+        mocker.patch('drytorch.utils.repr_utils.recursive_repr',
                      side_effect=RecursionError)
         with pytest.warns(exceptions.RecursionWarning):
             _ = self.manager.extract_metadata(mock_obj, max_size=5)

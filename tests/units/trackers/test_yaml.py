@@ -4,7 +4,7 @@ import pytest
 
 from typing import Generator
 
-from dry_torch.trackers.yaml import YamlDumper
+from drytorch.trackers.yaml import YamlDumper
 
 
 class TestYamlDumper:

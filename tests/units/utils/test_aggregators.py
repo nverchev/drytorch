@@ -4,9 +4,9 @@ import pytest
 
 import torch
 
-from dry_torch.utils.aggregators import Aggregator
-from dry_torch.utils.aggregators import Averager
-from dry_torch.utils.aggregators import TorchAverager
+from drytorch.utils.aggregators import Aggregator
+from drytorch.utils.aggregators import Averager
+from drytorch.utils.aggregators import TorchAverager
 
 
 class TestAggregator:

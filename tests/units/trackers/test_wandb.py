@@ -4,8 +4,8 @@ import pytest
 
 from typing import Generator
 
-from dry_torch import exceptions
-from dry_torch.trackers.wandb import Wandb
+from drytorch import exceptions
+from drytorch.trackers.wandb import Wandb
 
 
 class TestWandb:

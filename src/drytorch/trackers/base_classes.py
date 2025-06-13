@@ -9,10 +9,10 @@ import numpy as np
 import numpy.typing as npt
 from typing_extensions import override
 
-from dry_torch import log_events
-from dry_torch import exceptions
-from dry_torch import experiments
-from dry_torch import tracking
+from drytorch import log_events
+from drytorch import exceptions
+from drytorch import experiments
+from drytorch import tracking
 
 HistoryMetric: TypeAlias = tuple[list[int], list[float]]
 HistoryMetrics: TypeAlias = tuple[list[int], dict[str, list[float]]]

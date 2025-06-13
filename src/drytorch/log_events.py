@@ -8,7 +8,7 @@ import dataclasses
 import pathlib
 from typing import Any, Optional, Mapping
 
-from dry_torch import exceptions
+from drytorch import exceptions
 
 
 class Event(metaclass=abc.ABCMeta):

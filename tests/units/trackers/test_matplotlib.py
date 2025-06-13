@@ -4,7 +4,7 @@ import pytest
 
 import numpy as np
 
-from dry_torch.trackers.matplotlib import MatPlotter
+from drytorch.trackers.matplotlib import MatPlotter
 
 
 class TestMatPlotter:
@@ -13,7 +13,7 @@ class TestMatPlotter:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the test."""
-        self.plt_mock = mocker.patch('dry_torch.trackers.matplotlib.plt',
+        self.plt_mock = mocker.patch('drytorch.trackers.matplotlib.plt',
                                      autospec=True)
 
         # create a mock figure with all necessary attributes

@@ -4,8 +4,8 @@ import pytest
 
 import torch
 
-from dry_torch import exceptions
-from dry_torch.learning import LearningScheme, Model, ModelOptimizer
+from drytorch import exceptions
+from drytorch.learning import LearningScheme, Model, ModelOptimizer
 
 
 class ComplexModule(torch.nn.Module):

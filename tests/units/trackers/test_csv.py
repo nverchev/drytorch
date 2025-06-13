@@ -2,8 +2,8 @@
 
 import pytest
 
-from dry_torch.exceptions import TrackerException
-from dry_torch.trackers.csv import CSVDumper
+from drytorch.exceptions import TrackerException
+from drytorch.trackers.csv import CSVDumper
 
 
 class TestCsvDumper:

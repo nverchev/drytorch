@@ -5,19 +5,19 @@ import pytest
 import logging
 from typing import Generator
 
-from dry_torch import log_events
-from dry_torch.trackers.logging import INFO_LEVELS
-from dry_torch.trackers.logging import BuiltinLogger
-from dry_torch.trackers.logging import DryTorchFilter
-from dry_torch.trackers.logging import DryTorchFormatter
-from dry_torch.trackers.logging import ProgressFormatter
-from dry_torch.trackers.logging import enable_default_handler
-from dry_torch.trackers.logging import enable_propagation
-from dry_torch.trackers.logging import disable_default_handler
-from dry_torch.trackers.logging import disable_propagation
-from dry_torch.trackers.logging import get_verbosity
-from dry_torch.trackers.logging import set_formatter
-from dry_torch.trackers.logging import set_verbosity
+from drytorch import log_events
+from drytorch.trackers.logging import INFO_LEVELS
+from drytorch.trackers.logging import BuiltinLogger
+from drytorch.trackers.logging import DryTorchFilter
+from drytorch.trackers.logging import DryTorchFormatter
+from drytorch.trackers.logging import ProgressFormatter
+from drytorch.trackers.logging import enable_default_handler
+from drytorch.trackers.logging import enable_propagation
+from drytorch.trackers.logging import disable_default_handler
+from drytorch.trackers.logging import disable_propagation
+from drytorch.trackers.logging import get_verbosity
+from drytorch.trackers.logging import set_formatter
+from drytorch.trackers.logging import set_verbosity
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def stream_handler(string_stream) -> logging.StreamHandler:
 @pytest.fixture()
 def logger(stream_handler) -> logging.Logger:
     """Fixture for the library logger."""
-    logger = logging.getLogger('dry_torch')
+    logger = logging.getLogger('drytorch')
     logger.handlers.clear()
     logger.addHandler(stream_handler)
     return logger
@@ -230,7 +230,7 @@ class TestDryTorchFilter:
     def test_filter(self, dry_filter, example_record) -> None:
         """Set up the instance."""
         assert dry_filter.filter(example_record)
-        example_record.name = 'testing_dry_torch'
+        example_record.name = 'testing_drytorch'
         assert not dry_filter.filter(example_record)
 
 
@@ -327,7 +327,7 @@ def test_set_verbosity(logger) -> None:
 def test_set_formatter_style(stream_handler, logger) -> None:
     """Test setting formatter style."""
     logger.addHandler(stream_handler)
-    set_formatter(style='dry_torch')
+    set_formatter(style='drytorch')
     assert isinstance(stream_handler.formatter, DryTorchFormatter)
     set_formatter(style='progress')
     assert isinstance(stream_handler.formatter, ProgressFormatter)

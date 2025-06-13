@@ -4,7 +4,7 @@ from typing_extensions import override
 
 import plotly.graph_objs as go  # type: ignore
 
-from dry_torch.trackers import base_classes
+from drytorch.trackers import base_classes
 
 
 class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):

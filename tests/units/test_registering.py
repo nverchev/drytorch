@@ -2,9 +2,9 @@
 
 import pytest
 
-from dry_torch import exceptions
-from dry_torch.registering import register_model, record_model_call
-from dry_torch.registering import ALL_MODULES
+from drytorch import exceptions
+from drytorch.registering import register_model, record_model_call
+from drytorch.registering import ALL_MODULES
 
 
 class _SimpleCaller:

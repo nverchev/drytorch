@@ -4,7 +4,7 @@ import pytest
 
 import numpy as np
 
-from dry_torch.trackers.plotly import PlotlyPlotter
+from drytorch.trackers.plotly import PlotlyPlotter
 
 
 class TestPlotlyPlotter:
@@ -13,7 +13,7 @@ class TestPlotlyPlotter:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the test."""
-        self.go_mock = mocker.patch('dry_torch.trackers.plotly.go')
+        self.go_mock = mocker.patch('drytorch.trackers.plotly.go')
         mock_figure = mocker.Mock()
         mock_marker = mocker.Mock()
         self.go_mock.Figure.return_value = mock_figure

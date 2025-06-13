@@ -5,8 +5,8 @@ import pytest
 from typing import Generator
 import time
 
-from dry_torch import exceptions
-from dry_torch.trackers.tensorboard import TensorBoard
+from drytorch import exceptions
+from drytorch.trackers.tensorboard import TensorBoard
 
 
 class TestTensorBoard:

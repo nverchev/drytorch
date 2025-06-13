@@ -8,9 +8,9 @@ import warnings
 
 import torch.utils.tensorboard
 
-from dry_torch import exceptions
-from dry_torch import log_events
-from dry_torch.trackers import base_classes
+from drytorch import exceptions
+from drytorch import log_events
+from drytorch.trackers import base_classes
 
 
 class TensorBoard(base_classes.Dumper):

@@ -6,10 +6,10 @@ import logging
 import pathlib
 from typing import Generator
 
-from dry_torch import log_events
-from dry_torch.trackers.logging import BuiltinLogger
-from dry_torch.trackers.logging import INFO_LEVELS
-from dry_torch.trackers.logging import set_verbosity
+from drytorch import log_events
+from drytorch.trackers.logging import BuiltinLogger
+from drytorch.trackers.logging import INFO_LEVELS
+from drytorch.trackers.logging import set_verbosity
 
 expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 expected_path_dict = {
@@ -26,7 +26,7 @@ expected_path_dict = {
 @pytest.fixture
 def logger() -> logging.Logger:
     """Fixture for the library logger."""
-    return logging.getLogger('dry_torch')
+    return logging.getLogger('drytorch')
 
 
 @pytest.fixture

@@ -5,13 +5,13 @@ import pytest
 import numpy as np
 import torch
 
-from dry_torch.utils.repr_utils import DefaultName
-from dry_torch.utils.repr_utils import LiteralStr
-from dry_torch.utils.repr_utils import Omitted
-from dry_torch.utils.repr_utils import Versioned
-from dry_torch.utils.repr_utils import limit_size
-from dry_torch.utils.repr_utils import has_own_repr
-from dry_torch.utils.repr_utils import recursive_repr
+from drytorch.utils.repr_utils import DefaultName
+from drytorch.utils.repr_utils import LiteralStr
+from drytorch.utils.repr_utils import Omitted
+from drytorch.utils.repr_utils import Versioned
+from drytorch.utils.repr_utils import limit_size
+from drytorch.utils.repr_utils import has_own_repr
+from drytorch.utils.repr_utils import recursive_repr
 
 
 # Test class for DefaultName

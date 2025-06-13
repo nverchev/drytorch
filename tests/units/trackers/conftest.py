@@ -5,7 +5,7 @@ import datetime
 import io
 from typing import Generator
 
-from dry_torch import log_events
+from drytorch import log_events
 
 
 @pytest.fixture

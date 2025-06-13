@@ -2,9 +2,9 @@
 
 import pytest
 
-from dry_torch.trackers.tqdm import EpochBar
-from dry_torch.trackers.tqdm import TrainingBar
-from dry_torch.trackers.tqdm import TqdmLogger
+from drytorch.trackers.tqdm import EpochBar
+from drytorch.trackers.tqdm import TrainingBar
+from drytorch.trackers.tqdm import TqdmLogger
 
 
 class TestEpochBar:
