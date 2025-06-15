@@ -5,7 +5,8 @@ import pathlib
 
 import torch
 
-from drytorch import protocols as p, Experiment
+from drytorch import protocols as p
+from drytorch import Experiment
 
 experiment_current_original = Experiment.current
 

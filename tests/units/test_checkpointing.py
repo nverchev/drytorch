@@ -1,11 +1,13 @@
 """Tests for the "checkpoint" module."""
 
 import pytest
+
 import time
 import torch
 
-from drytorch import checkpointing, log_events
+from drytorch import checkpointing
 from drytorch import exceptions
+from drytorch import log_events
 
 
 class TestPathManager:
