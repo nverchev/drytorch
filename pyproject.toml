@@ -22,20 +22,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-default_trackers = [
+recommended_trackers = [
     "PyYAML >= 6.0",
     "tqdm",
-    "plotly",
 ]
 
 all_trackers = [
-    "drytorch[default_trackers]",
-    "visdom",
+    "drytorch[recommended_trackers]",
+    "hydra-core",
+    "matplotlib",
+    "plotly",
     "sqlalchemy",
+    "tensorboard",
+    "visdom",
     "wandb",
-    "seaborn",
-    "torchvision",
-    "huggingface-datasets",
 ]
 
 support = [
@@ -46,9 +46,9 @@ support = [
 dev = ["pytest", "pytest-mock"]
 
 all = [
-    "dry-torch[all_trackers]",
-    "dry-torch[support]",
-    "dry-torch[dev]",
+    "drytorch[all_trackers]",
+    "drytorch[support]",
+    "drytorch[dev]",
 ]
 
 
