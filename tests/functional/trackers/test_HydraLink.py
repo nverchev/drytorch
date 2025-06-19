@@ -1,11 +1,14 @@
 """Functional tests for HydraLink."""
 
 import pytest
+try:
+    import hydra
+    from omegaconf import DictConfig
+except ImportError:
+    pytest.skip('hydra not available', allow_module_level=True)
+    raise
 
 import sys
-
-import hydra
-from omegaconf import DictConfig
 
 from drytorch import Experiment
 from drytorch.trackers.hydra import HydraLink

@@ -1,10 +1,14 @@
 """Tests for SQLConnection focusing on error conditions and edge cases."""
 
 import pytest
+try:
+    import sqlalchemy
+except ImportError:
+    pytest.skip('sqlalchemy not available', allow_module_level=True)
+    raise
 
 import threading
 
-import sqlalchemy
 from sqlalchemy import exc as sqlalchemy_exc
 
 from drytorch import log_events

@@ -1,6 +1,10 @@
 """Functional tests for Wandb tracker."""
 
 import pytest
+try:
+    import wandb
+except ImportError:
+    pytest.skip('wandb not available', allow_module_level=True)
 
 from typing import Generator
 

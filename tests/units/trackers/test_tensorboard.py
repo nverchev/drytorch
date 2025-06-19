@@ -1,6 +1,10 @@
 """Tests for the "tensorboard" module."""
 
 import pytest
+try:
+    import tensorboard
+except ImportError:
+    pytest.skip('tensorboard not available', allow_module_level=True)
 
 from typing import Generator
 import time

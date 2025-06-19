@@ -1,6 +1,11 @@
 """Tests for the "visdom" module."""
 
 import pytest
+try:
+    import visdom
+except ImportError:
+    pytest.skip('visdom not available', allow_module_level=True)
+
 from typing import Generator
 
 import numpy as np

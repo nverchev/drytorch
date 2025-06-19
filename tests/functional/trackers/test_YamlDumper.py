@@ -1,8 +1,11 @@
 """Functional tests for YamlDumper."""
 
 import pytest
-
-import yaml  # type: ignore
+try:
+    import yaml  # type ignore
+except ImportError:
+    pytest.skip('yaml not available', allow_module_level=True)
+    raise
 
 from drytorch.trackers.yaml import YamlDumper
 

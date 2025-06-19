@@ -1,9 +1,17 @@
 """Tests that yaml dumps according custom settings."""
 
+import pytest
+try:
+    import hypothesis  # type ignore
+except ImportError:
+    pytest.skip('hypothesis not available', allow_module_level=True)
 from hypothesis import given, assume
 from hypothesis.strategies import text, characters
-
-import yaml  # type: ignore
+try:
+    import yaml  # type ignore
+except ImportError:
+    pytest.skip('yaml not available', allow_module_level=True)
+    raise
 
 from drytorch.utils import repr_utils
 from drytorch.trackers.yaml import MAX_LENGTH_SHORT_REPR

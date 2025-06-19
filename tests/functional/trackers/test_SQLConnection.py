@@ -1,10 +1,13 @@
 """Functional tests for SQLConnection."""
 
 import pytest
+try:
+    import sqlalchemy
+except ImportError:
+    pytest.skip('sqlalchemy not available', allow_module_level=True)
+    raise
 
 from typing import Generator
-
-import sqlalchemy
 
 from drytorch.trackers.sqlalchemy import Experiment
 from drytorch.trackers.sqlalchemy import Log

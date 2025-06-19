@@ -1,14 +1,17 @@
 """Tests HydraLink integrates into hydra mode tracker's initialization."""
 
 import pytest
+try:
+    import hydra
+    from omegaconf import DictConfig
+except ImportError:
+    pytest.skip('hydra not available', allow_module_level=True)
+    raise
 
 import datetime
 import logging
 import pathlib
 import sys
-
-import hydra
-from omegaconf import DictConfig
 
 import drytorch
 from drytorch.trackers.logging import BuiltinLogger
