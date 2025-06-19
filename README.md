@@ -1,4 +1,4 @@
-# drytorch
+![image info](drytorch_logo.png)
 Following the Don't Repeat Yourself principles, this library offers:
 - Functionalities for a wide range of machine-learning applications.
 - Modularity allows you to easily build project-specific classes and data type.
