@@ -226,6 +226,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
                 raise exceptions.LossNotScalarError(loss_value.shape)
             raise re
         self._scaler.scale(loss_value).backward()
+        self.learning_scheme.clip_gradients_(self.model.module.parameters())
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()

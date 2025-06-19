@@ -183,6 +183,17 @@ class LearningProtocol(Protocol):
     optimizer_defaults: dict[str, Any]
 
 
+    def clip_gradients_(self, parameters: Iterator[torch.nn.Parameter]):
+        """
+        Clip the gradients of an iterable of parameters depending on settings.
+
+        Args:
+            parameters: the parameters containing the gradients.
+
+        Side Effect:
+            the parameters' gradients are clipped in place.
+        """
+
 @runtime_checkable
 class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     """

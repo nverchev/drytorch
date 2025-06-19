@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from typing import Any, Optional, TypedDict, TypeVar, cast
+from typing import Any, Literal, Optional, TypedDict, TypeVar, cast
 
 import torch
 from torch import cuda
@@ -40,11 +40,25 @@ class LearningScheme(p.LearningProtocol):
         base_lr: initial learning rates for named parameters or global value.
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
+        max_grad_norm: clips
     """
     optimizer_cls: type[torch.optim.Optimizer]
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
+    gradient_clipping: Literal['none', 'norm', 'value'] = 'none'
+    gradient_threshold: float = 1.
+
+    def __post_init__(self):
+        if self.gradient_threshold <= 0:
+            raise ValueError('Gradient treshold must be positive.')
+
+    def clip_gradients_(self, parameters: Iterator[torch.nn.Parameter]):
+        if self.gradient_clipping == 'norm':
+            return torch.nn.utils.clip_grad_value_(parameters)
+        elif self.gradient_clipping == 'value':
+            return torch.nn.utils.clip_grad_norm_(parameters)
+        return
 
     @classmethod
     def Adam(cls,
