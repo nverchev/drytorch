@@ -82,15 +82,16 @@ class AbstractHook(metaclass=abc.ABCMeta):
         """
 
     def bind(self,
-             f: Callable[[Callable[[p.TrainerProtocol], None]], Hook],
-             ) -> Hook:
+             f: Callable[[AbstractHook], AbstractHook],
+             /,
+             ) -> AbstractHook:
         """
-        Allow composition of callables.
+        Allow transformation of the Hook.
 
         Args:
-            f: a function specifying a change.
-        Return:
-            a wrapper around the class implementing the change.
+            a function specifying the transformation.
+        Returns:
+            the transformed Hook.
         """
         return f(self)
 
@@ -284,7 +285,7 @@ class MetricMonitor:
             self.metric_name = metric.__class__.__name__
 
         higher_is_better = getattr(metric, 'higher_is_better', None)
-        if higher_is_better is True:
+        if higher_is_better:
             self.best_is = 'higher'
         elif higher_is_better is False:
             self.best_is = 'lower'
@@ -695,7 +696,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
         Returns:
             Modified scheduler.
         """
-        return schedulers.FactorScheduler(self.factor, scheduler)
+        return schedulers.RescaleScheduler(self.factor, scheduler)
 
 
 class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
