@@ -1,4 +1,4 @@
-"""Averages for a sequence that can be used to monitor metrics."""
+"""Module containing averages of a sequence favoring recent values."""
 
 import math
 from typing import Callable, Sequence
