@@ -50,6 +50,33 @@ class ConstantScheduler(AbstractScheduler):
 
 
 @dataclasses.dataclass
+class LinearScheduler(AbstractScheduler):
+    """
+    Schedule linear decay: f(x) = C0 + C1*x.
+
+    C0 and C1 are defined so that:
+        f(x) = base_value when epoch = 0 and,
+        f(x) = min value when epoch is C2 = number of decay steps.
+    After the number of decay steps, returns min value.
+
+    Attributes:
+        decay_steps: number of steps (epochs) to reach maximum decay.
+        min_decay: fraction of base_value for the minimum value.
+    """
+    decay_steps: int = 250
+    min_decay: float = 0.01
+
+    def _compute(self, start_value: float, epoch: int) -> float:
+        min_lr = self.min_decay * start_value
+        if epoch < self.decay_steps:
+            # Linear decay from start_value to min_lr
+            decay_rate = 1 - (epoch / self.decay_steps)
+            return min_lr + (start_value - min_lr) * decay_rate
+        else:
+            return min_lr
+
+
+@dataclasses.dataclass
 class ExponentialScheduler(AbstractScheduler):
     """
     Schedule exponential decay: f(x) = Cd^x.
@@ -73,12 +100,14 @@ class CosineScheduler(AbstractScheduler):
     """
     Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
-    C0 = C0(base_value) and C1 = C1(base_value) are defined so that:
-        f(x) = base_value when epoch = 0.
+    C0 and C1 are defined so that:
+        f(x) = base_value when epoch = 0 and,
+        f(x) = min value when epoch is C2 = number of decay steps.
+    After the number of decay steps, returns min value.
 
     Attributes:
-        decay_steps: C2 = epoch to reach maximum decay.
-        min_decay: proportion of base_value for the minimum CO.
+        decay_steps: number of steps (epochs) to reach maximum decay.
+        min_decay: fraction of base_value for the minimum value.
         restart: whether to restart the annealing every decay_steps epochs.
         restart_factor: factor of base learning rate value at restart.
     """
@@ -108,7 +137,7 @@ class WarmupScheduler(AbstractScheduler):
     After warmup, delegates to the wrapped scheduler with adjusted epochs.
 
     Attributes:
-        warmup_steps: number of epochs for the linear warmup phase.
+        warmup_steps: number of steps (epochs) for the linear warmup phase.
         scheduler: the base scheduler to wrap with warmup.
     """
 
