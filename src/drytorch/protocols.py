@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Iterator, Mapping, MutableSequence
+from collections.abc import Iterator, Iterable, Mapping, MutableSequence
 from typing import Any, Optional, Protocol, SupportsIndex, TypeAlias, TypeVar
 from typing import runtime_checkable, Union
 
 import torch
+from jedi.inference.gradual.typing import Callable
 from torch.utils import data
 
 _T = TypeVar('_T')
@@ -181,18 +182,8 @@ class LearningProtocol(Protocol):
     base_lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
+    clip_strategy: Callable[[Iterable[torch.nn.Parameter]], None]
 
-
-    def clip_gradients_(self, parameters: Iterator[torch.nn.Parameter]):
-        """
-        Clip the gradients of an iterable of parameters depending on settings.
-
-        Args:
-            parameters: the parameters containing the gradients.
-
-        Side Effect:
-            the parameters' gradients are clipped in place.
-        """
 
 @runtime_checkable
 class ModelProtocol(Protocol[_Input_contra, _Output_co]):

@@ -56,6 +56,7 @@ def mock_learning_scheme(mocker,
     mock.scheduler = mock_scheduler
     mock.optimizer_cls = torch.optim.SGD
     mock.optimizer_defaults = {}
+    mock.clipping_strategy = lambda x: None
     return mock
 
 
