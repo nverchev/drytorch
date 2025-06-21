@@ -1,6 +1,10 @@
 """Tests for the "matplotlib" module."""
 
 import pytest
+try:
+    import matplotlib
+except ImportError:
+    pytest.skip('matplotlib not available', allow_module_level=True)
 
 import numpy as np
 

@@ -1,6 +1,10 @@
 """Tests for the "plotly" module."""
 
 import pytest
+try:
+    import plotly
+except ImportError:
+    pytest.skip('plotly not available', allow_module_level=True)
 
 import numpy as np
 
@@ -50,4 +54,3 @@ class TestPlotlyPlotter:
         tracker._plot_metric(model_name, example_model_name, **sourced_array)
         self.go_mock.scatter.Marker.assert_not_called()
         self.go_mock.Figure.assert_called_once()
-

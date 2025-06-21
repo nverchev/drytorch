@@ -1,6 +1,10 @@
 """Tests for the "tqdm" module."""
 
 import pytest
+try:
+    import tqdm
+except ImportError:
+    pytest.skip('tqdm not available', allow_module_level=True)
 
 from drytorch.trackers.tqdm import EpochBar
 from drytorch.trackers.tqdm import TrainingBar

@@ -1,6 +1,10 @@
 """Tests TqdmLogger integration with the event system."""
 
 import pytest
+try:
+    import tqdm
+except ImportError:
+    pytest.skip('tqdm not available', allow_module_level=True)
 
 from typing import Generator
 

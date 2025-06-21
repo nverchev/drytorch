@@ -1,7 +1,11 @@
 """Module containing schedulers for the learning rates."""
 
+from __future__ import annotations
+
 from abc import abstractmethod
 import dataclasses
+from collections.abc import Iterable
+from typing import Callable
 
 import numpy as np
 
@@ -27,6 +31,20 @@ class AbstractScheduler(p.SchedulerProtocol):
             raise ValueError('Base learning rate and epoch must be positive.')
         return self._compute(base_lr, epoch)
 
+    def bind(self,
+             f: Callable[[AbstractScheduler], AbstractScheduler],
+             /,
+             ) -> AbstractScheduler:
+        """
+        Allow transformation of the scheduler.
+
+        Args:
+            a function specifying the transformation.
+        Returns:
+            the transformed scheduler.
+        """
+        return f(self)
+
     @abstractmethod
     def _compute(self, start_value: float, epoch: int) -> float:
         """
@@ -35,7 +53,7 @@ class AbstractScheduler(p.SchedulerProtocol):
         Args:
             start_value: value when epoch is 0.
             epoch: variable of the function.
-        Return:
+        Returns:
             the value for learning rate to use.
         """
 
@@ -47,6 +65,39 @@ class ConstantScheduler(AbstractScheduler):
 
     def _compute(self, start_value: float, epoch: int) -> float:
         return start_value
+
+
+@dataclasses.dataclass
+class PolynomialScheduler(AbstractScheduler):
+    """
+    Polynomial learning rate scheduler.
+
+    lr = initial_lr * (1 - epoch / max_epochs)^power
+
+    Attributes:
+        max_epochs: maximum number of epochs.
+        power: polynomial power.
+        min_decay: minimum fraction of initial learning rate.
+    """
+    max_epochs: int = 1000
+    power: float = 1.0
+    min_decay: float = 0.0
+
+    def __post_init__(self):
+        if self.max_epochs <= 0:
+            raise ValueError('max_epochs must be positive.')
+        if self.power < 0:
+            raise ValueError('power must be non-negative.')
+        if not 0 <= self.min_decay <= 1:
+            raise ValueError('min_decay must be between 0 and 1.')
+
+    def _compute(self, start_value: float, epoch: int) -> float:
+        if epoch >= self.max_epochs:
+            return self.min_decay * start_value
+
+        decay_factor = (1 - epoch / self.max_epochs) ** self.power
+        min_lr = self.min_decay * start_value
+        return max(start_value * decay_factor, min_lr)
 
 
 @dataclasses.dataclass
@@ -63,6 +114,13 @@ class ExponentialScheduler(AbstractScheduler):
     exp_decay: float = .975
     min_decay: float = 0.00
 
+    def __post_init__(self):
+        if not 0 < self.exp_decay <= 1:
+            raise ValueError(
+                'exp_decay must be between 0 and 1 (exclusive of 0).')
+        if not 0 <= self.min_decay <= 1:
+            raise ValueError('min_decay must be between 0 and 1.')
+
     def _compute(self, start_value: float, epoch: int) -> float:
         min_value = self.min_decay * start_value
         return max(start_value * self.exp_decay ** epoch, min_value)
@@ -73,30 +131,80 @@ class CosineScheduler(AbstractScheduler):
     """
     Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
-    C0 = C0(base_value) and C1 = C1(base_value) are defined so that:
-        f(x) = base_value when epoch = 0.
+    C0 and C1 are defined so that:
+        f(x) = base_value when epoch = 0 and,
+        f(x) = min value when epoch is C2 = number of decay steps.
+    After the number of decay steps, returns min value.
 
     Attributes:
-        decay_steps: C2 = epoch to reach maximum decay.
-        min_decay: proportion of base_value for the minimum CO.
-        restart: whether to restart the annealing every decay_steps epochs.
-        restart_factor: factor of base learning rate value at restart.
+        decay_steps: number of steps (epochs) to reach maximum decay.
+        min_decay: fraction of base_value for the minimum value.
     """
-
     decay_steps: int = 250
     min_decay: float = 0.01
-    restart: bool = False
-    restart_factor: float = 1.
+
+    def __post_init__(self):
+        if self.decay_steps <= 0:
+            raise ValueError('decay_steps must be positive.')
+        if not 0 <= self.min_decay <= 1:
+            raise ValueError('min_decay must be between 0 and 1.')
 
     def _compute(self, start_value: float, epoch: int) -> float:
         min_lr = self.min_decay * start_value
         if epoch > self.decay_steps:
-            if self.restart:
-                epoch = epoch % self.decay_steps or self.decay_steps
-            else:
-                return min_lr
+            return min_lr
         from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
         return min_lr + (start_value - min_lr) * (1 + from_1_to_minus1) / 2
+
+
+@dataclasses.dataclass
+class RescaleScheduler(AbstractScheduler):
+    """
+    Scale the output of an existing scheduler.
+
+    Attributes:
+        factor: factor that rescale the value.
+        scheduler: the scheduler to call.
+    """
+    factor: float
+    scheduler: p.SchedulerProtocol
+
+    def __post_init__(self):
+        if self.factor <= 0:
+            raise ValueError('factor must be positive.')
+
+    def _compute(self, start_value: float, epoch: int) -> float:
+        return self.factor * self.scheduler(start_value, epoch)
+
+
+@dataclasses.dataclass
+class RestartScheduler(AbstractScheduler):
+    """
+    Wraps another scheduler to provide periodic restarts.
+
+    Attributes:
+        base_scheduler: the scheduler to restart.
+        restart_interval: the number of epochs between restarts.
+        restart_fraction: fraction of the base value to use as base value
+            when restarting.
+    """
+    base_scheduler: p.SchedulerProtocol
+    restart_interval: int
+    restart_fraction: float = 1.0
+
+    def __post_init__(self):
+        if self.restart_interval <= 0:
+            raise ValueError('restart_interval must be positive.')
+        if self.restart_fraction <= 0:
+            raise ValueError('restart_fraction must be positive.')
+
+    def _compute(self, start_value: float, epoch: int) -> float:
+        restarted_epoch = epoch % self.restart_interval
+
+        if epoch >= self.restart_interval:
+            start_value *= self.restart_fraction
+
+        return self.base_scheduler(start_value, restarted_epoch)
 
 
 @dataclasses.dataclass
@@ -108,12 +216,15 @@ class WarmupScheduler(AbstractScheduler):
     After warmup, delegates to the wrapped scheduler with adjusted epochs.
 
     Attributes:
-        warmup_steps: number of epochs for the linear warmup phase.
+        warmup_steps: number of steps (epochs) for the linear warmup phase.
         scheduler: the base scheduler to wrap with warmup.
     """
-
     warmup_steps: int = 10
     scheduler: p.SchedulerProtocol = ConstantScheduler()
+
+    def __post_init__(self):
+        if self.warmup_steps < 0:
+            raise ValueError('warmup_steps must be non-negative.')
 
     def _compute(self, start_value: float, epoch: int) -> float:
         if epoch < self.warmup_steps:
@@ -127,17 +238,85 @@ class WarmupScheduler(AbstractScheduler):
 
 
 @dataclasses.dataclass
-class FactorScheduler(AbstractScheduler):
+class StepScheduler(AbstractScheduler):
     """
-    Modify start value to an existing scheduler.
+    Step-wise learning rate scheduler.
+
+    Reduces learning rate by a factor at specified milestones.
 
     Attributes:
-        factor: factor for the start value of the scheduler.
-        scheduler: the scheduler to call.
+        milestones: iterable of epochs at which to reduce learning rate.
+        gamma: factor by which to reduce learning rate.
     """
+    milestones: Iterable[int] = dataclasses.field(default_factory=lambda: [200])
+    gamma: float = 0.1
 
-    factor: float
-    scheduler: p.SchedulerProtocol
+    def __post_init__(self):
+        if not all(m > 0 for m in self.milestones):
+            raise ValueError('All milestones must be positive.')
+        if self.milestones != sorted(self.milestones):
+            raise ValueError('Milestones must be in ascending order.')
+        if not 0 < self.gamma <= 1:
+            raise ValueError('gamma must be between 0 and 1 (exclusive of 0).')
 
     def _compute(self, start_value: float, epoch: int) -> float:
-        return self.scheduler(self.factor * start_value, epoch)
+        count = sum(1 for milestone in self.milestones if epoch >= milestone)
+        return start_value * (self.gamma ** count)
+
+
+# Decorator functions for functional composition
+def rescale(factor: float) -> Callable[[AbstractScheduler], AbstractScheduler]:
+    """
+    Create a scaling transformation.
+
+    Args:
+        factor: factor that rescale the value.
+
+    Returns:
+        A decorator that wraps a scheduler with scaling.
+    """
+
+    def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
+        return RescaleScheduler(factor, scheduler)
+
+    return _decorator
+
+
+def restart(
+        restart_interval: int,
+        restart_fraction: float = 1.0,
+) -> Callable[[AbstractScheduler], AbstractScheduler]:
+    """
+    Create a restart transformation.
+
+    Args:
+        restart_interval: number of epochs between restarts.
+        restart_fraction: fraction to use when restarting.
+
+    Returns:
+        A decorator that wraps a scheduler with restarts.
+    """
+
+    def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
+        return RestartScheduler(scheduler, restart_interval, restart_fraction)
+
+    return _decorator
+
+
+def warmup(
+        warmup_steps: int = 10,
+) -> Callable[[AbstractScheduler], AbstractScheduler]:
+    """
+    Create a warmup transformation.
+
+    Args:
+        warmup_steps: number of warmup steps.
+
+    Returns:
+        A decorator that wraps a scheduler with warmup.
+    """
+
+    def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
+        return WarmupScheduler(warmup_steps, scheduler)
+
+    return _decorator

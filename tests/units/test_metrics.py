@@ -47,7 +47,7 @@ class TestFromTorchMetrics:
         """Set up a torchmetrics-based test fixture."""
 
         # Conditionally import torchmetrics
-        torchmetrics = pytest.importorskip("torchmetrics")
+        torchmetrics = pytest.importorskip('torchmetrics')
 
         self.metric_a = torchmetrics.Accuracy(task='binary')
         self.metric_b = torchmetrics.MeanSquaredError()

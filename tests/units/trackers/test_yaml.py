@@ -1,6 +1,10 @@
 """Tests for the "yaml" module."""
 
 import pytest
+try:
+    import yaml  # type ignore
+except ImportError:
+    pytest.skip('yaml not available', allow_module_level=True)
 
 from typing import Generator
 

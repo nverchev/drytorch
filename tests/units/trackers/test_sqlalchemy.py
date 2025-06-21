@@ -1,6 +1,10 @@
 """Tests for the "sqlalchemy" module."""
 
 import pytest
+try:
+    import sqlalchemy
+except ImportError:
+    pytest.skip('sqlalchemy not available', allow_module_level=True)
 
 from typing import Generator
 import warnings

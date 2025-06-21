@@ -14,6 +14,7 @@ from drytorch import exceptions
 from drytorch import protocols as p
 from drytorch import registering
 from drytorch import schedulers
+from drytorch.utils import gradient_clipping
 from drytorch.utils import repr_utils
 
 _Input_contra = TypeVar('_Input_contra',
@@ -40,11 +41,13 @@ class LearningScheme(p.LearningProtocol):
         base_lr: initial learning rates for named parameters or global value.
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
+        clip_strategy: strategy to clip gradients. See utils.gradient_clipping.
     """
     optimizer_cls: type[torch.optim.Optimizer]
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
+    clip_strategy: gradient_clipping.ClipStrategy = lambda x: None
 
     @classmethod
     def Adam(cls,
@@ -160,7 +163,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
     ) -> None:
         """
         Args:
-            torch_module: Pytorch module with type annotations.
+            Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of module.
                 Default uses cuda when available, cpu otherwise.
@@ -174,6 +177,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         registering.register_model(self)
         self.checkpoint = checkpoint
         self.checkpoint.register_model(self)
+        return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         return self.module(inputs)
@@ -253,6 +257,7 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
+        self.clip_strategy = learning_scheme.clip_strategy
         self.checkpoint = self.model.checkpoint
         self.checkpoint.register_optimizer(self.optimizer)
 
@@ -286,6 +291,18 @@ class ModelOptimizer:
                 raise exceptions.MissingParamError(module_names, list(lr))
 
         return
+
+    def clip_gradients_(self, parameters: Iterator[torch.nn.Parameter]) -> None:
+        """
+        Clip the gradients of an iterable of parameters depending on settings.
+
+        Args:
+            parameters: the parameters containing the gradients.
+
+        Side Effect:
+            the parameters' gradients are clipped in place.
+        """
+        return self.clip_strategy(parameters)
 
     def get_opt_params(self) -> list[_OptParams]:
         """

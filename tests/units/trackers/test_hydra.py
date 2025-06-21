@@ -1,8 +1,13 @@
 """Tests for the "hydra" module."""
 
 import pytest
+try:
+    import hydra
+except ImportError:
+    pytest.skip('hydra not available', allow_module_level=True)
 
 from drytorch import exceptions
+
 from drytorch.trackers.hydra import HydraLink
 
 
