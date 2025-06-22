@@ -6,13 +6,13 @@ Following the Don't Repeat Yourself principles, this library offers:
 - Design uses independent experiment scopes to actively encourage best practice.
 
 ### Functionalities:
-- adaptive data loading.
-- metrics with automatic formatting.
-- composable schedulers classes.
-- learning schemes with structured learning rates.
-- automatic metadata extraction.
-- training cycle with hooks.
-- simplified checkpointing.
+- Adaptive data loading.
+- Metrics with automatic formatting.
+- Composable schedulers classes.
+- Learning schemes with structured learning rates.
+- Automatic metadata extraction.
+- Training cycle with hooks.
+- Simplified checkpointing.
 
 ### Modularity:
 - Classes communicate through protocols expressing necessary conditions.
