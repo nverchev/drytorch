@@ -14,7 +14,7 @@ from drytorch import exceptions
 from drytorch import protocols as p
 from drytorch import registering
 from drytorch import schedulers
-from drytorch.utils import gradient_clipping
+# from drytorch.utils import gradient_clipping
 from drytorch.utils import repr_utils
 
 _Input_contra = TypeVar('_Input_contra',
@@ -47,7 +47,7 @@ class LearningScheme(p.LearningProtocol):
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
-    clip_strategy: gradient_clipping.ClipStrategy = lambda x: None
+    clip_strategy = lambda x: None
 
     @classmethod
     def Adam(cls,

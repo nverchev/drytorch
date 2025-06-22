@@ -2,13 +2,10 @@
 
 import pytest
 
-import torch
-
 from drytorch.evaluating import exceptions
 from drytorch.evaluating import Source
 from drytorch.evaluating import Evaluation
 from drytorch.evaluating import Diagnostic
-from drytorch.evaluating import Validation
 from drytorch.evaluating import Test
 
 
@@ -17,7 +14,7 @@ class TestSource:
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
-        """Set up the tests."""
+        """ Set up the tests. """
         self.mock_record_model_call = mocker.patch(
             'drytorch.registering.record_model_call'
         )
