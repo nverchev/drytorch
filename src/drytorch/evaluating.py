@@ -117,6 +117,7 @@ class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
 
     def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
         self.objective.update(outputs, targets)
+        return
 
     def _run_batch(self, batch: tuple[_Input, _Target], ) -> _Output:
         inputs, targets = batch
