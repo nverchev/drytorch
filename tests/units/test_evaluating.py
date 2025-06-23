@@ -82,7 +82,6 @@ class TestEvaluation:
             name='test_evaluation',
             loader=mock_loader,
             metric=mock_metric,
-            mixed_precision=True,
         )
 
     def test_initialization(self, mock_model, mock_loader, evaluation) -> None:
@@ -90,7 +89,6 @@ class TestEvaluation:
         assert evaluation.model == mock_model
         assert evaluation.name == 'test_evaluation'
         assert evaluation.loader == mock_loader
-        assert evaluation.mixed_precision is True
         assert evaluation.outputs_list == []
 
     def test_get_batches(self, mocker, evaluation) -> None:
@@ -128,33 +126,16 @@ class TestEvaluation:
         evaluation._run_backwards.assert_called_once_with(mock_outputs,
                                                           mock_targets)
 
-    def test_run_forward_with_mixed_precision(self, mocker, evaluation) -> None:
-        """Test forward pass with mixed precision enabled."""
-        mock_inputs = mocker.Mock()
-        mock_outputs = mocker.Mock()
-        evaluation.model.return_value = mock_outputs
-        evaluation.mixed_precision = True
-        result = evaluation._run_forward(mock_inputs)
-        assert result == mock_outputs
-        self.mock_autocast.assert_called_once_with(
-            device_type=evaluation.model.device.type,
-            enabled=True
-        )
-
-    def test_run_forward_without_mixed_precision(self,
+    def test_run_forward(self,
                                                  mocker,
                                                  evaluation) -> None:
-        """Test forward pass without mixed precision."""
+        """Test forward pass."""
         mock_inputs = mocker.Mock()
         mock_outputs = mocker.Mock()
         evaluation.model.return_value = mock_outputs
         evaluation.mixed_precision = False
         result = evaluation._run_forward(mock_inputs)
         assert result == mock_outputs
-        self.mock_autocast.assert_called_with(
-            device_type=evaluation.model.device.type,
-            enabled=False
-        )
         evaluation.model.assert_called_once()
 
     def test_log_metrics(self,
@@ -301,7 +282,6 @@ class TestDiagnostic:
             name='test_diagnostic',
             loader=mock_loader,
             metric=mock_metric,
-            mixed_precision=True,
         )
 
     def test_call_method(self, mocker, diagnostic) -> None:

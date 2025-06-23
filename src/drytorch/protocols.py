@@ -194,10 +194,13 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
         checkpoint: the object responsible for saving and loading the model.
+        mixed_precision: whether to use mixed precision computing.
+
     """
     module: torch.nn.Module
     epoch: int
     checkpoint: CheckpointProtocol
+    mixed_precision: bool
 
     @abc.abstractmethod
     def __call__(self, inputs: _Input_contra) -> _Output_co:

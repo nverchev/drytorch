@@ -153,6 +153,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
     Attributes:
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
+        mixed_precision: whether to use mixed precision computing.
     """
     _name = repr_utils.DefaultName()
 
@@ -163,6 +164,8 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
             name: str = '',
             device: Optional[torch.device] = None,
             checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint(),
+            mixed_precision: bool = False,
+
     ) -> None:
         """
         Args:
@@ -171,7 +174,8 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
             device: the device where to store the weights of module.
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
-
+            mixed_precision: whether to use mixed precision computing.
+                Defaults to False.
         """
         super().__init__()
         self.module = self._validate_module(torch_module)
@@ -181,10 +185,14 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         registering.register_model(self)
         self.checkpoint = checkpoint
         self.checkpoint.register_model(self)
+        self.mixed_precision = mixed_precision
+
         return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
-        return self.module(inputs)
+        with torch.autocast(device_type=self.device.type,
+                            enabled=self.mixed_precision):
+            return self.module(inputs)
 
     @property
     def device(self) -> torch.device:
@@ -252,6 +260,7 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
             name: str = '',
             device: Optional[torch.device] = None,
             checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint(),
+            mixed_precision: bool = False,
             avg_fn: Optional[
                 Callable[[_Tensor, _Tensor, _Tensor | int], _Tensor]
             ] = None,
@@ -267,21 +276,28 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
             device: the device where to store the weights of module.
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
+            mixed_precision: whether to use mixed precision computing.
+                Defaults to False.
             avg_fn: see docs at torch.optim.swa_utils.AveragedModel.
             multi_avg_fn: see docs at torch.optim.swa_utils.AveragedModel.
             use_buffers: see docs at torch.optim.swa_utils.AveragedModel.
         """
-        super().__init__(torch_module, name, device, checkpoint)
+        super().__init__(torch_module,
+                         name,
+                         device,
+                         checkpoint,
+                         mixed_precision)
         self.averaged_module = torch.optim.swa_utils.AveragedModel(self.module,
                                                                    self.device,
                                                                    avg_fn,
                                                                    multi_avg_fn,
                                                                    use_buffers)
+        return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         if torch.inference_mode:
-            return self.averaged_module(inputs)
-        return self.module(inputs)
+            return self.averaged_module(inputs)  # no mixed precision here
+        return super().__call__(inputs)
 
     @override
     def update_parameters(self) -> None:
@@ -323,6 +339,8 @@ class ModelOptimizer:
         self._clip_strategy = learning_scheme.clip_strategy
         self._checkpoint = self.model.checkpoint
         self._checkpoint.register_optimizer(self.optimizer)
+        self._scaler = torch.amp.GradScaler(model.device.type,
+                                            enabled=model.mixed_precision)
 
     def __repr__(self) -> str:
         desc = '{}(module={}, optimizer={})'
@@ -416,6 +434,19 @@ class ModelOptimizer:
             g['lr'] = up_g['lr']
 
         return
+
+    def optimize(self, loss_value: _Tensor):
+        """
+        Optimize the model backpropagating the loss value.
+
+        Args:
+            loss_value = the output tensor for the loss.
+        """
+        self._scaler.scale(loss_value).backward()
+        self.clip_gradients_(self.model.module.parameters())
+        self._scaler.step(self.optimizer)
+        self._scaler.update()
+        self.optimizer.zero_grad()
 
     def save(self) -> None:
         """Save model and optimizer state in a checkpoint."""

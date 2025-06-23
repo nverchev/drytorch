@@ -75,7 +75,6 @@ class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             metric: p.MetricCalculatorProtocol[_Output, _Target],
             name: str = '',
-            mixed_precision: bool = False,
     ) -> None:
         """
         Args:
@@ -84,8 +83,7 @@ class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
             metric: processes the model outputs and targets.
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            mixed_precision: whether to use mixed precision computing.
-                Defaults to False.
+
         """
         super().__init__(model)
         self.model = model
@@ -93,7 +91,6 @@ class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
         self.loader = loader
         self.objective = copy.deepcopy(metric)
         self.objective.reset()
-        self.mixed_precision = mixed_precision
         self.outputs_list = list[_Output]()
         return
 
@@ -142,9 +139,7 @@ class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
         self._log_metrics(metrics.repr_metrics(self.objective))
 
     def _run_forward(self, inputs: _Input) -> _Output:
-        with torch.autocast(device_type=self.model.device.type,
-                            enabled=self.mixed_precision):
-            return self.model(inputs)
+        return self.model(inputs)
 
     def _log_metrics(self, computed_metrics: Mapping[str, Any]) -> None:
         log_events.Metrics(model_name=self.model.name,

@@ -38,6 +38,7 @@ def mock_model(mocker) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
     mock.device = torch.device('cpu')
     mock.increment_epoch = mocker.Mock()
     mock.checkpoint = mocker.Mock()
+    mock.mixed_precision = False
     return mock
 
 

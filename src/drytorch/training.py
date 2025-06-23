@@ -28,7 +28,6 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
         learning_scheme: contains optimizer settings and scheduling.
-        mixed_precision: whether it uses mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
 
@@ -41,7 +40,6 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             loss: p.LossCalculatorProtocol[_Output, _Target],
             learning_scheme: p.LearningProtocol,
             name: str = '',
-            mixed_precision: bool = False,
     ) -> None:
         """
         Args:
@@ -51,12 +49,10 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             learning_scheme: contains optimizer settings and scheduling.
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            mixed_precision: if allowed, use mixed precision computing.
         """
         super().__init__(model,
                          loader=loader,
                          metric=loss,
-                         mixed_precision=mixed_precision,
                          name=name)
         self.model: p.ModelProtocol[_Input, _Output]
         # covariance not available for protocols, specify the type explicitly
@@ -67,9 +63,6 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self.learning_scheme = learning_scheme
         self.validation: Optional[evaluating.Validation] = None
         self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
-        self._optimizer = self._model_optimizer.optimizer
-        self._scaler = torch.amp.GradScaler(model.device.type,
-                                            enabled=mixed_precision)
         self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
         self.post_epoch_hooks = hooks.HookRegistry[Trainer]()
         self._terminated = False
@@ -225,9 +218,5 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
             if loss_value.numel() != 1:
                 raise exceptions.LossNotScalarError(loss_value.shape)
             raise re
-        self._scaler.scale(loss_value).backward()
-        self._model_optimizer.clip_gradients_(self.model.module.parameters())
-        self._scaler.step(self._optimizer)
-        self._scaler.update()
-        self._optimizer.zero_grad()
+        self._model_optimizer.optimize(loss_value)
         self.model.update_parameters()
