@@ -230,3 +230,4 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()
+        self.model.update_parameters()

@@ -215,6 +215,9 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     def increment_epoch(self):
         """Increment the epoch by 1."""
 
+    def update_parameters(self) -> None:
+        """Update the parameters of the model."""
+
 
 class CheckpointProtocol(Protocol):
     """Protocol that stores and loads weight for a ModelProtocol class."""

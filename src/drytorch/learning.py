@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Callable
+import dataclasses
 from typing import Any, Optional, TypedDict, TypeVar, cast
+from typing_extensions import override
 
 import torch
 from torch import cuda
-import dataclasses
 
 from drytorch import checkpointing
 from drytorch import exceptions
 from drytorch import protocols as p
 from drytorch import registering
 from drytorch import schedulers
-# from drytorch.utils import gradient_clipping
 from drytorch.utils import repr_utils
 
 _Input_contra = TypeVar('_Input_contra',
@@ -24,6 +24,9 @@ _Input_contra = TypeVar('_Input_contra',
 _Output_co = TypeVar('_Output_co',
                      bound=p.OutputType,
                      covariant=True)
+
+_Tensor = torch.Tensor
+_ParamList = tuple[_Tensor, ...] | list[_Tensor]
 
 
 class _OptParams(TypedDict):
@@ -47,7 +50,7 @@ class LearningScheme(p.LearningProtocol):
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
-    clip_strategy = lambda x: None
+    clip_strategy: Callable = dataclasses.field(default=lambda x: None)
 
     @classmethod
     def Adam(cls,
@@ -159,7 +162,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
             /,
             name: str = '',
             device: Optional[torch.device] = None,
-            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint()
+            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint(),
     ) -> None:
         """
         Args:
@@ -167,6 +170,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of module.
                 Default uses cuda when available, cpu otherwise.
+            checkpoint: class that saves the state and optionally the optimizer.
 
         """
         super().__init__()
@@ -210,6 +214,10 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         """Save the weights and epoch of the model"""
         self.checkpoint.save()
 
+    def update_parameters(self) -> None:
+        """Update the parameters of the model."""
+        return
+
     def to(self, device: torch.device) -> None:
         """Forward the homonymous method."""
         self.device = device
@@ -226,6 +234,62 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         return torch_model
 
 
+class ModelAverage(Model[_Input_contra, _Output_co]):
+    """
+    Bundle of a torch.nn.Module class and a torch.optim.swa_utils.AveragedModel.
+
+    Use the averaged model when in inference mode.
+
+    Attributes:
+        module: Pytorch module to optimize.
+        epoch: the number of epochs the model has been trained so far.
+    """
+
+    def __init__(
+            self,
+            torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
+            /,
+            name: str = '',
+            device: Optional[torch.device] = None,
+            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint(),
+            avg_fn: Optional[
+                Callable[[_Tensor, _Tensor, _Tensor | int], _Tensor]
+            ] = None,
+            multi_avg_fn: Optional[
+                Callable[[_ParamList, _ParamList, _Tensor | int], None]
+            ] = None,
+            use_buffers: bool = False,
+    ) -> None:
+        """
+        Args:
+            Pytorch module with type annotations.
+            name: the name of the model. Default uses the class name.
+            device: the device where to store the weights of module.
+                Default uses cuda when available, cpu otherwise.
+            checkpoint: class that saves the state and optionally the optimizer.
+            avg_fn: see docs at torch.optim.swa_utils.AveragedModel.
+            multi_avg_fn: see docs at torch.optim.swa_utils.AveragedModel.
+            use_buffers: see docs at torch.optim.swa_utils.AveragedModel.
+        """
+        super().__init__(torch_module, name, device, checkpoint)
+        self.averaged_module = torch.optim.swa_utils.AveragedModel(self.module,
+                                                                   self.device,
+                                                                   avg_fn,
+                                                                   multi_avg_fn,
+                                                                   use_buffers)
+
+    def __call__(self, inputs: _Input_contra) -> _Output_co:
+        if torch.inference_mode:
+            return self.averaged_module(inputs)
+        return self.module(inputs)
+
+    @override
+    def update_parameters(self) -> None:
+        """Update the parameters of the model."""
+        self.averaged_module.update_parameters(self.module)
+        return
+
+
 class ModelOptimizer:
     """
     Bundle the module and its optimizer.
@@ -239,7 +303,6 @@ class ModelOptimizer:
     Attributes:
         model: the model to be optimized.
         module: the module contained in the model.
-        scheduler: the scheduler for the learning rate.
         optimizer: the optimizer bound to the module.
     """
 
@@ -251,15 +314,15 @@ class ModelOptimizer:
         self.model = model
         self.module = model.module
         self._params_lr: list[_OptParams] = []
-        self.base_lr = learning_scheme.base_lr
-        self.scheduler = learning_scheme.scheduler
+        self._base_lr = learning_scheme.base_lr
+        self._scheduler = learning_scheme.scheduler
         self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
-        self.clip_strategy = learning_scheme.clip_strategy
-        self.checkpoint = self.model.checkpoint
-        self.checkpoint.register_optimizer(self.optimizer)
+        self._clip_strategy = learning_scheme.clip_strategy
+        self._checkpoint = self.model.checkpoint
+        self._checkpoint.register_optimizer(self.optimizer)
 
     def __repr__(self) -> str:
         desc = '{}(module={}, optimizer={})'
@@ -268,14 +331,14 @@ class ModelOptimizer:
                            self.optimizer.__class__.__name__)
 
     @property
-    def base_lr(self) -> float | dict[str, float]:
+    def _base_lr(self) -> float | dict[str, float]:
         """
         Learning rate(s) for the module parameters.
         """
         return self._lr
 
-    @base_lr.setter
-    def base_lr(self, lr: float | dict[str, float]) -> None:
+    @_base_lr.setter
+    def _base_lr(self, lr: float | dict[str, float]) -> None:
         self._lr = lr
         if isinstance(lr, (float, int)):
             self._params_lr = [
@@ -302,7 +365,7 @@ class ModelOptimizer:
         Side Effect:
             the parameters' gradients are clipped in place.
         """
-        return self.clip_strategy(parameters)
+        return self._clip_strategy(parameters)
 
     def get_opt_params(self) -> list[_OptParams]:
         """
@@ -321,11 +384,11 @@ class ModelOptimizer:
         Args:
             lr: base learning rate.
         """
-        return self.scheduler(lr, self.model.epoch)
+        return self._scheduler(lr, self.model.epoch)
 
     def load(self, epoch: int = -1) -> None:
         """Load model and optimizer state from a checkpoint."""
-        self.checkpoint.load(epoch=epoch)
+        self._checkpoint.load(epoch=epoch)
 
     def update_learning_rate(
             self,
@@ -343,10 +406,10 @@ class ModelOptimizer:
                 original scheduler.
         """
         if scheduler is not None:
-            self.scheduler = scheduler
+            self._scheduler = scheduler
 
         if base_lr is not None:
-            self.base_lr = base_lr
+            self._base_lr = base_lr
 
         for g, up_g in zip(self.optimizer.param_groups,
                            self.get_opt_params()):
@@ -356,7 +419,7 @@ class ModelOptimizer:
 
     def save(self) -> None:
         """Save model and optimizer state in a checkpoint."""
-        self.checkpoint.save()
+        self._checkpoint.save()
 
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(count_params(elem['params'])

@@ -92,4 +92,4 @@ class TestModelOptimizerParameterLR:
         """Test that MissingParamError is raised when params are missing."""
 
         with pytest.raises(exceptions.MissingParamError):
-            self.model_optimizer.base_lr = {'linear': 0.1}
+            self.model_optimizer._base_lr = {'linear': 0.1}
