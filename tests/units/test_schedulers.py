@@ -189,6 +189,11 @@ class TestRestartScheduler:
         return 0.5
 
     @pytest.fixture
+    def max_restart(self) -> int:
+        """Return test argument."""
+        return 3
+
+    @pytest.fixture
     def base_scheduler(self) -> AbstractScheduler:
         """Return test argument."""
         return CosineScheduler(decay_steps=50, min_decay=0.01)
@@ -197,13 +202,13 @@ class TestRestartScheduler:
     def scheduler(self,
                   base_scheduler,
                   restart_interval,
-                  restart_fraction) -> AbstractScheduler:
+                  restart_fraction,
+                  max_restart) -> AbstractScheduler:
         """Set up the instance."""
-        return RestartScheduler(
-            base_scheduler=base_scheduler,
-            restart_interval=restart_interval,
-            restart_fraction=restart_fraction,
-        )
+        return RestartScheduler(base_scheduler=base_scheduler,
+                                restart_interval=restart_interval,
+                                restart_fraction=restart_fraction,
+                                max_restart=max_restart)
 
     def test_restart_scheduler_no_restart(self,
                                           scheduler,
@@ -229,11 +234,11 @@ class TestRestartScheduler:
                                                    scheduler,
                                                    base_scheduler,
                                                    restart_interval,
-                                                   restart_fraction) -> None:
+                                                   max_restart) -> None:
         """Test RestartScheduler after the first restart point."""
         base_lr = 1.0
-        epoch = restart_interval + 10
-        expected = base_scheduler(base_lr * restart_fraction, 10)
+        epoch = (max_restart + 1) * restart_interval
+        expected = base_scheduler(base_lr, epoch)
         assert scheduler(base_lr, epoch) == pytest.approx(expected)
 
     def test_restart_scheduler_multiple_restarts(self,
@@ -241,6 +246,18 @@ class TestRestartScheduler:
                                                  base_scheduler,
                                                  restart_interval,
                                                  restart_fraction) -> None:
+        """Test RestartScheduler after multiple restarts."""
+        base_lr = 1.0
+        epoch = (2 * restart_interval) + 20
+        expected_start_value = base_lr * restart_fraction
+        expected = base_scheduler(expected_start_value, 20)
+        assert scheduler(base_lr, epoch) == pytest.approx(expected)
+
+    def test_restart_after_max_restarts(self,
+                                        scheduler,
+                                        base_scheduler,
+                                        restart_interval,
+                                        restart_fraction) -> None:
         """Test RestartScheduler after multiple restarts."""
         base_lr = 1.0
         epoch = (2 * restart_interval) + 20
@@ -258,6 +275,9 @@ class TestRestartScheduler:
         with pytest.raises(ValueError):
             RestartScheduler(ConstantScheduler(), restart_interval=10,
                              restart_fraction=-0.1)
+            with pytest.raises(ValueError):
+                RestartScheduler(ConstantScheduler(), restart_interval=10,
+                                 max_restart=-1)
 
 
 class TestWarmupScheduler:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import dataclasses
-from collections.abc import Iterable
-from typing import Callable
+from collections.abc import Iterable, Callable
+from typing import Optional
 
 import numpy as np
 
@@ -187,24 +187,30 @@ class RestartScheduler(AbstractScheduler):
         restart_interval: the number of epochs between restarts.
         restart_fraction: fraction of the base value to use as base value
             when restarting.
+        max_restart: Maximum number of restarts before deactivating. Default
+            never deactivates.
     """
     base_scheduler: p.SchedulerProtocol
     restart_interval: int
     restart_fraction: float = 1.0
+    max_restart: Optional[int] = None
 
     def __post_init__(self):
         if self.restart_interval <= 0:
             raise ValueError('restart_interval must be positive.')
         if self.restart_fraction <= 0:
             raise ValueError('restart_fraction must be positive.')
+        if self.max_restart is not None and self.max_restart <= 0:
+            raise ValueError('max_restart must be positive.')
 
     def _compute(self, start_value: float, epoch: int) -> float:
-        restarted_epoch = epoch % self.restart_interval
+        num_restart, restarted_epoch = divmod(epoch, self.restart_interval)
+        if self.max_restart is None or num_restart <= self.max_restart:
+            if epoch >= self.restart_interval:
+                start_value *= self.restart_fraction
+                epoch = restarted_epoch
 
-        if epoch >= self.restart_interval:
-            start_value *= self.restart_fraction
-
-        return self.base_scheduler(start_value, restarted_epoch)
+        return self.base_scheduler(start_value, epoch)
 
 
 @dataclasses.dataclass
@@ -234,7 +240,7 @@ class WarmupScheduler(AbstractScheduler):
 
     def __repr__(self) -> str:
         wrapped_repr = self.scheduler.__repr__()
-        return f'{wrapped_repr} with {self.warmup_steps} warm up steps'
+        return f'{wrapped_repr} with {self.warmup_steps} warm-up steps'
 
 
 @dataclasses.dataclass
