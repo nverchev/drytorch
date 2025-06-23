@@ -4,7 +4,7 @@ import pytest
 
 from drytorch.evaluating import exceptions
 from drytorch.evaluating import Source
-from drytorch.evaluating import Evaluation
+from drytorch.evaluating import ModelRunner
 from drytorch.evaluating import Diagnostic
 from drytorch.evaluating import Test
 
@@ -41,8 +41,8 @@ class TestSource:
         self.mock_record_model_call.assert_not_called()
 
 
-class TestEvaluation:
-    """Tests for the evaluation class."""
+class TestModelRunner:
+    """Tests for the ModelRunner class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
@@ -75,177 +75,177 @@ class TestEvaluation:
         return
 
     @pytest.fixture
-    def evaluation(self, mock_model, mock_metric, mock_loader) -> Evaluation:
+    def runner(self, mock_model, mock_metric, mock_loader) -> ModelRunner:
         """Set up a test instance."""
         return Diagnostic(
             mock_model,
-            name='test_evaluation',
+            name='test_runner',
             loader=mock_loader,
             metric=mock_metric,
         )
 
-    def test_initialization(self, mock_model, mock_loader, evaluation) -> None:
+    def test_initialization(self, mock_model, mock_loader, runner) -> None:
         """Test evaluation initialization with all parameters."""
-        assert evaluation.model == mock_model
-        assert evaluation.name == 'test_evaluation'
-        assert evaluation.loader == mock_loader
-        assert evaluation.outputs_list == []
+        assert runner.model == mock_model
+        assert runner.name == 'test_runner'
+        assert runner.loader == mock_loader
+        assert runner.outputs_list == []
 
-    def test_get_batches(self, mocker, evaluation) -> None:
+    def test_get_batches(self, mocker, runner) -> None:
         """Test batch generation applies operations to device."""
         mock_batch1 = mocker.Mock()
         mock_batch2 = mocker.Mock()
-        evaluation.loader.__iter__ = mocker.Mock(
+        runner.loader.__iter__ = mocker.Mock(
             return_value=iter([mock_batch1, mock_batch2])
         )
-        batches = list(evaluation._get_batches())
+        batches = list(runner._get_batches())
         assert len(batches) == 2
         assert self.mock_apply_to.call_count == 2
-        self.mock_apply_to.assert_any_call(mock_batch1, evaluation.model.device)
-        self.mock_apply_to.assert_any_call(mock_batch2, evaluation.model.device)
+        self.mock_apply_to.assert_any_call(mock_batch1, runner.model.device)
+        self.mock_apply_to.assert_any_call(mock_batch2, runner.model.device)
 
-    def test_run_backwards(self, mocker, evaluation) -> None:
+    def test_run_backwards(self, mocker, runner) -> None:
         """Test backwards pass updates objective."""
         mock_outputs = mocker.Mock()
         mock_targets = mocker.Mock()
-        evaluation._run_backwards(mock_outputs, mock_targets)
-        evaluation.objective.update.assert_called_once_with(mock_outputs,
-                                                            mock_targets)
+        runner._run_backwards(mock_outputs, mock_targets)
+        runner.objective.update.assert_called_once_with(mock_outputs,
+                                                        mock_targets)
 
-    def test_run_batch(self, mocker, evaluation) -> None:
+    def test_run_batch(self, mocker, runner) -> None:
         """Test batch processing runs forward and backwards."""
         mock_inputs = mocker.Mock()
         mock_targets = mocker.Mock()
         mock_outputs = mocker.Mock()
         mock_batch = (mock_inputs, mock_targets)
-        evaluation._run_forward = mocker.Mock(return_value=mock_outputs)
-        evaluation._run_backwards = mocker.Mock()
-        result = evaluation._run_batch(mock_batch)
+        runner._run_forward = mocker.Mock(return_value=mock_outputs)
+        runner._run_backwards = mocker.Mock()
+        result = runner._run_batch(mock_batch)
         assert result == mock_outputs
-        evaluation._run_forward.assert_called_once_with(mock_inputs)
-        evaluation._run_backwards.assert_called_once_with(mock_outputs,
-                                                          mock_targets)
+        runner._run_forward.assert_called_once_with(mock_inputs)
+        runner._run_backwards.assert_called_once_with(mock_outputs,
+                                                      mock_targets)
 
     def test_run_forward(self,
-                                                 mocker,
-                                                 evaluation) -> None:
+                         mocker,
+                         runner) -> None:
         """Test forward pass."""
         mock_inputs = mocker.Mock()
         mock_outputs = mocker.Mock()
-        evaluation.model.return_value = mock_outputs
-        evaluation.mixed_precision = False
-        result = evaluation._run_forward(mock_inputs)
+        runner.model.return_value = mock_outputs
+        runner.mixed_precision = False
+        result = runner._run_forward(mock_inputs)
         assert result == mock_outputs
-        evaluation.model.assert_called_once()
+        runner.model.assert_called_once()
 
     def test_log_metrics(self,
                          mocker,
-                         evaluation,
+                         runner,
                          example_named_metrics) -> None:
         """Test metrics logging."""
-        evaluation._log_metrics(example_named_metrics)
+        runner._log_metrics(example_named_metrics)
         self.mock_log_events_metrics.assert_called_once_with(
-            model_name=evaluation.model.name,
-            source_name=evaluation.name,
-            epoch=evaluation.model.epoch,
+            model_name=runner.model.name,
+            source_name=runner.name,
+            epoch=runner.model.epoch,
             metrics=example_named_metrics
         )
 
     def test_run_epoch_without_storing_outputs(self,
                                                mocker,
-                                               evaluation) -> None:
+                                               runner) -> None:
         """Test epoch run without storing outputs."""
         mock_batch1 = (mocker.Mock(), mocker.Mock())
         mock_batch2 = (mocker.Mock(), mocker.Mock())
         mock_outputs1 = mocker.Mock()
         mock_outputs2 = mocker.Mock()
-        evaluation._get_batches = mocker.Mock(
+        runner._get_batches = mocker.Mock(
             return_value=[mock_batch1, mock_batch2]
         )
-        evaluation._run_batch = mocker.Mock(
+        runner._run_batch = mocker.Mock(
             side_effect=[mock_outputs1, mock_outputs2]
         )
-        evaluation._log_metrics = mocker.Mock()
-        evaluation._store = mocker.Mock()
+        runner._log_metrics = mocker.Mock()
+        runner._store = mocker.Mock()
         mock_pbar = mocker.Mock()
         self.mock_iterate_batch.return_value = mock_pbar
 
         # Reset the objective mock to avoid counting the initialization call
-        evaluation.objective.reset.reset_mock()
-        evaluation._run_epoch(store_outputs=False)
-        assert evaluation.outputs_list == []
-        evaluation.objective.reset.assert_called_once()
-        self.mock_loading.assert_called_once_with(evaluation.loader.dataset)
+        runner.objective.reset.reset_mock()
+        runner._run_epoch(store_outputs=False)
+        assert runner.outputs_list == []
+        runner.objective.reset.assert_called_once()
+        self.mock_loading.assert_called_once_with(runner.loader.dataset)
         self.mock_iterate_batch.assert_called_once_with(
-            evaluation.name,
-            evaluation.loader.batch_size,
-            len(evaluation.loader),
+            runner.name,
+            runner.loader.batch_size,
+            len(runner.loader),
             100
         )
-        assert evaluation._run_batch.call_count == 2
+        assert runner._run_batch.call_count == 2
         assert mock_pbar.update.call_count == 2
-        evaluation._store.assert_not_called()
-        evaluation._log_metrics.assert_called_once()
+        runner._store.assert_not_called()
+        runner._log_metrics.assert_called_once()
 
-    def test_run_epoch_with_storing_outputs(self, mocker, evaluation) -> None:
+    def test_run_epoch_with_storing_outputs(self, mocker, runner) -> None:
         """Test epoch run with storing outputs."""
         mock_batch = (mocker.Mock(), mocker.Mock())
         mock_outputs = mocker.Mock()
-        evaluation._get_batches = mocker.Mock(return_value=[mock_batch])
-        evaluation._run_batch = mocker.Mock(return_value=mock_outputs)
-        evaluation._log_metrics = mocker.Mock()
-        evaluation._store = mocker.Mock()
+        runner._get_batches = mocker.Mock(return_value=[mock_batch])
+        runner._run_batch = mocker.Mock(return_value=mock_outputs)
+        runner._log_metrics = mocker.Mock()
+        runner._store = mocker.Mock()
         mock_pbar = mocker.Mock()
         self.mock_iterate_batch.return_value = mock_pbar
-        evaluation._run_epoch(store_outputs=True)
-        evaluation._store.assert_called_once_with(mock_outputs)
+        runner._run_epoch(store_outputs=True)
+        runner._store.assert_called_once_with(mock_outputs)
 
     def test_outputs_list_cleared_on_epoch_run(self,
                                                mocker,
-                                               evaluation) -> None:
+                                               runner) -> None:
         """Test that outputs list is cleared at the start of each epoch."""
-        evaluation.outputs_list = [mocker.Mock(), mocker.Mock()]
-        evaluation._get_batches = mocker.Mock(return_value=[])
-        evaluation._log_metrics = mocker.Mock()
+        runner.outputs_list = [mocker.Mock(), mocker.Mock()]
+        runner._get_batches = mocker.Mock(return_value=[])
+        runner._log_metrics = mocker.Mock()
         mock_pbar = mocker.Mock()
         self.mock_iterate_batch.return_value = mock_pbar
-        evaluation._run_epoch(store_outputs=False)
-        assert evaluation.outputs_list == []
+        runner._run_epoch(store_outputs=False)
+        assert runner.outputs_list == []
 
-    def test_objective_reset_on_epoch_run(self, mocker, evaluation) -> None:
+    def test_objective_reset_on_epoch_run(self, mocker, runner) -> None:
         """Test that objective is reset at the start of each epoch."""
-        evaluation._get_batches = mocker.Mock(return_value=[])
-        evaluation._log_metrics = mocker.Mock()
+        runner._get_batches = mocker.Mock(return_value=[])
+        runner._log_metrics = mocker.Mock()
         mock_pbar = mocker.Mock()
         self.mock_iterate_batch.return_value = mock_pbar
 
         # Reset the objective mock to avoid counting the initialization call
-        evaluation.objective.reset.reset_mock()
-        evaluation._run_epoch(store_outputs=False)
-        evaluation.objective.reset.assert_called_once()
+        runner.objective.reset.reset_mock()
+        runner._run_epoch(store_outputs=False)
+        runner.objective.reset.assert_called_once()
 
-    def test_repr_method(self, evaluation) -> None:
+    def test_repr_method(self, runner) -> None:
         """Test __repr__ method returns expected format."""
-        expected = f"{evaluation.name} for model {evaluation.model.name}"
-        assert repr(evaluation) == expected
+        expected = f"{runner.name} for model {runner.model.name}"
+        assert repr(runner) == expected
 
-    def test_name_property(self, evaluation) -> None:
+    def test_name_property(self, runner) -> None:
         """Test name property starts with expected value."""
-        assert evaluation.name.startswith('test_evaluation')
+        assert runner.name.startswith('test_runner')
 
-    def test_store_outputs(self, evaluation) -> None:
+    def test_store_outputs(self, runner) -> None:
         """Test outputs are correctly stored if store_outputs flag is active."""
         test_object = object()
-        evaluation._store(test_object)
+        runner._store(test_object)
         self.mock_apply_ops.assert_called_once_with(test_object)
-        assert evaluation.outputs_list == [self.mock_output]
+        assert runner.outputs_list == [self.mock_output]
 
     @pytest.mark.parametrize('warning', [
         exceptions.FuncNotApplicableError('wrong_func', 'wrong_type'),
         exceptions.NamedTupleOnlyError('wrong_type')
 
     ])
-    def test_store_outputs_warning(self, mocker, evaluation,
+    def test_store_outputs_warning(self, mocker, runner,
                                    warning) -> None:
         """Test warning is raised if output cannot be stored."""
         mock_output = mocker.Mock()
@@ -254,14 +254,14 @@ class TestEvaluation:
             side_effect=warning)
 
         with pytest.warns(exceptions.CannotStoreOutputWarning):
-            evaluation._store(mock_output)
+            runner._store(mock_output)
 
         mock_apply_ops.assert_called_once_with(mock_output)
-        assert evaluation.outputs_list == []
+        assert runner.outputs_list == []
 
-    def test_str(self, evaluation):
+    def test_str(self, runner):
         """Test string representation of the evaluation."""
-        assert str(evaluation).startswith(evaluation.name)
+        assert str(runner).startswith(runner.name)
 
 
 class TestDiagnostic:

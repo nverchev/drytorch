@@ -49,7 +49,7 @@ class Source(repr_utils.Versioned):
         return
 
 
-class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
+class ModelRunner(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
     """
     Class for evaluating a model on a given dataset.
 
@@ -61,7 +61,6 @@ class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
-        mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
     max_stored_output: int = sys.maxsize
@@ -158,7 +157,7 @@ class Evaluation(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
             self.outputs_list.append(outputs)
 
 
-class Diagnostic(Evaluation[_Input, _Target, _Output]):
+class Diagnostic(ModelRunner[_Input, _Target, _Output]):
     """
     Evaluate model on inference mode.
 
@@ -169,7 +168,6 @@ class Diagnostic(Evaluation[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
-        mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs
     """
 
@@ -196,7 +194,6 @@ class Validation(Diagnostic[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
-        mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs.
     """
 
@@ -209,7 +206,6 @@ class Test(Diagnostic[_Input, _Target, _Output]):
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
-        mixed_precision: whether to use mixed precision computing.
         outputs_list: list of optionally stored outputs.
     """
 
