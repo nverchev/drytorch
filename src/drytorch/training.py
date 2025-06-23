@@ -107,7 +107,7 @@ class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
         Args:
             val_loader: the loader for validation.
         """
-        validation = evaluating.Validation(self.model,
+        validation = evaluating.Evaluation(self.model,
                                            loader=val_loader,
                                            metric=self.objective)
 

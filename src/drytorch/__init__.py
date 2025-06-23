@@ -23,7 +23,7 @@ import warnings
 
 from drytorch.evaluating import Diagnostic
 from drytorch.evaluating import Test
-from drytorch.evaluating import Validation
+from drytorch.evaluating import Evaluation
 from drytorch.exceptions import FailedOptionalImportWarning
 from drytorch.experiments import Experiment
 from drytorch.experiments import MainExperiment
@@ -41,9 +41,9 @@ from drytorch.training import Trainer
 from drytorch.trackers import logging as builtin_logging
 
 __all__ = [
+    Evaluation,
     Diagnostic,
     Test,
-    Validation,
     FailedOptionalImportWarning,
     Experiment,
     MainExperiment,

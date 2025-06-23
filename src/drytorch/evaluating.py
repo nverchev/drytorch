@@ -157,12 +157,11 @@ class ModelRunner(Source, p.EvaluationProtocol[_Input, _Target, _Output]):
             self.outputs_list.append(outputs)
 
 
-class Diagnostic(ModelRunner[_Input, _Target, _Output]):
+class Evaluation(ModelRunner[_Input, _Target, _Output]):
     """
     Evaluate model on inference mode.
 
-    It could be used for testing or validating a model (see subclasses) but
-    also for diagnosing a problem in its training.
+    It could be used for testing (see subclass) or validating a model.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -186,9 +185,9 @@ class Diagnostic(ModelRunner[_Input, _Target, _Output]):
         return
 
 
-class Validation(Diagnostic[_Input, _Target, _Output]):
+class Diagnostic(Evaluation[_Input, _Target, _Output]):
     """
-    Evaluate model performance on a validation dataset.
+    Evaluation that does not produce metrics.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -197,8 +196,12 @@ class Validation(Diagnostic[_Input, _Target, _Output]):
         outputs_list: list of optionally stored outputs.
     """
 
+    @override
+    def _log_metrics(self, computed_metrics: Mapping[str, Any]) -> None:
+        return
 
-class Test(Diagnostic[_Input, _Target, _Output]):
+
+class Test(Evaluation[_Input, _Target, _Output]):
     """
     Evaluate model performance on a test dataset.
 

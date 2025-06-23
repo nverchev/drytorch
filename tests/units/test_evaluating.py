@@ -5,6 +5,7 @@ import pytest
 from drytorch.evaluating import exceptions
 from drytorch.evaluating import Source
 from drytorch.evaluating import ModelRunner
+from drytorch.evaluating import Evaluation
 from drytorch.evaluating import Diagnostic
 from drytorch.evaluating import Test
 
@@ -77,7 +78,7 @@ class TestModelRunner:
     @pytest.fixture
     def runner(self, mock_model, mock_metric, mock_loader) -> ModelRunner:
         """Set up a test instance."""
-        return Diagnostic(
+        return Evaluation(
             mock_model,
             name='test_runner',
             loader=mock_loader,
@@ -264,14 +265,46 @@ class TestModelRunner:
         assert str(runner).startswith(runner.name)
 
 
+class TestEvaluation:
+    """Tests for the Evaluation class."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker) -> None:
+        """Set up the tests."""
+        self.mock_super_call = mocker.patch(
+            'drytorch.evaluating.Source.__call__'
+        )
+        return
+
+    @pytest.fixture
+    def evaluation(self, mock_model, mock_metric, mock_loader) -> Diagnostic:
+        """Set up a test instance."""
+        return Diagnostic(
+            mock_model,
+            name='test_evaluation',
+            loader=mock_loader,
+            metric=mock_metric,
+        )
+
+    def test_call_method(self, mocker, evaluation) -> None:
+        """Test __call__ method sets model to eval mode and runs epoch."""
+        evaluation._run_epoch = mocker.Mock()
+        evaluation.model.module.eval = mocker.Mock()
+        evaluation(store_outputs=True)
+        self.mock_super_call.assert_called_once()
+        evaluation.model.module.eval.assert_called_once()
+        evaluation._run_epoch.assert_called_once_with(True)
+
+
 class TestDiagnostic:
     """Tests for the Diagnostic class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests."""
-        self.mock_super_call = mocker.patch(
-            'drytorch.evaluating.Source.__call__')
+        self.mock_log_events_metrics = mocker.patch(
+            'drytorch.log_events.Metrics'
+        )
         return
 
     @pytest.fixture
@@ -284,14 +317,10 @@ class TestDiagnostic:
             metric=mock_metric,
         )
 
-    def test_call_method(self, mocker, diagnostic) -> None:
-        """Test __call__ method sets model to eval mode and runs epoch."""
-        diagnostic._run_epoch = mocker.Mock()
-        diagnostic.model.module.eval = mocker.Mock()
-        diagnostic(store_outputs=True)
-        self.mock_super_call.assert_called_once()
-        diagnostic.model.module.eval.assert_called_once()
-        diagnostic._run_epoch.assert_called_once_with(True)
+    def test_log_metrics(self, diagnostic, example_named_metrics) -> None:
+        """Test metrics are not logged."""
+        diagnostic._log_metrics(example_named_metrics)
+        self.mock_log_events_metrics.assert_not_called()
 
 
 class TestTest:
@@ -303,7 +332,7 @@ class TestTest:
         self.mock_start_test = mocker.patch('drytorch.log_events.StartTest')
         self.mock_end_test = mocker.patch('drytorch.log_events.EndTest')
         self.mock_super_call = mocker.patch(
-            'drytorch.evaluating.Diagnostic.__call__')
+            'drytorch.evaluating.Evaluation.__call__')
         return
 
     @pytest.fixture
