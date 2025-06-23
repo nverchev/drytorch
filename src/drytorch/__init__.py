@@ -32,7 +32,7 @@ from drytorch.metrics import Loss
 from drytorch.metrics import Metric
 from drytorch.loading import DataLoader
 from drytorch.learning import LearningScheme
-from drytorch.learning import Model
+from drytorch.models import Model
 from drytorch.trackers.logging import INFO_LEVELS
 from drytorch.tracking import remove_all_default_trackers
 from drytorch.tracking import extend_default_trackers

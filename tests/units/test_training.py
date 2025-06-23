@@ -18,7 +18,7 @@ class TestTrainer:
               mocker):
         """Set up a Trainer instance with mock components."""
         self.model_optimizer = mocker.patch(
-            'drytorch.learning.ModelOptimizer'
+            'drytorch.models.ModelOptimizer'
         )
         self.trainer = Trainer(
             mock_model,

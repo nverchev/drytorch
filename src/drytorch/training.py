@@ -6,6 +6,7 @@ import warnings
 
 import torch
 
+import drytorch.models
 from drytorch import evaluating
 from drytorch import exceptions
 from drytorch import learning
@@ -62,7 +63,7 @@ class Trainer(evaluating.Evaluation[_Input, _Target, _Output],
         )
         self.learning_scheme = learning_scheme
         self.validation: Optional[evaluating.Validation] = None
-        self._model_optimizer = learning.ModelOptimizer(model, learning_scheme)
+        self._model_optimizer = drytorch.models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
         self.post_epoch_hooks = hooks.HookRegistry[Trainer]()
         self._terminated = False
