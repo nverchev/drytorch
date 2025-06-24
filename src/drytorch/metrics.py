@@ -48,8 +48,8 @@ class TorchMetricCompositionalMetricProtocol(Protocol):
         metric_a: first metric.
         metric_b: second metric.
     """
-    metric_a: p.MetricCalculatorProtocol | float | None
-    metric_b: p.MetricCalculatorProtocol | float | None
+    metric_a: p.OjectiveProtocol | float | None
+    metric_b: p.OjectiveProtocol | float | None
 
     def update(self,
                outputs: _Tensor,
@@ -101,7 +101,7 @@ def from_torchmetrics(
 
         def compute(self) -> dict[str, _Tensor]:
             dict_output = dict[str, _Tensor]()
-            metric_list = list[p.MetricCalculatorProtocol | float | None]()
+            metric_list = list[p.OjectiveProtocol | float | None]()
             metric_list.append(self.metric)
             while metric_list:
                 metric_ = metric_list.pop()
@@ -118,8 +118,8 @@ def from_torchmetrics(
     return _TorchMetricCompositionalMetric(metric)
 
 
-class MetricBase(
-    p.MetricCalculatorProtocol[_Output_contra, _Target_contra],
+class Objective(
+    p.OjectiveProtocol[_Output_contra, _Target_contra],
     metaclass=abc.ABCMeta
 ):
     def __init__(
@@ -180,7 +180,7 @@ class MetricBase(
 
     def __or__(
             self,
-            other: MetricBase[_Output_contra, _Target_contra]
+            other: Objective[_Output_contra, _Target_contra]
     ) -> MetricCollection[_Output_contra, _Target_contra]:
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
         return MetricCollection(**named_metric_fun)
@@ -194,7 +194,7 @@ class MetricBase(
         return result
 
 
-class MetricCollection(MetricBase[_Output_contra, _Target_contra]):
+class MetricCollection(Objective[_Output_contra, _Target_contra]):
 
     @override
     def calculate(self,
@@ -203,7 +203,7 @@ class MetricCollection(MetricBase[_Output_contra, _Target_contra]):
         return dict_apply(self.named_metric_fun, outputs, targets)
 
 
-class Metric(MetricBase[_Output_contra, _Target_contra]):
+class Metric(Objective[_Output_contra, _Target_contra]):
 
     def __init__(self,
                  fun: Callable[[_Output_contra, _Target_contra], _Tensor],
@@ -217,14 +217,14 @@ class Metric(MetricBase[_Output_contra, _Target_contra]):
         self.higher_is_better = higher_is_better
 
     @override
-    def calculate(self: Self,
+    def calculate(self,
                   outputs: _Output_contra,
                   targets: _Target_contra) -> dict[str, _Tensor]:
         return {self.name: self.fun(outputs, targets)}
 
 
 class LossBase(
-    MetricBase[_Output_contra, _Target_contra],
+    Objective[_Output_contra, _Target_contra],
     p.LossCalculatorProtocol[_Output_contra, _Target_contra],
     metaclass=abc.ABCMeta,
 ):
@@ -251,7 +251,7 @@ class LossBase(
 
     def __or__(
             self,
-            other: MetricBase[_Output_contra, _Target_contra]
+            other: Objective[_Output_contra, _Target_contra]
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
         return CompositionalLoss(criterion=self.criterion,
@@ -413,10 +413,7 @@ class CompositionalLoss(
         return formula.replace('--', '').replace('+ -', '- ')
 
 
-class Loss(
-    LossBase[_Output_contra, _Target_contra],
-    Metric[_Output_contra, _Target_contra],
-):
+class Loss(LossBase[_Output_contra, _Target_contra]):
     """Class for a simple loss."""
     higher_is_better: bool
 
@@ -433,13 +430,18 @@ class Loss(
             name: the name for the loss.
             higher_is_better: the direction for optimization.
         """
-        Metric.__init__(self,
-                        fun,
-                        name=name,
-                        higher_is_better=higher_is_better)
-        self.criterion = operator.itemgetter(self.name)
+        super().__init__(operator.itemgetter(name))
+        self.fun = fun
+        self.name = name
+        self.higher_is_better = higher_is_better
         self.formula = f'[{name}]'
         return
+
+    @override
+    def calculate(self,
+                  outputs: _Output_contra,
+                  targets: _Target_contra) -> dict[str, _Tensor]:
+        return {self.name: self.fun(outputs, targets)}
 
 
 def dict_apply(
@@ -464,7 +466,7 @@ def dict_apply(
             for name, function in dict_fun.items()}
 
 
-def repr_metrics(calculator: p.MetricCalculatorProtocol) -> Mapping[str, float]:
+def repr_metrics(calculator: p.OjectiveProtocol) -> Mapping[str, float]:
     """Represent the metrics as a mapping of named values."""
     metrics = calculator.compute()
     if isinstance(metrics, Mapping):

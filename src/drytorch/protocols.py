@@ -105,7 +105,7 @@ class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
         """Forward run of the network."""
 
 
-class MetricCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
+class OjectiveProtocol(Protocol[_Output_contra, _Target_contra]):
     """Protocol that calculates and returns metrics and loss."""
 
     @abc.abstractmethod
@@ -247,7 +247,7 @@ class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
         objective: object that calculates the metrics
     """
     model: ModelProtocol[_Input, _Output]
-    objective: MetricCalculatorProtocol[_Output, _Target]
+    objective: OjectiveProtocol[_Output, _Target]
 
     @property
     def name(self) -> str:

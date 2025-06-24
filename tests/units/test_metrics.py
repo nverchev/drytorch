@@ -369,7 +369,7 @@ def test_dict_apply(mocker) -> None:
 def test_repr_metrics(mocker, compute_return, class_name, expected):
     """Test the repr_metrics function with various compute return values."""
     # Mock the calculator
-    mock_calculator = mocker.MagicMock(spec=p.MetricCalculatorProtocol)
+    mock_calculator = mocker.MagicMock(spec=p.OjectiveProtocol)
     mock_calculator.compute.return_value = compute_return
 
     if class_name:
