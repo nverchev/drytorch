@@ -96,7 +96,9 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
     mock.dataset = mocker.Mock()
     mock.dataset.__len__ = mocker.Mock(return_value=500)
     tensor = torch.FloatTensor([1])
-    mock.__iter__ = mocker.Mock(return_value=iter([(tensor, tensor)] * 3))
+    mock.__iter__ = mocker.Mock(
+        side_effect=lambda: iter([(tensor, tensor)] * 3)
+    )
     return mock
 
 

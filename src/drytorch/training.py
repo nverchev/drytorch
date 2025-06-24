@@ -12,13 +12,14 @@ from drytorch import hooks
 from drytorch import log_events
 from drytorch import models
 from drytorch import protocols as p
+from drytorch import running
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
+class Trainer(running.ModelRunnerWithLogs,
               p.TrainerProtocol[_Input, _Target, _Output]):
     """
     Implement the standard Pytorch training loop.
@@ -28,18 +29,17 @@ class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
         learning_scheme: contains optimizer settings and scheduling.
-        outputs_list: list of optionally stored outputs
+        outputs_list: list of optionally stored outputs,
     """
 
     def __init__(
             self,
             model: p.ModelProtocol[_Input, _Output],
-            /,
+            name: str = '',
             *,
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             loss: p.LossCalculatorProtocol[_Output, _Target],
             learning_scheme: p.LearningProtocol,
-            name: str = '',
     ) -> None:
         """
         Args:
@@ -52,7 +52,7 @@ class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
         """
         super().__init__(model,
                          loader=loader,
-                         metric=loss,
+                         objective=loss,
                          name=name)
         self.model: p.ModelProtocol[_Input, _Output]
         # covariance not available for protocols, specify the type explicitly
@@ -61,7 +61,7 @@ class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
             self.objective
         )
         self.learning_scheme = learning_scheme
-        self.validation: Optional[evaluating.Validation] = None
+        self.validation: Optional[evaluating.Evaluation] = None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
         self.post_epoch_hooks = hooks.HookRegistry[Trainer]()
@@ -81,15 +81,14 @@ class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
         Args:
             store_outputs: whether to store model outputs.
         """
-        super().__call__()
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning())
             return
+        self.model.module.train()
         self.model.increment_epoch()
         self._model_optimizer.update_learning_rate()
-        self.model.module.train()
         try:
-            self._run_epoch(store_outputs)
+            super().__call__()
         except exceptions.ConvergenceError as ce:
             self.terminate_training(reason=str(ce))
         return
@@ -110,7 +109,6 @@ class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
         validation = evaluating.Evaluation(self.model,
                                            loader=val_loader,
                                            metric=self.objective)
-
         val_hook = hooks.StaticHook(validation)
         self.post_epoch_hooks.register(val_hook)
         self.validation = validation
@@ -209,7 +207,8 @@ class Trainer(evaluating.ModelRunner[_Input, _Target, _Output],
         self._model_optimizer.update_learning_rate(base_lr, scheduler)
 
     @override
-    def _run_backwards(self, outputs: _Output, targets: _Target) -> None:
+    def _run_backward(self, outputs: _Output, targets: _Target) -> None:
+        # replace super call
         loss_value = self.objective.forward(outputs, targets)
         try:
             if torch.isinf(loss_value) or torch.isnan(loss_value):

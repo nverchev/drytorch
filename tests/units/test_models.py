@@ -25,6 +25,18 @@ class ComplexModule(torch.nn.Module):
 
 class TestModel:
 
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker):
+        """Set up the tests."""
+        self.mock_autocast = mocker.patch('torch.autocast')
+        self.mock_context = mocker.Mock()
+        self.mock_autocast.return_value.__enter__ = mocker.Mock(
+            return_value=self.mock_context
+        )
+        self.mock_autocast.return_value.__exit__ = mocker.Mock(
+            return_value=None
+        )
+
     @pytest.fixture(scope='class')
     def complex_model(self) -> Model[torch.Tensor, torch.Tensor]:
         """Fixture of a complex model."""
@@ -47,6 +59,7 @@ class TestModelOptimizerGlobalLR:
             model=mock_model,
             learning_scheme=mock_learning_scheme,
         )
+
         return
 
     def test_update_learning_rate(self) -> None:
