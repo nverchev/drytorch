@@ -1,3 +1,5 @@
+"""Module containing utilies to ensure compatibility with torchmetrics."""
+
 from __future__ import annotations
 
 from typing import runtime_checkable, Protocol, Any, Mapping

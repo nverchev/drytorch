@@ -1,4 +1,4 @@
-"""Unit tests for ModelMomentaUpdater"""
+"""Tests for the "swa_utils" module."""
 
 import pytest
 
