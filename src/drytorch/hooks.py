@@ -257,7 +257,7 @@ class MetricMonitor:
 
     def __init__(
             self,
-            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            metric: Optional[str | p.OjectiveProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
             patience: int = 10,
@@ -430,7 +430,7 @@ class EarlyStoppingCallback:
 
     def __init__(
             self,
-            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            metric: Optional[str | p.OjectiveProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
             patience: int = 10,
@@ -498,7 +498,7 @@ class PruneCallback:
     def __init__(
             self,
             pruning: dict[int, float],
-            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            metric: Optional[str | p.OjectiveProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -561,7 +561,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
     def __init__(
             self,
-            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            metric: Optional[str | p.OjectiveProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
             patience: int = 0,
@@ -647,7 +647,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
 
     def __init__(
             self,
-            metric: Optional[str | p.MetricCalculatorProtocol] = None,
+            metric: Optional[str | p.OjectiveProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
             patience: int = 0,
