@@ -78,7 +78,7 @@ class TestVisdomPlotter:
                                            tracker,
                                            start_experiment_mock_event) -> None:
         """Test StartExperiment notification with connection error."""
-        self.visdom_mock.side_effect = ConnectionError("Connection failed")
+        self.visdom_mock.side_effect = ConnectionError('Connection failed')
         with pytest.raises(exceptions.TrackerException):
             tracker.notify(start_experiment_mock_event)
 
