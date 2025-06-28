@@ -1,6 +1,7 @@
 """Functional tests for Wandb tracker."""
 
 import pytest
+
 try:
     import wandb
 except ImportError:
@@ -29,16 +30,36 @@ class TestWandbFullCycle:
     @pytest.fixture
     def resumed_tracker(
             self,
-            start_training_event,
+            start_experiment_event,
             stop_experiment_event,
     ) -> Generator[Wandb, None, None]:
         """Set up resumed instance."""
         tracker = Wandb(settings=self.settings, resume_run=True)
-        tracker.notify(start_training_event)
+        tracker.notify(start_experiment_event)
         yield tracker
 
         tracker.notify(stop_experiment_event)
         return
 
-    def test_local_creation(self, tmp_path):
-        assert list(tmp_path.iterdir())
+    def test_folder_creation(self, tmp_path, example_exp_name):
+        """Test that wandb creates local files and directories."""
+        created_items = list((tmp_path / example_exp_name).iterdir())
+        assert created_items  # Should not be empty
+
+        # Check for wandb directory structure
+        wandb_dirs = [item for item in created_items if
+                      item.name.startswith('wandb')]
+        assert wandb_dirs
+
+    @pytest.mark.skip(reason='wandb does not support resuming offline runs')
+    def test_resume_functionality(self,
+                                  resumed_tracker,
+                                  start_training_event,
+                                  example_model_name,
+                                  example_source_name,
+                                  example_loss_name):
+        """Test that resume functionality works correctly."""
+        key = f'{example_model_name}/{example_source_name}-{example_loss_name}'
+        summary = resumed_tracker.run.summary
+        # note summary only gets you last value
+        assert key in summary.keys()
