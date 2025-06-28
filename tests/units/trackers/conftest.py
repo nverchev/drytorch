@@ -11,14 +11,16 @@ from drytorch import log_events
 @pytest.fixture
 def start_experiment_mock_event(mocker,
                                 tmp_path,
-                                example_exp_name) -> log_events.StartExperiment:
+                                example_exp_name,
+                                example_config) -> (
+        log_events.StartExperiment):
     """Mock StartExperiment event instance."""
     mock = mocker.create_autospec(log_events.StartExperiment)
     # Set default attribute values
     mock.exp_name = example_exp_name
     mock.exp_dir = tmp_path / example_exp_name
     mock.exp_version = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-    mock.config = None
+    mock.config = example_config
     return mock
 
 

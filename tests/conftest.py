@@ -12,6 +12,15 @@ def example_exp_name() -> str:
 
 
 @pytest.fixture(scope='package')
+def example_config() -> dict[str, int]:
+    """Example mapping for metrics."""
+    return {
+        'batch_size': 32,
+        'training_epochs': 100,
+    }
+
+
+@pytest.fixture(scope='package')
 def example_source_name() -> str:
     """Example name for the source."""
     return 'test_source'
