@@ -86,8 +86,10 @@ class PolynomialScheduler(AbstractScheduler):
     def __post_init__(self):
         if self.max_epochs <= 0:
             raise ValueError('max_epochs must be positive.')
+
         if self.power < 0:
             raise ValueError('power must be non-negative.')
+
         if not 0 <= self.min_decay <= 1:
             raise ValueError('min_decay must be between 0 and 1.')
 
@@ -116,8 +118,8 @@ class ExponentialScheduler(AbstractScheduler):
 
     def __post_init__(self):
         if not 0 < self.exp_decay <= 1:
-            raise ValueError(
-                'exp_decay must be between 0 and 1 (exclusive of 0).')
+            raise ValueError('exp_decay must be positive and less than 1.')
+
         if not 0 <= self.min_decay <= 1:
             raise ValueError('min_decay must be between 0 and 1.')
 
@@ -146,6 +148,7 @@ class CosineScheduler(AbstractScheduler):
     def __post_init__(self):
         if self.decay_steps <= 0:
             raise ValueError('decay_steps must be positive.')
+
         if not 0 <= self.min_decay <= 1:
             raise ValueError('min_decay must be between 0 and 1.')
 
@@ -153,6 +156,7 @@ class CosineScheduler(AbstractScheduler):
         min_lr = self.min_decay * start_value
         if epoch > self.decay_steps:
             return min_lr
+
         from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
         return min_lr + (start_value - min_lr) * (1 + from_1_to_minus1) / 2
 
@@ -198,8 +202,10 @@ class RestartScheduler(AbstractScheduler):
     def __post_init__(self):
         if self.restart_interval <= 0:
             raise ValueError('restart_interval must be positive.')
+
         if self.restart_fraction <= 0:
             raise ValueError('restart_fraction must be positive.')
+
         if self.max_restart is not None and self.max_restart <= 0:
             raise ValueError('max_restart must be positive.')
 
@@ -260,8 +266,10 @@ class StepScheduler(AbstractScheduler):
     def __post_init__(self):
         if not all(m > 0 for m in self.milestones):
             raise ValueError('All milestones must be positive.')
+
         if self.milestones != sorted(self.milestones):
             raise ValueError('Milestones must be in ascending order.')
+
         if not 0 < self.gamma <= 1:
             raise ValueError('gamma must be between 0 and 1 (exclusive of 0).')
 
