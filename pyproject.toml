@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
     "torch >= 2.5.1",
     "numpy",
-]
+    ]
 
 [project.optional-dependencies]
 recommended_trackers = [
@@ -60,7 +60,6 @@ all = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include-package-data = true
 
 [project.urls]
 Repository = "https://github.com/nverchev/drytorch"
