@@ -118,9 +118,9 @@ def mock_trainer(mocker,
                  mock_validation) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
-    mock._model = mock_model
+    mock.model = mock_model
     mock.name = 'mock_trainer'
-    mock._model.epoch = 3
+    mock.model.epoch = 3
     mock.objective = mock_loss
     mock.validation = mock_validation
     mock.terminated = False

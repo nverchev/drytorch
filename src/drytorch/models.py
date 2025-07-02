@@ -243,7 +243,7 @@ class ModelOptimizer:
             ]
         else:
             self._params_lr = [
-                dict(params=getattr(self._module, k).example_parameters(), lr=v)
+                dict(params=getattr(self._module, k).parameters(), lr=v)
                 for k, v in lr.items()
             ]
             if not self._params_lr_contains_all_params():
