@@ -58,7 +58,7 @@ def mock_learning_scheme(mocker,
     mock.scheduler = mock_scheduler
     mock.optimizer_cls = torch.optim.SGD
     mock.optimizer_defaults = {}
-    mock.clip_strategy = lambda x: None
+    mock.gradient_op = lambda x: None
     return mock
 
 
@@ -118,9 +118,9 @@ def mock_trainer(mocker,
                  mock_validation) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
-    mock.model = mock_model
+    mock._model = mock_model
     mock.name = 'mock_trainer'
-    mock.model.epoch = 3
+    mock._model.epoch = 3
     mock.objective = mock_loss
     mock.validation = mock_validation
     mock.terminated = False

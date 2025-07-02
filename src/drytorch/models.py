@@ -194,15 +194,6 @@ class ModelOptimizer:
     Bundle the module and its optimizer.
 
     It supports different learning rates to separate parameters' groups.
-
-    Args:
-        model: the model to be optimized.
-        learning_scheme: the learning scheme for the optimizer.
-
-    Attributes:
-        model: the model to be optimized.
-        module: the module contained in the model.
-        optimizer: the optimizer bound to the module.
     """
 
     def __init__(
@@ -210,26 +201,31 @@ class ModelOptimizer:
             model: p.ModelProtocol[_Input_contra, _Output_co],
             learning_scheme: p.LearningProtocol,
     ) -> None:
-        self.model = model
-        self.module = model.module
+        """
+        Args:
+            model: the model to be optimized.
+            learning_scheme: the learning scheme for the optimizer.
+        """
+        self._model = model
+        self._module = model.module
         self._params_lr: list[_OptParams] = []
         self._base_lr = learning_scheme.base_lr
         self._scheduler = learning_scheme.scheduler
-        self.optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
+        self._optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
-        self._clip_strategy = learning_scheme.clip_strategy
-        self._checkpoint = self.model.checkpoint
-        self._checkpoint.register_optimizer(self.optimizer)
+        self._gradient_op = learning_scheme.gradient_op
+        self._checkpoint = self._model.checkpoint
+        self._checkpoint.register_optimizer(self._optimizer)
         self._scaler = torch.amp.GradScaler(model.device.type,
                                             enabled=model.mixed_precision)
 
     def __repr__(self) -> str:
         desc = '{}(module={}, optimizer={})'
         return desc.format(self.__class__.__name__,
-                           self.model.name,
-                           self.optimizer.__class__.__name__)
+                           self._model.name,
+                           self._optimizer.__class__.__name__)
 
     @property
     def _base_lr(self) -> float | dict[str, float]:
@@ -243,30 +239,18 @@ class ModelOptimizer:
         self._lr = lr
         if isinstance(lr, (float, int)):
             self._params_lr = [
-                dict(params=self.module.parameters(), lr=lr),
+                dict(params=self._module.parameters(), lr=lr),
             ]
         else:
             self._params_lr = [
-                dict(params=getattr(self.module, k).parameters(), lr=v)
+                dict(params=getattr(self._module, k).example_parameters(), lr=v)
                 for k, v in lr.items()
             ]
             if not self._params_lr_contains_all_params():
-                module_names = list(self.module.named_modules())
+                module_names = list(self._module.named_modules())
                 raise exceptions.MissingParamError(module_names, list(lr))
 
         return
-
-    def clip_gradients_(self, parameters: Iterator[torch.nn.Parameter]) -> None:
-        """
-        Clip the gradients of an iterable of parameters depending on settings.
-
-        Args:
-            parameters: the parameters containing the gradients.
-
-        Side Effect:
-            the parameters' gradients are clipped in place.
-        """
-        return self._clip_strategy(parameters)
 
     def get_opt_params(self) -> list[_OptParams]:
         """
@@ -285,7 +269,7 @@ class ModelOptimizer:
         Args:
             lr: base learning rate.
         """
-        return self._scheduler(lr, self.model.epoch)
+        return self._scheduler(lr, self._model.epoch)
 
     def load(self, epoch: int = -1) -> None:
         """Load model and optimizer state from a checkpoint."""
@@ -312,7 +296,7 @@ class ModelOptimizer:
         if base_lr is not None:
             self._base_lr = base_lr
 
-        for g, up_g in zip(self.optimizer.param_groups,
+        for g, up_g in zip(self._optimizer.param_groups,
                            self.get_opt_params()):
             g['lr'] = up_g['lr']
 
@@ -326,10 +310,10 @@ class ModelOptimizer:
             loss_value = the output tensor for the loss.
         """
         self._scaler.scale(loss_value).backward()
-        self.clip_gradients_(self.model.module.parameters())
-        self._scaler.step(self.optimizer)
+        self._gradient_op(self._model.module.parameters())
+        self._scaler.step(self._optimizer)
         self._scaler.update()
-        self.optimizer.zero_grad()
+        self._optimizer.zero_grad()
 
     def save(self) -> None:
         """Save model and optimizer state in a checkpoint."""
@@ -338,7 +322,7 @@ class ModelOptimizer:
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(count_params(elem['params'])
                               for elem in self._params_lr)
-        total_params_model = count_params(self.module.parameters())
+        total_params_model = count_params(self._module.parameters())
         return total_params_lr == total_params_model
 
 

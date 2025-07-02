@@ -68,7 +68,7 @@ class TestModelOptimizerGlobalLR:
         self.model_optimizer.update_learning_rate(base_lr=0.02)
 
         # Check optimizer parameter group learning rate
-        for param_group in self.model_optimizer.optimizer.param_groups:
+        for param_group in self.model_optimizer._optimizer.param_groups:
             assert param_group['lr'] == 0.02
 
 
@@ -91,7 +91,7 @@ class TestModelOptimizerParameterLR:
 
         self.model_optimizer.update_learning_rate(base_lr=new_lr)
 
-        param_groups = self.model_optimizer.optimizer.param_groups
+        param_groups = self.model_optimizer._optimizer.param_groups
         for param_group, lr in zip(param_groups, new_lr.values()):
             assert param_group['lr'] == lr
 

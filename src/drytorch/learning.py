@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import dataclasses
 from typing import Any
 
@@ -10,6 +9,7 @@ import torch
 
 from drytorch import protocols as p
 from drytorch import schedulers
+from drytorch.utils.gradient_ops import GradientOp
 
 
 @dataclasses.dataclass
@@ -22,13 +22,13 @@ class LearningScheme(p.LearningProtocol):
         base_lr: initial learning rates for named parameters or global value.
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
-        clip_strategy: strategy to clip gradients. See utils.gradient_clipping.
+        gradient_op: modifies parameters' gradients in-place after backwards.
     """
     optimizer_cls: type[torch.optim.Optimizer]
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
-    clip_strategy: Callable = dataclasses.field(default=lambda x: None)
+    gradient_op: GradientOp = dataclasses.field(default=lambda x: None)
 
     @classmethod
     def Adam(cls,
