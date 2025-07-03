@@ -189,7 +189,7 @@ class TestEMACriterion:
         """Test initialization of EMACriterion."""
         assert ema_criterion.alpha == 0.5
         assert ema_criterion.r_thresh == 2.0
-        assert ema_criterion.clip_function == max_clipping
+        assert ema_criterion.clipping_function == max_clipping
 
     def test_should_clip(self, ema_criterion) -> None:
         """Test should_clip logic."""
@@ -248,7 +248,7 @@ class TestZStatCriterion:
         """Test initialization of ZStatCriterion."""
         assert zstat_criterion.alpha == 0.9
         assert zstat_criterion.z_thresh == 2.0
-        assert zstat_criterion.clip_function == reciprocal_clipping
+        assert zstat_criterion.clipping_function == reciprocal_clipping
 
     def test_should_clip(self, zstat_criterion: ZStatCriterion) -> None:
         """Test should_clip logic."""

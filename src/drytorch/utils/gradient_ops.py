@@ -4,7 +4,6 @@ import abc
 from collections import defaultdict
 from collections.abc import Iterable, Callable
 import copy
-import functools
 import math
 from typing import TypeAlias
 
@@ -241,7 +240,7 @@ class EMACriterion(ClippingCriterion):
         """
         self.alpha = alpha
         self.r_thresh = r_thresh
-        self.clip_function = clipping_function
+        self.clipping_function = clipping_function
         self._mu_t = 0.0
         ClipOperation._validate_threshold(r_thresh)
         return
@@ -259,7 +258,7 @@ class EMACriterion(ClippingCriterion):
             return value
 
         ratio = value / self._mu_t
-        clipping_factor = self.clip_function(ratio, self.r_thresh)
+        clipping_factor = self.clipping_function(ratio, self.r_thresh)
         return self._mu_t * clipping_factor
 
     @override
@@ -307,7 +306,7 @@ class ZStatCriterion(ClippingCriterion):
         """
         self.alpha = alpha
         self.z_thresh = z_thresh
-        self.clip_function = clipping_function
+        self.clipping_function = clipping_function
         self._eps = eps
         self._mu_t = 0.0
         self._v_t = 1.0
@@ -332,7 +331,7 @@ class ZStatCriterion(ClippingCriterion):
         if abs(z_score) <= self.z_thresh:
             return value
 
-        new_z_score = self.clip_function(abs(z_score), self.z_thresh)
+        new_z_score = self.clipping_function(abs(z_score), self.z_thresh)
         return self._mu_t + new_z_score * math.sqrt(self._v_t)
 
     @override
