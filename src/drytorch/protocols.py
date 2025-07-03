@@ -106,7 +106,7 @@ class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
 
 
 class ObjectiveProtocol(Protocol[_Output_contra, _Target_contra]):
-    """Protocol that calculates and returns metrics and loss."""
+    """Protocol that calculates and returns metrics."""
 
     @abc.abstractmethod
     def update(self,
@@ -130,7 +130,7 @@ class ObjectiveProtocol(Protocol[_Output_contra, _Target_contra]):
 
 
 class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
-    """Protocol that calculates and returns metrics and loss."""
+    """Protocol that calculates and returns metrics and the loss."""
 
     def forward(self,
                 outputs: _Output_contra,
