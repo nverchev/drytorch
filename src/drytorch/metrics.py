@@ -39,7 +39,7 @@ _Tensor = torch.Tensor
 
 
 class Objective(
-    p.OjectiveProtocol[_Output_contra, _Target_contra],
+    p.ObjectiveProtocol[_Output_contra, _Target_contra],
     metaclass=abc.ABCMeta
 ):
     def __init__(
@@ -386,7 +386,7 @@ def dict_apply(
             for name, function in dict_fun.items()}
 
 
-def repr_metrics(calculator: p.OjectiveProtocol) -> Mapping[str, float]:
+def repr_metrics(calculator: p.ObjectiveProtocol) -> Mapping[str, float]:
     """Represent the metrics as a mapping of named values."""
     metrics = calculator.compute()
     if isinstance(metrics, Mapping):

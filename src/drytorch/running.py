@@ -180,7 +180,7 @@ class ModelRunnerWithObjective(ModelRunner):
             name: str = '',
             *,
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            objective: p.OjectiveProtocol[_Output, _Target],
+            objective: p.ObjectiveProtocol[_Output, _Target],
     ) -> None:
         """
         Args:

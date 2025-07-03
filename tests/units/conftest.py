@@ -65,9 +65,9 @@ def mock_learning_scheme(mocker,
 @pytest.fixture
 def mock_metric(
         mocker,
-) -> p.OjectiveProtocol[torch.Tensor, torch.Tensor]:
+) -> p.ObjectiveProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock metric calculator."""
-    mock = mocker.create_autospec(p.OjectiveProtocol, instance=True)
+    mock = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
     mock.name = 'mock_metric'
     mock.compute = mocker.Mock(return_value={'mock_metric': torch.tensor(.5)})
     mock.__deepcopy__ = mocker.Mock(return_value=mock)

@@ -61,7 +61,7 @@ class Evaluation(Diagnostic[_Input, _Target, _Output],
             name: str = '',
             *,
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            metric: p.OjectiveProtocol[_Output, _Target],
+            metric: p.ObjectiveProtocol[_Output, _Target],
     ) -> None:
         """
         Args:

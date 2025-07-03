@@ -17,8 +17,8 @@ class TorchMetricCompositionalMetricProtocol(Protocol):
         metric_a: first metric.
         metric_b: second metric.
     """
-    metric_a: p.OjectiveProtocol | float | None
-    metric_b: p.OjectiveProtocol | float | None
+    metric_a: p.ObjectiveProtocol | float | None
+    metric_b: p.ObjectiveProtocol | float | None
 
     def update(self,
                outputs: _Tensor,
@@ -70,7 +70,7 @@ def from_torchmetrics(
 
         def compute(self) -> dict[str, _Tensor]:
             dict_output = dict[str, _Tensor]()
-            metric_list = list[p.OjectiveProtocol | float | None]()
+            metric_list = list[p.ObjectiveProtocol | float | None]()
             metric_list.append(self.metric)
             while metric_list:
                 metric_ = metric_list.pop()
