@@ -52,7 +52,7 @@ class CheckpointPathManager:
     def model_dir(self) -> pathlib.Path:
         """Directory for the model."""
         model_dir = self.root_dir / self.model.name
-        model_dir.mkdir(exist_ok=True)
+        model_dir.mkdir(exist_ok=True, parents=True)
         return model_dir
 
     @property
