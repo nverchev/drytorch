@@ -45,6 +45,8 @@ def get_moving_average(
 
         return total / total_weights
 
+    repr_mean = f'moving_average(decay={decay}, mass_coverage={mass_coverage})'
+    _mean.__name__ = repr_mean
     return _mean
 
 
@@ -68,4 +70,6 @@ def get_trailing_mean(window_size: int) -> Callable[[Sequence[float]], float]:
         clipped_window = min(window_size, len(float_list))
         return sum(float_list[-clipped_window:]) / clipped_window
 
+    repr_mean = f'trailing_mean(window_size={window_size})'
+    _mean.__name__ = repr_mean
     return _mean
