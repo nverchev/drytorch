@@ -89,9 +89,6 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         self._model: p.ModelProtocol | None = None
         self._optimizer: torch.optim.Optimizer | None = None
 
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(module={self.model.name})'
-
     @property
     def model(self):
         """The registered model to be saved and loaded."""
@@ -155,9 +152,6 @@ class LocalCheckpoint(AbstractCheckpoint):
 
     def __init__(self) -> None:
         super().__init__()
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(module={self.model.name})'
 
     @property
     def paths(self) -> CheckpointPathManager:
