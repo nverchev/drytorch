@@ -22,15 +22,20 @@ class TorchData:
 class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
     """Simple dataset class to learn the identity function."""
 
-    def __init__(self):
+    def __init__(self, len_epoch=64):
+        """
+        Args:
+            len_epoch: how many sample to generate each epoch.
+        """
         super().__init__()
+        self.len_epoch = len_epoch
 
     def __getitem__(self, index: int) -> tuple[TorchTuple, torch.Tensor]:
         x = torch.FloatTensor([index]) / len(self)
         return TorchTuple(x), x
 
     def __len__(self) -> int:
-        return 64
+        return self.len_epoch
 
 
 class Linear(torch.nn.Module):
