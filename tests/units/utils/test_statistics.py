@@ -1,17 +1,16 @@
-"""Tests for the "aggregating" module."""
+"""Tests for the "statistics" module."""
 
 import pytest
 
 import math
 
-
 import torch
 
-from drytorch.utils.aggregating import AbstractAverager
-from drytorch.utils.aggregating import Averager
-from drytorch.utils.aggregating import TorchAverager
-from drytorch.utils.aggregating import get_moving_average
-from drytorch.utils.aggregating import get_trailing_mean
+from drytorch.utils.statistics import AbstractAverager
+from drytorch.utils.statistics import Averager
+from drytorch.utils.statistics import TorchAverager
+from drytorch.utils.statistics import get_moving_average
+from drytorch.utils.statistics import get_trailing_mean
 
 
 class TestAggregator:
@@ -96,7 +95,6 @@ class TestTorchAverager:
         """Test that reduce returns an empty dict after clearing."""
         torch_averager.clear()
         assert torch_averager.reduce() == {}
-
 
 
 def test_trailing_mean_full_window():

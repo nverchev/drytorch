@@ -9,7 +9,7 @@ from drytorch.utils.repr_utils import recursive_repr
 from drytorch.schedulers import WarmupScheduler
 from drytorch.schedulers import ExponentialScheduler
 from drytorch.gradient_ops import HistClipping
-from drytorch.utils.aggregating import get_moving_average
+from drytorch.utils.statistics import get_moving_average
 
 
 @pytest.fixture(autouse=True, scope='module')
