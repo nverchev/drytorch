@@ -1,4 +1,5 @@
 """Tests LocalCheckpoint integration with the Model and ModelOptimizer class."""
+
 from typing import Generator
 
 import pytest

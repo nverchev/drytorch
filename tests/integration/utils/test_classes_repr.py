@@ -1,4 +1,5 @@
 """Test the automatic representation for the library classes."""
+
 from typing import Generator
 
 import pytest
