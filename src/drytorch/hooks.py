@@ -336,6 +336,9 @@ class MetricMonitor:
         """
         Determine if value is better than recent performances.
 
+        When best_is is in 'auto' mode, it is assumed that the given value is
+        better than the first recorded one.
+
         Args:
             value: the value to compare.
 
@@ -386,12 +389,15 @@ class MetricMonitor:
         """Check whether to be patient."""
         return self._patience_countdown > 0
 
-    def register_metric(self, instance: p.TrainerProtocol) -> None:
+    def extract_metric_value(self, instance: p.TrainerProtocol) -> None:
         """
-        Register new metric.
+        Extract and register a new metric value from a monitored evaluation.
+
+        If no evaluation is specified, it falls back on the trainer instance
+        or if present, the validation instance contained there.
 
         Args:
-            instance: Trainer instance.
+            instance: Trainer instance to fall back on.
 
         Raises:
             MetricNotFoundError: if the specified metric is not found.
@@ -470,7 +476,7 @@ class EarlyStoppingCallback:
         Args:
             instance: Trainer instance to evaluate.
         """
-        self.monitor.register_metric(instance)
+        self.monitor.extract_metric_value(instance)
         epoch = instance.model.epoch
         if epoch < self.start_from_epoch:
             return
@@ -526,6 +532,7 @@ class PruneCallback:
             average_fn=aggregate_fn,
         )
         self.pruning = pruning
+        self.trial_values = dict[int, float]()
         return
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
@@ -538,10 +545,10 @@ class PruneCallback:
         epoch = instance.model.epoch
         if epoch not in self.pruning:
             return
-
         threshold = self.pruning[epoch]
-        self.monitor.register_metric(instance)
+        self.monitor.extract_metric_value(instance)
         if self.monitor.is_best(threshold):
+            self.trial_values[epoch] = self.monitor.best_result
             metric_name = self.monitor.metric_name
             instance.terminate_training(
                 f'Training stopped at {threshold=} {metric_name}.'
@@ -610,7 +617,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             self._cooldown_counter -= 1
             return
 
-        self.monitor.register_metric(instance)
+        self.monitor.extract_metric_value(instance)
         if self.monitor.is_improving() or self.monitor.is_patient():
             return
 
