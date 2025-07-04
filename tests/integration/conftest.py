@@ -1,9 +1,11 @@
 """Configuration module with objects from the package."""
+from typing import Generator
 
 import pytest
 
 import torch
 
+import drytorch
 from drytorch import DataLoader, LearningScheme, Model, Experiment
 from drytorch import Trainer, Loss, Metric
 
@@ -75,7 +77,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
 @pytest.fixture
 def standard_learning_scheme() -> LearningScheme:
     """Instantiate a standard learning scheme."""
-    return LearningScheme.Adam(base_lr=0.01)
+    return LearningScheme.Adam(base_lr=0.1)
 
 
 @pytest.fixture
@@ -92,3 +94,13 @@ def identity_trainer(
                       learning_scheme=standard_learning_scheme,
                       loss=square_loss_calc)
     return trainer
+
+
+@pytest.fixture(scope='module')
+def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
+    """Fixture of an experiment."""
+    drytorch.remove_all_default_trackers()
+    par_dir = tmpdir_factory.mktemp('experiments')
+    with Experiment[None](name='TestExperiment', par_dir=par_dir) as exp:
+        yield exp
+    return
