@@ -98,8 +98,8 @@ class TestSQLConnectionFullCycle:
             experiments = session.query(Experiment).all()
             assert len(experiments) == 1
 
-            experiment = experiments[0]
-            assert experiment.run_id == run.run_id
+            first_experiment = experiments[0]
+            assert first_experiment.run_id == run.run_id
 
             # verify sources were created and linked to run
             sources = session.query(Source).all()

@@ -1,1 +1,1 @@
-"""Integration tests."""
+"""Functional tests."""

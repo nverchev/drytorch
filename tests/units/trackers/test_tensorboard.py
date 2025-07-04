@@ -2,7 +2,7 @@
 
 import pytest
 try:
-    import tensorboard
+    import torch.utils.tensorboard
 except ImportError:
     pytest.skip('tensorboard not available', allow_module_level=True)
 

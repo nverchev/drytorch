@@ -1,7 +1,6 @@
 """Tests for the "evaluating" module."""
 
 import pytest
-from defer import return_value
 
 from drytorch import exceptions
 from drytorch.running import ModelCaller

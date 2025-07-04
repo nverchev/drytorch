@@ -10,20 +10,12 @@ from typing import TypeAlias
 import torch
 from typing_extensions import override
 
-GradientOp: TypeAlias = Callable[[Iterable[torch.nn.Parameter]], None]
+from drytorch import protocols as p
+
 ClipFunction: TypeAlias = Callable[[float, float], float]
 
 
-class GradientOperation(GradientOp):
-    """Abstract base class for gradient operations."""
-
-    @abc.abstractmethod
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
-        """Apply the gradient operation to the given parameters."""
-        pass
-
-
-class GradNormalizer(GradientOperation):
+class GradNormalizer(p.GradientOpProtocol):
     """Strategy that normalizes each parameter's gradient to unit norm."""
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -37,7 +29,7 @@ class GradNormalizer(GradientOperation):
                 param.grad = grad / norm
 
 
-class GradZScoreNormalizer(GradientOperation):
+class GradZScoreNormalizer(p.GradientOpProtocol):
     """Gradient normalizing strategy using Z-score normalization."""
 
     def __init__(self, eps: float = 1e-8) -> None:
@@ -58,7 +50,7 @@ class GradZScoreNormalizer(GradientOperation):
             param.grad = (grad - grad.mean()) / (grad.std() + self._eps)
 
 
-class ClipOperation(GradientOperation):
+class ClipOperation(p.GradientOpProtocol):
     """Abstract base class for gradient operations."""
 
     @staticmethod
@@ -372,7 +364,7 @@ class StatsCollector:
             max_samples: the number of collected samples for completion.
         """
         self.max_samples = max_samples
-        self._data = []
+        self._data = list[float]()
         self.active = True
         return
 
@@ -431,7 +423,7 @@ class HistClipping(ClipOperation):
 
     def __init__(self,
                  criterion: ClippingCriterion = ZStatCriterion(),
-                 warmup_clip_strategy: GradientOp = GradNormClipper(1.0),
+                 warmup_clip_strategy: p.GradientOpProtocol = GradNormClipper(),
                  n_warmup_steps: int = 20) -> None:
         """
         Initialize global clipping strategy.
@@ -501,7 +493,7 @@ class ParamHistClipping(ClipOperation):
 
     def __init__(self,
                  criterion: ClippingCriterion = ZStatCriterion(),
-                 warmup_clip_strategy: GradientOp = GradNormClipper(1.0),
+                 warmup_clip_strategy: p.GradientOpProtocol = GradNormClipper(),
                  n_warmup_steps: int = 20) -> None:
         """
         Initialize global clipping strategy.

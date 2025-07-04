@@ -12,7 +12,7 @@ import pathlib
 from typing import Any, Optional
 from typing_extensions import override
 
-import yaml  # type: ignore
+import yaml
 
 from drytorch import log_events
 from drytorch.trackers import base_classes
@@ -98,8 +98,9 @@ def has_short_repr(obj: object,
     return True
 
 
-def represent_literal_str(dumper: yaml.Dumper,
-                          literal_str: repr_utils.LiteralStr) -> yaml.Node:
+def represent_literal_str(
+        dumper: yaml.Dumper,
+        literal_str: repr_utils.LiteralStr) -> yaml.ScalarNode:
     """YAML representer for literal strings."""
     return dumper.represent_scalar('tag:yaml.org,2002:str',
                                    literal_str,
@@ -108,9 +109,9 @@ def represent_literal_str(dumper: yaml.Dumper,
 
 def represent_sequence(
         dumper: yaml.Dumper,
-        sequence: Sequence,
+        sequence: Sequence | set,
         max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
-) -> yaml.Node:
+) -> yaml.SequenceNode:
     """YAML representer for sequences."""
     flow_style = False
     if len(sequence) <= max_length_for_plain:
@@ -123,7 +124,7 @@ def represent_sequence(
 
 
 def represent_omitted(dumper: yaml.Dumper,
-                      data: repr_utils.Omitted) -> yaml.Node:
+                      data: repr_utils.Omitted) -> yaml.MappingNode:
     """YAML representer for omitted values."""
     return dumper.represent_mapping(u'!Omitted',
                                     {'omitted_elements': data.count})

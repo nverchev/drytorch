@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
 from typing_extensions import override
@@ -498,12 +498,12 @@ class PruneCallback:
 
     Attributes:
         monitor: monitor instance.
-        pruning: dictionary mapping epochs to pruning thresholds.
+        thresholds: dictionary mapping epochs to pruning thresholds.
     """
 
     def __init__(
             self,
-            thresholds: dict[int, float | None],
+            thresholds: Mapping[int, float | None],
             metric: Optional[str | p.ObjectiveProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
@@ -531,8 +531,8 @@ class PruneCallback:
             best_is=best_is,
             average_fn=average_fn,
         )
-        self.pruning = thresholds
-        self.trial_values = dict[int, float]()
+        self.thresholds = thresholds
+        self.trial_values: MutableMapping[int, float] = {}
         return
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
@@ -543,9 +543,9 @@ class PruneCallback:
             instance: trainer instance to evaluate.
         """
         epoch = instance.model.epoch
-        if epoch not in self.pruning:
+        if epoch not in self.thresholds:
             return
-        threshold = self.pruning[epoch]
+        threshold = self.thresholds[epoch]
         self.monitor.extract_metric_value(instance)
         if threshold is None or self.monitor.is_best(threshold):
             self.trial_values[epoch] = self.monitor.best_result

@@ -167,6 +167,15 @@ class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
         """Reset cached values."""
 
 
+class GradientOpProtocol(Protocol):
+    """Abstract base class for gradient operations."""
+
+    @abc.abstractmethod
+    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+        """Apply the gradient operation to the given parameters."""
+        pass
+
+
 class LearningProtocol(Protocol):
     """
     Protocol with specifications for the learning algorithm.
@@ -182,7 +191,7 @@ class LearningProtocol(Protocol):
     base_lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
-    gradient_op: Optional[Callable[[Iterable[torch.nn.Parameter]], None]]
+    gradient_op: Optional[GradientOpProtocol]
 
 
 @runtime_checkable

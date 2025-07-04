@@ -41,20 +41,20 @@ from drytorch.training import Trainer
 from drytorch.trackers import logging as builtin_logging
 
 __all__ = [
-    Evaluation,
-    Diagnostic,
-    Test,
-    FailedOptionalImportWarning,
-    Experiment,
-    MainExperiment,
-    SubExperiment,
-    Loss,
-    Metric,
-    DataLoader,
-    LearningScheme,
-    Model,
-    Tracker,
-    Trainer,
+    "Evaluation",
+    "Diagnostic",
+    "Test",
+    "FailedOptionalImportWarning",
+    "Experiment",
+    "MainExperiment",
+    "SubExperiment",
+    "Loss",
+    "Metric",
+    "DataLoader",
+    "LearningScheme",
+    "Model",
+    "Tracker",
+    "Trainer",
 ]
 
 logger = logging.getLogger("drytorch")

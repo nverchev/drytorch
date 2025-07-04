@@ -9,7 +9,6 @@ import torch
 
 from drytorch import protocols as p
 from drytorch import schedulers
-from drytorch.utils.gradient_ops import GradientOp
 
 
 @dataclasses.dataclass
@@ -28,7 +27,7 @@ class LearningScheme(p.LearningProtocol):
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
-    gradient_op: Optional[GradientOp] = None
+    gradient_op: Optional[p.GradientOpProtocol] = None
 
     @classmethod
     def Adam(cls,

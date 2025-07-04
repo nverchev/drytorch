@@ -2,24 +2,22 @@
 
 import pytest
 
-from collections import defaultdict
 from collections.abc import Iterable
-import math
 
 import torch
 
-from drytorch.utils.gradient_ops import GradNormalizer
-from drytorch.utils.gradient_ops import GradZScoreNormalizer
-from drytorch.utils.gradient_ops import GradNormClipper
-from drytorch.utils.gradient_ops import GradValueClipper
-from drytorch.utils.gradient_ops import StatsCollector
-from drytorch.utils.gradient_ops import ParamHistClipping
-from drytorch.utils.gradient_ops import HistClipping
-from drytorch.utils.gradient_ops import EMACriterion
-from drytorch.utils.gradient_ops import ZStatCriterion
-from drytorch.utils.gradient_ops import mean_clipping
-from drytorch.utils.gradient_ops import max_clipping
-from drytorch.utils.gradient_ops import reciprocal_clipping
+from drytorch.gradient_ops import GradNormalizer
+from drytorch.gradient_ops import GradZScoreNormalizer
+from drytorch.gradient_ops import GradNormClipper
+from drytorch.gradient_ops import GradValueClipper
+from drytorch.gradient_ops import StatsCollector
+from drytorch.gradient_ops import ParamHistClipping
+from drytorch.gradient_ops import HistClipping
+from drytorch.gradient_ops import EMACriterion
+from drytorch.gradient_ops import ZStatCriterion
+from drytorch.gradient_ops import mean_clipping
+from drytorch.gradient_ops import max_clipping
+from drytorch.gradient_ops import reciprocal_clipping
 
 
 @pytest.fixture
@@ -481,7 +479,7 @@ class TestParamHistClipping:
         return
 
     @pytest.fixture
-    def grad_clipping(self) -> HistClipping:
+    def grad_clipping(self) -> ParamHistClipping:
         """Set up a test instance."""
         criterion = ZStatCriterion(alpha=0.9, z_thresh=1.0)
         return ParamHistClipping(criterion=criterion, n_warmup_steps=1)

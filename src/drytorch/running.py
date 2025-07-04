@@ -2,7 +2,7 @@
 
 import copy
 import sys
-from typing import Iterator, Mapping, TypeVar
+from typing import Iterator, Mapping, Generic, TypeVar
 from typing_extensions import override
 import warnings
 
@@ -20,7 +20,7 @@ _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class ModelCaller:
+class ModelCaller(Generic[_Input, _Output]):
     """
     Base class that calls a model.
 
@@ -29,7 +29,9 @@ class ModelCaller:
     """
     _name = repr_utils.DefaultName()
 
-    def __init__(self, model: p.ModelProtocol, name: str = ''):
+    def __init__(self,
+                 model: p.ModelProtocol[_Input, _Output],
+                 name: str = '') -> None:
         """
         Args:
             model: the wrapped model.
@@ -51,7 +53,7 @@ class ModelCaller:
         return self._name
 
 
-class Source(ModelCaller, repr_utils.Versioned):
+class Source(ModelCaller[_Input, _Output], repr_utils.Versioned):
     """
     Document itself when the model is first called.
 
@@ -59,7 +61,9 @@ class Source(ModelCaller, repr_utils.Versioned):
         model: the model containing the weights to evaluate.
     """
 
-    def __init__(self, model: p.ModelProtocol, name: str = ''):
+    def __init__(self,
+                 model: p.ModelProtocol[_Input, _Output],
+                 name: str = ''):
         """
         Args:
             model: the model containing the weights to evaluate.
@@ -78,7 +82,7 @@ class Source(ModelCaller, repr_utils.Versioned):
         return
 
 
-class ModelRunner(ModelCaller):
+class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
     """
     Run a model on a dataset.
 
@@ -163,7 +167,7 @@ class ModelRunner(ModelCaller):
             self.outputs_list.append(outputs)
 
 
-class ModelRunnerWithObjective(ModelRunner):
+class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
     """
     Run a model on a dataset and calculate the value of an objective function.
 
@@ -213,7 +217,8 @@ class ModelRunnerWithObjective(ModelRunner):
         return
 
 
-class ModelRunnerWithLogs(ModelRunnerWithObjective, Source):
+class ModelRunnerWithLogs(ModelRunnerWithObjective[_Input, _Target, _Output],
+                          Source):
     """
     Run a model on a dataset and log the value of an objective function.
 

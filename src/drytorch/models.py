@@ -178,7 +178,7 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
         return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
-        if torch.inference_mode:
+        if torch.inference_mode():
             return self.averaged_module(inputs)  # no mixed precision here
         return super().__call__(inputs)
 

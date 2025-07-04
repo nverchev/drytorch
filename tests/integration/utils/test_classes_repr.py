@@ -8,7 +8,7 @@ from drytorch.hooks import EarlyStoppingCallback
 from drytorch.utils.repr_utils import recursive_repr
 from drytorch.schedulers import WarmupScheduler
 from drytorch.schedulers import ExponentialScheduler
-from drytorch.utils.gradient_ops import HistClipping
+from drytorch.gradient_ops import HistClipping
 from drytorch.utils.averages import get_moving_average
 
 

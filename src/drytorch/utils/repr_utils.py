@@ -95,7 +95,7 @@ else:
             for key, value in self._original_options.items():
                 pd.set_option(key, value)
 
-    PandasObject = pd.core.base.PandasObject
+    PandasObject = pd.core.base.PandasObject  # type: ignore
 
 
 class LiteralStr(str):

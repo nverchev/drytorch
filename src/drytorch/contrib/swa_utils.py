@@ -4,14 +4,16 @@ import torch
 
 from drytorch.running import ModelCaller
 
+AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
+
 
 class ModelMomentaUpdater(ModelCaller):
 
     def __call__(self) -> None:
         """Single pass on the dataset."""
-        momenta = dict[torch.nn.Module, float]()
+        momenta = dict[AbstractBatchNorm, float | None]()
         for module in self.model.module.modules():
-            if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            if isinstance(module, AbstractBatchNorm):
                 module.reset_running_stats()
                 momenta[module] = module.momentum
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from typing import Generator
+from typing import Generator, MutableMapping
 
 from drytorch import Model, Trainer
 
@@ -16,6 +16,12 @@ def start_experiment(experiment) -> Generator[None, None, None]:
     """Create an experimental scope for the tests."""
     yield
     return
+
+
+@pytest.fixture
+def benchmark_values() -> MutableMapping[int, float | None]:
+    """Thresholds for the first epochs with None values"""
+    return {}.fromkeys(range(1, 5))
 
 
 def test_automatic_names(standard_learning_scheme,
@@ -42,11 +48,11 @@ def test_automatic_names(standard_learning_scheme,
     assert {'Model', 'Model_1', 'Model_2', 'Model_3'} == set(results)
 
 
-def test_iterative_pruning(standard_learning_scheme,
+def test_iterative_pruning(benchmark_values,
+                           standard_learning_scheme,
                            square_loss_calc,
                            identity_loader) -> None:
     """Test a pruning strategy that requires model to improve at each epoch."""
-    benchmark_values = dict[int, float | None].fromkeys(range(1, 5))
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         linear_model = Model(Linear(1, 1))

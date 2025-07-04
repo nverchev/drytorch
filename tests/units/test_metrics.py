@@ -12,6 +12,8 @@ from drytorch.metrics import Loss, CompositionalLoss
 from drytorch.metrics import dict_apply
 from drytorch.metrics import repr_metrics
 
+_Tensor = torch.Tensor
+
 
 @pytest.fixture()
 def metric_1() -> str:
@@ -131,9 +133,9 @@ class TestMetric:
     def test_or(self, metric_1) -> None:
         """Test | works as a union operator."""
 
-        new_metrics = Metric(lambda x, y: torch.tensor(0.5),
-                             name='NewMetric',
-                             higher_is_better=True)
+        new_metrics = Metric[_Tensor, _Tensor](lambda x, y: torch.tensor(0.5),
+                                               name='NewMetric',
+                                               higher_is_better=True)
 
         combined_metrics = self.metrics | new_metrics
 

@@ -2,7 +2,7 @@
 
 import pytest
 try:
-    import yaml  # type ignore
+    import yaml
 except ImportError:
     pytest.skip('yaml not available', allow_module_level=True)
     raise
