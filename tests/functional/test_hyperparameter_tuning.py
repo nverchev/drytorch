@@ -1,4 +1,4 @@
-"""Module that tests training"""
+"""Functional tests for simple hyperparameter tuning."""
 
 import pytest
 

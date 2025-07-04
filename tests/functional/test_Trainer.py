@@ -1,4 +1,4 @@
-"""Module that tests training"""
+"""Functional tests for the Trainer class and some hooks."""
 
 import pytest
 
