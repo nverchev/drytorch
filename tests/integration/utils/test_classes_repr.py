@@ -92,9 +92,9 @@ def test_gradient_op_repr():
 def test_scheduler_repr():
     """Test the representation of a scheduler."""
     expected = {'class': 'WarmupScheduler',
-                'scheduler': {'class': 'ExponentialScheduler',
-                              'exp_decay': 0.975,
-                              'min_decay': 0.0},
+                'base_scheduler': {'class': 'ExponentialScheduler',
+                                   'exp_decay': 0.975,
+                                   'min_decay': 0.0},
                 'warmup_steps': 2}
-    scheduler = WarmupScheduler(2, base_scheduler=ExponentialScheduler())
+    scheduler = WarmupScheduler(ExponentialScheduler(), 2)
     assert recursive_repr(scheduler) == expected

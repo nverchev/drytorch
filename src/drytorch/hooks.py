@@ -703,7 +703,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
         Returns:
             Modified scheduler.
         """
-        return schedulers.RescaleScheduler(self.factor, scheduler)
+        return schedulers.RescaleScheduler(scheduler, self.factor)
 
 
 class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
@@ -727,4 +727,4 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
         Returns:
             Modified scheduler.
         """
-        return schedulers.WarmupScheduler(epoch, scheduler)
+        return schedulers.WarmupScheduler(scheduler, epoch)
