@@ -156,7 +156,7 @@ class TestScaledScheduler:
     @pytest.fixture
     def scheduler(self, factor, base_scheduler) -> AbstractScheduler:
         """Set up the instance."""
-        return RescaleScheduler(factor=factor, scheduler=base_scheduler)
+        return RescaleScheduler(factor=factor, base_scheduler=base_scheduler)
 
     def test_scaled_scheduler(self, scheduler, factor, base_scheduler) -> None:
         """Test that ScaledScheduler correctly scales the base
@@ -170,9 +170,9 @@ class TestScaledScheduler:
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
-            RescaleScheduler(factor=0.0, scheduler=ConstantScheduler())
+            RescaleScheduler(factor=0.0, base_scheduler=ConstantScheduler())
         with pytest.raises(ValueError):
-            RescaleScheduler(factor=-1.0, scheduler=ConstantScheduler())
+            RescaleScheduler(factor=-1.0, base_scheduler=ConstantScheduler())
 
 
 class TestRestartScheduler:
@@ -297,7 +297,7 @@ class TestWarmupScheduler:
     def scheduler(self, warmup_steps, base_scheduler) -> AbstractScheduler:
         """Set up the instance."""
         return WarmupScheduler(warmup_steps=warmup_steps,
-                               scheduler=base_scheduler)
+                               base_scheduler=base_scheduler)
 
     def test_warmup_start(self, scheduler) -> None:
         """Test that warmup starts at zero learning rate."""

@@ -168,17 +168,17 @@ class RescaleScheduler(AbstractScheduler):
 
     Attributes:
         factor: factor that rescale the value.
-        scheduler: the scheduler to call.
+        base_scheduler: the scheduler to call.
     """
+    base_scheduler: p.SchedulerProtocol
     factor: float
-    scheduler: p.SchedulerProtocol
 
     def __post_init__(self):
         if self.factor <= 0:
             raise ValueError('factor must be positive.')
 
     def _compute(self, start_value: float, epoch: int) -> float:
-        return self.factor * self.scheduler(start_value, epoch)
+        return self.factor * self.base_scheduler(start_value, epoch)
 
 
 @dataclasses.dataclass
@@ -229,10 +229,10 @@ class WarmupScheduler(AbstractScheduler):
 
     Attributes:
         warmup_steps: number of steps (epochs) for the linear warmup phase.
-        scheduler: the base scheduler to wrap with warmup.
+        base_scheduler: the base scheduler to wrap with warmup.
     """
+    base_scheduler: p.SchedulerProtocol = ConstantScheduler()
     warmup_steps: int = 10
-    scheduler: p.SchedulerProtocol = ConstantScheduler()
 
     def __post_init__(self):
         if self.warmup_steps < 0:
@@ -242,10 +242,10 @@ class WarmupScheduler(AbstractScheduler):
         if epoch < self.warmup_steps:
             return start_value * (epoch / self.warmup_steps)
 
-        return self.scheduler(start_value, epoch - self.warmup_steps)
+        return self.base_scheduler(start_value, epoch - self.warmup_steps)
 
     def __repr__(self) -> str:
-        wrapped_repr = self.scheduler.__repr__()
+        wrapped_repr = self.base_scheduler.__repr__()
         return f'{wrapped_repr} with {self.warmup_steps} warm-up steps'
 
 
@@ -291,7 +291,7 @@ def rescale(factor: float) -> Callable[[AbstractScheduler], AbstractScheduler]:
     """
 
     def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
-        return RescaleScheduler(factor, scheduler)
+        return RescaleScheduler(scheduler, factor)
 
     return _decorator
 
@@ -331,6 +331,6 @@ def warmup(
     """
 
     def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
-        return WarmupScheduler(warmup_steps, scheduler)
+        return WarmupScheduler(scheduler, warmup_steps)
 
     return _decorator

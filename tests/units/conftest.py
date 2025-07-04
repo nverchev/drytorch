@@ -55,7 +55,7 @@ def mock_learning_scheme(mocker,
     """Fixture for a mock learning scheme."""
     mock = mocker.create_autospec(spec=p.LearningProtocol, instance=True)
     mock.base_lr = 0.
-    mock.scheduler = mock_scheduler
+    mock.base_scheduler = mock_scheduler
     mock.optimizer_cls = torch.optim.SGD
     mock.optimizer_defaults = {}
     mock.gradient_op = lambda x: None
