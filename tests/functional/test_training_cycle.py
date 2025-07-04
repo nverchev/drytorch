@@ -22,7 +22,7 @@ def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
 
 
 def test_convergence(identity_trainer) -> None:
-    """Trainer works if the model weight converges to 1."""
+    """Test trainer convergence to 1."""
     identity_trainer.train(10)
     linear_weight = next(identity_trainer.model.module.parameters())
     assert torch.isclose(linear_weight, torch.tensor(1.), atol=0.1)
