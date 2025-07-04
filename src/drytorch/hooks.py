@@ -503,7 +503,7 @@ class PruneCallback:
 
     def __init__(
             self,
-            pruning: dict[int, float],
+            thresholds: dict[int, float | None],
             metric: Optional[str | p.ObjectiveProtocol] = None,
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
@@ -512,7 +512,7 @@ class PruneCallback:
     ) -> None:
         """
         Args:
-            pruning: dictionary mapping epochs to pruning thresholds.
+            thresholds: dictionary mapping epochs to pruning values.
             metric: name of metric to monitor or metric calculator instance.
                 Defaults to first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
@@ -531,7 +531,7 @@ class PruneCallback:
             best_is=best_is,
             average_fn=average_fn,
         )
-        self.pruning = pruning
+        self.pruning = thresholds
         self.trial_values = dict[int, float]()
         return
 
@@ -547,7 +547,7 @@ class PruneCallback:
             return
         threshold = self.pruning[epoch]
         self.monitor.extract_metric_value(instance)
-        if self.monitor.is_best(threshold):
+        if threshold is None or self.monitor.is_best(threshold):
             self.trial_values[epoch] = self.monitor.best_result
             metric_name = self.monitor.metric_name
             instance.terminate_training(

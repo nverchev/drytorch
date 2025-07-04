@@ -46,7 +46,7 @@ def test_iterative_pruning(standard_learning_scheme,
                            square_loss_calc,
                            identity_loader) -> None:
     """Test a pruning strategy that requires model to improve at each epoch."""
-    benchmark_values = {1: 1., 2.: 1, 3.: 1, 4: 1}
+    benchmark_values = dict[int, float | None].fromkeys(range(1, 5))
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         linear_model = Model(Linear(1, 1))

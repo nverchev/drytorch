@@ -62,7 +62,7 @@ def test_pruning_callback(identity_loader,
     pruning_thresholds = {2: 1., 3: 0.}
     identity_trainer.post_epoch_hooks.register(
         hooks.PruneCallback(
-            pruning=pruning_thresholds,
+            thresholds=pruning_thresholds,
             metric=square_loss_calc,
         )
     )

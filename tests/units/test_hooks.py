@@ -216,7 +216,7 @@ class TestPruneCallback:
         """Set up PruneCallback instance."""
         self.pruning = {3: 1, 5: 2}
         self.callback = PruneCallback(
-            pruning=self.pruning,
+            thresholds=self.pruning,
             metric=mock_metric,
         )
 
