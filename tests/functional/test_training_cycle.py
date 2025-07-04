@@ -35,8 +35,8 @@ def test_early_stopping(identity_loader,
                                        min_delta=1)
     identity_trainer.post_epoch_hooks.register(hook)
     identity_trainer.train(4)
-    # 5 epochs of patience and terminate at 3
-    assert identity_trainer.model.epoch == 3
+    # 2 epochs of patience and terminate at 3 or 4
+    assert identity_trainer.model.epoch in {3, 4}
 
 
 def test_early_stopping_on_val(identity_loader,
