@@ -1,11 +1,12 @@
-"""Module containing classes to aggregate and average samples."""
+"""Module containing classes and functions to average samples."""
 
 from __future__ import annotations
 
 import abc
 import collections
-from collections.abc import KeysView, Mapping
+from collections.abc import Callable, KeysView, Mapping, Sequence
 import copy
+import math
 from typing import Generic, Self, TypeVar
 from typing_extensions import override
 
@@ -14,7 +15,7 @@ import torch
 _T = TypeVar('_T', torch.Tensor, float)
 
 
-class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
+class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
     """
     Average tensor values from dict-like objects.
 
@@ -36,7 +37,7 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
         self.__iadd__(kwargs)
         self._cached_reduce: dict[str, _T] = {}
 
-    def __add__(self, other: Aggregator | Mapping[str, _T]) -> Self:
+    def __add__(self, other: AbstractAverager | Mapping[str, _T]) -> Self:
         if isinstance(other, Mapping):
             other = self.__class__(**other)
 
@@ -63,8 +64,8 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
             return False
         return self.aggregate == other.aggregate and self.counts == other.counts
 
-    def __iadd__(self, other: Aggregator | Mapping[str, _T]) -> Self:
-        if isinstance(other, Aggregator):
+    def __iadd__(self, other: AbstractAverager | Mapping[str, _T]) -> Self:
+        if isinstance(other, AbstractAverager):
             other_aggregate = other.aggregate
             other_counts = other.counts
         else:
@@ -122,7 +123,7 @@ class Aggregator(Generic[_T], metaclass=abc.ABCMeta):
         return aggregated / count
 
 
-class Averager(Aggregator[float]):
+class Averager(AbstractAverager[float]):
     """Subclass of Aggregator with an implementation for float values."""
 
     @staticmethod
@@ -136,7 +137,7 @@ class Averager(Aggregator[float]):
         return 1
 
 
-class TorchAverager(Aggregator[torch.Tensor]):
+class TorchAverager(AbstractAverager[torch.Tensor]):
     """Subclass of Aggregator with an implementation for torch.Tensor."""
 
     @staticmethod
@@ -148,3 +149,76 @@ class TorchAverager(Aggregator[torch.Tensor]):
     @override
     def _count(value: torch.Tensor) -> int:
         return value.numel()
+
+
+
+
+def get_moving_average(
+        decay: float = 0.9,
+        mass_coverage: float = 0.99,
+) -> Callable[[Sequence[float]], float]:
+    """
+    Return a moving average by specifying the decay.
+
+    Args:
+        decay: the closer to 0 the more the last elements have weight.
+        mass_coverage: cumulative weight proportion before tail dropping.
+
+    Returns:
+        The moving average function.
+
+    Raises:
+        ValueError if the decay is not between 0 and 1.
+        ValueError if the mass_coverage is not between 1 - decay and 1.
+    """
+    if not 0 < decay < 1:
+        raise ValueError('decay must be between 0 and 1.')
+
+    if not 1 - decay <= mass_coverage <= 1:
+        raise ValueError('mass_coverage should be between 1 - decay and 1.')
+
+    # how far back to go back before the weight drops below the threshold
+    if mass_coverage < 1:
+        stop = -int(math.log(1 - mass_coverage, decay)) - 2
+    else:
+        stop = None
+
+    def _mean(float_list: Sequence[float], /) -> float:
+        total: float = 0
+        total_weights: float = 0  # should get close to one
+        weight = 1 - decay  # weights are normalized
+        for elem in float_list[:stop:-1]:
+            total += weight * elem
+            total_weights += weight
+            weight *= decay
+
+        return total / total_weights
+
+    repr_mean = f'moving_average(decay={decay}, mass_coverage={mass_coverage})'
+    _mean.__name__ = repr_mean
+    return _mean
+
+
+def get_trailing_mean(window_size: int) -> Callable[[Sequence[float]], float]:
+    """
+    Return a trailing average by specifying window size.
+
+    Args:
+        window_size: number of items to aggregate.
+
+    Returns:
+        The windowed average function.
+
+    Raises:
+        ValueError if the window size is negative.
+    """
+    if window_size <= 0:
+        raise ValueError('window_size must be positive.')
+
+    def _mean(float_list: Sequence[float], /) -> float:
+        clipped_window = min(window_size, len(float_list))
+        return sum(float_list[-clipped_window:]) / clipped_window
+
+    repr_mean = f'trailing_mean(window_size={window_size})'
+    _mean.__name__ = repr_mean
+    return _mean

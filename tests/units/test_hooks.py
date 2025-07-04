@@ -144,7 +144,7 @@ class TestMetricMonitor:
             _ = self.monitor.best_result
 
     def test_aggregate_fn_selection(self):
-        assert self.monitor.average_fn([1, 2, 3]) == 3
+        assert self.monitor.aggregate_fn([1, 2, 3]) == 3
 
     def test_is_improving_with_better_value(self):
         self.monitor.best_is = 'higher'
