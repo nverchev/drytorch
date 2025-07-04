@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
     "torch >= 2.5.1",
     "numpy",
-    ]
+]
 
 [project.optional-dependencies]
 recommended_trackers = [
@@ -45,10 +45,18 @@ support = [
 
 dev = ["pytest", "pytest-mock"]
 
+third_party_stubs = [
+    "pandas-stubs",
+    "plotly-stubs",
+    "tqdm-stubs",
+    "types-PyYAML",
+]
+
 all = [
     "drytorch[all_trackers]",
     "drytorch[support]",
     "drytorch[dev]",
+    "drytorch[third_party_stubs]",
 ]
 
 
