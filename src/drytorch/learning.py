@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Any, Optional
 
 import torch
 
@@ -28,7 +28,7 @@ class LearningScheme(p.LearningProtocol):
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
-    gradient_op: GradientOp = dataclasses.field(default=lambda x: None)
+    gradient_op: Optional[GradientOp] = None
 
     @classmethod
     def Adam(cls,

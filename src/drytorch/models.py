@@ -310,7 +310,8 @@ class ModelOptimizer:
             loss_value = the output tensor for the loss.
         """
         self._scaler.scale(loss_value).backward()
-        self._gradient_op(self._model.module.parameters())
+        if self._gradient_op is not None:
+            self._gradient_op(self._model.module.parameters())
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()

@@ -182,7 +182,7 @@ class LearningProtocol(Protocol):
     base_lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
-    gradient_op: Callable[[Iterable[torch.nn.Parameter]], None]
+    gradient_op: Optional[Callable[[Iterable[torch.nn.Parameter]], None]]
 
 
 @runtime_checkable
