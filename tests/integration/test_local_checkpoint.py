@@ -3,18 +3,13 @@ from typing import Generator
 
 import pytest
 
-import drytorch
-from drytorch import Experiment
 from drytorch.models import ModelOptimizer
 
 
 @pytest.fixture(autouse=True, scope='module')
-def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
-    """Fixture of an experiment."""
-    drytorch.remove_all_default_trackers()
-    par_dir = tmpdir_factory.mktemp('experiments')
-    with Experiment[None](name='TestExperiment', par_dir=par_dir) as exp:
-        yield exp
+def start_experiment(experiment) -> Generator[None, None, None]:
+    """Create an experimental scope for the tests."""
+    yield
     return
 
 
