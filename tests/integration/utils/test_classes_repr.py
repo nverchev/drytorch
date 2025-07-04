@@ -9,7 +9,7 @@ from drytorch.utils.repr_utils import recursive_repr
 from drytorch.schedulers import WarmupScheduler
 from drytorch.schedulers import ExponentialScheduler
 from drytorch.gradient_ops import HistClipping
-from drytorch.utils.averages import get_moving_average
+from drytorch.utils.aggregating import get_moving_average
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -54,14 +54,16 @@ def test_repr_trainer(identity_trainer):
 def test_hook_repr():
     """Test the representation of a hook registry."""
     registry = HookRegistry()
-    registry.register(EarlyStoppingCallback(average_fn=get_moving_average(.8)))
+    registry.register(
+        EarlyStoppingCallback(aggregate_fn=get_moving_average(.8))
+    )
     expected = {
         'class': 'HookRegistry',
         'hooks': [
             {
                 'class': 'EarlyStoppingCallback',
                 'monitor': {
-                    'average_fn':
+                    'aggregate_fn':
                         'moving_average(decay=0.8, mass_coverage=0.99)',
                     'best_is': 'auto',
                     'class': 'MetricMonitor',

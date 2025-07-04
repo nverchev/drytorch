@@ -21,7 +21,7 @@ import torch
 
 from drytorch import exceptions
 from drytorch import protocols as p
-from drytorch.utils import aggregators
+from drytorch.utils import aggregating
 
 _K = TypeVar('_K', bound=Hashable)
 _V = TypeVar('_V')
@@ -48,7 +48,7 @@ class Objective(
                 [_Output_contra, _Target_contra], _Tensor,
             ],
     ) -> None:
-        self._aggregator = aggregators.TorchAverager()
+        self._aggregator = aggregating.TorchAverager()
         self.named_metric_fun = metric_fun
 
     @override
