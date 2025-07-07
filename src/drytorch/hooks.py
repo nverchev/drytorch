@@ -7,7 +7,6 @@ from collections.abc import Callable, Mapping, MutableMapping, Sequence
 import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
 
-from sentry_sdk import monitor
 from typing_extensions import override
 
 from drytorch import exceptions
@@ -254,8 +253,8 @@ class MetricMonitor:
         optional_monitor: evaluation protocol to monitor.
         min_delta: minimum change required to qualify as an improvement.
         patience: number of checks to wait before triggering callback.
-        aggregate_fn: function to aggregate recent metric values.
-        log: logs of the recorded metrics.
+        filter: function to aggregate recent metric values.
+        history: logs of the recorded metrics.
     """
 
     def __init__(
@@ -265,7 +264,7 @@ class MetricMonitor:
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            aggregate_fn: Callable[[Sequence[float]], float] = get_last,
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """
         Args:
@@ -277,7 +276,7 @@ class MetricMonitor:
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine it from initial measurements.
-            aggregate_fn: function to aggregate recent metric values. Default
+            filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
         """
         if metric is None or isinstance(metric, str):
@@ -298,11 +297,11 @@ class MetricMonitor:
         if patience < 0:
             raise ValueError('Patience must be a non-negative integer.')
 
-        self.aggregate_fn = aggregate_fn
+        self.filter = filter_fn
         self.min_delta = min_delta
         self.patience = patience
         self.optional_monitor = monitor
-        self.log = list[float]()
+        self.history = list[float]()
         self._patience_countdown = patience
         self._best_value: Optional[float] = None
         return
@@ -313,14 +312,14 @@ class MetricMonitor:
         Get the best result observed so far.
 
         Returns:
-            The best aggregated value according to best_is criterion.
+            The best filtered value according to best_is criterion.
 
         Raises:
             ResultNotAvailableError: if no results have been logged yet.
         """
         if self._best_value is None:
             try:
-                self._best_value = self.log[0]
+                self._best_value = self.history[0]
             except IndexError:
                 raise exceptions.ResultNotAvailableError()
 
@@ -333,7 +332,7 @@ class MetricMonitor:
         return
 
     @property
-    def aggregated_value(self) -> float:
+    def filtered_value(self) -> float:
         """
         Get the current value.
 
@@ -343,7 +342,7 @@ class MetricMonitor:
         Raises:
             ResultNotAvailableError: if no results have been logged yet.
         """
-        return self.aggregate_fn(self.log)
+        return self.filter(self.history)
 
     def is_better(self, value: float, reference: float) -> bool:
         """
@@ -363,9 +362,9 @@ class MetricMonitor:
             return False
 
         if self.best_is == 'auto':
-            if len(self.log) < 2:
+            if len(self.history) < 2:
                 return True
-            if self.log[0] > self.log[1]:
+            if self.history[0] > self.history[1]:
                 self.best_is = 'lower'
             else:
                 self.best_is = 'higher'
@@ -387,10 +386,10 @@ class MetricMonitor:
             Otherwise, it is restored to the maximum.
         """
 
-        if len(self.log) <= 1:
+        if len(self.history) <= 1:
             return True
 
-        aggregated_value = self.aggregated_value
+        aggregated_value = self.filtered_value
 
         if self.is_better(aggregated_value, self.best_value):
             self.best_value = aggregated_value
@@ -427,7 +426,7 @@ class MetricMonitor:
                                                  self.metric_name)
 
         value = last_metrics[self.metric_name]
-        self.log.append(value)
+        self.history.append(value)
         return
 
     def _get_monitor(self, instance: p.TrainerProtocol) -> p.EvaluationProtocol:
@@ -456,7 +455,7 @@ class EarlyStoppingCallback:
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            aggregate_fn: Callable[[Sequence[float]], float] = get_last,
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
             start_from_epoch: int = 2,
     ) -> None:
         """
@@ -469,7 +468,7 @@ class EarlyStoppingCallback:
             patience: number of calls to wait before stopping.
                 Default 'auto' will determine this from initial measurements.
             best_is: whether higher or lower metric values are better.
-            aggregate_fn: function to aggregate recent metric values. Default
+            filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
@@ -479,7 +478,7 @@ class EarlyStoppingCallback:
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,
-            aggregate_fn=aggregate_fn,
+            filter_fn=filter_fn,
         )
         self.start_from_epoch = start_from_epoch
         return
@@ -522,7 +521,7 @@ class PruneCallback:
             monitor: Optional[p.EvaluationProtocol] = None,
             min_delta: float = 1e-8,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            aggregate_fn: Callable[[Sequence[float]], float] = get_last,
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """
         Args:
@@ -534,7 +533,7 @@ class PruneCallback:
             min_delta: minimum change required to qualify as an improvement.
             best_is: whether higher or lower metric values are better.
                Default 'auto' will determine this from initial measurements.
-            aggregate_fn: function to aggregate the intermediate results 
+            filter_fn: function to aggregate the intermediate results
             values. Default
                 gets the last value.
         """
@@ -544,10 +543,10 @@ class PruneCallback:
             min_delta=min_delta,
             patience=0,
             best_is=best_is,
-            aggregate_fn=aggregate_fn,
+            filter_fn=filter_fn,
         )
         self.thresholds = thresholds
-        self.trial_values: MutableMapping[int, float] = {}
+        self.trial_values: dict[int, float] = {}
         return
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
@@ -562,7 +561,7 @@ class PruneCallback:
         if epoch not in self.thresholds:
             return
         threshold = self.thresholds[epoch]
-        value = self.monitor.aggregated_value
+        value = self.monitor.filtered_value
         if threshold is None or not self.monitor.is_better(value, threshold):
             self.trial_values[epoch] = value
             metric_name = self.monitor.metric_name
@@ -588,7 +587,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             min_delta: float = 1e-8,
             patience: int = 0,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            aggregate_fn: Callable[[Sequence[float]], float] = get_last,
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
             cooldown: int = 0,
     ) -> None:
         """
@@ -603,7 +602,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
-            aggregate_fn: function to aggregate recent metric values. Default
+            filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
@@ -613,7 +612,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,
-            aggregate_fn=aggregate_fn,
+            filter_fn=filter_fn,
         )
         self.cooldown = cooldown
         self._cooldown_counter = 0
@@ -674,7 +673,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
             min_delta: float = 1e-8,
             patience: int = 0,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            aggregate_fn: Callable[[Sequence[float]], float] = get_last,
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
             factor: float = 0.1,
             cooldown: int = 0,
     ) -> None:
@@ -690,7 +689,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
-            aggregate_fn: function to aggregate recent metric values. Default
+            filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
             factor: factor by which to reduce the learning rate.
@@ -701,7 +700,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,
-            aggregate_fn=aggregate_fn,
+            filter_fn=filter_fn,
             cooldown=cooldown,
         )
         self.factor = factor

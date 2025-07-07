@@ -144,27 +144,27 @@ class TestMetricMonitor:
             _ = self.monitor.best_value
 
     def test_aggregate_fn_selection(self):
-        assert self.monitor.aggregate_fn([1, 2, 3]) == 3
+        assert self.monitor.filter([1, 2, 3]) == 3
 
     def test_is_improving_with_better_value(self):
         self.monitor.best_is = 'higher'
         self.monitor._warm_up = 0
-        self.monitor.log.append(1.0)
-        self.monitor.log.append(2.0)
+        self.monitor.history.append(1.0)
+        self.monitor.history.append(2.0)
         assert self.monitor.is_improving() is True
 
     def test_is_improving_with_worse_value(self):
         self.monitor.best_is = 'higher'
         self.monitor._warm_up = 0
-        self.monitor.log.append(2.0)
-        self.monitor.log.append(1.0)
+        self.monitor.history.append(2.0)
+        self.monitor.history.append(1.0)
         assert self.monitor.is_improving() is False
 
     def test_auto_best_is_determination(self):
         self.monitor.best_is = 'auto'
         self.monitor._warm_up = 0
-        self.monitor.log.append(1.0)
-        self.monitor.log.append(2.0)
+        self.monitor.history.append(1.0)
+        self.monitor.history.append(2.0)
         assert self.monitor.is_improving() is True
         assert self.monitor.best_is == 'higher'
 
@@ -173,15 +173,15 @@ class TestMetricMonitor:
         self.monitor.best_is = 'higher'
         self.monitor._warm_up = 0
 
-        self.monitor.log.append(1.0)
+        self.monitor.history.append(1.0)
         assert self.monitor.is_improving()
 
         # (1.009 is not > 1.0 + 0.01)
-        self.monitor.log.append(1.009)
+        self.monitor.history.append(1.009)
         assert not self.monitor.is_improving()
 
         # (1.011 is > 1.0 + 0.01)
-        self.monitor.log.append(1.011)
+        self.monitor.history.append(1.011)
         assert self.monitor.is_improving()
 
 

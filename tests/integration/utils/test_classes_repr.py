@@ -56,7 +56,7 @@ def test_hook_repr():
     """Test the representation of a hook registry."""
     registry = HookRegistry()
     registry.register(
-        EarlyStoppingCallback(aggregate_fn=get_moving_average(.8))
+        EarlyStoppingCallback(filter_fn=get_moving_average(.8))
     )
     expected = {
         'class': 'HookRegistry',
@@ -64,7 +64,7 @@ def test_hook_repr():
             {
                 'class': 'EarlyStoppingCallback',
                 'monitor': {
-                    'aggregate_fn':
+                    'filter':
                         'moving_average(decay=0.8, mass_coverage=0.99)',
                     'best_is': 'auto',
                     'class': 'MetricMonitor',
