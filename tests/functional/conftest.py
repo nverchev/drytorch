@@ -9,8 +9,8 @@ import drytorch
 from drytorch import DataLoader, LearningScheme, Model, Experiment
 from drytorch import Trainer, Loss, Metric
 
-from ..simple_classes import IdentityDataset, Linear
-from ..simple_classes import TorchData, TorchTuple
+from tests.simple_classes import IdentityDataset, Linear
+from tests.simple_classes import TorchData, TorchTuple
 
 
 @pytest.fixture

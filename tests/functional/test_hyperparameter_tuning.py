@@ -8,7 +8,7 @@ from drytorch import Model, Trainer
 
 from drytorch import hooks
 
-from ..simple_classes import Linear
+from tests.simple_classes import Linear
 
 
 @pytest.fixture(autouse=True, scope='module')
