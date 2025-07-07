@@ -141,7 +141,7 @@ class TestMetricMonitor:
 
     def test_best_result_not_available(self):
         with pytest.raises(exceptions.ResultNotAvailableError):
-            _ = self.monitor.best_result
+            _ = self.monitor.best_value
 
     def test_aggregate_fn_selection(self):
         assert self.monitor.aggregate_fn([1, 2, 3]) == 3
@@ -149,22 +149,22 @@ class TestMetricMonitor:
     def test_is_improving_with_better_value(self):
         self.monitor.best_is = 'higher'
         self.monitor._warm_up = 0
-        self.monitor._monitor_log.append(1.0)
-        self.monitor._monitor_log.append(2.0)
+        self.monitor.log.append(1.0)
+        self.monitor.log.append(2.0)
         assert self.monitor.is_improving() is True
 
     def test_is_improving_with_worse_value(self):
         self.monitor.best_is = 'higher'
         self.monitor._warm_up = 0
-        self.monitor._monitor_log.append(2.0)
-        self.monitor._monitor_log.append(1.0)
+        self.monitor.log.append(2.0)
+        self.monitor.log.append(1.0)
         assert self.monitor.is_improving() is False
 
     def test_auto_best_is_determination(self):
         self.monitor.best_is = 'auto'
         self.monitor._warm_up = 0
-        self.monitor._monitor_log.append(1.0)
-        self.monitor._monitor_log.append(2.0)
+        self.monitor.log.append(1.0)
+        self.monitor.log.append(2.0)
         assert self.monitor.is_improving() is True
         assert self.monitor.best_is == 'higher'
 
@@ -173,15 +173,15 @@ class TestMetricMonitor:
         self.monitor.best_is = 'higher'
         self.monitor._warm_up = 0
 
-        self.monitor._monitor_log.append(1.0)
+        self.monitor.log.append(1.0)
         assert self.monitor.is_improving()
 
         # (1.009 is not > 1.0 + 0.01)
-        self.monitor._monitor_log.append(1.009)
+        self.monitor.log.append(1.009)
         assert not self.monitor.is_improving()
 
         # (1.011 is > 1.0 + 0.01)
-        self.monitor._monitor_log.append(1.011)
+        self.monitor.log.append(1.011)
         assert self.monitor.is_improving()
 
 
@@ -203,8 +203,8 @@ class TestEarlyStoppingCallback:
     def test_stops_on_plateau(self, mock_trainer):
         mock_trainer.validation.objective.higher_is_better = True
 
-        # best result + patience + terminate = 2 + patience
-        for _ in range(self.callback.monitor.patience + 2):
+        # patience + terminate = 1 + patience
+        for _ in range(self.callback.monitor.patience + 1):
             self.callback(mock_trainer)
 
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
@@ -214,10 +214,11 @@ class TestPruneCallback:
     @pytest.fixture(autouse=True)
     def setup(self, mock_metric):
         """Set up PruneCallback instance."""
-        self.pruning = {3: 1, 5: 2}
+        self.pruning = {3: 2, 5: 0.5}
         self.callback = PruneCallback(
             thresholds=self.pruning,
             metric=mock_metric,
+            best_is='higher'
         )
 
     def test_no_pruning_before_threshold(self, mock_trainer):
@@ -227,6 +228,8 @@ class TestPruneCallback:
         mock_trainer.terminate_training.assert_not_called()  # type: ignore
 
     def test_prunes_at_threshold(self, mock_trainer):
+        mock_trainer.model.epoch = 5
+
         self.callback(mock_trainer)
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
 
@@ -247,7 +250,7 @@ class TestReduceLROnPlateau:
         mock_trainer.learning_scheme = mocker.Mock
         mock_trainer.learning_scheme.scheduler = scheduler
 
-        for _ in range(self.callback.monitor.patience + 2):
+        for _ in range(self.callback.monitor.patience + 1):
             self.callback(mock_trainer)
 
         mock_trainer.update_learning_rate.assert_called_once()  # type: ignore

@@ -43,7 +43,7 @@ def test_automatic_names(standard_learning_scheme,
         early_stopping = hooks.EarlyStoppingCallback()
         trainer.post_epoch_hooks.register(early_stopping)
         trainer.train(10)
-        results[linear_model.name] = early_stopping.monitor.best_result
+        results[linear_model.name] = early_stopping.monitor.best_value
 
     assert {'Model', 'Model_1', 'Model_2', 'Model_3'} == set(results)
 

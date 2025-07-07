@@ -41,6 +41,7 @@ all_trackers = [
 support = [
     "torchmetrics",
     "pandas",
+    "optuna",
 ]
 
 dev = ["pytest", "pytest-mock"]

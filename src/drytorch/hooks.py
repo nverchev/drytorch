@@ -6,6 +6,8 @@ import abc
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
+
+from sentry_sdk import monitor
 from typing_extensions import override
 
 from drytorch import exceptions
@@ -253,6 +255,7 @@ class MetricMonitor:
         min_delta: minimum change required to qualify as an improvement.
         patience: number of checks to wait before triggering callback.
         aggregate_fn: function to aggregate recent metric values.
+        log: logs of the recorded metrics.
     """
 
     def __init__(
@@ -299,48 +302,59 @@ class MetricMonitor:
         self.min_delta = min_delta
         self.patience = patience
         self.optional_monitor = monitor
+        self.log = list[float]()
         self._patience_countdown = patience
-        self._best_result: Optional[float] = None
-        self._monitor_log = list[float]()
+        self._best_value: Optional[float] = None
         return
 
     @property
-    def best_result(self) -> float:
+    def best_value(self) -> float:
         """
         Get the best result observed so far.
 
         Returns:
-            The best metric value according to best_is criterion.
+            The best aggregated value according to best_is criterion.
 
         Raises:
             ResultNotAvailableError: if no results have been logged yet.
         """
-        if self._best_result is None:
+        if self._best_value is None:
             try:
-                first_result = self._monitor_log[0]
+                self._best_value = self.log[0]
             except IndexError:
                 raise exceptions.ResultNotAvailableError()
 
-            self._best_result = first_result
-            return first_result
+        return self._best_value
 
-        return self._best_result
-
-    @best_result.setter
-    def best_result(self, value: float) -> None:
+    @best_value.setter
+    def best_value(self, value: float) -> None:
         """Set the best result value."""
-        self._best_result = value
+        self._best_value = value
         return
 
-    def is_best(self, value: float) -> bool:
+    @property
+    def aggregated_value(self) -> float:
         """
-        Determine if value is better than recent performances.
+        Get the current value.
+
+        Returns:
+            The current value aggregated from recent ones.
+
+        Raises:
+            ResultNotAvailableError: if no results have been logged yet.
+        """
+        return self.aggregate_fn(self.log)
+
+    def is_better(self, value: float, reference: float) -> bool:
+        """
+        Determine if value is better than a reference value.
 
         When best_is is in 'auto' mode, it is assumed that the given value is
         better than the first recorded one.
 
         Args:
             value: the value to compare.
+            reference: the reference.
 
         Returns:
             True if value is a potential improvement, False otherwise.
@@ -349,16 +363,17 @@ class MetricMonitor:
             return False
 
         if self.best_is == 'auto':
-            if self._monitor_log[0] > value:
+            if len(self.log) < 2:
+                return True
+            if self.log[0] > self.log[1]:
                 self.best_is = 'lower'
             else:
                 self.best_is = 'higher'
-            return True
 
-        elif self.best_is == 'lower':
-            return self.best_result - self.min_delta > value
+        if self.best_is == 'lower':
+            return reference - self.min_delta > value
         else:
-            return self.best_result + self.min_delta < value
+            return reference + self.min_delta < value
 
     def is_improving(self) -> bool:
         """
@@ -372,13 +387,13 @@ class MetricMonitor:
             Otherwise, it is restored to the maximum.
         """
 
-        if len(self._monitor_log) <= 1:
+        if len(self.log) <= 1:
             return True
 
-        current_result = self.aggregate_fn(self._monitor_log)
+        aggregated_value = self.aggregated_value
 
-        if self.is_best(current_result):
-            self.best_result = current_result
+        if self.is_better(aggregated_value, self.best_value):
+            self.best_value = aggregated_value
             self._patience_countdown = self.patience
             return True
 
@@ -389,9 +404,9 @@ class MetricMonitor:
         """Check whether to be patient."""
         return self._patience_countdown > 0
 
-    def extract_metric_value(self, instance: p.TrainerProtocol) -> None:
+    def record_metric_value(self, instance: p.TrainerProtocol) -> None:
         """
-        Extract and register a new metric value from a monitored evaluation.
+        Register a new metric value from a monitored evaluation.
 
         If no evaluation is specified, it falls back on the trainer instance
         or if present, the validation instance contained there.
@@ -412,7 +427,7 @@ class MetricMonitor:
                                                  self.metric_name)
 
         value = last_metrics[self.metric_name]
-        self._monitor_log.append(value)
+        self.log.append(value)
         return
 
     def _get_monitor(self, instance: p.TrainerProtocol) -> p.EvaluationProtocol:
@@ -476,7 +491,7 @@ class EarlyStoppingCallback:
         Args:
             instance: Trainer instance to evaluate.
         """
-        self.monitor.extract_metric_value(instance)
+        self.monitor.record_metric_value(instance)
         epoch = instance.model.epoch
         if epoch < self.start_from_epoch:
             return
@@ -484,11 +499,10 @@ class EarlyStoppingCallback:
         if self.monitor.is_improving() or self.monitor.is_patient():
             return
 
-        best_result = self.monitor.best_result
+        best_result = self.monitor.best_value
         metric_name = self.monitor.metric_name
-        instance.terminate_training(
-            f'Training stopped with best result={best_result} {metric_name}.'
-        )
+        msg = f'Training stopped with best result={best_result} {metric_name}.'
+        instance.terminate_training(msg)
         return
 
 
@@ -543,17 +557,17 @@ class PruneCallback:
         Args:
             instance: trainer instance to evaluate.
         """
+        self.monitor.record_metric_value(instance)
         epoch = instance.model.epoch
         if epoch not in self.thresholds:
             return
         threshold = self.thresholds[epoch]
-        self.monitor.extract_metric_value(instance)
-        if threshold is None or self.monitor.is_best(threshold):
-            self.trial_values[epoch] = self.monitor.best_result
+        value = self.monitor.aggregated_value
+        if threshold is None or not self.monitor.is_better(value, threshold):
+            self.trial_values[epoch] = value
             metric_name = self.monitor.metric_name
-            instance.terminate_training(
-                f'Training stopped at {threshold=} {metric_name}.'
-            )
+            msg = f'Training stopped at {threshold=} {metric_name}.'
+            instance.terminate_training(msg)
 
         return
 
@@ -612,13 +626,13 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
         Args:
             instance: Trainer instance to evaluate.
         """
+        self.monitor.record_metric_value(instance)
         epoch = instance.model.epoch
 
         if self._cooldown_counter > 0:
             self._cooldown_counter -= 1
             return
 
-        self.monitor.extract_metric_value(instance)
         if self.monitor.is_improving() or self.monitor.is_patient():
             return
 
