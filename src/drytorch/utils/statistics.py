@@ -151,8 +151,6 @@ class TorchAverager(AbstractAverager[torch.Tensor]):
         return value.numel()
 
 
-
-
 def get_moving_average(
         decay: float = 0.9,
         mass_coverage: float = 0.99,
