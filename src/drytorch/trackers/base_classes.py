@@ -30,8 +30,8 @@ class Dumper(tracking.Tracker):
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
         """
         Args:
-            par_dir: the directory where to dump metadata. Defaults uses the
-                one for the current experiment.
+            par_dir: the directory where to dump metadata. Default uses the one
+                  for the current experiment.
         """
         super().__init__()
         self._par_dir = par_dir
@@ -78,7 +78,7 @@ class MetricLoader(tracking.Tracker, abc.ABC):
             max_epoch: the maximum epoch to load. Defaults to all.
 
         Returns:
-            The current epochs and named metric values by source.
+            The current epochs and named metric values by the source.
 
         Raises:
             AccessOutsideScopeError: if called outside the experiment scope.
@@ -300,7 +300,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
 
         filtered = {}
         for name, data in sourced_array.items():
-            mask = data[:, 0] >= start  # epoch is in column 0
+            mask = data[:, 0] >= start  # the epoch is in column 0
             if np.any(mask):
                 filtered[name] = data[mask]
 

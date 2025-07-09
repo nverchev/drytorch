@@ -29,7 +29,7 @@ class TestModelCaller:
         assert caller.name == caller_name
 
     def test_name_property(self, caller, caller_name) -> None:
-        """Test name property starts with expected value."""
+        """Test name property starts with the expected value."""
         assert caller.name.startswith(caller_name)
 
     def test_str(self, caller, mock_model, caller_name):
@@ -62,7 +62,7 @@ class TestSource:
         self.mock_record_model_call.assert_called_once_with(source,
                                                             source.model)
 
-        # Second call should not register again
+        # the second call should not register again
         self.mock_record_model_call.reset_mock()
 
         source()
@@ -107,7 +107,7 @@ class TestModelRunner:
         assert runner.outputs_list == []
 
     def test_get_batches(self, runner, mock_loader) -> None:
-        """Test batch generation applies operations to device."""
+        """Test batch generation applies operations to the device."""
         batches = list(runner._get_batches())
         loaded = [batch for batch in mock_loader]
         assert len(batches) == len(loaded)
@@ -171,7 +171,7 @@ class TestModelRunner:
     def test_outputs_list_cleared_on_epoch_run(self,
                                                mocker,
                                                runner) -> None:
-        """Test that outputs list is cleared at the start of each epoch."""
+        """Test that the output list is cleared at the start of each epoch."""
         runner.outputs_list = [self.mock_output]
         get_batch = mocker.patch.object(runner, '_get_batches')
         get_batch.return_value = [(self.mock_input, self.mock_target)]
@@ -182,7 +182,7 @@ class TestModelRunner:
         assert runner.outputs_list == []
 
     def test_store_outputs(self, runner) -> None:
-        """Test outputs are correctly stored if store_outputs flag is active."""
+        """Test outputs are correctly stored if store_outputs = True."""
         test_object = object()
         runner._store(test_object)
         self.mock_apply_ops.assert_called_once_with(test_object)
@@ -240,14 +240,14 @@ class TestModelRunnerWithObjective:
         assert runner.objective == mock_loss
         mock_loss.__deepcopy__.assert_called_once()
 
-    def test_run_backward(self, mocker, runner) -> None:
-        """Test backward pass updates objective."""
+    def test_run_backward(self, runner) -> None:
+        """Test backward pass updates the objective."""
         runner._run_backward(self.mock_output, self.mock_target)
         runner.objective.update.assert_called_once_with(self.mock_output,
                                                         self.mock_target)
 
     def test_objective_reset_on_epoch_run(self, runner) -> None:
-        """Test that objective is reset at the start of each epoch."""
+        """Test that the objective is reset at the start of each epoch."""
         runner.objective.reset.reset_mock()
         runner._run_epoch(store_outputs=False)
         runner.objective.reset.assert_called_once()

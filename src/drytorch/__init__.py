@@ -96,7 +96,7 @@ def initialize_trackers(
 
     else:
         if mode == "standard":
-            # metrics logs redundant because already visible in progress bar.
+            # metrics logs redundant because already visible in the progress bar
             verbosity = builtin_logging.INFO_LEVELS.epoch
             tqdm_logger = tqdm.TqdmLogger()
         elif mode == "tuning":

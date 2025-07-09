@@ -56,19 +56,21 @@ class TestLocalCheckpoint:
 
     @pytest.fixture()
     def optimizer(self, mock_model) -> torch.optim.Optimizer:
+        """Set up the optimizer."""
         return torch.optim.SGD(mock_model.module.parameters())
 
     @pytest.fixture()
     def checkpoint(self,
                    mock_model,
                    optimizer) -> checkpointing.LocalCheckpoint:
+        """Set up the checkpoint."""
         checkpoint = checkpointing.LocalCheckpoint()
         checkpoint.register_model(mock_model)
         checkpoint.register_optimizer(optimizer)
         return checkpoint
 
     def test_get_last_saved_epoch_no_checkpoints(self, checkpoint) -> None:
-        """Test it raises error if it cannot find any folder."""
+        """Test it raises an error if it cannot find any folder."""
         with pytest.raises(exceptions.ModelNotFoundError):
             checkpoint.load()
 

@@ -63,7 +63,7 @@ class TestTrainer:
         return
 
     def test_call_validation(self, mocker, mock_loader) -> None:
-        """Test that validation loader is called when validation is added."""
+        """Test that a loader is called when validation is added."""
         # Spy on the validation loader to check calls
         spy_loader = mocker.spy(mock_loader, '__iter__')
 
@@ -126,7 +126,7 @@ class TestTrainer:
 
         self.trainer.train(1)
 
-        # Verify pre hooks are called before post hooks within the epoch
+        # Verify pre-hooks are called before post-hooks within the epoch
         hook_list = pre_hook_list + post_hook_list
         ordered_list = []
         for hook in hook_list:

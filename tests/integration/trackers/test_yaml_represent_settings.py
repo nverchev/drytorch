@@ -1,4 +1,4 @@
-"""Tests that yaml dumps according custom settings."""
+"""Tests custom settings for YAML dumping."""
 
 import pytest
 try:
@@ -26,7 +26,7 @@ def test_short_repr():
     lit_str = repr_utils.LiteralStr('test')
     assert has_short_repr(lit_str) is False
     assert has_short_repr([]) is False  # false for other Sized objects
-    assert has_short_repr(34) is True  # true for not Sized object
+    assert has_short_repr(34) is True  # true for not a Sized object
 
 
 def test_literal_string():

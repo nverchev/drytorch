@@ -28,7 +28,7 @@ class TestDiagnostic:
         )
 
     def test_call_method(self, mocker, mock_model, diagnostic) -> None:
-        """Test __call__ method sets model to eval mode and runs epoch."""
+        """Test __call__ method sets the model to eval mode and runs epoch."""
         mock = mocker.Mock()
         mock_model.module = mock
         diagnostic(store_outputs=True)

@@ -58,7 +58,7 @@ class AbstractScheduler(p.SchedulerProtocol):
         """
 
 
-# Need frozen=True to have it as default value
+# Need frozen=True to have it as the default value
 @dataclasses.dataclass(frozen=True)
 class ConstantScheduler(AbstractScheduler):
     """Constant learning rate."""
@@ -70,14 +70,18 @@ class ConstantScheduler(AbstractScheduler):
 @dataclasses.dataclass
 class PolynomialScheduler(AbstractScheduler):
     """
-    Polynomial learning rate scheduler.
+    Polynomial learning rate scheduler: f(x) = C0 + C1(1 - x/C2)^C3
 
-    lr = initial_lr * (1 - epoch / max_epochs)^power
+    C0, C1, C2, C3 are defined so that:
+        f(x) = base_value when epoch = 0,
+        f(x) = min value when epoch is C2 = number of decay steps and,
+        f(x) is a polynomial of degree C3.
+    After the number of decay steps, returns min value.
 
     Attributes:
         max_epochs: maximum number of epochs.
         power: polynomial power.
-        min_decay: minimum fraction of initial learning rate.
+        min_decay: minimum fraction of the initial learning rate.
     """
     max_epochs: int = 1000
     power: float = 1.0
@@ -98,16 +102,19 @@ class PolynomialScheduler(AbstractScheduler):
             return self.min_decay * start_value
 
         decay_factor = (1 - epoch / self.max_epochs) ** self.power
-        min_lr = self.min_decay * start_value
-        return max(start_value * decay_factor, min_lr)
+        return self.min_decay + decay_factor * (1 - self.min_decay)
 
 
 @dataclasses.dataclass
 class ExponentialScheduler(AbstractScheduler):
     """
-    Schedule exponential decay: f(x) = Cd^x.
+    Schedule exponential decay: f(x) = C0 + C1(C2^x).
 
-    C is the base learning rate. Return value has a minimum value C0.
+    C0, C1 and C2 are defined so that:
+        f(x) = base_value when epoch = 0,
+        f(x) = min value when the epoch goes to infinite and,
+        f(x) is an exponential function with decay factor C2.
+    After the number of decay steps, returns min value.
 
     Attributes:
         exp_decay: exponential decay parameter d for the curve: f(x) = Cd^x.
@@ -125,7 +132,7 @@ class ExponentialScheduler(AbstractScheduler):
 
     def _compute(self, start_value: float, epoch: int) -> float:
         min_value = self.min_decay * start_value
-        return max(start_value * self.exp_decay ** epoch, min_value)
+        return (start_value - min_value) * self.exp_decay ** epoch + min_value
 
 
 @dataclasses.dataclass
@@ -133,7 +140,7 @@ class CosineScheduler(AbstractScheduler):
     """
     Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
-    C0 and C1 are defined so that:
+    C0, C1 and C2 are defined so that:
         f(x) = base_value when epoch = 0 and,
         f(x) = min value when epoch is C2 = number of decay steps.
     After the number of decay steps, returns min value.
@@ -167,7 +174,7 @@ class RescaleScheduler(AbstractScheduler):
     Scale the output of an existing scheduler.
 
     Attributes:
-        factor: factor that rescale the value.
+        factor: factor that rescales the value.
         base_scheduler: the scheduler to call.
     """
     base_scheduler: p.SchedulerProtocol
@@ -189,7 +196,7 @@ class RestartScheduler(AbstractScheduler):
     Attributes:
         base_scheduler: the scheduler to restart.
         restart_interval: the number of epochs between restarts.
-        restart_fraction: fraction of the base value to use as base value
+        restart_fraction: fraction of the base value to use as the base value
             when restarting.
         max_restart: Maximum number of restarts before deactivating. Default
             never deactivates.
@@ -284,7 +291,7 @@ def rescale(factor: float) -> Callable[[AbstractScheduler], AbstractScheduler]:
     Create a scaling transformation.
 
     Args:
-        factor: factor that rescale the value.
+        factor: factor that rescales the value.
 
     Returns:
         A decorator that wraps a scheduler with scaling.

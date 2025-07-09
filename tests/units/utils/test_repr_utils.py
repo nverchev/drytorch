@@ -126,7 +126,7 @@ repr_data = (scalar_data +
 
 @pytest.mark.parametrize(['obj', 'max_size', 'expected'], repr_data)
 def test_recursive_repr(obj: object, max_size: int, expected: object) -> None:
-    """Test recursive_repr function with various data types."""
+    """Test the recursive_repr function with various data types."""
     assert recursive_repr(obj, max_size=max_size) == expected
 
 

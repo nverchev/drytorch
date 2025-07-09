@@ -7,10 +7,12 @@ import pytest
 
 import functools
 
-from drytorch import exceptions, remove_all_default_trackers
+from drytorch import exceptions
 from drytorch import log_events
-from drytorch.tracking import EventDispatcher, MetadataManager
+from drytorch.tracking import EventDispatcher
+from drytorch.tracking import MetadataManager
 from drytorch.tracking import Tracker
+from drytorch.tracking import remove_all_default_trackers
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -28,7 +30,7 @@ class _SimpleEvent(log_events.Event):
 
 @dataclasses.dataclass
 class _UndefinedEvent(log_events.Event):
-    """Event subclass that is not handled by tracker."""
+    """Event subclass that the tracker does not handle."""
     pass
 
 
@@ -131,7 +133,7 @@ class TestEventDispatcher:
             self.dispatcher.register(_SimpleTracker())
 
     def test_remove_named_tracker(self):
-        """Test that a registered tracker can be removed by name."""
+        """Test that a registered tracker can be removed by its name."""
         tracker_name = self.tracker.__class__.__name__
         self.dispatcher.remove(tracker_name)
         assert tracker_name not in self.dispatcher.named_trackers
@@ -142,7 +144,7 @@ class TestEventDispatcher:
             self.dispatcher.remove('NonexistentTracker')
 
     def test_publish_event_calls_tracker_notify(self):
-        """Test publishing an event calls notify on registered trackers."""
+        """Test publishing an event notifies registered trackers."""
         _SimpleEvent.set_auto_publish(self.dispatcher.publish)
         simple_event = _SimpleEvent()
         assert self.tracker.last_event is simple_event

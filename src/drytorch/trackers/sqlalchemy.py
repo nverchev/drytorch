@@ -115,7 +115,7 @@ class Log(orm.MappedAsDataclass, Base):
     Attributes:
         log_id: the unique id for the table.
         source_id: the id of the source creating the log.
-        source: the entry for source creating the log.
+        source: the entry for the source creating the log.
         epoch: the number of epochs the model has been trained.
         metric_name: the name of the metric.
         value: the value of the metric.
@@ -146,7 +146,7 @@ class Log(orm.MappedAsDataclass, Base):
 
 class SQLConnection(base_classes.MetricLoader):
     """
-    Tracker that creates a connection to a SQL databases using sqlalchemy.
+    Tracker that creates a connection to a SQL database using sqlalchemy.
 
     Class Attributes:
         default_url: by default, it creates a local sqlite database.
@@ -154,7 +154,7 @@ class SQLConnection(base_classes.MetricLoader):
     Attributes:
         engine: the sqlalchemy Engine for the connection.
         Session: the Session class to initiate a sqlalchemy session.
-        resume_run: resume the previous run instead of create a new one.
+        resume_run: resume the previous run instead of creating a new one.
     """
     default_url = sqlalchemy.URL.create('sqlite', database='metrics.db')
 

@@ -145,7 +145,7 @@ class StartEpoch(Event):
     Event logged when an epoch starts.
 
     Attributes:
-        source_name: the name of object that is training a model.
+        source_name: the name of the object that is training a model.
         model_name: the name of the model.
         epoch: the epoch number.
         end_epoch: the final epoch number for the current training session.
@@ -162,7 +162,7 @@ class EndEpoch(Event):
     Event logged when an epoch ends.
 
     Attributes
-        source_name: the name of object that is training a model.
+        source_name: the name of the object that is training a model.
         model_name: the name of the model.
         epoch: the epoch that was trained.
     """
@@ -238,7 +238,7 @@ class StartTest(Event):
     Event logged when a test is started.
 
     Attributes:
-        source_name: the name of object calling the test.
+        source_name: the name of the object calling the test.
         model_name: the name of the model.
     """
     source_name: str
@@ -251,7 +251,7 @@ class EndTest(Event):
     Event logged when a test is ended.
 
     Attributes:
-        source_name: the name of object calling the test.
+        source_name: the name of the object calling the test.
         model_name: the name of the model.
     """
     source_name: str

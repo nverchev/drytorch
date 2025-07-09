@@ -42,20 +42,20 @@ class TestHydraLink:
         assert tracker_no_copy._counter == 0
 
     def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
-        """Test initialization with valid Hydra configuration."""
+        """Test initialization with a valid Hydra configuration."""
         assert tracker.par_dir == tmp_path
         assert isinstance(tracker.hydra_folder, str)
         assert isinstance(tracker.link_name, str)
         assert tracker.hydra_dir == self.hydra_output_dir
 
     def test_init_without_hydra_raises_exception(self, tmp_path) -> None:
-        """Test initialization fails without existing Hydra output directory."""
+        """Test initialization fails with a non-existing hydra directory."""
         self.hydra_output_dir.rmdir()
         with pytest.raises(exceptions.TrackerException):
             HydraLink(par_dir=tmp_path / 'not_existing')
 
     def test_dir_property(self, tracker, tmp_path) -> None:
-        """Test dir property returns correct path with counter."""
+        """Test dir property returns the correct path with counter."""
         tracker._counter = 2
         hydra_path = tmp_path / tracker.hydra_folder
         expected_dir = hydra_path / f'{tracker.link_name}_2'
@@ -78,7 +78,7 @@ class TestHydraLink:
             start_experiment_mock_event,
     ) -> None:
         """Test counter increments when existing symlink."""
-        # Create existing link
+        # Create an existing link
         link_dir = tracker.dir
         link_dir.symlink_to(tracker.hydra_dir, target_is_directory=True)
         tracker.notify(start_experiment_mock_event)

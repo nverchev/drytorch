@@ -145,7 +145,7 @@ def test_threshold_effect():
     ma_truncated = get_moving_average(decay=0.5, mass_coverage=0.999)
     full_result = ma_full(seq)
     truncated_result = ma_truncated(seq)
-    # truncated version should give slightly more weight to the recent value
+    # when truncated should give slightly more weight to the recent value
     assert truncated_result > full_result
 
 

@@ -55,7 +55,7 @@ class TestSliced:
         assert s2[-1] == 5
 
     def test_sliced_chained_with_step(self) -> None:
-        """Test chaining slices with step on the Sliced class."""
+        """Test chaining slices with a step on the Sliced class."""
         seq = list(range(10))
         s1 = Sliced(seq, slice(2, 8, 2))  # [2,4,6]
         s2 = s1[::2]  # should be [2,6]
@@ -102,7 +102,8 @@ class TestDataLoader:
         """Test iteration over batches in the DataLoader."""
         with torch.inference_mode():
             batches = list(iter(self.loader))
-            assert batches[-1][0] == simple_seq[-1][0] # Last batch has 1 item
+            # the last batch has 1 item
+            assert batches[-1][0] == simple_seq[-1][0]
 
     @pytest.mark.parametrize('shuffle', (True, False))
     def test_dataloader_split(self, shuffle: bool) -> None:
@@ -120,7 +121,7 @@ class TestDataLoader:
 
 
 def test_check_dataset_length_fail() -> None:
-    """Test check_dataset_length raises error when no len is defined."""
+    """Test check_dataset_length raises an error when no len is defined."""
     dataset = torch.utils.data.Dataset[None]()
     with pytest.raises(exceptions.DatasetHasNoLengthError):
         check_dataset_length(dataset)

@@ -258,7 +258,7 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
     Propagate to the root logger.
 
     Args:
-        deduplicate_stream: whether to remove local messages from stream.
+        deduplicate_stream: whether to remove local messages from the stream.
     """
     global logger
     logger.propagate = True

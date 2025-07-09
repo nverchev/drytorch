@@ -19,7 +19,7 @@ class Wandb(Dumper):
     Tracker that wraps a run for the wandb library.
     
     Attributes:
-        resume_run: resume previous run from the project.
+        resume_run: resume the previous run from the project.
     """
     def __init__(
             self,
@@ -30,9 +30,9 @@ class Wandb(Dumper):
         """
         Args:
             par_dir: the directory where to dump metadata. Overwrites settings.
-                Defaults uses the one for the current experiment.
+                Defaults to the one for the current experiment.
             settings: settings object from wandb containing all init arguments.
-            resume_run: resume previous run from the project.
+            resume_run: resume the previous run from the project.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run

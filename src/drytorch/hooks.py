@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Callable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import operator
 from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
 
@@ -178,10 +178,10 @@ class CallEvery(OptionalCallable):
     @override
     def _should_call(self, trainer: p.TrainerProtocol) -> bool:
         """
-        Determine if the hook should be called based on epoch.
+        Determine if the hook should be called based on the epoch.
 
         Args:
-            trainer: the trainer object to check for call condition.
+            trainer: the trainer instance containing epoch information.
         """
         epoch = trainer.model.epoch
         if epoch < self.start:
@@ -269,7 +269,7 @@ class MetricMonitor:
         """
         Args:
             metric: name of the metric to monitor or metric calculator instance.
-                Defaults to first metric found.
+                Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
             min_delta: minimum change required to qualify as an improvement.
@@ -312,7 +312,7 @@ class MetricMonitor:
         Get the best result observed so far.
 
         Returns:
-            The best filtered value according to best_is criterion.
+            The best filtered value according to the best_is criterion.
 
         Raises:
             ResultNotAvailableError: if no results have been logged yet.
@@ -346,7 +346,7 @@ class MetricMonitor:
 
     def is_better(self, value: float, reference: float) -> bool:
         """
-        Determine if value is better than a reference value.
+        Determine if the value is better than a reference value.
 
         When best_is is in 'auto' mode, it is assumed that the given value is
         better than the first recorded one.
@@ -382,7 +382,7 @@ class MetricMonitor:
             True if there has been an improvement, False otherwise.
 
         Side Effects:
-            If there is no improvement the patience countdown is reduced.
+            If there is no improvement, the patience countdown is reduced.
             Otherwise, it is restored to the maximum.
         """
 
@@ -461,7 +461,7 @@ class EarlyStoppingCallback:
         """
         Args:
             metric: name of metric to monitor or metric calculator instance.
-                Defaults to first metric found.
+                Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
             min_delta: minimum change required to qualify as an improvement.
@@ -527,7 +527,7 @@ class PruneCallback:
         Args:
             thresholds: dictionary mapping epochs to pruning values.
             metric: name of metric to monitor or metric calculator instance.
-                Defaults to first metric found.
+                Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
             min_delta: minimum change required to qualify as an improvement.
@@ -573,7 +573,7 @@ class PruneCallback:
 
 class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     """
-    Change learning rate schedule when a metric has stopped improving.
+    Change the learning rate schedule when a metric has stopped improving.
 
     Attributes:
         monitor: monitor instance.
@@ -595,7 +595,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
         Args:
             metric: name of metric to monitor or metric calculator instance.
-                Defaults to first metric found.
+                Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
             min_delta: minimum change required to qualify as an improvement.
@@ -620,7 +620,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
         """
-        Check if learning rate should be reduced and apply reduction if needed.
+        Check if there is a plateau and reduce the learning rate if needed.
 
         Args:
             instance: Trainer instance to evaluate.
@@ -638,7 +638,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
         scheduler = self.get_scheduler(epoch,
                                        instance.learning_scheme.scheduler)
         instance.update_learning_rate(base_lr=None, scheduler=scheduler)
-        self._cooldown_counter = self.cooldown  # start cooldown period
+        self._cooldown_counter = self.cooldown  # start the cooldown period
         return
 
     @abc.abstractmethod
@@ -682,7 +682,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
 
         Args:
             metric: name of metric to monitor or metric calculator instance.
-                Defaults to first metric found.
+                Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
             min_delta: minimum change required to qualify as an improvement.
@@ -709,7 +709,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
                       epoch: int,
                       scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
         """
-        Modify input scheduler to scale down the learning rate.
+        Modify the input scheduler to scale down the learning rate.
 
         Args:
             epoch: not used.

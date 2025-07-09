@@ -67,7 +67,7 @@ def test_pruning_callback(identity_loader,
         )
     )
     identity_trainer.train(4)
-    # stop at epoch 3 because loss is always greater than 0
+    # stop at epoch 3 because the loss is always greater than 0
     assert identity_trainer.model.epoch == 3
 
 

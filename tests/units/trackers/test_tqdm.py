@@ -38,7 +38,7 @@ class TestEpochBar:
         assert bar.pbar.desc
 
     def test_single_update(self, bar, example_named_metrics) -> None:
-        """Test single update of the progress bar."""
+        """Test a single update of the progress bar."""
         bar.update(example_named_metrics)
         bar.pbar.refresh()
         output = self.stream.getvalue()
@@ -49,7 +49,7 @@ class TestEpochBar:
         assert bar._epoch_seen == bar._batch_size
 
     def test_complete_epoch(self, bar, example_named_metrics) -> None:
-        """Test progress bar behavior when epoch completes."""
+        """Test progress bar behavior when the epoch completes."""
         for _ in range(bar._num_iter):
             bar.update(example_named_metrics)
 
@@ -121,7 +121,7 @@ class TestTqdmLogger:
             tracker,
             iterate_batch_mock_event,
     ) -> None:
-        """Test handling of IterateBatch event."""
+        """Test handling of the IterateBatch event."""
         tracker.notify(iterate_batch_mock_event)
         assert len(iterate_batch_mock_event.push_updates) == 1
         iterate_batch_mock_event.push_updates[0]({'loss': 0.5})
@@ -133,7 +133,7 @@ class TestTqdmLogger:
             tracker_with_double_bar,
             start_training_mock_event,
     ) -> None:
-        """Test handling of StartTraining event."""
+        """Test handling of the StartTraining event."""
         tracker_with_double_bar.notify(start_training_mock_event)
         assert tracker_with_double_bar._training_bar is not None
 

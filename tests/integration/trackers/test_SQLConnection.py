@@ -67,7 +67,7 @@ class TestSQLConnection:
         return sqlalchemy.create_engine('sqlite:///:memory:')
 
     def test_database_connection_failure(self) -> None:
-        """Test behavior when database connection fails."""
+        """Test behavior when the database connection fails."""
         # example case of connection failure
         invalid_engine = sqlalchemy.create_engine(
             'sqlite:///invalid/path/database.db'
@@ -77,7 +77,7 @@ class TestSQLConnection:
             _ = SQLConnection(engine=invalid_engine)
 
     def test_concurrent_database_access(self, tmp_path, event_workflow) -> None:
-        """Test two tracker instances accessing same database concurrently."""
+        """Test two tracker instances accessing a database concurrently."""
         database = tmp_path / 'test_db.db'
         engine = sqlalchemy.create_engine(f'sqlite:///{database}')
         tracker1 = SQLConnection(engine=engine)
@@ -118,7 +118,7 @@ class TestSQLConnection:
 
         tracker.notify(start_experiment_event)
         tracker.notify(call_model_event)
-        mocker.patch.object(sqlalchemy.orm.Session,
+        mocker.patch.object(sqlalchemy.orm.Session,  # type: ignore
                             'add',
                             side_effect=_raise_integrity_error)
         with pytest.raises(sqlalchemy_exc.IntegrityError):
@@ -128,7 +128,7 @@ class TestSQLConnection:
         with tracker.Session() as session:
             sources = session.query(Source).all()
             experiments = session.query(Experiment).all()
-            # second source should have been rolled back
+            # the second source should have been rolled back
             assert len(experiments) == 1
             assert len(sources) == 1
 
@@ -142,5 +142,5 @@ class TestSQLConnection:
         with pytest.warns(UserWarning, match='No previous runs'):
             tracker.notify(start_experiment_event)
 
-        # should create new run despite resume_run=True
+        # should create the new run despite resume_run=True
         assert tracker._run is not None

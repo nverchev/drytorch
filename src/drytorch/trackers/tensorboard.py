@@ -34,7 +34,7 @@ class TensorBoard(base_classes.Dumper):
         Args:
             par_dir: the directory where to dump metadata. Defaults to the
                 one for the current experiment.
-            resume_run: load previous session having the same directory.
+            resume_run: load previous sessions having the same directory.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run

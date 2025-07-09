@@ -5,8 +5,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Iterator, Iterable, Mapping, MutableSequence
 from typing import Any, Optional, Protocol, SupportsIndex, TypeAlias, TypeVar
-from typing import Callable, Union
-from typing import runtime_checkable
+from typing import Union, runtime_checkable
 
 import torch
 from torch.utils import data

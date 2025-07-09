@@ -64,7 +64,7 @@ class TestModelOptimizerGlobalLR:
 
     def test_update_learning_rate(self) -> None:
         """Test it correctly updates learning rates."""
-        # Set new learning rate and check scheduler is disabled
+        # Set a new learning rate and check scheduler is disabled
         self.model_optimizer.update_learning_rate(base_lr=0.02)
 
         # Check optimizer parameter group learning rate

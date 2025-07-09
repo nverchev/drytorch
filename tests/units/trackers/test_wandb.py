@@ -17,14 +17,14 @@ class TestWandb:
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
-        """Set up test environment."""
+        """Set up the test environment."""
         self.init_mock = mocker.patch('wandb.init')
         self.finish_mock = mocker.patch('wandb.finish')
         return
 
     @pytest.fixture
     def tracker(self) -> Wandb:
-        """Set up instance."""
+        """Set up the instance."""
         return Wandb()
 
     @pytest.fixture

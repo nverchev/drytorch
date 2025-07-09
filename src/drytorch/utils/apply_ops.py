@@ -33,7 +33,7 @@ def recursive_apply(obj: _C,
         func: a function that modifies objects of the expected type.
 
     Returns:
-        The modified object or a copy of obj containing the modified objects.
+        The modified object or a copy containing the modified objects.
 
     Raises:
         FuncNotApplicableError: if the object is of an unexpected type.
@@ -78,7 +78,7 @@ def apply(obj: _C,
     Extend recursive_apply supports.
 
     If the input has attributes, it calls recursive_apply, creates a new
-    instance and sets the attributes of new instance to the new values.
+    instance and sets the attributes of a new instance to the new values.
 
     Args:
         obj: container or class containing other containers and tensors.

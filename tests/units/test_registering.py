@@ -12,7 +12,7 @@ class _SimpleCaller:
 
 
 def test_record_model_call(mock_experiment, mock_model) -> None:
-    """Test successful record model call."""
+    """Test a successful record model call."""
     caller = _SimpleCaller()
     manager = mock_experiment.metadata_manager
     # Monkey patch model registration

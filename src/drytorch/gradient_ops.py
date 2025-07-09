@@ -15,6 +15,11 @@ from drytorch import protocols as p
 ClipFunction: TypeAlias = Callable[[float, float], float]
 
 
+def _validate_threshold(threshold: float) -> None:
+    if threshold <= 0:
+        raise ValueError('Gradient threshold must be positive.')
+
+
 class GradNormalizer(p.GradientOpProtocol):
     """Strategy that normalizes each parameter's gradient to unit norm."""
 
@@ -32,7 +37,7 @@ class GradNormalizer(p.GradientOpProtocol):
 class GradZScoreNormalizer(p.GradientOpProtocol):
     """Gradient normalizing strategy using Z-score normalization."""
 
-    def __init__(self, eps: float = 1e-8) -> None:
+    def __init__(self, eps: float = 1e-8) -> None:  # type: ignore
         """
         Initialize the Z-score normalizer.
 
@@ -53,10 +58,10 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
 class ClipOperation(p.GradientOpProtocol):
     """Abstract base class for gradient operations."""
 
-    @staticmethod
-    def _validate_threshold(threshold: float) -> None:
-        if threshold <= 0:
-            raise ValueError('Gradient threshold must be positive.')
+    @abc.abstractmethod
+    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+        """Apply the gradient operation to the given parameters."""
+        pass
 
 
 class GradNormClipper(ClipOperation):
@@ -74,7 +79,7 @@ class GradNormClipper(ClipOperation):
         Args:
             threshold: Maximum norm value of the clipped gradients.
         """
-        self._validate_threshold(threshold)
+        _validate_threshold(threshold)
         self.threshold = threshold
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -97,7 +102,7 @@ class GradValueClipper(ClipOperation):
         Args:
             threshold: Maximum absolute value of the clipped gradients.
         """
-        self._validate_threshold(threshold)
+        _validate_threshold(threshold)
         self.threshold = threshold
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -146,7 +151,7 @@ def max_clipping(zt: float, z_thresh: float) -> float:
         z_thresh: the threshold for the z-statistic values.
 
     Returns:
-        The threshold value as renormalization factor.
+        The threshold value as the renormalization factor.
     """
     _not_used = zt
     return z_thresh
@@ -160,7 +165,8 @@ class ClippingCriterion(abc.ABC):
     @abc.abstractmethod
     def should_clip(self, value: float) -> bool:
         """
-        Determine whether gradients should be clipped based on current value.
+        Determine whether gradients should be clipped based on the current
+        value.
 
         Args:
             value: current gradient norm or value to evaluate.
@@ -195,8 +201,8 @@ class ClippingCriterion(abc.ABC):
         Initialize statistics from warmup data.
 
         Args:
-            mean: mean value from warmup period.
-            variance: variance from warmup period (if applicable).
+            mean: mean value from the warmup period.
+            variance: variance from the warmup period (if applicable).
         """
         return
 
@@ -207,7 +213,7 @@ class ClippingCriterion(abc.ABC):
 
 class EMACriterion(ClippingCriterion):
     """
-    Exponential Moving Average based clipping criterion.
+    Clipping criterion based on Exponential Moving Average.
 
     It uses only the running mean of gradient norms to detect outliers.
     It clips when the current norm exceeds the mean by a factor of r_thresh.
@@ -223,7 +229,7 @@ class EMACriterion(ClippingCriterion):
                  r_thresh: float = 1.05,
                  clipping_function: ClipFunction = max_clipping):
         """
-        Initialize EMA-based clipping criterion.
+        Initialize the EMA-based clipping criterion.
 
         Args:
             alpha: exponential moving average decay factor.
@@ -234,7 +240,7 @@ class EMACriterion(ClippingCriterion):
         self.r_thresh = r_thresh
         self.clipping_function = clipping_function
         self._mu_t = 0.0
-        ClipOperation._validate_threshold(r_thresh)
+        _validate_threshold(r_thresh)
         return
 
     @override
@@ -271,10 +277,10 @@ class EMACriterion(ClippingCriterion):
 
 class ZStatCriterion(ClippingCriterion):
     """
-    Z-statistic based clipping criterion.
+    Clipping criterion based on the Z-statistic.
 
-    Tracks both mean and variance using exponential moving averages.
-    Clips when the Z-score (standardized deviation from mean) exceeds threshold.
+    Tracks both mean and variance using exponential moving averages. The
+    clipping threshold is on the Z-score (standardized deviation).
 
     Attributes:
             alpha: exponential moving average decay factor (0 < alpha < 1).
@@ -288,7 +294,7 @@ class ZStatCriterion(ClippingCriterion):
                  clipping_function: ClipFunction = reciprocal_clipping,
                  eps: float = 1e-06):
         """
-        Initialize Z-statistic based clipping criterion.
+        Initialize the clipping criterion.
 
         Args:
             alpha: exponential moving average decay factor (0 < alpha < 1).
@@ -302,12 +308,12 @@ class ZStatCriterion(ClippingCriterion):
         self._eps = eps
         self._mu_t = 0.0
         self._v_t = 1.0
-        ClipOperation._validate_threshold(z_thresh)
+        _validate_threshold(z_thresh)
         return
 
     @override
     def should_clip(self, value: float) -> bool:
-        """Check if Z-score exceeds threshold."""
+        """Check if the Z-score exceeds the threshold."""
         if self._mu_t == 0.0:
             return False
 
@@ -369,7 +375,7 @@ class StatsCollector:
         return
 
     def __len__(self) -> int:
-        """Return number of collected warmup samples."""
+        """Return the number of collected warmup samples."""
         return len(self._data)
 
     @property
@@ -413,7 +419,7 @@ class HistClipping(ClipOperation):
     """
     Global gradient clipping strategy that uses previous gradient statistics.
 
-    The gradients norm is renormalized according to a clipping criterion.
+    The gradients' norm is renormalized according to a clipping criterion.
 
     Attributes:
         criterion: the clipping criterion to determine when and how to clip.
@@ -451,8 +457,8 @@ class HistClipping(ClipOperation):
         """
         # needed to allow multiple iterations
         params_list = list(params)
-        squared_norms = [(p.grad ** 2).sum().item() for p in params_list
-                         if p.grad is not None]
+        squared_norms = [(param.grad ** 2).sum().item() for param in params_list
+                         if param.grad is not None]
         global_norm = math.sqrt(sum(squared_norms))
         if self._warmup_handler.active:
             if not self._warmup_handler.is_complete():
@@ -483,7 +489,7 @@ class ParamHistClipping(ClipOperation):
     """
     Gradient clipping strategy that the gradient statistics for that parameter.
 
-    The gradients norm is renormalized according to a clipping criterion.
+    The gradients' norm is renormalized according to a clipping criterion.
 
     Attributes:
         criterion: the clipping criterion to determine when and how to clip.

@@ -36,7 +36,7 @@ def tensor_zero_grad(tensor_no_grad) -> torch.nn.Parameter:
 
 @pytest.fixture
 def tensor_random_grad(tensor_no_grad) -> torch.nn.Parameter:
-    """Tensor with random gradient."""
+    """Tensor with a random gradient."""
     tensor_zero_grad = torch.nn.Parameter(torch.ones(3, 3))
     tensor_zero_grad.grad = torch.randn(3, 3)
     return tensor_zero_grad
@@ -108,7 +108,7 @@ class TestGradNormClipper:
         return GradNormClipper(threshold)
 
     def test_wrong_threshold(self) -> None:
-        """Test threshold of 0 returns error."""
+        """Test threshold of 0 returns an error."""
         with pytest.raises(ValueError):
             GradNormClipper(0)
 
@@ -154,7 +154,7 @@ class TestGradValueClipper:
 
 def test_reciprocal_clipping() -> None:
     """Test reciprocal_clipping behavior."""
-    # continuous on threshold
+    # continuous on the threshold
     expected = zt = z_thresh = 2.0
     assert reciprocal_clipping(zt, z_thresh) == expected
 
@@ -271,7 +271,7 @@ class TestZStatCriterion:
         zstat_criterion._mu_t = 10.0
         zstat_criterion._v_t = 1.0
 
-        # If not clipping, return original value
+        # If not clipping, return the original value
         assert zstat_criterion.get_clip_value(11.0) == 11.0  # Z-score = 1.0
 
         # reciprocal_clipping
@@ -502,7 +502,7 @@ class TestParamHistClipping:
         self.mock_init_clip_call.reset_mock()
         grad_clipping(list_params)
 
-        # after second call, warmup should be complete
+        # after the second call, warmup should be complete
         self.mock_init_clip_call.assert_not_called()
         assert self.mock_set_statistics.call_count == len(list_params)
         for handler in grad_clipping._dict_warmup_handler.values():
@@ -513,7 +513,7 @@ class TestParamHistClipping:
         """Test behavior after the warmup phase, with and without clipping."""
         list_params = [p for p in example_parameters if p.grad is not None]
 
-        # skip warm up by making handlers inactive
+        # skip warmup by making handlers inactive
         for param in list_params:
             param_id = id(param)
             grad_clipping._dict_warmup_handler[param_id].active = False

@@ -105,7 +105,7 @@ class LiteralStr(str):
 @dataclasses.dataclass(frozen=True)
 class Omitted:
     """
-    Represent omitted values in an iterable.
+    Represent omitted values in an iterable object.
 
     Attributes:
         count: how many elements have been omitted. Defaults to NAN (unknown).
@@ -149,9 +149,9 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
     Function that attempts a hierarchical representation of a given object.
 
     It recursively represents each attribute of the object or the contained
-    items in tuple, list, sets and dictionaries. The latter are limited in
-    size by keeping max_size elements and replacing the others with an Omitted
-    instance.
+    items in tuples, lists, sets, and dictionaries. The latter structures are
+    limited in size by keeping max_size elements and replacing the others with
+    an Omitted instance.
 
     Arrays are represented using pandas and numpy array representation. Numbers
     are returned as they are or converted to python types.

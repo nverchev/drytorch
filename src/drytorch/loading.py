@@ -184,7 +184,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
             seed: int = 42,
     ) -> tuple[DataLoader[_Data_co], DataLoader[_Data_co]]:
         """
-        Split loader into two.
+        Split the loader into two.
 
         Args:
             split: fraction of the dataset to the second output loader.

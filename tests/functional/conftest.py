@@ -39,7 +39,7 @@ def zero_metrics_calc() -> Metric[TorchData, torch.Tensor]:
 
     def zero(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
         """
-        Dummy metric calculation from structured outputs.
+        Fake metric calculation from structured outputs.
 
         Args:
             outputs: structured model outputs.

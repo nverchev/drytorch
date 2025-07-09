@@ -1,6 +1,7 @@
 """Tests for the "matplotlib" module."""
 
 import pytest
+
 try:
     import matplotlib
 except ImportError:
@@ -68,7 +69,7 @@ class TestMatPlotter:
                             tracker,
                             example_loss_name,
                             example_model_name) -> MatPlotter:
-        """Set up the instance with layout."""
+        """Set up the instance with the layout."""
         tracker._prepare_layout(example_model_name, [example_loss_name])
         return tracker
 
@@ -97,7 +98,7 @@ class TestMatPlotter:
     def test_prepare_layout_already_exists(self,
                                            tracker_with_layout,
                                            example_model_name) -> None:
-        """Test that layout preparation is skipped if model already exists."""
+        """Test layout preparation is skipped if the model already exists."""
         self.plt_mock.Figure.reset_mock()
         tracker_with_layout._prepare_layout(example_model_name, [])
         self.plt_mock.Figure.assert_not_called()
@@ -130,17 +131,17 @@ class TestMatPlotter:
                                       example_model_name,
                                       example_source_name,
                                       example_loss_name) -> None:
-        """Test plotting metric with single data point."""
-        # create test data with single point
+        """Test plotting metric with a single data point."""
+        # create test data with a single point
         test_data = np.array([[1, 0.8]])
         sourced_array = {example_source_name: test_data}
 
         # call plot_metric
-        fig, ax = tracker_with_layout._plot_metric(example_model_name,
-                                                   example_loss_name,
-                                                   **sourced_array)
+        _ = tracker_with_layout._plot_metric(example_model_name,
+                                             example_loss_name,
+                                             **sourced_array)
 
-        # verify scatter plot was used for single point
+        # verify the scatter plot was used for a single point
         self.mock_ax.scatter.assert_called_once_with(
             test_data[:, 0],
             test_data[:, 1],
@@ -162,11 +163,11 @@ class TestMatPlotter:
         mock_line.get_label.return_value = example_source_name
         mock_line.set_xdata = mock_line.set_ydata = lambda x: None
         self.mock_ax.get_lines.return_value = [mock_line]
-        fig, ax = tracker_with_layout._plot_metric(example_model_name,
-                                                   example_loss_name,
-                                                   **sourced_array)
+        _ = tracker_with_layout._plot_metric(example_model_name,
+                                             example_loss_name,
+                                             **sourced_array)
 
-        # verify existing line was updated, not new plot created
+        # verify the existing line was updated without creating a new plot
         self.mock_ax.plot.assert_not_called()
         self.mock_ax.scatter.assert_not_called()
 
@@ -180,6 +181,6 @@ class TestMatPlotter:
         # close all figures
         tracker_with_layout.close_all()
 
-        # verify figure was closed and internal storage cleared
+        # verify the figure was closed and internal storage cleared
         self.plt_mock.close.assert_called_once_with(self.mock_fig)
         assert tracker_with_layout._model_figure == {}

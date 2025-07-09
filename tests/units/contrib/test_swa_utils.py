@@ -42,7 +42,7 @@ class TestModelMomentaUpdater:
         assert self.mock_bn_module.momentum == original_momentum
 
     def test_call_preserves_training_mode(self, updater, mock_model) -> None:
-        """Test that original training mode is preserved."""
+        """Test that the original training mode is preserved."""
         updater.model = mock_model
         mock_model.module.training = False
         updater()

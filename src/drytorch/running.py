@@ -25,7 +25,7 @@ class ModelCaller(Generic[_Input, _Output]):
     Base class that calls a model.
 
     Attributes:
-        model: model: the wrapped model.
+        model: the wrapped model.
     """
     _name = repr_utils.DefaultName()
 
@@ -49,7 +49,7 @@ class ModelCaller(Generic[_Input, _Output]):
 
     @property
     def name(self) -> str:
-        """The name of ."""
+        """The name of the object calling the model."""
         return self._name
 
 

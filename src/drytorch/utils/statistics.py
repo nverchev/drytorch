@@ -19,7 +19,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
     """
     Average tensor values from dict-like objects.
 
-    It registers sample size to calculate precise sample average.
+    It registers sample size to calculate the precise sample average.
 
     Attributes:
         aggregate: a dictionary with the aggregated values.
@@ -75,7 +75,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
                 other_aggregate[key] = self._aggregate(value)
                 other_counts[key] = self._count(value)
 
-        if self.aggregate:  # fail if new elements are added after start
+        if self.aggregate:  # fail if new elements are added after the start
             for key, value in other_aggregate.items():
                 self.aggregate[key] += value
                 self.counts[key] += other_counts[key]
@@ -159,7 +159,7 @@ def get_moving_average(
     Return a moving average by specifying the decay.
 
     Args:
-        decay: the closer to 0 the more the last elements have weight.
+        decay: the closer to 0, the more the last elements have weight.
         mass_coverage: cumulative weight proportion before tail dropping.
 
     Returns:

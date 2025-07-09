@@ -8,7 +8,7 @@ from drytorch.trackers import base_classes
 
 
 class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
-    """Tracker that create new plots each call (no update) using plotly."""
+    """Tracker that creates new plots each call (no update) using plotly."""
 
     @override
     def _plot_metric(self,

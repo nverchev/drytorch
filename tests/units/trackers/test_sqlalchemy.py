@@ -96,7 +96,7 @@ class TestSQLConnection:
             tracker_started,
             start_experiment_mock_event,
     ) -> None:
-        """Test start experiment notification creates new run and experiment."""
+        """Test start experiment notification creates new tables."""
         assert tracker_started.run == self.run
         self.mock_context.add.assert_called_once_with(self.exp)
 
@@ -105,7 +105,7 @@ class TestSQLConnection:
             tracker_started,
             stop_experiment_mock_event,
     ) -> None:
-        """Test stop experiment notification cleans up state."""
+        """Test stop experiment notification cleans up the state."""
         tracker_started.notify(stop_experiment_mock_event)
         assert tracker_started._run is None
 
@@ -131,7 +131,7 @@ class TestSQLConnection:
             tracker_with_resume,
             start_experiment_mock_event,
     ) -> None:
-        """Test start experiment with resume when previous run exists."""
+        """Test start experiment with resume when the previous run exists."""
         # Create a previous run
         last_run = mocker.Mock()
         get_last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
@@ -145,7 +145,7 @@ class TestSQLConnection:
             tracker_started,
             call_model_mock_event,
     ) -> None:
-        """Test call model notification creates source."""
+        """Test call model notification creates the source."""
         tracker_started.notify(call_model_mock_event)
         self.mock_context.add.assert_called_with(self.source)
         assert call_model_mock_event.source_name in tracker_started._sources
@@ -168,7 +168,7 @@ class TestSQLConnection:
             call_model_mock_event,
             epoch_metrics_mock_event,
     ) -> None:
-        """Test metrics notification from unknown source raises error."""
+        """Test metrics notification from an unknown source raises an error."""
         tracker_started.notify(call_model_mock_event)
         epoch_metrics_mock_event.source_name = 'unknown_source'
         with pytest.raises(exceptions.TrackerException):
@@ -179,7 +179,7 @@ class TestSQLConnection:
             mocker,
             tracker_started,
     ) -> None:
-        """Test _find_sources with existing model."""
+        """Test _find_sources with an existing model."""
         self.source.source_name = 'test_source'
         mock_query = mocker.MagicMock()
         mock_query.where.return_value = mock_query
@@ -190,7 +190,7 @@ class TestSQLConnection:
     def test_find_sources_nonexistent_model(self,
                                             mocker,
                                             tracker_started) -> None:
-        """Test _find_sources with nonexistent model raises exception."""
+        """Test _find_sources with a nonexistent model raises an exception."""
         mock_query = mocker.MagicMock()
         mock_query.where.return_value = mock_query
         mock_query.__iter__.return_value = [].__iter__()
@@ -203,7 +203,7 @@ class TestSQLConnection:
             mocker,
             tracker_started,
     ) -> None:
-        """Test getting multiple metrics from same epoch ."""
+        """Test getting multiple metrics from the same epoch."""
         mock_log = mocker.Mock()
         mock_log.epoch = 1
         mock_log.metric_name = 'test_model'
@@ -254,4 +254,3 @@ class TestSQLConnection:
             _ = tracker_started._get_run_metrics([], -1)
         assert err.match('test_model')
         assert err.match('test_model_2')
-

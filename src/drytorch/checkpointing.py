@@ -1,4 +1,4 @@
-"""Module containing classes to save model state and its optimizer state."""
+"""Module containing classes to save the model state and its optimizer state."""
 
 import abc
 import pathlib

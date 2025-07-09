@@ -40,7 +40,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
     """
     _name = repr_utils.DefaultName()
 
-    def __init__(
+    def __init__(  # type: ignore
             self,
             torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
             /,
@@ -54,7 +54,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         Args:
             Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
-            device: the device where to store the weights of module.
+            device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
@@ -156,7 +156,7 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
         Args:
             Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
-            device: the device where to store the weights of module.
+            device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.

@@ -98,9 +98,9 @@ class Trainer(running.ModelRunnerWithLogs,
             val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
     ) -> None:
         """
-        Add loader for validation with the same metrics as for training.
+        Add a loader for validation with the same metrics as for training.
 
-        If different validation loaders are added, they will all be performed
+        If different validation loaders are added, they will all be performed,
         but only the last will be stored as the instance validation.
 
         Args:

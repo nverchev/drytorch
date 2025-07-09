@@ -52,7 +52,7 @@ def test_iterative_pruning(benchmark_values,
                            standard_learning_scheme,
                            square_loss_calc,
                            identity_loader) -> None:
-    """Test a pruning strategy that requires model to improve at each epoch."""
+    """Test a pruning strategy that requires model improvement at each epoch."""
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         linear_model = Model(Linear(1, 1))
@@ -69,5 +69,5 @@ def test_iterative_pruning(benchmark_values,
         trainer.train(4)
         benchmark_values = prune_callback.trial_values
 
-    # last run should be immediately pruned.
+    # the last run should be immediately pruned.
     assert len(benchmark_values) <= 1

@@ -147,7 +147,7 @@ class TestBuiltinLogger:
             tracker,
             load_model_mock_event,
     ) -> None:
-        """Test handling of LoadModel event."""
+        """Test handling of the LoadModel event."""
         load_model_mock_event.model_name = 'my_model'
         load_model_mock_event.definition = 'weights'
         load_model_mock_event.location = 'folder'
@@ -169,7 +169,7 @@ class TestBuiltinLogger:
             tracker,
             epoch_metrics_mock_event,
     ) -> None:
-        """Test handling of FinalMetrics event."""
+        """Test handling of the FinalMetrics event."""
         epoch_metrics_mock_event.source_name = 'test_source'
         epoch_metrics_mock_event.metrics = {'loss': 1.2, 'accuracy': .81}
         tracker.notify(epoch_metrics_mock_event)
@@ -197,7 +197,7 @@ class TestBuiltinLogger:
             tracker,
             update_learning_rate_mock_event,
     ) -> None:
-        """Test handling of UpdateLearningRate event."""
+        """Test handling of the UpdateLearningRate event."""
         update_learning_rate_mock_event.source_name = 'my_source'
         update_learning_rate_mock_event.model_name = 'my_model'
         update_learning_rate_mock_event.epoch = 10

@@ -44,7 +44,7 @@ class CSVDumper(base_classes.Dumper,
             par_dir: the directory where to dump metadata. Defaults to the
                 one for the current experiment.
             dialect: the format specification. Defaults to local dialect.
-            resume_run: load previous session having the same directory.
+            resume_run: load the previous session having the same directory.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run

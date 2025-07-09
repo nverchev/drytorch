@@ -89,7 +89,7 @@ class TestTqdmLoggerFullCycle:
             example_named_metrics,
             string_stream
     ):
-        """Test TqdmLogger with double bar produces expected output."""
+        """Test TqdmLogger with double bar produces the expected output."""
         trackers = [TqdmLogger(file=string_stream, enable_training_bar=True)]
 
         _notify_workflow(event_workflow, trackers, example_named_metrics)

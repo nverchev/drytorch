@@ -15,7 +15,7 @@ from drytorch.trackers import base_classes
 
 class HydraLink(base_classes.Dumper):
     """
-    Link current Hydra metadata to experiment.
+    Link current Hydra metadata to the experiment.
 
     Class Attributes:
         hydra_folder: the folder where the logs are grouped.
@@ -79,7 +79,7 @@ class HydraLink(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
-        # call super to create par_dir first
+        # call super method to create par_dir first
         super().notify(event)
         while True:
             if self.dir.exists():

@@ -8,7 +8,7 @@ import torch
 from drytorch import log_events
 from drytorch import protocols as p
 from drytorch import running
-from drytorch.running import ModelRunner, ModelRunnerWithObjective
+from drytorch.running import ModelRunnerWithObjective
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)

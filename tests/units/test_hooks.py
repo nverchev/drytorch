@@ -47,7 +47,7 @@ def test_saving_hook(mock_trainer) -> None:
 
 
 def test_static_hook(mocker) -> None:
-    """Test that static_hook wraps a static callable."""
+    """Test that static_hook wraps a void callable."""
     mock_callable = mocker.MagicMock()
     hook = StaticHook(mock_callable)
 
@@ -57,7 +57,7 @@ def test_static_hook(mocker) -> None:
 
 
 def test_static_class(mocker, mock_trainer) -> None:
-    """Test that static_hook wraps a static callable."""
+    """Test that static_hook wraps a void callable."""
 
     mock_event = mocker.MagicMock()
 
@@ -69,7 +69,7 @@ def test_static_class(mocker, mock_trainer) -> None:
         def __call__(self) -> None:
             mock_event()
 
-    hook = static_hook_class(_TestClass)('test', number=1)
+    hook = static_hook_class(_TestClass)('test')
     hook(mock_trainer)
     mock_event.assert_called_once()
 
@@ -97,7 +97,7 @@ def test_call_every(mocker, mock_trainer) -> None:
     mock_hook.assert_called_once_with(mock_trainer)
 
     mock_hook.reset_mock()
-    # Test when trainer is terminated
+    # Test when the trainer is terminated
     mock_trainer.terminate_training('This is a test.')
     hook(mock_trainer)
     mock_hook.assert_called_once_with(mock_trainer)
@@ -213,7 +213,7 @@ class TestEarlyStoppingCallback:
 class TestPruneCallback:
     @pytest.fixture(autouse=True)
     def setup(self, mock_metric):
-        """Set up PruneCallback instance."""
+        """Set up a PruneCallback instance."""
         self.pruning = {3: 2, 5: 0.5}
         self.callback = PruneCallback(
             thresholds=self.pruning,
@@ -279,6 +279,6 @@ class TestRestartScheduleOnPlateau:
             self.callback(mock_trainer)
 
         mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
-        # Verify that new scheduler is WarmupScheduler
+        # Verify that the new scheduler is WarmupScheduler
         args = mock_trainer.update_learning_rate.call_args  # type: ignore
         assert isinstance(args[1]["scheduler"], schedulers.WarmupScheduler)

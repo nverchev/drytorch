@@ -48,7 +48,7 @@ class TestYamlDumper:
                                    model_creation_mock_event) -> None:
         """Test notification of model creation event."""
         tracker_started.notify(model_creation_mock_event)
-        # metadata dumped in metadata folder and in the archive folder
+        # metadata dumped in the metadata folder and in the archive folder
         assert self.mock_dump.call_count == 2
 
     def test_notify_call_model(self,
@@ -56,13 +56,13 @@ class TestYamlDumper:
                                call_model_mock_event) -> None:
         """Test notification of call model event."""
         tracker_started.notify(call_model_mock_event)
-        # metadata dumped in metadata folder and in the archive folder
+        # metadata dumped in the metadata folder and in the archive folder
         assert self.mock_dump.call_count == 2
 
     def test_version_method_creates_directories(self,
                                                 tracker,
                                                 tmp_path) -> None:
-        """Test that _version method creates correct directory structure."""
+        """Test _version method creates the correct directory structure."""
         metadata = {'key': 'value'}
         sub_folder = 'test_model'
         file_name = 'model_file'

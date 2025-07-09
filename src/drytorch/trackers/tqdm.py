@@ -19,7 +19,7 @@ from drytorch import tracking
 
 class EpochBar:
     """
-    Bar that displays current epoch's metrics and progress.
+    Bar that displays the current epoch's metrics and progress.
 
     This class is also used to display metrics and progress during evaluation.
 
