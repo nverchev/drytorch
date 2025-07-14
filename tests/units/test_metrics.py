@@ -206,13 +206,13 @@ class TestCompositionalLoss:
         """Test multiplication of two losses."""
         combined_loss = self.loss_1 * self.loss_2
         assert combined_loss.criterion(self.example_metric_results) == 2 * 6
-        assert combined_loss.formula == '((2 x [Metric_1]) x (3 x [Metric_2]))'
+        assert combined_loss.formula == '(2 x [Metric_1]) x (3 x [Metric_2])'
 
     def test_divide_losses(self) -> None:
         """Test division of two losses."""
         combined_loss = self.loss_1 / -self.loss_2
         assert combined_loss.criterion(self.example_metric_results) == 2 / -6
-        expected = '((2 x [Metric_1]) x (1 / (-(3 x [Metric_2]))))'
+        expected = '(2 x [Metric_1]) x (1 / (-(3 x [Metric_2])))'
         assert combined_loss.formula == expected
 
 

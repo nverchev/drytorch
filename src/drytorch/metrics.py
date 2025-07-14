@@ -144,20 +144,23 @@ class Metric(Objective[_Output_contra, _Target_contra]):
 
 
 class LossBase(
-    Objective[_Output_contra, _Target_contra],
+    MetricCollection[_Output_contra, _Target_contra],
     p.LossCalculatorProtocol[_Output_contra, _Target_contra],
     metaclass=abc.ABCMeta,
 ):
     """Collection of metrics, one of which serves as a loss."""
-    name = 'Loss'
-    higher_is_better: bool
-    formula: str
 
     def __init__(
             self,
             criterion: Callable[[dict[str, _Tensor]], _Tensor],
+            name: str,
+            higher_is_better: bool = False,
+            formula: str = 'Loss',
             **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
+        self.name = name
+        self.higher_is_better = higher_is_better
+        self.formula = formula
         super().__init__(**named_fun)
         self.criterion = criterion
         return
@@ -175,6 +178,7 @@ class LossBase(
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
         return CompositionalLoss(criterion=self.criterion,
+                                 name=self.name,
                                  higher_is_better=self.higher_is_better,
                                  formula=self.formula,
                                  **named_metric_fun)
@@ -309,13 +313,19 @@ class CompositionalLoss(
             self,
             criterion: Callable[[dict[str, _Tensor]], _Tensor],
             *,
+            name='Loss',
             higher_is_better: bool,
             formula: str,
             **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
-        super().__init__(criterion, **named_fun)
+        super().__init__(
+            criterion,
+            name,
+            higher_is_better,
+            **named_fun,
+            formula=f'({self._simplify_formula(formula)})',
+        )
         self.higher_is_better = higher_is_better
-        self.formula = f'({self._simplify_formula(formula)})'
         return
 
     def __repr__(self):
@@ -330,12 +340,14 @@ class CompositionalLoss(
 
     @staticmethod
     def _simplify_formula(formula: str) -> str:
-        return formula.replace('--', '').replace('+ -', '- ')
+        formula = formula.replace('--', '').replace('+ -', '- ')
+        if formula.startswith('(') and formula.endswith(')'):
+            formula = formula[1:-1]
+        return formula
 
 
 class Loss(LossBase[_Output_contra, _Target_contra]):
     """Class for a simple loss."""
-    higher_is_better: bool
 
     def __init__(
             self,
@@ -350,11 +362,12 @@ class Loss(LossBase[_Output_contra, _Target_contra]):
             name: the name for the loss.
             higher_is_better: the direction for optimization.
         """
-        super().__init__(operator.itemgetter(name))
+        super().__init__(operator.itemgetter(name),
+                         name=name,
+                         higher_is_better=higher_is_better,
+                         formula=f'[{name}]',
+                         **{name: fun})
         self.fun = fun
-        self.name = name
-        self.higher_is_better = higher_is_better
-        self.formula = f'[{name}]'
         return
 
     @override
