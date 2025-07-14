@@ -2,11 +2,21 @@
 
 import functools
 import pathlib
+import subprocess
+import warnings
+import socket
+import webbrowser
+
 from typing import Optional
 from typing_extensions import override
-import warnings
 
-import torch.utils.tensorboard
+from torch.utils import tensorboard
+
+try:
+    import tensorboard as _tensorboard  # type: ignore
+except ImportError as ie:
+    msg = 'TensorBoard is not installed. Run `pip install tensorboard`.'
+    raise ImportError(msg) from ie
 
 from drytorch import exceptions
 from drytorch import log_events
@@ -19,11 +29,12 @@ class TensorBoard(base_classes.Dumper):
 
     Class Attributes:
         folder_name: name of the folder containing the output.
-
-    Attributes:
-        resume_run: load previous session having the same directory.
+        base_port: starting port number for TensorBoard.
+        instance_count: counter for TensorBoard instances started.
     """
     folder_name = 'tensorboard_runs'
+    base_port = 6006
+    instance_count = 0
 
     def __init__(
             self,
@@ -38,14 +49,16 @@ class TensorBoard(base_classes.Dumper):
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
-        self._writer: Optional[torch.utils.tensorboard.SummaryWriter] = None
+        self._writer: Optional[tensorboard.SummaryWriter] = None
+        self._port: Optional[int] = None
+        self.__class__.instance_count += 1
+        self._instance_number = self.__class__.instance_count
 
     @property
-    def writer(self) -> torch.utils.tensorboard.SummaryWriter:
+    def writer(self) -> tensorboard.SummaryWriter:
         """The active SummaryWriter instance."""
         if self._writer is None:
             raise exceptions.AccessOutsideScopeError()
-
         return self._writer
 
     @override
@@ -63,6 +76,8 @@ class TensorBoard(base_classes.Dumper):
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         super().notify(event)
+
+        # determine the root directory
         if self.resume_run:
             retrieved = self._get_last_run(self.par_dir)
             if retrieved is None:
@@ -71,13 +86,14 @@ class TensorBoard(base_classes.Dumper):
                 root_dir = self.par_dir / self.folder_name
             else:
                 root_dir = retrieved
-
         else:
             root_dir = self.par_dir / self.folder_name
 
-        self._writer = torch.utils.tensorboard.SummaryWriter(
-            log_dir=root_dir.as_posix(),
-        )
+        # start the TensorBoard server
+        self._start_tensorboard(root_dir)
+
+        # initialize writer
+        self._writer = tensorboard.SummaryWriter(log_dir=root_dir.as_posix())
         if event.config:
             try:
                 self.writer.add_hparams(hparam_dict=event.config,
@@ -97,6 +113,7 @@ class TensorBoard(base_classes.Dumper):
         for name, value in event.metrics.items():
             full_name = f'{event.model_name}/{event.source_name}-{name}'
             self.writer.add_scalar(full_name, value, global_step=event.epoch)
+        self.writer.flush()
 
         return super().notify(event)
 
@@ -105,5 +122,43 @@ class TensorBoard(base_classes.Dumper):
         all_dirs = [d for d in main_dir.iterdir() if d.is_dir()]
         if not all_dirs:
             return None
-
         return max(all_dirs, key=lambda d: d.stat().st_ctime)
+
+    def _start_tensorboard(self, logdir: pathlib.Path) -> None:
+        """Start a TensorBoard server and open it in the default browser."""
+        # allocate a port
+        instance_port = self.base_port + self._instance_number
+        port = self._find_free_port(start=instance_port)
+        self._port = port
+        try:
+            subprocess.Popen([
+                "tensorboard",
+                "serve",  # required with modern TensorBoard CLI
+                "--logdir", str(logdir),
+                "--port", str(port),
+                "--reload_multifile", "true",
+            ])
+        except FileNotFoundError:
+            msg = 'TensorBoard executable not found.'
+            raise exceptions.TrackerException(self, msg)
+
+        try:
+            webbrowser.open(f'http://localhost:{port}')
+        except Exception as e:
+            msg = f'Could not open browser for TensorBoard: {e}'
+            warnings.warn(msg, exceptions.DryTorchWarning)
+
+    @staticmethod
+    def _find_free_port(start: int = 6006, max_tries: int = 100) -> int:
+        """Find a free port starting from the given one."""
+        for port in range(start, start + max_tries):
+            if TensorBoard._port_available(port):
+                return port
+        msg = f'No free ports available after {max_tries} tries.'
+        raise exceptions.TrackerException(TensorBoard, msg)
+
+    @staticmethod
+    def _port_available(port: int) -> bool:
+        """Check if the given port is available."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            return sock.connect_ex(('localhost', port)) != 0

@@ -1,4 +1,5 @@
 """Tests for the "tensorboard" module."""
+import sys
 
 import pytest
 try:
@@ -19,6 +20,8 @@ class TestTensorBoard:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Setup test environment."""
+        self.open_browser_mock = mocker.patch("webbrowser.open")
+        self.mock_popen = mocker.patch("subprocess.Popen")
         self.summary_writer_mock = mocker.patch(
             'torch.utils.tensorboard.SummaryWriter',
         )
@@ -124,3 +127,48 @@ class TestTensorBoard:
             time.sleep(0.01)
 
         assert TensorBoard._get_last_run(tmp_path) == tmp_path / '1'
+
+    def test_tensorboard_launch_fails_if_not_installed(self,
+                                                       tracker,
+                                                       mocker,
+                                                       tmp_path):
+        """Test error is raised if TensorBoard is not installed."""
+        self.mock_popen.side_effect = FileNotFoundError()
+        mocker.patch.object(TensorBoard, '_find_free_port', return_value=6007)
+
+        with pytest.raises(exceptions.TrackerException):
+            tracker._start_tensorboard(tmp_path)
+
+    def test_tensorboard_launch_fails_on_port_conflict(self, mocker, tmp_path):
+        """Test error is raised if no free ports are available."""
+        port_available_mock = mocker.patch.object(TensorBoard,
+                                                  '_port_available')
+        port_available_mock.return_value = False
+        with pytest.raises(exceptions.TrackerException):
+            TensorBoard._find_free_port(start=6006, max_tries=100)
+
+    def test_browser_open_failure_warning(self, tracker, mocker, tmp_path):
+        """Test warning is issued when the browser fails to open."""
+        mocker.patch.object(TensorBoard, '_find_free_port', return_value=6007)
+        self.open_browser_mock.side_effect = Exception("Browser not available")
+        with pytest.warns(exceptions.DryTorchWarning):
+            tracker._start_tensorboard(tmp_path)
+
+    def test_tensorboard_opens_browser_once_per_tracker(self, mocker, tmp_path):
+        """Test each tracker gets a unique port and browser launch."""
+
+        # mock _find_free_port to return different ports for each tracker
+        find_port_mock = mocker.patch.object(TensorBoard, '_find_free_port')
+        find_port_mock.side_effect = [6007,
+                                      6008]  # different ports for each call
+        tracker1 = TensorBoard(par_dir=tmp_path / "exp1")
+        tracker2 = TensorBoard(par_dir=tmp_path / "exp2")
+        tracker1._start_tensorboard(tmp_path / "exp1")
+        tracker2._start_tensorboard(tmp_path / "exp2")
+
+        assert self.open_browser_mock.call_count == 2
+        self.open_browser_mock.assert_any_call('http://localhost:6007')
+        self.open_browser_mock.assert_any_call('http://localhost:6008')
+        assert tracker1._port == 6007
+        assert tracker2._port == 6008
+        assert self.mock_popen.call_count == 2
