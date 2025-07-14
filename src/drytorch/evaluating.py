@@ -37,7 +37,7 @@ class Diagnostic(ModelRunnerWithObjective,
             store_outputs: whether to store model outputs. Defaults to False.
         """
         self.model.module.eval()
-        super().__call__()
+        super().__call__(store_outputs)
         return
 
 
