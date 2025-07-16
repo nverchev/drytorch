@@ -54,7 +54,7 @@ class HydraLink(base_classes.Dumper):
         if self._dir is None:
             link_name = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             hydra_local_folder = self.par_dir / self.hydra_folder
-            hydra_local_folder.mkdir(exist_ok=True)
+            hydra_local_folder.mkdir(exist_ok=True, parents=True)
             new_dir = hydra_local_folder / link_name
             self._dir = new_dir
             return new_dir
