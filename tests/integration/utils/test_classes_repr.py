@@ -45,7 +45,8 @@ def test_repr_trainer(identity_trainer):
                               'formula': '[MSE]',
                               'fun': 'mse',
                               'higher_is_better': False,
-                              'name': 'MSE'},
+                              'name': 'MSE',
+                              'named_metric_fun': {'MSE': 'mse'}},
                 'post_epoch_hooks': 'HookRegistry',
                 'pre_epoch_hooks': 'HookRegistry'}
 
