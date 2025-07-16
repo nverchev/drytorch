@@ -40,13 +40,18 @@ class TensorBoard(base_classes.Dumper):
     def __init__(
             self,
             par_dir: Optional[pathlib.Path] = None,
-            resume_run: bool = False
+            resume_run: bool = False,
+            start_server: bool = True,
+            open_browser: bool = True,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
-            par_dir: the directory where to dump metadata. Defaults to the
-                one for the current experiment.
-            resume_run: load previous sessions having the same directory.
+            par_dir: Directory to store metadata and logs. Defaults to the
+                current experiment's one.
+            resume_run: if True, resume from the latest run in the same folder.
+            start_server: if True, start a local TensorBoard server.
+            open_browser: if True, open TensorBoard in the browser.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
@@ -54,6 +59,8 @@ class TensorBoard(base_classes.Dumper):
         self._port: Optional[int] = None
         self.__class__.instance_count += 1
         self._instance_number = self.__class__.instance_count
+        self._start_server = start_server
+        self._open_browser = open_browser
 
     @property
     def writer(self) -> tensorboard.SummaryWriter:
@@ -88,7 +95,8 @@ class TensorBoard(base_classes.Dumper):
             root_dir = retrieved
 
         # start the TensorBoard server
-        self._start_tensorboard(run_dir)
+        if self._start_server:
+            self._start_tensorboard(run_dir)
 
         # initialize writer
         self._writer = tensorboard.SummaryWriter(log_dir=root_dir.as_posix())
@@ -132,12 +140,12 @@ class TensorBoard(base_classes.Dumper):
         except FileNotFoundError:
             msg = 'TensorBoard executable not found.'
             raise exceptions.TrackerException(self, msg)
-
-        try:
-            webbrowser.open(f'http://localhost:{port}')
-        except Exception as e:
-            msg = f'Could not open browser for TensorBoard: {e}'
-            warnings.warn(msg, exceptions.DryTorchWarning)
+        if self._open_browser:
+            try:
+                webbrowser.open(f'http://localhost:{port}')
+            except Exception as e:
+                msg = f'Could not open browser for TensorBoard: {e}'
+                warnings.warn(msg, exceptions.DryTorchWarning)
 
     @staticmethod
     def _find_free_port(start: int = 6006, max_tries: int = 100) -> int:

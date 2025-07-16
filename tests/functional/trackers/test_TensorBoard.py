@@ -16,10 +16,9 @@ class TestTensorBoardFullCycle:
     """Complete TensorBoard session and tests it afterward."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_path, event_workflow, mocker) -> None:
-        """Setup TensorBoard tracker and run complete workflow."""
-        self.mock_open = mocker.patch("webbrowser.open")
-        self.tracker = TensorBoard(par_dir=tmp_path)
+    def setup(self, tmp_path, event_workflow) -> None:
+        """Set up TensorBoard tracker and run complete workflow."""
+        self.tracker = TensorBoard(par_dir=tmp_path, open_browser=False)
         for event in event_workflow:
             self.tracker.notify(event)
 
@@ -41,7 +40,6 @@ class TestTensorBoardFullCycle:
     def test_folder_creation(self, tmp_path, example_named_metrics):
         """Test that TensorBoard creates local files and logs."""
         tensorboard_dir = tmp_path / TensorBoard.folder_name
-        self.mock_open.assert_called_once()
         assert tensorboard_dir.exists()
         assert tensorboard_dir.is_dir()
 
