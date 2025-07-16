@@ -36,7 +36,7 @@ class YamlDumper(base_classes.Dumper):
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
         """
         Args:
-            par_dir: directory where to dump metadata. Defaults uses the current
+            par_dir: directory where to dump metadata. Defaults to the current
                 experiment's one.
         """
         super().__init__(par_dir)
