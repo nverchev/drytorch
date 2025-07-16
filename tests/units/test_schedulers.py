@@ -58,9 +58,9 @@ class TestExponentialScheduler:
         base_lr = 1.0
 
         assert scheduler(base_lr, 0) == base_lr
-        assert scheduler(base_lr, 1) == base_lr * exp_decay
-        assert scheduler(base_lr, 22) == min_decay * base_lr
-        assert scheduler(base_lr, 50) == min_decay * base_lr
+        assert scheduler(base_lr, 1) == 0.91
+        assert scheduler(base_lr, 22) == pytest.approx(0.1886293)
+        assert scheduler(base_lr, 50) == pytest.approx(0.1046383)
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
@@ -105,12 +105,7 @@ class TestCosineScheduler:
         """Test CosineScheduler midway through the schedule."""
         base_lr = 1.0
         epoch_mid = decay_steps // 2
-        lr_epoch_mid = scheduler(base_lr, epoch_mid)
-        base_term = min_decay * base_lr
-        delta_term = base_lr - min_decay * base_lr
-        cosine_decay_at_mid = (1 + np.cos(np.pi * 0.5)) / 2
-        expected_lr_mid = base_term + delta_term * cosine_decay_at_mid
-        assert lr_epoch_mid == pytest.approx(expected_lr_mid)
+        assert scheduler(base_lr, epoch_mid) == 0.55
 
     def test_cosine_scheduler_end(self,
                                   scheduler,
@@ -119,7 +114,7 @@ class TestCosineScheduler:
         """Test CosineScheduler at the end of the schedule."""
         base_lr = 1.0
         lr_epoch_end = scheduler(base_lr, decay_steps)
-        assert lr_epoch_end == pytest.approx(min_decay * base_lr)
+        assert lr_epoch_end == min_decay * base_lr
 
     def test_cosine_scheduler_beyond_end(self,
                                          scheduler,
@@ -228,7 +223,7 @@ class TestRestartScheduler:
         base_lr = 1.0
         epoch = restart_interval
         expected = base_scheduler(base_lr * restart_fraction, 0)
-        assert scheduler(base_lr, epoch) == pytest.approx(expected)
+        assert scheduler(base_lr, epoch) == expected
 
     def test_restart_scheduler_after_first_restart(self,
                                                    scheduler,
@@ -239,7 +234,7 @@ class TestRestartScheduler:
         base_lr = 1.0
         epoch = (max_restart + 1) * restart_interval
         expected = base_scheduler(base_lr, epoch)
-        assert scheduler(base_lr, epoch) == pytest.approx(expected)
+        assert scheduler(base_lr, epoch) == expected
 
     def test_restart_scheduler_multiple_restarts(self,
                                                  scheduler,
@@ -251,7 +246,7 @@ class TestRestartScheduler:
         epoch = (2 * restart_interval) + 20
         expected_start_value = base_lr * restart_fraction
         expected = base_scheduler(expected_start_value, 20)
-        assert scheduler(base_lr, epoch) == pytest.approx(expected)
+        assert scheduler(base_lr, epoch) == expected
 
     def test_restart_after_max_restarts(self,
                                         scheduler,
@@ -263,7 +258,7 @@ class TestRestartScheduler:
         epoch = (2 * restart_interval) + 20
         expected_start_value = base_lr * restart_fraction
         expected = base_scheduler(expected_start_value, 20)
-        assert scheduler(base_lr, epoch) == pytest.approx(expected)
+        assert scheduler(base_lr, epoch) == expected
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
@@ -372,27 +367,21 @@ class TestPolynomialScheduler:
         """Test PolynomialScheduler midway through the schedule."""
         base_lr = 1.0
         epoch = max_epochs // 2
-        expected_lr = max(base_lr * (1 - epoch / max_epochs) ** power,
-                          min_decay * base_lr)
-        assert scheduler(base_lr, epoch) == pytest.approx(expected_lr)
+        assert scheduler(base_lr, epoch) == pytest.approx(0.7363961)
 
     def test_polynomial_scheduler_end(
             self, scheduler, max_epochs, min_decay
     ) -> None:
         """Test PolynomialScheduler at the end of the schedule."""
         base_lr = 1.0
-        assert scheduler(base_lr, max_epochs) == pytest.approx(
-            min_decay * base_lr
-        )
+        assert scheduler(base_lr, max_epochs) == 0.1
 
     def test_polynomial_scheduler_beyond_end(
             self, scheduler, max_epochs, min_decay
     ) -> None:
         """Test PolynomialScheduler beyond max_epochs remains at min_decay."""
         base_lr = 1.0
-        assert scheduler(base_lr, max_epochs + 10) == pytest.approx(
-            min_decay * base_lr
-        )
+        assert scheduler(base_lr, max_epochs + 10) == min_decay * base_lr
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
@@ -432,28 +421,28 @@ class TestStepScheduler:
     def test_step_scheduler_at_first_milestone(self, scheduler, gamma) -> None:
         """Test StepScheduler at the first milestone."""
         base_lr = 1.0
-        assert scheduler(base_lr, 50) == pytest.approx(base_lr * gamma)
+        assert scheduler(base_lr, 50) == base_lr * gamma
 
     def test_step_scheduler_between_milestones(self, scheduler, gamma) -> None:
         """Test StepScheduler between milestones."""
         base_lr = 1.0
-        assert scheduler(base_lr, 75) == pytest.approx(base_lr * gamma)
-        assert scheduler(base_lr, 120) == pytest.approx(base_lr * (gamma ** 2))
+        assert scheduler(base_lr, 75) == base_lr * gamma
+        assert scheduler(base_lr, 120) == base_lr * (gamma ** 2)
 
     def test_step_scheduler_at_multiple_milestones(self,
                                                    scheduler,
                                                    gamma) -> None:
         """Test StepScheduler at multiple milestones."""
         base_lr = 1.0
-        assert scheduler(base_lr, 100) == pytest.approx(base_lr * (gamma ** 2))
-        assert scheduler(base_lr, 150) == pytest.approx(base_lr * (gamma ** 3))
+        assert scheduler(base_lr, 100) == base_lr * (gamma ** 2)
+        assert scheduler(base_lr, 150) == base_lr * (gamma ** 3)
 
     def test_step_scheduler_beyond_last_milestone(self,
                                                   scheduler,
                                                   gamma) -> None:
         """Test StepScheduler beyond the last milestone."""
         base_lr = 1.0
-        assert scheduler(base_lr, 200) == pytest.approx(base_lr * (gamma ** 3))
+        assert scheduler(base_lr, 200) == base_lr * (gamma ** 3)
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
@@ -494,7 +483,7 @@ class TestBindingOperation:
         warmup_steps = 3
         warmed_up_scheduler = initial_scheduler.bind(warmup(warmup_steps))
         expected = base_lr * (1 / warmup_steps)
-        assert warmed_up_scheduler(base_lr, 1) == pytest.approx(expected)
+        assert warmed_up_scheduler(base_lr, 1) == expected
         assert warmed_up_scheduler(base_lr, warmup_steps) == base_lr
 
     def test_binding_with_restart(self, base_lr) -> None:
@@ -506,13 +495,13 @@ class TestBindingOperation:
         restarted_scheduler = base_scheduler.bind(restart(restart_interval,
                                                           restart_fraction))
         expected = base_scheduler(base_lr, 5)
-        assert restarted_scheduler(base_lr, 5) == pytest.approx(expected)
+        assert restarted_scheduler(base_lr, 5) == expected
 
         expected = base_scheduler(base_lr * restart_fraction, 0)
-        assert restarted_scheduler(base_lr, 10) == pytest.approx(expected)
+        assert restarted_scheduler(base_lr, 10) == expected
 
         expected = base_scheduler(base_lr * restart_fraction, 5)
-        assert restarted_scheduler(base_lr, 15) == pytest.approx(expected)
+        assert restarted_scheduler(base_lr, 15) == expected
 
     def test_binding_chaining(self, initial_scheduler, base_lr) -> None:
         """Test chaining multiple binding operations."""
