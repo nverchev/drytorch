@@ -35,7 +35,7 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
 
     def __init__(self,
                  name: str = '',
-                 par_dir: str | pathlib.Path = pathlib.Path(''),
+                 par_dir: str | pathlib.Path = pathlib.Path(),
                  config: Optional[_T] = None) -> None:
         """Constructor.
 
@@ -143,23 +143,23 @@ class MainExperiment(Experiment[_T], Generic[_T, _U]):
     """
     sub_experiments: set[SubExperiment[_U]] = set()
 
-    def register_sub(self, sub: SubExperiment[_U]):
+    def register_sub(self, sub_exp: SubExperiment[_U]):
         """
         Register sub-experiments.
 
         Args:
-            sub: The sub experiment to register.
+            sub_exp: The sub experiment to register.
         """
-        sub.metadata_manager = self.metadata_manager
+        sub_exp.metadata_manager = self.metadata_manager
         for tracker in self.trackers.named_trackers.values():
             try:
-                sub.trackers.register(tracker)
+                sub_exp.trackers.register(tracker)
             except exceptions.TrackerAlreadyRegisteredError:
                 pass
 
-        sub.dir = self.dir / sub.name
-        self.sub_experiments.add(sub)
-        sub.main_experiment = self
+        self.sub_experiments.add(sub_exp)
+        sub_exp.main_experiment = self
+        sub_exp.dir = self.dir / sub_exp.name
         return
 
     @classmethod
