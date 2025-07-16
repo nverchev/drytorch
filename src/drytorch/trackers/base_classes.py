@@ -48,7 +48,7 @@ class Dumper(tracking.Tracker):
         else:
             path = self._par_dir
 
-        path.mkdir(exist_ok=True)
+        path.mkdir(exist_ok=True, parents=True)
         return path
 
     @override
