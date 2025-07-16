@@ -54,7 +54,8 @@ class TestSuggestOverridesWithHydra:
     def config_name(self) -> Generator[str, None, None]:
         """The name of the overall experiment's configuration."""
         config_name = 'your_hydra_config'
-        config_file = pathlib.Path(config_name).with_suffix('.yaml')
+        parent_dir = pathlib.Path(__file__).parent
+        config_file = (parent_dir / config_name).with_suffix('.yaml')
         config_content = """
         model:
           type: mlp
