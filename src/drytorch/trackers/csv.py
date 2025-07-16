@@ -39,7 +39,8 @@ class CSVDumper(base_classes.Dumper,
                  par_dir: Optional[pathlib.Path] = None,
                  dialect: csv.Dialect = DryTorchDialect(),
                  resume_run: bool = False) -> None:
-        """
+        """Constructor.
+
         Args:
             par_dir: the directory where to dump metadata. Defaults to the
                 one for the current experiment.

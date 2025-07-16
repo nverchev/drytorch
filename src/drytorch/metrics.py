@@ -131,6 +131,14 @@ class Metric(Objective[_Output_contra, _Target_contra]):
                  *,
                  name: str,
                  higher_is_better: Optional[bool] = None) -> None:
+        """Constructor.
+        
+        Args:
+            fun: callable that computes the metric value.
+            name: identifier for the metric.
+            higher_is_better: True if higher values indicate better performance,
+                False if lower values are better, None if unspecified.
+        """
         super().__init__(**{name: fun})
         self.fun = fun
         self.name = name
@@ -158,6 +166,16 @@ class LossBase(
             formula: str = 'Loss',
             **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
+        """Constructor.
+
+        Args:
+            criterion: function extracting a loss value from metric functions.
+            name: identifier for the loss.
+            higher_is_better: True if higher values indicate better performance,
+                False if lower values are better.
+            formula: string representation of the loss formula.
+            **named_fun: dictionary of named metric functions.
+        """
         self.name = name
         self.higher_is_better = higher_is_better
         self.formula = formula
@@ -318,6 +336,16 @@ class CompositionalLoss(
             formula: str,
             **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
+        """Constructor.
+
+        Args:
+            criterion: function extracting a loss value from metric functions.
+            name: identifier for the loss.
+            higher_is_better: True if higher values indicate better performance,
+                False if lower values are better.
+            formula: string representation of the loss formula.
+            named_fun: dictionary of named metric functions.
+        """
         super().__init__(
             criterion,
             name,
@@ -356,7 +384,8 @@ class Loss(LossBase[_Output_contra, _Target_contra]):
             *,
             name: str,
             higher_is_better: bool = False):
-        """
+        """Constructor.
+        
         Args:
             fun: the callable to calculate the loss.
             name: the name for the loss.

@@ -30,7 +30,8 @@ class TrialCallback:
             min_delta: float = 1e-8,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             trial: Optuna trial
             filter_fn: function to aggregate recent metric values.

@@ -38,8 +38,7 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
     """Gradient normalizing strategy using Z-score normalization."""
 
     def __init__(self, eps: float = 1e-8) -> None:  # type: ignore
-        """
-        Initialize the Z-score normalizer.
+        """Constructor.
 
         Args:
             eps: Small constant for numerical stability.
@@ -73,8 +72,7 @@ class GradNormClipper(ClipOperation):
     """
 
     def __init__(self, threshold: float = 1) -> None:
-        """
-        Initialize the gradient norm clipper.
+        """Constructor.
 
         Args:
             threshold: Maximum norm value of the clipped gradients.
@@ -96,8 +94,7 @@ class GradValueClipper(ClipOperation):
     """
 
     def __init__(self, threshold: float = 1) -> None:
-        """
-        Initialize the gradient value clipper.
+        """Constructor.
 
         Args:
             threshold: Maximum absolute value of the clipped gradients.
@@ -228,8 +225,7 @@ class EMACriterion(ClippingCriterion):
                  alpha: float = 0.98,
                  r_thresh: float = 1.05,
                  clipping_function: ClipFunction = max_clipping):
-        """
-        Initialize the EMA-based clipping criterion.
+        """Constructor.
 
         Args:
             alpha: exponential moving average decay factor.
@@ -293,8 +289,7 @@ class ZStatCriterion(ClippingCriterion):
                  z_thresh: float = 2.5,
                  clipping_function: ClipFunction = reciprocal_clipping,
                  eps: float = 1e-06):
-        """
-        Initialize the clipping criterion.
+        """Constructor.
 
         Args:
             alpha: exponential moving average decay factor (0 < alpha < 1).
@@ -354,8 +349,7 @@ class ZStatCriterion(ClippingCriterion):
 
 
 class StatsCollector:
-    """
-    Collect data and calculate basic statistics.
+    """Constructor.
 
     Attributes:
             max_samples: the number of collected samples for completion.
@@ -431,8 +425,7 @@ class HistClipping(ClipOperation):
                  criterion: ClippingCriterion = ZStatCriterion(),
                  warmup_clip_strategy: p.GradientOpProtocol = GradNormClipper(),
                  n_warmup_steps: int = 20) -> None:
-        """
-        Initialize global clipping strategy.
+        """Constructor.
 
         Args:
             criterion: the clipping criterion to determine when and how to clip.
@@ -501,8 +494,7 @@ class ParamHistClipping(ClipOperation):
                  criterion: ClippingCriterion = ZStatCriterion(),
                  warmup_clip_strategy: p.GradientOpProtocol = GradNormClipper(),
                  n_warmup_steps: int = 20) -> None:
-        """
-        Initialize global clipping strategy.
+        """Constructor.
 
         Args:
             criterion: the clipping criterion to determine when and how to clip.

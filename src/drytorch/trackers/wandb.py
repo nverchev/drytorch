@@ -27,7 +27,8 @@ class Wandb(Dumper):
             settings: wandb_settings.Settings = wandb_settings.Settings(),
             resume_run: bool = False,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             par_dir: the directory where to dump metadata. Overwrites settings.
                 Defaults to the one for the current experiment.

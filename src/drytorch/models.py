@@ -50,7 +50,8 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
             mixed_precision: bool = False,
 
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
@@ -152,7 +153,8 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
             ] = None,
             use_buffers: bool = False,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
@@ -201,7 +203,8 @@ class ModelOptimizer:
             model: p.ModelProtocol[_Input_contra, _Output_co],
             learning_scheme: p.LearningProtocol,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             model: the model to be optimized.
             learning_scheme: the learning scheme for the optimizer.

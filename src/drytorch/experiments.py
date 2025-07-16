@@ -37,7 +37,8 @@ class Experiment(repr_utils.Versioned, Generic[_T]):
                  name: str = '',
                  par_dir: str | pathlib.Path = pathlib.Path(''),
                  config: Optional[_T] = None) -> None:
-        """
+        """Constructor.
+
         Args:
             name: the name of the experiment. Defaults to class name.
             par_dir: parent directory for experiment data.
@@ -205,7 +206,8 @@ class SubExperiment(Experiment[_U]):
     def __init__(self,
                  name: str,
                  config: Optional[_U] = None) -> None:
-        """
+        """Constructor.
+
         Args:
             name: The name of the experiment. Defaults to class name.
             config: Configuration for the experiment.

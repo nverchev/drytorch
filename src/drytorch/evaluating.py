@@ -63,7 +63,8 @@ class Evaluation(Diagnostic[_Input, _Target, _Output],
             loader: p.LoaderProtocol[tuple[_Input, _Target]],
             metric: p.ObjectiveProtocol[_Output, _Target],
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             model: the model containing the weights to evaluate.
             name: the name for the object for logging purposes.

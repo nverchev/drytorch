@@ -86,7 +86,8 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             metric_loader: Optional[base_classes.MetricLoader] = None,
             start: int = 1,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             server: the address of the server.
             port: the port for the connection:

@@ -32,7 +32,8 @@ class Sliced(Sequence[_T]):
     def __init__(self,
                  seq: Sequence[_T],
                  slice_: slice) -> None:
-        """
+        """Constructor.
+
         Args:
             seq: the sequence to keep reference to.
             slice_: the slice to use.
@@ -83,7 +84,8 @@ class Permutation(Sequence[int]):
     def __init__(self,
                  size: int,
                  seed: int | None):
-        """
+        """Constructor.
+
         Args:
             size: the length of the permutation.
             seed: seed for the random generator.
@@ -129,7 +131,8 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
             batch_size: int,
             pin_memory: Optional[bool] = None,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             dataset: the dataset to load data from.
             batch_size: number of samples per batch.

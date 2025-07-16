@@ -22,7 +22,8 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             metric_loader: Optional[base_classes.MetricLoader] = None,
             start: int = 1,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             model_names: the names of the models to plot. Defaults to all.
             source_names: the names of the sources to plot. Defaults to all.

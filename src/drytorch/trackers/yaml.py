@@ -34,7 +34,8 @@ class YamlDumper(base_classes.Dumper):
     archive_folder = 'archive'
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
-        """
+        """Constructor.
+
         Args:
             par_dir: directory where to dump metadata. Defaults to the current
                 experiment's one.

@@ -43,7 +43,8 @@ class EpochBar:
                  leave: bool,
                  file: SupportsWrite[str],
                  desc: str) -> None:
-        """
+        """Constructor.
+
         Args:
             batch_size: how many samples are in one batch.
             num_iter: the number of expected iterations.
@@ -115,7 +116,8 @@ class TrainingBar:
                  end_epoch: int,
                  file: SupportsWrite[str],
                  leave: bool) -> None:
-        """
+        """Constructor.
+
         Args:
             start_epoch: the epoch from which the bar should start.
             end_epoch: the epoch where the bar should end.
@@ -152,15 +154,16 @@ class TqdmLogger(tracking.Tracker):
                  leave: bool = True,
                  enable_training_bar: bool = False,
                  file: SupportsWrite[str] = sys.stderr) -> None:
-        """
+        """Constructor.
+
         Args:
             leave: whether to leave the epoch bar after completion.
             enable_training_bar: create a bar for the overall training progress.
             file: the stream where to flush the bar.
 
         Note:
-            enable the training bar only if out support two progress bars, and
-            there is no other logger or printer streaming there.
+            enable the training bar only if two progress bars are supported,
+            and there is no other logger or printer streaming there.
         """
 
         super().__init__()
@@ -229,7 +232,6 @@ class TqdmLogger(tracking.Tracker):
     def _(self, event: log_events.EndTraining) -> None:
         self.clean_up()
         return super().notify(event)
-
 
     def _clean_training_bar(self) -> None:
         if self._training_bar is not None:

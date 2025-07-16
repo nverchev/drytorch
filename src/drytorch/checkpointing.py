@@ -29,7 +29,8 @@ class CheckpointPathManager:
     def __init__(self,
                  model: p.ModelProtocol,
                  root_dir: Optional[pathlib.Path] = None) -> None:
-        """
+        """Constructor.
+
         Args:
             model: the model whose paths are to be managed.
             root_dir: parent directory for experiment data.

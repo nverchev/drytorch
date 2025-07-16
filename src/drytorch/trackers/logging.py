@@ -27,7 +27,18 @@ logger = logging.getLogger('drytorch')
 
 
 class InfoLevels(NamedTuple):
-    """NamedTuple that defines different levels of information for logging."""
+    """
+    NamedTuple that defines different levels of information for logging.
+
+    Attributes:
+        internal: level for internal logging messages.
+        metrics: level for metric reporting.
+        epoch: level for epoch-related messages.
+        model_state: level for model state changes.
+        experiment: level for experiment-related messages.
+        training: level for training-related messages.
+        test: level for test-related messages.
+    """
     internal: int
     metrics: int
     epoch: int
@@ -39,9 +50,6 @@ class InfoLevels(NamedTuple):
 
 class BuiltinLogger(tracking.Tracker):
     """Tracker that streams logging messages through the built-in logger."""
-
-    def __init__(self) -> None:
-        super().__init__()
 
     @override
     @functools.singledispatchmethod

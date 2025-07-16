@@ -32,9 +32,7 @@ class HookRegistry(Generic[_T]):
     """
 
     def __init__(self) -> None:
-        """
-        Initialize the HookRegistry with an empty list of hooks.
-        """
+        """Constructor."""
         self.hooks: list[Callable[[_T], None]] = []
 
     def execute(self, input_object: _T) -> None:
@@ -101,7 +99,8 @@ class Hook(AbstractHook):
     """Wrapper for callable taking a Trainer as input."""
 
     def __init__(self, wrapped: Callable[[p.TrainerProtocol], None]) -> None:
-        """
+        """Constructor.
+
         Args:
             wrapped: the function to be conditionally called.
         """
@@ -121,7 +120,8 @@ class StaticHook(AbstractHook):
     """Ignoring arguments and execute a wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
-        """
+        """Constructor.
+
         Args:
             wrapped: the function to be wrapped and called statically.
         """
@@ -164,7 +164,8 @@ class CallEvery(OptionalCallable):
                  wrapped: Callable[[p.TrainerProtocol], None],
                  interval: int,
                  start: int) -> None:
-        """
+        """Constructor.
+
         Args:
             start: the epoch to start calling the hook.
             interval: the frequency of calling the hook.
@@ -266,7 +267,8 @@ class MetricMonitor:
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
             filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             metric: name of the metric to monitor or metric calculator instance.
                 Defaults to the first metric found.
@@ -458,7 +460,8 @@ class EarlyStoppingCallback:
             filter_fn: Callable[[Sequence[float]], float] = get_last,
             start_from_epoch: int = 2,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             metric: name of metric to monitor or metric calculator instance.
                 Defaults to the first metric found.
@@ -523,7 +526,8 @@ class PruneCallback:
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
             filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             thresholds: dictionary mapping epochs to pruning values.
             metric: name of metric to monitor or metric calculator instance.
@@ -590,8 +594,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
             filter_fn: Callable[[Sequence[float]], float] = get_last,
             cooldown: int = 0,
     ) -> None:
-        """
-        Initialize the learning rate reduction callback.
+        """Constructor.
 
         Args:
             metric: name of metric to monitor or metric calculator instance.
@@ -677,8 +680,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
             factor: float = 0.1,
             cooldown: int = 0,
     ) -> None:
-        """
-        Initialize the learning rate reduction callback.
+        """Constructor.
 
         Args:
             metric: name of metric to monitor or metric calculator instance.

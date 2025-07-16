@@ -28,7 +28,8 @@ class Dumper(tracking.Tracker):
     """Dump metrics or metadata in a custom directory."""
 
     def __init__(self, par_dir: Optional[pathlib.Path] = None):
-        """
+        """Constructor.
+
         Args:
             par_dir: the directory where to dump metadata. Default uses the one
                   for the current experiment.

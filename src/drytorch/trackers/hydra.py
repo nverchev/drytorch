@@ -29,7 +29,8 @@ class HydraLink(base_classes.Dumper):
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
                  copy_hydra: bool = True) -> None:
-        """
+        """Constructor.
+
         Args:
             par_dir: the directory where to dump metadata. Defaults to the
                 experiment folder.
