@@ -3,6 +3,7 @@
 import functools
 import pathlib
 import shutil
+import datetime
 from typing import Optional
 from typing_extensions import override
 
@@ -19,13 +20,11 @@ class HydraLink(base_classes.Dumper):
 
     Class Attributes:
         hydra_folder: the folder where the logs are grouped.
-        link_name: the name of the folder with the link.
 
     Attributes:
         hydra_dir: the directory where hydra saves the run.
     """
     hydra_folder = 'hydra_runs'
-    link_name = 'run'
 
     def __init__(self,
                  par_dir: Optional[pathlib.Path] = None,
@@ -45,20 +44,21 @@ class HydraLink(base_classes.Dumper):
         if not self.hydra_dir.exists():
             raise exceptions.TrackerException(self, 'Hydra has not started.')
 
+        self._dir: pathlib.Path | None = None
         self._copy_hydra = copy_hydra
-        self._counter = 0
 
     @property
     def dir(self) -> pathlib.Path:
         """Return the directory where the files will be saved."""
-        if self._counter:
-            link_name = self.link_name + f'_{self._counter}'
+        if self._dir is None:
+            link_name = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            hydra_local_folder = self.par_dir / self.hydra_folder
+            hydra_local_folder.mkdir(exist_ok=True)
+            new_dir = hydra_local_folder / link_name
+            self._dir = new_dir
+            return new_dir
         else:
-            link_name = self.link_name
-
-        hydra_local_folder = self.par_dir / self.hydra_folder
-        hydra_local_folder.mkdir(exist_ok=True)
-        return hydra_local_folder / link_name
+            return self._dir
 
     @override
     def clean_up(self) -> None:
@@ -69,7 +69,6 @@ class HydraLink(base_classes.Dumper):
         except exceptions.AccessOutsideScopeError:
             pass
 
-        self._counter = 0
         return
 
     @override
@@ -81,12 +80,6 @@ class HydraLink(base_classes.Dumper):
     def _(self, event: log_events.StartExperiment) -> None:
         # call super method to create par_dir first
         super().notify(event)
-        while True:
-            if self.dir.exists():
-                self._counter += 1
-            else:
-                break
-
         self.dir.symlink_to(self.hydra_dir, target_is_directory=True)
         return
 

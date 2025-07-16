@@ -1,7 +1,9 @@
 """Tests for the "tensorboard" module."""
-import sys
+
+import pathlib
 
 import pytest
+
 try:
     import torch.utils.tensorboard
 except ImportError:
@@ -64,43 +66,58 @@ class TestTensorBoard:
         """Test experiment notifications."""
         start_experiment_mock_event.config = {'simple_config': 3}
         tracker.notify(start_experiment_mock_event)
-        log_dir = tracker.par_dir / TensorBoard.folder_name
-        self.summary_writer_mock.assert_called_once_with(
-            log_dir=log_dir.as_posix()
-        )
+        tensorboard_runs_path = tracker.par_dir / TensorBoard.folder_name
+
+        # log_dir should be a subdirectory of tensorboard_runs_path
+        called_args = self.summary_writer_mock.call_args[1]
+        called_log_dir = pathlib.Path(called_args['log_dir'])
+        assert called_log_dir.parent == tensorboard_runs_path
+
         writer = tracker.writer
         writer.add_hparams.assert_called_once_with(
             hparam_dict=start_experiment_mock_event.config,
             metric_dict={}
         )
+
         tracker.notify(stop_experiment_mock_event)
         writer.close.assert_called_once()
         assert tracker._writer is None
 
-    def test_resume(self,
-                    mocker,
-                    tmp_path,
-                    tracker_with_resume,
-                    start_experiment_mock_event,
-                    stop_experiment_mock_event) -> None:
+    def test_resume(
+            self,
+            mocker,
+            tmp_path,
+            tracker_with_resume,
+            start_experiment_mock_event,
+            stop_experiment_mock_event
+    ) -> None:
         """Test resume previous run."""
         start_experiment_mock_event.config = {'simple_config': 3}
         last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
         last_run.return_value = tmp_path
+
         tracker_with_resume.notify(start_experiment_mock_event)
-        log_dir = start_experiment_mock_event.exp_dir / TensorBoard.folder_name
-        self.summary_writer_mock.assert_called_once_with(
-            log_dir=tmp_path.as_posix()
-        )
+
+        called_args = self.summary_writer_mock.call_args[1]
+        called_log_dir = pathlib.Path(called_args['log_dir'])
+        assert called_log_dir == tmp_path
+
         self.summary_writer_mock.reset_mock()
         tracker_with_resume.notify(stop_experiment_mock_event)
-        # mock case not previous experiment is retrieved
+
+        # no previous run -> should create a subfolder under exp_dir/folder_name
         last_run.return_value = None
-        with pytest.warns(exceptions.DryTorchWarning):
-            tracker_with_resume.notify(start_experiment_mock_event)
-        self.summary_writer_mock.assert_called_once_with(
-            log_dir=log_dir.as_posix()
+        tracker_with_resume.notify(start_experiment_mock_event)
+
+        expected_parent = (
+                start_experiment_mock_event.exp_dir / TensorBoard.folder_name
         )
+
+        called_args = self.summary_writer_mock.call_args[1]
+        called_log_dir = pathlib.Path(called_args['log_dir'])
+
+        # Assert it's a new subdirectory under the expected base directory
+        assert called_log_dir.parent == expected_parent
 
     def test_notify_metrics(self,
                             tracker_started,
@@ -119,7 +136,8 @@ class TestTensorBoard:
 
     def test_get_last_run(self, tmp_path) -> None:
         """Test last created folder is selected."""
-        assert not TensorBoard._get_last_run(tmp_path)
+        with pytest.warns(exceptions.DryTorchWarning):
+            TensorBoard._get_last_run(tmp_path)
         for i in range(3, 0, -1):
             folder_name = str(i)
             path = tmp_path / folder_name

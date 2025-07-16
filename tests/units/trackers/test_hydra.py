@@ -1,6 +1,7 @@
 """Tests for the "hydra" module."""
 
 import pytest
+
 try:
     import hydra
 except ImportError:
@@ -37,15 +38,22 @@ class TestHydraLink:
         """Set up the instance with copy_hydra=False."""
         return HydraLink(par_dir=tmp_path, copy_hydra=False)
 
-    def test_cleanup(self, tracker_no_copy):
+    def test_cleanup_no_copy(self, tracker_no_copy, start_experiment_mock_event):
+        """Test cleanup does not copy hydra folder."""
+        tracker_no_copy.notify(start_experiment_mock_event)
         tracker_no_copy.clean_up()
-        assert tracker_no_copy._counter == 0
+        assert tracker_no_copy.dir.is_symlink()
+
+    def test_cleanup_with_copy(self, tracker, start_experiment_mock_event):
+        """Test cleanup copies hydra folder."""
+        tracker.notify(start_experiment_mock_event)
+        tracker.clean_up()
+        assert tracker.dir.is_dir()
 
     def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
         """Test initialization with a valid Hydra configuration."""
         assert tracker.par_dir == tmp_path
         assert isinstance(tracker.hydra_folder, str)
-        assert isinstance(tracker.link_name, str)
         assert tracker.hydra_dir == self.hydra_output_dir
 
     def test_init_without_hydra_raises_exception(self, tmp_path) -> None:
@@ -55,12 +63,10 @@ class TestHydraLink:
             HydraLink(par_dir=tmp_path / 'not_existing')
 
     def test_dir_property(self, tracker, tmp_path) -> None:
-        """Test dir property returns the correct path with counter."""
-        tracker._counter = 2
-        hydra_path = tmp_path / tracker.hydra_folder
-        expected_dir = hydra_path / f'{tracker.link_name}_2'
-        assert tracker.dir == expected_dir
-        assert hydra_path.exists()
+        """Test dir property returns the same directory twice."""
+        dir1 = tracker.dir
+        dir2 = tracker.dir
+        assert dir1 == dir2
 
     def test_notify_start_experiment_creates_symlink(
             self,
@@ -71,41 +77,3 @@ class TestHydraLink:
         tracker.notify(start_experiment_mock_event)
         assert tracker.dir.is_symlink()
         assert tracker.dir.resolve() == self.hydra_output_dir
-
-    def test_notify_start_experiment_handles_existing_link(
-            self,
-            tracker,
-            start_experiment_mock_event,
-    ) -> None:
-        """Test counter increments when existing symlink."""
-        # Create an existing link
-        link_dir = tracker.dir
-        link_dir.symlink_to(tracker.hydra_dir, target_is_directory=True)
-        tracker.notify(start_experiment_mock_event)
-        assert tracker._counter == 1
-
-    def test_notify_stop_experiment_with_copy(
-            self,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
-    ) -> None:
-        """Test stop experiment notification copies hydra folder."""
-        tracker.notify(start_experiment_mock_event)
-        tracker.notify(stop_experiment_mock_event)
-        assert tracker.dir.is_dir()
-        assert tracker._exp_dir is None
-        assert tracker._counter == 0
-
-    def test_notify_stop_experiment_without_copy(
-            self,
-            tracker_no_copy,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
-    ) -> None:
-        """Test stop experiment notification without copying."""
-        tracker_no_copy.notify(start_experiment_mock_event)
-        tracker_no_copy.notify(stop_experiment_mock_event)
-        assert tracker_no_copy.dir.is_symlink()
-        assert tracker_no_copy._exp_dir is None
-        assert tracker_no_copy._counter == 0

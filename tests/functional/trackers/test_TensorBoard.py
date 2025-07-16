@@ -16,8 +16,9 @@ class TestTensorBoardFullCycle:
     """Complete TensorBoard session and tests it afterward."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_path, event_workflow) -> None:
+    def setup(self, tmp_path, event_workflow, mocker) -> None:
         """Setup TensorBoard tracker and run complete workflow."""
+        self.mock_open = mocker.patch("webbrowser.open")
         self.tracker = TensorBoard(par_dir=tmp_path)
         for event in event_workflow:
             self.tracker.notify(event)
@@ -40,14 +41,14 @@ class TestTensorBoardFullCycle:
     def test_folder_creation(self, tmp_path, example_named_metrics):
         """Test that TensorBoard creates local files and logs."""
         tensorboard_dir = tmp_path / TensorBoard.folder_name
+        self.mock_open.assert_called_once()
         assert tensorboard_dir.exists()
         assert tensorboard_dir.is_dir()
 
-        created_items = list(tensorboard_dir.iterdir())
-        assert created_items
+        created_folders = list(tensorboard_dir.iterdir())
+        assert created_folders
 
-        event_files = [item for item in created_items if
-                       item.name.startswith('events.out.tfevents')]
-        assert event_files
-        for event_file in event_files:
+        for folder in created_folders:
+            event_file = next(folder.iterdir())
+            assert event_file.name.startswith('events.out.tfevents')
             assert event_file.stat().st_size > 0

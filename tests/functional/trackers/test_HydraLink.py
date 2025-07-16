@@ -42,8 +42,6 @@ class TestHydraLinkFullCycle:
 
     def test_log_file(self) -> None:
         """Test HydraLink creates file log with expected format."""
-        exp_dir = self.exp.dir
-        hydra_folder = HydraLink.hydra_folder
-        link_name = HydraLink.link_name
-        linked_folder = exp_dir / hydra_folder / link_name
-        assert linked_folder.exists()
+        hydra_runs = self.exp.dir / HydraLink.hydra_folder
+        assert list(hydra_runs.iterdir())
+

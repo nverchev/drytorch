@@ -6,6 +6,7 @@ import subprocess
 import warnings
 import socket
 import webbrowser
+import datetime
 
 from typing import Optional
 from typing_extensions import override
@@ -15,8 +16,8 @@ from torch.utils import tensorboard
 try:
     import tensorboard as _tensorboard  # type: ignore
 except ImportError as ie:
-    msg = 'TensorBoard is not installed. Run `pip install tensorboard`.'
-    raise ImportError(msg) from ie
+    err_msg = 'TensorBoard is not installed. Run `pip install tensorboard`.'
+    raise ImportError(err_msg) from ie
 
 from drytorch import exceptions
 from drytorch import log_events
@@ -78,19 +79,16 @@ class TensorBoard(base_classes.Dumper):
         super().notify(event)
 
         # determine the root directory
-        if self.resume_run:
-            retrieved = self._get_last_run(self.par_dir)
-            if retrieved is None:
-                msg = 'TensorBoard: No previous runs. Starting a new one.'
-                warnings.warn(msg, exceptions.DryTorchWarning)
-                root_dir = self.par_dir / self.folder_name
-            else:
-                root_dir = retrieved
+        run_dir = self.par_dir / self.folder_name
+        retrieved = self._get_last_run(run_dir) if self.resume_run else None
+        if retrieved is None:
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            root_dir = run_dir / timestamp
         else:
-            root_dir = self.par_dir / self.folder_name
+            root_dir = retrieved
 
         # start the TensorBoard server
-        self._start_tensorboard(root_dir)
+        self._start_tensorboard(run_dir)
 
         # initialize writer
         self._writer = tensorboard.SummaryWriter(log_dir=root_dir.as_posix())
@@ -116,13 +114,6 @@ class TensorBoard(base_classes.Dumper):
         self.writer.flush()
 
         return super().notify(event)
-
-    @staticmethod
-    def _get_last_run(main_dir: pathlib.Path) -> Optional[pathlib.Path]:
-        all_dirs = [d for d in main_dir.iterdir() if d.is_dir()]
-        if not all_dirs:
-            return None
-        return max(all_dirs, key=lambda d: d.stat().st_ctime)
 
     def _start_tensorboard(self, logdir: pathlib.Path) -> None:
         """Start a TensorBoard server and open it in the default browser."""
@@ -156,6 +147,15 @@ class TensorBoard(base_classes.Dumper):
                 return port
         msg = f'No free ports available after {max_tries} tries.'
         raise exceptions.TrackerException(TensorBoard, msg)
+
+    @staticmethod
+    def _get_last_run(main_dir: pathlib.Path) -> Optional[pathlib.Path]:
+        all_dirs = [d for d in main_dir.iterdir() if d.is_dir()]
+        if not all_dirs:
+            msg = 'TensorBoard: No previous runs. Starting a new one.'
+            warnings.warn(msg, exceptions.DryTorchWarning)
+            return None
+        return max(all_dirs, key=lambda d: d.stat().st_ctime)
 
     @staticmethod
     def _port_available(port: int) -> bool:
