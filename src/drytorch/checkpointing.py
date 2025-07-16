@@ -60,7 +60,7 @@ class CheckpointPathManager:
     def checkpoint_dir(self) -> pathlib.Path:
         """Directory for a checkpoint at the current epoch."""
         epoch_directory = self.model_dir / 'checkpoints'
-        epoch_directory.mkdir(exist_ok=True, parents=True)
+        epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
     @property
