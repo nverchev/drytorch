@@ -28,7 +28,7 @@ def record_model_call(source: Any, model: p.ModelProtocol) -> None:
         source: the object to document.
         model: the model that the object calls.
     """
-    exp = experiments.Experiment.current()
+    exp: experiments.Experiment = experiments.Experiment.current()
     exp.metadata_manager.record_model_call(source, model)
     module = model.module
     if module in ALL_MODULES:
@@ -46,7 +46,7 @@ def register_model(model: p.ModelProtocol) -> None:
     Args:
         model: the model to register.
     """
-    exp = experiments.Experiment.current()
+    exp: experiments.Experiment = experiments.Experiment.current()
     module = model.module
     if module in ALL_MODULES:
         raise exceptions.ModuleAlreadyRegisteredError(model.name, exp.name)
