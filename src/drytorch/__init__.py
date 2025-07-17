@@ -26,8 +26,7 @@ from drytorch.evaluating import Test
 from drytorch.evaluating import Evaluation
 from drytorch.exceptions import FailedOptionalImportWarning
 from drytorch.experiments import Experiment
-from drytorch.experiments import MainExperiment
-from drytorch.experiments import SubExperiment
+from drytorch.experiments import ExperimentWithSpecs
 from drytorch.metrics import Loss
 from drytorch.metrics import Metric
 from drytorch.loading import DataLoader
