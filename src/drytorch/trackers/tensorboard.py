@@ -1,12 +1,12 @@
 """Module containing a TensorBoard tracker."""
 
+import dataclasses
 import functools
 import pathlib
 import subprocess
 import warnings
 import socket
 import webbrowser
-import datetime
 
 from typing import Optional
 from typing_extensions import override
@@ -22,6 +22,7 @@ except ImportError as ie:
 from drytorch import exceptions
 from drytorch import log_events
 from drytorch.trackers import base_classes
+from drytorch.utils import repr_utils
 
 
 class TensorBoard(base_classes.Dumper):
@@ -43,6 +44,8 @@ class TensorBoard(base_classes.Dumper):
             resume_run: bool = False,
             start_server: bool = True,
             open_browser: bool = True,
+            max_queue_size: int = 10,
+            flush_secs: int = 120,
     ) -> None:
         """Constructor.
 
@@ -52,6 +55,8 @@ class TensorBoard(base_classes.Dumper):
             resume_run: if True, resume from the latest run in the same folder.
             start_server: if True, start a local TensorBoard server.
             open_browser: if True, open TensorBoard in the browser.
+            max_queue_size: see tensorboard.SummaryWriter docs.
+            flush_secs: tensorboard.SummaryWriter docs.
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
@@ -61,6 +66,8 @@ class TensorBoard(base_classes.Dumper):
         self._instance_number = self.__class__.instance_count
         self._start_server = start_server
         self._open_browser = open_browser
+        self._max_queue_size = max_queue_size
+        self._flush_secs = flush_secs
 
     @property
     def writer(self) -> tensorboard.SummaryWriter:
@@ -89,22 +96,30 @@ class TensorBoard(base_classes.Dumper):
         run_dir = self.par_dir / self.folder_name
         retrieved = self._get_last_run(run_dir) if self.resume_run else None
         if retrieved is None:
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-            root_dir = run_dir / timestamp
+            # prevent nested folders
+            safe_name = event.exp_name.replace('/', '-')
+            exp_id = f'{safe_name}_{event.exp_version}'
+            root_dir = run_dir / exp_id
         else:
             root_dir = retrieved
 
         # start the TensorBoard server
         if self._start_server:
             self._start_tensorboard(run_dir)
-
         # initialize writer
-        self._writer = tensorboard.SummaryWriter(log_dir=root_dir.as_posix())
-        if event.config:
+        self._writer = tensorboard.SummaryWriter(log_dir=root_dir.as_posix(),
+                                                 max_queue=self._max_queue_size,
+                                                 flush_secs=self._flush_secs)
+        config = event.config
+        if config is not None:
             try:
-                self.writer.add_hparams(hparam_dict=event.config,
-                                        metric_dict={})
-            except TypeError:
+                if dataclasses.is_dataclass(config):
+                    if not isinstance(config, type):
+                        config = dataclasses.asdict(event.config)
+
+                config = repr_utils.recursive_repr(config)
+                self.writer.add_hparams(hparam_dict=config, metric_dict={})
+            except (TypeError, ValueError):
                 pass
 
         return

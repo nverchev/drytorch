@@ -3,7 +3,6 @@
 import functools
 import pathlib
 import shutil
-import datetime
 from typing import Optional
 from typing_extensions import override
 
@@ -44,22 +43,18 @@ class HydraLink(base_classes.Dumper):
         self.hydra_dir = pathlib.Path(str_dir)
         if not self.hydra_dir.exists():
             raise exceptions.TrackerException(self, 'Hydra has not started.')
-
-        self._dir: pathlib.Path | None = None
+        self._exp_version: Optional[str] = None
         self._copy_hydra = copy_hydra
 
     @property
     def dir(self) -> pathlib.Path:
         """Return the directory where the files will be saved."""
-        if self._dir is None:
-            link_name = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        if self._exp_version is None:
+            raise exceptions.AccessOutsideScopeError()
+        else:
             hydra_local_folder = self.par_dir / self.hydra_folder
             hydra_local_folder.mkdir(exist_ok=True, parents=True)
-            new_dir = hydra_local_folder / link_name
-            self._dir = new_dir
-            return new_dir
-        else:
-            return self._dir
+            return hydra_local_folder / self._exp_version
 
     @override
     def clean_up(self) -> None:
@@ -69,7 +64,7 @@ class HydraLink(base_classes.Dumper):
                 shutil.copytree(self.hydra_dir, self.dir)
         except exceptions.AccessOutsideScopeError:
             pass
-
+        self._exp_version = None
         return
 
     @override
@@ -81,6 +76,7 @@ class HydraLink(base_classes.Dumper):
     def _(self, event: log_events.StartExperiment) -> None:
         # call super method to create par_dir first
         super().notify(event)
+        self._exp_version = event.exp_version
         self.dir.symlink_to(self.hydra_dir, target_is_directory=True)
         return
 

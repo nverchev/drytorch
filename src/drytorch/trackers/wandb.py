@@ -64,7 +64,7 @@ class Wandb(Dumper):
         # determine main directory
         super().notify(event)
         project = self._settings.project or event.exp_name
-        run_id: Optional[str] = self._settings.run_id
+        run_id = self._settings.run_id or event.exp_version.replace(":", "_")
         if self.resume_run:
             runs = wandb.Api().runs(project)
             run_id = runs[len(runs) - 1].id
