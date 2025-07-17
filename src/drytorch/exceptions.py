@@ -100,20 +100,6 @@ class ConvergenceError(DryTorchException):
         super().__init__(criterion)
 
 
-class ExperimentIsNotActiveError(DryTorchException):
-    """Raised when trying to access an experiment without active instances."""
-    msg = 'Experiment {} has no active instances.'
-
-    def __init__(self, experiment_cls: type) -> None:
-        """Constructor.
-
-        Args:
-            experiment_cls: the experiment class that has no active instances.
-        """
-        self.experiment_cls = experiment_cls
-        super().__init__(experiment_cls.__name__)
-
-
 class FuncNotApplicableError(DryTorchException):
     """Raised when a function cannot be applied to a specific type."""
     msg = 'Cannot apply function {} on type {}.'
@@ -224,7 +210,7 @@ class ModuleAlreadyRegisteredError(DryTorchException):
 
 
 class NameAlreadyRegisteredError(DryTorchException):
-    """Raised when attempting to register a name that is already in use."""
+    """Raised when attempting to register a name already in use."""
     msg = 'Name {} has already been registered in the current experiment.'
 
     def __init__(self, name: str) -> None:
