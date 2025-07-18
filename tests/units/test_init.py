@@ -1,12 +1,13 @@
 """Tests for the "__init__" module."""
-import pytest
-
 import importlib
 import os
 
 import drytorch
-from drytorch.tracking import DEFAULT_TRACKERS
+
 from drytorch import FailedOptionalImportWarning
+from drytorch.tracking import DEFAULT_TRACKERS
+
+import pytest
 
 
 def test_standard_trackers():
