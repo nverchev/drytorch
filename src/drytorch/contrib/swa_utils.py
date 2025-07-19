@@ -1,13 +1,15 @@
-"""Utilities for Stochastic Weight Averaging"""
+"""Utilities for Stochastic Weight Averaging."""
 
 import torch
 
 from drytorch.running import ModelCaller
 
-AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
+
+AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm  # pylint: disable=protected-access
 
 
 class ModelMomentaUpdater(ModelCaller):
+    """Update the momenta in the batch nonrmalization layers."""
 
     def __call__(self) -> None:
         """Single pass on the dataset."""
@@ -26,7 +28,7 @@ class ModelMomentaUpdater(ModelCaller):
             module.momentum = None
 
         super().__call__()
-        for bn_module in momenta.keys():
+        for bn_module in momenta:
             bn_module.momentum = momenta[bn_module]
 
         self.model.module.train(was_training)

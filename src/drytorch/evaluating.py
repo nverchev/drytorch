@@ -1,24 +1,25 @@
 """Module containing classes for the evaluation of a model."""
 
 from typing import TypeVar
-from typing_extensions import override
 
 import torch
 
-from drytorch import log_events
+from typing_extensions import override
+
+from drytorch import log_events, running
 from drytorch import protocols as p
-from drytorch import running
-from drytorch.running import ModelRunnerWithObjective
+
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Diagnostic(ModelRunnerWithObjective,
-                 p.EvaluationProtocol[_Input, _Target, _Output]):
-    """
-    Evaluate model on inference mode without logging the metrics.
+class Diagnostic(
+    running.ModelRunnerWithLogs[_Input, _Target, _Output],
+    p.EvaluationProtocol[_Input, _Target, _Output],
+):
+    """Evaluate model on inference mode without logging the metrics.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -30,8 +31,7 @@ class Diagnostic(ModelRunnerWithObjective,
     @override
     @torch.inference_mode()
     def __call__(self, store_outputs: bool = False) -> None:
-        """
-        Run epoch without tracking gradients and in eval mode.
+        """Run epoch without tracking gradients and in eval mode.
 
         Args:
             store_outputs: whether to store model outputs. Defaults to False.
@@ -41,10 +41,11 @@ class Diagnostic(ModelRunnerWithObjective,
         return
 
 
-class Evaluation(Diagnostic[_Input, _Target, _Output],
-                 running.ModelRunnerWithLogs):
-    """
-    Evaluate model on inference mode.
+class Evaluation(
+    Diagnostic[_Input, _Target, _Output],
+    running.ModelRunnerWithLogs[_Input, _Target, _Output],
+):
+    """Evaluate model on inference mode.
 
     It could be used for testing (see subclass) or validating a model.
 
@@ -56,12 +57,12 @@ class Evaluation(Diagnostic[_Input, _Target, _Output],
     """
 
     def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            name: str = '',
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            metric: p.ObjectiveProtocol[_Output, _Target],
+        self,
+        model: p.ModelProtocol[_Input, _Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        metric: p.ObjectiveProtocol[_Output, _Target],
     ) -> None:
         """Constructor.
 
@@ -78,8 +79,7 @@ class Evaluation(Diagnostic[_Input, _Target, _Output],
 
 
 class Test(Evaluation[_Input, _Target, _Output]):
-    """
-    Evaluate model performance on a test dataset.
+    """Evaluate model performance on a test dataset.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -90,8 +90,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
-        """
-        Test the model on the dataset.
+        """Test the model on the dataset.
 
         Args:
             store_outputs: whether to store model outputs. Defaults to False.

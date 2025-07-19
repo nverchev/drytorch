@@ -3,49 +3,48 @@
 import dataclasses
 import functools
 import pathlib
+import shutil
+import socket
 import subprocess
 import warnings
-import socket
 import webbrowser
 
-from typing import Optional
-from typing_extensions import override
+from importlib.util import find_spec
 
 from torch.utils import tensorboard
+from typing_extensions import override
 
-try:
-    import tensorboard as _tensorboard  # type: ignore
-except ImportError as ie:
-    err_msg = 'TensorBoard is not installed. Run `pip install tensorboard`.'
-    raise ImportError(err_msg) from ie
-
-from drytorch import exceptions
-from drytorch import log_events
+from drytorch import exceptions, log_events
 from drytorch.trackers import base_classes
 from drytorch.utils import repr_utils
 
 
+if find_spec('tensorboard') is None:
+    _MSG = 'TensorBoard is not installed. Run `pip install tensorboard`.'
+    raise ImportError(_MSG)
+
+
 class TensorBoard(base_classes.Dumper):
-    """
-    Tracker that wraps the TensorBoard SummaryWriter.
+    """Tracker that wraps the TensorBoard SummaryWriter.
 
     Class Attributes:
         folder_name: name of the folder containing the output.
         base_port: starting port number for TensorBoard.
         instance_count: counter for TensorBoard instances started.
     """
+
     folder_name = 'tensorboard_runs'
     base_port = 6006
     instance_count = 0
 
     def __init__(
-            self,
-            par_dir: Optional[pathlib.Path] = None,
-            resume_run: bool = False,
-            start_server: bool = True,
-            open_browser: bool = True,
-            max_queue_size: int = 10,
-            flush_secs: int = 120,
+        self,
+        par_dir: pathlib.Path | None = None,
+        resume_run: bool = False,
+        start_server: bool = True,
+        open_browser: bool = True,
+        max_queue_size: int = 10,
+        flush_secs: int = 120,
     ) -> None:
         """Constructor.
 
@@ -60,8 +59,8 @@ class TensorBoard(base_classes.Dumper):
         """
         super().__init__(par_dir)
         self.resume_run = resume_run
-        self._writer: Optional[tensorboard.SummaryWriter] = None
-        self._port: Optional[int] = None
+        self._writer: tensorboard.SummaryWriter | None = None
+        self._port: int | None = None
         self.__class__.instance_count += 1
         self._instance_number = self.__class__.instance_count
         self._start_server = start_server
@@ -83,8 +82,8 @@ class TensorBoard(base_classes.Dumper):
         self._writer = None
         return
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
@@ -107,9 +106,11 @@ class TensorBoard(base_classes.Dumper):
         if self._start_server:
             self._start_tensorboard(run_dir)
         # initialize writer
-        self._writer = tensorboard.SummaryWriter(log_dir=root_dir.as_posix(),
-                                                 max_queue=self._max_queue_size,
-                                                 flush_secs=self._flush_secs)
+        self._writer = tensorboard.SummaryWriter(
+            log_dir=root_dir.as_posix(),
+            max_queue=self._max_queue_size,
+            flush_secs=self._flush_secs,
+        )
         config = event.config
         if config is not None:
             try:
@@ -144,23 +145,41 @@ class TensorBoard(base_classes.Dumper):
         instance_port = self.base_port + self._instance_number
         port = self._find_free_port(start=instance_port)
         self._port = port
-        try:
-            subprocess.Popen([
-                "tensorboard",
-                "serve",  # required with modern TensorBoard CLI
-                "--logdir", str(logdir),
-                "--port", str(port),
-                "--reload_multifile", "true",
-            ])
-        except FileNotFoundError:
+        if not isinstance(port, int) or port < 1 or port > 65535:
+            raise exceptions.TrackerError(self, 'Invalid port')
+
+        tensorboard_path = shutil.which('tensorboard')
+        if tensorboard_path is None:
             msg = 'TensorBoard executable not found.'
-            raise exceptions.TrackerException(self, msg)
+            raise exceptions.TrackerError(self, msg)
+
+        try:
+            subprocess.Popen(  # noqa: S603
+                [
+                    tensorboard_path,
+                    'serve',
+                    '--logdir',
+                    str(logdir),
+                    '--port',
+                    str(port),
+                    '--reload_multifile',
+                    'true',
+                ],
+                shell=False,
+            )
+        except subprocess.CalledProcessError as cpe:
+            msg = 'TensorBoard failed to start'
+            raise exceptions.TrackerError(self, msg) from cpe
+
         if self._open_browser:
             try:
                 webbrowser.open(f'http://localhost:{port}')
-            except Exception as e:
-                msg = f'Could not open browser for TensorBoard: {e}'
-                warnings.warn(msg, exceptions.DryTorchWarning)
+            except webbrowser.Error as we:
+                msg = f'Failed to open web browser: {we}'
+                warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+            except OSError as ose:
+                msg = f'OS-level error while opening browser: {ose}'
+                warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
 
     @staticmethod
     def _find_free_port(start: int = 6006, max_tries: int = 100) -> int:
@@ -169,14 +188,14 @@ class TensorBoard(base_classes.Dumper):
             if TensorBoard._port_available(port):
                 return port
         msg = f'No free ports available after {max_tries} tries.'
-        raise exceptions.TrackerException(TensorBoard, msg)
+        raise exceptions.TrackerError(TensorBoard, msg)
 
     @staticmethod
-    def _get_last_run(main_dir: pathlib.Path) -> Optional[pathlib.Path]:
+    def _get_last_run(main_dir: pathlib.Path) -> pathlib.Path | None:
         all_dirs = [d for d in main_dir.iterdir() if d.is_dir()]
         if not all_dirs:
             msg = 'TensorBoard: No previous runs. Starting a new one.'
-            warnings.warn(msg, exceptions.DryTorchWarning)
+            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
             return None
         return max(all_dirs, key=lambda d: d.stat().st_ctime)
 

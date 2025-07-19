@@ -4,20 +4,22 @@ from __future__ import annotations
 
 import abc
 import collections
-from collections.abc import Callable, KeysView, Mapping, Sequence
 import copy
 import math
+
+from collections.abc import Callable, KeysView, Mapping, Sequence
 from typing import Generic, Self, TypeVar
-from typing_extensions import override
 
 import torch
+
+from typing_extensions import override
+
 
 _T = TypeVar('_T', torch.Tensor, float)
 
 
 class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
-    """
-    Average tensor values from dict-like objects.
+    """Average tensor values from dict-like objects.
 
     It registers sample size to calculate the precise sample average.
 
@@ -25,10 +27,12 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         aggregate: a dictionary with the aggregated values.
         counts: a dictionary with the count of the total elements.
     """
-    __slots__ = ('aggregate', 'counts', '_cached_reduce')
+
+    __slots__ = ('_cached_reduce', 'aggregate', 'counts')
 
     def __init__(self, **kwargs: _T):
-        """
+        """Constructor.
+
         Args:
             kwargs: named values to average.
         """
@@ -38,6 +42,11 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         self._cached_reduce: dict[str, _T] = {}
 
     def __add__(self, other: AbstractAverager | Mapping[str, _T]) -> Self:
+        """Join current data with data from another Averager.
+
+        Args:
+            other: the other Averager.
+        """
         if isinstance(other, Mapping):
             other = self.__class__(**other)
 
@@ -46,9 +55,18 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         return out
 
     def __bool__(self) -> bool:
+        """Return True if data is present."""
         return bool(self.aggregate)
 
     def __deepcopy__(self, memo: dict) -> Self:
+        """Deep copy magic method.
+
+        Args:
+            memo: Dictionary of already copied objects.
+
+        Returns:
+            A deep copy of the object.
+        """
         cls = self.__class__
         result = cls.__new__(cls)
         result.aggregate = copy.deepcopy(self.aggregate)
@@ -59,12 +77,18 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
 
         return result
 
+    @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
         return self.aggregate == other.aggregate and self.counts == other.counts
 
     def __iadd__(self, other: AbstractAverager | Mapping[str, _T]) -> Self:
+        """Merge current data with data from another Averager.
+
+        Args:
+            other: the other Averager.
+        """
         if isinstance(other, AbstractAverager):
             other_aggregate = other.aggregate
             other_counts = other.counts
@@ -86,6 +110,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         self._cached_reduce = {}
         return self
 
+    @override
     def __repr__(self) -> str:
         return self.__class__.__name__ + f'(counts={self.counts})'
 
@@ -103,20 +128,20 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
     def reduce(self) -> dict[str, _T]:
         """Return the averaged values."""
         if not self._cached_reduce:
-            self._cached_reduce = {key: self._reduce(value, self.counts[key])
-                                   for key, value in self.aggregate.items()}
+            self._cached_reduce = {
+                key: self._reduce(value, self.counts[key])
+                for key, value in self.aggregate.items()
+            }
 
         return self._cached_reduce
 
     @staticmethod
     @abc.abstractmethod
-    def _aggregate(value: _T) -> _T:
-        ...
+    def _aggregate(value: _T) -> _T: ...
 
     @staticmethod
     @abc.abstractmethod
-    def _count(value: _T) -> int:
-        ...
+    def _count(value: _T) -> int: ...
 
     @staticmethod
     def _reduce(aggregated: _T, count: int) -> _T:
@@ -152,11 +177,10 @@ class TorchAverager(AbstractAverager[torch.Tensor]):
 
 
 def get_moving_average(
-        decay: float = 0.9,
-        mass_coverage: float = 0.99,
+    decay: float = 0.9,
+    mass_coverage: float = 0.99,
 ) -> Callable[[Sequence[float]], float]:
-    """
-    Return a moving average by specifying the decay.
+    """Return a moving average by specifying the decay.
 
     Args:
         decay: the closer to 0, the more the last elements have weight.
@@ -198,8 +222,7 @@ def get_moving_average(
 
 
 def get_trailing_mean(window_size: int) -> Callable[[Sequence[float]], float]:
-    """
-    Return a trailing average by specifying window size.
+    """Return a trailing average by specifying window size.
 
     Args:
         window_size: number of items to aggregate.

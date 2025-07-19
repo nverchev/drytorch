@@ -1,28 +1,27 @@
 """Module containing classes for training a model."""
 
-from typing import Self, Optional, TypeVar, cast
-from typing_extensions import override
 import warnings
+
+from typing import Self, TypeVar, cast
 
 import torch
 
-from drytorch import evaluating
-from drytorch import exceptions
-from drytorch import hooks
-from drytorch import log_events
-from drytorch import models
+from typing_extensions import override
+
+from drytorch import evaluating, exceptions, hooks, log_events, models, running
 from drytorch import protocols as p
-from drytorch import running
+
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class Trainer(running.ModelRunnerWithLogs,
-              p.TrainerProtocol[_Input, _Target, _Output]):
-    """
-    Implement the standard Pytorch training loop.
+class Trainer(
+    running.ModelRunnerWithLogs[_Input, _Target, _Output],
+    p.TrainerProtocol[_Input, _Target, _Output],
+):
+    """Implement the standard Pytorch training loop.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -33,15 +32,16 @@ class Trainer(running.ModelRunnerWithLogs,
     """
 
     def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            name: str = '',
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            loss: p.LossCalculatorProtocol[_Output, _Target],
-            learning_scheme: p.LearningProtocol,
+        self,
+        model: p.ModelProtocol[_Input, _Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        loss: p.LossCalculatorProtocol[_Output, _Target],
+        learning_scheme: p.LearningProtocol,
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             model: the model containing the weights to evaluate.
             loader: provides inputs and targets in batches.
@@ -50,39 +50,34 @@ class Trainer(running.ModelRunnerWithLogs,
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
         """
-        super().__init__(model,
-                         loader=loader,
-                         objective=loss,
-                         name=name)
+        super().__init__(model, loader=loader, objective=loss, name=name)
         self.model: p.ModelProtocol[_Input, _Output]
         # covariance not available for protocols, specify the type explicitly
         self.objective: p.LossCalculatorProtocol[_Output, _Target] = cast(
-            p.LossCalculatorProtocol[_Output, _Target],
-            self.objective
+            p.LossCalculatorProtocol[_Output, _Target], self.objective
         )
         self.learning_scheme = learning_scheme
-        self.validation: Optional[evaluating.Evaluation] = None
+        self.validation: p.EvaluationProtocol[_Input, _Target, _Output] | None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
         self.post_epoch_hooks = hooks.HookRegistry[Trainer]()
         self._terminated = False
         return
 
-    @override
     @property
+    @override
     def terminated(self) -> bool:
         return self._terminated
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
-        """
-        Train the module for one epoch.
+        """Train the module for one epoch.
 
         Args:
             store_outputs: whether to store model outputs.
         """
         if self.terminated:
-            warnings.warn(exceptions.TerminatedTrainingWarning())
+            warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
         self.model.module.train()
         self.model.increment_epoch()
@@ -94,11 +89,9 @@ class Trainer(running.ModelRunnerWithLogs,
         return
 
     def add_validation(
-            self,
-            val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
+        self, val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
     ) -> None:
-        """
-        Add a loader for validation with the same metrics as for training.
+        """Add a loader for validation with the same metrics as for training.
 
         If different validation loaders are added, they will all be performed,
         but only the last will be stored as the instance validation.
@@ -106,9 +99,9 @@ class Trainer(running.ModelRunnerWithLogs,
         Args:
             val_loader: the loader for validation.
         """
-        validation = evaluating.Evaluation(self.model,
-                                           loader=val_loader,
-                                           metric=self.objective)
+        validation = evaluating.Evaluation(
+            self.model, loader=val_loader, metric=self.objective
+        )
         val_hook = hooks.StaticHook(validation)
         self.post_epoch_hooks.register(val_hook)
         self.validation = validation
@@ -116,8 +109,7 @@ class Trainer(running.ModelRunnerWithLogs,
 
     @override
     def load_checkpoint(self, epoch: int = -1) -> None:
-        """
-        Load model and optimizer state from a checkpoint.
+        """Load model and optimizer state from a checkpoint.
 
         Args:
             epoch: the epoch from which to load the checkpoint.
@@ -132,41 +124,48 @@ class Trainer(running.ModelRunnerWithLogs,
     @override
     def terminate_training(self, reason: str) -> None:
         self._terminated = True
-        log_events.TerminatedTraining(source_name=self.name,
-                                      model_name=self.model.name,
-                                      epoch=self.model.epoch,
-                                      reason=reason)
+        log_events.TerminatedTraining(
+            source_name=self.name,
+            model_name=self.model.name,
+            epoch=self.model.epoch,
+            reason=reason,
+        )
         return
 
     @override
     def train(self, num_epochs: int) -> None:
         if self.terminated:
-            warnings.warn(exceptions.TerminatedTrainingWarning())
+            warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
         final_epoch = self.model.epoch + num_epochs
-        log_events.StartTraining(source_name=self.name,
-                                 model_name=self.model.name,
-                                 start_epoch=self.model.epoch,
-                                 end_epoch=final_epoch)
+        log_events.StartTraining(
+            source_name=self.name,
+            model_name=self.model.name,
+            start_epoch=self.model.epoch,
+            end_epoch=final_epoch,
+        )
         for _ in range(num_epochs):
-            log_events.StartEpoch(source_name=self.name,
-                                  model_name=self.model.name,
-                                  epoch=self.model.epoch + 1,
-                                  end_epoch=final_epoch)
+            log_events.StartEpoch(
+                source_name=self.name,
+                model_name=self.model.name,
+                epoch=self.model.epoch + 1,
+                end_epoch=final_epoch,
+            )
             self.pre_epoch_hooks.execute(self)
-            self.__call__()
+            self()
             self.post_epoch_hooks.execute(self)
-            log_events.EndEpoch(source_name=self.name,
-                                model_name=self.model.name,
-                                epoch=self.model.epoch)
+            log_events.EndEpoch(
+                source_name=self.name,
+                model_name=self.model.name,
+                epoch=self.model.epoch,
+            )
             if self.terminated:
                 break
         log_events.EndTraining(self.name)
         return
 
     def train_until(self: Self, epoch: int) -> None:
-        """
-        Train the module until the specified epoch.
+        """Train the module until the specified epoch.
 
         Args:
             epoch: the final epoch in the training.
@@ -176,17 +175,19 @@ class Trainer(running.ModelRunnerWithLogs,
         if remaining_epochs > 0:
             self.train(remaining_epochs)
         if remaining_epochs < 0:
-            warnings.warn(exceptions.PastEpochWarning(epoch, self.model.epoch))
+            warnings.warn(
+                exceptions.PastEpochWarning(epoch, self.model.epoch),
+                stacklevel=1,
+            )
         return
 
     @override
     def update_learning_rate(
-            self,
-            base_lr: Optional[float | dict[str, float]] = None,
-            scheduler: Optional[p.SchedulerProtocol] = None,
+        self,
+        base_lr: float | dict[str, float] | None = None,
+        scheduler: p.SchedulerProtocol | None = None,
     ) -> None:
-        """
-        Update the learning rate(s).
+        """Update the learning rate(s).
 
         It updates the learning rates for each parameter's group in the
         optimizer based on input learning rate(s) and scheduler.
@@ -198,11 +199,13 @@ class Trainer(running.ModelRunnerWithLogs,
                 original scheduler.
         """
         scheduler_name = None if scheduler is None else repr(scheduler)
-        log_events.UpdateLearningRate(model_name=self.model.name,
-                                      source_name=self.name,
-                                      epoch=self.model.epoch,
-                                      base_lr=base_lr,
-                                      scheduler_name=scheduler_name)
+        log_events.UpdateLearningRate(
+            model_name=self.model.name,
+            source_name=self.name,
+            epoch=self.model.epoch,
+            base_lr=base_lr,
+            scheduler_name=scheduler_name,
+        )
 
         self._model_optimizer.update_learning_rate(base_lr, scheduler)
 
@@ -215,7 +218,7 @@ class Trainer(running.ModelRunnerWithLogs,
                 raise exceptions.ConvergenceError(loss_value.item())
         except RuntimeError as re:
             if loss_value.numel() != 1:
-                raise exceptions.LossNotScalarError(loss_value.shape)
+                raise exceptions.LossNotScalarError(loss_value.shape) from re
             raise re
         self._model_optimizer.optimize(loss_value)
         self.model.update_parameters()

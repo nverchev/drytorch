@@ -3,22 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, Optional, TypedDict, TypeVar, cast
-from typing_extensions import override
+from typing import Any, TypedDict, TypeVar, cast
 
 import torch
-from torch import cuda
 
-from drytorch import protocols as p, checkpointing, registering, exceptions
+from torch import cuda
+from typing_extensions import override
+
+from drytorch import checkpointing, exceptions, registering
+from drytorch import protocols as p
 from drytorch.utils import repr_utils
 
-_Input_contra = TypeVar('_Input_contra',
-                        bound=p.InputType,
-                        contravariant=True)
 
-_Output_co = TypeVar('_Output_co',
-                     bound=p.OutputType,
-                     covariant=True)
+_Input_contra = TypeVar('_Input_contra', bound=p.InputType, contravariant=True)
+
+_Output_co = TypeVar('_Output_co', bound=p.OutputType, covariant=True)
 
 _Tensor = torch.Tensor
 _ParamList = tuple[_Tensor, ...] | list[_Tensor]
@@ -30,30 +29,30 @@ class _OptParams(TypedDict):
 
 
 class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
-    """
-    Wrapper for a torch.nn.Module class with extra information.
+    """Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
         mixed_precision: whether to use mixed precision computing.
     """
+
+    _default_checkpoint = checkpointing.LocalCheckpoint()
     _name = repr_utils.DefaultName()
 
     def __init__(  # type: ignore
-            self,
-            torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
-            /,
-            name: str = '',
-            device: Optional[torch.device] = None,
-            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint(),
-            mixed_precision: bool = False,
-
+        self,
+        torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
+        /,
+        name: str = '',
+        device: torch.device | None = None,
+        checkpoint: p.CheckpointProtocol = _default_checkpoint,
+        mixed_precision: bool = False,
     ) -> None:
         """Constructor.
 
         Args:
-            Pytorch module with type annotations.
+            torch_module: Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
@@ -74,8 +73,10 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
-        with torch.autocast(device_type=self.device.type,
-                            enabled=self.mixed_precision):
+        """Execute forward pass."""
+        with torch.autocast(
+            device_type=self.device.type, enabled=self.mixed_precision
+        ):
             return self.module(inputs)
 
     @property
@@ -99,11 +100,11 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         self.epoch += 1
 
     def load_state(self, epoch=-1) -> None:
-        """Load the weights and epoch of the model"""
+        """Load the weights and epoch of the model."""
         self.checkpoint.load(epoch=epoch)
 
     def save_state(self) -> None:
-        """Save the weights and epoch of the model"""
+        """Save the weights and epoch of the model."""
         self.checkpoint.save()
 
     def update_parameters(self) -> None:
@@ -127,8 +128,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
 
 
 class ModelAverage(Model[_Input_contra, _Output_co]):
-    """
-    Bundle of a torch.nn.Module class and a torch.optim.swa_utils.AveragedModel.
+    """Bundle a torch.nn.Module and a torch.optim.swa_utils.AveragedModel.
 
     Use the averaged model when in inference mode.
 
@@ -136,27 +136,26 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
     """
+    _default_checkpoint = checkpointing.LocalCheckpoint()
 
     def __init__(
-            self,
-            torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
-            /,
-            name: str = '',
-            device: Optional[torch.device] = None,
-            checkpoint: p.CheckpointProtocol = checkpointing.LocalCheckpoint(),
-            mixed_precision: bool = False,
-            avg_fn: Optional[
-                Callable[[_Tensor, _Tensor, _Tensor | int], _Tensor]
-            ] = None,
-            multi_avg_fn: Optional[
-                Callable[[_ParamList, _ParamList, _Tensor | int], None]
-            ] = None,
-            use_buffers: bool = False,
+        self,
+        torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
+        /,
+        name: str = '',
+        device: torch.device | None = None,
+        checkpoint: p.CheckpointProtocol = _default_checkpoint,
+        mixed_precision: bool = False,
+        avg_fn: Callable[[_Tensor, _Tensor, _Tensor | int], _Tensor]
+        | None = None,
+        multi_avg_fn: Callable[[_ParamList, _ParamList, _Tensor | int], None]
+        | None = None,
+        use_buffers: bool = False,
     ) -> None:
         """Constructor.
 
         Args:
-            Pytorch module with type annotations.
+            torch_module: Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
@@ -167,19 +166,16 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
             multi_avg_fn: see docs at torch.optim.swa_utils.AveragedModel.
             use_buffers: see docs at torch.optim.swa_utils.AveragedModel.
         """
-        super().__init__(torch_module,
-                         name,
-                         device,
-                         checkpoint,
-                         mixed_precision)
-        self.averaged_module = torch.optim.swa_utils.AveragedModel(self.module,
-                                                                   self.device,
-                                                                   avg_fn,
-                                                                   multi_avg_fn,
-                                                                   use_buffers)
+        super().__init__(
+            torch_module, name, device, checkpoint, mixed_precision
+        )
+        self.averaged_module = torch.optim.swa_utils.AveragedModel(
+            self.module, self.device, avg_fn, multi_avg_fn, use_buffers
+        )
         return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
+        """Execute the forward pass."""
         if torch.inference_mode():
             return self.averaged_module(inputs)  # no mixed precision here
         return super().__call__(inputs)
@@ -192,16 +188,15 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
 
 
 class ModelOptimizer:
-    """
-    Bundle the module and its optimizer.
+    """Bundle the module and its optimizer.
 
     It supports different learning rates to separate parameters' groups.
     """
 
     def __init__(
-            self,
-            model: p.ModelProtocol[_Input_contra, _Output_co],
-            learning_scheme: p.LearningProtocol,
+        self,
+        model: p.ModelProtocol[_Input_contra, _Output_co],
+        learning_scheme: p.LearningProtocol,
     ) -> None:
         """Constructor.
 
@@ -221,53 +216,54 @@ class ModelOptimizer:
         self._gradient_op = learning_scheme.gradient_op
         self._checkpoint = self._model.checkpoint
         self._checkpoint.register_optimizer(self._optimizer)
-        self._scaler = torch.amp.GradScaler(model.device.type,
-                                            enabled=model.mixed_precision)
+        self._scaler = torch.amp.GradScaler(  # pyright: ignore[reportPrivateImportUsage]
+            model.device.type,
+            enabled=model.mixed_precision,
+        )
 
+    @override
     def __repr__(self) -> str:
         desc = '{}(module={}, optimizer={})'
-        return desc.format(self.__class__.__name__,
-                           self._model.name,
-                           self._optimizer.__class__.__name__)
+        return desc.format(
+            self.__class__.__name__,
+            self._model.name,
+            self._optimizer.__class__.__name__,
+        )
 
     @property
     def _base_lr(self) -> float | dict[str, float]:
-        """
-        Learning rate(s) for the module parameters.
-        """
+        """Learning rate(s) for the module parameters."""
         return self._lr
 
     @_base_lr.setter
     def _base_lr(self, lr: float | dict[str, float]) -> None:
         self._lr = lr
-        if isinstance(lr, (float, int)):
+        if isinstance(lr, float | int):
             self._params_lr = [
-                dict(params=self._module.parameters(), lr=lr),
+                {'params': self._module.parameters(), 'lr': lr},
             ]
         else:
             self._params_lr = [
-                dict(params=getattr(self._module, k).parameters(), lr=v)
+                {'params': getattr(self._module, k).parameters(), 'lr': v}
                 for k, v in lr.items()
             ]
             if not self._params_lr_contains_all_params():
-                module_names = list(self._module.named_modules())
+                module_names: list[str] = [
+                    named_elem[0] for named_elem in self._module.named_modules()
+                ]
                 raise exceptions.MissingParamError(module_names, list(lr))
 
         return
 
     def get_opt_params(self) -> list[_OptParams]:
-        """
-        Learning rates for each parameter updated according to the scheduler
-        and the current epoch.
-        """
+        """Actual learning rates for each parameter updated according."""
         return [
             _OptParams(params=g['params'], lr=self.get_scheduled_lr(g['lr']))
             for g in self._params_lr
         ]
 
     def get_scheduled_lr(self, lr: float) -> float:
-        """
-        Update the base learning rate according to the scheduler.
+        """Update the base learning rate according to the scheduler.
 
         Args:
             lr: base learning rate.
@@ -279,12 +275,13 @@ class ModelOptimizer:
         self._checkpoint.load(epoch=epoch)
 
     def update_learning_rate(
-            self,
-            base_lr: Optional[float | dict[str, float]] = None,
-            scheduler: Optional[p.SchedulerProtocol] = None,
+        self,
+        base_lr: float | dict[str, float] | None = None,
+        scheduler: p.SchedulerProtocol | None = None,
     ) -> None:
-        """
-        Update the learning rates for each parameter's group in the
+        """Recalculate the learning rates for the current epoch.
+
+        It updates the learning rates for each parameter's group in the
         optimizer based on input learning rate(s) and scheduler.
 
         Args:
@@ -299,18 +296,18 @@ class ModelOptimizer:
         if base_lr is not None:
             self._base_lr = base_lr
 
-        for g, up_g in zip(self._optimizer.param_groups,
-                           self.get_opt_params()):
+        for g, up_g in zip(
+            self._optimizer.param_groups, self.get_opt_params(), strict=False
+        ):
             g['lr'] = up_g['lr']
 
         return
 
     def optimize(self, loss_value: _Tensor):
-        """
-        Optimize the model backpropagating the loss value.
+        """Optimize the model backpropagating the loss value.
 
         Args:
-            loss_value = the output tensor for the loss.
+            loss_value: the output tensor for the loss.
         """
         self._scaler.scale(loss_value).backward()
         if self._gradient_op is not None:
@@ -324,8 +321,9 @@ class ModelOptimizer:
         self._checkpoint.save()
 
     def _params_lr_contains_all_params(self) -> bool:
-        total_params_lr = sum(count_params(elem['params'])
-                              for elem in self._params_lr)
+        total_params_lr = sum(
+            count_params(elem['params']) for elem in self._params_lr
+        )
         total_params_model = count_params(self._module.parameters())
         return total_params_lr == total_params_model
 

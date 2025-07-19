@@ -3,23 +3,24 @@
 from __future__ import annotations
 
 import functools
-from typing import TYPE_CHECKING, Any, Mapping
+import sys
+
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
+
+import tqdm
 
 from typing_extensions import override
-import sys
+
+from drytorch import log_events, tracking
+
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
-from tqdm import auto  # type: ignore
-
-from drytorch import log_events
-from drytorch import tracking
-
 
 class EpochBar:
-    """
-    Bar that displays the current epoch's metrics and progress.
+    """Bar that displays the current epoch's metrics and progress.
 
     This class is also used to display metrics and progress during evaluation.
 
@@ -36,13 +37,15 @@ class EpochBar:
     seen_str = 'Samples'
     color = 'green'
 
-    def __init__(self,
-                 batch_size: int | None,
-                 num_iter: int,
-                 num_samples: int,
-                 leave: bool,
-                 file: SupportsWrite[str],
-                 desc: str) -> None:
+    def __init__(
+        self,
+        batch_size: int | None,
+        num_iter: int,
+        num_samples: int,
+        leave: bool,
+        file: SupportsWrite[str],
+        desc: str,
+    ) -> None:
         """Constructor.
 
         Args:
@@ -56,18 +59,19 @@ class EpochBar:
         self._batch_size = batch_size
         self._num_samples = num_samples
         self._num_iter = num_iter
-        self.pbar = auto.tqdm(total=num_iter,
-                              leave=leave,
-                              file=file,
-                              desc=desc,
-                              bar_format=self.fmt,
-                              colour=self.color)
+        self.pbar = tqdm.tqdm(
+            total=num_iter,
+            leave=leave,
+            file=file,
+            desc=desc,
+            bar_format=self.fmt,
+            colour=self.color,
+        )
         self._epoch_seen = 0
         return
 
     def update(self, metrics: Mapping[str, Any]) -> None:
-        """
-        Update the bar and displays last batch metrics values.
+        """Update the bar and displays last batch metrics values.
 
         Args:
             metrics: the values from the last batch by metric name.
@@ -83,8 +87,10 @@ class EpochBar:
         else:
             monitor_seen = {self.seen_str: '?'}
 
-        monitor_metric = {metric_name: f'{metric_value:.3e}'
-                          for metric_name, metric_value in metrics.items()}
+        monitor_metric = {
+            metric_name: f'{metric_value:.3e}'
+            for metric_name, metric_value in metrics.items()
+        }
         monitor_dict = monitor_seen | monitor_metric
         self.pbar.set_postfix(monitor_dict, refresh=False)
         self.pbar.update()
@@ -95,8 +101,7 @@ class EpochBar:
 
 
 class TrainingBar:
-    """
-    Create a bar for the training progress.
+    """Create a bar for the training progress.
 
     Class Attributes:
         fmt: the formatting of the bar.
@@ -111,32 +116,36 @@ class TrainingBar:
     desc = 'Epoch'
     color = 'blue'
 
-    def __init__(self,
-                 start_epoch: int,
-                 end_epoch: int,
-                 file: SupportsWrite[str],
-                 leave: bool) -> None:
+    def __init__(
+        self,
+        start_epoch: int,
+        end_epoch: int,
+        file: SupportsWrite[str],
+        leave: bool,
+    ) -> None:
         """Constructor.
 
         Args:
             start_epoch: the epoch from which the bar should start.
             end_epoch: the epoch where the bar should end.
             file: the stream where to flush the bar.
+            leave: If True, leave bar once the iterations has completed.
         """
-        self.pbar = auto.trange(start_epoch,
-                                end_epoch,
-                                desc=f'{self.desc}:',
-                                leave=leave,
-                                position=0,
-                                file=file,
-                                bar_format=self.fmt,
-                                colour=self.color)
+        self.pbar = tqdm.trange(
+            start_epoch,
+            end_epoch,
+            desc=f'{self.desc}:',
+            leave=leave,
+            position=0,
+            file=file,
+            bar_format=self.fmt,
+            colour=self.color,
+        )
         self._start_epoch = start_epoch
         self._end_epoch = end_epoch
 
     def update(self, current_epoch: int) -> None:
-        """
-        Update the bar and display the current epoch.
+        """Update the bar and display the current epoch.
 
         Args:
             current_epoch: the current epoch.
@@ -150,10 +159,12 @@ class TrainingBar:
 class TqdmLogger(tracking.Tracker):
     """Create an epoch progress bar."""
 
-    def __init__(self,
-                 leave: bool = True,
-                 enable_training_bar: bool = False,
-                 file: SupportsWrite[str] = sys.stderr) -> None:
+    def __init__(
+        self,
+        leave: bool = True,
+        enable_training_bar: bool = False,
+        file: SupportsWrite[str] = sys.stderr,
+    ) -> None:
         """Constructor.
 
         Args:
@@ -165,7 +176,6 @@ class TqdmLogger(tracking.Tracker):
             enable the training bar only if two progress bars are supported,
             and there is no other logger or printer streaming there.
         """
-
         super().__init__()
         self._leave = leave
         self._file = file
@@ -179,8 +189,8 @@ class TqdmLogger(tracking.Tracker):
         self._clean_training_bar()
         return
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
@@ -188,22 +198,26 @@ class TqdmLogger(tracking.Tracker):
     def _(self, event: log_events.IterateBatch) -> None:
         desc = event.source_name.rjust(15)
         leave = self._leave and self._training_bar is None
-        self._epoch_bar = EpochBar(event.batch_size,
-                                   event.num_iter,
-                                   event.dataset_size,
-                                   leave=leave,
-                                   file=self._file,
-                                   desc=desc)
+        self._epoch_bar = EpochBar(
+            event.batch_size,
+            event.num_iter,
+            event.dataset_size,
+            leave=leave,
+            file=self._file,
+            desc=desc,
+        )
         event.push_updates.append(self._epoch_bar.update)
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartTraining) -> None:
         if self._enable_training_bar:
-            self._training_bar = TrainingBar(event.start_epoch,
-                                             event.end_epoch,
-                                             file=self._file,
-                                             leave=self._leave)
+            self._training_bar = TrainingBar(
+                event.start_epoch,
+                event.end_epoch,
+                file=self._file,
+                leave=self._leave,
+            )
         return super().notify(event)
 
     @notify.register

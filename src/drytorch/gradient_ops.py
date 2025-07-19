@@ -1,16 +1,19 @@
 """Module containing gradient operations."""
 
 import abc
-from collections import defaultdict
-from collections.abc import Iterable, Callable
 import copy
 import math
+
+from collections import defaultdict
+from collections.abc import Callable, Iterable
 from typing import TypeAlias
 
 import torch
+
 from typing_extensions import override
 
 from drytorch import protocols as p
+
 
 ClipFunction: TypeAlias = Callable[[float, float], float]
 
@@ -60,12 +63,10 @@ class ClipOperation(p.GradientOpProtocol):
     @abc.abstractmethod
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Apply the gradient operation to the given parameters."""
-        pass
 
 
 class GradNormClipper(ClipOperation):
-    """
-    Gradient norm clipping strategy.
+    """Gradient norm clipping strategy.
 
     Attributes:
         threshold: Maximum norm value of the clipped gradients.
@@ -77,6 +78,7 @@ class GradNormClipper(ClipOperation):
         Args:
             threshold: Maximum norm value of the clipped gradients.
         """
+        super().__init__()
         _validate_threshold(threshold)
         self.threshold = threshold
 
@@ -86,8 +88,7 @@ class GradNormClipper(ClipOperation):
 
 
 class GradValueClipper(ClipOperation):
-    """
-    Gradient value clipping strategy.
+    """Gradient value clipping strategy.
 
     Attributes:
             threshold: Maximum absolute value of the clipped gradients.
@@ -99,6 +100,7 @@ class GradValueClipper(ClipOperation):
         Args:
             threshold: Maximum absolute value of the clipped gradients.
         """
+        super().__init__()
         _validate_threshold(threshold)
         self.threshold = threshold
 
@@ -108,8 +110,7 @@ class GradValueClipper(ClipOperation):
 
 
 def reciprocal_clipping(zt: float, z_thresh: float) -> float:
-    """
-    Reciprocal clipping as recommended in https://arxiv.org/pdf/2504.02507.
+    """Reciprocal clipping as recommended in https://arxiv.org/pdf/2504.02507.
 
     Instead of clipping to the threshold value, reciprocal clipping decreases
     the norm of the gradient even further as the spike gets larger.
@@ -125,8 +126,7 @@ def reciprocal_clipping(zt: float, z_thresh: float) -> float:
 
 
 def mean_clipping(zt: float, z_thresh: float) -> float:
-    """
-    Clip to the mean value (effectively setting gradient to running mean).
+    """Clip to the mean value (effectively setting gradient to running mean).
 
     Args:
         zt: the Z-statistic or ratio of the current gradient norm.
@@ -140,8 +140,7 @@ def mean_clipping(zt: float, z_thresh: float) -> float:
 
 
 def max_clipping(zt: float, z_thresh: float) -> float:
-    """
-    Standard clipping to the threshold value.
+    """Standard clipping to the threshold value.
 
     Args:
         zt: the Z-statistic or ratio of the current gradient norm.
@@ -155,15 +154,12 @@ def max_clipping(zt: float, z_thresh: float) -> float:
 
 
 class ClippingCriterion(abc.ABC):
-    """
-    Criteria that detects when to clip snd determines the clipping value.
-    """
+    """Criteria that detects when to clip snd determines the clipping value."""
+
 
     @abc.abstractmethod
     def should_clip(self, value: float) -> bool:
-        """
-        Determine whether gradients should be clipped based on the current
-        value.
+        """Determine whether to clip gradients based on the current value.
 
         Args:
             value: current gradient norm or value to evaluate.
@@ -174,8 +170,7 @@ class ClippingCriterion(abc.ABC):
 
     @abc.abstractmethod
     def get_clip_value(self, value: float) -> float:
-        """
-        Calculate the clipping threshold based on current statistics.
+        """Calculate the clipping threshold based on current statistics.
 
         Args:
             value: Current gradient norm or value.
@@ -185,22 +180,22 @@ class ClippingCriterion(abc.ABC):
         """
 
     def update(self, value: float) -> None:
-        """
-        Update internal statistics with a new observed value.
+        """Update internal statistics with a new observed value.
 
         Args:
             value: new gradient norm or value to incorporate.
         """
+        _unused = value
         return
 
     def set_statistics(self, mean: float, variance: float = 0.0) -> None:
-        """
-        Initialize statistics from warmup data.
+        """Initialize statistics from warmup data.
 
         Args:
             mean: mean value from the warmup period.
             variance: variance from the warmup period (if applicable).
         """
+        _unused = mean, variance
         return
 
     def reset(self) -> None:
@@ -209,8 +204,7 @@ class ClippingCriterion(abc.ABC):
 
 
 class EMACriterion(ClippingCriterion):
-    """
-    Clipping criterion based on Exponential Moving Average.
+    """Clipping criterion based on Exponential Moving Average.
 
     It uses only the running mean of gradient norms to detect outliers.
     It clips when the current norm exceeds the mean by a factor of r_thresh.
@@ -272,8 +266,7 @@ class EMACriterion(ClippingCriterion):
 
 
 class ZStatCriterion(ClippingCriterion):
-    """
-    Clipping criterion based on the Z-statistic.
+    """Clipping criterion based on the Z-statistic.
 
     Tracks both mean and variance using exponential moving averages. The
     clipping threshold is on the Z-score (standardized deviation).
@@ -357,8 +350,7 @@ class StatsCollector:
     """
 
     def __init__(self, max_samples: int):
-        """
-        Initialize warmup handler.
+        """Initialize warmup handler.
 
         Args:
             max_samples: the number of collected samples for completion.
@@ -410,8 +402,7 @@ class StatsCollector:
 
 
 class HistClipping(ClipOperation):
-    """
-    Global gradient clipping strategy that uses previous gradient statistics.
+    """Global gradient clipping strategy that uses previous gradient statistics.
 
     The gradients' norm is renormalized according to a clipping criterion.
 
@@ -420,10 +411,12 @@ class HistClipping(ClipOperation):
         warmup_clip_strategy: the clipping strategy used during warmup.
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
+    _default_criterion = ZStatCriterion()
+    _default_gradnorm = GradNormClipper()
 
     def __init__(self,
-                 criterion: ClippingCriterion = ZStatCriterion(),
-                 warmup_clip_strategy: p.GradientOpProtocol = GradNormClipper(),
+                 criterion: ClippingCriterion = _default_criterion,
+                 warmup_clip_strategy: p.GradientOpProtocol = _default_gradnorm,
                  n_warmup_steps: int = 20) -> None:
         """Constructor.
 
@@ -432,6 +425,7 @@ class HistClipping(ClipOperation):
             warmup_clip_strategy: the clipping strategy used during warmup.
             n_warmup_steps: the number of warmup steps to collect initial stats.
         """
+        super().__init__()
         self.criterion = criterion
         self.warmup_clip_strategy = warmup_clip_strategy
         self.n_warmup_steps = n_warmup_steps
@@ -439,8 +433,7 @@ class HistClipping(ClipOperation):
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
-        """
-        Apply global gradient clipping.
+        """Apply global gradient clipping.
 
         Args:
             params: model parameters to clip.
@@ -479,8 +472,7 @@ class HistClipping(ClipOperation):
 
 
 class ParamHistClipping(ClipOperation):
-    """
-    Gradient clipping strategy that the gradient statistics for that parameter.
+    """Gradient clipping strategy that keeps per-parameter statistics.
 
     The gradients' norm is renormalized according to a clipping criterion.
 
@@ -490,10 +482,15 @@ class ParamHistClipping(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
 
-    def __init__(self,
-                 criterion: ClippingCriterion = ZStatCriterion(),
-                 warmup_clip_strategy: p.GradientOpProtocol = GradNormClipper(),
-                 n_warmup_steps: int = 20) -> None:
+    _default_criterion = ZStatCriterion()
+    _default_gradnorm = GradNormClipper()
+
+    def __init__(
+        self,
+        criterion: ClippingCriterion = _default_criterion,
+        warmup_clip_strategy: p.GradientOpProtocol = _default_gradnorm,
+        n_warmup_steps: int = 20,
+    ) -> None:
         """Constructor.
 
         Args:
@@ -501,6 +498,7 @@ class ParamHistClipping(ClipOperation):
             warmup_clip_strategy: the clipping strategy used during warmup.
             n_warmup_steps: the number of warmup steps to collect initial stats.
         """
+        super().__init__()
         self.criterion = criterion
         self.n_warmup_steps = n_warmup_steps
         self.warmup_clip_strategy = warmup_clip_strategy
@@ -513,8 +511,7 @@ class ParamHistClipping(ClipOperation):
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
-        """
-        Apply global gradient clipping.
+        """Apply global gradient clipping.
 
         Args:
             params: Model parameters to clip.
@@ -523,10 +520,10 @@ class ParamHistClipping(ClipOperation):
             Modifies gradients in-place if clipping is applied.
         """
         for param in params:
-            if param.grad is None:
+            grad = param.grad
+            if grad is None:
                 continue
-
-            grad_norm = param.grad.norm(2)
+            grad_norm: float = grad.norm(2, dtype=float).item()
             param_id = id(param)
             warmup_handler = self._dict_warmup_handler[param_id]
             criterion = self._dict_criterion[param_id]

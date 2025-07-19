@@ -1,0 +1,84 @@
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+line-length = 80
+target-version = "py311" # Assume Python 3.11
+
+select = [
+    "E",    # pycodestyle errors
+    "F",    # Pyflakes
+    "I",    # isort (import sorting)
+    "N",    # pep8-naming
+    "W",    # pycodestyle warnings
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade (suggests modern Python syntax)
+    "A",    # flake8-builtins (checks for shadowing built-in names)
+    "C",    # flake8-comprehensions
+    "D",    # pydocstyle (controlled by [lint.pydocstyle] below)
+    "RUF",  # Ruff-specific rules
+    "ERA",  # eradicate (commented-out code)
+    "S",    # flake8-bandit (basic security issues)
+    "T"     # flake8-pytest-style (pytest specific linting)
+]
+ignore = []
+indent-width = 4
+
+# Linting settings
+[lint]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+))$"
+fixable = ["ALL"]
+unfixable = []
+
+# Pydocstyle settings
+[lint.pydocstyle]
+convention = "google"
+
+# Isort settings for import sorting
+[lint.isort]
+known-first-party = ["drytorch"]
+combine-as-imports = false
+lines-after-imports = 2 
+lines-between-types = 1
+forced-separate = ["pytest"]
+
+# Exclude assert errors in pytest tests
+[lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+# Auto-formatting settings
+[format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+

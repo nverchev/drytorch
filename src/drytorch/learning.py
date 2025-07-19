@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, Optional
+
+from typing import Any
 
 import torch
 
@@ -11,10 +12,11 @@ from drytorch import protocols as p
 from drytorch import schedulers
 
 
+_default_scheduler = schedulers.ConstantScheduler()
+
 @dataclasses.dataclass
 class LearningScheme(p.LearningProtocol):
-    """
-    Class with specifications for the learning algorithm.
+    """Class with specifications for the learning algorithm.
 
     Attributes:
         optimizer_cls: the optimizer class to bind to the module.
@@ -25,18 +27,17 @@ class LearningScheme(p.LearningProtocol):
     """
     optimizer_cls: type[torch.optim.Optimizer]
     base_lr: float | dict[str, float]
-    scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+    scheduler: p.SchedulerProtocol = _default_scheduler
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
-    gradient_op: Optional[p.GradientOpProtocol] = None
+    gradient_op: p.GradientOpProtocol | None = None
 
     @classmethod
-    def Adam(cls,
+    def adam(cls,
              base_lr: float = 1e-3,
              betas: tuple[float, float] = (0.9, 0.999),
-             scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+             scheduler: p.SchedulerProtocol = _default_scheduler
              ) -> LearningScheme:
-        """
-        Convenience method for the Adam optimizer.
+        """Convenience method for the Adam optimizer.
 
         Args:
             base_lr: initial learning rate.
@@ -49,14 +50,14 @@ class LearningScheme(p.LearningProtocol):
                    optimizer_defaults={'betas': betas})
 
     @classmethod
-    def AdamW(cls,
-              base_lr: float = 1e-3,
-              betas: tuple[float, float] = (0.9, 0.999),
-              weight_decay: float = 1e-2,
-              scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
-              ) -> LearningScheme:
-        """
-        Convenience method for the AdamW optimizer.
+    def adamw(
+        cls,
+        base_lr: float = 1e-3,
+        betas: tuple[float, float] = (0.9, 0.999),
+        weight_decay: float = 1e-2,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
+    ) -> LearningScheme:
+        """Convenience method for the AdamW optimizer.
 
         Args:
             base_lr: initial learning rate.
@@ -71,16 +72,16 @@ class LearningScheme(p.LearningProtocol):
                                        'weight_decay': weight_decay})
 
     @classmethod
-    def SGD(cls,
-            base_lr: float = 0.01,
-            momentum: float = 0.,
-            weight_decay: float = 0.,
-            dampening: float = 0.,
-            nesterov: bool = False,
-            scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
-            ) -> LearningScheme:
-        """
-        Convenience method for the SGD optimizer.
+    def sgd(
+        cls,
+        base_lr: float = 0.01,
+        momentum: float = 0.0,
+        weight_decay: float = 0.0,
+        dampening: float = 0.0,
+        nesterov: bool = False,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
+    ) -> LearningScheme:
+        """Convenience method for the SGD optimizer.
 
         Args:
             base_lr: initial learning rate.
@@ -99,14 +100,14 @@ class LearningScheme(p.LearningProtocol):
                                        'nesterov': nesterov})
 
     @classmethod
-    def RAdam(cls,
-              base_lr: float = 1e-3,
-              betas: tuple[float, float] = (0.9, 0.999),
-              weight_decay: float = 0.,
-              scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
-              ) -> LearningScheme:
-        """
-        Convenience method for the RAdam optimizer.
+    def radam(
+        cls,
+        base_lr: float = 1e-3,
+        betas: tuple[float, float] = (0.9, 0.999),
+        weight_decay: float = 0.0,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
+    ) -> LearningScheme:
+        """Convenience method for the RAdam optimizer.
 
         Args:
             base_lr: initial learning rate.

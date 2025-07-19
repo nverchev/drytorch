@@ -1,5 +1,4 @@
-"""
-Module for coordinating logging of metadata, internal messages and metrics.
+"""Module for coordinating logging of metadata, internal messages and metrics.
 
 Attributes:
     DEFAULT_TRACKERS: named trackers registered to experiments by default.
@@ -8,22 +7,22 @@ Attributes:
 from __future__ import annotations
 
 import abc
-from abc import abstractmethod
 import functools
-from typing import Any, Self, cast
 import warnings
 
-from drytorch import exceptions
-from drytorch import log_events
+from abc import abstractmethod
+from typing import Any, Self, cast
+
+from drytorch import exceptions, log_events
 from drytorch import protocols as p
 from drytorch.utils import repr_utils
+
 
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
 
 class MetadataManager:
-    """
-    Class that handles and generates metadata.
+    """Class that handles and generates metadata.
 
     Attributes:
         used_names: set to keep track of already registered names.
@@ -31,7 +30,8 @@ class MetadataManager:
     """
 
     def __init__(self, max_items_repr: int = 10) -> None:
-        """
+        """Constructor.
+
         Args:
             max_items_repr: maximum number of documented items in an object.
         """
@@ -40,29 +40,24 @@ class MetadataManager:
         self.max_items_repr = max_items_repr
 
     def record_model_call(self, source: Any, model: p.ModelProtocol) -> None:
-        """
-        Record metadata of an object that calls the model.
+        """Record metadata of an object that calls the model.
 
         Args:
             source: the object calling the model.
             model: the model that is called.
         """
-
         source_name = getattr(source, 'name', '') or source.__class__.__name__
         source_version = self._get_version(source)
         model_version = self._get_version(model)
         self._register_name(source_name)
         metadata = self.extract_metadata(source, max_size=self.max_items_repr)
-        log_events.CallModel(source_name,
-                             source_version,
-                             model.name,
-                             model_version,
-                             metadata)
+        log_events.CallModel(
+            source_name, source_version, model.name, model_version, metadata
+        )
         return
 
     def register_model(self, model: p.ModelProtocol) -> None:
-        """
-        Record metadata of a given model.
+        """Record metadata of a given model.
 
         Args:
             model: the model to document.
@@ -82,8 +77,7 @@ class MetadataManager:
 
     @staticmethod
     def extract_metadata(obj: Any, max_size: int) -> dict[str, Any]:
-        """
-        Wrapper of recursive_repr that catches RecursionError.
+        """Wrapper of recursive_repr that catches RecursionError.
 
         Args:
             obj: an object to document.
@@ -92,7 +86,7 @@ class MetadataManager:
         try:
             metadata = repr_utils.recursive_repr(obj, max_size=max_size)
         except RecursionError:
-            warnings.warn(exceptions.RecursionWarning())
+            warnings.warn(exceptions.RecursionWarning(), stacklevel=1)
             metadata = {}
 
         return metadata
@@ -108,8 +102,7 @@ class Tracker(metaclass=abc.ABCMeta):
     @functools.singledispatchmethod
     @abstractmethod
     def notify(self, event: log_events.Event) -> None:
-        """
-        Notify the tracker of an event.
+        """Notify the tracker of an event.
 
         Args:
             event: the event to notify about.
@@ -122,8 +115,7 @@ class Tracker(metaclass=abc.ABCMeta):
 
     @classmethod
     def current(cls) -> Self:
-        """
-        Get the registered tracker that is already registered.
+        """Get the registered tracker that is already registered.
 
         Returns:
             The instance of the tracker registered to the current experiment.
@@ -131,19 +123,23 @@ class Tracker(metaclass=abc.ABCMeta):
         Raises:
             TrackerNotRegisteredError: if the tracker is not registered.
         """
-        from drytorch.experiments import Experiment
+        from drytorch.experiments import (  # pylint: disable=import-outside-toplevel
+            Experiment,
+        )
+
         exp = Experiment.current()
         try:
             self = exp.trackers.named_trackers[cls.__name__]
-        except KeyError:
-            raise exceptions.TrackerNotRegisteredError(cls.__name__, exp.name)
+        except KeyError as ke:
+            raise exceptions.TrackerNotRegisteredError(
+                cls.__name__, exp.name
+            ) from ke
 
         return cast(Self, self)
 
 
 class EventDispatcher:
-    """
-    Notifies tracker of an event.
+    """Notifies tracker of an event.
 
     Attributes:
         exp_name: name of the current experiment.
@@ -151,7 +147,8 @@ class EventDispatcher:
     """
 
     def __init__(self, exp_name) -> None:
-        """
+        """Constructor.
+
         Args:
             exp_name: name of the current experiment.
         """
@@ -160,8 +157,7 @@ class EventDispatcher:
         return
 
     def publish(self, event: log_events.Event) -> None:
-        """
-        Publish an event to all registered trackers.
+        """Publish an event to all registered trackers.
 
         Args:
             event: the event to publish.
@@ -170,9 +166,13 @@ class EventDispatcher:
         for tracker in self.named_trackers.values():
             try:
                 tracker.notify(event)
-            except Exception as err:
+            except (KeyboardInterrupt, SystemExit) as e:
+                raise e
+            except Exception as err:  # pylint: disable=broad-except
                 name = tracker.__class__.__name__
-                warnings.warn(exceptions.TrackerError(name, err))
+                warnings.warn(
+                    exceptions.TrackerExceptionWarning(name, err), stacklevel=1
+                )
                 tracker.clean_up()
                 to_be_removed.append(name)
 
@@ -182,8 +182,7 @@ class EventDispatcher:
         return
 
     def _register_tracker(self, name: str, tracker: Tracker) -> None:
-        """
-        Register a tracker to the experiment.
+        """Register a tracker to the experiment.
 
         Args:
             name: the name associated with the tracker.
@@ -199,11 +198,11 @@ class EventDispatcher:
         return
 
     def register(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
-        """
-        Register trackers from am iterable to the experiment.
+        """Register trackers from am iterable to the experiment.
 
         Args:
-            trackers: trackers to register.
+            trackers: trackers to register with their class names.
+            named_trackers: tracker to register with custom names.
 
         Raises:
             TrackerAlreadyRegisteredError: if a tracker is already registered.
@@ -218,8 +217,7 @@ class EventDispatcher:
         return
 
     def remove(self, tracker_name: str) -> None:
-        """
-        Remove a tracker by name from the experiment.
+        """Remove a tracker by name from the experiment.
 
         Args:
             tracker_name: name of the tracker to remove.
@@ -229,9 +227,10 @@ class EventDispatcher:
         """
         try:
             self.named_trackers.pop(tracker_name)
-        except KeyError:
-            raise exceptions.TrackerNotRegisteredError(tracker_name,
-                                                       self.exp_name)
+        except KeyError as ke:
+            raise exceptions.TrackerNotRegisteredError(
+                tracker_name, self.exp_name
+            ) from ke
         return
 
     def remove_all(self) -> None:

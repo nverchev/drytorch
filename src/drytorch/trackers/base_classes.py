@@ -3,16 +3,17 @@
 import abc
 import functools
 import pathlib
-from typing import Generic, Iterable, Optional, TypeAlias, TypeVar
+
+from collections.abc import Iterable
+from typing import Generic, TypeAlias, TypeVar
 
 import numpy as np
 import numpy.typing as npt
+
 from typing_extensions import override
 
-from drytorch import log_events
-from drytorch import exceptions
-from drytorch import experiments
-from drytorch import tracking
+from drytorch import exceptions, experiments, log_events, tracking
+
 
 HistoryMetric: TypeAlias = tuple[list[int], list[float]]
 HistoryMetrics: TypeAlias = tuple[list[int], dict[str, list[float]]]
@@ -27,7 +28,7 @@ Plot = TypeVar('Plot')
 class Dumper(tracking.Tracker):
     """Dump metrics or metadata in a custom directory."""
 
-    def __init__(self, par_dir: Optional[pathlib.Path] = None):
+    def __init__(self, par_dir: pathlib.Path | None = None):
         """Constructor.
 
         Args:
@@ -36,7 +37,7 @@ class Dumper(tracking.Tracker):
         """
         super().__init__()
         self._par_dir = par_dir
-        self._exp_dir: Optional[pathlib.Path] = None
+        self._exp_dir: pathlib.Path | None = None
 
     @property
     def par_dir(self) -> pathlib.Path:
@@ -51,8 +52,8 @@ class Dumper(tracking.Tracker):
         path.mkdir(exist_ok=True, parents=True)
         return path
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
@@ -68,11 +69,10 @@ class Dumper(tracking.Tracker):
 class MetricLoader(tracking.Tracker, abc.ABC):
     """Interface for trackers that load metrics."""
 
-    def load_metrics(self,
-                     model_name: str,
-                     max_epoch: int = -1) -> SourcedMetrics:
-        """
-        Load metrics stored by the tracker.
+    def load_metrics(
+        self, model_name: str, max_epoch: int = -1
+    ) -> SourcedMetrics:
+        """Load metrics stored by the tracker.
 
         Args:
             model_name: the name of the model.
@@ -86,8 +86,8 @@ class MetricLoader(tracking.Tracker, abc.ABC):
         """
         try:
             experiments.Experiment.current()
-        except exceptions.NoActiveExperimentError:
-            raise exceptions.AccessOutsideScopeError()
+        except exceptions.NoActiveExperimentError as naee:
+            raise exceptions.AccessOutsideScopeError() from naee
 
         if max_epoch == 0:
             return {}
@@ -98,35 +98,40 @@ class MetricLoader(tracking.Tracker, abc.ABC):
         return self._load_metrics(model_name, max_epoch)
 
     @abc.abstractmethod
-    def _load_metrics(self,
-                      model_name: str,
-                      max_epoch: int = -1) -> SourcedMetrics:
-        ...
+    def _load_metrics(
+        self, model_name: str, max_epoch: int = -1
+    ) -> SourcedMetrics: ...
 
 
 class MemoryMetrics(tracking.Tracker):
-    """
-    Keep all metrics in memory.
+    """Keep all metrics in memory.
 
     Attributes:
         model_dict: all metrics recorded in this session.
     """
 
-    def __init__(self, metric_loader: Optional[MetricLoader] = None) -> None:
+    def __init__(self, metric_loader: MetricLoader | None = None) -> None:
+        """Constructor.
+
+        Args:
+            metric_loader: object to load the metrics.
+        """
         super().__init__()
         self._metric_loader = metric_loader
         self.model_dict = dict[str, SourcedMetrics]()
+        return
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
         sourced_metrics = self.model_dict.setdefault(event.model_name, {})
-        epochs, logs_dict = sourced_metrics.setdefault(event.source_name,
-                                                       ([], {}))
+        epochs, logs_dict = sourced_metrics.setdefault(
+            event.source_name, ([], {})
+        )
         epochs.append(event.epoch)
         for metric_name, metric_value in event.metrics.items():
             logs_dict.setdefault(metric_name, []).append(metric_value)
@@ -138,22 +143,26 @@ class MemoryMetrics(tracking.Tracker):
         if self._metric_loader is None:
             return None
 
-        metrics = self._metric_loader.load_metrics(event.model_name,
-                                                   event.epoch)
+        metrics = self._metric_loader.load_metrics(
+            event.model_name, event.epoch
+        )
         self.model_dict[event.model_name] = metrics
         return super().notify(event)
 
 
 class BasePlotter(MemoryMetrics, Generic[Plot]):
-    """Abstract class for plotting trajectory from sources. """
+    """Abstract class for plotting trajectory from sources."""
 
-    def __init__(self,
-                 model_names: Iterable[str] = (),
-                 source_names: Iterable[str] = (),
-                 metric_names: Iterable[str] = (),
-                 start: int = 1,
-                 metric_loader: Optional[MetricLoader] = None) -> None:
-        """
+    def __init__(
+        self,
+        model_names: Iterable[str] = (),
+        source_names: Iterable[str] = (),
+        metric_names: Iterable[str] = (),
+        start: int = 1,
+        metric_loader: MetricLoader | None = None,
+    ) -> None:
+        """Constructor.
+
         Args:
             model_names: the names of the models to plot. Defaults to all.
             source_names: the names of the sources to plot. Defaults to all.
@@ -161,6 +170,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
             metric_loader: a tracker that can load metrics from a previous run.
+
         Note:
             start_epoch allows you to exclude the initial epochs from the graph.
             During the first 2 * start_epoch epochs, the graph is shown in
@@ -173,8 +183,8 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         self._start = start
         self._removed_start = False
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
@@ -186,8 +196,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         else:
             start = self._start if event.epoch >= 2 * self._start else 1
 
-        self._update_plot(model_name=event.model_name,
-                          start=start)
+        self._update_plot(model_name=event.model_name, start=start)
 
     @notify.register
     def _(self, event: log_events.EndTest) -> None:
@@ -196,13 +205,14 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         self._update_plot(model_name=event.model_name, start=start)
         return
 
-    def plot(self,
-             model_name: str,
-             source_names: Iterable[str] = (),
-             metric_names: Iterable[str] = (),
-             start_epoch: int = 1) -> list[Plot]:
-        """
-        Plot the learning curves.
+    def plot(
+        self,
+        model_name: str,
+        source_names: Iterable[str] = (),
+        metric_names: Iterable[str] = (),
+        start_epoch: int = 1,
+    ) -> list[Plot]:
+        """Plot the learning curves.
 
         Args:
             model_name: the name of the model to plot.
@@ -228,17 +238,20 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
 
         return self._plot(model_name, source_names, metric_names, start_epoch)
 
-    def _plot(self,
-              model_name: str,
-              source_names: Iterable[str],
-              metric_names: Iterable[str],
-              start: int) -> list[Plot]:
-
+    def _plot(
+        self,
+        model_name: str,
+        source_names: Iterable[str],
+        metric_names: Iterable[str],
+        start: int,
+    ) -> list[Plot]:
         sourced_metrics = self.model_dict.get(model_name, {})
         if source_names:
-            sourced_metrics = {source: sourced_metrics[source]
-                               for source in source_names
-                               if source in sourced_metrics}
+            sourced_metrics = {
+                source: sourced_metrics[source]
+                for source in source_names
+                if source in sourced_metrics
+            }
         if not metric_names:
             all_metrics = (set(logs[1]) for logs in sourced_metrics.values())
             metric_names = sorted(set().union(*all_metrics))
@@ -246,30 +259,30 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         plots = list[Plot]()
         self._prepare_layout(model_name, list(metric_names))
         for metric_name in metric_names:
-            processed_sources = self._process_source(sourced_metrics,
-                                                     metric_name,
-                                                     start)
+            processed_sources = self._process_source(
+                sourced_metrics, metric_name, start
+            )
             if processed_sources:
-                plots.append(self._plot_metric(model_name,
-                                               metric_name,
-                                               **processed_sources))
+                plots.append(
+                    self._plot_metric(
+                        model_name, metric_name, **processed_sources
+                    )
+                )
 
         return plots
 
     @abc.abstractmethod
-    def _plot_metric(self,
-                     model_name: str,
-                     metric_name: str,
-                     **sourced_array: NpArray) -> Plot:
-        ...
+    def _plot_metric(
+        self, model_name: str, metric_name: str, **sourced_array: NpArray
+    ) -> Plot: ...
 
     def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
+        _not_used = model_name, metric_names
         return
 
-    def _process_source(self,
-                        sourced_metrics: SourcedMetrics,
-                        metric_name: str,
-                        start: int) -> SourcedArray:
+    def _process_source(
+        self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
+    ) -> SourcedArray:
         sourced_metric = self._filter_metric(sourced_metrics, metric_name)
         ordered_sources = self._order_sources(sourced_metric)
         sourced_array = self._source_to_numpy(ordered_sources)
@@ -287,15 +300,19 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         return dict(sorted(sources.items(), key=cls._len_source))
 
     @staticmethod
-    def _filter_metric(sourced_metrics: SourcedMetrics,
-                       metric_name: str) -> SourcedMetric:
-        return {source_name: (epochs, metrics[metric_name])
-                for source_name, (epochs, metrics) in sourced_metrics.items()
-                if epochs and metric_name in metrics}
+    def _filter_metric(
+        sourced_metrics: SourcedMetrics, metric_name: str
+    ) -> SourcedMetric:
+        return {
+            source_name: (epochs, metrics[metric_name])
+            for source_name, (epochs, metrics) in sourced_metrics.items()
+            if epochs and metric_name in metrics
+        }
 
     @staticmethod
-    def _filter_by_epoch(sourced_array: SourcedArray,
-                         start: int) -> SourcedArray:
+    def _filter_by_epoch(
+        sourced_array: SourcedArray, start: int
+    ) -> SourcedArray:
         if start == 1:
             return sourced_array
 
@@ -313,5 +330,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
 
     @staticmethod
     def _source_to_numpy(sourced_metric: SourcedMetric) -> SourcedArray:
-        return {name: np.column_stack((epochs, values))
-                for name, (epochs, values) in sourced_metric.items()}
+        return {
+            name: np.column_stack((epochs, values))
+            for name, (epochs, values) in sourced_metric.items()
+        }

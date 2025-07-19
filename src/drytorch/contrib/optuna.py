@@ -1,20 +1,18 @@
 """Support for optuna."""
 
 from collections.abc import Callable, Sequence
-from typing import Literal, Optional
+from typing import Literal
 
 import optuna
-from numpy.core.records import record
+
 from omegaconf import DictConfig
 
-from drytorch import hooks
+from drytorch import exceptions, hooks
 from drytorch import protocols as p
-from drytorch import exceptions
 
 
 class TrialCallback:
-    """
-    Implements pruning logic for training models.
+    """Implements pruning logic for training models.
 
     Attributes:
         monitor: Monitor instance
@@ -22,13 +20,13 @@ class TrialCallback:
     """
 
     def __init__(
-            self,
-            trial: optuna.Trial,
-            filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
-            metric: Optional[str | p.ObjectiveProtocol] = None,
-            monitor: Optional[p.EvaluationProtocol] = None,
-            min_delta: float = 1e-8,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        self,
+        trial: optuna.Trial,
+        filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.EvaluationProtocol | None = None,
+        min_delta: float = 1e-8,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:
         """Constructor.
 
@@ -56,8 +54,7 @@ class TrialCallback:
         return
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
-        """
-        Evaluate whether training should be stopped early.
+        """Evaluate whether training should be stopped early.
 
         Args:
             instance: Trainer instance to evaluate.
@@ -77,8 +74,7 @@ class TrialCallback:
 
 
 def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
-    """
-    Suggest values for a trial from structured configurations.
+    """Suggest values for a trial from structured configurations.
 
     This function helps integrate optuna into hydra by specifying trial
     parameters present in the hydra run configuration.
@@ -135,22 +131,29 @@ def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
     for attr_name, param in tune_cfg.tune.params.items():
         if param.suggest == 'suggest_list':
             new_value = []
-            for i in range(trial.suggest_int(name='_'.join([attr_name, 'len']),
-                                             low=param.settings.min_length,
-                                             high=param.settings.max_length)):
+            for i in range(
+                trial.suggest_int(
+                    name='_'.join([attr_name, 'len']),
+                    low=param.settings.min_length,
+                    high=param.settings.max_length,
+                )
+            ):
                 try:
                     bound_suggest = getattr(trial, param.settings.suggest)
                 except AttributeError as ae:
                     msg = f'Invalid Optuna suggest configuration: {ae}'
-                    raise exceptions.DryTorchException(msg)
-                new_value.append(bound_suggest('_'.join([attr_name, str(i)]),
-                                               **param.settings.settings))
+                    raise exceptions.DryTorchError(msg) from ae
+                new_value.append(
+                    bound_suggest(
+                        '_'.join([attr_name, str(i)]), **param.settings.settings
+                    )
+                )
         else:
             try:
                 bound_suggest = getattr(trial, param.suggest)
             except AttributeError as ae:
                 msg = f'Invalid Optuna suggest configuration: {ae}'
-                raise exceptions.DryTorchException(msg)
+                raise exceptions.DryTorchError(msg) from ae
             new_value = bound_suggest(attr_name, **param.settings)
         all_overrides.append(f'{attr_name}={new_value}')
 
@@ -158,11 +161,10 @@ def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
 
 
 def get_final_value(
-        trial: optuna.Trial,
-        filter_fn: Optional[Callable[[Sequence[float]], float]] = None,
+    trial: optuna.Trial,
+    filter_fn: Callable[[Sequence[float]], float] | None = None,
 ) -> float:
-    """
-    Calculates a trial's final value from its intermediate reported values.
+    """Calculates a trial's final value from its intermediate reported values.
 
     This function aggregates the intermediate values reported during trial
     optimization using trial.report().
@@ -189,10 +191,10 @@ def get_final_value(
     frozen_trial = current_study.trials[-1]  # current trial as a FrozenTrial
     if frozen_trial.number != trial.number:
         msg = 'Trial number mismatch.'
-        raise exceptions.DryTorchException(msg)
+        raise exceptions.DryTorchError(msg)
     reported_values = list(frozen_trial.intermediate_values.values())
     if not reported_values:
         msg = 'Optuna Trial has no reported values. Did you use study.optimize?'
-        raise exceptions.DryTorchException(msg)
+        raise exceptions.DryTorchError(msg)
 
     return filter_fn(reported_values)

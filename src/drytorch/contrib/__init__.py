@@ -1,1 +1,1 @@
-"""Contains extension and contributions"""
+"""Contains extension and contributions."""

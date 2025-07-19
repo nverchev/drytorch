@@ -2,16 +2,16 @@
 
 import abc
 import pathlib
-from typing import Optional
 import warnings
 
 import numpy
 import torch
 
-from drytorch import log_events
-from drytorch import exceptions
-from drytorch import experiments
+from typing_extensions import override
+
+from drytorch import exceptions, experiments, log_events
 from drytorch import protocols as p
+
 
 SAFE_GLOBALS = [getattr(numpy.dtypes, name) for name in numpy.dtypes.__all__]
 SAFE_GLOBALS.extend([numpy.core.multiarray.scalar, numpy.dtype])  # type: ignore
@@ -19,16 +19,15 @@ torch.serialization.add_safe_globals(SAFE_GLOBALS)
 
 
 class CheckpointPathManager:
-    """
-    Manage paths for the experiment.
+    """Manage paths for the experiment.
 
     Attributes:
         model: the model whose paths are to be managed.
     """
 
-    def __init__(self,
-                 model: p.ModelProtocol,
-                 root_dir: Optional[pathlib.Path] = None) -> None:
+    def __init__(
+        self, model: p.ModelProtocol, root_dir: pathlib.Path | None = None
+    ) -> None:
         """Constructor.
 
         Args:
@@ -44,8 +43,8 @@ class CheckpointPathManager:
         if self._root_dir is None:
             try:
                 return experiments.Experiment.current().dir
-            except exceptions.NoActiveExperimentError:
-                raise exceptions.AccessOutsideScopeError
+            except exceptions.NoActiveExperimentError as naee:
+                raise exceptions.AccessOutsideScopeError from naee
 
         return self._root_dir
 
@@ -87,6 +86,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     """Abstract class that stores and loads weight for a ModelProtocol class."""
 
     def __init__(self) -> None:
+        """Constructor."""
         self._model: p.ModelProtocol | None = None
         self._optimizer: torch.optim.Optimizer | None = None
 
@@ -105,10 +105,12 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     def load(self, epoch: int = -1) -> None:
         """Load the model and optimizer state dictionaries."""
         self._update_epoch(epoch)
-        log_events.LoadModel(model_name=self.model.name,
-                             definition=self._get_definition(),
-                             location=self._get_location(),
-                             epoch=self.model.epoch)
+        log_events.LoadModel(
+            model_name=self.model.name,
+            definition=self._get_definition(),
+            location=self._get_location(),
+            epoch=self.model.epoch,
+        )
 
     def remove_model(self):
         """Remove registered model."""
@@ -125,25 +127,25 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
-        log_events.SaveModel(model_name=self.model.name,
-                             definition=self._get_definition(),
-                             location=self._get_location(),
-                             epoch=self.model.epoch)
+        log_events.SaveModel(
+            model_name=self.model.name,
+            definition=self._get_definition(),
+            location=self._get_location(),
+            epoch=self.model.epoch,
+        )
 
     def _get_definition(self) -> str:
         return 'model_state' if self.optimizer is None else 'checkpoint'
 
     @abc.abstractmethod
-    def _get_last_saved_epoch(self) -> int:
-        ...
+    def _get_last_saved_epoch(self) -> int: ...
 
     @abc.abstractmethod
-    def _get_location(self) -> str:
-        ...
+    def _get_location(self) -> str: ...
 
     def _update_epoch(self, epoch: int):
         if epoch < -1:
-            ValueError('Epoch must be larger than -1.')
+            raise ValueError('Epoch must be larger than -1.')
         epoch = epoch if epoch >= 0 else self._get_last_saved_epoch()
         self.model.epoch = epoch
 
@@ -151,32 +153,38 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 class LocalCheckpoint(AbstractCheckpoint):
     """Manage locally saving and loading the model state and optimizer."""
 
-    def __init__(self) -> None:
-        super().__init__()
-
     @property
     def paths(self) -> CheckpointPathManager:
         """Path manager for directories and checkpoints."""
         return CheckpointPathManager(self.model)
 
+    @override
     def load(self, epoch: int = -1) -> None:
         super().load(epoch)
         self.model.module.load_state_dict(
-            torch.load(self.paths.state_path,
-                       map_location=self.model.device,
-                       weights_only=True))
+            torch.load(
+                self.paths.state_path,
+                map_location=self.model.device,
+                weights_only=True,
+            )
+        )
         if self.optimizer is not None:
             try:
                 self.optimizer.load_state_dict(
-                    torch.load(self.paths.optimizer_path,
-                               map_location=self.model.device,
-                               weights_only=True),
+                    torch.load(
+                        self.paths.optimizer_path,
+                        map_location=self.model.device,
+                        weights_only=True,
+                    ),
                 )
             except ValueError as ve:
-                warnings.warn(exceptions.OptimizerNotLoadedWarning(ve))
+                warnings.warn(
+                    exceptions.OptimizerNotLoadedWarning(ve), stacklevel=1
+                )
 
         return
 
+    @override
     def save(self) -> None:
         super().save()
         torch.save(self.model.module.state_dict(), self.paths.state_path)
@@ -199,7 +207,7 @@ class LocalCheckpoint(AbstractCheckpoint):
 
     @staticmethod
     def _creation_time(directory: pathlib.Path) -> float:
-        creation_time = 0.
+        creation_time = 0.0
         for file in directory.iterdir():
             creation_time = max(creation_time, file.stat().st_ctime)
 

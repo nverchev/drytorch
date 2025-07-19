@@ -1,5 +1,4 @@
-"""
-Module containing custom logging configurations for the 'drytorch' logger.
+"""Module containing custom logging configurations for the 'drytorch' logger.
 
 It defines and implements a formatter that formats log messages according to
 the levels defined in the INFO_LEVELS variable. By default, it prints to
@@ -13,12 +12,14 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import NamedTuple, Literal, TYPE_CHECKING
-from typing_extensions import override
 import sys
 
-from drytorch import log_events
-from drytorch import tracking
+from typing import TYPE_CHECKING, Literal, NamedTuple
+
+from typing_extensions import override
+
+from drytorch import log_events, tracking
+
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
@@ -27,8 +28,7 @@ logger = logging.getLogger('drytorch')
 
 
 class InfoLevels(NamedTuple):
-    """
-    NamedTuple that defines different levels of information for logging.
+    """NamedTuple that defines different levels of information for logging.
 
     Attributes:
         internal: level for internal logging messages.
@@ -39,6 +39,7 @@ class InfoLevels(NamedTuple):
         training: level for training-related messages.
         test: level for test-related messages.
     """
+
     internal: int
     metrics: int
     epoch: int
@@ -51,17 +52,18 @@ class InfoLevels(NamedTuple):
 class BuiltinLogger(tracking.Tracker):
     """Tracker that streams logging messages through the built-in logger."""
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartTraining) -> None:
-        logger.log(INFO_LEVELS.training,
-                   'Training %(model_name)s started.',
-                   {'model_name': event.model_name,
-                    'source_name': event.source_name})
+        logger.log(
+            INFO_LEVELS.training,
+            'Training %(model_name)s started.',
+            {'model_name': event.model_name, 'source_name': event.source_name},
+        )
         return super().notify(event)
 
     @notify.register
@@ -81,35 +83,42 @@ class BuiltinLogger(tracking.Tracker):
             final_epoch_str = ''
 
         epoch_msg = f'====> Epoch %(epoch){fix_len}d%(final_epoch)s:'
-        logger.log(INFO_LEVELS.epoch,
-                   epoch_msg,
-                   {'epoch': event.epoch, 'final_epoch': final_epoch_str})
+        logger.log(
+            INFO_LEVELS.epoch,
+            epoch_msg,
+            {'epoch': event.epoch, 'final_epoch': final_epoch_str},
+        )
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndEpoch) -> None:
-        logger.log(INFO_LEVELS.internal,
-                   'Epoch completed.')
+        logger.log(INFO_LEVELS.internal, 'Epoch completed.')
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.SaveModel) -> None:
-        logger.log(INFO_LEVELS.model_state,
-                   f'Saving %(name)s %(definition)s in: %(location)s.',
-                   {'name': event.model_name,
-                    'definition': event.definition,
-                    'location': event.location}
-                   )
+        logger.log(
+            INFO_LEVELS.model_state,
+            'Saving %(name)s %(definition)s in: %(location)s.',
+            {
+                'name': event.model_name,
+                'definition': event.definition,
+                'location': event.location,
+            },
+        )
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.LoadModel) -> None:
-        logger.log(INFO_LEVELS.model_state,
-                   f'Loading %(name)s %(definition)s at epoch %(epoch)d.',
-                   {'name': event.model_name,
-                    'definition': event.definition,
-                    'epoch': event.epoch}
-                   )
+        logger.log(
+            INFO_LEVELS.model_state,
+            'Loading %(name)s %(definition)s at epoch %(epoch)d.',
+            {
+                'name': event.model_name,
+                'definition': event.definition,
+                'epoch': event.epoch,
+            },
+        )
         return super().notify(event)
 
     @notify.register
@@ -121,53 +130,59 @@ class BuiltinLogger(tracking.Tracker):
             log_msg_list.append(f'%({metric})s=%({metric}_value)4e')
             log_args.update({metric: metric, f'{metric}_value': value})
 
-        logger.log(INFO_LEVELS.metrics,
-                   '\t'.join(log_msg_list),
-                   log_args)
+        logger.log(INFO_LEVELS.metrics, '\t'.join(log_msg_list), log_args)
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartTest) -> None:
-        logger.log(INFO_LEVELS.test,
-                   'Testing %(model_name)s started.',
-                   {'model_name': event.model_name})
+        logger.log(
+            INFO_LEVELS.test,
+            'Testing %(model_name)s started.',
+            {'model_name': event.model_name},
+        )
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndTest) -> None:
-        logger.log(INFO_LEVELS.internal,
-                   'Test executed without errors.')
+        logger.log(INFO_LEVELS.internal, 'Test executed without errors.')
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.TerminatedTraining) -> None:
-        msg = '. '.join([
-            'Training %(model_name)s terminated at epoch %(epoch)d',
-            'Reason: %(reason)s.',
-        ])
-        log_args = {'model_name': event.model_name,
-                    'reason': event.reason,
-                    'epoch': event.epoch}
+        msg = '. '.join(
+            [
+                'Training %(model_name)s terminated at epoch %(epoch)d',
+                'Reason: %(reason)s.',
+            ]
+        )
+        log_args = {
+            'model_name': event.model_name,
+            'reason': event.reason,
+            'epoch': event.epoch,
+        }
         logger.log(INFO_LEVELS.training, msg, log_args)
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
-        logger.log(INFO_LEVELS.experiment,
-                   'Running experiment: %(name)s.',
-                   {'name': event.exp_name})
+        logger.log(
+            INFO_LEVELS.experiment,
+            'Running experiment: %(name)s.',
+            {'name': event.exp_name},
+        )
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StopExperiment) -> None:
-        logger.log(INFO_LEVELS.internal,
-                   'Experiment: %(name)s stopped.',
-                   {'name': event.exp_name})
+        logger.log(
+            INFO_LEVELS.internal,
+            'Experiment: %(name)s stopped.',
+            {'name': event.exp_name},
+        )
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.UpdateLearningRate) -> None:
-
         message_parts = [
             'Updated %(model_name)s optimizer at epoch %(epoch)d',
         ]
@@ -179,10 +194,12 @@ class BuiltinLogger(tracking.Tracker):
 
         msg = '. '.join(message_parts) + '.'
 
-        log_args = {'model_name': event.model_name,
-                    'epoch': event.epoch,
-                    'learning_rate': event.base_lr,
-                    'scheduler_name': event.scheduler_name}
+        log_args = {
+            'model_name': event.model_name,
+            'epoch': event.epoch,
+            'learning_rate': event.base_lr,
+            'scheduler_name': event.scheduler_name,
+        }
         logger.log(INFO_LEVELS.model_state, msg, log_args)
         return super().notify(event)
 
@@ -197,11 +214,12 @@ class DryTorchFilter(logging.Filter):
 
 class DryTorchFormatter(logging.Formatter):
     """Default formatter for the drytorch logger."""
+
     default_msec_format = ''
 
     @override
     def format(self, record: logging.LogRecord) -> str:
-        self._style._fmt = self._info_fmt(record.levelno)
+        self._style._fmt = self._info_fmt(record.levelno)  # pylint: disable=protected-access
         return super().format(record)
 
     @staticmethod
@@ -235,7 +253,6 @@ def disable_default_handler() -> None:
 
 def enable_default_handler(stream: SupportsWrite[str] = sys.stderr) -> None:
     """Set up the default logging configuration."""
-    global logger
     logger.handlers.clear()
     formatter = DryTorchFormatter()
     stream_handler = logging.StreamHandler(stream)
@@ -249,7 +266,6 @@ def enable_default_handler(stream: SupportsWrite[str] = sys.stderr) -> None:
 
 def disable_propagation() -> None:
     """Revert the changes made by enable_propagation."""
-    global logger
     logger.propagate = False
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
@@ -262,20 +278,21 @@ def disable_propagation() -> None:
 
 
 def enable_propagation(deduplicate_stream: bool = True) -> None:
-    """
-    Propagate to the root logger.
+    """Propagate to the root logger.
 
     Args:
         deduplicate_stream: whether to remove local messages from the stream.
     """
-    global logger
     logger.propagate = True
     if deduplicate_stream:
         root_logger = logging.getLogger()
         for handler in root_logger.handlers:
             if isinstance(handler, logging.StreamHandler):
-                if handler.stream in (h.stream for h in logger.handlers
-                                      if isinstance(h, logging.StreamHandler)):
+                if handler.stream in (
+                    h.stream
+                    for h in logger.handlers
+                    if isinstance(h, logging.StreamHandler)
+                ):
                     handler.addFilter(DryTorchFilter())
 
     return
@@ -283,7 +300,6 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
 
 def set_formatter(style: Literal['drytorch', 'progress']) -> None:
     """Set the formatter for the stream handler of the drytorch logger."""
-    global logger
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
             if style == 'progress':
@@ -303,7 +319,6 @@ def get_verbosity() -> int:
 
 def set_verbosity(level_no: int):
     """Set the verbosity level of the 'drytorch' logger."""
-    global logger
     logger.setLevel(level_no)
     return
 
@@ -312,14 +327,15 @@ def _to_desc(text: str) -> str:
     return text.rjust(15) + ': '
 
 
-INFO_LEVELS = InfoLevels(internal=19,
-                         metrics=21,
-                         epoch=23,
-                         model_state=25,
-                         experiment=27,
-                         training=28,
-                         test=29,
-                         )
+INFO_LEVELS = InfoLevels(
+    internal=19,
+    metrics=21,
+    epoch=23,
+    model_state=25,
+    experiment=27,
+    training=28,
+    test=29,
+)
 for name, level in INFO_LEVELS._asdict().items():
     logging.addLevelName(level, name.center(10))
 

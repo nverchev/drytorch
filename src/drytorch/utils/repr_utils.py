@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 import dataclasses
 import datetime
 import functools
@@ -10,7 +9,9 @@ import itertools
 import math
 import numbers
 import types
-from typing import Any, Optional
+
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 import torch
@@ -18,9 +19,11 @@ import torch
 
 class Versioned:
     """Mixin saving instantiation timestamp."""
+
     ts_fmt = '%Y-%m-%dT%H:%M:%S'
 
     def __init__(self, *args, **kwargs) -> None:
+        """Constructor."""
         self._created_at = datetime.datetime.now().strftime(self.ts_fmt)
         super().__init__(*args, **kwargs)
 
@@ -31,14 +34,15 @@ class Versioned:
 
 
 class DefaultName:
-    """Add a counter to a prefix"""
+    """Add a counter to a prefix."""
 
     def __init__(self):
+        """Constructor."""
         self._prefixes = dict[str, itertools.count]()
 
-    def __get__(self, instance: Any, objtype: Optional[type] = None) -> str:
+    def __get__(self, instance: Any, objtype: type | None = None) -> str:
         """Return the default name for the instance or class."""
-        return instance.__name
+        return instance.__name  # pylint: disable=protected-access
 
     def __set__(self, instance: Any, value: str) -> None:
         """Return the default name for the instance or class."""
@@ -47,7 +51,7 @@ class DefaultName:
         if count_value := next(count_iter):
             value = f'{value}_{count_value}'
 
-        instance.__name = value
+        instance.__name = value  # pylint: disable=unused-private-member, protected-access
         return
 
 
@@ -61,8 +65,7 @@ except (ImportError, ModuleNotFoundError):
 else:
 
     class PandasPrintOptions:
-        """
-        Context manager to temporarily set Pandas display options.
+        """Context manager to temporarily set Pandas display options.
 
         Args:
             precision: number of digits of precision for floating point output.
@@ -70,10 +73,16 @@ else:
             max_columns: maximum number of columns to display.
         """
 
-        def __init__(self,
-                     precision: int = 3,
-                     max_rows: int = 10,
-                     max_columns: int = 10) -> None:
+        def __init__(
+            self, precision: int = 3, max_rows: int = 10, max_columns: int = 10
+        ) -> None:
+            """Constructor.
+
+            Args:
+                precision: see Pandas docs.
+                max_rows: see Pandas docs.
+                max_columns: see Pandas docs.
+            """
             self._options: dict[str, int] = {
                 'display.precision': precision,
                 'display.max_rows': max_rows,
@@ -82,16 +91,20 @@ else:
             self._original_options: dict[str, Any] = {}
 
         def __enter__(self) -> None:
+            """Temporarily modify settings."""
             self._original_options.update(
                 {key: pd.get_option(key) for key in self._options}
             )
             for key, value in self._options.items():
                 pd.set_option(key, value)
 
-        def __exit__(self,
-                     exc_type: None = None,
-                     exc_val: None = None,
-                     exc_tb: None = None) -> None:
+        def __exit__(
+            self,
+            exc_type: None = None,
+            exc_val: None = None,
+            exc_tb: None = None,
+        ) -> None:
+            """Restore original settings."""
             for key, value in self._original_options.items():
                 pd.set_option(key, value)
 
@@ -104,18 +117,18 @@ class LiteralStr(str):
 
 @dataclasses.dataclass(frozen=True)
 class Omitted:
-    """
-    Represent omitted values in an iterable object.
+    """Represent omitted values in an iterable object.
 
     Attributes:
         count: how many elements have been omitted. Defaults to NAN (unknown).
     """
+
     count: float = math.nan
 
 
 def has_own_repr(obj: Any) -> bool:
     """Indicate whether __repr__ has been overridden."""
-    return not obj.__repr__().endswith(str(hex(id(obj))) + '>')
+    return not repr(obj).endswith(str(hex(id(obj))) + '>')
 
 
 def limit_size(container: Iterable, max_size: int) -> list:
@@ -125,11 +138,13 @@ def limit_size(container: Iterable, max_size: int) -> list:
         listed = list(container)
         if len(listed) > max_size:
             omitted = [Omitted(len(listed) - max_size)]
-            listed = listed[:max_size // 2] + omitted + listed[-max_size // 2:]
+            listed = (
+                listed[: max_size // 2] + omitted + listed[-max_size // 2 :]
+            )
 
     else:
         listed = []
-        iter_container = container.__iter__()
+        iter_container = iter(container)
         for _ in range(max_size):
             try:
                 value = next(iter_container)
@@ -145,8 +160,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
 
 @functools.singledispatch
 def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
-    """
-    Function that attempts a hierarchical representation of a given object.
+    """Function that attempts a hierarchical representation of a given object.
 
     It recursively represents each attribute of the object or the contained
     items in tuples, lists, sets, and dictionaries. The latter structures are
@@ -166,8 +180,9 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
     class_name = obj.__class__.__name__
     dict_attr = getattr(obj, '__dict__', {})
     if not dict_attr:
-        dict_attr = {name: getattr(obj, name)
-                     for name in getattr(obj, '__slots__', [])}
+        dict_attr = {
+            name: getattr(obj, name) for name in getattr(obj, '__slots__', [])
+        }
 
     dict_str: dict[str, Any] = {}
     for k, v in dict_attr.items():
@@ -176,7 +191,7 @@ def recursive_repr(obj: object, *, max_size: int = 10) -> Any:
 
         if hasattr(v, '__len__'):
             try:
-                len_v = v.__len__()
+                len_v = len(v)
             except (TypeError, NotImplementedError):
                 continue
             else:
@@ -211,9 +226,9 @@ def _(obj: None, *, max_size: int = 10) -> None:
 
 @recursive_repr.register
 def _(obj: numbers.Number, *, max_size: int = 10) -> numbers.Number:
-    if hasattr(obj, 'item'):
+    if item_method := getattr(obj, 'item', None):
         try:
-            obj = obj.item()
+            obj = item_method()
         except (TypeError, NotImplementedError):
             pass
     _not_used = max_size
@@ -222,27 +237,34 @@ def _(obj: numbers.Number, *, max_size: int = 10) -> numbers.Number:
 
 @recursive_repr.register
 def _(obj: tuple, *, max_size: int = 10) -> tuple:
-    return tuple(recursive_repr(item, max_size=max_size)
-                 for item in limit_size(obj, max_size=max_size))
+    return tuple(
+        recursive_repr(item, max_size=max_size)
+        for item in limit_size(obj, max_size=max_size)
+    )
 
 
 @recursive_repr.register
 def _(obj: list, *, max_size: int = 10) -> list:
-    return [recursive_repr(item, max_size=max_size)
-            for item in limit_size(obj, max_size=max_size)]
+    return [
+        recursive_repr(item, max_size=max_size)
+        for item in limit_size(obj, max_size=max_size)
+    ]
 
 
 @recursive_repr.register
 def _(obj: set, *, max_size: int = 10) -> set:
-    return {recursive_repr(item, max_size=max_size)
-            for item in limit_size(obj, max_size=max_size)}
+    return {
+        recursive_repr(item, max_size=max_size)
+        for item in limit_size(obj, max_size=max_size)
+    }
 
 
 @recursive_repr.register
 def _(obj: dict, *, max_size: int = 10) -> dict[str, Any]:
     out_dict: dict[str, Any] = {
         str(key): recursive_repr(value, max_size=max_size)
-        for key, value in list(obj.items())[:max_size]}
+        for key, value in list(obj.items())[:max_size]
+    }
     if len(obj) > max_size:
         out_dict['...'] = Omitted(len(obj) - max_size)
     return out_dict
@@ -255,9 +277,11 @@ def _(obj: torch.Tensor, *, max_size: int = 10) -> LiteralStr:
 
 
 @recursive_repr.register
-def _(obj: PandasObject,  # type: ignore
-      *,
-      max_size: int = 10) -> LiteralStr:
+def _(
+    obj: PandasObject,  # type: ignore
+    *,
+    max_size: int = 10,
+) -> LiteralStr:
     # only called when Pandas is imported
     with PandasPrintOptions(max_rows=max_size, max_columns=max_size):
         return LiteralStr(obj)
@@ -266,10 +290,12 @@ def _(obj: PandasObject,  # type: ignore
 @recursive_repr.register
 def _(obj: np.ndarray, *, max_size: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
-    with np.printoptions(precision=3,
-                         suppress=True,
-                         threshold=max_size // size_factor,
-                         edgeitems=max_size // (size_factor * 2)):
+    with np.printoptions(
+        precision=3,
+        suppress=True,
+        threshold=max_size // size_factor,
+        edgeitems=max_size // (size_factor * 2),
+    ):
         return LiteralStr(obj)
 
 

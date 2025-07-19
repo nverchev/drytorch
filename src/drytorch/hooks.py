@@ -3,27 +3,26 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Callable, Mapping, Sequence
 import operator
-from typing import Generic, Literal, Optional, ParamSpec, TypeVar, cast
+
+from collections.abc import Callable, Mapping, Sequence
+from typing import Generic, Literal, ParamSpec, TypeVar, cast
 
 from typing_extensions import override
 
-from drytorch import exceptions
-from drytorch import metrics
+from drytorch import exceptions, metrics, schedulers
 from drytorch import protocols as p
-from drytorch import schedulers
 
-_T = TypeVar('_T', contravariant=True)
+
+_T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
 
 get_last = operator.itemgetter(-1)
 
 
-class HookRegistry(Generic[_T]):
-    """
-    A registry for managing and executing hooks.
+class HookRegistry(Generic[_T_contra]):
+    """A registry for managing and executing hooks.
 
     The hooks have a generic object as input and can access it.
 
@@ -33,11 +32,10 @@ class HookRegistry(Generic[_T]):
 
     def __init__(self) -> None:
         """Constructor."""
-        self.hooks: list[Callable[[_T], None]] = []
+        self.hooks: list[Callable[[_T_contra], None]] = []
 
-    def execute(self, input_object: _T) -> None:
-        """
-        Execute the registered hooks in order of registration.
+    def execute(self, input_object: _T_contra) -> None:
+        """Execute the registered hooks in order of registration.
 
         Args:
             input_object: the input to pass to each hook.
@@ -46,9 +44,8 @@ class HookRegistry(Generic[_T]):
             hook(input_object)
         return
 
-    def register(self, hook: Callable[[_T], None]) -> None:
-        """
-        Register a single hook.
+    def register(self, hook: Callable[[_T_contra], None]) -> None:
+        """Register a single hook.
 
         Args:
             hook: the hook to register.
@@ -56,9 +53,11 @@ class HookRegistry(Generic[_T]):
         self.hooks.append(hook)
         return
 
-    def register_all(self, hook_list: list[Callable[[_T], None]]) -> None:
-        """
-        Register multiple hooks.
+    def register_all(
+        self,
+        hook_list: list[Callable[[_T_contra], None]]
+        ) -> None:
+        """Register multiple hooks.
 
         Args:
             hook_list: the list of hooks to register.
@@ -73,8 +72,7 @@ class AbstractHook(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __call__(self, trainer: p.TrainerProtocol) -> None:
-        """
-        Execute the call.
+        """Execute the call.
 
         Args:
             trainer: the trainer to pass to the wrapped function.
@@ -84,11 +82,11 @@ class AbstractHook(metaclass=abc.ABCMeta):
              f: Callable[[AbstractHook], AbstractHook],
              /,
              ) -> AbstractHook:
-        """
-        Allow transformation of the Hook.
+        """Allow transformation of the Hook.
 
         Args:
-            a function specifying the transformation.
+            f: a function specifying the transformation.
+
         Returns:
             the transformed Hook.
         """
@@ -107,8 +105,7 @@ class Hook(AbstractHook):
         self.wrapped = wrapped
 
     def __call__(self, trainer: p.TrainerProtocol) -> None:
-        """
-        Execute the call.
+        """Execute the call.
 
         Args:
             trainer: the trainer to pass to the wrapped function.
@@ -128,8 +125,7 @@ class StaticHook(AbstractHook):
         self.wrapped = wrapped
 
     def __call__(self, trainer: p.TrainerProtocol) -> None:
-        """
-        Execute the call.
+        """Execute the call.
 
         Args:
             trainer: not used.
@@ -141,8 +137,7 @@ class OptionalCallable(Hook, metaclass=abc.ABCMeta):
     """Abstract class for callables that execute based on custom conditions."""
 
     def __call__(self, trainer: p.TrainerProtocol) -> None:
-        """
-        Execute the call.
+        """Execute the call.
 
         Args:
             trainer: the trainer to pass to the wrapped function.
@@ -178,8 +173,7 @@ class CallEvery(OptionalCallable):
 
     @override
     def _should_call(self, trainer: p.TrainerProtocol) -> bool:
-        """
-        Determine if the hook should be called based on the epoch.
+        """Determine if the hook should be called based on the epoch.
 
         Args:
             trainer: the trainer instance containing epoch information.
@@ -195,8 +189,7 @@ def call_every(
         interval: int,
         start: int = 0,
 ) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEvery]:
-    """
-    Create a decorator for periodic hook execution.
+    """Create a decorator for periodic hook execution.
 
     Args:
         start: the epoch to start calling the hook.
@@ -214,11 +207,10 @@ def call_every(
 
 @Hook
 def saving_hook(trainer: p.TrainerProtocol) -> None:
-    """
-    Create a hook that saves the model's checkpoint.
+    """Create a hook that saves the model's checkpoint.
 
     Args:
-        The trainer instance.
+        trainer: the trainer instance.
     """
     trainer.save_checkpoint()
     return
@@ -227,8 +219,7 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
 def static_hook_class(
         cls: Callable[_P, Callable[[], None]]
 ) -> Callable[_P, StaticHook]:
-    """
-    Class decorator to wrap a callable class into a static hook type.
+    """Class decorator to wrap a callable class into a static hook type.
 
     Args:
         cls: a callable class that takes no arguments and returns None.
@@ -237,17 +228,17 @@ def static_hook_class(
         A class that can be instantiated in the same way to have a static hook.
     """
 
-    class StaticHookDecorator(StaticHook):
+    class _StaticHookDecorator(StaticHook):
 
+        @override
         def __init__(self, *args: _P.args, **kwargs: _P.kwargs):
             super().__init__(cls(*args, **kwargs))
 
-    return StaticHookDecorator
+    return _StaticHookDecorator
 
 
 class MetricMonitor:
-    """
-    Handle metric monitoring and alerts when performance stops increasing.
+    """Handle metric monitoring and alerts when performance stops increasing.
 
     Attributes:
         metric_name: name of the metric to monitor.
@@ -260,8 +251,8 @@ class MetricMonitor:
 
     def __init__(
             self,
-            metric: Optional[str | p.ObjectiveProtocol] = None,
-            monitor: Optional[p.EvaluationProtocol] = None,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.EvaluationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -305,13 +296,12 @@ class MetricMonitor:
         self.optional_monitor = monitor
         self.history = list[float]()
         self._patience_countdown = patience
-        self._best_value: Optional[float] = None
+        self._best_value: float | None = None
         return
 
     @property
     def best_value(self) -> float:
-        """
-        Get the best result observed so far.
+        """Get the best result observed so far.
 
         Returns:
             The best filtered value according to the best_is criterion.
@@ -322,8 +312,8 @@ class MetricMonitor:
         if self._best_value is None:
             try:
                 self._best_value = self.history[0]
-            except IndexError:
-                raise exceptions.ResultNotAvailableError()
+            except IndexError as ie:
+                raise exceptions.ResultNotAvailableError() from ie
 
         return self._best_value
 
@@ -335,8 +325,7 @@ class MetricMonitor:
 
     @property
     def filtered_value(self) -> float:
-        """
-        Get the current value.
+        """Get the current value.
 
         Returns:
             The current value aggregated from recent ones.
@@ -347,8 +336,7 @@ class MetricMonitor:
         return self.filter(self.history)
 
     def is_better(self, value: float, reference: float) -> bool:
-        """
-        Determine if the value is better than a reference value.
+        """Determine if the value is better than a reference value.
 
         When best_is is in 'auto' mode, it is assumed that the given value is
         better than the first recorded one.
@@ -377,8 +365,7 @@ class MetricMonitor:
             return reference + self.min_delta < value
 
     def is_improving(self) -> bool:
-        """
-        Determine if the model performance is improving.
+        """Determine if the model performance is improving.
 
         Returns:
             True if there has been an improvement, False otherwise.
@@ -387,7 +374,6 @@ class MetricMonitor:
             If there is no improvement, the patience countdown is reduced.
             Otherwise, it is restored to the maximum.
         """
-
         if len(self.history) <= 1:
             return True
 
@@ -406,8 +392,7 @@ class MetricMonitor:
         return self._patience_countdown > 0
 
     def record_metric_value(self, instance: p.TrainerProtocol) -> None:
-        """
-        Register a new metric value from a monitored evaluation.
+        """Register a new metric value from a monitored evaluation.
 
         If no evaluation is specified, it falls back on the trainer instance
         or if present, the validation instance contained there.
@@ -422,7 +407,7 @@ class MetricMonitor:
         last_metrics = metrics.repr_metrics(monitor.objective)
 
         if self.metric_name is None:
-            self.metric_name = list(last_metrics.keys())[0]
+            self.metric_name = next(iter(last_metrics.keys()))
         elif self.metric_name not in last_metrics:
             raise exceptions.MetricNotFoundError(monitor.name,
                                                  self.metric_name)
@@ -442,8 +427,7 @@ class MetricMonitor:
 
 
 class EarlyStoppingCallback:
-    """
-    Implement early stopping logic for training models.
+    """Implement early stopping logic for training models.
 
     Attributes:
         monitor: monitor instance.
@@ -452,8 +436,8 @@ class EarlyStoppingCallback:
 
     def __init__(
             self,
-            metric: Optional[str | p.ObjectiveProtocol] = None,
-            monitor: Optional[p.EvaluationProtocol] = None,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.EvaluationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -487,8 +471,7 @@ class EarlyStoppingCallback:
         return
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
-        """
-        Evaluate whether training should be stopped early.
+        """Evaluate whether training should be stopped early.
 
         Args:
             instance: Trainer instance to evaluate.
@@ -509,8 +492,7 @@ class EarlyStoppingCallback:
 
 
 class PruneCallback:
-    """
-    Implement pruning logic for training models.
+    """Implement pruning logic for training models.
 
     Attributes:
         monitor: monitor instance.
@@ -520,8 +502,8 @@ class PruneCallback:
     def __init__(
             self,
             thresholds: Mapping[int, float | None],
-            metric: Optional[str | p.ObjectiveProtocol] = None,
-            monitor: Optional[p.EvaluationProtocol] = None,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.EvaluationProtocol | None = None,
             min_delta: float = 1e-8,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
             filter_fn: Callable[[Sequence[float]], float] = get_last,
@@ -554,8 +536,7 @@ class PruneCallback:
         return
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
-        """
-        Evaluate whether training should be stopped early.
+        """Evaluate whether training should be stopped early.
 
         Args:
             instance: trainer instance to evaluate.
@@ -576,8 +557,7 @@ class PruneCallback:
 
 
 class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
-    """
-    Change the learning rate schedule when a metric has stopped improving.
+    """Change the learning rate schedule when a metric has stopped improving.
 
     Attributes:
         monitor: monitor instance.
@@ -586,8 +566,8 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
     def __init__(
             self,
-            metric: Optional[str | p.ObjectiveProtocol] = None,
-            monitor: Optional[p.EvaluationProtocol] = None,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.EvaluationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 0,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -622,8 +602,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
         return
 
     def __call__(self, instance: p.TrainerProtocol) -> None:
-        """
-        Check if there is a plateau and reduce the learning rate if needed.
+        """Check if there is a plateau and reduce the learning rate if needed.
 
         Args:
             instance: Trainer instance to evaluate.
@@ -648,20 +627,19 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     def get_scheduler(self,
                       epoch: int,
                       scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
-        """
-        Modify input scheduler.
+        """Modify input scheduler.
 
         Args:
             epoch: current epoch.
             scheduler: scheduler to be modified.
+
         Returns:
             Modified scheduler.
         """
 
 
 class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
-    """
-    Reduce the learning rate when a metric has stopped improving.
+    """Reduce the learning rate when a metric has stopped improving.
 
     Attributes:
         monitor: monitor instance.
@@ -671,8 +649,8 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
 
     def __init__(
             self,
-            metric: Optional[str | p.ObjectiveProtocol] = None,
-            monitor: Optional[p.EvaluationProtocol] = None,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.EvaluationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 0,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -710,12 +688,12 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     def get_scheduler(self,
                       epoch: int,
                       scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
-        """
-        Modify the input scheduler to scale down the learning rate.
+        """Modify the input scheduler to scale down the learning rate.
 
         Args:
             epoch: not used.
             scheduler: scheduler to be modified.
+
         Returns:
             Modified scheduler.
         """
@@ -723,8 +701,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
 
 
 class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
-    """
-    Restart the scheduling after plateauing.
+    """Restart the scheduling after plateauing.
 
     Attributes:
         monitor: monitor instance.
@@ -734,12 +711,12 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
     def get_scheduler(self,
                       epoch: int,
                       scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
-        """
-        Consider training until now a warm-up and restart scheduling.
+        """Consider training until now a warm-up and restart scheduling.
 
         Args:
             epoch: current epoch.
             scheduler: scheduler to be modified.
+
         Returns:
             Modified scheduler.
         """

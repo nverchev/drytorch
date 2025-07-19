@@ -1,22 +1,23 @@
 """Module containing functions for nested containers."""
 
-from collections.abc import Callable, MutableMapping, MutableSequence
 import copy
-from typing import Any, Type, TypeVar
+
+from collections.abc import Callable, MutableMapping, MutableSequence
+from typing import Any, TypeVar
 
 import torch
 
 from drytorch import exceptions
+
 
 _T = TypeVar('_T')
 _C = TypeVar('_C')
 
 
 def recursive_apply(obj: _C,
-                    expected_type: Type[_T],
+                    expected_type: type[_T],
                     func: Callable[[_T], _T]) -> _C:
-    """
-    Look for an expected type and apply a given function.
+    """Look for an expected type and apply a given function.
 
     The implementation is similar to default_convert in
     github.com/pytorch/pytorch/blob/main/torch/utils/data/_utils/collate.py.
@@ -55,27 +56,26 @@ def recursive_apply(obj: _C,
         for i, value in enumerate(obj):
             sequence[i] = recursive_apply(value, expected_type, func)
 
-        return sequence  # type: ignore
+        return sequence
 
     if isinstance(obj, tuple):
         new = (recursive_apply(item, expected_type, func) for item in obj)
-        if obj.__class__ == tuple:
-            return tuple(list(new))  # type: ignore
+        if obj.__class__ is tuple:
+            return tuple(new)  # type: ignore
 
         try:
             return obj.__class__(*new)  # type: ignore
-        except TypeError:
-            raise exceptions.NamedTupleOnlyError(obj.__class__.__name__)
+        except TypeError as te:
+            raise exceptions.NamedTupleOnlyError(obj.__class__.__name__) from te
 
     raise exceptions.FuncNotApplicableError(func.__name__,
                                             obj.__class__.__name__)
 
 
 def apply(obj: _C,
-          expected_type: Type[_T],
+          expected_type: type[_T],
           func: Callable[[_T], _T]) -> _C:
-    """
-    Extend recursive_apply supports.
+    """Extend recursive_apply supports.
 
     If the input has attributes, it calls recursive_apply, creates a new
     instance and sets the attributes of a new instance to the new values.
@@ -92,8 +92,8 @@ def apply(obj: _C,
     if hasattr(obj, '__dict__'):
         dict_attr.update(obj.__dict__)
 
-    if hasattr(obj, '__slots__'):
-        for key in obj.__slots__:
+    if slots := getattr(obj, '__slots__', None):
+        for key in slots:
             try:
                 dict_attr[key] = getattr(obj, key)
             except AttributeError:  # slotted attributes may not be initialized
@@ -117,8 +117,7 @@ def apply(obj: _C,
 
 
 def apply_to(obj: _C, device: torch.device) -> _C:
-    """
-    Change the device of tensors inside a container.
+    """Change the device of tensors inside a container.
 
     Args:
         obj: container or class containing other containers and tensors.
@@ -135,8 +134,7 @@ def apply_to(obj: _C, device: torch.device) -> _C:
 
 
 def apply_cpu_detach(obj: _C) -> _C:
-    """
-    Detach and store in cpu the tensors inside a container.
+    """Detach and store in cpu the tensors inside a container.
 
     Args:
          obj: container or class containing other containers and tensors.

@@ -1,5 +1,4 @@
-"""
-Module registering models and records when they are called.
+"""Module registering models and records when they are called.
 
 Callers and models are registered in global variables that keep track of the
 experiments at the time of calling. The experiment must be the same. Then the
@@ -13,16 +12,15 @@ from typing import Any
 
 from torch import nn
 
-from drytorch import exceptions
-from drytorch import experiments
+from drytorch import exceptions, experiments
 from drytorch import protocols as p
+
 
 ALL_MODULES = dict[nn.Module, experiments.Experiment]()
 
 
 def record_model_call(source: Any, model: p.ModelProtocol) -> None:
-    """
-    Record metadata in the current experiment.
+    """Record metadata in the current experiment.
 
     Args:
         source: the object to document.
@@ -40,8 +38,7 @@ def record_model_call(source: Any, model: p.ModelProtocol) -> None:
 
 
 def register_model(model: p.ModelProtocol) -> None:
-    """
-    Record mode in the current experiment.
+    """Record mode in the current experiment.
 
     Args:
         model: the model to register.

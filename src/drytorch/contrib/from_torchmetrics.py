@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import runtime_checkable, Protocol, Any, Mapping
+import abc
+
+from collections.abc import Mapping
+from typing import Any, Protocol, runtime_checkable
 
 from drytorch import protocols as p
 from drytorch.metrics import _Tensor
@@ -10,19 +13,17 @@ from drytorch.metrics import _Tensor
 
 @runtime_checkable
 class TorchMetricCompositionalMetricProtocol(Protocol):
-    """
-    Protocol for a compositional metric from torchmetrics.
+    """Protocol for a compositional metric from torchmetrics.
 
     Attributes:
         metric_a: first metric.
         metric_b: second metric.
     """
+
     metric_a: p.ObjectiveProtocol | float | None
     metric_b: p.ObjectiveProtocol | float | None
 
-    def update(self,
-               outputs: _Tensor,
-               targets: _Tensor) -> Any:
+    def update(self, outputs: _Tensor, targets: _Tensor) -> Any:
         """See torchmetrics documentation."""
 
     def reset(self) -> Any:
@@ -31,19 +32,17 @@ class TorchMetricCompositionalMetricProtocol(Protocol):
     def compute(self) -> Mapping[str, _Tensor] | _Tensor | None:
         """See torchmetrics documentation."""
 
-    def forward(self,
-                outputs: _Tensor,
-                targets: _Tensor) -> _Tensor:
+    @abc.abstractmethod
+    def forward(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
         """See torchmetrics documentation."""
 
-    def __call__(self,
-                 outputs: _Tensor,
-                 targets: _Tensor) -> _Tensor:
+    @abc.abstractmethod
+    def __call__(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
         """See torchmetrics documentation."""
 
 
 def from_torchmetrics(
-        metric: TorchMetricCompositionalMetricProtocol
+    metric: TorchMetricCompositionalMetricProtocol,
 ) -> p.LossCalculatorProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a CompositionalMetric for integration."""
 
@@ -55,17 +54,13 @@ def from_torchmetrics(
         def __init__(self, _metric: TorchMetricCompositionalMetricProtocol):
             self.metric = _metric
 
-        def update(self,
-                   outputs: _Tensor,
-                   targets: _Tensor) -> Any:
+        def update(self, outputs: _Tensor, targets: _Tensor) -> Any:
             self.metric.update(outputs, targets)
 
         def reset(self) -> Any:
             self.metric.reset()
 
-        def forward(self,
-                    outputs: _Tensor,
-                    targets: _Tensor) -> _Tensor:
+        def forward(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
             return self.metric(outputs, targets)
 
         def compute(self) -> dict[str, _Tensor]:
@@ -76,7 +71,7 @@ def from_torchmetrics(
                 metric_ = metric_list.pop()
                 if isinstance(metric_, self.metric.__class__):
                     metric_list.extend([metric_.metric_b, metric_.metric_a])
-                elif isinstance(metric_, (float, int)) or metric_ is None:
+                elif isinstance(metric_, float | int) or metric_ is None:
                     continue
                 else:
                     if isinstance(value := metric_.compute(), _Tensor):

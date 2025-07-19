@@ -3,19 +3,17 @@
 import functools
 import pathlib
 import shutil
-from typing import Optional
-from typing_extensions import override
 
 import hydra
 
-from drytorch import exceptions
-from drytorch import log_events
+from typing_extensions import override
+
+from drytorch import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
 class HydraLink(base_classes.Dumper):
-    """
-    Link current Hydra metadata to the experiment.
+    """Link current Hydra metadata to the experiment.
 
     Class Attributes:
         hydra_folder: the folder where the logs are grouped.
@@ -23,11 +21,12 @@ class HydraLink(base_classes.Dumper):
     Attributes:
         hydra_dir: the directory where hydra saves the run.
     """
+
     hydra_folder = 'hydra_runs'
 
-    def __init__(self,
-                 par_dir: Optional[pathlib.Path] = None,
-                 copy_hydra: bool = True) -> None:
+    def __init__(
+        self, par_dir: pathlib.Path | None = None, copy_hydra: bool = True
+    ) -> None:
         """Constructor.
 
         Args:
@@ -42,8 +41,8 @@ class HydraLink(base_classes.Dumper):
         str_dir = hydra_config.runtime.output_dir
         self.hydra_dir = pathlib.Path(str_dir)
         if not self.hydra_dir.exists():
-            raise exceptions.TrackerException(self, 'Hydra has not started.')
-        self._exp_version: Optional[str] = None
+            raise exceptions.TrackerError(self, 'Hydra has not started.')
+        self._exp_version: str | None = None
         self._copy_hydra = copy_hydra
 
     @property
@@ -67,8 +66,8 @@ class HydraLink(base_classes.Dumper):
         self._exp_version = None
         return
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 

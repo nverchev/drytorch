@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
 import dataclasses
-from collections.abc import Iterable, Callable
-from typing import Optional
+
+from abc import abstractmethod
+from collections.abc import Callable, Iterable
 
 import numpy as np
+
+from typing_extensions import override
 
 from drytorch import protocols as p
 
@@ -16,14 +18,15 @@ class AbstractScheduler(p.SchedulerProtocol):
     """Abstract class for the scheduler."""
 
     def __call__(self, base_lr: float, epoch: int) -> float:
-        """
-        Modify the learning rate according to a schedule.
+        """Modify the learning rate according to a schedule.
 
         Args:
             base_lr: initial learning rate.
             epoch: the current epoch.
+
         Returns:
             scheduled value for the learning rate.
+
         Raises:
             ValueError: if base_lr or epoch are non-positive.
         """
@@ -35,11 +38,11 @@ class AbstractScheduler(p.SchedulerProtocol):
              f: Callable[[AbstractScheduler], AbstractScheduler],
              /,
              ) -> AbstractScheduler:
-        """
-        Allow transformation of the scheduler.
+        """Allow transformation of the scheduler.
 
         Args:
-            a function specifying the transformation.
+            f: a function specifying the transformation.
+
         Returns:
             the transformed scheduler.
         """
@@ -47,12 +50,12 @@ class AbstractScheduler(p.SchedulerProtocol):
 
     @abstractmethod
     def _compute(self, start_value: float, epoch: int) -> float:
-        """
-        Compute the scheduled value.
+        """Compute the scheduled value.
 
         Args:
             start_value: value when epoch is 0.
             epoch: variable of the function.
+
         Returns:
             the value for learning rate to use.
         """
@@ -69,8 +72,7 @@ class ConstantScheduler(AbstractScheduler):
 
 @dataclasses.dataclass
 class PolynomialScheduler(AbstractScheduler):
-    """
-    Polynomial learning rate scheduler: f(x) = C0 + C1(1 - x/C2)^C3
+    """Polynomial learning rate scheduler: f(x) = C0 + C1(1 - x/C2)^C3.
 
     C0, C1, C2, C3 are defined so that:
         f(x) = base_value when epoch = 0,
@@ -88,6 +90,7 @@ class PolynomialScheduler(AbstractScheduler):
     min_decay: float = 0.0
 
     def __post_init__(self):
+        """Input Validation."""
         if self.max_epochs <= 0:
             raise ValueError('max_epochs must be positive.')
 
@@ -107,8 +110,7 @@ class PolynomialScheduler(AbstractScheduler):
 
 @dataclasses.dataclass
 class ExponentialScheduler(AbstractScheduler):
-    """
-    Schedule exponential decay: f(x) = C0 + C1(C2^x).
+    """Schedule exponential decay: f(x) = C0 + C1(C2^x).
 
     C0, C1 and C2 are defined so that:
         f(x) = base_value when epoch = 0,
@@ -124,6 +126,7 @@ class ExponentialScheduler(AbstractScheduler):
     min_decay: float = 0.00
 
     def __post_init__(self):
+        """Input Validation."""
         if not 0 < self.exp_decay <= 1:
             raise ValueError('exp_decay must be positive and less than 1.')
 
@@ -137,8 +140,7 @@ class ExponentialScheduler(AbstractScheduler):
 
 @dataclasses.dataclass
 class CosineScheduler(AbstractScheduler):
-    """
-    Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
+    """Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
     C0, C1 and C2 are defined so that:
         f(x) = base_value when epoch = 0 and,
@@ -153,6 +155,7 @@ class CosineScheduler(AbstractScheduler):
     min_decay: float = 0.01
 
     def __post_init__(self):
+        """Input Validation."""
         if self.decay_steps <= 0:
             raise ValueError('decay_steps must be positive.')
 
@@ -170,8 +173,7 @@ class CosineScheduler(AbstractScheduler):
 
 @dataclasses.dataclass
 class RescaleScheduler(AbstractScheduler):
-    """
-    Scale the output of an existing scheduler.
+    """Scale the output of an existing scheduler.
 
     Attributes:
         factor: factor that rescales the value.
@@ -181,6 +183,7 @@ class RescaleScheduler(AbstractScheduler):
     factor: float
 
     def __post_init__(self):
+        """Input Validation."""
         if self.factor <= 0:
             raise ValueError('factor must be positive.')
 
@@ -190,8 +193,7 @@ class RescaleScheduler(AbstractScheduler):
 
 @dataclasses.dataclass
 class RestartScheduler(AbstractScheduler):
-    """
-    Wraps another scheduler to provide periodic restarts.
+    """Wraps another scheduler to provide periodic restarts.
 
     Attributes:
         base_scheduler: the scheduler to restart.
@@ -204,9 +206,10 @@ class RestartScheduler(AbstractScheduler):
     base_scheduler: p.SchedulerProtocol
     restart_interval: int
     restart_fraction: float = 1.0
-    max_restart: Optional[int] = None
+    max_restart: int | None = None
 
     def __post_init__(self):
+        """Input Validation."""
         if self.restart_interval <= 0:
             raise ValueError('restart_interval must be positive.')
 
@@ -228,8 +231,7 @@ class RestartScheduler(AbstractScheduler):
 
 @dataclasses.dataclass
 class WarmupScheduler(AbstractScheduler):
-    """
-    Adds a warmup phase to any scheduler.
+    """Adds a warmup phase to any scheduler.
 
     During warmup, the learning rate increases linearly from 0 to base_lr.
     After warmup, delegates to the wrapped scheduler with adjusted epochs.
@@ -238,10 +240,11 @@ class WarmupScheduler(AbstractScheduler):
         warmup_steps: number of steps (epochs) for the linear warmup phase.
         base_scheduler: the base scheduler to wrap with warmup.
     """
-    base_scheduler: p.SchedulerProtocol = ConstantScheduler()
+    base_scheduler: p.SchedulerProtocol
     warmup_steps: int = 10
 
     def __post_init__(self):
+        """Input Validation."""
         if self.warmup_steps < 0:
             raise ValueError('warmup_steps must be non-negative.')
 
@@ -251,6 +254,7 @@ class WarmupScheduler(AbstractScheduler):
 
         return self.base_scheduler(start_value, epoch - self.warmup_steps)
 
+    @override
     def __repr__(self) -> str:
         wrapped_repr = self.base_scheduler.__repr__()
         return f'{wrapped_repr} with {self.warmup_steps} warm-up steps'
@@ -258,8 +262,7 @@ class WarmupScheduler(AbstractScheduler):
 
 @dataclasses.dataclass
 class StepScheduler(AbstractScheduler):
-    """
-    Step-wise learning rate scheduler.
+    """Step-wise learning rate scheduler.
 
     Reduces learning rate by a factor at specified milestones.
 
@@ -271,6 +274,7 @@ class StepScheduler(AbstractScheduler):
     gamma: float = 0.1
 
     def __post_init__(self):
+        """Input Validation."""
         if not all(m > 0 for m in self.milestones):
             raise ValueError('All milestones must be positive.')
 
@@ -287,8 +291,7 @@ class StepScheduler(AbstractScheduler):
 
 # Decorator functions for functional composition
 def rescale(factor: float) -> Callable[[AbstractScheduler], AbstractScheduler]:
-    """
-    Create a scaling transformation.
+    """Create a scaling transformation.
 
     Args:
         factor: factor that rescales the value.
@@ -307,8 +310,7 @@ def restart(
         restart_interval: int,
         restart_fraction: float = 1.0,
 ) -> Callable[[AbstractScheduler], AbstractScheduler]:
-    """
-    Create a restart transformation.
+    """Create a restart transformation.
 
     Args:
         restart_interval: number of epochs between restarts.
@@ -327,8 +329,7 @@ def restart(
 def warmup(
         warmup_steps: int = 10,
 ) -> Callable[[AbstractScheduler], AbstractScheduler]:
-    """
-    Create a warmup transformation.
+    """Create a warmup transformation.
 
     Args:
         warmup_steps: number of warmup steps.

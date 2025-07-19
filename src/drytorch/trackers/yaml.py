@@ -1,30 +1,31 @@
-"""
-Module containing YAML options and dumper.
+"""Module containing YAML options and dumper.
 
 Attributes:
     MAX_LENGTH_PLAIN_REPR: Maximum length for sequences in plain style.
     MAX_LENGTH_SHORT_REPR: Maximum string length in Sequences in plain style.
 """
 
-from collections.abc import Sequence
 import functools
 import pathlib
-from typing import Any, Optional
-from typing_extensions import override
+
+from collections.abc import Sequence
+from typing import Any
 
 import yaml
+
+from typing_extensions import override
 
 from drytorch import log_events
 from drytorch.trackers import base_classes
 from drytorch.utils import repr_utils
+
 
 MAX_LENGTH_PLAIN_REPR = 30
 MAX_LENGTH_SHORT_REPR = 10
 
 
 class YamlDumper(base_classes.Dumper):
-    """
-    Tracker that dumps metadata in a YAML file.
+    """Tracker that dumps metadata in a YAML file.
 
     Class Attributes:
         metadata_folder: name for the folder that contains metadata.
@@ -33,7 +34,7 @@ class YamlDumper(base_classes.Dumper):
     metadata_folder = 'metadata'
     archive_folder = 'archive'
 
-    def __init__(self, par_dir: Optional[pathlib.Path] = None):
+    def __init__(self, par_dir: pathlib.Path | None = None):
         """Constructor.
 
         Args:
@@ -41,10 +42,10 @@ class YamlDumper(base_classes.Dumper):
                 experiment's one.
         """
         super().__init__(par_dir)
-        self._exp_dir: Optional[pathlib.Path] = None
+        self._exp_dir: pathlib.Path | None = None
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
@@ -92,7 +93,7 @@ def has_short_repr(obj: object,
     if isinstance(obj, repr_utils.LiteralStr):
         return False
     elif isinstance(obj, str):
-        return obj.__len__() <= max_length
+        return len(obj) <= max_length
     elif hasattr(obj, '__len__'):
         return False
 
@@ -119,7 +120,7 @@ def represent_sequence(
         if all(has_short_repr(elem) for elem in sequence):
             flow_style = True
 
-    return dumper.represent_sequence(tag=u'tag:yaml.org,2002:seq',
+    return dumper.represent_sequence(tag='tag:yaml.org,2002:seq',
                                      sequence=sequence,
                                      flow_style=flow_style)
 
@@ -127,7 +128,7 @@ def represent_sequence(
 def represent_omitted(dumper: yaml.Dumper,
                       data: repr_utils.Omitted) -> yaml.MappingNode:
     """YAML representer for omitted values."""
-    return dumper.represent_mapping(u'!Omitted',
+    return dumper.represent_mapping('!Omitted',
                                     {'omitted_elements': data.count})
 
 

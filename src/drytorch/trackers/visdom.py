@@ -1,21 +1,22 @@
 """Module containing a tracker for visualizations on visdom."""
 
 import functools
-from typing import Iterable, Optional, TypedDict
-from typing_extensions import override
+
+from collections.abc import Iterable
+from typing import TypedDict
 
 import numpy as np
 import numpy.typing as npt
 import visdom
 
-from drytorch import exceptions
-from drytorch import log_events
+from typing_extensions import override
+
+from drytorch import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
 class VisdomOpts(TypedDict, total=False):
-    """
-    Annotations for optional settings in visdom.
+    """Annotations for optional settings in visdom.
 
     See: https://github.com/fossasia/visdom/blob/master/py/visdom/__init__.py.
     """
@@ -67,8 +68,7 @@ class VisdomOpts(TypedDict, total=False):
 
 
 class VisdomPlotter(base_classes.BasePlotter[str]):
-    """
-    Tracker that uses visdom as backend.
+    """Tracker that uses visdom as backend.
 
     Attributes:
         server: the address for the visdom server.
@@ -79,11 +79,11 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             self,
             server: str = 'http://localhost',
             port: int = 8097,
-            opts: Optional[VisdomOpts] = None,
+            opts: VisdomOpts | None = None,
             model_names: Iterable[str] = (),
             source_names: Iterable[str] = (),
             metric_names: Iterable[str] = (),
-            metric_loader: Optional[base_classes.MetricLoader] = None,
+            metric_loader: base_classes.MetricLoader | None = None,
             start: int = 1,
     ) -> None:
         """Constructor.
@@ -107,7 +107,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         self.server = server
         self.port = port
         self.opts: VisdomOpts = opts or {}
-        self._viz: Optional[visdom.Visdom] = None
+        self._viz: visdom.Visdom | None = None
 
     @property
     def viz(self) -> visdom.Visdom:
@@ -122,8 +122,8 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         self._viz = None
         return
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
@@ -137,7 +137,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
                                       raise_exceptions=True)
         except ConnectionError as cre:
             msg = 'server not available.'
-            raise exceptions.TrackerException(self, msg) from cre
+            raise exceptions.TrackerError(self, msg) from cre
         else:
             self.viz.close(env=event.exp_name)  # close all the windows
 

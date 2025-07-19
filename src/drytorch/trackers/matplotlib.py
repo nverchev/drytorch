@@ -1,26 +1,31 @@
 """Plotting with matplotlib."""
 
 import math
-from typing import Iterable, Optional, TypeAlias
-from typing_extensions import override
+
+from collections.abc import Iterable
+from typing import TypeAlias
 
 import matplotlib.pyplot as plt
 
+from matplotlib import axes, figure
+from typing_extensions import override
+
 from drytorch.trackers import base_classes
 
-Plot: TypeAlias = tuple[plt.Figure, plt.Axes]
+
+Plot: TypeAlias = tuple[figure.Figure, axes.Axes]
 
 
 class MatPlotter(base_classes.BasePlotter[Plot]):
     """Tracker that organizes metrics as subplots using matplotlib."""
 
     def __init__(
-            self,
-            model_names: Iterable[str] = (),
-            source_names: Iterable[str] = (),
-            metric_names: Iterable[str] = (),
-            metric_loader: Optional[base_classes.MetricLoader] = None,
-            start: int = 1,
+        self,
+        model_names: Iterable[str] = (),
+        source_names: Iterable[str] = (),
+        metric_names: Iterable[str] = (),
+        metric_loader: base_classes.MetricLoader | None = None,
+        start: int = 1,
     ) -> None:
         """Constructor.
 
@@ -32,12 +37,12 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
         """
-        super().__init__(model_names,
-                         source_names,
-                         metric_names,
-                         start,
-                         metric_loader)
-        self._model_figure = dict[str, tuple[plt.Figure, dict[str, plt.Axes]]]()
+        super().__init__(
+            model_names, source_names, metric_names, start, metric_loader
+        )
+        self._model_figure = dict[
+            str, tuple[figure.Figure, dict[str, axes.Axes]]
+        ]()
         plt.ion()
         return
 
@@ -46,11 +51,11 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             n_metrics = len(metric_names)
             n_rows = math.ceil(math.sqrt(n_metrics))
             n_cols = math.ceil(n_metrics / n_rows)
-            fig = plt.Figure()
+            fig = figure.Figure()
             fig.suptitle(model_name, fontsize=16)
             fig.tight_layout()
-            iter_metric = metric_names.__iter__()
-            axes_dict = dict[str, plt.Axes]()
+            iter_metric = iter(metric_names)
+            axes_dict = dict[str, axes.Axes]()
             for row in range(n_rows):
                 for col in range(n_cols):
                     try:
@@ -65,10 +70,12 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             plt.show(block=False)
 
     @override
-    def _plot_metric(self,
-                     model_name: str,
-                     metric_name: str,
-                     **sourced_array: base_classes.NpArray) -> Plot:
+    def _plot_metric(
+        self,
+        model_name: str,
+        metric_name: str,
+        **sourced_array: base_classes.NpArray,
+    ) -> Plot:
         fig, dict_axes = self._model_figure[model_name]
         ax = dict_axes[metric_name]
         for collection in ax.collections[:]:
@@ -82,11 +89,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
                 line.set_ydata(log[:, 1])
             elif log.shape[0] == 1:
                 # Create a scatter plot for a single point
-                ax.scatter(log[:, 0],
-                           log[:, 1],
-                           s=200,
-                           label=name,
-                           marker='D')
+                ax.scatter(log[:, 0], log[:, 1], s=200, label=name, marker='D')
             else:
                 ax.plot(log[:, 0], log[:, 1], label=name)
 

@@ -2,29 +2,28 @@
 
 import functools
 import pathlib
-from typing import Optional
-from typing_extensions import override
 
 import wandb
-from wandb.sdk import wandb_run
-from wandb.sdk import wandb_settings
 
-from drytorch import exceptions
-from drytorch import log_events
+from typing_extensions import override
+from wandb.sdk import wandb_run, wandb_settings
+
+from drytorch import exceptions, log_events
 from drytorch.trackers.base_classes import Dumper
 
 
 class Wandb(Dumper):
-    """
-    Tracker that wraps a run for the wandb library.
-    
+    """Tracker that wraps a run for the wandb library.
+
     Attributes:
         resume_run: resume the previous run from the project.
     """
+    _default_settings = wandb_settings.Settings()
+
     def __init__(
             self,
-            par_dir: Optional[pathlib.Path] = None,
-            settings: wandb_settings.Settings = wandb_settings.Settings(),
+            par_dir: pathlib.Path | None = None,
+            settings: wandb_settings.Settings = _default_settings,
             resume_run: bool = False,
     ) -> None:
         """Constructor.
@@ -54,8 +53,8 @@ class Wandb(Dumper):
         self._run = None
         return
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 

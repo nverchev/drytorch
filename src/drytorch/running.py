@@ -1,38 +1,39 @@
 """Module containing classes that run a model."""
 
+import abc
 import copy
 import sys
-from typing import Iterator, Mapping, Generic, TypeVar
-from typing_extensions import override
 import warnings
 
-from drytorch import exceptions
-from drytorch import loading
-from drytorch import log_events
-from drytorch import metrics
+from collections.abc import Iterator, Mapping
+from typing import Generic, TypeVar
+
+from typing_extensions import override
+
+from drytorch import exceptions, loading, log_events, metrics, registering
 from drytorch import protocols as p
-from drytorch import registering
-from drytorch.utils import apply_ops
-from drytorch.utils import repr_utils
+from drytorch.utils import apply_ops, repr_utils
+
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class ModelCaller(Generic[_Input, _Output]):
-    """
-    Base class that calls a model.
+class ModelCaller(Generic[_Input, _Output], metaclass=abc.ABCMeta):
+    """Base class that calls a model.
 
     Attributes:
         model: the wrapped model.
     """
+
     _name = repr_utils.DefaultName()
 
-    def __init__(self,
-                 model: p.ModelProtocol[_Input, _Output],
-                 name: str = '') -> None:
-        """
+    def __init__(
+        self, model: p.ModelProtocol[_Input, _Output], name: str = ''
+    ) -> None:
+        """Construtor.
+
         Args:
             model: the wrapped model.
             name: the name for the object for logging purposes.
@@ -41,9 +42,11 @@ class ModelCaller(Generic[_Input, _Output]):
         self.model = model
         self._name = name
 
+    @abc.abstractmethod
     def __call__(self):
-        pass
+        """The call implemented by the concrete class."""
 
+    @override
     def __repr__(self) -> str:
         return f'{self.name}({self.model.name})'
 
@@ -54,19 +57,18 @@ class ModelCaller(Generic[_Input, _Output]):
 
 
 class Source(ModelCaller[_Input, _Output], repr_utils.Versioned):
-    """
-    Document itself when the model is first called.
+    """Document itself when the model is first called.
 
     Attributes:
         model: the model containing the weights to evaluate.
     """
 
-    def __init__(self,
-                 model: p.ModelProtocol[_Input, _Output],
-                 name: str = ''):
-        """
+    def __init__(self, model: p.ModelProtocol[_Input, _Output], name: str = ''):
+        """Constructor.
+
         Args:
             model: the model containing the weights to evaluate.
+            name: the name associated to the source.
         """
         super().__init__(model, name)
         self._registered = False
@@ -83,24 +85,25 @@ class Source(ModelCaller[_Input, _Output], repr_utils.Versioned):
 
 
 class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
-    """
-    Run a model on a dataset.
+    """Run a model on a dataset.
 
     Attributes:
         model: the model to run.
         loader: the loader providing inputs and targets in batches.
         outputs_list: list of optionally stored outputs.
     """
+
     max_stored_output: int = sys.maxsize
 
     def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            name: str = '',
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        self,
+        model: p.ModelProtocol[_Input, _Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[_Input, _Target]],
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             model: the model to run.
             name: the name for the object for logging purposes.
@@ -115,8 +118,7 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
         return
 
     def __call__(self, store_outputs: bool = False) -> None:
-        """
-        Single pass on the dataset.
+        """Single pass on the dataset.
 
         Args:
             store_outputs: whether to store model outputs. Defaults to False.
@@ -126,16 +128,22 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
         return
 
     def _get_batches(self) -> Iterator[tuple[_Input, _Target]]:
-        return (apply_ops.apply_to(batch, self.model.device)
-                for batch in self.loader)
+        return (
+            apply_ops.apply_to(batch, self.model.device)
+            for batch in self.loader
+        )
 
     def _get_metrics(self) -> Mapping[str, float]:
         return {}
 
     def _run_backward(self, outputs: _Output, targets: _Target) -> None:
+        _not_used = outputs, targets
         return
 
-    def _run_batch(self, batch: tuple[_Input, _Target], ) -> _Output:
+    def _run_batch(
+        self,
+        batch: tuple[_Input, _Target],
+    ) -> _Output:
         inputs, targets = batch
         outputs = self._run_forward(inputs)
         self._run_backward(outputs, targets)
@@ -143,11 +151,10 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
 
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
-        num_samples = loading.check_dataset_length(self.loader.dataset)
-        pbar = log_events.IterateBatch(self.name,
-                                       self.loader.batch_size,
-                                       len(self.loader),
-                                       num_samples)
+        num_samples = loading.validate_dataset_length(self.loader.dataset)
+        pbar = log_events.IterateBatch(
+            self.name, self.loader.batch_size, len(self.loader), num_samples
+        )
         for batch in self._get_batches():
             outputs = self._run_batch(batch)
             pbar.update(self._get_metrics())
@@ -160,16 +167,19 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
     def _store(self, outputs: _Output) -> None:
         try:
             outputs = apply_ops.apply_cpu_detach(outputs)
-        except (exceptions.FuncNotApplicableError,
-                exceptions.NamedTupleOnlyError) as err:
-            warnings.warn(exceptions.CannotStoreOutputWarning(err))
+        except (
+            exceptions.FuncNotApplicableError,
+            exceptions.NamedTupleOnlyError,
+        ) as err:
+            warnings.warn(
+                exceptions.CannotStoreOutputWarning(err), stacklevel=3
+            )
         else:
             self.outputs_list.append(outputs)
 
 
 class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
-    """
-    Run a model on a dataset and calculate the value of an objective function.
+    """Run a model on a dataset, calculating the value of an objective function.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -179,14 +189,15 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
     """
 
     def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            name: str = '',
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            objective: p.ObjectiveProtocol[_Output, _Target],
+        self,
+        model: p.ModelProtocol[_Input, _Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        objective: p.ObjectiveProtocol[_Output, _Target],
     ) -> None:
-        """
+        """Constructor.
+
         Args:
             model: the model containing the weights to evaluate.
             name: the name for the object for logging purposes.
@@ -217,10 +228,10 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
         return
 
 
-class ModelRunnerWithLogs(ModelRunnerWithObjective[_Input, _Target, _Output],
-                          Source):
-    """
-    Run a model on a dataset and log the value of an objective function.
+class ModelRunnerWithLogs(
+    ModelRunnerWithObjective[_Input, _Target, _Output], Source
+):
+    """Run a model on a dataset and log the value of an objective function.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -231,8 +242,10 @@ class ModelRunnerWithLogs(ModelRunnerWithObjective[_Input, _Target, _Output],
 
     def _run_epoch(self, store_outputs: bool):
         super()._run_epoch(store_outputs)
-        log_events.Metrics(model_name=self.model.name,
-                           source_name=self.name,
-                           epoch=self.model.epoch,
-                           metrics=self._get_metrics())
+        log_events.Metrics(
+            model_name=self.model.name,
+            source_name=self.name,
+            epoch=self.model.epoch,
+            metrics=self._get_metrics(),
+        )
         return

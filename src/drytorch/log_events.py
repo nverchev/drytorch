@@ -2,26 +2,29 @@
 
 from __future__ import annotations
 
-import abc
-from collections.abc import Callable
 import dataclasses
 import pathlib
-from typing import Any, Optional, Mapping
+
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from drytorch import exceptions
 
 
-class Event(metaclass=abc.ABCMeta):
+class Event:
     """Class for logging events."""
-    _auto_publish: Optional[Callable[[Event], None]] = None
 
-    def __post_init__(self):
-        if self.__class__._auto_publish is None:
+    _auto_publish: Callable[[Event], None] | None = None
+
+    def __post_init__(self) -> None:
+        """Forces the event to be created in a scope (see module experiment)."""
+        if self._auto_publish is None:
             raise exceptions.AccessOutsideScopeError()
-        self.__class__._auto_publish(self)
+        self._auto_publish(self)  # pylint: disable=not-callable
+        return
 
     @classmethod
-    def set_auto_publish(cls, func: Optional[Callable[[Event], None]]) -> None:
+    def set_auto_publish(cls, func: Callable[[Event], None] | None) -> None:
         """Specify how to notify subscribers upon creation."""
         cls._auto_publish = func
         return
@@ -29,8 +32,7 @@ class Event(metaclass=abc.ABCMeta):
 
 @dataclasses.dataclass
 class StartExperiment(Event):
-    """
-    Event logged when an experiment starts.
+    """Event logged when an experiment starts.
 
     Attributes:
         exp_name: the name of the experiment.
@@ -38,6 +40,7 @@ class StartExperiment(Event):
         exp_dir: the directory where the experiment is stored.
         config: configuration for the experiment.
     """
+
     exp_name: str
     exp_version: str
     exp_dir: pathlib.Path
@@ -46,25 +49,25 @@ class StartExperiment(Event):
 
 @dataclasses.dataclass
 class StopExperiment(Event):
-    """
-    Event logged when an experiment stops.
+    """Event logged when an experiment stops.
 
     Attributes:
         exp_name: the name of the experiment.
     """
+
     exp_name: str
 
 
 @dataclasses.dataclass
 class ModelCreation(Event):
-    """
-    Event logged when a model is created.
+    """Event logged when a model is created.
 
     Attributes:
         model_name: the name of the model.
         model_version: the version of the model.
         metadata: Additional metadata about the model.
     """
+
     model_name: str
     model_version: str
     metadata: dict[str, Any]
@@ -72,8 +75,7 @@ class ModelCreation(Event):
 
 @dataclasses.dataclass
 class CallModel(Event):
-    """
-    Event logged when a model is called by another class (caller).
+    """Event logged when a model is called by another class (caller).
 
     Attributes:
         source_name: the name of the caller.
@@ -82,6 +84,7 @@ class CallModel(Event):
         model_version: the version of the model called.
         metadata: additional metadata about the caller.
     """
+
     source_name: str
     source_version: str
     model_name: str
@@ -91,8 +94,7 @@ class CallModel(Event):
 
 @dataclasses.dataclass
 class SaveModel(Event):
-    """
-    Event logged when a checkpoint is saved.
+    """Event logged when a checkpoint is saved.
 
     Attributes:
         model_name: the name of the model.
@@ -100,6 +102,7 @@ class SaveModel(Event):
         location: the location where the model is saved.
         epoch: the epoch at which the model was saved.
     """
+
     model_name: str
     definition: str
     location: str
@@ -116,6 +119,7 @@ class LoadModel(Event):
         location: the location where the model is loaded from.
         epoch: the epoch at which the model was loaded.
     """
+
     model_name: str
     definition: str
     location: str
@@ -124,8 +128,7 @@ class LoadModel(Event):
 
 @dataclasses.dataclass
 class StartTraining(Event):
-    """
-    Event logged when training starts.
+    """Event logged when training starts.
 
     Attributes:
         source_name: the object that is training a model.
@@ -133,6 +136,7 @@ class StartTraining(Event):
         start_epoch: the starting epoch of the training.
         end_epoch: the ending epoch of the training.
     """
+
     source_name: str
     model_name: str
     start_epoch: int
@@ -141,8 +145,7 @@ class StartTraining(Event):
 
 @dataclasses.dataclass
 class StartEpoch(Event):
-    """
-    Event logged when an epoch starts.
+    """Event logged when an epoch starts.
 
     Attributes:
         source_name: the name of the object that is training a model.
@@ -150,22 +153,23 @@ class StartEpoch(Event):
         epoch: the epoch number.
         end_epoch: the final epoch number for the current training session.
     """
+
     source_name: str
     model_name: str
     epoch: int
-    end_epoch: Optional[int] = None
+    end_epoch: int | None = None
 
 
 @dataclasses.dataclass
 class EndEpoch(Event):
-    """
-    Event logged when an epoch ends.
+    """Event logged when an epoch ends.
 
-    Attributes
+    Attributes:
         source_name: the name of the object that is training a model.
         model_name: the name of the model.
         epoch: the epoch that was trained.
     """
+
     source_name: str
     model_name: str
     epoch: int
@@ -173,8 +177,7 @@ class EndEpoch(Event):
 
 @dataclasses.dataclass
 class IterateBatch(Event):
-    """
-    Event logged to create during batch iteration.
+    """Event logged to create during batch iteration.
 
     Attributes:
         source_name: the object calling the iteration.
@@ -183,17 +186,17 @@ class IterateBatch(Event):
         dataset_size: the size of the dataset.
         push_updates: callbacks from loggers that require push updates.
     """
+
     source_name: str
     batch_size: int | None
     num_iter: int
     dataset_size: int
-    push_updates: list[
-        Callable[[Mapping[str, Any]], None]
-    ] = dataclasses.field(default_factory=list)
+    push_updates: list[Callable[[Mapping[str, Any]], None]] = dataclasses.field(
+        default_factory=list
+    )
 
     def update(self, metrics: Mapping[str, Any]) -> None:
-        """
-        Push the updated metrics to the loggers.
+        """Push the updated metrics to the loggers.
 
         Args:
             metrics: calculated values by metric name.
@@ -205,8 +208,7 @@ class IterateBatch(Event):
 
 @dataclasses.dataclass
 class TerminatedTraining(Event):
-    """
-    Event logged when training is terminated.
+    """Event logged when training is terminated.
 
     Attributes:
         source_name: the name object calling the termination.
@@ -214,6 +216,7 @@ class TerminatedTraining(Event):
         epoch: the epoch at which training was terminated.
         reason: the cause of the termination.
     """
+
     source_name: str
     model_name: str
     epoch: int
@@ -222,46 +225,44 @@ class TerminatedTraining(Event):
 
 @dataclasses.dataclass
 class EndTraining(Event):
-    """
-    Event logged when training ends.
+    """Event logged when training ends.
 
     Attributes:
         source_name: The name of the object that is training a model.
     """
+
     source_name: str
-    pass
 
 
 @dataclasses.dataclass
 class StartTest(Event):
-    """
-    Event logged when a test is started.
+    """Event logged when a test is started.
 
     Attributes:
         source_name: the name of the object calling the test.
         model_name: the name of the model.
     """
+
     source_name: str
     model_name: str
 
 
 @dataclasses.dataclass
 class EndTest(Event):
-    """
-    Event logged when a test is ended.
+    """Event logged when a test is ended.
 
     Attributes:
         source_name: the name of the object calling the test.
         model_name: the name of the model.
     """
+
     source_name: str
     model_name: str
 
 
 @dataclasses.dataclass
 class Metrics(Event):
-    """
-    Event logged when metrics from the dataset are aggregated.
+    """Event logged when metrics from the dataset are aggregated.
 
     Attributes:
         model_name: the name of the model.
@@ -269,6 +270,7 @@ class Metrics(Event):
         epoch: the number of epochs the model was trained.
         metrics: the aggregated metrics.
     """
+
     model_name: str
     source_name: str
     epoch: int
@@ -277,8 +279,7 @@ class Metrics(Event):
 
 @dataclasses.dataclass
 class UpdateLearningRate(Event):
-    """
-    Event logged when the learning rate is updated.
+    """Event logged when the learning rate is updated.
 
     Attributes:
         model_name: the name of the model.
@@ -287,8 +288,9 @@ class UpdateLearningRate(Event):
         base_lr: new value(s) for the learning rate(s).
         scheduler_name: the representation of the scheduler.
     """
+
     model_name: str
     source_name: str
     epoch: int
-    base_lr: Optional[Mapping[str, float] | float] = None
-    scheduler_name: Optional[str] = None
+    base_lr: Mapping[str, float] | float | None = None
+    scheduler_name: str | None = None

@@ -4,25 +4,25 @@ from __future__ import annotations
 
 import datetime
 import functools
-from typing import Optional, cast
-from typing_extensions import override
 import warnings
 
-import sqlalchemy
-from sqlalchemy import orm
+from typing import cast
 
-from drytorch import exceptions
-from drytorch import log_events
+import sqlalchemy
+
+from sqlalchemy import orm, sql
+from typing_extensions import override
+
+from drytorch import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
 class Base(orm.DeclarativeBase):
-    ...
+    """Base class for tables."""
 
 
 class Run(orm.MappedAsDataclass, Base):
-    """
-    Table for runs.
+    """Table for runs.
 
     A new run is created for each experiment scope, unless specified.
 
@@ -31,6 +31,7 @@ class Run(orm.MappedAsDataclass, Base):
         experiments: the list of experiments in the same run
         sources: the list of sources from experiments
     """
+
     __tablename__ = 'runs'
     run_id: orm.Mapped[int] = orm.mapped_column(
         init=False,
@@ -48,8 +49,7 @@ class Run(orm.MappedAsDataclass, Base):
 
 
 class Experiment(orm.MappedAsDataclass, Base):
-    """
-    Table for experiments.
+    """Table for experiments.
 
     Attributes:
         experiment_id: the unique id for the table.
@@ -58,6 +58,7 @@ class Experiment(orm.MappedAsDataclass, Base):
         run_id: the id of the run for the experiment.
         run: the entry for the run for the experiment.
     """
+
     __tablename__ = 'experiments'
     experiment_id: orm.Mapped[int] = orm.mapped_column(
         init=False,
@@ -74,8 +75,7 @@ class Experiment(orm.MappedAsDataclass, Base):
 
 
 class Source(orm.MappedAsDataclass, Base):
-    """
-    Table for sources.
+    """Table for sources.
 
     Attributes:
         source_id: the unique id for the table.
@@ -87,6 +87,7 @@ class Source(orm.MappedAsDataclass, Base):
         run: the entry for the run for the experiment.
         logs: the list of logs originating from the source.
     """
+
     __tablename__ = 'sources'
     source_id: orm.Mapped[int] = orm.mapped_column(
         init=False,
@@ -109,8 +110,7 @@ class Source(orm.MappedAsDataclass, Base):
 
 
 class Log(orm.MappedAsDataclass, Base):
-    """
-    Table for the logs of the metrics.
+    """Table for the logs of the metrics.
 
     Attributes:
         log_id: the unique id for the table.
@@ -121,6 +121,7 @@ class Log(orm.MappedAsDataclass, Base):
         value: the value of the metric.
         created_at: the timestamp for the entry creation.
     """
+
     __tablename__ = 'logs'
 
     log_id: orm.Mapped[int] = orm.mapped_column(
@@ -140,13 +141,12 @@ class Log(orm.MappedAsDataclass, Base):
     value: orm.Mapped[float] = orm.mapped_column()
     created_at: orm.Mapped[datetime.datetime] = orm.mapped_column(
         init=False,
-        insert_default=sqlalchemy.func.now()
+        insert_default=sql.func.now(),  # pylint: disable=not-callable
     )
 
 
 class SQLConnection(base_classes.MetricLoader):
-    """
-    Tracker that creates a connection to a SQL database using sqlalchemy.
+    """Tracker that creates a connection to a SQL database using sqlalchemy.
 
     Class Attributes:
         default_url: by default, it creates a local sqlite database.
@@ -156,13 +156,16 @@ class SQLConnection(base_classes.MetricLoader):
         Session: the Session class to initiate a sqlalchemy session.
         resume_run: resume the previous run instead of creating a new one.
     """
+
     default_url = sqlalchemy.URL.create('sqlite', database='metrics.db')
 
-    def __init__(self,
-                 engine: Optional[sqlalchemy.Engine] = None,
-                 resume_run: bool = False) -> None:
+    def __init__(
+        self,
+        engine: sqlalchemy.Engine | None = None,
+        resume_run: bool = False,
+    ) -> None:
+        """Constructor.
 
-        """
         Args:
             engine: the engine for the session. Default uses default_url.
             resume_run: whether to resume the previous run.
@@ -170,7 +173,7 @@ class SQLConnection(base_classes.MetricLoader):
         super().__init__()
         self.engine = engine or sqlalchemy.create_engine(self.default_url)
         Base.metadata.create_all(bind=self.engine)
-        self.Session = orm.sessionmaker(bind=self.engine)
+        self.session_factory = orm.sessionmaker(bind=self.engine)
         self.resume_run = resume_run
         self._run: Run | None = None
         self._sources = dict[str, Source]()
@@ -189,28 +192,30 @@ class SQLConnection(base_classes.MetricLoader):
         self._sources = {}
         return
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
-        with self.Session() as session:
+        with self.session_factory() as session:
             if self.resume_run:
                 run_or_none = self._get_last_run(event.exp_name)
                 if run_or_none is None:
                     msg = 'SQLConnection: No previous runs. Starting a new one.'
-                    warnings.warn(msg)
+                    warnings.warn(msg, stacklevel=2)
 
                 self._run = run_or_none
 
             if self._run is None:
                 self._run = Run()
 
-            experiment = Experiment(experiment_name=event.exp_name,
-                                    experiment_version=event.exp_version,
-                                    run=self.run)
+            experiment = Experiment(
+                experiment_name=event.exp_name,
+                experiment_version=event.exp_version,
+                run=self.run,
+            )
             session.add(experiment)
             session.commit()
 
@@ -223,7 +228,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.CallModel) -> None:
-        with self.Session() as session:
+        with self.session_factory() as session:
             run = session.merge(self.run)
             source = Source(
                 model_name=event.model_name,
@@ -239,24 +244,26 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.Metrics) -> None:
-        with self.Session() as session:
+        with self.session_factory() as session:
             if event.source_name not in self._sources:
                 msg = f'Source {event.source_name} has not been registered.'
-                raise exceptions.TrackerException(self, msg)
+                raise exceptions.TrackerError(self, msg)
 
             source = session.merge(self._sources[event.source_name])
-            for i, (metric_name, value) in enumerate(event.metrics.items()):
-                new_row = Log(source=source,
-                              epoch=event.epoch,
-                              metric_name=metric_name,
-                              value=value)
+            for metric_name, value in event.metrics.items():
+                new_row = Log(
+                    source=source,
+                    epoch=event.epoch,
+                    metric_name=metric_name,
+                    value=value,
+                )
                 session.add(new_row)
 
             session.commit()
         return super().notify(event)
 
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
-        with self.Session() as session:
+        with self.session_factory() as session:
             run = session.merge(self.run)
             query = session.query(Source).where(
                 Source.run_id.is_(run.run_id),
@@ -270,26 +277,30 @@ class SQLConnection(base_classes.MetricLoader):
 
             if not named_sources:
                 msg = f'No sources for model {model_name}.'
-                raise exceptions.TrackerException(self, msg)
+                raise exceptions.TrackerError(self, msg)
 
             return named_sources
 
     def _get_last_run(self, exp_name: str) -> Run | None:
-        with self.Session() as session:
-            query = sqlalchemy.select(Run).join(Experiment).where(
-                Experiment.experiment_name.is_(exp_name)
-            ).order_by(Run.run_id.desc()).limit(1)
+        with self.session_factory() as session:
+            query = (
+                sqlalchemy.select(Run)
+                .join(Experiment)
+                .where(Experiment.experiment_name.is_(exp_name))
+                .order_by(Run.run_id.desc())
+                .limit(1)
+            )
             return session.scalars(query).first()
 
     def _get_run_metrics(
-            self,
-            sources: list[Source],
-            max_epoch: int,
+        self,
+        sources: list[Source],
+        max_epoch: int,
     ) -> base_classes.HistoryMetrics:
-        with self.Session() as session:
+        with self.session_factory() as session:
             sources = [session.merge(source) for source in sources]
             query = session.query(Log).where(
-                Log.source_id.in_((source.source_id for source in sources)),
+                Log.source_id.in_(source.source_id for source in sources),
             )
             if max_epoch != -1:
                 query = query.where(Log.epoch <= max_epoch)
@@ -309,19 +320,20 @@ class SQLConnection(base_classes.MetricLoader):
         for next_name, next_epochs in named_epochs.items():
             if epochs and epochs != next_epochs:
                 msg = f'{name} and {next_name} logs refer to different epochs.'
-                raise exceptions.TrackerException(self, msg)
+                raise exceptions.TrackerError(self, msg)
             epochs = next_epochs
             name = next_name
 
         return epochs, named_metric_values
 
-    def _load_metrics(self,
-                      model_name: str,
-                      max_epoch: int = -1) -> base_classes.SourcedMetrics:
+    def _load_metrics(
+        self, model_name: str, max_epoch: int = -1
+    ) -> base_classes.SourcedMetrics:
         last_sources = self._find_sources(model_name)
         out: base_classes.SourcedMetrics = {}
         for source_name, run_sources in last_sources.items():
-            out[source_name] = self._get_run_metrics(run_sources,
-                                                     max_epoch=max_epoch)
+            out[source_name] = self._get_run_metrics(
+                run_sources, max_epoch=max_epoch
+            )
 
         return out

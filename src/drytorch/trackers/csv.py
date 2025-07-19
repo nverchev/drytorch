@@ -3,17 +3,16 @@
 import csv
 import functools
 import pathlib
-from typing import Optional
 
 from typing_extensions import override
 
-from drytorch import exceptions
-from drytorch import log_events
+from drytorch import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
 class DryTorchDialect(csv.Dialect):
     """Dialect similar to excel that converts numbers to floats."""
+
     delimiter = ','
     quotechar = '"'
     doublequote = True
@@ -22,10 +21,8 @@ class DryTorchDialect(csv.Dialect):
     quoting = csv.QUOTE_NONNUMERIC
 
 
-class CSVDumper(base_classes.Dumper,
-                base_classes.MetricLoader):
-    """
-    Dump metrics into a CSV file.
+class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
+    """Dump metrics into a CSV file.
 
     Class Attributes:
         folder_name: name of the folder containing the output.
@@ -33,12 +30,16 @@ class CSVDumper(base_classes.Dumper,
     Attributes:
         resume_run: load previous session having the same directory.
     """
-    folder_name = 'csv_metrics'
 
-    def __init__(self,
-                 par_dir: Optional[pathlib.Path] = None,
-                 dialect: csv.Dialect = DryTorchDialect(),
-                 resume_run: bool = False) -> None:
+    folder_name = 'csv_metrics'
+    _default_dialect = DryTorchDialect()
+
+    def __init__(
+        self,
+        par_dir: pathlib.Path | None = None,
+        dialect: csv.Dialect = _default_dialect,
+        resume_run: bool = False,
+    ) -> None:
         """Constructor.
 
         Args:
@@ -51,12 +52,11 @@ class CSVDumper(base_classes.Dumper,
         self.resume_run = resume_run
         self._active_sources = set[str]()
         self._dialect = dialect
-        self._exp_dir: Optional[pathlib.Path] = None
+        self._exp_dir: pathlib.Path | None = None
         self._base_headers = ('Model', 'Source', 'Epoch')
 
     def file_name(self, model_name: str, source_name: str) -> pathlib.Path:
-        """
-        Return the path to the csv file.
+        """Return the path to the csv file.
 
         Args:
             model_name: the name of the model.
@@ -68,8 +68,8 @@ class CSVDumper(base_classes.Dumper,
         path = self._get_folder_path(model_name)
         return (path / source_name).with_suffix('.csv')
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
 
@@ -84,9 +84,11 @@ class CSVDumper(base_classes.Dumper,
                     reader = csv.reader(log, dialect=self._dialect)
                     previous_headers = tuple(next(reader))
                     if headers != previous_headers:
-                        msg = (f'Current {headers=} and previous headers='
-                               f'{previous_headers} do not correspond')
-                        raise exceptions.TrackerException(self, msg)
+                        msg = (
+                            f'Current {headers=} and previous headers='
+                            f'{previous_headers} do not correspond'
+                        )
+                        raise exceptions.TrackerError(self, msg)
 
             else:
                 with file_address.open('w') as log:  # reset the file.
@@ -96,24 +98,29 @@ class CSVDumper(base_classes.Dumper,
             self._active_sources.add(event.source_name)
         with file_address.open('a') as log:
             writer = csv.writer(log, dialect=self._dialect)
-            writer.writerow([event.model_name,
-                             event.source_name,
-                             event.epoch,
-                             *event.metrics.values()])
+            writer.writerow(
+                [
+                    event.model_name,
+                    event.source_name,
+                    event.epoch,
+                    *event.metrics.values(),
+                ]
+            )
         return super().notify(event)
 
-    def read_csv(self,
-                 model_name: str,
-                 source: str,
-                 max_epoch: int = -1,
-                 ) -> base_classes.HistoryMetrics:
-        """
-        Read the CSV file associated with the given model and source.
+    def read_csv(
+        self,
+        model_name: str,
+        source: str,
+        max_epoch: int = -1,
+    ) -> base_classes.HistoryMetrics:
+        """Read the CSV file associated with the given model and source.
 
         Args:
             model_name: the name of the model.
             source: the source of the metrics.
             max_epoch: the maximum number of epochs to load. Defaults to all.
+
         Returns:
             Epochs and relative value for each metric.
         """
@@ -136,7 +143,9 @@ class CSVDumper(base_classes.Dumper,
                     continue
 
                 epochs.append(epoch)
-                for metric, value in zip(metric_names, row[len_base:]):
+                for metric, value in zip(
+                    metric_names, row[len_base:], strict=True
+                ):
                     value_list = named_metric_values.setdefault(metric, [])
                     value_list.append(float(value))
 
@@ -152,14 +161,13 @@ class CSVDumper(base_classes.Dumper,
         named_sources = {file.stem for file in path.glob('*.csv')}
         if not named_sources:
             msg = f'No sources for model {model_name}.'
-            raise exceptions.TrackerException(self, msg)
+            raise exceptions.TrackerError(self, msg)
 
         return named_sources
 
-    def _load_metrics(self,
-                      model_name: str,
-                      max_epoch: int = -1) -> base_classes.SourcedMetrics:
-
+    def _load_metrics(
+        self, model_name: str, max_epoch: int = -1
+    ) -> base_classes.SourcedMetrics:
         out: base_classes.SourcedMetrics = {}
 
         if self.resume_run:
