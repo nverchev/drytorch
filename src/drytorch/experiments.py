@@ -134,21 +134,15 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
     metadata_manager: tracking.MetadataManager
     trackers: tracking.EventDispatcher
 
-    def __init__(
-        self,
-        *args: Any,
-        specs: _U_co | None = None,
-        **kwargs: Any,
-    ) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Constructor.
 
         Args:
             args: positional arguments to pass on.
-            specs: specifications for the experiment.
             kwargs: keyword arguments to pass on.
         """
         super().__init__(*args, **kwargs)
-        self.specs: _U_co | None = specs
+        self.specs: _U_co | None = None
 
     @classmethod
     @abc.abstractmethod
@@ -177,5 +171,5 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
         )
         instance.metadata_manager = base_exp.metadata_manager
         instance.trackers = base_exp.trackers
-        instance.specs = specs  # here to make it independent of mro
+        instance.specs = specs
         return instance
