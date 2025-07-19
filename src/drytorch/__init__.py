@@ -23,7 +23,7 @@ from typing import Literal, TypeGuard
 
 from drytorch.evaluating import Diagnostic, Evaluation, Test
 from drytorch.exceptions import FailedOptionalImportWarning
-from drytorch.experiments import Experiment, Specs
+from drytorch.experiments import Experiment, SpecsMixin
 from drytorch.learning import LearningScheme
 from drytorch.loading import DataLoader
 from drytorch.metrics import Loss, Metric
@@ -65,7 +65,7 @@ __all__ = [
     'Loss',
     'Metric',
     'Model',
-    'Specs',
+    'SpecsMixin',
     'Test',
     'Tracker',
     'Trainer',

@@ -122,7 +122,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         return isinstance(Experiment.current(), cls)
 
 
-class Specs(Generic[_U_co], metaclass=abc.ABCMeta):
+class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
     """Generic mixin for adding specifications to experiments.
 
     This class is useful when dividing an experiment in smaller units
