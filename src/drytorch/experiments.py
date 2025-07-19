@@ -161,12 +161,13 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
     def from_experiment(
         cls,
         base_exp: Experiment[_T_co],
+        specs_name: str,
         specs: _U_co | None = None,
     ) -> Self:
         """Create an ExperimentWithSpecs from an existing experiment."""
         instance = cls(
-            name=base_exp.name,
-            par_dir=base_exp.dir.parent,
+            name=specs_name,
+            par_dir=base_exp.dir,
             config=base_exp.config,
         )
         instance.metadata_manager = base_exp.metadata_manager
