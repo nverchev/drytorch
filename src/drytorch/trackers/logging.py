@@ -207,6 +207,7 @@ class BuiltinLogger(tracking.Tracker):
 class DryTorchFilter(logging.Filter):
     """Filter that excludes logs from 'drytorch'."""
 
+    # noinspection PyMissingOrEmptyDocstring
     @override
     def filter(self, record: logging.LogRecord) -> bool:
         return 'drytorch' not in record.name
@@ -217,9 +218,11 @@ class DryTorchFormatter(logging.Formatter):
 
     default_msec_format = ''
 
+    # noinspection PyMissingOrEmptyDocstring
     @override
     def format(self, record: logging.LogRecord) -> str:
-        self._style._fmt = self._info_fmt(record.levelno)  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        self._style._fmt = self._info_fmt(record.levelno)
         return super().format(record)
 
     @staticmethod

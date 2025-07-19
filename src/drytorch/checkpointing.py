@@ -178,6 +178,7 @@ class LocalCheckpoint(AbstractCheckpoint):
                     ),
                 )
             except ValueError as ve:
+                # noinspection PyArgumentEqualDefault
                 warnings.warn(
                     exceptions.OptimizerNotLoadedWarning(ve), stacklevel=1
                 )

@@ -129,7 +129,7 @@ class TrainingBar:
             start_epoch: the epoch from which the bar should start.
             end_epoch: the epoch where the bar should end.
             file: the stream where to flush the bar.
-            leave: If True, leave bar once the iterations has completed.
+            leave: If True, leave bar once the iterations have completed.
         """
         self.pbar = tqdm.trange(
             start_epoch,

@@ -38,7 +38,7 @@ _Tensor = torch.Tensor
 class Objective(
     p.ObjectiveProtocol[_Output_contra, _Target_contra], metaclass=abc.ABCMeta
 ):
-    """Abstract base class for objectives (metrics or losses)."""
+    """Abstract base class for metrics or losses."""
 
     def __init__(
         self,
@@ -63,6 +63,7 @@ class Objective(
             A dictionary of computed metric values.
         """
         if not self._aggregator:
+            # noinspection PyArgumentEqualDefault
             warnings.warn(
                 exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
             )
@@ -90,7 +91,7 @@ class Objective(
 
     @override
     def reset(self: Self) -> None:
-        """Resets the internal state of the objective."""
+        """Resets the internal state of the instance."""
         self._aggregator.clear()
         return
 
@@ -115,7 +116,8 @@ class Objective(
         Args:
             other: metric to be merged with.
         """
-        self._aggregator += other._aggregator  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        self._aggregator += other._aggregator
         return
 
     def __or__(
@@ -127,7 +129,7 @@ class Objective(
             other: The other Objective to combine with.
 
         Returns:
-            A new MetricCollection containing metrics from both objectives.
+            A new MetricCollection containing metrics from both instances.
         """
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
         return MetricCollection(**named_metric_fun)
@@ -265,7 +267,7 @@ class LossBase(
             other: The other Objective to combine with.
 
         Returns:
-            A new CompositionalLoss containing metrics from both objectives.
+            A new CompositionalLoss containing metrics from both instances.
         """
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
         return CompositionalLoss(
@@ -502,7 +504,7 @@ class LossBase(
             formula: The formula string.
 
         Returns:
-            The formula string with outer parentheses removed.
+            The formula string without outer parentheses.
         """
         if formula.startswith('(') and formula.endswith(')'):
             return formula[1:-1]

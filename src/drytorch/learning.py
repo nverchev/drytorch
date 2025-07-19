@@ -11,8 +11,8 @@ import torch
 from drytorch import protocols as p
 from drytorch import schedulers
 
-
 _default_scheduler = schedulers.ConstantScheduler()
+
 
 @dataclasses.dataclass
 class LearningScheme(p.LearningProtocol):
@@ -50,12 +50,12 @@ class LearningScheme(p.LearningProtocol):
                    optimizer_defaults={'betas': betas})
 
     @classmethod
-    def adamw(
-        cls,
-        base_lr: float = 1e-3,
-        betas: tuple[float, float] = (0.9, 0.999),
-        weight_decay: float = 1e-2,
-        scheduler: p.SchedulerProtocol = _default_scheduler,
+    def adam_w(
+            cls,
+            base_lr: float = 1e-3,
+            betas: tuple[float, float] = (0.9, 0.999),
+            weight_decay: float = 1e-2,
+            scheduler: p.SchedulerProtocol = _default_scheduler,
     ) -> LearningScheme:
         """Convenience method for the AdamW optimizer.
 
@@ -73,13 +73,13 @@ class LearningScheme(p.LearningProtocol):
 
     @classmethod
     def sgd(
-        cls,
-        base_lr: float = 0.01,
-        momentum: float = 0.0,
-        weight_decay: float = 0.0,
-        dampening: float = 0.0,
-        nesterov: bool = False,
-        scheduler: p.SchedulerProtocol = _default_scheduler,
+            cls,
+            base_lr: float = 0.01,
+            momentum: float = 0.0,
+            weight_decay: float = 0.0,
+            dampening: float = 0.0,
+            nesterov: bool = False,
+            scheduler: p.SchedulerProtocol = _default_scheduler,
     ) -> LearningScheme:
         """Convenience method for the SGD optimizer.
 
@@ -100,12 +100,12 @@ class LearningScheme(p.LearningProtocol):
                                        'nesterov': nesterov})
 
     @classmethod
-    def radam(
-        cls,
-        base_lr: float = 1e-3,
-        betas: tuple[float, float] = (0.9, 0.999),
-        weight_decay: float = 0.0,
-        scheduler: p.SchedulerProtocol = _default_scheduler,
+    def r_adam(
+            cls,
+            base_lr: float = 1e-3,
+            betas: tuple[float, float] = (0.9, 0.999),
+            weight_decay: float = 0.0,
+            scheduler: p.SchedulerProtocol = _default_scheduler,
     ) -> LearningScheme:
         """Convenience method for the RAdam optimizer.
 

@@ -153,7 +153,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     Attributes:
         engine: the sqlalchemy Engine for the connection.
-        Session: the Session class to initiate a sqlalchemy session.
+        session_factory: the Session class to initiate a sqlalchemy session.
         resume_run: resume the previous run instead of creating a new one.
     """
 

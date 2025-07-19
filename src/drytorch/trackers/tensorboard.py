@@ -165,7 +165,6 @@ class TensorBoard(base_classes.Dumper):
                     '--reload_multifile',
                     'true',
                 ],
-                shell=False,
             )
         except subprocess.CalledProcessError as cpe:
             msg = 'TensorBoard failed to start'

@@ -106,7 +106,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
                          metric_loader)
         self.server = server
         self.port = port
-        self.opts: VisdomOpts = opts or {}
+        self.opts: VisdomOpts = opts or VisdomOpts()
         self._viz: visdom.Visdom | None = None
 
     @property
@@ -159,6 +159,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
                             title=model_name,
                             showlegend=True)
         scatter_opts = VisdomOpts(mode='markers', markersymbol='24')
+        # noinspection PydanticTypeChecker
         opts = self.opts | layout  # type: ignore
         win = '_'.join((model_name, metric_name))
         for name, log in sourced_array.items():

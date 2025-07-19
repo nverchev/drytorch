@@ -109,12 +109,9 @@ def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
     ```{code-block} python
     >>>import hydra
     >>>
-    >>>with hydra.initialize(version_base=None, config_path='your_hydra_path'):
-    >>>    your_overrides = suggest_overrides(tune_cfg, trial)
-    >>>    dict_cfg = hydra.compose(
-    >>>        config_name='your_hydra_config',
-    >>>        overrides=your_overrides,
-    >>>    )
+    >>>with hydra.initialize(version_base=None, config_path='path/to/config'):
+    >>>    overrides = suggest_overrides(tune_cfg, trial)
+    >>>    dict_cfg = hydra.compose(config_name='config', overrides=overrides)
     ```
 
     Here, "your_hydra_config" is the name of the overall configuration and must

@@ -156,7 +156,6 @@ def max_clipping(zt: float, z_thresh: float) -> float:
 class ClippingCriterion(abc.ABC):
     """Criteria that detects when to clip snd determines the clipping value."""
 
-
     @abc.abstractmethod
     def should_clip(self, value: float) -> bool:
         """Determine whether to clip gradients based on the current value.
@@ -412,11 +411,11 @@ class HistClipping(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
     _default_criterion = ZStatCriterion()
-    _default_gradnorm = GradNormClipper()
+    _default_grad_op = GradNormClipper()
 
     def __init__(self,
                  criterion: ClippingCriterion = _default_criterion,
-                 warmup_clip_strategy: p.GradientOpProtocol = _default_gradnorm,
+                 warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
                  n_warmup_steps: int = 20) -> None:
         """Constructor.
 
@@ -483,12 +482,12 @@ class ParamHistClipping(ClipOperation):
     """
 
     _default_criterion = ZStatCriterion()
-    _default_gradnorm = GradNormClipper()
+    _default_grad_op = GradNormClipper()
 
     def __init__(
         self,
         criterion: ClippingCriterion = _default_criterion,
-        warmup_clip_strategy: p.GradientOpProtocol = _default_gradnorm,
+        warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
         n_warmup_steps: int = 20,
     ) -> None:
         """Constructor.

@@ -125,7 +125,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
 class Specs(Generic[_U_co], metaclass=abc.ABCMeta):
     """Generic mixin for adding specifications to experiments.
 
-    This class is useful when dividig an experiment in smaller units
+    This class is useful when dividing an experiment in smaller units
     that have different similar internal configurations (here called
     specifications). This mixin creates sub-experiments that specify
     which internal configuration to use, avoiding code duplication.

@@ -216,7 +216,8 @@ class ModelOptimizer:
         self._gradient_op = learning_scheme.gradient_op
         self._checkpoint = self._model.checkpoint
         self._checkpoint.register_optimizer(self._optimizer)
-        self._scaler = torch.amp.GradScaler(  # pyright: ignore[reportPrivateImportUsage]
+        # pyright: ignore[reportPrivateImportUsage]
+        self._scaler = torch.amp.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,
         )

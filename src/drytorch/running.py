@@ -32,7 +32,7 @@ class ModelCaller(Generic[_Input, _Output], metaclass=abc.ABCMeta):
     def __init__(
         self, model: p.ModelProtocol[_Input, _Output], name: str = ''
     ) -> None:
-        """Construtor.
+        """Constructor.
 
         Args:
             model: the wrapped model.
@@ -43,8 +43,9 @@ class ModelCaller(Generic[_Input, _Output], metaclass=abc.ABCMeta):
         self._name = name
 
     @abc.abstractmethod
-    def __call__(self):
+    def __call__(self) -> None:
         """The call implemented by the concrete class."""
+        return
 
     @override
     def __repr__(self) -> str:
@@ -68,7 +69,7 @@ class Source(ModelCaller[_Input, _Output], repr_utils.Versioned):
 
         Args:
             model: the model containing the weights to evaluate.
-            name: the name associated to the source.
+            name: the name associated with the source.
         """
         super().__init__(model, name)
         self._registered = False

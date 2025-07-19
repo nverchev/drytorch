@@ -233,7 +233,7 @@ def _validate_batch_size(batch_size: int | None) -> int:
     """Checks that the batch size is a valid number.
 
     Args:
-        batch_size: the requested number of element in the mini-batch.
+        batch_size: the requested number of elements in the mini-batch.
 
     Returns:
         The verified size.

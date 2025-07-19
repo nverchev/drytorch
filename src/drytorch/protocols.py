@@ -9,6 +9,7 @@ from typing import (
     Any,
     Protocol,
     SupportsIndex,
+    Union,
     TypeAlias,
     TypeVar,
     runtime_checkable,
@@ -21,7 +22,7 @@ from torch.utils import data
 
 _T = TypeVar('_T')
 
-Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
+Tensors: TypeAlias = Union[torch.Tensor, MutableSequence[torch.Tensor]]
 
 # pyright: reportReturnType=false
 

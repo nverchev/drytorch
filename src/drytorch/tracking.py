@@ -86,6 +86,7 @@ class MetadataManager:
         try:
             metadata = repr_utils.recursive_repr(obj, max_size=max_size)
         except RecursionError:
+            # noinspection PyArgumentEqualDefault
             warnings.warn(exceptions.RecursionWarning(), stacklevel=1)
             metadata = {}
 
@@ -123,11 +124,10 @@ class Tracker(metaclass=abc.ABCMeta):
         Raises:
             TrackerNotRegisteredError: if the tracker is not registered.
         """
-        from drytorch.experiments import (  # pylint: disable=import-outside-toplevel
-            Experiment,
-        )
+        # pylint: disable=import-outside-toplevel
+        from drytorch.experiments import Experiment
 
-        exp = Experiment.current()
+        exp: Experiment = Experiment.current()
         try:
             self = exp.trackers.named_trackers[cls.__name__]
         except KeyError as ke:
@@ -170,6 +170,7 @@ class EventDispatcher:
                 raise e
             except Exception as err:  # pylint: disable=broad-except
                 name = tracker.__class__.__name__
+                # noinspection PyArgumentEqualDefault
                 warnings.warn(
                     exceptions.TrackerExceptionWarning(name, err), stacklevel=1
                 )

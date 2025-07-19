@@ -13,7 +13,6 @@ from typing_extensions import override
 from drytorch import exceptions, metrics, schedulers
 from drytorch import protocols as p
 
-
 _T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
@@ -54,9 +53,9 @@ class HookRegistry(Generic[_T_contra]):
         return
 
     def register_all(
-        self,
-        hook_list: list[Callable[[_T_contra], None]]
-        ) -> None:
+            self,
+            hook_list: list[Callable[[_T_contra], None]],
+    ) -> None:
         """Register multiple hooks.
 
         Args:

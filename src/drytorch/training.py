@@ -77,6 +77,7 @@ class Trainer(
             store_outputs: whether to store model outputs.
         """
         if self.terminated:
+            # noinspection PyArgumentEqualDefault
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
         self.model.module.train()
@@ -135,6 +136,7 @@ class Trainer(
     @override
     def train(self, num_epochs: int) -> None:
         if self.terminated:
+            # noinspection PyArgumentEqualDefault
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
         final_epoch = self.model.epoch + num_epochs
@@ -175,6 +177,7 @@ class Trainer(
         if remaining_epochs > 0:
             self.train(remaining_epochs)
         if remaining_epochs < 0:
+            # noinspection PyArgumentEqualDefault
             warnings.warn(
                 exceptions.PastEpochWarning(epoch, self.model.epoch),
                 stacklevel=1,

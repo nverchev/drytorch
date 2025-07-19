@@ -392,7 +392,6 @@ class FailedOptionalImportWarning(DryTorchWarning):
 
         Args:
             package_name: the name of the package that failed to import.
-            error: the import error that occurred.
         """
         self.package_name = package_name
         super().__init__(self.msg.format(package_name))

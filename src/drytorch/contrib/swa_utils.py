@@ -4,15 +4,17 @@ import torch
 
 from drytorch.running import ModelCaller
 
-
-AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm  # pylint: disable=protected-access
+# noinspection PyProtectedMember
+# pylint: disable=protected-access
+AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
 
 
 class ModelMomentaUpdater(ModelCaller):
-    """Update the momenta in the batch nonrmalization layers."""
+    """Update the momenta in the batch normalization layers."""
 
     def __call__(self) -> None:
         """Single pass on the dataset."""
+        super().__call__()
         momenta = dict[AbstractBatchNorm, float | None]()
         for module in self.model.module.modules():
             if isinstance(module, AbstractBatchNorm):
@@ -27,7 +29,6 @@ class ModelMomentaUpdater(ModelCaller):
         for module in momenta.keys():
             module.momentum = None
 
-        super().__call__()
         for bn_module in momenta:
             bn_module.momentum = momenta[bn_module]
 
