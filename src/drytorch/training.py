@@ -57,7 +57,9 @@ class Trainer(
             p.LossCalculatorProtocol[_Output, _Target], self.objective
         )
         self.learning_scheme = learning_scheme
-        self.validation: p.EvaluationProtocol[_Input, _Target, _Output] | None
+        self.validation: (
+            p.EvaluationProtocol[_Input, _Target, _Output] | None
+        ) = None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
         self.post_epoch_hooks = hooks.HookRegistry[Trainer]()

@@ -339,17 +339,16 @@ class TrackerAlreadyRegisteredError(DryTorchError):
 class TrackerNotRegisteredError(DryTorchError):
     """Raised when trying to access a tracker that is not registered."""
 
-    msg = 'Tracker {} not registered in experiment {}.'
+    msg = 'Tracker {} not registered in any active experiment.'
 
-    def __init__(self, tracker_name: str, exp_name: str) -> None:
+    def __init__(self, tracker_name: str) -> None:
         """Constructor.
 
         Args:
             tracker_name: the name of the tracker that is not registered.
-            exp_name: the name of the experiment where to get the tracker.
         """
         self.tracker_name = tracker_name
-        super().__init__(tracker_name, exp_name)
+        super().__init__(tracker_name)
 
 
 class CannotStoreOutputWarning(DryTorchWarning):

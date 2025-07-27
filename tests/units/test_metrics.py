@@ -2,15 +2,21 @@
 
 from collections.abc import Callable
 
-import pytest
 import torch
+
+import pytest
 
 from drytorch import exceptions
 from drytorch import protocols as p
-from drytorch.metrics import Metric, MetricCollection
-from drytorch.metrics import Loss, CompositionalLoss
-from drytorch.metrics import dict_apply
-from drytorch.metrics import repr_metrics
+from drytorch.metrics import (
+    CompositionalLoss,
+    Loss,
+    Metric,
+    MetricCollection,
+    dict_apply,
+    repr_metrics,
+)
+
 
 _Tensor = torch.Tensor
 
@@ -44,10 +50,11 @@ def metric_fun_2(metric_2: str) -> dict[str, Callable[
 
 
 class TestMetricCollection:
+    """Tests for MetricCollection."""
+
     @pytest.fixture(autouse=True)
     def setup(self, metric_fun_1, metric_fun_2) -> None:
         """Set up a MetricCollection instance with simple metric functions."""
-
         metric_fun_dict = metric_fun_1 | metric_fun_2
         self.metrics = MetricCollection(**metric_fun_dict)
         return
@@ -87,7 +94,6 @@ class TestMetricCollection:
 
     def test_or(self, metric_1, metric_2) -> None:
         """Test | works as a union operator."""
-
         new_metric_fun_dict = {'NewMetric': lambda x, y: torch.tensor(0.5)}
         new_metrics = MetricCollection(**new_metric_fun_dict)
 
@@ -109,6 +115,7 @@ class TestMetricCollection:
 
 
 class TestMetric:
+    """Tests for Metric."""
 
     @pytest.fixture(autouse=True)
     def setup(self, metric_1, metric_fun_1) -> None:
@@ -132,7 +139,6 @@ class TestMetric:
 
     def test_or(self, metric_1) -> None:
         """Test | works as a union operator."""
-
         new_metrics = Metric[_Tensor, _Tensor](lambda x, y: torch.tensor(0.5),
                                                name='NewMetric',
                                                higher_is_better=True)
@@ -151,10 +157,11 @@ class TestMetric:
 
 
 class TestCompositionalLoss:
+    """Tests for CompositionalLoss."""
+
     @pytest.fixture(autouse=True)
     def setup(self, metric_1, metric_2, metric_fun_1, metric_fun_2) -> None:
         """Set up a CompositionalLoss instance with simple arguments."""
-
         # formula corresponds to what the formula components should look like
         self.loss = CompositionalLoss(lambda x: x[metric_1],
                                       higher_is_better=True,
@@ -217,6 +224,8 @@ class TestCompositionalLoss:
 
 
 class TestLoss:
+    """Tests for Loss."""
+
     @pytest.fixture(autouse=True)
     def setup(self, metric_1, metric_fun_1) -> None:
         """Set up a Loss instance with simple arguments."""

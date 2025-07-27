@@ -1,20 +1,22 @@
 """Tests for the "base_classes" module."""
 
-import pytest
-
 import functools
 import pathlib
-from typing_extensions import override
 
 import numpy as np
 
-from drytorch import exceptions
-from drytorch import log_events
-from drytorch.trackers.base_classes import BasePlotter
-from drytorch.trackers.base_classes import Dumper
-from drytorch.trackers.base_classes import MetricLoader
-from drytorch.trackers.base_classes import MemoryMetrics
-from drytorch.trackers.base_classes import SourcedMetrics
+from typing_extensions import override
+
+import pytest
+
+from drytorch import exceptions, log_events
+from drytorch.trackers.base_classes import (
+    BasePlotter,
+    Dumper,
+    MemoryMetrics,
+    MetricLoader,
+    SourcedMetrics,
+)
 
 
 @pytest.fixture(scope='module')
@@ -44,8 +46,8 @@ class _ConcreteMetricLoader(MetricLoader):
             return {}
         return self.sourced_metrics
 
-    @override
     @functools.singledispatchmethod
+    @override
     def notify(self, event: log_events.Event) -> None:
         return
 
@@ -70,7 +72,6 @@ class TestDumper:
                     ids=['default', 'custom_path'])
     def par_dir(self, request, tmp_path_factory) -> pathlib.Path | None:
         """Set up the path."""
-
         return None if request.param is None else tmp_path_factory.mktemp('tmp')
 
     @pytest.fixture

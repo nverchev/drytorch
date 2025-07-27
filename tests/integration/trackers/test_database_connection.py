@@ -1,6 +1,8 @@
 """Tests for SQLConnection focusing on error conditions and edge cases."""
 
 import pytest
+
+
 try:
     import sqlalchemy
 except ImportError:
@@ -12,9 +14,7 @@ import threading
 from sqlalchemy import exc as sqlalchemy_exc
 
 from drytorch import log_events
-from drytorch.trackers.sqlalchemy import Experiment
-from drytorch.trackers.sqlalchemy import Source
-from drytorch.trackers.sqlalchemy import SQLConnection
+from drytorch.trackers.sqlalchemy import Experiment, Source, SQLConnection
 
 
 @pytest.fixture
@@ -59,7 +59,7 @@ def event_workflow(
 
 
 class TestSQLConnection:
-    """"""
+    """Tests for the SQLConnection class."""
 
     @pytest.fixture
     def memory_engine(self) -> sqlalchemy.Engine:
@@ -110,7 +110,6 @@ class TestSQLConnection:
                                        start_experiment_event,
                                        call_model_event) -> None:
         """Test that sessions are properly rolled back on errors."""
-
         tracker = SQLConnection(engine=memory_engine)
 
         def _raise_integrity_error(_):
@@ -125,7 +124,7 @@ class TestSQLConnection:
             tracker.notify(call_model_event)
 
         # verify database state is consistent (no partial commits)
-        with tracker.Session() as session:
+        with tracker.session_factory() as session:
             sources = session.query(Source).all()
             experiments = session.query(Experiment).all()
             # the second source should have been rolled back

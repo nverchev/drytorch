@@ -1,16 +1,17 @@
 """Tests for the "tensorboard" module."""
 
+import importlib.util
 import pathlib
 
 import pytest
 
-try:
-    import torch.utils.tensorboard
-except ImportError:
+
+if not importlib.util.find_spec('tensorboard'):
     pytest.skip('tensorboard not available', allow_module_level=True)
 
-from typing import Generator
 import time
+
+from collections.abc import Generator
 
 from drytorch import exceptions
 from drytorch.trackers.tensorboard import TensorBoard
@@ -54,6 +55,7 @@ class TestTensorBoard:
         return
 
     def test_cleanup(self, tracker_started):
+        """Test correct clean up."""
         tracker_started.clean_up()
         assert tracker_started._writer is None
 
@@ -122,7 +124,7 @@ class TestTensorBoard:
     def test_notify_metrics(self,
                             tracker_started,
                             epoch_metrics_mock_event) -> None:
-        """Test there is one call for each metrics"""
+        """Test there is one call for each metrics."""
         tracker_started.notify(epoch_metrics_mock_event)
         n_metrics = len(epoch_metrics_mock_event.metrics)
         assert tracker_started.writer.add_scalar.call_count == n_metrics
@@ -154,7 +156,7 @@ class TestTensorBoard:
         self.mock_popen.side_effect = FileNotFoundError()
         mocker.patch.object(TensorBoard, '_find_free_port', return_value=6007)
 
-        with pytest.raises(exceptions.TrackerException):
+        with pytest.raises(exceptions.TrackerError):
             tracker._start_tensorboard(tmp_path)
 
     def test_tensorboard_launch_fails_on_port_conflict(self, mocker, tmp_path):
@@ -162,7 +164,7 @@ class TestTensorBoard:
         port_available_mock = mocker.patch.object(TensorBoard,
                                                   '_port_available')
         port_available_mock.return_value = False
-        with pytest.raises(exceptions.TrackerException):
+        with pytest.raises(exceptions.TrackerError):
             TensorBoard._find_free_port(start=6006, max_tries=100)
 
     def test_browser_open_failure_warning(self, tracker, mocker, tmp_path):
@@ -174,7 +176,6 @@ class TestTensorBoard:
 
     def test_tensorboard_opens_browser_once_per_tracker(self, mocker, tmp_path):
         """Test each tracker gets a unique port and browser launch."""
-
         # mock _find_free_port to return different ports for each tracker
         find_port_mock = mocker.patch.object(TensorBoard, '_find_free_port')
         find_port_mock.side_effect = [6007,

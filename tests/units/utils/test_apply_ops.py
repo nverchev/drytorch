@@ -1,12 +1,13 @@
 """Tests for the "apply_ops" module."""
 
 from typing import NamedTuple
-import pytest
+
 import torch
 
+import pytest
+
 from drytorch import exceptions
-from drytorch.utils.apply_ops import apply_to
-from drytorch.utils.apply_ops import recursive_apply
+from drytorch.utils.apply_ops import apply_to, recursive_apply
 
 
 class _TorchTuple(NamedTuple):

@@ -2,7 +2,7 @@
 
 import pytest
 
-from drytorch import Experiment, log_events, exceptions
+from drytorch import Experiment, exceptions, log_events
 from tests.units.conftest import experiment_current_original
 
 
@@ -14,13 +14,9 @@ class TestExperiment:
         """Set up an experiment."""
         self.par_dir = tmp_path
         self.experiment = Experiment[None]('Experiment', self.par_dir)
-        setattr(self.experiment, 'current', experiment_current_original)
-        setattr(Experiment,
-                'current',
-                experiment_current_original)
-        setattr(self.experiment.__class__,
-                'current',
-                experiment_current_original)
+        self.experiment.current = experiment_current_original
+        Experiment.current = experiment_current_original
+        self.experiment.__class__.current = experiment_current_original
         return
 
     def test_start_and_stop_experiment(self, mocker):

@@ -1,8 +1,8 @@
-"""Test "csv" module"""
+"""Tests for the "csv" module."""
 
 import pytest
 
-from drytorch.exceptions import TrackerException
+from drytorch.exceptions import TrackerError
 from drytorch.trackers.csv import CSVDumper
 
 
@@ -63,5 +63,5 @@ class TestCsvDumper:
         tracker.notify(epoch_metrics_mock_event)
         assert source_name in tracker._load_metrics(model_name)
         assert source_name in tracker_with_resume._load_metrics(model_name)
-        with pytest.raises(TrackerException):
+        with pytest.raises(TrackerError):
             _ = tracker_with_resume._load_metrics('wrong_name')

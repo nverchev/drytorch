@@ -1,20 +1,25 @@
 """Tests for the "sqlalchemy" module."""
 
+import importlib.util
+
 import pytest
-try:
-    import sqlalchemy
-except ImportError:
+
+
+if not importlib.util.find_spec('sqlalchemy'):
     pytest.skip('sqlalchemy not available', allow_module_level=True)
 
-from typing import Generator
 import warnings
 
+from collections.abc import Generator
+
 from drytorch import exceptions
-from drytorch.trackers.sqlalchemy import Experiment
-from drytorch.trackers.sqlalchemy import Log
-from drytorch.trackers.sqlalchemy import Run
-from drytorch.trackers.sqlalchemy import Source
-from drytorch.trackers.sqlalchemy import SQLConnection
+from drytorch.trackers.sqlalchemy import (
+    Experiment,
+    Log,
+    Run,
+    Source,
+    SQLConnection,
+)
 
 
 class TestSQLConnection:
@@ -72,6 +77,7 @@ class TestSQLConnection:
         return
 
     def test_cleanup(self, tracker_started):
+        """Test correct clean up."""
         tracker_started.clean_up()
         assert tracker_started._run is None
         assert tracker_started._sources == {}
@@ -171,7 +177,7 @@ class TestSQLConnection:
         """Test metrics notification from an unknown source raises an error."""
         tracker_started.notify(call_model_mock_event)
         epoch_metrics_mock_event.source_name = 'unknown_source'
-        with pytest.raises(exceptions.TrackerException):
+        with pytest.raises(exceptions.TrackerError):
             tracker_started.notify(epoch_metrics_mock_event)
 
     def test_find_sources_existing_model(
@@ -195,7 +201,7 @@ class TestSQLConnection:
         mock_query.where.return_value = mock_query
         mock_query.__iter__.return_value = [].__iter__()
         self.mock_context.query.return_value = mock_query
-        with pytest.raises(exceptions.TrackerException):
+        with pytest.raises(exceptions.TrackerError):
             tracker_started._find_sources('nonexistent_model')
 
     def test_get_run_metrics(
@@ -250,7 +256,7 @@ class TestSQLConnection:
         mock_query.where.return_value = mock_query
         mock_query.__iter__.return_value = mock_list.__iter__()
         self.mock_context.query.return_value = mock_query
-        with pytest.raises(exceptions.TrackerException) as err:
+        with pytest.raises(exceptions.TrackerError) as err:
             _ = tracker_started._get_run_metrics([], -1)
         assert err.match('test_model')
         assert err.match('test_model_2')

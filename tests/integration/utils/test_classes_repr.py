@@ -1,15 +1,13 @@
 """Test the automatic representation for the library classes."""
 
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 
-from drytorch.hooks import HookRegistry
-from drytorch.hooks import EarlyStoppingCallback
-from drytorch.utils.repr_utils import recursive_repr
-from drytorch.schedulers import WarmupScheduler
-from drytorch.schedulers import ExponentialScheduler
 from drytorch.gradient_ops import HistClipping
+from drytorch.hooks import EarlyStoppingCallback, HookRegistry
+from drytorch.schedulers import ExponentialScheduler, WarmupScheduler
+from drytorch.utils.repr_utils import recursive_repr
 from drytorch.utils.statistics import get_moving_average
 
 

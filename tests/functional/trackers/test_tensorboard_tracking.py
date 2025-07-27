@@ -1,14 +1,14 @@
-"""Functional tests for TensorBoard tracker."""
+"""Functional tests for trakcing with TensorBoard."""
+
+import importlib.util
+
+from collections.abc import Generator
 
 import pytest
 
-try:
-    import torch.utils.tensorboard
-except ImportError:
+
+if not importlib.util.find_spec('tensorboard'):
     pytest.skip('tensorboard not available', allow_module_level=True)
-
-from typing import Generator
-
 from drytorch.trackers.tensorboard import TensorBoard
 
 
@@ -24,10 +24,10 @@ class TestTensorBoardFullCycle:
 
     @pytest.fixture
     def resumed_tracker(
-            self,
-            tmp_path,
-            start_experiment_event,
-            stop_experiment_event,
+        self,
+        tmp_path,
+        start_experiment_event,
+        stop_experiment_event,
     ) -> Generator[TensorBoard, None, None]:
         """Set up the resumed instance."""
         tracker = TensorBoard(par_dir=tmp_path, resume_run=True)

@@ -1,14 +1,14 @@
 """Tests for the "tqdm" module."""
 
+import importlib.util
+
 import pytest
-try:
-    import tqdm
-except ImportError:
+
+
+if not importlib.util.find_spec('tqdm'):
     pytest.skip('tqdm not available', allow_module_level=True)
 
-from drytorch.trackers.tqdm import EpochBar
-from drytorch.trackers.tqdm import TrainingBar
-from drytorch.trackers.tqdm import TqdmLogger
+from drytorch.trackers.tqdm import EpochBar, TqdmLogger, TrainingBar
 
 
 class TestEpochBar:
@@ -112,6 +112,7 @@ class TestTqdmLogger:
         )
 
     def test_cleanup(self, tracker):
+        """Test correct clean up."""
         tracker.clean_up()
         assert tracker._training_bar is None
         assert tracker._epoch_bar is None

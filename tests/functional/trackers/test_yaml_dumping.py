@@ -1,6 +1,8 @@
 """Functional tests for YamlDumper."""
 
 import pytest
+
+
 try:
     import yaml
 except ImportError:
@@ -29,6 +31,7 @@ class TestSQLConnectionFullCycle:
                             start_experiment_event,
                             model_creation_event,
                             example_metadata):
+        """Test correct dumping of metadata from the model."""
         par_dir = start_experiment_event.exp_dir
         model_name = model_creation_event.model_name
         model_version = model_creation_event.model_version
@@ -50,6 +53,7 @@ class TestSQLConnectionFullCycle:
                              start_experiment_event,
                              call_model_event,
                              example_metadata):
+        """Test correct dumping of metadata from the caller."""
         par_dir = start_experiment_event.exp_dir
         model_name = call_model_event.model_name
         file_name = call_model_event.source_name

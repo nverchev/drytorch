@@ -1,23 +1,25 @@
 """Tests for the "gradient_ops" module."""
 
-import pytest
-
 from collections.abc import Iterable
 
 import torch
 
-from drytorch.gradient_ops import GradNormalizer
-from drytorch.gradient_ops import GradZScoreNormalizer
-from drytorch.gradient_ops import GradNormClipper
-from drytorch.gradient_ops import GradValueClipper
-from drytorch.gradient_ops import StatsCollector
-from drytorch.gradient_ops import ParamHistClipping
-from drytorch.gradient_ops import HistClipping
-from drytorch.gradient_ops import EMACriterion
-from drytorch.gradient_ops import ZStatCriterion
-from drytorch.gradient_ops import mean_clipping
-from drytorch.gradient_ops import max_clipping
-from drytorch.gradient_ops import reciprocal_clipping
+import pytest
+
+from drytorch.gradient_ops import (
+    EMACriterion,
+    GradNormalizer,
+    GradNormClipper,
+    GradValueClipper,
+    GradZScoreNormalizer,
+    HistClipping,
+    ParamHistClipping,
+    StatsCollector,
+    ZStatCriterion,
+    max_clipping,
+    mean_clipping,
+    reciprocal_clipping,
+)
 
 
 @pytest.fixture

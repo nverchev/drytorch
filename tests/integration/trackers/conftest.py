@@ -1,18 +1,19 @@
 """Configuration module defining example events."""
 
-import pytest
-
 import datetime
 import io
 import pathlib
-from typing import Generator
+
+from collections.abc import Generator
+
+import pytest
 
 from drytorch import log_events
 
 
 @pytest.fixture(scope='package', autouse=True)
 def allow_event_creation_outside_scope() -> None:
-    """Allows the creation of events outside an experiment"""
+    """Allows the creation of events outside an experiment."""
     log_events.Event.set_auto_publish(lambda x: None)
     return
 

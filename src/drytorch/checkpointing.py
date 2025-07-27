@@ -4,7 +4,7 @@ import abc
 import pathlib
 import warnings
 
-import numpy
+import numpy as np
 import torch
 
 from typing_extensions import override
@@ -13,8 +13,24 @@ from drytorch import exceptions, experiments, log_events
 from drytorch import protocols as p
 
 
-SAFE_GLOBALS = [getattr(numpy.dtypes, name) for name in numpy.dtypes.__all__]
-SAFE_GLOBALS.extend([numpy.core.multiarray.scalar, numpy.dtype])  # type: ignore
+SAFE_GLOBALS = [
+    np.bool_,
+    np.int8,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.uint8,
+    np.uint16,
+    np.uint32,
+    np.uint64,
+    np.float16,
+    np.float32,
+    np.float64,
+    np.complex64,
+    np.complex128,
+]
+SAFE_GLOBALS.extend([getattr(np.dtypes, name) for name in np.dtypes.__all__])
+SAFE_GLOBALS.append(np.dtype)
 torch.serialization.add_safe_globals(SAFE_GLOBALS)
 
 

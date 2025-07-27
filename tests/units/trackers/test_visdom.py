@@ -1,17 +1,19 @@
 """Tests for the "visdom" module."""
 
+import importlib.util
+
 import pytest
-try:
-    import visdom
-except ImportError:
+
+
+if not importlib.util.find_spec('visdom'):
     pytest.skip('visdom not available', allow_module_level=True)
 
-from typing import Generator
+from collections.abc import Generator
 
 import numpy as np
 
 from drytorch import exceptions
-from drytorch.trackers.visdom import VisdomPlotter, VisdomOpts
+from drytorch.trackers.visdom import VisdomOpts, VisdomPlotter
 
 
 class TestVisdomPlotter:
@@ -79,7 +81,7 @@ class TestVisdomPlotter:
                                            start_experiment_mock_event) -> None:
         """Test StartExperiment notification with connection error."""
         self.visdom_mock.side_effect = ConnectionError('Connection failed')
-        with pytest.raises(exceptions.TrackerException):
+        with pytest.raises(exceptions.TrackerError):
             tracker.notify(start_experiment_mock_event)
 
     def test_notify_stop_experiment(self,

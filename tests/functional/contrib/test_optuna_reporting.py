@@ -1,22 +1,21 @@
-"""Functional tests for TrialCallback."""
+"""Test reporting on optuna trial's performance."""
 
-from typing import Generator
-
-import pytest
+from collections.abc import Generator
 
 import optuna
 import torch
 
-from drytorch.contrib.optuna import TrialCallback
-from drytorch.contrib.optuna import get_final_value
+import pytest
 
+from drytorch import Experiment
+from drytorch.contrib.optuna import TrialCallback, get_final_value
 from tests.simple_classes import TorchData
 
 
 @pytest.fixture(autouse=True, scope='module')
-def start_experiment(experiment) -> Generator[None, None, None]:
+def autorun_experiment(experiment) -> Generator[Experiment, None, None]:
     """Create an experimental scope for the tests."""
-    yield
+    yield experiment
     return
 
 
@@ -32,15 +31,12 @@ class TestTrialCallbackAsk:
     @pytest.fixture
     def trial_callback(self, trial) -> TrialCallback:
         """Create a TrialCallback instance for testing."""
-        study = optuna.create_study(direction='minimize')
-        trial = study.ask()
         return TrialCallback(
             trial=trial,
             best_is='lower'
         )
 
     def test_reported(self,
-                      trial,
                       trial_callback,
                       identity_trainer) -> None:
         """Test reported values."""

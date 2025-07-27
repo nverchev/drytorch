@@ -1,15 +1,15 @@
 """Tests the events' log filter for all the logging levels."""
 
-import pytest
-
 import logging
 import pathlib
-from typing import Generator
+
+from collections.abc import Generator
+
+import pytest
 
 from drytorch import log_events
-from drytorch.trackers.logging import BuiltinLogger
-from drytorch.trackers.logging import INFO_LEVELS
-from drytorch.trackers.logging import set_verbosity
+from drytorch.trackers.logging import INFO_LEVELS, BuiltinLogger, set_verbosity
+
 
 expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 expected_path_dict = {

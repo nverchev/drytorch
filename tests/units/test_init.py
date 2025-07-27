@@ -1,13 +1,14 @@
 """Tests for the "__init__" module."""
+
 import importlib
 import os
+
+import pytest
 
 import drytorch
 
 from drytorch import FailedOptionalImportWarning
 from drytorch.tracking import DEFAULT_TRACKERS
-
-import pytest
 
 
 def test_standard_trackers():
@@ -33,8 +34,8 @@ def test_failed_import_warning():
         original_import = __import__
 
         def _mock_import(name: str,
-                         globals=None,
-                         locals=None,
+                         globals_=None,
+                         locals_=None,
                          fromlist=(),
                          level=0):
             if name == 'drytorch.trackers' and fromlist:
@@ -43,7 +44,7 @@ def test_failed_import_warning():
                 if 'yaml' in fromlist:
                     raise ModuleNotFoundError()
 
-            return original_import(name, globals, locals, fromlist, level)
+            return original_import(name, globals_, locals_, fromlist, level)
 
         mp.setattr('builtins.__import__', _mock_import)
 

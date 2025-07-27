@@ -44,7 +44,7 @@ support = [
     "optuna",
 ]
 
-dev = ["pytest", "pytest-mock"]
+dev = ["pytest", "pytest-mock", "hypothesis", "notebook"]
 
 third_party_stubs = [
     "pandas-stubs",
@@ -93,3 +93,12 @@ log_cli_level = "WARNING"
 mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]
+
+[tool.pylint.MASTER]
+ignore-paths = [".*/tests/.*"]
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "fixme",
+    "useless-return",
+]

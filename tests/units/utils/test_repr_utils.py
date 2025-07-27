@@ -1,17 +1,19 @@
 """Tests for the "repr_utils" module."""
 
-import pytest
-
 import numpy as np
 import torch
 
-from drytorch.utils.repr_utils import DefaultName
-from drytorch.utils.repr_utils import LiteralStr
-from drytorch.utils.repr_utils import Omitted
-from drytorch.utils.repr_utils import Versioned
-from drytorch.utils.repr_utils import limit_size
-from drytorch.utils.repr_utils import has_own_repr
-from drytorch.utils.repr_utils import recursive_repr
+import pytest
+
+from drytorch.utils.repr_utils import (
+    DefaultName,
+    LiteralStr,
+    Omitted,
+    Versioned,
+    has_own_repr,
+    limit_size,
+    recursive_repr,
+)
 
 
 # Test class for DefaultName
@@ -50,6 +52,7 @@ class TestVersioned:
         return Versioned()
 
     def test_property(self, versioned):
+        """Test that the version is not an empty string."""
         assert versioned.created_at
 
 

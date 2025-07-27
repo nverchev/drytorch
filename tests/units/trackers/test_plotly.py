@@ -1,9 +1,11 @@
 """Tests for the "plotly" module."""
 
+import importlib.util
+
 import pytest
-try:
-    import plotly
-except ImportError:
+
+
+if not importlib.util.find_spec('plotly'):
     pytest.skip('plotly not available', allow_module_level=True)
 
 import numpy as np

@@ -4,6 +4,7 @@ import torch
 
 from drytorch.running import ModelCaller
 
+
 # noinspection PyProtectedMember
 # pylint: disable=protected-access
 AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm

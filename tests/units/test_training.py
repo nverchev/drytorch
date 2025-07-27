@@ -1,62 +1,52 @@
 """Tests for the "training" module."""
 
-import pytest
-
 import torch
 
-from drytorch import Trainer
-from drytorch import exceptions
+import pytest
+
+from drytorch import Trainer, exceptions
 
 
 class TestTrainer:
+    """Test for Trainer."""
+
     @pytest.fixture(autouse=True)
-    def setup(self,
-              mock_model,
-              mock_learning_scheme,
-              mock_loss,
-              mock_loader,
-              mocker):
+    def setup(
+        self, mock_model, mock_learning_scheme, mock_loss, mock_loader, mocker
+    ):
         """Set up a Trainer instance with mock components."""
-        self.model_optimizer = mocker.patch(
-            'drytorch.models.ModelOptimizer'
-        )
+        self.model_optimizer = mocker.patch('drytorch.models.ModelOptimizer')
         self.trainer = Trainer(
             mock_model,
             learning_scheme=mock_learning_scheme,
             loss=mock_loss,
             loader=mock_loader,
-            name='TestTrainer'
+            name='TestTrainer',
         )
         self.start_training_event = mocker.patch(
-            'drytorch.log_events.StartTraining')
+            'drytorch.log_events.StartTraining'
+        )
         self.end_training_event = mocker.patch(
-            'drytorch.log_events.EndTraining')
-        self.start_epoch_event = mocker.patch(
-            'drytorch.log_events.StartEpoch'
+            'drytorch.log_events.EndTraining'
         )
-        self.end_epoch_event = mocker.patch(
-            'drytorch.log_events.EndEpoch'
-        )
-        self.iterate_event = mocker.patch(
-            'drytorch.log_events.IterateBatch'
-        )
-        self.metrics_event = mocker.patch(
-            'drytorch.log_events.Metrics'
-        )
+        self.start_epoch_event = mocker.patch('drytorch.log_events.StartEpoch')
+        self.end_epoch_event = mocker.patch('drytorch.log_events.EndEpoch')
+        self.iterate_event = mocker.patch('drytorch.log_events.IterateBatch')
+        self.metrics_event = mocker.patch('drytorch.log_events.Metrics')
         self.terminated_event = mocker.patch(
             'drytorch.log_events.TerminatedTraining'
         )
 
     def test_call_events(self) -> None:
         """Test train method invokes the necessary hooks and events."""
-
         self.trainer.train(2)
 
         self.start_training_event.assert_called_once_with(
             source_name=self.trainer.name,
             model_name=self.trainer.model.name,
             start_epoch=self.trainer.model.epoch,
-            end_epoch=self.trainer.model.epoch + 2)
+            end_epoch=self.trainer.model.epoch + 2,
+        )
         self.end_training_event.assert_called_once()
         self.start_epoch_event.assert_called()
         self.end_epoch_event.assert_called()

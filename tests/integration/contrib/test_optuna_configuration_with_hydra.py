@@ -1,13 +1,15 @@
 """Test optuna trial suggestions can be implemented as overrides."""
 
 import pathlib
-from typing import Generator
+
+from collections.abc import Generator
 
 import hydra
-import pytest
-
-from omegaconf import OmegaConf, DictConfig
 import optuna
+
+from omegaconf import DictConfig, OmegaConf
+
+import pytest
 
 from drytorch.contrib.optuna import suggest_overrides
 

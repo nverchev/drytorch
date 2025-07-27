@@ -1,8 +1,11 @@
 """Tests HydraLink integrates into hydra mode tracker's initialization."""
 
 import pytest
+
+
 try:
     import hydra
+
     from omegaconf import DictConfig
 except ImportError:
     pytest.skip('hydra not available', allow_module_level=True)
@@ -14,9 +17,11 @@ import pathlib
 import sys
 
 import drytorch
+
+from drytorch.trackers.hydra import HydraLink
 from drytorch.trackers.logging import BuiltinLogger
 from drytorch.trackers.tqdm import TqdmLogger
-from drytorch.trackers.hydra import HydraLink
+
 
 expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 expected_log = expected_path_folder / 'hydra_log_file.txt'

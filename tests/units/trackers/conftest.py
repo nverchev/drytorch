@@ -1,9 +1,11 @@
 """Configuration module defining example mocked events."""
 
-import pytest
 import datetime
 import io
-from typing import Generator
+
+from collections.abc import Generator
+
+import pytest
 
 from drytorch import log_events
 

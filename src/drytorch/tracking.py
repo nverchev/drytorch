@@ -11,7 +11,7 @@ import functools
 import warnings
 
 from abc import abstractmethod
-from typing import Any, Self, cast
+from typing import Any, Self
 
 from drytorch import exceptions, log_events
 from drytorch import protocols as p
@@ -100,6 +100,8 @@ class MetadataManager:
 class Tracker(metaclass=abc.ABCMeta):
     """Abstract base class for tracking events with priority ordering."""
 
+    _current: Self | None
+
     @functools.singledispatchmethod
     @abstractmethod
     def notify(self, event: log_events.Event) -> None:
@@ -110,12 +112,24 @@ class Tracker(metaclass=abc.ABCMeta):
         """
         return
 
+    @notify.register
+    def _(self, event: log_events.StartExperiment) -> None:
+        _not_used = event
+        self._set_current(self)
+        return
+
+    @notify.register
+    def _(self, event: log_events.StopExperiment) -> None:
+        _not_used = event
+        self._reset_current()
+        return
+
     def clean_up(self) -> None:
         """Override to clean up the tracker."""
         return
 
     @classmethod
-    def current(cls) -> Self:
+    def get_current(cls) -> Self:
         """Get the registered tracker that is already registered.
 
         Returns:
@@ -124,18 +138,19 @@ class Tracker(metaclass=abc.ABCMeta):
         Raises:
             TrackerNotRegisteredError: if the tracker is not registered.
         """
-        # pylint: disable=import-outside-toplevel
-        from drytorch.experiments import Experiment
+        if cls._current is None:
+            raise exceptions.TrackerNotRegisteredError(cls.__name__)
+        return cls._current
 
-        exp: Experiment = Experiment.current()
-        try:
-            self = exp.trackers.named_trackers[cls.__name__]
-        except KeyError as ke:
-            raise exceptions.TrackerNotRegisteredError(
-                cls.__name__, exp.name
-            ) from ke
+    @classmethod
+    def _set_current(cls, tracker: Self) -> None:
+        cls._current = tracker
+        return
 
-        return cast(Self, self)
+    @classmethod
+    def _reset_current(cls) -> None:
+        cls._current = None
+        return
 
 
 class EventDispatcher:
@@ -229,9 +244,7 @@ class EventDispatcher:
         try:
             self.named_trackers.pop(tracker_name)
         except KeyError as ke:
-            raise exceptions.TrackerNotRegisteredError(
-                tracker_name, self.exp_name
-            ) from ke
+            raise exceptions.TrackerNotRegisteredError(tracker_name) from ke
         return
 
     def remove_all(self) -> None:

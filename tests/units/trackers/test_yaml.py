@@ -1,12 +1,15 @@
 """Tests for the "yaml" module."""
 
+import importlib.util
+
+from collections.abc import Generator
+
 import pytest
-try:
-    import yaml
-except ImportError:
+
+
+if not importlib.util.find_spec('yaml'):
     pytest.skip('yaml not available', allow_module_level=True)
 
-from typing import Generator
 
 from drytorch.trackers.yaml import YamlDumper
 

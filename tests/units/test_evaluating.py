@@ -2,9 +2,7 @@
 
 import pytest
 
-from drytorch.evaluating import Evaluation
-from drytorch.evaluating import Diagnostic
-from drytorch.evaluating import Test
+from drytorch.evaluating import Diagnostic, Evaluation, Test
 
 
 class TestDiagnostic:

@@ -1,12 +1,14 @@
 """Configuration module with mockups."""
 
-import pytest
 import pathlib
 
 import torch
 
-from drytorch import protocols as p
+import pytest
+
 from drytorch import Experiment
+from drytorch import protocols as p
+
 
 experiment_current_original = Experiment.current
 

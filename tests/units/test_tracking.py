@@ -1,18 +1,17 @@
 """Tests for the "tracking" module."""
 
 import dataclasses
-from typing import Optional
+import functools
 
 import pytest
 
-import functools
-
-from drytorch import exceptions
-from drytorch import log_events
-from drytorch.tracking import EventDispatcher
-from drytorch.tracking import MetadataManager
-from drytorch.tracking import Tracker
-from drytorch.tracking import remove_all_default_trackers
+from drytorch import exceptions, log_events
+from drytorch.tracking import (
+    EventDispatcher,
+    MetadataManager,
+    Tracker,
+    remove_all_default_trackers,
+)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -25,16 +24,15 @@ def remove_trackers() -> None:
 @dataclasses.dataclass
 class _SimpleEvent(log_events.Event):
     """Simple Event subclass for testing."""
-    pass
 
 
 @dataclasses.dataclass
 class _UndefinedEvent(log_events.Event):
     """Event subclass that the tracker does not handle."""
-    pass
 
 
 class TestEvent:
+    """Tests for Event."""
 
     def test_no_auto_publish(self):
         """Test the error raises correctly when instantiating the class."""
@@ -44,7 +42,8 @@ class TestEvent:
 
 class _SimpleTracker(Tracker):
     """Simple tracker that saves the last event."""
-    last_event: Optional[log_events.Event] = None
+
+    last_event: log_events.Event | None = None
 
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
@@ -82,7 +81,6 @@ class TestMetadataManager:
 
     def test_register_model(self, mocker, mock_model) -> None:
         """Test registering a model creates the event."""
-
         mock_log_event = mocker.patch('drytorch.log_events.ModelCreation')
         self.manager.register_model(mock_model)
         assert mock_model.name in self.manager.used_names
@@ -94,8 +92,10 @@ class TestMetadataManager:
         """Test metadata extraction with a recursive_repr wrapper."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('drytorch.utils.repr_utils.recursive_repr',
-                     return_value={'key': 'value'})
+        mocker.patch(
+            'drytorch.utils.repr_utils.recursive_repr',
+            return_value={'key': 'value'},
+        )
 
         metadata = self.manager.extract_metadata(mock_obj, max_size=5)
         assert metadata == {'key': 'value'}
@@ -104,8 +104,10 @@ class TestMetadataManager:
         """Test extract_metadata handles RecursionError gracefully."""
         mock_obj = mocker.Mock()
 
-        mocker.patch('drytorch.utils.repr_utils.recursive_repr',
-                     side_effect=RecursionError)
+        mocker.patch(
+            'drytorch.utils.repr_utils.recursive_repr',
+            side_effect=RecursionError,
+        )
         with pytest.warns(exceptions.RecursionWarning):
             _ = self.manager.extract_metadata(mock_obj, max_size=5)
 
@@ -152,5 +154,5 @@ class TestEventDispatcher:
     def test_handle_tracker_exceptions(self):
         """Test handling of tracker exceptions."""
         _UndefinedEvent.set_auto_publish(self.dispatcher.publish)
-        with pytest.warns(exceptions.TrackerError):
+        with pytest.warns(exceptions.TrackerExceptionWarning):
             _UndefinedEvent()

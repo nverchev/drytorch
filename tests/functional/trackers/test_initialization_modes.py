@@ -1,24 +1,26 @@
 """Functional tests for modes in initialize_trackers (replicated logic)."""
 
-import pytest
-
 import datetime
 import io
+import itertools
 import logging
 import pathlib
 import re
-from typing import Generator
 
-from drytorch import tracking
-from drytorch import log_events
-from drytorch.trackers.tqdm import TqdmLogger
-from drytorch.trackers.tqdm import EpochBar
-from drytorch.trackers.tqdm import TrainingBar
-from drytorch.trackers.logging import BuiltinLogger
-from drytorch.trackers.logging import enable_default_handler
-from drytorch.trackers.logging import INFO_LEVELS
-from drytorch.trackers.logging import set_formatter
-from drytorch.trackers.logging import set_verbosity
+from collections.abc import Generator
+
+import pytest
+
+from drytorch import log_events, tracking
+from drytorch.trackers.logging import (
+    INFO_LEVELS,
+    BuiltinLogger,
+    enable_default_handler,
+    set_formatter,
+    set_verbosity,
+)
+from drytorch.trackers.tqdm import EpochBar, TqdmLogger, TrainingBar
+
 
 expected_path_folder = pathlib.Path(__file__).parent / 'expected_logs'
 
@@ -29,11 +31,12 @@ def logger() -> logging.Logger:
     return logging.getLogger('drytorch')
 
 
-@pytest.fixture(autouse=True, )
+@pytest.fixture(
+    autouse=True,
+)
 def setup(
-        monkeypatch,
-        logger,
-        string_stream,
+    monkeypatch,
+    string_stream,
 ) -> Generator[None, None, None]:
     """Set up a logger with temporary configuration."""
 
@@ -48,7 +51,7 @@ def setup(
     EpochBar.fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}{postfix}'
     training_bar_fmt = TrainingBar.fmt
     TrainingBar.fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}'
-    # FIXME: reroute stderr / stdout instead
+    # TODO: reroute stderr / stdout instead
     enable_default_handler(stream=string_stream)
     yield
 
@@ -58,9 +61,7 @@ def setup(
     return
 
 
-def test_standard_mode(example_named_metrics,
-                       event_workflow,
-                       string_stream):
+def test_standard_mode(example_named_metrics, event_workflow, string_stream):
     """Test standard mode on typical workflow."""
     set_verbosity(INFO_LEVELS.epoch)
     trackers = list[tracking.Tracker]()
@@ -73,9 +74,9 @@ def test_standard_mode(example_named_metrics,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_standard_mode_no_tqdm(example_named_metrics,
-                               event_workflow,
-                               string_stream):
+def test_standard_mode_no_tqdm(
+    example_named_metrics, event_workflow, string_stream
+):
     """Test standard mode on typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.metrics)
     trackers = list[tracking.Tracker]()
@@ -87,9 +88,7 @@ def test_standard_mode_no_tqdm(example_named_metrics,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_hydra_mode(example_named_metrics,
-                    event_workflow,
-                    string_stream):
+def test_hydra_mode(example_named_metrics, event_workflow, string_stream):
     """Test hydra mode on typical workflow."""
     set_verbosity(INFO_LEVELS.metrics)
     trackers = list[tracking.Tracker]()
@@ -104,9 +103,7 @@ def test_hydra_mode(example_named_metrics,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_tuning_mode(example_named_metrics,
-                     event_workflow,
-                     string_stream):
+def test_tuning_mode(example_named_metrics, event_workflow, string_stream):
     """Test tuning mode on typical workflow."""
     set_verbosity(INFO_LEVELS.training)
     trackers = list[tracking.Tracker]()
@@ -121,9 +118,9 @@ def test_tuning_mode(example_named_metrics,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_tuning_mode_no_tqdm(example_named_metrics,
-                             event_workflow,
-                             string_stream):
+def test_tuning_mode_no_tqdm(
+    example_named_metrics, event_workflow, string_stream
+):
     """Test tuning mode on typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.epoch)
     set_formatter('progress')
@@ -138,9 +135,11 @@ def test_tuning_mode_no_tqdm(example_named_metrics,
     assert _get_cleaned_value(string_stream) == expected
 
 
-def _notify_workflow(event_workflow: tuple[log_events.Event, ...],
-                     trackers: list[tracking.Tracker],
-                     example_named_metrics: dict[str, float]) -> None:
+def _notify_workflow(
+    event_workflow: tuple[log_events.Event, ...],
+    trackers: list[tracking.Tracker],
+    example_named_metrics: dict[str, float],
+) -> None:
     for event in event_workflow:
         for tracker in trackers:
             tracker.notify(event)
@@ -163,8 +162,9 @@ def _get_cleaned_value(mock_stdout: io.StringIO) -> str:
 def _remove_carriage_return(text: str) -> str:
     """Remove lines ending with carriage returns."""
     text = _strip_color(text)
-    return '\n'.join((line.rsplit('\r', maxsplit=1)[-1]
-                      for line in text.split('\n')))
+    return '\n'.join(
+        line.rsplit('\r', maxsplit=1)[-1] for line in text.split('\n')
+    )
 
 
 def _strip_color(text: str) -> str:
@@ -177,7 +177,7 @@ def _remove_up(text: str) -> str:
     text = text.replace('\x1b[A\n', '')  # removes up and new line
     text_split = text.split('\n')
     new_split = list[str]()
-    for line, next_line in zip(text_split, text_split[1:]):
+    for line, next_line in itertools.pairwise(text_split):
         if '\x1b[A\r' not in next_line:
             new_split.append(line)
     new_split.append(text_split[-1])

@@ -5,3 +5,4 @@ __pycache__/
 *$py.class
 *.hypothesis/
 *.lock
+*.ipynb_checkpoints

@@ -1,15 +1,17 @@
 """Tests for the "from torchmetrics" module."""
 
-import pytest
-
 import torch
 
+import pytest
+
 from drytorch.contrib.from_torchmetrics import from_torchmetrics
+
 
 torchmetrics = pytest.importorskip('torchmetrics')
 
 
 class TestFromTorchMetrics:
+    """Tests for intergration with torchmetrics."""
 
     @pytest.fixture
     def metric_a(self):

@@ -1,23 +1,26 @@
 """Tests for the "logging" module."""
 
+import logging
+
+from collections.abc import Generator
+
 import pytest
 
-import logging
-from typing import Generator
-
 from drytorch import log_events
-from drytorch.trackers.logging import INFO_LEVELS
-from drytorch.trackers.logging import BuiltinLogger
-from drytorch.trackers.logging import DryTorchFilter
-from drytorch.trackers.logging import DryTorchFormatter
-from drytorch.trackers.logging import ProgressFormatter
-from drytorch.trackers.logging import enable_default_handler
-from drytorch.trackers.logging import enable_propagation
-from drytorch.trackers.logging import disable_default_handler
-from drytorch.trackers.logging import disable_propagation
-from drytorch.trackers.logging import get_verbosity
-from drytorch.trackers.logging import set_formatter
-from drytorch.trackers.logging import set_verbosity
+from drytorch.trackers.logging import (
+    INFO_LEVELS,
+    BuiltinLogger,
+    DryTorchFilter,
+    DryTorchFormatter,
+    ProgressFormatter,
+    disable_default_handler,
+    disable_propagation,
+    enable_default_handler,
+    enable_propagation,
+    get_verbosity,
+    set_formatter,
+    set_verbosity,
+)
 
 
 @pytest.fixture
@@ -54,20 +57,20 @@ def example_record() -> logging.LogRecord:
         lineno=1,
         msg='Test message',
         args=(),
-        exc_info=None
+        exc_info=None,
     )
     return record
 
 
 class TestBuiltinLogger:
-    """ Test suite for the BuiltinLogger class."""
+    """Test suite for the BuiltinLogger class."""
 
     @pytest.fixture(autouse=True)
     def setup(
-            self,
-            logger,
-            string_stream,
-            stream_handler,
+        self,
+        logger,
+        string_stream,
+        stream_handler,
     ) -> Generator[None, None, None]:
         """Set up a logger with temporary configuration."""
         self.stream = string_stream
@@ -89,63 +92,63 @@ class TestBuiltinLogger:
         return BuiltinLogger()
 
     def test_start_training_event(
-            self,
-            tracker,
-            start_training_mock_event: log_events.StartTraining,
+        self,
+        tracker,
+        start_training_mock_event: log_events.StartTraining,
     ) -> None:
         """Tests handling of StartTraining event."""
         start_training_mock_event.model_name = 'my_model'
         tracker.notify(start_training_mock_event)
-        expected = f'Training my_model started.'
+        expected = 'Training my_model started.'
         assert expected in self.stream.getvalue()
 
     def test_end_training_event(
-            self,
-            tracker,
-            end_training_mock_event,
+        self,
+        tracker,
+        end_training_mock_event,
     ) -> None:
         """Test handling of EndTraining event."""
         tracker.notify(end_training_mock_event)
         assert 'Training ended.' in self.stream.getvalue()
 
     def test_start_epoch_event_with_final_epoch(
-            self,
-            tracker,
-            start_epoch_mock_event,
+        self,
+        tracker,
+        start_epoch_mock_event,
     ) -> None:
         """Test handling of StartEpoch event with final epoch specified."""
         start_epoch_mock_event.epoch = 4
         start_epoch_mock_event.end_epoch = 10
         tracker.notify(start_epoch_mock_event)
-        expected = f'====> Epoch  4/10:'
+        expected = '====> Epoch  4/10:'
         assert expected in self.stream.getvalue()
 
-    def test_start_epoch_without_final_epoch(self,
-                                             tracker,
-                                             start_epoch_mock_event) -> None:
+    def test_start_epoch_without_final_epoch(
+        self, tracker, start_epoch_mock_event
+    ) -> None:
         """Test handling of StartEpoch event without final epoch specified."""
         start_epoch_mock_event.epoch = 12
         start_epoch_mock_event.end_epoch = None
         tracker.notify(start_epoch_mock_event)
-        assert f'====> Epoch 12:' in self.stream.getvalue()
+        assert '====> Epoch 12:' in self.stream.getvalue()
 
     def test_save_model_event(
-            self,
-            tracker,
-            save_model_mock_event,
+        self,
+        tracker,
+        save_model_mock_event,
     ) -> None:
         """Test handling of SaveModel event."""
         save_model_mock_event.model_name = 'my_model'
         save_model_mock_event.definition = 'weights'
         save_model_mock_event.location = 'folder'
         tracker.notify(save_model_mock_event)
-        expected = f'Saving my_model weights in: folder.'
+        expected = 'Saving my_model weights in: folder.'
         assert expected in self.stream.getvalue()
 
     def test_load_model_event(
-            self,
-            tracker,
-            load_model_mock_event,
+        self,
+        tracker,
+        load_model_mock_event,
     ) -> None:
         """Test handling of the LoadModel event."""
         load_model_mock_event.model_name = 'my_model'
@@ -153,33 +156,31 @@ class TestBuiltinLogger:
         load_model_mock_event.location = 'folder'
         load_model_mock_event.epoch = 3
         tracker.notify(load_model_mock_event)
-        expected = f'Loading my_model weights at epoch 3.'
+        expected = 'Loading my_model weights at epoch 3.'
         assert expected in self.stream.getvalue()
 
-    def test_test_event(self,
-                        tracker,
-                        start_test_mock_event) -> None:
+    def test_test_event(self, tracker, start_test_mock_event) -> None:
         """Test handling of Test event."""
         start_test_mock_event.model_name = 'my_model'
         tracker.notify(start_test_mock_event)
-        assert f'Testing my_model started.' in self.stream.getvalue()
+        assert 'Testing my_model started.' in self.stream.getvalue()
 
     def test_final_metrics_event(
-            self,
-            tracker,
-            epoch_metrics_mock_event,
+        self,
+        tracker,
+        epoch_metrics_mock_event,
     ) -> None:
         """Test handling of the FinalMetrics event."""
         epoch_metrics_mock_event.source_name = 'test_source'
-        epoch_metrics_mock_event.metrics = {'loss': 1.2, 'accuracy': .81}
+        epoch_metrics_mock_event.metrics = {'loss': 1.2, 'accuracy': 0.81}
         tracker.notify(epoch_metrics_mock_event)
         expected = 'test_source:    loss=1.200000e+00   accuracy=8.100000e-01\n'
         assert self.stream.getvalue().expandtabs(4).endswith(expected)
 
     def test_terminated_training_event(
-            self,
-            tracker,
-            terminated_training_mock_event,
+        self,
+        tracker,
+        terminated_training_mock_event,
     ) -> None:
         """Test handling of TerminatedTraining event."""
         terminated_training_mock_event.source_name = 'my_source'
@@ -193,9 +194,9 @@ class TestBuiltinLogger:
         assert expected in output
 
     def test_update_learning_rate_event(
-            self,
-            tracker,
-            update_learning_rate_mock_event,
+        self,
+        tracker,
+        update_learning_rate_mock_event,
     ) -> None:
         """Test handling of the UpdateLearningRate event."""
         update_learning_rate_mock_event.source_name = 'my_source'
@@ -283,9 +284,7 @@ def test_disable_default_handler(logger) -> None:
     assert isinstance(logger.handlers[0], logging.NullHandler)
 
 
-def test_disable_propagation(logger,
-                             root_logger,
-                             string_stream) -> None:
+def test_disable_propagation(logger, root_logger, string_stream) -> None:
     """Test disabling log propagation."""
     disable_default_handler()
     disable_propagation()
@@ -300,18 +299,16 @@ def test_enable_default_handler(logger) -> None:
     assert isinstance(logger.handlers[0], logging.StreamHandler)
 
 
-def test_enable_propagation(logger,
-                            root_logger,
-                            string_stream) -> None:
+def test_enable_propagation(logger, root_logger, string_stream) -> None:
     """Test enabling log propagation."""
     enable_propagation(False)
     logger.error('test error 1')
     assert string_stream.getvalue() == 'test error 1\ntest error 1\n'
 
 
-def test_enable_propagation_with_deduplication(logger,
-                                               root_logger,
-                                               string_stream) -> None:
+def test_enable_propagation_with_deduplication(
+    logger, root_logger, string_stream
+) -> None:
     """Test enabling log propagation while deduplicating output."""
     enable_propagation()
     logger.error('test error 1')

@@ -1,13 +1,25 @@
 """Tests for the "evaluating" module."""
 
+from typing_extensions import override
+
 import pytest
 
 from drytorch import exceptions
-from drytorch.running import ModelCaller
-from drytorch.running import Source
-from drytorch.running import ModelRunner
-from drytorch.running import ModelRunnerWithObjective
-from drytorch.running import ModelRunnerWithLogs
+from drytorch.running import (
+    ModelCaller,
+    ModelRunner,
+    ModelRunnerWithLogs,
+    ModelRunnerWithObjective,
+    Source,
+)
+
+
+class SimpleCaller(ModelCaller):
+    """Simplest concrete implementation for ModelCaller."""
+
+    @override
+    def __call__(self) -> None:
+        return
 
 
 class TestModelCaller:
@@ -21,7 +33,7 @@ class TestModelCaller:
     @pytest.fixture
     def caller(self, mock_model, caller_name) -> ModelCaller:
         """Set up a test instance."""
-        return ModelCaller(mock_model, caller_name)
+        return SimpleCaller(mock_model, caller_name)
 
     def test_initialization(self, mock_model, caller, caller_name) -> None:
         """Test initialization with all parameters."""
@@ -42,7 +54,7 @@ class TestSource:
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
-        """ Set up the tests. """
+        """Set up the tests."""
         self.mock_record_model_call = mocker.patch(
             'drytorch.registering.record_model_call'
         )
@@ -109,7 +121,7 @@ class TestModelRunner:
     def test_get_batches(self, runner, mock_loader) -> None:
         """Test batch generation applies operations to the device."""
         batches = list(runner._get_batches())
-        loaded = [batch for batch in mock_loader]
+        loaded = list(mock_loader)
         assert len(batches) == len(loaded)
         for batch in loaded:
             self.mock_apply_to.assert_any_call(batch, runner.model.device)

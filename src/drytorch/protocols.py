@@ -8,10 +8,9 @@ from collections.abc import Iterable, Iterator, Mapping, MutableSequence
 from typing import (
     Any,
     Protocol,
-    SupportsIndex,
-    Union,
     TypeAlias,
     TypeVar,
+    overload,
     runtime_checkable,
 )
 
@@ -22,13 +21,13 @@ from torch.utils import data
 
 _T = TypeVar('_T')
 
-Tensors: TypeAlias = Union[torch.Tensor, MutableSequence[torch.Tensor]]
+Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
 
 # pyright: reportReturnType=false
 
 
 @runtime_checkable
-class NamedTupleProtocol(Protocol[_T]):
+class NamedTupleProtocol(Protocol):
     """Optional protocol for the input and target types.
 
     Correctly handled by the default collate function.
@@ -38,18 +37,24 @@ class NamedTupleProtocol(Protocol[_T]):
 
     _fields: tuple
 
-    def __getitem__(self, index: SupportsIndex) -> _T:
-        """Get the indexed element."""
+    @overload
+    def __getitem__(self, key: int, /) -> Any: ...
+
+    @overload
+    def __getitem__(self, key: slice, /) -> tuple[Any, ...]: ...
+
+    def __getitem__(self, key: Any, /) -> Any | tuple[Any, ...]:
+        """Get the indexed element or slice."""
 
     def __len__(self) -> int:
         """Return the length of the tuple."""
 
-    def _asdict(self) -> dict[str, _T]: ...
+    def _asdict(self) -> dict[str, Any]: ...
 
 
-InputType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
+InputType: TypeAlias = Tensors | NamedTupleProtocol
 OutputType: TypeAlias = Any
-TargetType: TypeAlias = Tensors | NamedTupleProtocol[Tensors]
+TargetType: TypeAlias = Tensors | NamedTupleProtocol
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[InputType, TargetType], covariant=True

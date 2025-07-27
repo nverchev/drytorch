@@ -1,22 +1,26 @@
 """Tests custom settings for YAML dumping."""
 
 import pytest
+
+
 try:
-    import hypothesis  # type ignore
+    from hypothesis import assume, given
+    from hypothesis.strategies import characters, text
 except ImportError:
     pytest.skip('hypothesis not available', allow_module_level=True)
-from hypothesis import given, assume
-from hypothesis.strategies import text, characters
+
 try:
-    import yaml  # type ignore
+    import yaml
 except ImportError:
     pytest.skip('yaml not available', allow_module_level=True)
     raise
 
+from drytorch.trackers.yaml import (
+    MAX_LENGTH_PLAIN_REPR,
+    MAX_LENGTH_SHORT_REPR,
+    has_short_repr,
+)
 from drytorch.utils import repr_utils
-from drytorch.trackers.yaml import MAX_LENGTH_SHORT_REPR
-from drytorch.trackers.yaml import MAX_LENGTH_PLAIN_REPR
-from drytorch.trackers.yaml import has_short_repr
 
 
 def test_short_repr():
@@ -59,24 +63,28 @@ def test_long_element():
 
 
 def test_represent_omitted():
+    """Test correct representation of omitted values."""
     omitted = repr_utils.Omitted(5)
     yaml_string = yaml.dump(omitted)
     assert yaml_string == '!Omitted\nomitted_elements: 5\n'
 
 
 def test_represent_unknown_omitted():
+    """Test correct representation of an unknown amount of omitted values."""
     omitted = repr_utils.Omitted()
     yaml_string = yaml.dump(omitted, Dumper=yaml.Dumper)
     assert yaml_string == '!Omitted\nomitted_elements: .nan\n'
 
 
 def test_represent_list_with_omitted():
+    """Test correct representation of omitted values inside a list."""
     yaml_string = yaml.dump([2, repr_utils.Omitted(5), 3])
     assert yaml_string == "[2, !Omitted {omitted_elements: 5}, 3]\n"
 
 
 @given(text(characters(codec='ascii', exclude_categories=['Cc', 'Cs'])))
 def test_literal_str_yaml_representation(string):
+    """Test LiteralStr is represented wiht the pipe style."""
     # pipe style incompatible with trailing spaces or empty strings
     stripped = string.strip()
     assume(stripped)

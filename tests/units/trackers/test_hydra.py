@@ -1,14 +1,13 @@
 """Tests for the "hydra" module."""
 
+import importlib.util
+
 import pytest
 
-try:
-    import hydra
-except ImportError:
+
+if not importlib.util.find_spec('hydra'):
     pytest.skip('hydra not available', allow_module_level=True)
-
 from drytorch import exceptions
-
 from drytorch.trackers.hydra import HydraLink
 
 
@@ -23,8 +22,7 @@ class TestHydraLink:
         mock_config = mocker.MagicMock()
         mock_config.runtime.output_dir = self.hydra_output_dir.as_posix()
         mocker.patch(
-            'hydra.core.hydra_config.HydraConfig.get',
-            return_value=mock_config
+            'hydra.core.hydra_config.HydraConfig.get', return_value=mock_config
         )
         return
 
@@ -38,7 +36,9 @@ class TestHydraLink:
         """Set up the instance with copy_hydra=False."""
         return HydraLink(par_dir=tmp_path, copy_hydra=False)
 
-    def test_cleanup_no_copy(self, tracker_no_copy, start_experiment_mock_event):
+    def test_cleanup_no_copy(
+        self, tracker_no_copy, start_experiment_mock_event
+    ):
         """Test cleanup does not copy hydra folder."""
         tracker_no_copy.notify(start_experiment_mock_event)
         tracker_no_copy.clean_up()
@@ -59,7 +59,7 @@ class TestHydraLink:
     def test_init_without_hydra_raises_exception(self, tmp_path) -> None:
         """Test initialization fails with a non-existing hydra directory."""
         self.hydra_output_dir.rmdir()
-        with pytest.raises(exceptions.TrackerException):
+        with pytest.raises(exceptions.TrackerError):
             HydraLink(par_dir=tmp_path / 'not_existing')
 
     def test_dir_property(self, tracker, tmp_path) -> None:
@@ -69,9 +69,9 @@ class TestHydraLink:
         assert dir1 == dir2
 
     def test_notify_start_experiment_creates_symlink(
-            self,
-            tracker,
-            start_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
     ) -> None:
         """Test start experiment notification creates symlink."""
         tracker.notify(start_experiment_mock_event)

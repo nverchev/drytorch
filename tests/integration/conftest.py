@@ -1,16 +1,23 @@
 """Configuration module with objects from the package."""
-from typing import Generator
 
-import pytest
+from collections.abc import Generator
 
 import torch
 
-import drytorch
-from drytorch import DataLoader, LearningScheme, Model, Experiment
-from drytorch import Trainer, Loss, Metric
+import pytest
 
-from tests.simple_classes import IdentityDataset, Linear
-from tests.simple_classes import TorchData, TorchTuple
+import drytorch
+
+from drytorch import (
+    DataLoader,
+    Experiment,
+    LearningScheme,
+    Loss,
+    Metric,
+    Model,
+    Trainer,
+)
+from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 
 
 @pytest.fixture
@@ -38,8 +45,7 @@ def zero_metrics_calc() -> Metric[TorchData, torch.Tensor]:
     """Instantiate a null metric for the identity dataset."""
 
     def zero(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
-        """
-        Fake metric calculation from structured outputs.
+        """Fake metric calculation from structured outputs.
 
         Args:
             outputs: structured model outputs.
@@ -59,8 +65,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
     """Instantiate a loss for the identity dataset."""
 
     def mse(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
-        """
-        Mean square error calculation from structured outputs.
+        """Mean square error calculation from structured outputs.
 
         Args:
             outputs: structured model outputs.
@@ -77,7 +82,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
 @pytest.fixture
 def standard_learning_scheme() -> LearningScheme:
     """Instantiate a standard learning scheme."""
-    return LearningScheme.Adam(base_lr=0.1)
+    return LearningScheme.adam(base_lr=0.1)
 
 
 @pytest.fixture

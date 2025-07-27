@@ -1,15 +1,15 @@
 """Functional tests for Wandb tracker."""
 
+from collections.abc import Generator
+
 import pytest
 
+
 try:
-    import wandb
+    from wandb.sdk import wandb_settings
 except ImportError:
     pytest.skip('wandb not available', allow_module_level=True)
 
-from typing import Generator
-
-from wandb.sdk import wandb_settings
 
 from drytorch.trackers.wandb import Wandb
 

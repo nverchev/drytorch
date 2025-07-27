@@ -1,18 +1,18 @@
 """Tests TqdmLogger integration with the event system."""
 
+from collections.abc import Generator, Sequence
+
 import pytest
+
+from drytorch import log_events, tracking
+
+
 try:
-    import tqdm
+    from drytorch.trackers.tqdm import EpochBar, TqdmLogger, TrainingBar
 except ImportError:
     pytest.skip('tqdm not available', allow_module_level=True)
+    raise
 
-from typing import Generator
-
-from drytorch import tracking
-from drytorch import log_events
-from drytorch.trackers.tqdm import TqdmLogger
-from drytorch.trackers.tqdm import EpochBar
-from drytorch.trackers.tqdm import TrainingBar
 
 expected_out = ('Epoch::   0%|\x1b[34m          \x1b[0m| 0/3\r'
                 'Epoch: 5 / 8:  33%|\x1b[34m###3      \x1b[0m| 1/3\n'
@@ -99,7 +99,7 @@ class TestTqdmLoggerFullCycle:
 
 
 def _notify_workflow(event_workflow: tuple[log_events.Event, ...],
-                     trackers: list[tracking.Tracker],
+                     trackers: Sequence[tracking.Tracker],
                      example_named_metrics: dict[str, float]) -> None:
     for event in event_workflow:
         for tracker in trackers:

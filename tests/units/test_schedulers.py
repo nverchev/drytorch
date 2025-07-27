@@ -2,20 +2,20 @@
 
 import pytest
 
-import numpy as np
-
-from drytorch.schedulers import AbstractScheduler
-from drytorch.schedulers import ConstantScheduler
-from drytorch.schedulers import CosineScheduler
-from drytorch.schedulers import ExponentialScheduler
-from drytorch.schedulers import RescaleScheduler
-from drytorch.schedulers import WarmupScheduler
-from drytorch.schedulers import PolynomialScheduler
-from drytorch.schedulers import StepScheduler
-from drytorch.schedulers import RestartScheduler
-from drytorch.schedulers import rescale
-from drytorch.schedulers import restart
-from drytorch.schedulers import warmup
+from drytorch.schedulers import (
+    AbstractScheduler,
+    ConstantScheduler,
+    CosineScheduler,
+    ExponentialScheduler,
+    PolynomialScheduler,
+    RescaleScheduler,
+    RestartScheduler,
+    StepScheduler,
+    WarmupScheduler,
+    rescale,
+    restart,
+    warmup,
+)
 
 
 class TestConstantScheduler:
@@ -154,9 +154,7 @@ class TestScaledScheduler:
         return RescaleScheduler(factor=factor, base_scheduler=base_scheduler)
 
     def test_scaled_scheduler(self, scheduler, factor, base_scheduler) -> None:
-        """Test that ScaledScheduler correctly scales the base
-        scheduler's output.
-        """
+        """Test it correctly scales the base scheduler's output."""
         base_lr = 0.1
         epoch = 10
         expected_lr = factor * base_scheduler(base_lr, epoch)
@@ -321,10 +319,10 @@ class TestWarmupScheduler:
         expected_lr = base_scheduler(base_lr, epochs_after_warmup)
         assert post_warmup_lr == expected_lr
 
-    def test_invalid_params(self) -> None:
+    def test_invalid_params(self, base_scheduler) -> None:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
-            WarmupScheduler(warmup_steps=-1)
+            WarmupScheduler(base_scheduler, warmup_steps=-1)
 
 
 class TestPolynomialScheduler:

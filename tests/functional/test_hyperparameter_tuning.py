@@ -1,26 +1,23 @@
 """Functional tests for simple hyperparameter tuning."""
 
+from collections.abc import Generator, MutableMapping
+
 import pytest
 
-from typing import Generator, MutableMapping
-
-from drytorch import Model, Trainer
-
-from drytorch import hooks
-
+from drytorch import Experiment, Model, Trainer, hooks
 from tests.simple_classes import Linear
 
 
 @pytest.fixture(autouse=True, scope='module')
-def start_experiment(experiment) -> Generator[None, None, None]:
+def autorun_experiment(experiment) -> Generator[Experiment, None, None]:
     """Create an experimental scope for the tests."""
-    yield
+    yield experiment
     return
 
 
 @pytest.fixture
 def benchmark_values() -> MutableMapping[int, float | None]:
-    """Thresholds for the first epochs with None values"""
+    """Thresholds for the first epochs with None values."""
     return {}.fromkeys(range(1, 5))
 
 

@@ -1,12 +1,16 @@
 """Tests for the "wandb" module."""
 
+import importlib.util
+
+from collections.abc import Generator
+
 import pytest
-try:
-    import wandb
-except ImportError:
+
+
+if not importlib.util.find_spec('wandb'):
     pytest.skip('wandb not available', allow_module_level=True)
 
-from typing import Generator
+
 
 from drytorch import exceptions
 from drytorch.trackers.wandb import Wandb
@@ -46,6 +50,7 @@ class TestWandb:
         assert isinstance(tracker.resume_run, bool)
 
     def test_cleanup(self, tracker) -> None:
+        """Test correct clean up."""
         tracker.clean_up()
         self.finish_mock.assert_called_once()
         assert tracker._run is None

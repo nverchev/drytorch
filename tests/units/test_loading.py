@@ -1,28 +1,38 @@
 """Tests for the "loading" module."""
 
-import pytest
-
-from typing import Sequence
+from collections.abc import Sequence
 
 import torch
+
 from torch.utils import data
+from typing_extensions import override
+
+import pytest
 
 from drytorch import exceptions
-from drytorch.loading import DataLoader, Permutation, Sliced
-from drytorch.loading import check_dataset_length, num_batches
+from drytorch.loading import (
+    DataLoader,
+    Permutation,
+    Sliced,
+    num_batches,
+    validate_dataset_length,
+)
 
 
 class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """Simple dataset for testing purposes."""
 
     def __init__(self, dataset: Sequence[tuple[int, int]]):
+        """Constructor."""
         self.data = dataset
 
+    @override
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         out = self.data[index]
         return torch.FloatTensor([out[0]]), torch.FloatTensor([out[1]])
 
     def __len__(self) -> int:
+        """Number of samples."""
         return len(self.data)
 
 
@@ -124,7 +134,7 @@ def test_check_dataset_length_fail() -> None:
     """Test check_dataset_length raises an error when no len is defined."""
     dataset = torch.utils.data.Dataset[None]()
     with pytest.raises(exceptions.DatasetHasNoLengthError):
-        check_dataset_length(dataset)
+        validate_dataset_length(dataset)
 
 
 def test_num_batches() -> None:

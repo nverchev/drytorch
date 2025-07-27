@@ -1,10 +1,11 @@
 """Tests for the "matplotlib" module."""
 
+import importlib.util
+
 import pytest
 
-try:
-    import matplotlib
-except ImportError:
+
+if not importlib.util.find_spec('matplotlib'):
     pytest.skip('matplotlib not available', allow_module_level=True)
 
 import numpy as np
@@ -110,7 +111,6 @@ class TestMatPlotter:
                                   example_source_name,
                                   example_loss_name) -> None:
         """Test plotting metric with new data."""
-
         # call plot_metric
         fig, ax = tracker_with_layout._plot_metric(example_model_name,
                                                    example_loss_name,

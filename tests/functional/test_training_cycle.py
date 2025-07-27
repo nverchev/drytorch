@@ -1,19 +1,18 @@
 """Functional tests for the Trainer class and some hooks."""
 
-import pytest
-
-from typing import Generator
+from collections.abc import Generator
 
 import torch
 
-from drytorch import schedulers
-from drytorch import hooks
+import pytest
+
+from drytorch import Experiment, hooks, schedulers
 
 
 @pytest.fixture(autouse=True, scope='module')
-def start_experiment(experiment) -> Generator[None, None, None]:
+def autorun_experiment(experiment) -> Generator[Experiment, None, None]:
     """Create an experimental scope for the tests."""
-    yield
+    yield experiment
     return
 
 
@@ -24,10 +23,7 @@ def test_convergence(identity_trainer) -> None:
     assert torch.isclose(linear_weight, torch.tensor(1.), atol=0.1)
 
 
-def test_early_stopping(identity_loader,
-                        linear_model,
-                        square_loss_calc,
-                        zero_metrics_calc,
+def test_early_stopping(square_loss_calc,
                         identity_trainer) -> None:
     """Test early stopping when monitoring training."""
     hook = hooks.EarlyStoppingCallback(square_loss_calc,
@@ -40,7 +36,6 @@ def test_early_stopping(identity_loader,
 
 
 def test_early_stopping_on_val(identity_loader,
-                               linear_model,
                                square_loss_calc,
                                identity_trainer) -> None:
     """Test early stopping when monitoring validation."""
@@ -54,9 +49,7 @@ def test_early_stopping_on_val(identity_loader,
     assert identity_trainer.model.epoch == 3
 
 
-def test_pruning_callback(identity_loader,
-                          linear_model,
-                          square_loss_calc,
+def test_pruning_callback(square_loss_calc,
                           identity_trainer) -> None:
     """Test pruning based on metric thresholds."""
     pruning_thresholds = {2: 1., 3: 0.}
@@ -71,9 +64,7 @@ def test_pruning_callback(identity_loader,
     assert identity_trainer.model.epoch == 3
 
 
-def test_reduce_lr_on_plateau(identity_loader,
-                              linear_model,
-                              square_loss_calc,
+def test_reduce_lr_on_plateau(square_loss_calc,
                               identity_trainer) -> None:
     """Test learning rate reduction on plateau."""
     factor = 0.1
@@ -90,9 +81,7 @@ def test_reduce_lr_on_plateau(identity_loader,
     assert final_lr == pytest.approx(factor * initial_lr)
 
 
-def test_restart_schedule_on_plateau(identity_loader,
-                                     linear_model,
-                                     square_loss_calc,
+def test_restart_schedule_on_plateau(square_loss_calc,
                                      identity_trainer) -> None:
     """Test learning rate schedule restart on plateau."""
     exp_scheduler = schedulers.ExponentialScheduler()

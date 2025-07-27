@@ -1,16 +1,16 @@
 """Tests for the "checkpoint" module."""
 
-import pytest
-
 import time
+
 import torch
 
-from drytorch import checkpointing
-from drytorch import exceptions
-from drytorch import log_events
+import pytest
+
+from drytorch import checkpointing, exceptions, log_events
 
 
 class TestPathManager:
+    """Tests for PathManager."""
 
     @pytest.fixture()
     def manager(self,
@@ -30,7 +30,7 @@ class TestPathManager:
 
         dirs = [manager.checkpoint_dir, manager.epoch_dir]
 
-        for dir_, expected_dir in zip(dirs, expected_dirs):
+        for dir_, expected_dir in zip(dirs, expected_dirs, strict=False):
             assert dir_ == expected_dir
             assert dir_.exists()
             assert dir_.is_dir()
@@ -43,11 +43,12 @@ class TestPathManager:
         paths = [manager.state_path, manager.optimizer_path]
         expected_paths = [epoch_dir / 'state.pt', epoch_dir / 'optimizer.pt']
 
-        for path, expected_path in zip(paths, expected_paths):
+        for path, expected_path in zip(paths, expected_paths, strict=False):
             assert path == expected_path
 
 
 class TestLocalCheckpoint:
+    """Tests for LocalCheckpoint."""
     @pytest.fixture(autouse=True)
     def setup(self, mocker):
         """Set up the model state class."""
