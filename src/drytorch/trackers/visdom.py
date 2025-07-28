@@ -108,6 +108,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         self.port = port
         self.opts: VisdomOpts = opts or VisdomOpts()
         self._viz: visdom.Visdom | None = None
+        return
 
     @property
     def viz(self) -> visdom.Visdom:

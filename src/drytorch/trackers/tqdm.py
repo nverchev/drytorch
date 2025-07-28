@@ -182,6 +182,7 @@ class TqdmLogger(tracking.Tracker):
         self._enable_training_bar = enable_training_bar
         self._training_bar: TrainingBar | None = None
         self._epoch_bar: EpochBar | None = None
+        return
 
     @override
     def clean_up(self) -> None:

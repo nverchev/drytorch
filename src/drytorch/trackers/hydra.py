@@ -44,6 +44,7 @@ class HydraLink(base_classes.Dumper):
             raise exceptions.TrackerError(self, 'Hydra has not started.')
         self._exp_version: str | None = None
         self._copy_hydra = copy_hydra
+        return
 
     @property
     def dir(self) -> pathlib.Path:

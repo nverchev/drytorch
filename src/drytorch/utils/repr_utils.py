@@ -309,3 +309,23 @@ def _(obj, *, max_size: int = 10) -> str:
 def _(obj, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj.__name__
+
+
+def atomize(obj: object, *, max_size: int = 10) -> bool | float | int | str:
+    """Function that attempts a hierarchical representation of a given object.
+
+    It recursively represents each attribute of the object or the contained
+    items in tuples, lists, sets, and dictionaries. The latter structures are
+    limited in size by keeping max_size elements and replacing the others with
+    an Omitted instance.
+
+    Arrays are represented using pandas and numpy array representation. Numbers
+    are returned as they are or converted to python types.
+
+    Args:
+        obj: the object to represent.
+        max_size: max length of iterators and arrays.
+
+    Returns:
+        A readable representation of the object.
+    """

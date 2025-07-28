@@ -100,7 +100,7 @@ class MetadataManager:
 class Tracker(metaclass=abc.ABCMeta):
     """Abstract base class for tracking events with priority ordering."""
 
-    _current: Self | None
+    _current: Self | None = None
 
     @functools.singledispatchmethod
     @abstractmethod

@@ -39,12 +39,14 @@ class StartExperiment(Event):
         exp_version: the version of the experiment.
         exp_dir: the directory where the experiment is stored.
         config: configuration for the experiment.
+        tags: tags for the experiment.
     """
 
     exp_name: str
     exp_version: str
     exp_dir: pathlib.Path
     config: Any = None
+    tags: list[str] | None = None
 
 
 @dataclasses.dataclass

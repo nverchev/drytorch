@@ -38,6 +38,7 @@ class Dumper(tracking.Tracker):
         super().__init__()
         self._par_dir = par_dir
         self._exp_dir: pathlib.Path | None = None
+        return
 
     @property
     def par_dir(self) -> pathlib.Path:
@@ -60,10 +61,12 @@ class Dumper(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.StartExperiment) -> None:
         self._exp_dir = event.exp_dir
+        return super().notify(event)
 
     @notify.register
-    def _(self, _: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperiment) -> None:
         self._exp_dir = None
+        return super().notify(event)
 
 
 class MetricLoader(tracking.Tracker, abc.ABC):
@@ -197,13 +200,14 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
             start = self._start if event.epoch >= 2 * self._start else 1
 
         self._update_plot(model_name=event.model_name, start=start)
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndTest) -> None:
         super().notify(event)
         start = max(1, self._start)
         self._update_plot(model_name=event.model_name, start=start)
-        return
+        return super().notify(event)
 
     def plot(
         self,

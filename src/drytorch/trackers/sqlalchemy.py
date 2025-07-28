@@ -177,6 +177,7 @@ class SQLConnection(base_classes.MetricLoader):
         self.resume_run = resume_run
         self._run: Run | None = None
         self._sources = dict[str, Source]()
+        return
 
     @property
     def run(self) -> Run:

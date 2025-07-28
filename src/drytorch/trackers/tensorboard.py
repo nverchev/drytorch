@@ -42,7 +42,7 @@ class TensorBoard(base_classes.Dumper):
         par_dir: pathlib.Path | None = None,
         resume_run: bool = False,
         start_server: bool = True,
-        open_browser: bool = True,
+        open_browser: bool = False,
         max_queue_size: int = 10,
         flush_secs: int = 120,
     ) -> None:
@@ -105,6 +105,7 @@ class TensorBoard(base_classes.Dumper):
         # start the TensorBoard server
         if self._start_server:
             self._start_tensorboard(run_dir)
+
         # initialize writer
         self._writer = tensorboard.SummaryWriter(
             log_dir=root_dir.as_posix(),
