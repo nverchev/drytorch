@@ -1,9 +1,9 @@
-![image info](drytorch_logo.png)
-Following the Don't Repeat Yourself principles, this library offers:
+![drytorch_logo.png](resources/drytorch_logo.png)
+## Don't Repeat Yourself:
 - Functionalities for a wide range of machine-learning applications.
-- Modularity helps you build project-specific classes and data types.
+- Modularity to build project-specific classes and data types.
 - Decoupling external trackers and loggers from the training cycle. 
-- Design uses independent experiment scopes to actively encourage best practice.
+- Experiment scopes to encourage best practice and avoid data leakage.
 
 ### Functionalities:
 - Adaptive data loading.
