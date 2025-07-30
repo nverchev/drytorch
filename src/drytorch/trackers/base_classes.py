@@ -58,11 +58,11 @@ class Dumper(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         self._exp_dir = event.exp_dir
 
     @notify.register
-    def _(self, _: log_events.StopExperiment) -> None:
+    def _(self, _: log_events.StopExperimentEvent) -> None:
         self._exp_dir = None
 
 
@@ -127,7 +127,7 @@ class MemoryMetrics(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.Metrics) -> None:
+    def _(self, event: log_events.MetricEvent) -> None:
         sourced_metrics = self.model_dict.setdefault(event.model_name, {})
         epochs, logs_dict = sourced_metrics.setdefault(
             event.source_name, ([], {})
@@ -139,7 +139,7 @@ class MemoryMetrics(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.LoadModel) -> None:
+    def _(self, event: log_events.LoadModelEvent) -> None:
         if self._metric_loader is None:
             return None
 
@@ -189,7 +189,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndEpoch) -> None:
+    def _(self, event: log_events.EndEpochEvent) -> None:
         super().notify(event)
         if self._start < 0:
             start = max(1, event.epoch + self._start)
@@ -199,7 +199,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         self._update_plot(model_name=event.model_name, start=start)
 
     @notify.register
-    def _(self, event: log_events.EndTest) -> None:
+    def _(self, event: log_events.EndTestEvent) -> None:
         super().notify(event)
         start = max(1, self._start)
         self._update_plot(model_name=event.model_name, start=start)

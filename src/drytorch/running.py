@@ -78,7 +78,7 @@ class Source(ModelCaller[_Input, _Output], repr_utils.Versioned):
     def __call__(self) -> None:
         """Record call."""
         if not self._registered:
-            registering.record_model_call(self, self.model)
+            registering.register_source(self, self.model)
 
         self._registered = True
         super().__call__()
@@ -153,7 +153,7 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
         num_samples = loading.validate_dataset_length(self.loader.dataset)
-        pbar = log_events.IterateBatch(
+        pbar = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), num_samples
         )
         for batch in self._get_batches():
@@ -243,7 +243,7 @@ class ModelRunnerWithLogs(
 
     def _run_epoch(self, store_outputs: bool):
         super()._run_epoch(store_outputs)
-        log_events.Metrics(
+        log_events.MetricEvent(
             model_name=self.model.name,
             source_name=self.name,
             epoch=self.model.epoch,

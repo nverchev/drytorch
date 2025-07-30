@@ -94,7 +94,7 @@ class TestBuiltinLogger:
     def test_start_training_event(
         self,
         tracker,
-        start_training_mock_event: log_events.StartTraining,
+        start_training_mock_event: log_events.StartTrainingEvent,
     ) -> None:
         """Tests handling of StartTraining event."""
         start_training_mock_event.model_name = 'my_model'

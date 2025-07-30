@@ -59,7 +59,7 @@ class Wandb(Dumper):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         # determine main directory
         super().notify(event)
         project = self._settings.project or event.exp_name
@@ -77,12 +77,12 @@ class Wandb(Dumper):
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         self.clean_up()
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.Metrics) -> None:
+    def _(self, event: log_events.MetricEvent) -> None:
         if self.run is None:
             raise exceptions.AccessOutsideScopeError()
 

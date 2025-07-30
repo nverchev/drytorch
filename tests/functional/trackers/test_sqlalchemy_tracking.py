@@ -101,7 +101,7 @@ class TestSQLConnectionFullCycle:
 
     def test_experiment_workflow_stored_correctly(self, tracker):
         """Test the experiment workflow is correctly stored in database."""
-        with tracker.Session() as session:
+        with tracker.session_factory() as session:
             # verify run was created
             runs = session.query(Run).all()
             assert len(runs) == 1
@@ -133,7 +133,7 @@ class TestSQLConnectionFullCycle:
         self, tracker, example_epoch, example_named_metrics
     ):
         """Test metrics are correctly stored in the database."""
-        with tracker.Session() as session:
+        with tracker.session_factory() as session:
             logs = session.query(Log).filter(Log.epoch == example_epoch).all()
             # number of metric should match the number of entries.
             expected_metrics = example_named_metrics
@@ -147,7 +147,7 @@ class TestSQLConnectionFullCycle:
 
     def test_multiple_epochs_stored_separately(self, tracker):
         """Test that metrics from different epochs are stored separately."""
-        with tracker.Session() as session:
+        with tracker.session_factory() as session:
             epochs = session.query(Log.epoch).all()
             epoch_values = [epoch[0] for epoch in epochs]
 
@@ -156,7 +156,7 @@ class TestSQLConnectionFullCycle:
 
     def test_resume_run_functionality(self, resumed_tracker,):
         """Test resume_run=True continues previous run."""
-        with resumed_tracker.Session() as session:
+        with resumed_tracker.session_factory() as session:
             runs = session.query(Run).all()
             assert len(runs) == 1
 
@@ -169,7 +169,7 @@ class TestSQLConnectionFullCycle:
         second_call_model = call_model_event
         second_call_model.source_name = 'second_source'
         resumed_tracker.notify(second_call_model)
-        with resumed_tracker.Session() as session:
+        with resumed_tracker.session_factory() as session:
             sources = session.query(Source).all()
             assert len(sources) == 2
 

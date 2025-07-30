@@ -128,7 +128,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         env = event.exp_name
         try:
             self._viz = visdom.Visdom(server=self.server,
@@ -144,7 +144,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         self.clean_up()
         return super().notify(event)
 

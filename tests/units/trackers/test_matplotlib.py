@@ -87,9 +87,9 @@ class TestMatPlotter:
 
         # should create 2x2 grid (math.ceil(sqrt(3)) = 2)
         expected_calls = [
-            ((2, 2, (0, 0)),),  # first subplot
-            ((2, 2, (0, 1)),),  # second subplot
-            ((2, 2, (1, 0)),),  # third subplot
+            ((2, 2, (1, 1)),),  # first subplot
+            ((2, 2, (1, 2)),),  # second subplot
+            ((2, 2, (2, 1)),),  # third subplot
         ]
         assert self.mock_fig.add_subplot.call_count == 3
 

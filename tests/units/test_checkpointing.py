@@ -52,8 +52,8 @@ class TestLocalCheckpoint:
     @pytest.fixture(autouse=True)
     def setup(self, mocker):
         """Set up the model state class."""
-        self.mock_save_event = mocker.patch.object(log_events, 'SaveModel')
-        self.mock_load_event = mocker.patch.object(log_events, 'LoadModel')
+        self.mock_save_event = mocker.patch.object(log_events, 'SaveModelEvent')
+        self.mock_load_event = mocker.patch.object(log_events, 'LoadModelEvent')
 
     @pytest.fixture()
     def optimizer(self, mock_model) -> torch.optim.Optimizer:

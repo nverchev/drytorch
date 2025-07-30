@@ -21,8 +21,10 @@ class TestExperiment:
 
     def test_start_and_stop_experiment(self, mocker):
         """Test starting and stopping an experiment."""
-        mock_event_start = mocker.patch.object(log_events, 'StartExperiment')
-        mock_event_stop = mocker.patch.object(log_events, 'StopExperiment')
+        mock_event_start = mocker.patch.object(
+            log_events, 'StartExperimentEvent'
+        )
+        mock_event_stop = mocker.patch.object(log_events, 'StopExperimentEvent')
         with self.experiment:
             path = self.par_dir / self.experiment.name
             mock_event_start.assert_called_once_with(self.experiment.name,

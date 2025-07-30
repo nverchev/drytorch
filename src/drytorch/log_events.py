@@ -6,7 +6,7 @@ import dataclasses
 import pathlib
 
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, Self
 
 from drytorch import exceptions
 
@@ -17,10 +17,16 @@ class Event:
     _auto_publish: Callable[[Event], None] | None = None
 
     def __post_init__(self) -> None:
-        """Forces the event to be created in a scope (see module experiment)."""
-        if self._auto_publish is None:
+        """Publish the event on creation."""
+        self.auto_publish(self)  # pylint: disable=not-callable
+        return
+
+    @classmethod
+    def auto_publish(cls, event: Self) -> None:
+        """Publish an event."""
+        if cls._auto_publish is None:
             raise exceptions.AccessOutsideScopeError()
-        self._auto_publish(self)  # pylint: disable=not-callable
+        cls._auto_publish(event)
         return
 
     @classmethod
@@ -30,8 +36,9 @@ class Event:
         return
 
 
+
 @dataclasses.dataclass
-class StartExperiment(Event):
+class StartExperimentEvent(Event):
     """Event logged when an experiment starts.
 
     Attributes:
@@ -48,7 +55,7 @@ class StartExperiment(Event):
 
 
 @dataclasses.dataclass
-class StopExperiment(Event):
+class StopExperimentEvent(Event):
     """Event logged when an experiment stops.
 
     Attributes:
@@ -59,7 +66,7 @@ class StopExperiment(Event):
 
 
 @dataclasses.dataclass
-class ModelCreation(Event):
+class ModelRegistrationEvent(Event):
     """Event logged when a model is created.
 
     Attributes:
@@ -74,8 +81,8 @@ class ModelCreation(Event):
 
 
 @dataclasses.dataclass
-class CallModel(Event):
-    """Event logged when a model is called by another class (caller).
+class SourceRegistrationEvent(Event):
+    """Event logged when a source has been registered.
 
     Attributes:
         source_name: the name of the caller.
@@ -93,7 +100,7 @@ class CallModel(Event):
 
 
 @dataclasses.dataclass
-class SaveModel(Event):
+class SaveModelEvent(Event):
     """Event logged when a checkpoint is saved.
 
     Attributes:
@@ -110,7 +117,7 @@ class SaveModel(Event):
 
 
 @dataclasses.dataclass
-class LoadModel(Event):
+class LoadModelEvent(Event):
     """Event logged when a model is loaded.
 
     Attributes:
@@ -127,7 +134,7 @@ class LoadModel(Event):
 
 
 @dataclasses.dataclass
-class StartTraining(Event):
+class StartTrainingEvent(Event):
     """Event logged when training starts.
 
     Attributes:
@@ -144,7 +151,7 @@ class StartTraining(Event):
 
 
 @dataclasses.dataclass
-class StartEpoch(Event):
+class StartEpochEvent(Event):
     """Event logged when an epoch starts.
 
     Attributes:
@@ -161,7 +168,7 @@ class StartEpoch(Event):
 
 
 @dataclasses.dataclass
-class EndEpoch(Event):
+class EndEpochEvent(Event):
     """Event logged when an epoch ends.
 
     Attributes:
@@ -176,7 +183,7 @@ class EndEpoch(Event):
 
 
 @dataclasses.dataclass
-class IterateBatch(Event):
+class IterateBatchEvent(Event):
     """Event logged to create during batch iteration.
 
     Attributes:
@@ -207,7 +214,7 @@ class IterateBatch(Event):
 
 
 @dataclasses.dataclass
-class TerminatedTraining(Event):
+class TerminatedTrainingEvent(Event):
     """Event logged when training is terminated.
 
     Attributes:
@@ -224,7 +231,7 @@ class TerminatedTraining(Event):
 
 
 @dataclasses.dataclass
-class EndTraining(Event):
+class EndTrainingEvent(Event):
     """Event logged when training ends.
 
     Attributes:
@@ -235,7 +242,7 @@ class EndTraining(Event):
 
 
 @dataclasses.dataclass
-class StartTest(Event):
+class StartTestEvent(Event):
     """Event logged when a test is started.
 
     Attributes:
@@ -248,7 +255,7 @@ class StartTest(Event):
 
 
 @dataclasses.dataclass
-class EndTest(Event):
+class EndTestEvent(Event):
     """Event logged when a test is ended.
 
     Attributes:
@@ -261,7 +268,7 @@ class EndTest(Event):
 
 
 @dataclasses.dataclass
-class Metrics(Event):
+class MetricEvent(Event):
     """Event logged when metrics from the dataset are aggregated.
 
     Attributes:
@@ -278,7 +285,7 @@ class Metrics(Event):
 
 
 @dataclasses.dataclass
-class UpdateLearningRate(Event):
+class LearningRateEvent(Event):
     """Event logged when the learning rate is updated.
 
     Attributes:

@@ -3,7 +3,7 @@
 import pytest
 
 from drytorch import exceptions
-from drytorch.registering import ALL_MODULES, record_model_call, register_model
+from drytorch.registering import ALL_MODULES, register_model, register_source
 
 
 class _SimpleCaller:
@@ -16,9 +16,9 @@ def test_record_model_call(mock_experiment, mock_model) -> None:
     manager = mock_experiment.metadata_manager
     # Monkey patch model registration
     ALL_MODULES[mock_model.module] = mock_experiment
-    record_model_call(caller, mock_model)
+    register_source(caller, mock_model)
 
-    manager.record_model_call.assert_called_once_with(caller,
+    manager.register_source.assert_called_once_with(caller,
                                                       mock_model)
 
 
@@ -44,7 +44,7 @@ def test_record_model_call_unregistered_model(mock_experiment,
                                               mock_model) -> None:
     """Test error when recording a call for an unregistered model."""
     with pytest.raises(exceptions.ModelNotRegisteredError):
-        record_model_call(_SimpleCaller(), mock_model)
+        register_source(_SimpleCaller(), mock_model)
 
 
 def test_record_model_call_wrong_experiment(mocker,
@@ -55,4 +55,4 @@ def test_record_model_call_wrong_experiment(mocker,
     ALL_MODULES[mock_model.module] = other_experiment
 
     with pytest.raises(exceptions.ModelNotRegisteredError):
-        record_model_call(_SimpleCaller(), mock_model)
+        register_source(_SimpleCaller(), mock_model)
