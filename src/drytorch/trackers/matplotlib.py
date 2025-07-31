@@ -56,15 +56,14 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             fig.tight_layout()
             iter_metric = iter(metric_names)
             axes_dict = dict[str, axes.Axes]()
-            for row in range(n_rows):
-                for col in range(n_cols):
-                    try:
-                        metric_name = next(iter_metric)
-                    except StopIteration:
-                        break
-                    else:
-                        ax = fig.add_subplot(n_rows, n_cols, (row + 1, col + 1))
-                        axes_dict[metric_name] = ax
+            for index in range(n_metrics):
+                try:
+                    metric_name = next(iter_metric)
+                except StopIteration:
+                    break
+                else:
+                    ax = fig.add_subplot(n_rows, n_cols, index + 1)
+                    axes_dict[metric_name] = ax
 
             self._model_figure[model_name] = (fig, axes_dict)
             plt.show(block=False)
