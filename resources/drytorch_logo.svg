@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   sodipodi:docname="drytorch_logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="154.50283"
+     inkscape:cy="450.07347"
+     inkscape:window-width="2490"
+     inkscape:window-height="1376"
+     inkscape:window-x="70"
+     inkscape:window-y="277"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     inkscape:snap-text-baseline="true"
+     inkscape:snap-midpoints="true"
+     inkscape:snap-bbox="true"
+     showguides="true"
+     inkscape:snap-object-midpoints="true"
+     inkscape:snap-bbox-midpoints="false"
+     inkscape:snap-center="false"
+     inkscape:bbox-paths="true"
+     inkscape:bbox-nodes="true"
+     inkscape:snap-bbox-edge-midpoints="true"
+     inkscape:snap-intersection-paths="true">
+    <inkscape:grid
+       type="xygrid"
+       id="grid2970" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient7868">
+      <stop
+         style="stop-color:#ff9955;stop-opacity:1;"
+         offset="0"
+         id="stop7864" />
+      <stop
+         style="stop-color:#ff9955;stop-opacity:0;"
+         offset="1"
+         id="stop7866" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient26602">
+      <stop
+         style="stop-color:#ffccaa;stop-opacity:1"
+         offset="0"
+         id="stop26600" />
+      <stop
+         style="stop-color:#aa4400;stop-opacity:1;"
+         offset="1"
+         id="stop26598" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient18554">
+      <stop
+         style="stop-color:#aa4400;stop-opacity:1;"
+         offset="0"
+         id="stop18550" />
+      <stop
+         style="stop-color:#ffccaa;stop-opacity:1"
+         offset="1"
+         id="stop18552" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient26602"
+       id="linearGradient26130"
+       x1="10.889097"
+       y1="138.11067"
+       x2="84.696541"
+       y2="138.11067"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(1.8800691e-6,0.37886115)" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient26602"
+       id="linearGradient82990"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-0.24331329,0.37886253)"
+       x1="10.889097"
+       y1="138.11067"
+       x2="84.696541"
+       y2="138.11067" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient18554"
+       id="linearGradient84540"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.17818697,0,0,0.26458333,112.86142,31.346362)"
+       x1="-394.73633"
+       y1="78.449219"
+       x2="-417.01266"
+       y2="151.89377" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient7868"
+       id="linearGradient7870"
+       x1="102.73115"
+       y1="39.953274"
+       x2="98.761795"
+       y2="59.385475"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-60.206596,12.149444)" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient18554"
+       id="linearGradient8756"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.17818697,0,0,0.26458333,159.65967,113.19492)"
+       x1="-394.73633"
+       y1="78.449219"
+       x2="-417.01266"
+       y2="151.89377" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient7868"
+       id="linearGradient8758"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-13.408345,93.998002)"
+       x1="102.73115"
+       y1="39.953274"
+       x2="98.761795"
+       y2="59.385475" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="opacity:1;fill:#2b1100;fill-opacity:1;fill-rule:evenodd;stroke-width:0;stroke-miterlimit:4;stroke-dasharray:none;paint-order:stroke fill markers"
+       id="rect32284"
+       width="30.549505"
+       height="30.549505"
+       x="23.280197"
+       y="41.459873"
+       inkscape:export-filename="/home/nverchev/PycharmProjects/drytorch/resources/drytorch_icon.png"
+       inkscape:export-xdpi="600"
+       inkscape:export-ydpi="600" />
+    <rect
+       style="fill:#2b1100;fill-opacity:1;fill-rule:nonzero;paint-order:stroke fill markers"
+       id="rect32553"
+       width="171.8968"
+       height="59.199406"
+       x="10.889097"
+       y="108.77738"
+       inkscape:export-filename="/home/nverchev/PycharmProjects/drytorch/resources/drytorch_logo.png"
+       inkscape:export-xdpi="600"
+       inkscape:export-ydpi="600" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35.2778px;line-height:75%;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;letter-spacing:0px;word-spacing:-0.529167px;text-anchor:middle;fill:url(#linearGradient82990);fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       x="97.644257"
+       y="146.98459"
+       id="text32557"
+       inkscape:export-filename="/home/nverchev/PycharmProjects/drytorch/resources/drytorch_logo.png"
+       inkscape:export-xdpi="600"
+       inkscape:export-ydpi="600"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35.2778px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:url(#linearGradient82990);fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         x="97.644257"
+         y="146.98459"
+         id="tspan32555">DRY   Torch</tspan></text>
+    <path
+       id="path13660-0-4-2-9-4"
+       style="fill:#552200;stroke:#552200;stroke-width:0;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;paint-order:stroke fill markers"
+       inkscape:transform-center-y="1.0664828"
+       d="m 73.305906,146.98459 h 24.095077 c -12.047542,6.39889 -12.047542,6.39889 -24.095077,0 z"
+       sodipodi:nodetypes="ccc"
+       inkscape:export-filename="/home/nverchev/PycharmProjects/drytorch/resources/drytorch_logo.png"
+       inkscape:export-xdpi="600"
+       inkscape:export-ydpi="600" />
+    <path
+       id="path13660-0-4-2-9-4-3"
+       style="fill:#552200;stroke:#552200;stroke-width:0;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;paint-order:stroke fill markers"
+       inkscape:transform-center-y="1.0664828"
+       d="m 26.507656,65.136032 h 24.095077 c -12.047542,6.39889 -12.047542,6.39889 -24.095077,0 z"
+       sodipodi:nodetypes="ccc"
+       inkscape:export-filename="/home/nverchev/PycharmProjects/drytorch/resources/drytorch_icon.png"
+       inkscape:export-xdpi="600"
+       inkscape:export-ydpi="600" />
+    <path
+       id="path1597"
+       style="fill:url(#linearGradient84540);fill-opacity:1;stroke:url(#linearGradient7870);stroke-width:0.3;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 38.555028,43.914072 c 0,9.74824 -10.286823,21.22196 -10.286823,21.22196 h 20.573978 c 0,0 -4.95492,-4.845841 -3.449879,-7.187848 -2.02008,-1.525814 -3.02539,3.463372 -3.02539,3.463372 0,0 -0.27837,-1.74018 0.0697,-2.722647 0.79941,-2.25636 2.16219,-2.421198 0.74954,-5.335774 -2.36262,1.62471 -2.36271,4.87412 -2.36271,4.87412 0,0 -1.388185,-2.226357 0,-3.24942 2.31894,-1.709007 -1.606815,-0.06511 0.75589,-4.93923 -2.362605,1.62471 -2.362705,4.87412 -2.362705,4.87412 0,0 -1.4405,-0.853797 0,-3.24941 1.440505,-2.395613 0.771275,-3.562577 -0.6616,-7.749243 z"
+       inkscape:export-filename="/home/nverchev/PycharmProjects/drytorch/resources/drytorch_icon.png"
+       inkscape:export-xdpi="600"
+       inkscape:export-ydpi="600"
+       sodipodi:nodetypes="cccccsccscczc" />
+    <path
+       id="path1597-8"
+       style="fill:url(#linearGradient8756);fill-opacity:1;stroke:url(#linearGradient8758);stroke-width:0.3;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 85.353282,125.76263 c 0,9.74824 -10.286826,21.22196 -10.286826,21.22196 h 20.573976 c 0,0 -4.95492,-4.84584 -3.44988,-7.18785 -2.02008,-1.52581 -3.02539,3.46337 -3.02539,3.46337 0,0 -0.27837,-1.74018 0.0697,-2.72264 0.79941,-2.25636 2.16219,-2.4212 0.74954,-5.33578 -2.36262,1.62471 -2.36271,4.87412 -2.36271,4.87412 0,0 -1.38818,-2.22635 0,-3.24942 2.31894,-1.709 -1.60681,-0.0651 0.75589,-4.93923 -2.3626,1.62471 -2.3627,4.87412 -2.3627,4.87412 0,0 -1.4405,-0.85379 0,-3.24941 1.4405,-2.39561 0.77127,-3.56257 -0.6616,-7.74924 z"
+       inkscape:export-filename="/home/nverchev/PycharmProjects/drytorch/resources/drytorch_logo.png"
+       inkscape:export-xdpi="600"
+       inkscape:export-ydpi="600"
+       sodipodi:nodetypes="cccccsccscczc" />
+  </g>
+</svg>
