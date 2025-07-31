@@ -34,7 +34,7 @@ def identity_dataset() -> IdentityDataset:
 
 @pytest.fixture
 def identity_loader(
-    identity_dataset,
+        identity_dataset,
 ) -> DataLoader[tuple[TorchTuple, torch.Tensor]]:
     """Instantiate a loader for the identity dataset."""
     return DataLoader(dataset=identity_dataset, batch_size=4)
@@ -87,10 +87,10 @@ def standard_learning_scheme() -> LearningScheme:
 
 @pytest.fixture
 def identity_trainer(
-    linear_model,
-    standard_learning_scheme: LearningScheme,
-    square_loss_calc: Loss[TorchData, torch.Tensor],
-    identity_loader: DataLoader[tuple[TorchTuple, torch.Tensor]],
+        linear_model,
+        standard_learning_scheme: LearningScheme,
+        square_loss_calc: Loss[TorchData, torch.Tensor],
+        identity_loader: DataLoader[tuple[TorchTuple, torch.Tensor]],
 ) -> Trainer:
     """Instantiate a trainer for the linear model using the identity dataset."""
     trainer = Trainer(
@@ -108,6 +108,7 @@ def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
     """Fixture of an experiment."""
     drytorch.remove_all_default_trackers()
     par_dir = tmpdir_factory.mktemp('experiments')
-    with Experiment[None](name='TestExperiment', par_dir=par_dir) as exp:
+    exp = Experiment(name='TestExperiment', par_dir=par_dir, config=None)
+    with exp:
         yield exp
     return

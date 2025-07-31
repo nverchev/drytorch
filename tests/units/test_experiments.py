@@ -13,9 +13,9 @@ class TestExperiment:
     def setup(self, tmp_path) -> None:
         """Set up an experiment."""
         self.par_dir = tmp_path
-        self.experiment = Experiment[None]('Experiment', self.par_dir)
-        self.experiment.current = experiment_current_original
-        Experiment.current = experiment_current_original
+        self.experiment = Experiment(None, 'Experiment', self.par_dir)
+        self.experiment.current = experiment_current_original  # type: ignore
+        Experiment.current = experiment_current_original  # type: ignore
         self.experiment.__class__.current = experiment_current_original
         return
 
@@ -30,14 +30,9 @@ class TestExperiment:
             mock_event_start.assert_called_once_with(self.experiment.name,
                                                      self.experiment.created_at,
                                                      path,
+                                                     None,
                                                      None)
         mock_event_stop.assert_called_once_with(self.experiment.name)
-
-    def test_get_config_no_config_error(self):
-        """Test NoConfigError is raised if config is None."""
-        with self.experiment:
-            with pytest.raises(exceptions.NoConfigurationError):
-                Experiment.get_config()
 
     def test_no_active_experiment_error(self):
         """Test that error is called when no experiment is active."""

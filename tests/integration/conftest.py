@@ -106,6 +106,8 @@ def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
     """Fixture of an experiment."""
     drytorch.remove_all_default_trackers()
     par_dir = tmpdir_factory.mktemp('experiments')
-    with Experiment[None](name='TestExperiment', par_dir=par_dir) as exp:
+    exp = Experiment(name='TestExperiment', par_dir=par_dir, config=None)
+    with exp:
         yield exp
     return
+

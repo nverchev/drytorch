@@ -5,7 +5,6 @@ import pathlib
 
 import pytest
 
-
 if not importlib.util.find_spec('tensorboard'):
     pytest.skip('tensorboard not available', allow_module_level=True)
 
@@ -33,7 +32,7 @@ class TestTensorBoard:
     @pytest.fixture
     def tracker(self, tmp_path) -> TensorBoard:
         """Set up the instance."""
-        return TensorBoard(par_dir=tmp_path)
+        return TensorBoard(par_dir=tmp_path, open_browser=True)
 
     @pytest.fixture
     def tracker_with_resume(self, tmp_path) -> TensorBoard:
@@ -55,7 +54,7 @@ class TestTensorBoard:
         return
 
     def test_cleanup(self, tracker_started):
-        """Test correct clean up."""
+        """Test correct cleaning up."""
         tracker_started.clean_up()
         assert tracker_started._writer is None
 
@@ -118,7 +117,7 @@ class TestTensorBoard:
         called_args = self.summary_writer_mock.call_args[1]
         called_log_dir = pathlib.Path(called_args['log_dir'])
 
-        # Assert it's a new subdirectory under the expected base directory
+        # assert it's a new subdirectory under the expected base directory
         assert called_log_dir.parent == expected_parent
 
     def test_notify_metrics(self,
@@ -148,7 +147,6 @@ class TestTensorBoard:
 
         assert TensorBoard._get_last_run(tmp_path) == tmp_path / '1'
 
-
     def test_tensorboard_launch_fails_on_port_conflict(self, mocker, tmp_path):
         """Test error is raised if no free ports are available."""
         port_available_mock = mocker.patch.object(TensorBoard,
@@ -170,10 +168,10 @@ class TestTensorBoard:
         find_port_mock = mocker.patch.object(TensorBoard, '_find_free_port')
         find_port_mock.side_effect = [6007,
                                       6008]  # different ports for each call
-        tracker1 = TensorBoard(par_dir=tmp_path / "exp1")
-        tracker2 = TensorBoard(par_dir=tmp_path / "exp2")
-        tracker1._start_tensorboard(tmp_path / "exp1")
-        tracker2._start_tensorboard(tmp_path / "exp2")
+        tracker1 = TensorBoard(par_dir=tmp_path / 'exp1', open_browser=True)
+        tracker2 = TensorBoard(par_dir=tmp_path / 'exp2', open_browser=True)
+        tracker1._start_tensorboard(tmp_path / 'exp1')
+        tracker2._start_tensorboard(tmp_path / 'exp2')
 
         assert self.open_browser_mock.call_count == 2
         self.open_browser_mock.assert_any_call('http://localhost:6007')

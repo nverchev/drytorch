@@ -21,6 +21,8 @@ class TestMatPlotter:
         """Set up the test."""
         self.plt_mock = mocker.patch('drytorch.trackers.matplotlib.plt',
                                      autospec=True)
+        self.figure_mock = mocker.patch('drytorch.trackers.matplotlib.figure',
+                                        autospec=True)
 
         # create a mock figure with all necessary attributes
         mock_fig = mocker.Mock()
@@ -42,7 +44,7 @@ class TestMatPlotter:
         mock_ax.legend = mocker.Mock()
 
         mock_fig.add_subplot.return_value = mock_ax
-        self.plt_mock.Figure.return_value = mock_fig
+        self.figure_mock.Figure.return_value = mock_fig
         self.plt_mock.show = mocker.Mock()
         self.plt_mock.close = mocker.Mock()
         self.mock_fig = mock_fig
@@ -87,9 +89,9 @@ class TestMatPlotter:
 
         # should create 2x2 grid (math.ceil(sqrt(3)) = 2)
         expected_calls = [
-            ((2, 2, (1, 1)),),  # first subplot
-            ((2, 2, (1, 2)),),  # second subplot
-            ((2, 2, (2, 1)),),  # third subplot
+            ((2, 2, 1),),  # first subplot
+            ((2, 2, 2),),  # second subplot
+            ((2, 2, 3),),  # third subplot
         ]
         assert self.mock_fig.add_subplot.call_count == 3
 

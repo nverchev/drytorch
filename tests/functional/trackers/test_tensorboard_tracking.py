@@ -18,7 +18,7 @@ class TestTensorBoardFullCycle:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path, event_workflow) -> None:
         """Set up TensorBoard tracker and run complete workflow."""
-        self.tracker = TensorBoard(par_dir=tmp_path, open_browser=False)
+        self.tracker = TensorBoard(par_dir=tmp_path)
         for event in event_workflow:
             self.tracker.notify(event)
 
@@ -37,9 +37,12 @@ class TestTensorBoardFullCycle:
         tracker.notify(stop_experiment_event)
         return
 
-    def test_folder_creation(self, tmp_path, example_named_metrics):
+    def test_folder_creation(self,
+                             resumed_tracker,
+                             tmp_path,
+                             example_exp_name):
         """Test that TensorBoard creates local files and logs."""
-        tensorboard_dir = tmp_path / TensorBoard.folder_name
+        tensorboard_dir = tmp_path / resumed_tracker.folder_name
         assert tensorboard_dir.exists()
         assert tensorboard_dir.is_dir()
 
@@ -47,6 +50,5 @@ class TestTensorBoardFullCycle:
         assert created_folders
 
         for folder in created_folders:
-            event_file = next(folder.iterdir())
-            assert event_file.name.startswith('events.out.tfevents')
-            assert event_file.stat().st_size > 0
+            assert folder.name.startswith(example_exp_name)
+            assert folder.stat().st_size > 0

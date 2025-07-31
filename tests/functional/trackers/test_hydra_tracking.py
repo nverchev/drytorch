@@ -27,7 +27,9 @@ class TestHydraLinkFullCycle:
         """Setup test environment with actual hydra configuration."""
         self.hydra_dir = tmp_path_factory.mktemp('outputs')
         run_dir_arg = f'++hydra.run.dir={self.hydra_dir.as_posix()}'
-        self.exp = Experiment[None](par_dir=tmp_path_factory.mktemp('exp'))
+        self.exp = Experiment(
+            config=None, par_dir=tmp_path_factory.mktemp('exp')
+        )
         self.exp.trackers.named_trackers.clear()
         with monkeypatch.context() as m:
             m.setattr(sys, 'argv', ['test_script', run_dir_arg])
