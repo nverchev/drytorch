@@ -54,7 +54,7 @@ class Experiment(orm.MappedAsDataclass, Base):
     Attributes:
         experiment_id: the unique id for the table.
         experiment_name: the experiment's name.
-        experiment_version: the experiment's version.
+        experiment_ts: the experiment's timestamp.
         run_id: the id of the run for the experiment.
         run: the entry for the run for the experiment.
     """
@@ -66,7 +66,7 @@ class Experiment(orm.MappedAsDataclass, Base):
         autoincrement=True,
     )
     experiment_name: orm.Mapped[str] = orm.mapped_column(index=True)
-    experiment_version: orm.Mapped[str] = orm.mapped_column()
+    experiment_ts: orm.Mapped[str] = orm.mapped_column()
     run_id: orm.Mapped[int] = orm.mapped_column(
         sqlalchemy.ForeignKey(Run.run_id),
         init=False,
@@ -80,9 +80,9 @@ class Source(orm.MappedAsDataclass, Base):
     Attributes:
         source_id: the unique id for the table.
         model_name: the model's name.
-        model_version: the model's version.
+        model_ts: the model's timestamp.
         source_name: the source's name.
-        source_version: the source's version.
+        source_ts: the source's timestamp.
         run_id: the id of the run for the experiment.
         run: the entry for the run for the experiment.
         logs: the list of logs originating from the source.
@@ -95,9 +95,9 @@ class Source(orm.MappedAsDataclass, Base):
         autoincrement=True,
     )
     model_name: orm.Mapped[str] = orm.mapped_column(index=True)
-    model_version: orm.Mapped[str] = orm.mapped_column()
+    model_ts: orm.Mapped[str] = orm.mapped_column()
     source_name: orm.Mapped[str] = orm.mapped_column(index=True)
-    source_version: orm.Mapped[str] = orm.mapped_column()
+    source_ts: orm.Mapped[str] = orm.mapped_column()
     run_id: orm.Mapped[int] = orm.mapped_column(
         sqlalchemy.ForeignKey(Run.run_id),
         init=False,
@@ -214,7 +214,7 @@ class SQLConnection(base_classes.MetricLoader):
 
             experiment = Experiment(
                 experiment_name=event.exp_name,
-                experiment_version=event.exp_version,
+                experiment_ts=event.exp_ts,
                 run=self.run,
             )
             session.add(experiment)
@@ -233,9 +233,9 @@ class SQLConnection(base_classes.MetricLoader):
             run = session.merge(self.run)
             source = Source(
                 model_name=event.model_name,
-                model_version=event.model_version,
+                model_ts=event.model_ts,
                 source_name=event.source_name,
-                source_version=event.source_version,
+                source_ts=event.source_ts,
                 run=run,
             )
             session.add(source)

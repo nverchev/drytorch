@@ -97,7 +97,7 @@ class TensorBoard(base_classes.Dumper):
         if retrieved is None:
             # prevent nested folders
             safe_name = event.exp_name.replace('/', '-')
-            exp_id = f'{safe_name}_{event.exp_version}'
+            exp_id = f'{safe_name}_{event.exp_ts}'
             root_dir = run_dir / exp_id
         else:
             root_dir = retrieved

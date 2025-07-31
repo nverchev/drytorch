@@ -50,8 +50,8 @@ class DefaultName:
         count_iter = self._prefixes.setdefault(value, itertools.count())
         if count_value := next(count_iter):
             value = f'{value}_{count_value}'
-
-        instance.__name = value  # pylint: disable=unused-private-member, protected-access
+        # pylint: disable=unused-private-member, protected-access
+        instance.__name = value
         return
 
 
@@ -139,7 +139,7 @@ def limit_size(container: Iterable, max_size: int) -> list:
         if len(listed) > max_size:
             omitted = [Omitted(len(listed) - max_size)]
             listed = (
-                listed[: max_size // 2] + omitted + listed[-max_size // 2 :]
+                listed[: max_size // 2] + omitted + listed[-max_size // 2:]
             )
 
     else:
@@ -310,22 +310,3 @@ def _(obj, *, max_size: int = 10) -> str:
     _not_used = max_size
     return obj.__name__
 
-
-def atomize(obj: object, *, max_size: int = 10) -> bool | float | int | str:
-    """Function that attempts a hierarchical representation of a given object.
-
-    It recursively represents each attribute of the object or the contained
-    items in tuples, lists, sets, and dictionaries. The latter structures are
-    limited in size by keeping max_size elements and replacing the others with
-    an Omitted instance.
-
-    Arrays are represented using pandas and numpy array representation. Numbers
-    are returned as they are or converted to python types.
-
-    Args:
-        obj: the object to represent.
-        max_size: max length of iterators and arrays.
-
-    Returns:
-        A readable representation of the object.
-    """

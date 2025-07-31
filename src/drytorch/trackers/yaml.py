@@ -54,7 +54,7 @@ class YamlDumper(base_classes.Dumper):
         self._version(event.metadata,
                       event.model_name,
                       event.model_name,
-                      event.model_version)
+                      event.model_ts)
         return super().notify(event)
 
     @notify.register
@@ -63,7 +63,7 @@ class YamlDumper(base_classes.Dumper):
         self._version(event.metadata,
                       model_name,
                       event.source_name,
-                      event.source_version)
+                      event.source_ts)
         return super().notify(event)
 
     def _version(self,

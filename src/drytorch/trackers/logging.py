@@ -166,7 +166,6 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-
         msg = 'Running experiment: %(name)s'
         args = {'name': event.exp_name}
         if event.tags is not None:

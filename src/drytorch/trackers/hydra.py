@@ -75,7 +75,7 @@ class HydraLink(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         # call super method to create par_dir first
         super().notify(event)
-        self._exp_version = event.exp_version
+        self._exp_version = event.exp_ts
         self.dir.symlink_to(self.hydra_dir, target_is_directory=True)
         return
 

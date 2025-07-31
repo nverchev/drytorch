@@ -34,7 +34,7 @@ class TestSQLConnectionFullCycle:
         """Test correct dumping of metadata from the model."""
         par_dir = start_experiment_event.exp_dir
         model_name = model_creation_event.model_name
-        model_version = model_creation_event.model_version
+        model_version = model_creation_event.model_ts
         metadata_path = par_dir / model_name / YamlDumper.metadata_folder
         address = metadata_path / model_name
         with address.with_suffix('.yaml').open() as file:
@@ -57,7 +57,7 @@ class TestSQLConnectionFullCycle:
         par_dir = start_experiment_event.exp_dir
         model_name = call_model_event.model_name
         file_name = call_model_event.source_name
-        source_version = call_model_event.source_version
+        source_version = call_model_event.source_ts
         metadata_path = par_dir / model_name / YamlDumper.metadata_folder
         address = metadata_path / file_name
         with address.with_suffix('.yaml').open() as file:

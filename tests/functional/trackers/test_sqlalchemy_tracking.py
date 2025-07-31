@@ -70,7 +70,7 @@ class TestSQLConnectionFullCycle:
         expected_columns = {
             'experiment_id',
             'experiment_name',
-            'experiment_version',
+            'experiment_ts',
             'run_id',
         }
         assert experiments_columns == expected_columns
@@ -80,11 +80,11 @@ class TestSQLConnectionFullCycle:
         }
         expected_columns = {
             'model_name',
-            'model_version',
+            'model_ts',
             'run_id',
             'source_id',
             'source_name',
-            'source_version',
+            'source_ts',
         }
         assert sources_columns == expected_columns
 

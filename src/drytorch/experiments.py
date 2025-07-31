@@ -143,7 +143,6 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
     specifications). This mixin creates sub-experiments that specify
     which internal configuration to use, avoiding code duplication.
     """
-
     metadata_manager: tracking.MetadataManager
     trackers: tracking.EventDispatcher
 
@@ -174,7 +173,7 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
     def from_experiment(
             cls,
             base_exp: Experiment[_T_co],
-            specs_name: str,
+            specs_name: str = '',
             specs: _U_co | None = None,
     ) -> Self:
         """Create an ExperimentWithSpecs from an existing experiment."""

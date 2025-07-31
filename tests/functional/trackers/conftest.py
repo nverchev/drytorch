@@ -27,7 +27,7 @@ def start_experiment_event(
     return log_events.StartExperimentEvent(
         exp_name=example_exp_name,
         exp_dir=pathlib.Path(tmp_path) / example_exp_name,
-        exp_version=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        exp_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
         config=example_config,
     )
 
@@ -45,7 +45,7 @@ def model_creation_event(
     """Provides a ModelCreation event instance."""
     return log_events.ModelRegistrationEvent(
         model_name=example_model_name,
-        model_version=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        model_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
         metadata=example_metadata,
     )
 
@@ -57,9 +57,9 @@ def call_model_event(
     """Provides a CallModel event instance."""
     return log_events.SourceRegistrationEvent(
         source_name=example_source_name,
-        source_version=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        source_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
         model_name=example_model_name,
-        model_version=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        model_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
         metadata=example_metadata,
     )
 

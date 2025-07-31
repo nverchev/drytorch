@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import pathlib
 
 from collections.abc import Callable, Mapping
@@ -36,21 +37,20 @@ class Event:
         return
 
 
-
 @dataclasses.dataclass
 class StartExperimentEvent(Event):
     """Event logged when an experiment starts.
 
     Attributes:
         exp_name: the name of the experiment.
-        exp_version: the version of the experiment.
+        exp_ts: experiment timestamp.
         exp_dir: the directory where the experiment is stored.
         config: configuration for the experiment.
         tags: tags for the experiment.
     """
 
     exp_name: str
-    exp_version: str
+    exp_ts: str
     exp_dir: pathlib.Path
     config: Any = None
     tags: list[str] | None = None
@@ -73,12 +73,12 @@ class ModelRegistrationEvent(Event):
 
     Attributes:
         model_name: the name of the model.
-        model_version: the version of the model.
+        model_ts: the model's timestamp.
         metadata: Additional metadata about the model.
     """
 
     model_name: str
-    model_version: str
+    model_ts: str
     metadata: dict[str, Any]
 
 
@@ -88,16 +88,16 @@ class SourceRegistrationEvent(Event):
 
     Attributes:
         source_name: the name of the caller.
-        source_version: the version of the caller.
+        source_ts: the source's timestamp.
         model_name: the name of the model that was called.
-        model_version: the version of the model called.
+        model_ts: the model's timestamp.
         metadata: additional metadata about the caller.
     """
 
     source_name: str
-    source_version: str
+    source_ts: str
     model_name: str
-    model_version: str
+    model_ts: str
     metadata: dict[str, Any]
 
 
