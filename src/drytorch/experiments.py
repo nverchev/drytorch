@@ -1,4 +1,4 @@
-"""Module containing the experiment classes."""
+"""Module containing the experiment and support classes."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from typing import Any, Generic, Self, TypeVar
 
 from drytorch import exceptions, log_events, tracking
 from drytorch.utils import repr_utils
-
 
 _T_co = TypeVar('_T_co', covariant=True)
 _U_co = TypeVar('_U_co', covariant=True)
@@ -24,28 +23,40 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         config: configuration object for the experiment.
         metadata_manager: manager for recording metadata.
         trackers: dispatcher for publishing events.
+        tags: secondary identifier for the experiment (e.g., for overrides).
+
     """
 
     _current: Experiment | None = None
     _name = repr_utils.DefaultName()
 
     def __init__(
-        self,
-        name: str = '',
-        par_dir: str | pathlib.Path = pathlib.Path(),
-        config: _T_co | None = None,
+            self,
+            config: _T_co,
+            name: str = '',
+            par_dir: str | pathlib.Path = pathlib.Path(),
+            tags: str | list[str] | None = None,
     ) -> None:
         """Constructor.
+
+        The experiment folder is determined by the parent directory, the name,
+        and the overrides, which are converted to string. The path is of the
+        form: par_dir/name/overrides_str.
 
         Args:
             name: the name of the experiment. Defaults to class name.
             par_dir: parent directory for experiment data.
             config: configuration for the experiment.
+            tags: secondary identifier for the experiment (e.g., for overrides).
         """
         super().__init__()
+        self._validate_name(name)
         self._name = name
         self.dir = pathlib.Path(par_dir) / self.name
         self.config = config
+        self.tags = [tags] if isinstance(tags, str) else tags
+        if self.tags is not None:
+            self.dir /= '_'.join(self.tags)
         self.metadata_manager = tracking.MetadataManager()
         self.trackers = tracking.EventDispatcher(self.name)
         self.trackers.register(**tracking.DEFAULT_TRACKERS)
@@ -58,15 +69,15 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         Experiment._current = self
         log_events.Event.set_auto_publish(self.trackers.publish)
         log_events.StartExperimentEvent(
-            self.name, self.created_at, self.dir, self.config
+            self.name, self.created_at, self.dir, self.config, self.tags,
         )
         return self
 
     def __exit__(
-        self,
-        exc_type: type[BaseException],
-        exc_val: BaseException,
-        exc_tb: TracebackType,
+            self,
+            exc_type: type[BaseException],
+            exc_val: BaseException,
+            exc_tb: TracebackType,
     ) -> None:
         """Conclude the experiment scope."""
         log_events.StopExperimentEvent(self.name)
@@ -107,19 +118,21 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
 
         Returns:
             _T: configuration object of the current experiment.
-
-        Raises:
-            NoConfigError: if there is no configuration available.
         """
-        config = cls.current().config
-        if config is None:
-            raise exceptions.NoConfigurationError()
-
-        return config
+        return cls.current().config
 
     @classmethod
     def _check_if_active(cls) -> bool:
         return isinstance(Experiment.current(), cls)
+
+    @staticmethod
+    def _validate_name(name: str) -> None:
+        not_allowed_chars = set(r'\/:*?"<>|')
+        if invalid_chars := set(name) & not_allowed_chars:
+            msg = f'Name contains invalid character(s): {invalid_chars!r}'
+            raise ValueError(msg)
+
+        return
 
 
 class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
@@ -146,7 +159,7 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def current(cls) -> Any:
+    def current(cls) -> Self:
         """Method of the Experiment class."""
 
     @classmethod
@@ -159,10 +172,10 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
 
     @classmethod
     def from_experiment(
-        cls,
-        base_exp: Experiment[_T_co],
-        specs_name: str,
-        specs: _U_co | None = None,
+            cls,
+            base_exp: Experiment[_T_co],
+            specs_name: str,
+            specs: _U_co | None = None,
     ) -> Self:
         """Create an ExperimentWithSpecs from an existing experiment."""
         instance = cls(

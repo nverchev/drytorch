@@ -22,7 +22,6 @@ import drytorch
 
 from drytorch import log_events, tracking
 
-
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
@@ -64,7 +63,7 @@ class BuiltinLogger(tracking.Tracker):
         logger.log(
             INFO_LEVELS.training,
             'Training %(model_name)s started.',
-            {'model_name': event.model_name, 'source_name': event.source_name},
+            {'model_name': event.model_name},
         )
         return super().notify(event)
 
@@ -167,11 +166,14 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-        logger.log(
-            INFO_LEVELS.experiment,
-            'Running experiment: %(name)s.',
-            {'name': event.exp_name},
-        )
+
+        msg = 'Running experiment: %(name)s'
+        args = {'name': event.exp_name}
+        if event.tags is not None:
+            msg += ' (%(tags)s)'
+            args.update({'tags': ' '.join(event.tags)})
+
+        logger.log(INFO_LEVELS.experiment, msg + '.', args)
         return super().notify(event)
 
     @notify.register
@@ -213,7 +215,7 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.SourceRegistrationEvent) -> None:
-        msg = 'Source  %(source_name)s %(model_name)s has been registered.'
+        msg = 'Source %(source_name)s %(model_name)s has been registered.'
         args = {
             'model_name': event.model_name,
             'source_name': event.source_name,
@@ -310,9 +312,9 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
         for handler in root_logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 if handler.stream in (
-                    h.stream
-                    for h in logger.handlers
-                    if isinstance(h, logging.StreamHandler)
+                        h.stream
+                        for h in logger.handlers
+                        if isinstance(h, logging.StreamHandler)
                 ):
                     handler.addFilter(DryTorchFilter())
 
