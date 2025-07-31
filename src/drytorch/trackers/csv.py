@@ -74,7 +74,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.Metrics) -> None:
+    def _(self, event: log_events.MetricEvent) -> None:
         file_address = self.file_name(event.model_name, event.source_name)
         metric_names = tuple(event.metrics)
         headers = self._base_headers + metric_names

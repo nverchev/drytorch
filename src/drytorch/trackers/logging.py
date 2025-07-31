@@ -18,13 +18,15 @@ from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from typing_extensions import override
 
+import drytorch
+
 from drytorch import log_events, tracking
 
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
-logger = logging.getLogger('drytorch')
+logger = logging.getLogger(drytorch.__name__)
 
 
 class InfoLevels(NamedTuple):
@@ -58,7 +60,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartTraining) -> None:
+    def _(self, event: log_events.StartTrainingEvent) -> None:
         logger.log(
             INFO_LEVELS.training,
             'Training %(model_name)s started.',
@@ -67,12 +69,12 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndTraining) -> None:
+    def _(self, event: log_events.EndTrainingEvent) -> None:
         logger.log(INFO_LEVELS.training, 'Training ended.')
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartEpoch) -> None:
+    def _(self, event: log_events.StartEpochEvent) -> None:
         final_epoch = event.end_epoch
         if final_epoch is not None:
             final_epoch_str = str(final_epoch)
@@ -91,12 +93,12 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndEpoch) -> None:
+    def _(self, event: log_events.EndEpochEvent) -> None:
         logger.log(INFO_LEVELS.internal, 'Epoch completed.')
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.SaveModel) -> None:
+    def _(self, event: log_events.SaveModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,
             'Saving %(name)s %(definition)s in: %(location)s.',
@@ -109,7 +111,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.LoadModel) -> None:
+    def _(self, event: log_events.LoadModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,
             'Loading %(name)s %(definition)s at epoch %(epoch)d.',
@@ -122,7 +124,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.Metrics) -> None:
+    def _(self, event: log_events.MetricEvent) -> None:
         log_msg_list: list[str] = ['%(desc)s']
         desc = _to_desc(event.source_name)
         log_args: dict[str, str | float] = {'desc': desc}
@@ -134,7 +136,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartTest) -> None:
+    def _(self, event: log_events.StartTestEvent) -> None:
         logger.log(
             INFO_LEVELS.test,
             'Testing %(model_name)s started.',
@@ -143,12 +145,12 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndTest) -> None:
+    def _(self, event: log_events.EndTestEvent) -> None:
         logger.log(INFO_LEVELS.internal, 'Test executed without errors.')
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.TerminatedTraining) -> None:
+    def _(self, event: log_events.TerminatedTrainingEvent) -> None:
         msg = '. '.join(
             [
                 'Training %(model_name)s terminated at epoch %(epoch)d',
@@ -164,7 +166,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         logger.log(
             INFO_LEVELS.experiment,
             'Running experiment: %(name)s.',
@@ -173,7 +175,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         logger.log(
             INFO_LEVELS.internal,
             'Experiment: %(name)s stopped.',
@@ -182,7 +184,7 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.UpdateLearningRate) -> None:
+    def _(self, event: log_events.LearningRateEvent) -> None:
         message_parts = [
             'Updated %(model_name)s optimizer at epoch %(epoch)d',
         ]
@@ -201,6 +203,22 @@ class BuiltinLogger(tracking.Tracker):
             'scheduler_name': event.scheduler_name,
         }
         logger.log(INFO_LEVELS.model_state, msg, log_args)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ModelRegistrationEvent) -> None:
+        msg = 'Model %(model_name)s has been registered.'
+        logger.log(INFO_LEVELS.internal, msg, {'model_name': event.model_name})
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.SourceRegistrationEvent) -> None:
+        msg = 'Source  %(source_name)s %(model_name)s has been registered.'
+        args = {
+            'model_name': event.model_name,
+            'source_name': event.source_name,
+        }
+        logger.log(INFO_LEVELS.internal, msg, args)
         return super().notify(event)
 
 

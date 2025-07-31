@@ -64,7 +64,6 @@ class HydraLink(base_classes.Dumper):
                 shutil.copytree(self.hydra_dir, self.dir)
         except exceptions.AccessOutsideScopeError:
             pass
-        self._exp_version = None
         return
 
     @functools.singledispatchmethod
@@ -73,7 +72,7 @@ class HydraLink(base_classes.Dumper):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         # call super method to create par_dir first
         super().notify(event)
         self._exp_version = event.exp_version
@@ -81,6 +80,7 @@ class HydraLink(base_classes.Dumper):
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         self.clean_up()
+        self._exp_version = None
         return super().notify(event)

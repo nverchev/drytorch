@@ -50,7 +50,7 @@ class YamlDumper(base_classes.Dumper):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.ModelCreation) -> None:
+    def _(self, event: log_events.ModelRegistrationEvent) -> None:
         self._version(event.metadata,
                       event.model_name,
                       event.model_name,
@@ -58,7 +58,7 @@ class YamlDumper(base_classes.Dumper):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.CallModel) -> None:
+    def _(self, event: log_events.SourceRegistrationEvent) -> None:
         model_name = event.model_name
         self._version(event.metadata,
                       model_name,

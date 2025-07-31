@@ -104,7 +104,7 @@ def _notify_workflow(event_workflow: tuple[log_events.Event, ...],
     for event in event_workflow:
         for tracker in trackers:
             tracker.notify(event)
-            if isinstance(event, log_events.IterateBatch):
+            if isinstance(event, log_events.IterateBatchEvent):
                 for _ in range(event.num_iter):
                     event.update(example_named_metrics)
                 event.push_updates.clear()  # necessary to reinitialize

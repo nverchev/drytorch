@@ -24,17 +24,21 @@ class TestTrainer:
             name='TestTrainer',
         )
         self.start_training_event = mocker.patch(
-            'drytorch.log_events.StartTraining'
+            'drytorch.log_events.StartTrainingEvent'
         )
         self.end_training_event = mocker.patch(
-            'drytorch.log_events.EndTraining'
+            'drytorch.log_events.EndTrainingEvent'
         )
-        self.start_epoch_event = mocker.patch('drytorch.log_events.StartEpoch')
-        self.end_epoch_event = mocker.patch('drytorch.log_events.EndEpoch')
-        self.iterate_event = mocker.patch('drytorch.log_events.IterateBatch')
-        self.metrics_event = mocker.patch('drytorch.log_events.Metrics')
+        self.start_epoch_event = mocker.patch(
+            'drytorch.log_events.StartEpochEvent'
+            )
+        self.end_epoch_event = mocker.patch('drytorch.log_events.EndEpochEvent')
+        self.iterate_event = mocker.patch(
+            'drytorch.log_events.IterateBatchEvent'
+        )
+        self.metrics_event = mocker.patch('drytorch.log_events.MetricEvent')
         self.terminated_event = mocker.patch(
-            'drytorch.log_events.TerminatedTraining'
+            'drytorch.log_events.TerminatedTrainingEvent'
         )
 
     def test_call_events(self) -> None:

@@ -39,7 +39,7 @@ class MetadataManager:
         self.used_names = set[str]()
         self.max_items_repr = max_items_repr
 
-    def record_model_call(self, source: Any, model: p.ModelProtocol) -> None:
+    def register_source(self, source: Any, model: p.ModelProtocol) -> None:
         """Record metadata of an object that calls the model.
 
         Args:
@@ -51,7 +51,7 @@ class MetadataManager:
         model_version = self._get_version(model)
         self._register_name(source_name)
         metadata = self.extract_metadata(source, max_size=self.max_items_repr)
-        log_events.CallModel(
+        log_events.SourceRegistrationEvent(
             source_name, source_version, model.name, model_version, metadata
         )
         return
@@ -65,7 +65,7 @@ class MetadataManager:
         self._register_name(model.name)
         metadata = {'module': repr_utils.LiteralStr(repr(model.module))}
         model_version = self._get_version(model)
-        log_events.ModelCreation(model.name, model_version, metadata)
+        log_events.ModelRegistrationEvent(model.name, model_version, metadata)
         return
 
     def _register_name(self, name: str) -> None:
@@ -113,13 +113,13 @@ class Tracker(metaclass=abc.ABCMeta):
         return
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         _not_used = event
         self._set_current(self)
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         _not_used = event
         self._reset_current()
         return

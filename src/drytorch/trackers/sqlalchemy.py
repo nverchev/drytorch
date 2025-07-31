@@ -199,7 +199,7 @@ class SQLConnection(base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         with self.session_factory() as session:
             if self.resume_run:
                 run_or_none = self._get_last_run(event.exp_name)
@@ -223,12 +223,12 @@ class SQLConnection(base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         self.clean_up()
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.CallModel) -> None:
+    def _(self, event: log_events.SourceRegistrationEvent) -> None:
         with self.session_factory() as session:
             run = session.merge(self.run)
             source = Source(
@@ -244,7 +244,7 @@ class SQLConnection(base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.Metrics) -> None:
+    def _(self, event: log_events.MetricEvent) -> None:
         with self.session_factory() as session:
             if event.source_name not in self._sources:
                 msg = f'Source {event.source_name} has not been registered.'

@@ -121,7 +121,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     def load(self, epoch: int = -1) -> None:
         """Load the model and optimizer state dictionaries."""
         self._update_epoch(epoch)
-        log_events.LoadModel(
+        log_events.LoadModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
             location=self._get_location(),
@@ -143,7 +143,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
-        log_events.SaveModel(
+        log_events.SaveModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
             location=self._get_location(),

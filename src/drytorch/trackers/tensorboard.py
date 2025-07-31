@@ -88,7 +88,7 @@ class TensorBoard(base_classes.Dumper):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartExperiment) -> None:
+    def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
 
         # determine the root directory
@@ -127,12 +127,12 @@ class TensorBoard(base_classes.Dumper):
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         self.clean_up()
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.Metrics) -> None:
+    def _(self, event: log_events.MetricEvent) -> None:
         for name, value in event.metrics.items():
             full_name = f'{event.model_name}/{event.source_name}-{name}'
             self.writer.add_scalar(full_name, value, global_step=event.epoch)

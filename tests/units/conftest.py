@@ -25,7 +25,7 @@ def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     session_mocker.patch('drytorch.experiments.Experiment.current',
                          return_value=mock_experiment)
     session_mocker.patch('drytorch.registering.register_model')
-    session_mocker.patch('drytorch.registering.record_model_call')
+    session_mocker.patch('drytorch.registering.register_source')
 
     return mock_experiment
 

@@ -1,6 +1,8 @@
 Running experiment: test_exp.
+Model test_model has been registered.
 Loading test_model checkpoint at epoch 5.
 Training test_model started.
+Source  test_source test_model has been registered.
 ====> Epoch 5/8:
     test_source:    Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
 Epoch completed.

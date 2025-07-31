@@ -66,8 +66,10 @@ class TestTest:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests."""
-        self.mock_start_test = mocker.patch('drytorch.log_events.StartTest')
-        self.mock_end_test = mocker.patch('drytorch.log_events.EndTest')
+        self.mock_start_test = mocker.patch(
+            'drytorch.log_events.StartTestEvent'
+        )
+        self.mock_end_test = mocker.patch('drytorch.log_events.EndTestEvent')
         self.mock_super_call = mocker.patch(
             'drytorch.evaluating.Evaluation.__call__'
         )

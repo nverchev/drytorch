@@ -61,7 +61,7 @@ class TestWandb:
                                      start_experiment_mock_event) -> None:
         """Test StartExperiment notification."""
         self.init_mock.assert_called_once_with(
-            id=None,
+            id="mock",
             dir=start_experiment_mock_event.exp_dir,
             project=start_experiment_mock_event.exp_name,
             config=start_experiment_mock_event.config,

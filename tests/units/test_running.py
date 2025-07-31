@@ -55,8 +55,8 @@ class TestSource:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests."""
-        self.mock_record_model_call = mocker.patch(
-            'drytorch.registering.record_model_call'
+        self.mock_register_source = mocker.patch(
+            'drytorch.registering.register_source'
         )
         return
 
@@ -71,14 +71,14 @@ class TestSource:
 
         source()
         assert source._registered is True
-        self.mock_record_model_call.assert_called_once_with(source,
+        self.mock_register_source.assert_called_once_with(source,
                                                             source.model)
 
         # the second call should not register again
-        self.mock_record_model_call.reset_mock()
+        self.mock_register_source.reset_mock()
 
         source()
-        self.mock_record_model_call.assert_not_called()
+        self.mock_register_source.assert_not_called()
 
 
 class TestModelRunner:
@@ -95,11 +95,8 @@ class TestModelRunner:
             return_value=self.mock_output)
         self.mock_apply_to = mocker.patch('drytorch.utils.apply_ops.apply_to')
         self.mock_apply_to.side_effect = lambda x, device: x
-        self.mock_loading = mocker.patch(
-            'drytorch.loading.check_dataset_length',
-            return_value=100)
         self.mock_iterate_batch = mocker.patch(
-            'drytorch.log_events.IterateBatch'
+            'drytorch.log_events.IterateBatchEvent'
         )
         self.mock_repr_metrics = mocker.patch('drytorch.metrics.repr_metrics',
                                               return_value={'loss': 0.1})
@@ -164,7 +161,6 @@ class TestModelRunner:
         runner._run_epoch(store_outputs=False)
         assert runner.outputs_list == []
 
-        self.mock_loading.assert_called_once_with(runner.loader.dataset)
         self.mock_iterate_batch.assert_called_once()
         assert run_batch.call_count == 2
         assert mock_pbar.update.call_count == 2
@@ -275,7 +271,7 @@ class TestModelRunnerWithLogs:
         mocker.patch('drytorch.running.ModelRunnerWithObjective._get_metrics',
                      return_value=example_named_metrics)
         self.mock_log_events_metrics = mocker.patch(
-            'drytorch.log_events.Metrics'
+            'drytorch.log_events.MetricEvent'
         )
         return
 

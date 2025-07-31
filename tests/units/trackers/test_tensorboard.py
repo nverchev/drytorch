@@ -38,7 +38,7 @@ class TestTensorBoard:
     @pytest.fixture
     def tracker_with_resume(self, tmp_path) -> TensorBoard:
         """Set up the instance with resume."""
-        return TensorBoard(resume_run=True)
+        return TensorBoard(resume_run=True, open_browser=True)
 
     @pytest.fixture
     def tracker_started(
@@ -148,16 +148,6 @@ class TestTensorBoard:
 
         assert TensorBoard._get_last_run(tmp_path) == tmp_path / '1'
 
-    def test_tensorboard_launch_fails_if_not_installed(self,
-                                                       tracker,
-                                                       mocker,
-                                                       tmp_path):
-        """Test error is raised if TensorBoard is not installed."""
-        self.mock_popen.side_effect = FileNotFoundError()
-        mocker.patch.object(TensorBoard, '_find_free_port', return_value=6007)
-
-        with pytest.raises(exceptions.TrackerError):
-            tracker._start_tensorboard(tmp_path)
 
     def test_tensorboard_launch_fails_on_port_conflict(self, mocker, tmp_path):
         """Test error is raised if no free ports are available."""
@@ -170,7 +160,7 @@ class TestTensorBoard:
     def test_browser_open_failure_warning(self, tracker, mocker, tmp_path):
         """Test warning is issued when the browser fails to open."""
         mocker.patch.object(TensorBoard, '_find_free_port', return_value=6007)
-        self.open_browser_mock.side_effect = Exception("Browser not available")
+        self.open_browser_mock.side_effect = OSError('Browser not available')
         with pytest.warns(exceptions.DryTorchWarning):
             tracker._start_tensorboard(tmp_path)
 

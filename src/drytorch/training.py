@@ -127,7 +127,7 @@ class Trainer(
     @override
     def terminate_training(self, reason: str) -> None:
         self._terminated = True
-        log_events.TerminatedTraining(
+        log_events.TerminatedTrainingEvent(
             source_name=self.name,
             model_name=self.model.name,
             epoch=self.model.epoch,
@@ -142,14 +142,14 @@ class Trainer(
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
         final_epoch = self.model.epoch + num_epochs
-        log_events.StartTraining(
+        log_events.StartTrainingEvent(
             source_name=self.name,
             model_name=self.model.name,
             start_epoch=self.model.epoch,
             end_epoch=final_epoch,
         )
         for _ in range(num_epochs):
-            log_events.StartEpoch(
+            log_events.StartEpochEvent(
                 source_name=self.name,
                 model_name=self.model.name,
                 epoch=self.model.epoch + 1,
@@ -158,14 +158,14 @@ class Trainer(
             self.pre_epoch_hooks.execute(self)
             self()
             self.post_epoch_hooks.execute(self)
-            log_events.EndEpoch(
+            log_events.EndEpochEvent(
                 source_name=self.name,
                 model_name=self.model.name,
                 epoch=self.model.epoch,
             )
             if self.terminated:
                 break
-        log_events.EndTraining(self.name)
+        log_events.EndTrainingEvent(self.name)
         return
 
     def train_until(self: Self, epoch: int) -> None:
@@ -204,7 +204,7 @@ class Trainer(
                 original scheduler.
         """
         scheduler_name = None if scheduler is None else repr(scheduler)
-        log_events.UpdateLearningRate(
+        log_events.LearningRateEvent(
             model_name=self.model.name,
             source_name=self.name,
             epoch=self.model.epoch,

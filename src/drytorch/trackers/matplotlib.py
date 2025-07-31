@@ -63,7 +63,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
                     except StopIteration:
                         break
                     else:
-                        ax = fig.add_subplot(n_rows, n_cols, (row, col))
+                        ax = fig.add_subplot(n_rows, n_cols, (row + 1, col + 1))
                         axes_dict[metric_name] = ax
 
             self._model_figure[model_name] = (fig, axes_dict)

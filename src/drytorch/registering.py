@@ -19,7 +19,7 @@ from drytorch import protocols as p
 ALL_MODULES = dict[nn.Module, experiments.Experiment]()
 
 
-def record_model_call(source: Any, model: p.ModelProtocol) -> None:
+def register_source(source: Any, model: p.ModelProtocol) -> None:
     """Record metadata in the current experiment.
 
     Args:
@@ -27,7 +27,7 @@ def record_model_call(source: Any, model: p.ModelProtocol) -> None:
         model: the model that the object calls.
     """
     exp: experiments.Experiment = experiments.Experiment.current()
-    exp.metadata_manager.record_model_call(source, model)
+    exp.metadata_manager.register_source(source, model)
     module = model.module
     if module in ALL_MODULES:
         model_exp = ALL_MODULES[module]

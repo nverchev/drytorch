@@ -95,7 +95,7 @@ class Test(Evaluation[_Input, _Target, _Output]):
         Args:
             store_outputs: whether to store model outputs. Defaults to False.
         """
-        log_events.StartTest(self.name, self.model.name)
+        log_events.StartTestEvent(self.name, self.model.name)
         super().__call__(store_outputs)
-        log_events.EndTest(self.name, self.model.name)
+        log_events.EndTestEvent(self.name, self.model.name)
         return

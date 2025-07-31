@@ -196,7 +196,7 @@ class TqdmLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.IterateBatch) -> None:
+    def _(self, event: log_events.IterateBatchEvent) -> None:
         desc = event.source_name.rjust(15)
         leave = self._leave and self._training_bar is None
         self._epoch_bar = EpochBar(
@@ -211,7 +211,7 @@ class TqdmLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartTraining) -> None:
+    def _(self, event: log_events.StartTrainingEvent) -> None:
         if self._enable_training_bar:
             self._training_bar = TrainingBar(
                 event.start_epoch,
@@ -222,29 +222,29 @@ class TqdmLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StopExperiment) -> None:
+    def _(self, event: log_events.StopExperimentEvent) -> None:
         self.clean_up()
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartEpoch) -> None:
+    def _(self, event: log_events.StartEpochEvent) -> None:
         if self._training_bar is not None:
             self._training_bar.update(event.epoch)
 
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndEpoch) -> None:
+    def _(self, event: log_events.EndEpochEvent) -> None:
         self._clean_epoch_bar()
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.TerminatedTraining) -> None:
+    def _(self, event: log_events.TerminatedTrainingEvent) -> None:
         self.clean_up()
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndTraining) -> None:
+    def _(self, event: log_events.EndTrainingEvent) -> None:
         self.clean_up()
         return super().notify(event)
 

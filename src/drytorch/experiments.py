@@ -57,7 +57,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
             raise exceptions.NestedScopeError(current_exp.name, self.name)
         Experiment._current = self
         log_events.Event.set_auto_publish(self.trackers.publish)
-        log_events.StartExperiment(
+        log_events.StartExperimentEvent(
             self.name, self.created_at, self.dir, self.config
         )
         return self
@@ -69,7 +69,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         exc_tb: TracebackType,
     ) -> None:
         """Conclude the experiment scope."""
-        log_events.StopExperiment(self.name)
+        log_events.StopExperimentEvent(self.name)
         log_events.Event.set_auto_publish(None)
         Experiment._current = None
         return

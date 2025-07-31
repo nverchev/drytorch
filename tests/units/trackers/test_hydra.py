@@ -62,8 +62,9 @@ class TestHydraLink:
         with pytest.raises(exceptions.TrackerError):
             HydraLink(par_dir=tmp_path / 'not_existing')
 
-    def test_dir_property(self, tracker, tmp_path) -> None:
+    def test_dir_property(self, tracker, start_experiment_mock_event) -> None:
         """Test dir property returns the same directory twice."""
+        tracker.notify(start_experiment_mock_event)
         dir1 = tracker.dir
         dir2 = tracker.dir
         assert dir1 == dir2
