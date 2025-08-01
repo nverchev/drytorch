@@ -5,6 +5,9 @@ import pathlib
 import warnings
 
 import numpy as np
+# noqa: PLC2701,F401
+import numpy._core.multiarray  # pyright: ignore[reportPrivateImportUsage]
+
 import torch
 
 from typing_extensions import override
@@ -28,9 +31,10 @@ SAFE_GLOBALS = [
     np.float64,
     np.complex64,
     np.complex128,
+    np.dtype,
+    np._core.multiarray.scalar
 ]
 SAFE_GLOBALS.extend([getattr(np.dtypes, name) for name in np.dtypes.__all__])
-SAFE_GLOBALS.append(np.dtype)
 torch.serialization.add_safe_globals(SAFE_GLOBALS)
 
 
