@@ -62,7 +62,7 @@ def setup(
 
 
 def test_standard_mode(example_named_metrics, event_workflow, string_stream):
-    """Test standard mode on typical workflow."""
+    """Test standard mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.epoch)
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
@@ -77,7 +77,7 @@ def test_standard_mode(example_named_metrics, event_workflow, string_stream):
 def test_standard_mode_no_tqdm(
     example_named_metrics, event_workflow, string_stream
 ):
-    """Test standard mode on typical workflow when tqdm is not available."""
+    """Test standard mode on a typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.metrics)
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
@@ -89,7 +89,7 @@ def test_standard_mode_no_tqdm(
 
 
 def test_hydra_mode(example_named_metrics, event_workflow, string_stream):
-    """Test hydra mode on typical workflow."""
+    """Test hydra mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.metrics)
     trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())

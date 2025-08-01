@@ -20,7 +20,7 @@ import torch
 class Versioned:
     """Mixin saving instantiation timestamp."""
 
-    ts_fmt = '%Y-%m-%dT%H:%M:%S'
+    ts_fmt = '%Y-%m-%dT%H-%M-%S'
 
     def __init__(self, *args, **kwargs) -> None:
         """Constructor."""

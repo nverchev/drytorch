@@ -19,6 +19,7 @@ from drytorch.trackers.sqlalchemy import (
     Run,
     Source,
     SQLConnection,
+    Tags,
 )
 
 
@@ -39,6 +40,7 @@ class TestSQLConnection:
         self.log = mocker.create_autospec(Log, instance=True)
         self.run = mocker.create_autospec(Run, instance=True)
         self.source = mocker.create_autospec(Source, instance=True)
+        self.tags = mocker.create_autospec(Tags, instance=True)
         mocker.patch('sqlalchemy.create_engine', self.create_engine_mock)
         mocker.patch('sqlalchemy.orm.sessionmaker', self.make_mock_session)
         mocker.patch('sqlalchemy.schema.MetaData.create_all')
@@ -50,6 +52,8 @@ class TestSQLConnection:
                      return_value=self.run)
         mocker.patch('drytorch.trackers.sqlalchemy.Source',
                      return_value=self.source)
+        mocker.patch('drytorch.trackers.sqlalchemy.Tags',
+                     return_value=self.tags)
         return
 
     @pytest.fixture
@@ -77,7 +81,7 @@ class TestSQLConnection:
         return
 
     def test_cleanup(self, tracker_started):
-        """Test correct clean up."""
+        """Test correct cleaning up."""
         tracker_started.clean_up()
         assert tracker_started._run is None
         assert tracker_started._sources == {}
@@ -104,7 +108,7 @@ class TestSQLConnection:
     ) -> None:
         """Test start experiment notification creates new tables."""
         assert tracker_started.run == self.run
-        self.mock_context.add.assert_called_once_with(self.exp)
+        self.mock_context.add.assert_called_with(self.exp)
 
     def test_notify_start_stop_experiment(
             self,

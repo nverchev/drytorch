@@ -131,6 +131,8 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         env = event.exp_name
+        if event.variation:
+            env += "_" + event.variation
         try:
             self._viz = visdom.Visdom(server=self.server,
                                       port=self.port,
@@ -140,7 +142,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             msg = 'server not available.'
             raise exceptions.TrackerError(self, msg) from cre
         else:
-            self.viz.close(env=event.exp_name)  # close all the windows
+            self.viz.close(env=env)  # close all the windows
 
         return super().notify(event)
 

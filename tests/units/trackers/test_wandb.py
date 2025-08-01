@@ -6,11 +6,8 @@ from collections.abc import Generator
 
 import pytest
 
-
 if not importlib.util.find_spec('wandb'):
     pytest.skip('wandb not available', allow_module_level=True)
-
-
 
 from drytorch import exceptions
 from drytorch.trackers.wandb import Wandb
@@ -50,7 +47,7 @@ class TestWandb:
         assert isinstance(tracker.resume_run, bool)
 
     def test_cleanup(self, tracker) -> None:
-        """Test correct clean up."""
+        """Test correct cleaning up."""
         tracker.clean_up()
         self.finish_mock.assert_called_once()
         assert tracker._run is None
@@ -58,15 +55,24 @@ class TestWandb:
     def test_notify_start_experiment(self,
                                      mocker,
                                      tracker_started,
-                                     start_experiment_mock_event) -> None:
+                                     example_exp_ts,
+                                     start_experiment_mock_event,
+                                     example_variation,
+                                     example_tags) -> None:
         """Test StartExperiment notification."""
+        id_ = example_exp_ts
+        if example_variation:
+            id_ = f'{example_variation}_{id_}'
+
+        dir_ = start_experiment_mock_event.exp_dir
         self.init_mock.assert_called_once_with(
-            id="mock",
-            dir=start_experiment_mock_event.exp_dir,
+            id=id_,
+            dir=dir_,
             project=start_experiment_mock_event.exp_name,
             config=start_experiment_mock_event.config,
             settings=mocker.ANY,
-            resume='allow'
+            resume='allow',
+            tags=example_tags
         )
 
     def test_notify_metrics(self,

@@ -21,9 +21,10 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
     Attributes:
         dir: the directory for storing experiment files.
         config: configuration object for the experiment.
+        variation: variation of the experiment.
+        tags: descriptors for the experiment's variation.
         metadata_manager: manager for recording metadata.
         trackers: dispatcher for publishing events.
-        tags: secondary identifier for the experiment (e.g., for overrides).
 
     """
 
@@ -35,28 +36,31 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
             config: _T_co,
             name: str = '',
             par_dir: str | pathlib.Path = pathlib.Path(),
-            tags: str | list[str] | None = None,
+            variation: str | None = None,
+            tags: list[str] | None = None,
     ) -> None:
         """Constructor.
 
         The experiment folder is determined by the parent directory, the name,
-        and the overrides, which are converted to string. The path is of the
-        form: par_dir/name/overrides_str.
+        and the variant, if present, which are converted to string. The
+        path is of the form: par_dir/name(/variant).
 
         Args:
             name: the name of the experiment. Defaults to class name.
             par_dir: parent directory for experiment data.
             config: configuration for the experiment.
-            tags: secondary identifier for the experiment (e.g., for overrides).
+            variation: variation of the experiment.
+        tags: descriptors for the experiment's variation (e.g., "lr=0.01").
         """
         super().__init__()
         self._validate_name(name)
         self._name = name
         self.dir = pathlib.Path(par_dir) / self.name
         self.config = config
-        self.tags = [tags] if isinstance(tags, str) else tags
-        if self.tags is not None:
-            self.dir /= '_'.join(self.tags)
+        self.variation = variation
+        if self.variation is not None:
+            self.dir /= self.variation
+        self.tags = tags or []
         self.metadata_manager = tracking.MetadataManager()
         self.trackers = tracking.EventDispatcher(self.name)
         self.trackers.register(**tracking.DEFAULT_TRACKERS)
@@ -69,7 +73,11 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         Experiment._current = self
         log_events.Event.set_auto_publish(self.trackers.publish)
         log_events.StartExperimentEvent(
-            self.name, self.created_at, self.dir, self.config, self.tags,
+            self.name,
+            self.created_at,
+            self.dir,
+            self.config,
+            self.variation,
         )
         return self
 
@@ -166,7 +174,7 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
         """Get specs from the currently active experiment."""
         exp = cls.current()
         if exp.specs is None:
-            raise exceptions.NoConfigurationError()
+            raise exceptions.NoSpecificationError()
         return exp.specs
 
     @classmethod
@@ -175,12 +183,14 @@ class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
             base_exp: Experiment[_T_co],
             specs_name: str = '',
             specs: _U_co | None = None,
+            variation: str | None = None
     ) -> Self:
         """Create an ExperimentWithSpecs from an existing experiment."""
         instance = cls(
             name=specs_name,
             par_dir=base_exp.dir,
             config=base_exp.config,
+            variation=variation,
         )
         instance.metadata_manager = base_exp.metadata_manager
         instance.trackers = base_exp.trackers

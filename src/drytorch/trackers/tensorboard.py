@@ -90,14 +90,21 @@ class TensorBoard(base_classes.Dumper):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
-
         # determine the root directory
-        run_dir = self.par_dir / self.folder_name
+        if event.variation is None or self._par_dir is None:
+            par_dir = self.par_dir
+        else:
+            par_dir = self.par_dir.parent  # to compare variations
+
+        run_dir = par_dir / self.folder_name
         retrieved = self._get_last_run(run_dir) if self.resume_run else None
         if retrieved is None:
             # prevent nested folders
-            safe_name = event.exp_name.replace('/', '-')
-            exp_id = f'{safe_name}_{event.exp_ts}'
+            id_list = [event.exp_name]
+            if event.variation is not None:
+                id_list.append(event.variation)
+            id_list.append(event.exp_ts)
+            exp_id = '_'.join(id_list)
             root_dir = run_dir / exp_id
         else:
             root_dir = retrieved
@@ -112,17 +119,8 @@ class TensorBoard(base_classes.Dumper):
             max_queue=self._max_queue_size,
             flush_secs=self._flush_secs,
         )
-        config = event.config
-        if config is not None:
-            try:
-                if dataclasses.is_dataclass(config):
-                    if not isinstance(config, type):
-                        config = dataclasses.asdict(event.config)
-
-                config = repr_utils.recursive_repr(config)
-                self.writer.add_hparams(hparam_dict=config, metric_dict={})
-            except (TypeError, ValueError):
-                pass
+        for i, tag in enumerate(event.tags):
+            self.writer.add_text('tag ' + str(i), tag)
 
         return
 

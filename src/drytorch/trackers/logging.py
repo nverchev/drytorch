@@ -168,9 +168,9 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         msg = 'Running experiment: %(name)s'
         args = {'name': event.exp_name}
-        if event.tags is not None:
-            msg += ' (%(tags)s)'
-            args.update({'tags': ' '.join(event.tags)})
+        if event.variation is not None:
+            msg += ' (%(variation)s)'
+            args.update({'variation': event.variation})
 
         logger.log(INFO_LEVELS.experiment, msg + '.', args)
         return super().notify(event)

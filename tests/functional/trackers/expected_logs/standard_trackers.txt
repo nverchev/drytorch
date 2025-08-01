@@ -1,4 +1,4 @@
-[2024-01-01 12:00:00] - Running experiment: test_exp.
+[2024-01-01 12:00:00] - Running experiment: test_exp (my_variation).
 Loading test_model checkpoint at epoch 5.
 [2024-01-01 12:00:00] - Training test_model started.
 ====> Epoch 5/8:

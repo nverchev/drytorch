@@ -2,6 +2,7 @@
 
 import functools
 import pathlib
+import warnings
 
 import wandb
 
@@ -63,15 +64,36 @@ class Wandb(Dumper):
         # determine main directory
         super().notify(event)
         project = self._settings.project or event.exp_name
-        run_id = self._settings.run_id or event.exp_ts.replace(":", "_")
+        if event.variation is None or self._par_dir is None:
+            dir_ = self.par_dir
+        else:
+            self.par_dir.parent
+
+        if self._settings.run_id:
+            run_id = self._settings.run_id
+        else:
+            run_id = event.exp_ts.replace(":", "_")
+            if event.variation:
+                run_id = event.variation + '_' + run_id
+
         if self.resume_run:
             runs = wandb.Api().runs(project)
             run_id = runs[len(runs) - 1].id
 
+        config_has_dict = hasattr(event.config, '__dict__')
+        config_is_recognizable = isinstance(event.config, (dict, str))
+        if config_has_dict or config_is_recognizable:
+            config = event.config
+        else:
+            config = None
+            msg = 'Config format not supported and will not be logged.'
+            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+
         self._run = wandb.init(id=run_id,
-                               dir=self.par_dir,
+                               dir=dir_,
                                project=project,
-                               config=event.config,
+                               config=config,
+                               tags=event.tags,
                                settings=self._settings,
                                resume='allow')
         return

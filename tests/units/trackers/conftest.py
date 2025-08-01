@@ -14,6 +14,9 @@ from drytorch import log_events
 def start_experiment_mock_event(mocker,
                                 tmp_path,
                                 example_exp_name,
+                                example_exp_ts,
+                                example_variation,
+                                example_tags,
                                 example_config) -> (
         log_events.StartExperimentEvent):
     """Mock StartExperiment event instance."""
@@ -21,14 +24,17 @@ def start_experiment_mock_event(mocker,
     # Set default attribute values
     mock.exp_name = example_exp_name
     mock.exp_dir = tmp_path / example_exp_name
-    mock.exp_ts = 'mock'
+    mock.exp_ts = example_exp_ts
     mock.config = example_config
+    mock.variation = example_variation
+    mock.tags = example_tags
     return mock
 
 
 @pytest.fixture
-def stop_experiment_mock_event(mocker,
-                               example_exp_name) -> log_events.StopExperimentEvent:
+def stop_experiment_mock_event(
+        mocker, example_exp_name
+) -> log_events.StopExperimentEvent:
     """Mock StopExperiment event instance."""
     mock = mocker.create_autospec(log_events.StopExperimentEvent)
     mock.exp_name = example_exp_name

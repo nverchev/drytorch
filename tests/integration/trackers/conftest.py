@@ -21,12 +21,15 @@ def allow_event_creation_outside_scope() -> None:
 @pytest.fixture()
 def start_experiment_event(tmp_path,
                            example_exp_name,
+                           example_exp_ts,
                            example_config) -> log_events.StartExperimentEvent:
     """Provides a StartExperiment event instance."""
+
+    # variation name and tags are not tested in integration
     return log_events.StartExperimentEvent(
         exp_name=example_exp_name,
         exp_dir=pathlib.Path(tmp_path) / example_exp_name,
-        exp_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        exp_ts=example_exp_ts,
         config=example_config,
     )
 

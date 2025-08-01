@@ -54,6 +54,7 @@ class Experiment(orm.MappedAsDataclass, Base):
     Attributes:
         experiment_id: the unique id for the table.
         experiment_name: the experiment's name.
+        experiment_variation: the experiment's variation.
         experiment_ts: the experiment's timestamp.
         run_id: the id of the run for the experiment.
         run: the entry for the run for the experiment.
@@ -66,12 +67,42 @@ class Experiment(orm.MappedAsDataclass, Base):
         autoincrement=True,
     )
     experiment_name: orm.Mapped[str] = orm.mapped_column(index=True)
+    experiment_variation: orm.Mapped[str] = orm.mapped_column(index=True)
     experiment_ts: orm.Mapped[str] = orm.mapped_column()
+    tags: orm.Mapped[list[Tags]] = orm.relationship(
+        init=False,
+        cascade='all, delete-orphan',
+    )
     run_id: orm.Mapped[int] = orm.mapped_column(
         sqlalchemy.ForeignKey(Run.run_id),
         init=False,
     )
     run: orm.Mapped[Run] = orm.relationship(back_populates=Run.experiments.key)
+
+
+class Tags(orm.MappedAsDataclass, Base):
+    """Table for tags for experiments.
+
+    Attributes:
+        tag_id: the unique id for the table.
+        experiment_id: the id for the experiment.
+        text: a tag for the experiment.
+    """
+
+    __tablename__ = 'tags'
+    tag_id: orm.Mapped[int] = orm.mapped_column(
+        init=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    experiment_id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.ForeignKey(Experiment.experiment_id),
+        init=False,
+    )
+    experiment: orm.Mapped[Experiment] = orm.relationship(
+        back_populates=Experiment.tags.key
+    )
+    text: orm.Mapped[str] = orm.mapped_column(index=True)
 
 
 class Source(orm.MappedAsDataclass, Base):
@@ -160,9 +191,9 @@ class SQLConnection(base_classes.MetricLoader):
     default_url = sqlalchemy.URL.create('sqlite', database='metrics.db')
 
     def __init__(
-        self,
-        engine: sqlalchemy.Engine | None = None,
-        resume_run: bool = False,
+            self,
+            engine: sqlalchemy.Engine | None = None,
+            resume_run: bool = False,
     ) -> None:
         """Constructor.
 
@@ -200,9 +231,10 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        variation = event.variation or 'default'
         with self.session_factory() as session:
             if self.resume_run:
-                run_or_none = self._get_last_run(event.exp_name)
+                run_or_none = self._get_last_run(event.exp_name, variation)
                 if run_or_none is None:
                     msg = 'SQLConnection: No previous runs. Starting a new one.'
                     warnings.warn(msg, stacklevel=2)
@@ -215,8 +247,13 @@ class SQLConnection(base_classes.MetricLoader):
             experiment = Experiment(
                 experiment_name=event.exp_name,
                 experiment_ts=event.exp_ts,
+                experiment_variation=variation,
                 run=self.run,
             )
+
+            for tag_str in event.tags:
+                tag = Tags(text=tag_str, experiment=experiment)
+                session.add(tag)
             session.add(experiment)
             session.commit()
 
@@ -282,21 +319,22 @@ class SQLConnection(base_classes.MetricLoader):
 
             return named_sources
 
-    def _get_last_run(self, exp_name: str) -> Run | None:
+    def _get_last_run(self, exp_name: str, variation: str) -> Run | None:
         with self.session_factory() as session:
             query = (
                 sqlalchemy.select(Run)
                 .join(Experiment)
                 .where(Experiment.experiment_name.is_(exp_name))
+                .where(Experiment.experiment_variation.is_(variation))
                 .order_by(Run.run_id.desc())
                 .limit(1)
             )
             return session.scalars(query).first()
 
     def _get_run_metrics(
-        self,
-        sources: list[Source],
-        max_epoch: int,
+            self,
+            sources: list[Source],
+            max_epoch: int,
     ) -> base_classes.HistoryMetrics:
         with self.session_factory() as session:
             sources = [session.merge(source) for source in sources]
@@ -328,7 +366,7 @@ class SQLConnection(base_classes.MetricLoader):
         return epochs, named_metric_values
 
     def _load_metrics(
-        self, model_name: str, max_epoch: int = -1
+            self, model_name: str, max_epoch: int = -1
     ) -> base_classes.SourcedMetrics:
         last_sources = self._find_sources(model_name)
         out: base_classes.SourcedMetrics = {}

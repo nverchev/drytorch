@@ -287,10 +287,10 @@ class NoActiveExperimentError(DryTorchError):
         super().__init__(specify_string)
 
 
-class NoConfigurationError(DryTorchError):
+class NoSpecificationError(DryTorchError):
     """Raised when no configuration is available for the experiment."""
 
-    msg = 'No configuration available for the experiment.'
+    msg = 'No specification available for the experiment.'
 
 
 class DatasetHasNoLengthError(DryTorchError):

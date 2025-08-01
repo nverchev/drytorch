@@ -42,7 +42,7 @@ class TestTensorBoardFullCycle:
                              tmp_path,
                              example_exp_name):
         """Test that TensorBoard creates local files and logs."""
-        tensorboard_dir = tmp_path / resumed_tracker.folder_name
+        tensorboard_dir = tmp_path.parent / resumed_tracker.folder_name
         assert tensorboard_dir.exists()
         assert tensorboard_dir.is_dir()
 

@@ -21,14 +21,16 @@ def allow_event_creation_outside_scope() -> None:
 
 @pytest.fixture()
 def start_experiment_event(
-    tmp_path, example_exp_name, example_config
+    tmp_path, example_exp_name, example_config, example_exp_ts,
 ) -> log_events.StartExperimentEvent:
     """Provides a StartExperiment event instance."""
     return log_events.StartExperimentEvent(
         exp_name=example_exp_name,
         exp_dir=pathlib.Path(tmp_path) / example_exp_name,
-        exp_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        exp_ts=example_exp_ts,
         config=example_config,
+        tags=['my_tag'],
+        variation='my_variation',
     )
 
 
@@ -65,7 +67,9 @@ def call_model_event(
 
 
 @pytest.fixture
-def save_model_event(example_model_name, example_epoch) -> log_events.SaveModelEvent:
+def save_model_event(
+        example_model_name, example_epoch
+) -> log_events.SaveModelEvent:
     """Provides a SaveModel event instance."""
     return log_events.SaveModelEvent(
         model_name=example_model_name,
@@ -76,7 +80,9 @@ def save_model_event(example_model_name, example_epoch) -> log_events.SaveModelE
 
 
 @pytest.fixture
-def load_model_event(example_model_name, example_epoch) -> log_events.LoadModelEvent:
+def load_model_event(
+        example_model_name, example_epoch
+) -> log_events.LoadModelEvent:
     """Provides a LoadModel event instance."""
     return log_events.LoadModelEvent(
         model_name=example_model_name,

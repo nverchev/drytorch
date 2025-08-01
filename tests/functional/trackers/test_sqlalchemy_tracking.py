@@ -4,13 +4,11 @@ from collections.abc import Generator
 
 import pytest
 
-
 try:
     import sqlalchemy
 except ImportError:
     pytest.skip('sqlalchemy not available', allow_module_level=True)
     raise
-
 
 from drytorch.trackers.sqlalchemy import (
     Experiment,
@@ -18,6 +16,7 @@ from drytorch.trackers.sqlalchemy import (
     Run,
     Source,
     SQLConnection,
+    Tags,
 )
 
 
@@ -39,10 +38,10 @@ class TestSQLConnectionFullCycle:
 
     @pytest.fixture
     def resumed_tracker(
-        self,
-        tracker,
-        start_experiment_event,
-        stop_experiment_event,
+            self,
+            tracker,
+            start_experiment_event,
+            stop_experiment_event,
     ) -> Generator[SQLConnection, None, None]:
         """Set up the instance."""
         resumed_tracker = SQLConnection(engine=tracker.engine, resume_run=True)
@@ -57,7 +56,7 @@ class TestSQLConnectionFullCycle:
         inspector = sqlalchemy.inspect(tracker.engine)
         table_names = inspector.get_table_names()
         # verify all expected tables exist
-        expected_tables = {'runs', 'experiments', 'sources', 'logs'}
+        expected_tables = {'runs', 'experiments', 'sources', 'logs', 'tags'}
         assert expected_tables.issubset(set(table_names))
 
         # verify key columns exist
@@ -70,11 +69,18 @@ class TestSQLConnectionFullCycle:
         expected_columns = {
             'experiment_id',
             'experiment_name',
+            'experiment_variation',
             'experiment_ts',
             'run_id',
         }
         assert experiments_columns == expected_columns
-
+        tags_columns = {col['name'] for col in inspector.get_columns('tags')}
+        expected_columns = {
+            'tag_id',
+            'experiment_id',
+            'text',
+        }
+        assert tags_columns == expected_columns
         sources_columns = {
             col['name'] for col in inspector.get_columns('sources')
         }
@@ -99,20 +105,23 @@ class TestSQLConnectionFullCycle:
         }
         assert logs_columns == expected_columns
 
-    def test_experiment_workflow_stored_correctly(self, tracker):
-        """Test the experiment workflow is correctly stored in database."""
+    def test_experiment_workflow_stored_correctly(self, tracker, example_tags):
+        """Test the experiment workflow is correctly stored in the database."""
         with tracker.session_factory() as session:
             # verify run was created
             runs = session.query(Run).all()
             assert len(runs) == 1
 
             run = runs[-1]
-            # verify experiment was created and linked to run
+            # verify the experiment was created and linked to run
             experiments = session.query(Experiment).all()
             assert len(experiments) == 1
 
             first_experiment = experiments[0]
             assert first_experiment.run_id == run.run_id
+
+            tags = session.query(Tags).all()
+            assert len(tags) == 1
 
             # verify sources were created and linked to run
             sources = session.query(Source).all()
@@ -130,12 +139,12 @@ class TestSQLConnectionFullCycle:
                 assert log.source_id in source_ids
 
     def test_epoch_metrics_stored_with_correct_values(
-        self, tracker, example_epoch, example_named_metrics
+            self, tracker, example_epoch, example_named_metrics
     ):
         """Test metrics are correctly stored in the database."""
         with tracker.session_factory() as session:
             logs = session.query(Log).filter(Log.epoch == example_epoch).all()
-            # number of metric should match the number of entries.
+            # the number of metrics should match the number of entries.
             expected_metrics = example_named_metrics
             assert len(logs) == len(expected_metrics)
 
@@ -154,18 +163,18 @@ class TestSQLConnectionFullCycle:
             # expected 3 training epochs based on event_workflow
             assert len(set(epoch_values)) == 3
 
-    def test_resume_run_functionality(self, resumed_tracker,):
-        """Test resume_run=True continues previous run."""
+    def test_resume_run_functionality(self, resumed_tracker, ):
+        """Test resume_run=True continues the previous run."""
         with resumed_tracker.session_factory() as session:
             runs = session.query(Run).all()
             assert len(runs) == 1
 
     def test_multiple_sources_in_same_run(
-        self,
-        resumed_tracker,
-        call_model_event,
+            self,
+            resumed_tracker,
+            call_model_event,
     ):
-        """Test multiple log sources are correctly tracked in same run."""
+        """Test multiple log sources are correctly tracked in the same run."""
         second_call_model = call_model_event
         second_call_model.source_name = 'second_source'
         resumed_tracker.notify(second_call_model)
@@ -173,7 +182,7 @@ class TestSQLConnectionFullCycle:
             sources = session.query(Source).all()
             assert len(sources) == 2
 
-            # all sources should belong to same run
+            # all sources should belong to the same run
             run_ids = {source.run_id for source in sources}
             assert len(run_ids) == 1
 
@@ -182,23 +191,23 @@ class TestSQLConnectionFullCycle:
             assert len(source_names) == 2
 
     def test_load_metrics_returns_correct_data(
-        self, resumed_tracker, start_training_event
+            self, resumed_tracker, start_training_event
     ):
         """Test _load_metrics returns the stored data correctly."""
         model_name = start_training_event.model_name
         loaded_metrics = resumed_tracker._load_metrics(model_name)
-        assert len(loaded_metrics) == 1  # only one source in workflow
+        assert len(loaded_metrics) == 1  # only one source in the workflow
 
         for _, (epochs, metrics_dict) in loaded_metrics.items():
             # epochs should be not empty
             assert len(epochs) > 0
 
-            # each metric should have same number of values as epochs
+            # each metric should have the same number of values as epochs
             for _, values in metrics_dict.items():
                 assert len(values) == len(epochs)
 
     def test_load_metrics_with_max_epoch_filter(
-        self, resumed_tracker, example_epoch, start_training_event
+            self, resumed_tracker, example_epoch, start_training_event
     ):
         """Test _load_metrics respects max_epoch parameter."""
         model_name = start_training_event.model_name
@@ -210,14 +219,14 @@ class TestSQLConnectionFullCycle:
             assert epochs == [max_epoch]
 
     def test_load_metrics_with_resumed_sources(
-        self,
-        resumed_tracker,
-        call_model_event,
-        example_epoch,
-        metrics_event,
-        start_training_event,
+            self,
+            resumed_tracker,
+            call_model_event,
+            example_epoch,
+            metrics_event,
+            start_training_event,
     ):
-        """Test _load_metrics get data from two sources with same name."""
+        """Test _load_metrics get data from two sources with the same name."""
         model_name = start_training_event.model_name
         resumed_tracker.notify(call_model_event)
         metrics_event.epoch = 8
@@ -226,6 +235,6 @@ class TestSQLConnectionFullCycle:
         assert len(loaded_metrics) == 1  # source is resumed
 
         for _, (epochs, _) in loaded_metrics.items():
-            # epochs contain logs from current and previous run
+            # epochs contain logs from the current and previous run
             assert example_epoch in epochs
             assert 8 in epochs

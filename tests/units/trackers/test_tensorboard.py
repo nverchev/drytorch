@@ -63,11 +63,17 @@ class TestTensorBoard:
             tracker,
             start_experiment_mock_event,
             stop_experiment_mock_event,
+            example_variation,
     ) -> None:
         """Test experiment notifications."""
         start_experiment_mock_event.config = {'simple_config': 3}
         tracker.notify(start_experiment_mock_event)
-        tensorboard_runs_path = tracker.par_dir / TensorBoard.folder_name
+        if example_variation:
+            par_dir = tracker.par_dir.parent
+        else:
+            par_dir = tracker.par_dir
+
+        tensorboard_runs_path = par_dir / TensorBoard.folder_name
 
         # log_dir should be a subdirectory of tensorboard_runs_path
         called_args = self.summary_writer_mock.call_args[1]
@@ -75,11 +81,6 @@ class TestTensorBoard:
         assert called_log_dir.parent == tensorboard_runs_path
 
         writer = tracker.writer
-        writer.add_hparams.assert_called_once_with(
-            hparam_dict=start_experiment_mock_event.config,
-            metric_dict={}
-        )
-
         tracker.notify(stop_experiment_mock_event)
         writer.close.assert_called_once()
         assert tracker._writer is None
@@ -89,8 +90,9 @@ class TestTensorBoard:
             mocker,
             tmp_path,
             tracker_with_resume,
+            example_variation,
             start_experiment_mock_event,
-            stop_experiment_mock_event
+            stop_experiment_mock_event,
     ) -> None:
         """Test resume previous run."""
         start_experiment_mock_event.config = {'simple_config': 3}
@@ -110,14 +112,13 @@ class TestTensorBoard:
         last_run.return_value = None
         tracker_with_resume.notify(start_experiment_mock_event)
 
-        expected_parent = (
-                start_experiment_mock_event.exp_dir / TensorBoard.folder_name
-        )
-
+        par_dir = start_experiment_mock_event.exp_dir
+        expected_parent = par_dir / TensorBoard.folder_name
         called_args = self.summary_writer_mock.call_args[1]
         called_log_dir = pathlib.Path(called_args['log_dir'])
 
         # assert it's a new subdirectory under the expected base directory
+
         assert called_log_dir.parent == expected_parent
 
     def test_notify_metrics(self,

@@ -21,7 +21,7 @@ class TestVisdomPlotter:
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
-        """Set up test environment."""
+        """Set up a test environment."""
         self.viz_instance = mocker.Mock()
         self.visdom_mock = mocker.patch('visdom.Visdom')
         self.visdom_mock.return_value = self.viz_instance
@@ -29,7 +29,7 @@ class TestVisdomPlotter:
 
     @pytest.fixture
     def tracker(self) -> VisdomPlotter:
-        """Set up instance."""
+        """Set up the instance."""
         return VisdomPlotter(opts=VisdomOpts(title='test title'))
 
     @pytest.fixture
@@ -53,33 +53,37 @@ class TestVisdomPlotter:
         assert isinstance(tracker.opts, dict)  # cannot specify TypedDict
 
     def test_viz_property_fails(self, tracker) -> None:
-        """Test viz property raises exception when accessed outside scope."""
+        """Test viz property raises ac exception when accessed outside scope."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
             _ = tracker.viz
 
     def test_viz_property_succeeds(self, tracker_started) -> None:
-        """Test viz property returns visdom instance when initialized."""
+        """Test viz property returns a visdom instance when initialized."""
         assert tracker_started.viz is self.viz_instance
 
     def test_clean_up(self, tracker_started) -> None:
-        """Test cleanup sets viz to None."""
+        """Test cleanup sets the viz attribute to None."""
         tracker_started.clean_up()
         assert tracker_started._viz is None
 
     def test_notify_start_experiment(self,
                                      tracker,
-                                     start_experiment_mock_event) -> None:
+                                     start_experiment_mock_event,
+                                     example_variation) -> None:
         """Test StartExperiment notification."""
         tracker.notify(start_experiment_mock_event)
         self.visdom_mock.assert_called_once()
+        env = start_experiment_mock_event.exp_name
+        if example_variation:
+            env = f'{env}_{example_variation}'
         self.viz_instance.close.assert_called_once_with(
-            env=start_experiment_mock_event.exp_name
+            env=env
         )
 
     def test_notify_start_experiment_fails(self,
                                            tracker,
                                            start_experiment_mock_event) -> None:
-        """Test StartExperiment notification with connection error."""
+        """Test StartExperiment notification with a connection error."""
         self.visdom_mock.side_effect = ConnectionError('Connection failed')
         with pytest.raises(exceptions.TrackerError):
             tracker.notify(start_experiment_mock_event)
@@ -113,7 +117,7 @@ class TestVisdomPlotter:
                                          example_source_name,
                                          example_model_name,
                                          example_loss_name) -> None:
-        """Test plotting a multiple data points (line plot)."""
+        """Test plotting multiple data points (line plot)."""
         sourced_array = {example_source_name: np.array([[1, 0.85],
                                                         [2, 2.2]])}
         win = tracker_started._plot_metric(example_model_name,

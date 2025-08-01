@@ -46,14 +46,16 @@ class StartExperimentEvent(Event):
         exp_ts: experiment timestamp.
         exp_dir: the directory where the experiment is stored.
         config: configuration for the experiment.
-        tags: tags for the experiment.
+        variation: variation of the experiment.
+        tags: descriptors for the experiment's variation (e.g., "lr=0.01").
     """
 
     exp_name: str
     exp_ts: str
     exp_dir: pathlib.Path
     config: Any = None
-    tags: list[str] | None = None
+    variation: str | None = None
+    tags: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
