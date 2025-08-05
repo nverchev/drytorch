@@ -62,37 +62,36 @@ class _SimpleTracker(Tracker):
 class TestMetadataManager:
     """Test MetadataManager functionality."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self) -> None:
+    @pytest.fixture()
+    def manager(self) -> MetadataManager:
         """Set up the MetadataManager for testing."""
-        self.max_items_repr = 10
-        self.manager = MetadataManager(max_items_repr=self.max_items_repr)
+        return MetadataManager(max_items_repr=10)
 
-    def test_register_source(self, mocker, mock_model) -> None:
+    def test_register_source(self, mocker, mock_model, manager) -> None:
         """Test recording metadata creates the event."""
         mock_obj = mocker.Mock()
         mock_obj.name = 'mock obj'
         mock_log_event = mocker.patch(
             'drytorch.log_events.SourceRegistrationEvent'
         )
-        self.manager.register_source(mock_obj, mock_model)
-        assert mock_obj.name in self.manager.used_names
+        manager.register_source(mock_obj, mock_model)
+        assert mock_obj.name in manager.used_names
         mock_log_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
-            self.manager.register_source(mock_obj, mock_model)
+            manager.register_source(mock_obj, mock_model)
 
-    def test_register_model(self, mocker, mock_model) -> None:
+    def test_register_model(self, mocker, mock_model, manager) -> None:
         """Test registering a model creates the event."""
         mock_log_event = mocker.patch(
             'drytorch.log_events.ModelRegistrationEvent'
         )
-        self.manager.register_model(mock_model)
-        assert mock_model.name in self.manager.used_names
+        manager.register_model(mock_model)
+        assert mock_model.name in manager.used_names
         mock_log_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
-            self.manager.register_model(mock_model)
+            manager.register_model(mock_model)
 
-    def test_extract_metadata(self, mocker) -> None:
+    def test_extract_metadata(self, mocker, manager) -> None:
         """Test metadata extraction with a recursive_repr wrapper."""
         mock_obj = mocker.Mock()
 
@@ -101,10 +100,10 @@ class TestMetadataManager:
             return_value={'key': 'value'},
         )
 
-        metadata = self.manager.extract_metadata(mock_obj, max_size=5)
+        metadata = manager.extract_metadata(mock_obj, max_size=5)
         assert metadata == {'key': 'value'}
 
-    def test_extract_metadata_recursion_error(self, mocker) -> None:
+    def test_extract_metadata_recursion_error(self, mocker, manager) -> None:
         """Test extract_metadata handles RecursionError gracefully."""
         mock_obj = mocker.Mock()
 
@@ -113,50 +112,52 @@ class TestMetadataManager:
             side_effect=RecursionError,
         )
         with pytest.warns(exceptions.RecursionWarning):
-            _ = self.manager.extract_metadata(mock_obj, max_size=5)
+            _ = manager.extract_metadata(mock_obj, max_size=5)
 
 
 class TestEventDispatcher:
     """Test the event dispatcher."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, tmp_path) -> None:
-        """Set up an experiment."""
-        self.name = 'TestExperiment'
-        self.par_dir = tmp_path
-        self.dispatcher = EventDispatcher(self.name)
-        self.tracker = _SimpleTracker()
-        self.dispatcher.register(self.tracker)
-        return
+    @pytest.fixture()
+    def tracker(self) -> _SimpleTracker:
+        """Set up a test instance."""
+        return _SimpleTracker()
 
-    def test_register_tracker(self):
+    @pytest.fixture()
+    def dispatcher(self, tracker) -> EventDispatcher:
+        """Set up a test instance."""
+        dispatcher = EventDispatcher('TestExperiment')
+        dispatcher.register(tracker)
+        return dispatcher
+
+    def test_register_tracker(self, tracker, dispatcher):
         """Test that a tracker can be registered to an experiment."""
-        assert self.tracker.__class__.__name__ in self.dispatcher.named_trackers
+        assert tracker.__class__.__name__ in dispatcher.named_trackers
 
-    def test_register_duplicate_tracker_raises_error(self):
+    def test_register_duplicate_tracker_raises_error(self, dispatcher):
         """Test that registering a duplicate tracker raises an error."""
         with pytest.raises(exceptions.TrackerAlreadyRegisteredError):
-            self.dispatcher.register(_SimpleTracker())
+            dispatcher.register(_SimpleTracker())
 
-    def test_remove_named_tracker(self):
+    def test_remove_named_tracker(self, tracker, dispatcher):
         """Test that a registered tracker can be removed by its name."""
-        tracker_name = self.tracker.__class__.__name__
-        self.dispatcher.remove(tracker_name)
-        assert tracker_name not in self.dispatcher.named_trackers
+        tracker_name = tracker.__class__.__name__
+        dispatcher.remove(tracker_name)
+        assert tracker_name not in dispatcher.named_trackers
 
-    def test_remove_nonexistent_tracker_raises_error(self):
+    def test_remove_nonexistent_tracker_raises_error(self, dispatcher):
         """Test that removing a non-existent tracker raises an error."""
         with pytest.raises(exceptions.TrackerNotRegisteredError):
-            self.dispatcher.remove('NonexistentTracker')
+            dispatcher.remove('NonexistentTracker')
 
-    def test_publish_event_calls_tracker_notify(self):
+    def test_publish_event_calls_tracker_notify(self, tracker, dispatcher):
         """Test publishing an event notifies registered trackers."""
-        _SimpleEvent.set_auto_publish(self.dispatcher.publish)
+        _SimpleEvent.set_auto_publish(dispatcher.publish)
         simple_event = _SimpleEvent()
-        assert self.tracker.last_event is simple_event
+        assert tracker.last_event is simple_event
 
-    def test_handle_tracker_exceptions(self):
+    def test_handle_tracker_exceptions(self, dispatcher):
         """Test handling of tracker exceptions."""
-        _UndefinedEvent.set_auto_publish(self.dispatcher.publish)
+        _UndefinedEvent.set_auto_publish(dispatcher.publish)
         with pytest.warns(exceptions.TrackerExceptionWarning):
             _UndefinedEvent()

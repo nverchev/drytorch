@@ -44,7 +44,7 @@ support = [
     "optuna",
 ]
 
-dev = ["pytest", "pytest-mock", "hypothesis", "notebook"]
+dev = ["pytest", "pytest-mock", "pytest-cov", "hypothesis", "notebook"]
 
 third_party_stubs = [
     "pandas-stubs",

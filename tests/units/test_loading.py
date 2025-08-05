@@ -96,38 +96,41 @@ class TestDataLoader:
     """Test DataLoader class functionality."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, simple_seq) -> None:
+    def dataset(self, simple_seq) -> data.Dataset:
+        """Set up a simple dataset for testing."""
+        return SimpleDataset(simple_seq)
+
+
+    @pytest.fixture(autouse=True)
+    def loader(self, dataset) -> DataLoader:
         """Provide a simple dataset for testing."""
-        self.dataset = SimpleDataset(simple_seq)
-        self.loader = DataLoader(self.dataset, batch_size=3)
-        return
+        return DataLoader(dataset, batch_size=3)
 
-    def test_dataloader_length(self) -> None:
+    def test_dataloader_length(self, loader) -> None:
         """Test DataLoader correctly calculates the number of batches."""
-        assert len(self.loader) == 3
+        assert len(loader) == 3
         with torch.inference_mode():
-            assert len(self.loader) == 4
+            assert len(loader) == 4
 
-    def test_dataloader_iteration(self, simple_seq) -> None:
+    def test_dataloader_iteration(self, simple_seq, loader) -> None:
         """Test iteration over batches in the DataLoader."""
         with torch.inference_mode():
-            batches = list(iter(self.loader))
+            batches = list(iter(loader))
             # the last batch has 1 item
             assert batches[-1][0] == simple_seq[-1][0]
 
     @pytest.mark.parametrize('shuffle', (True, False))
-    def test_dataloader_split(self, shuffle: bool) -> None:
+    def test_dataloader_split(self, loader, shuffle: bool) -> None:
         """Test splitting the DataLoader into training and validation sets."""
-        train_loader, val_loader = self.loader.split(split=0.3, shuffle=shuffle)
+        train_loader, val_loader = loader.split(split=0.3, shuffle=shuffle)
         assert len(train_loader) == 7 // 3
         assert len(val_loader) == 3 // 3
 
     @pytest.mark.parametrize('value', (1.2, -0.2))
-    def test_dataloader_split_invalid_ratio(self, value) -> \
-            None:
+    def test_dataloader_split_invalid_ratio(self, loader, value) -> None:
         """Test DataLoader.split raises an error with invalid split ratios."""
         with pytest.raises(ValueError):
-            self.loader.split(split=value)
+            loader.split(split=value)
 
 
 def test_check_dataset_length_fail() -> None:

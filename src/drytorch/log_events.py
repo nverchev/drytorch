@@ -3,37 +3,31 @@
 from __future__ import annotations
 
 import dataclasses
-import datetime
 import pathlib
 
 from collections.abc import Callable, Mapping
-from typing import Any, Self
+from typing import Any, ClassVar
 
 from drytorch import exceptions
 
 
+@dataclasses.dataclass
 class Event:
     """Class for logging events."""
 
-    _auto_publish: Callable[[Event], None] | None = None
+    _auto_publish: ClassVar[Callable[[Event], None] | None] = None
 
     def __post_init__(self) -> None:
         """Publish the event on creation."""
-        self.auto_publish(self)  # pylint: disable=not-callable
-        return
-
-    @classmethod
-    def auto_publish(cls, event: Self) -> None:
-        """Publish an event."""
-        if cls._auto_publish is None:
+        if Event._auto_publish is None:
             raise exceptions.AccessOutsideScopeError()
-        cls._auto_publish(event)
+        Event._auto_publish(self) # pylint: disable=not-callable
         return
 
-    @classmethod
-    def set_auto_publish(cls, func: Callable[[Event], None] | None) -> None:
+    @staticmethod
+    def set_auto_publish(func: Callable[[Event], None] | None) -> None:
         """Specify how to notify subscribers upon creation."""
-        cls._auto_publish = func
+        Event._auto_publish = func
         return
 
 

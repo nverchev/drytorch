@@ -47,7 +47,9 @@ def mock_model(mocker) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
 @pytest.fixture
 def mock_scheduler(mocker) -> p.SchedulerProtocol:
     """Fixture for a mock scheduler."""
-    mock = mocker.create_autospec(spec=p.SchedulerProtocol, instance=True)
+    mock = mocker.create_autospec(spec=p.SchedulerProtocol,
+                                  instance=True,
+                                  side_effect= lambda x, y: x)
     return mock
 
 
@@ -56,8 +58,8 @@ def mock_learning_scheme(mocker,
                          mock_scheduler) -> p.LearningProtocol:
     """Fixture for a mock learning scheme."""
     mock = mocker.create_autospec(spec=p.LearningProtocol, instance=True)
-    mock.base_lr = 0.
-    mock.base_scheduler = mock_scheduler
+    mock.base_lr = 0.001
+    mock.scheduler = mock_scheduler
     mock.optimizer_cls = torch.optim.SGD
     mock.optimizer_defaults = {}
     mock.gradient_op = lambda x: None
@@ -72,6 +74,7 @@ def mock_metric(
     mock = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
     mock.name = 'mock_metric'
     mock.compute = mocker.Mock(return_value={'mock_metric': torch.tensor(.5)})
+    mock.higher_is_better = True
     mock.__deepcopy__ = mocker.Mock(return_value=mock)
     return mock
 

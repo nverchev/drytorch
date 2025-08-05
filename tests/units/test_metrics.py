@@ -21,30 +21,30 @@ from drytorch.metrics import (
 _Tensor = torch.Tensor
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def metric_1() -> str:
     """Simple metric."""
     return 'Metric_1'
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def metric_2() -> str:
     """Another simple metric."""
     return 'Metric_2'
 
 
-@pytest.fixture()
-def metric_fun_1(metric_1: str) -> dict[str, Callable[
-    [torch.Tensor, torch.Tensor], torch.Tensor]
-]:
+@pytest.fixture(scope='module')
+def metric_fun_1(
+    metric_1: str,
+) -> dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
     """Simple metric fun."""
     return {metric_1: lambda x, y: x}
 
 
-@pytest.fixture()
-def metric_fun_2(metric_2: str) -> dict[str, Callable[
-    [torch.Tensor, torch.Tensor], torch.Tensor]
-]:
+@pytest.fixture(scope='module')
+def metric_fun_2(
+    metric_2: str,
+) -> dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
     """Another simple metric fun."""
     return {metric_2: lambda x, y: y}
 
@@ -52,52 +52,52 @@ def metric_fun_2(metric_2: str) -> dict[str, Callable[
 class TestMetricCollection:
     """Tests for MetricCollection."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, metric_fun_1, metric_fun_2) -> None:
+    @pytest.fixture(scope='class')
+    def metrics(self, metric_fun_1, metric_fun_2) -> MetricCollection:
         """Set up a MetricCollection instance with simple metric functions."""
         metric_fun_dict = metric_fun_1 | metric_fun_2
-        self.metrics = MetricCollection(**metric_fun_dict)
-        return
+        return MetricCollection(**metric_fun_dict)
 
-    def test_calculate(self, metric_1, metric_2) -> None:
+    def test_calculate(self, metric_1, metric_2, metrics) -> None:
         """Test it calculates metrics correctly."""
         simple_outputs = torch.tensor(1)
         simple_targets = torch.tensor(0)
 
         expected = {metric_1: torch.tensor(1), metric_2: torch.tensor(0)}
 
-        assert self.metrics.calculate(simple_outputs,
-                                      simple_targets) == expected
+        assert metrics.calculate(simple_outputs, simple_targets) == expected
         return
 
-    def test_update_compute_and_reset(self, metric_1, metric_2) -> None:
+    def test_update_compute_and_reset(
+        self, metric_1, metric_2, metrics
+    ) -> None:
         """Test it stores, reduces, and resets metrics correctly."""
         simple_outputs_1 = torch.tensor(1)
         simple_targets_1 = torch.tensor(0)
         simple_outputs_2 = torch.tensor(3)
         simple_targets_2 = torch.tensor(2)
 
-        self.metrics.update(simple_outputs_1, simple_targets_1)
-        self.metrics.update(simple_outputs_2, simple_targets_2)
+        metrics.update(simple_outputs_1, simple_targets_1)
+        metrics.update(simple_outputs_2, simple_targets_2)
         expected = {metric_1: torch.tensor(2), metric_2: torch.tensor(1)}
 
-        assert self.metrics.compute() == expected
+        assert metrics.compute() == expected
 
-        self.metrics.reset()
+        metrics.reset()
         with pytest.warns(exceptions.ComputedBeforeUpdatedWarning):
-            assert {} == self.metrics.compute()
+            assert {} == metrics.compute()
 
-        self.metrics.update(simple_outputs_1, simple_targets_1)
+        metrics.update(simple_outputs_1, simple_targets_1)
         expected = {metric_1: torch.tensor(1), metric_2: torch.tensor(0)}
 
-        assert self.metrics.compute() == expected
+        assert metrics.compute() == expected
 
-    def test_or(self, metric_1, metric_2) -> None:
+    def test_or(self, metric_1, metric_2, metrics) -> None:
         """Test | works as a union operator."""
         new_metric_fun_dict = {'NewMetric': lambda x, y: torch.tensor(0.5)}
         new_metrics = MetricCollection(**new_metric_fun_dict)
 
-        combined_metrics = self.metrics | new_metrics
+        combined_metrics = metrics | new_metrics
 
         expected_keys = {metric_1, metric_2, 'NewMetric'}
         assert set(combined_metrics.named_metric_fun.keys()) == expected_keys
@@ -117,33 +117,31 @@ class TestMetricCollection:
 class TestMetric:
     """Tests for Metric."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, metric_1, metric_fun_1) -> None:
+    @pytest.fixture(scope='class')
+    def metric(self, metric_1, metric_fun_1) -> Metric:
         """Set up a Metric instance with a simple metric function."""
         self.simple_fun = next(iter(metric_fun_1.values()))
-        self.metrics = Metric(self.simple_fun,
-                              name=metric_1,
-                              higher_is_better=True)
-        return
+        return Metric(self.simple_fun, name=metric_1, higher_is_better=True)
 
-    def test_calculate(self, metric_1) -> None:
+    def test_calculate(self, metric_1, metric) -> None:
         """Test it calculates metrics correctly."""
         simple_outputs = torch.tensor(1)
         simple_targets = torch.tensor(0)
 
         expected = {metric_1: torch.tensor(1)}
 
-        assert self.metrics.calculate(simple_outputs,
-                                      simple_targets) == expected
+        assert metric.calculate(simple_outputs, simple_targets) == expected
         return
 
-    def test_or(self, metric_1) -> None:
+    def test_or(self, metric_1, metric) -> None:
         """Test | works as a union operator."""
-        new_metrics = Metric[_Tensor, _Tensor](lambda x, y: torch.tensor(0.5),
-                                               name='NewMetric',
-                                               higher_is_better=True)
+        new_metrics = Metric[_Tensor, _Tensor](
+            lambda x, y: torch.tensor(0.5),
+            name='NewMetric',
+            higher_is_better=True,
+        )
 
-        combined_metrics = self.metrics | new_metrics
+        combined_metrics = metric | new_metrics
 
         expected_keys = {metric_1, 'NewMetric'}
         assert set(combined_metrics.named_metric_fun.keys()) == expected_keys
@@ -159,66 +157,93 @@ class TestMetric:
 class TestCompositionalLoss:
     """Tests for CompositionalLoss."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, metric_1, metric_2, metric_fun_1, metric_fun_2) -> None:
-        """Set up a CompositionalLoss instance with simple arguments."""
+    @pytest.fixture(scope='class')
+    def example_metric_results(
+        self, metric_1, metric_2
+    ) -> dict[str, torch.Tensor]:
+        """A possible calculated value for metrics."""
+        return {
+            metric_1: torch.tensor(1),
+            metric_2: torch.tensor(2),
+        }
+
+    @pytest.fixture(scope='class')
+    def loss_1(self, metric_1, metric_fun_1) -> CompositionalLoss:
+        """Set up a base instance (as defined by the Loss subclass)."""
         # formula corresponds to what the formula components should look like
-        self.loss = CompositionalLoss(lambda x: x[metric_1],
-                                      higher_is_better=True,
-                                      formula=f'[{metric_1}]',
-                                      **metric_fun_1)
+        return CompositionalLoss(
+            lambda x: x[metric_1],
+            formula=f'[{metric_1}]',
+            higher_is_better=False,
+            **metric_fun_1,
+        )
 
-        self.loss_1 = CompositionalLoss(lambda x: 2. * x[metric_1],
-                                        higher_is_better=True,
-                                        formula=f'2 x [{metric_1}]',
-                                        **metric_fun_1)
-        self.loss_2 = CompositionalLoss(lambda x: 3. * x[metric_2],
-                                        higher_is_better=True,
-                                        formula=f'3 x [{metric_2}]',
-                                        **metric_fun_2)
+    @pytest.fixture(scope='class')
+    def loss_2(self, metric_2, metric_fun_2) -> CompositionalLoss:
+        """Set up a second base instance (as defined by the Loss subclass)."""
+        return CompositionalLoss(
+            lambda x: x[metric_2],
+            formula=f'[{metric_2}]',
+            higher_is_better=False,
+            **metric_fun_2,
+        )
+    @pytest.fixture(scope='class')
+    def composed_loss_1(self, loss_1) -> CompositionalLoss:
+        """Set up a CompositionalLoss instance with simple arguments."""
+        return 2 * loss_1
 
-        self.example_metric_results = {metric_1: torch.tensor(1),
-                                       metric_2: torch.tensor(2)}
-        return
+    @pytest.fixture(scope='class')
+    def composed_loss_2(self, loss_2) -> CompositionalLoss:
+        """Set up a CompositionalLoss instance with simple arguments."""
+        return 3 * loss_2
 
-    def test_calculate(self, metric_1) -> None:
+    def test_calculate(self, metric_1, composed_loss_1) -> None:
         """Test it calculates metrics correctly."""
-        simple_outputs = torch.tensor(1.)
-        simple_targets = torch.tensor(0.)
+        simple_outputs = torch.tensor(1.0)
+        simple_targets = torch.tensor(0.0)
+        expected = {'Loss': torch.tensor(2.0), metric_1: torch.tensor(1.0)}
+        assert (
+            composed_loss_1.calculate(simple_outputs, simple_targets)
+            == expected
+        )
 
-        expected = {'Loss': torch.tensor(2.), metric_1: torch.tensor(1.)}
 
-        assert self.loss_1.calculate(simple_outputs, simple_targets) == expected
-        return
-
-    def test_negate_loss(self) -> None:
+    def test_negate_loss(self, composed_loss_1, example_metric_results) -> None:
         """Test negation of a loss."""
-        neg_loss = -self.loss_1
-        assert neg_loss.criterion(self.example_metric_results) == -2
+        neg_loss = -composed_loss_1
+        assert neg_loss.criterion(example_metric_results) == -2
         assert neg_loss.formula == '(-(2 x [Metric_1]))'
 
-    def test_add_losses(self) -> None:
+    def test_add_losses(
+        self, composed_loss_1, composed_loss_2, example_metric_results
+    ) -> None:
         """Test addition of two losses."""
-        combined_loss = self.loss_1 + self.loss_2
-        assert combined_loss.criterion(self.example_metric_results) == 2 + 6
+        combined_loss = composed_loss_1 + composed_loss_2
+        assert combined_loss.criterion(example_metric_results) == 2 + 6
         assert combined_loss.formula == '(2 x [Metric_1] + 3 x [Metric_2])'
 
-    def test_subtract_losses(self) -> None:
+    def test_subtract_losses(
+        self, composed_loss_1, composed_loss_2, example_metric_results
+    ) -> None:
         """Test subtraction of two losses."""
-        combined_loss = self.loss_1 - -self.loss_2
-        assert combined_loss.criterion(self.example_metric_results) == 2 + 6
+        combined_loss = composed_loss_1 - -composed_loss_2
+        assert combined_loss.criterion(example_metric_results) == 2 + 6
         assert combined_loss.formula == '(2 x [Metric_1] - (-(3 x [Metric_2])))'
 
-    def test_multiply_losses(self) -> None:
+    def test_multiply_losses(
+        self, composed_loss_1, composed_loss_2, example_metric_results
+    ) -> None:
         """Test multiplication of two losses."""
-        combined_loss = self.loss_1 * self.loss_2
-        assert combined_loss.criterion(self.example_metric_results) == 2 * 6
+        combined_loss = composed_loss_1 * composed_loss_2
+        assert combined_loss.criterion(example_metric_results) == 2 * 6
         assert combined_loss.formula == '(2 x [Metric_1]) x (3 x [Metric_2])'
 
-    def test_divide_losses(self) -> None:
+    def test_divide_losses(
+        self, composed_loss_1, composed_loss_2, example_metric_results
+    ) -> None:
         """Test division of two losses."""
-        combined_loss = self.loss_1 / -self.loss_2
-        assert combined_loss.criterion(self.example_metric_results) == 2 / -6
+        combined_loss = composed_loss_1 / -composed_loss_2
+        assert combined_loss.criterion(example_metric_results) == 2 / -6
         expected = '(2 x [Metric_1]) x (1 / (-(3 x [Metric_2])))'
         assert combined_loss.formula == expected
 
@@ -226,72 +251,74 @@ class TestCompositionalLoss:
 class TestLoss:
     """Tests for Loss."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, metric_1, metric_fun_1) -> None:
-        """Set up a Loss instance with simple arguments."""
-        self.loss_1 = Loss(next(iter(metric_fun_1.values())),
-                           name=metric_1)
-        self.example_metric_results = {metric_1: torch.tensor(2.)}
-        return
+    @pytest.fixture(scope='class')
+    def example_metric_results(self, metric_1) -> dict[str, torch.Tensor]:
+        """A possible calculated value for metrics."""
+        return {metric_1: torch.tensor(2.0)}
 
-    def test_add_float(self) -> None:
+    @pytest.fixture(scope='class')
+    def loss_1(self, metric_1, metric_fun_1) -> Loss:
+        """Set up a Loss instance with simple arguments."""
+        return Loss(next(iter(metric_fun_1.values())), name=metric_1)
+
+    def test_add_float(self, loss_1, example_metric_results) -> None:
         """Test addition by float."""
-        combined_loss = self.loss_1 + 3
-        assert combined_loss.criterion(self.example_metric_results) == 2 + 3
+        combined_loss = loss_1 + 3
+        assert combined_loss.criterion(example_metric_results) == 2 + 3
         assert combined_loss.formula == '(3 + [Metric_1])'
 
-    def test_subtract_float(self) -> None:
+    def test_subtract_float(self, loss_1, example_metric_results) -> None:
         """Test subtraction by float."""
-        combined_loss = self.loss_1 - 3
-        assert combined_loss.criterion(self.example_metric_results) == 2 - 3
+        combined_loss = loss_1 - 3
+        assert combined_loss.criterion(example_metric_results) == 2 - 3
         assert combined_loss.formula == '(-3 + [Metric_1])'
 
-    def test_multiply_float(self) -> None:
+    def test_multiply_float(self, loss_1, example_metric_results) -> None:
         """Test multiplication by float."""
-        combined_loss = self.loss_1 * 3
-        assert combined_loss.criterion(self.example_metric_results) == 2 * 3
+        combined_loss = loss_1 * 3
+        assert combined_loss.criterion(example_metric_results) == 2 * 3
         assert combined_loss.formula == '(3 x [Metric_1])'
 
-    def test_divide_float(self) -> None:
+    def test_divide_float(self, loss_1, example_metric_results) -> None:
         """Test division by float."""
-        combined_loss = self.loss_1 / 3
-        assert combined_loss.criterion(self.example_metric_results) == 2 / 3
+        combined_loss = loss_1 / 3
+        assert combined_loss.criterion(example_metric_results) == 2 / 3
         assert combined_loss.formula == '(0.3333333333333333 x [Metric_1])'
 
-    def test_float_add(self) -> None:
+    def test_float_add(self, loss_1, example_metric_results) -> None:
         """Test addition to float."""
-        combined_loss = 3 + self.loss_1
-        assert combined_loss.criterion(self.example_metric_results) == 3 + 2
+        combined_loss = 3 + loss_1
+        assert combined_loss.criterion(example_metric_results) == 3 + 2
         assert combined_loss.formula == '(3 + [Metric_1])'
 
-    def test_float_subtract(self) -> None:
+    def test_float_subtract(self, loss_1, example_metric_results) -> None:
         """Test subtraction to float."""
-        combined_loss = 3 - self.loss_1
-        assert combined_loss.criterion(self.example_metric_results) == 3 - 2
+        combined_loss = 3 - loss_1
+        assert combined_loss.criterion(example_metric_results) == 3 - 2
         assert combined_loss.formula == '(3 - [Metric_1])'
 
-    def test_float_multiply(self) -> None:
+    def test_float_multiply(self, loss_1, example_metric_results) -> None:
         """Test multiplication to float."""
-        combined_loss = 3 * self.loss_1
-        assert combined_loss.criterion(self.example_metric_results) == 3 * 2
+        combined_loss = 3 * loss_1
+        assert combined_loss.criterion(example_metric_results) == 3 * 2
         assert combined_loss.formula == '(3 x [Metric_1])'
 
-    def test_float_divide(self) -> None:
+    def test_float_divide(self, loss_1, example_metric_results) -> None:
         """Test division to float."""
-        combined_loss = 3 / self.loss_1
-        assert combined_loss.criterion(self.example_metric_results) == 3 / 2
+        combined_loss = 3 / loss_1
+        assert combined_loss.criterion(example_metric_results) == 3 / 2
         assert combined_loss.formula == '(3 x (1 / [Metric_1]))'
 
-    def test_positive_exp(self) -> None:
+    def test_positive_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by positive float."""
-        combined_loss = self.loss_1 ** 2
-        assert combined_loss.criterion(self.example_metric_results) == 2 ** 2
+        combined_loss = loss_1**2
+        assert combined_loss.criterion(example_metric_results) == 2**2
         assert combined_loss.formula == '([Metric_1]^2)'
 
-    def test_negative_exp(self) -> None:
+    def test_negative_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by negative float."""
-        combined_loss = self.loss_1 ** -2
-        assert combined_loss.criterion(self.example_metric_results) == 2 ** (-2)
+        combined_loss = loss_1**-2
+        assert combined_loss.criterion(example_metric_results) == 2 ** (-2)
         assert combined_loss.formula == '(1 / [Metric_1]^2)'
 
 
@@ -312,25 +339,25 @@ def test_dict_apply(mocker) -> None:
 
 
 @pytest.mark.parametrize(
-    "compute_return, class_name, expected",
+    'compute_return, class_name, expected',
     [
         # Case 1: Mapping of metrics
         (
-                {"metric_1": torch.tensor(1), "metric_2": torch.tensor(2)},
-                None,
-                {"metric_1": 1, "metric_2": 2},
+            {'metric_1': torch.tensor(1), 'metric_2': torch.tensor(2)},
+            None,
+            {'metric_1': 1, 'metric_2': 2},
         ),
         # Case 2: Single tensor
         (
-                torch.tensor(0.5),
-                "metric_1",
-                {"metric_1": 0.5},
+            torch.tensor(0.5),
+            'metric_1',
+            {'metric_1': 0.5},
         ),
         # Case 3: None
         (
-                None,
-                None,
-                {},
+            None,
+            None,
+            {},
         ),
     ],
 )

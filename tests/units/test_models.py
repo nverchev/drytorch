@@ -51,51 +51,43 @@ class TestModel:
         assert complex_model.epoch == 1
 
 
-class TestModelOptimizerGlobalLR:
-    """Tests for ModelOptimizer with a global learning rate."""
+class TestModelOptimizer:
+    """Tests for ModelOptimizer."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, mock_model, mock_experiment, mock_learning_scheme) -> None:
-        """Set up a mock ModelOptimizer instance with global lr."""
-        mock_model.module = ComplexModule()
-        mock_learning_scheme.scheduler = lambda x, y: x
-        self.model_optimizer = ModelOptimizer(
-            model=mock_model,
+    @pytest.fixture(scope='class')
+    def complex_model(self) -> Model[torch.Tensor, torch.Tensor]:
+        """Fixture of a complex model wrapped with Model."""
+        return Model(ComplexModule(), name='complex_model')
+
+    @pytest.fixture()
+    def model_optimizer(
+        self, complex_model, mock_learning_scheme
+    ) -> ModelOptimizer:
+        """Set up a test instance."""
+        return ModelOptimizer(
+            model=complex_model,
             learning_scheme=mock_learning_scheme,
         )
 
-    def test_update_learning_rate(self) -> None:
+    def test_update_learning_rate_global(self, model_optimizer) -> None:
         """Test it correctly updates global learning rate."""
-        self.model_optimizer.update_learning_rate(base_lr=0.02)
+        model_optimizer.update_learning_rate(base_lr=0.02)
 
-        for param_group in self.model_optimizer._optimizer.param_groups:
+        for param_group in model_optimizer._optimizer.param_groups:
             assert param_group['lr'] == 0.02
 
-
-class TestModelOptimizerParameterLR:
-    """Tests for ModelOptimizer with parameter-specific learning rates."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, mock_model, mock_experiment, mock_learning_scheme) -> None:
-        """Set up a ModelOptimizer instance with per-layer learning rates."""
-        mock_model.module = ComplexModule()
-        mock_learning_scheme.scheduler = lambda x, y: x
-        self.dict_lr: dict[str, float] = {'linear': 0.01, 'linear2': 0.001}
-        self.model_optimizer = ModelOptimizer(
-            mock_model,
-            learning_scheme=mock_learning_scheme,
-        )
-
-    def test_update_learning_rate(self) -> None:
+    def test_update_learning_rate_param(self, model_optimizer) -> None:
         """Test it correctly updates parameter-specific learning rates."""
-        new_lr = {key: value / 2 for key, value in self.dict_lr.items()}
-        self.model_optimizer.update_learning_rate(base_lr=new_lr)
+        dict_lr: dict[str, float] = {'linear': 0.01, 'linear2': 0.001}
+        model_optimizer.update_learning_rate(base_lr=dict_lr)
 
-        param_groups = self.model_optimizer._optimizer.param_groups
-        for param_group, lr in zip(param_groups, new_lr.values(), strict=False):
+        param_groups = model_optimizer._optimizer.param_groups
+        for param_group, lr in zip(
+            param_groups, dict_lr.values(), strict=False
+        ):
             assert param_group['lr'] == lr
 
-    def test_missing_param_error(self) -> None:
+    def test_missing_param_error(self, model_optimizer) -> None:
         """Test that MissingParamError is raised when params are missing."""
         with pytest.raises(exceptions.MissingParamError):
-            self.model_optimizer._base_lr = {'linear': 0.1}
+            model_optimizer._base_lr = {'linear': 0.1}
