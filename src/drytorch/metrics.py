@@ -462,6 +462,9 @@ class LossBase(
         def _str_other_op(power: float):
             return f'^{power}' if power != 1 else ''
 
+        def _to_floating_point(x: _Tensor) -> _Tensor:
+            return x if torch.is_floating_point(x) else x.float()
+
         if other >= 0:
             higher_is_better = self.higher_is_better
             formula = f'{self.formula}{_str_other_op(other)}'
@@ -470,7 +473,7 @@ class LossBase(
             formula = f'1 / {self.formula}{_str_other_op(-other)}'
 
         return CompositionalLoss(
-            criterion=lambda x: self.criterion(x) ** other,
+            criterion=lambda x: _to_floating_point(self.criterion(x)) ** other,
             higher_is_better=higher_is_better,
             formula=formula,
             name=self.name,
@@ -509,6 +512,9 @@ class LossBase(
         if formula.startswith('(') and formula.endswith(')'):
             return formula[1:-1]
 
+        if formula.startswith('[]') and formula.endswith(']'):
+            return formula[1:-1]
+
         return formula
 
 
@@ -542,7 +548,7 @@ class CompositionalLoss(
             name,
             higher_is_better,
             **named_fun,
-            formula=f'({self._simplify_formula(formula)})',
+            formula=self._format_formula(formula),
         )
         self.higher_is_better = higher_is_better
         return
@@ -568,7 +574,7 @@ class CompositionalLoss(
         return {self.name: self.criterion(all_metrics)} | all_metrics
 
     @staticmethod
-    def _simplify_formula(formula: str) -> str:
+    def _format_formula(formula: str) -> str:
         """Simplifies the formula string by removing redundant characters.
 
         Args:
@@ -579,8 +585,12 @@ class CompositionalLoss(
         """
         formula = formula.replace('--', '').replace('+ -', '- ')
         if formula.startswith('(') and formula.endswith(')'):
-            formula = formula[1:-1]
-        return formula
+            return formula
+
+        if formula.startswith('[') and formula.endswith(']'):
+            return formula
+
+        return '(' + formula + ')'
 
 
 class Loss(LossBase[_Output_contra, _Target_contra]):
