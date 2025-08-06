@@ -24,7 +24,7 @@ class TrialCallback:
         trial: optuna.Trial,
         filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
         metric: str | p.ObjectiveProtocol | None = None,
-        monitor: p.EvaluationProtocol | None = None,
+        monitor: p.ValidationProtocol | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:

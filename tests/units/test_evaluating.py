@@ -2,7 +2,7 @@
 
 import pytest
 
-from drytorch.evaluating import Diagnostic, Evaluation, Test
+from drytorch.evaluating import Diagnostic, Test, Validation
 
 
 class TestDiagnostic:
@@ -34,8 +34,8 @@ class TestDiagnostic:
         mock.eval.assert_called_once()
 
 
-class TestEvaluation:
-    """Tests for the Evaluation class."""
+class TestValidation:
+    """Tests for the Validation class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker, example_named_metrics) -> None:
@@ -46,9 +46,9 @@ class TestEvaluation:
         return
 
     @pytest.fixture
-    def evaluation(self, mock_model, mock_metric, mock_loader) -> Diagnostic:
+    def validation(self, mock_model, mock_metric, mock_loader) -> Diagnostic:
         """Set up a test instance."""
-        return Evaluation(
+        return Validation(
             mock_model,
             name='test_evaluation',
             loader=mock_loader,

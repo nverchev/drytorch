@@ -58,7 +58,7 @@ class Trainer(
         )
         self.learning_scheme = learning_scheme
         self.validation: (
-            p.EvaluationProtocol[_Input, _Target, _Output] | None
+            p.ValidationProtocol[_Input, _Target, _Output] | None
         ) = None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
@@ -102,7 +102,7 @@ class Trainer(
         Args:
             val_loader: the loader for validation.
         """
-        validation = evaluating.Evaluation(
+        validation = evaluating.Validation(
             self.model, loader=val_loader, metric=self.objective
         )
         val_hook = hooks.StaticHook(validation)

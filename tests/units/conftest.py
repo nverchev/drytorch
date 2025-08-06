@@ -108,9 +108,9 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
 
 
 @pytest.fixture
-def mock_validation(mocker, mock_metric) -> p.EvaluationProtocol:
+def mock_validation(mocker, mock_metric) -> p.ValidationProtocol:
     """Fixture for a mock validation."""
-    mock = mocker.create_autospec(spec=p.EvaluationProtocol, instance=True)
+    mock = mocker.create_autospec(spec=p.ValidationProtocol, instance=True)
     mock.name = 'mock_validation'
     mock.objective = mock_metric
     return mock

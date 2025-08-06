@@ -152,7 +152,9 @@ class LossProtocol(Protocol[_Output_contra, _Target_contra]):
         """
 
     @abc.abstractmethod
-    def update(self, outputs: _Output_contra, targets: _Target_contra) -> Any:
+    def update(
+        self, outputs: _Output_contra, targets: _Target_contra, /
+    ) -> Any:
         """Compute the metrics only.
 
         Args:
@@ -247,7 +249,7 @@ class CheckpointProtocol(Protocol):
         """Load the model and optimizer state dictionaries."""
 
 
-class EvaluationProtocol(Protocol[_Input, _Target, _Output]):
+class ValidationProtocol(Protocol[_Input, _Target, _Output]):
     """Protocol for a class that validates a model.
 
     Attributes:
@@ -275,7 +277,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     model: ModelProtocol[_Input, _Output]
     learning_scheme: LearningProtocol
     objective: LossProtocol[_Output, _Target]
-    validation: EvaluationProtocol[_Input, _Target, _Output] | None
+    validation: ValidationProtocol[_Input, _Target, _Output] | None
 
     @property
     def name(self) -> str:

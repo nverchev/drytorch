@@ -252,7 +252,7 @@ class MetricMonitor:
     def __init__(
             self,
             metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.EvaluationProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -416,10 +416,10 @@ class MetricMonitor:
         self.history.append(value)
         return
 
-    def _get_monitor(self, instance: p.TrainerProtocol) -> p.EvaluationProtocol:
+    def _get_monitor(self, instance: p.TrainerProtocol) -> p.ValidationProtocol:
         if self.optional_monitor is None:
             if instance.validation is None:
-                return cast(p.EvaluationProtocol, instance)  # correct
+                return cast(p.ValidationProtocol, instance)  # correct
 
             return instance.validation
 
@@ -437,7 +437,7 @@ class EarlyStoppingCallback:
     def __init__(
             self,
             metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.EvaluationProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 10,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -503,7 +503,7 @@ class PruneCallback:
             self,
             thresholds: Mapping[int, float | None],
             metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.EvaluationProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
             min_delta: float = 1e-8,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
             filter_fn: Callable[[Sequence[float]], float] = get_last,
@@ -567,7 +567,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     def __init__(
             self,
             metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.EvaluationProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 0,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -650,7 +650,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     def __init__(
             self,
             metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.EvaluationProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
             min_delta: float = 1e-8,
             patience: int = 0,
             best_is: Literal['auto', 'higher', 'lower'] = 'auto',

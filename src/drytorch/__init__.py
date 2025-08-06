@@ -21,7 +21,7 @@ import warnings
 
 from typing import Literal, TypeGuard
 
-from drytorch.evaluating import Diagnostic, Evaluation, Test
+from drytorch.evaluating import Diagnostic, Test, Validation
 from drytorch.exceptions import FailedOptionalImportWarning
 from drytorch.experiments import Experiment, SpecsMixin
 from drytorch.learning import LearningScheme
@@ -58,7 +58,6 @@ else:
 __all__ = [
     'DataLoader',
     'Diagnostic',
-    'Evaluation',
     'Experiment',
     'FailedOptionalImportWarning',
     'LearningScheme',
@@ -69,6 +68,7 @@ __all__ = [
     'Test',
     'Tracker',
     'Trainer',
+    'Validation',
 ]
 
 logger = logging.getLogger('drytorch')

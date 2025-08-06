@@ -17,7 +17,7 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 
 class Diagnostic(
     running.ModelRunnerWithLogs[_Input, _Target, _Output],
-    p.EvaluationProtocol[_Input, _Target, _Output],
+    p.ValidationProtocol[_Input, _Target, _Output],
 ):
     """Evaluate model on inference mode without logging the metrics.
 
@@ -41,7 +41,7 @@ class Diagnostic(
         return
 
 
-class Evaluation(
+class Validation(
     Diagnostic[_Input, _Target, _Output],
     running.ModelRunnerWithLogs[_Input, _Target, _Output],
 ):
@@ -78,7 +78,7 @@ class Evaluation(
         return
 
 
-class Test(Evaluation[_Input, _Target, _Output]):
+class Test(Validation[_Input, _Target, _Output]):
     """Evaluate model performance on a test dataset.
 
     Attributes:
