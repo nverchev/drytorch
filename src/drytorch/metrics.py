@@ -212,7 +212,7 @@ class Metric(Objective[_Output_contra, _Target_contra]):
 
 class LossBase(
     MetricCollection[_Output_contra, _Target_contra],
-    p.LossCalculatorProtocol[_Output_contra, _Target_contra],
+    p.LossProtocol[_Output_contra, _Target_contra],
     metaclass=abc.ABCMeta,
 ):
     """Collection of metrics, one of which serves as a loss."""

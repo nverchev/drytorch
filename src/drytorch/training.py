@@ -37,7 +37,7 @@ class Trainer(
         name: str = '',
         *,
         loader: p.LoaderProtocol[tuple[_Input, _Target]],
-        loss: p.LossCalculatorProtocol[_Output, _Target],
+        loss: p.LossProtocol[_Output, _Target],
         learning_scheme: p.LearningProtocol,
     ) -> None:
         """Constructor.
@@ -53,8 +53,8 @@ class Trainer(
         super().__init__(model, loader=loader, objective=loss, name=name)
         self.model: p.ModelProtocol[_Input, _Output]
         # covariance not available for protocols, specify the type explicitly
-        self.objective: p.LossCalculatorProtocol[_Output, _Target] = cast(
-            p.LossCalculatorProtocol[_Output, _Target], self.objective
+        self.objective: p.LossProtocol[_Output, _Target] = cast(
+            p.LossProtocol[_Output, _Target], self.objective
         )
         self.learning_scheme = learning_scheme
         self.validation: (

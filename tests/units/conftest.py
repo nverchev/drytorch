@@ -80,9 +80,9 @@ def mock_metric(
 
 
 @pytest.fixture
-def mock_loss(mocker) -> p.LossCalculatorProtocol[torch.Tensor, torch.Tensor]:
+def mock_loss(mocker) -> p.LossProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock loss calculator."""
-    mock = mocker.create_autospec(spec=p.LossCalculatorProtocol, instance=True)
+    mock = mocker.create_autospec(spec=p.LossProtocol, instance=True)
     mock_loss_value = torch.FloatTensor([1])
     mock_loss_value.requires_grad = True
     mock.forward = mocker.Mock(return_value=mock_loss_value)

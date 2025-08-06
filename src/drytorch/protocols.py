@@ -110,11 +110,14 @@ class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
         """Forward run of the network."""
 
 
+@runtime_checkable
 class ObjectiveProtocol(Protocol[_Output_contra, _Target_contra]):
     """Protocol that calculates and returns metrics."""
 
     @abc.abstractmethod
-    def update(self, outputs: _Output_contra, targets: _Target_contra) -> Any:
+    def update(
+        self, outputs: _Output_contra, targets: _Target_contra, /
+    ) -> Any:
         """Compute the metrics only.
 
         Args:
@@ -131,11 +134,12 @@ class ObjectiveProtocol(Protocol[_Output_contra, _Target_contra]):
         """Reset cached values."""
 
 
-class LossCalculatorProtocol(Protocol[_Output_contra, _Target_contra]):
+@runtime_checkable
+class LossProtocol(Protocol[_Output_contra, _Target_contra]):
     """Protocol that calculates and returns metrics and the loss."""
 
     def forward(
-        self, outputs: _Output_contra, targets: _Target_contra
+        self, outputs: _Output_contra, targets: _Target_contra, /
     ) -> torch.Tensor:
         """Process the outputs and targets and returns the loss.
 
@@ -270,7 +274,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
 
     model: ModelProtocol[_Input, _Output]
     learning_scheme: LearningProtocol
-    objective: LossCalculatorProtocol[_Output, _Target]
+    objective: LossProtocol[_Output, _Target]
     validation: EvaluationProtocol[_Input, _Target, _Output] | None
 
     @property

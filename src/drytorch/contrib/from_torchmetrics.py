@@ -43,11 +43,11 @@ class TorchMetricCompositionalMetricProtocol(Protocol):
 
 def from_torchmetrics(
     metric: TorchMetricCompositionalMetricProtocol,
-) -> p.LossCalculatorProtocol[_Tensor, _Tensor]:
+) -> p.LossProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a CompositionalMetric for integration."""
 
     class _TorchMetricCompositionalMetric(
-        p.LossCalculatorProtocol[_Tensor, _Tensor]
+        p.LossProtocol[_Tensor, _Tensor]
     ):
         name = 'Loss'
 

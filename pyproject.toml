@@ -40,6 +40,7 @@ all_trackers = [
 
 support = [
     "torchmetrics",
+    "torcheval",
     "pandas",
     "optuna",
 ]
@@ -93,12 +94,3 @@ log_cli_level = "WARNING"
 mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]
-
-[tool.pylint.MASTER]
-ignore-paths = [".*/tests/.*"]
-
-[tool.pylint."MESSAGES CONTROL"]
-disable = [
-    "fixme",
-    "useless-return",
-]
