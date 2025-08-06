@@ -4,11 +4,10 @@ from typing import Any
 
 import pytest
 
-from drytorch import exceptions, schedulers
+from drytorch import schedulers
 from drytorch.hooks import (
     EarlyStoppingCallback,
     HookRegistry,
-    MetricMonitor,
     PruneCallback,
     ReduceLROnPlateau,
     RestartScheduleOnPlateau,
@@ -103,101 +102,6 @@ def test_call_every(mocker, mock_trainer) -> None:
     mock_trainer.terminate_training('This is a test.')
     hook(mock_trainer)
     mock_hook.assert_called_once_with(mock_trainer)
-
-
-class TestMetricMonitor:
-    """Tests for MetricMonitor class."""
-
-    @pytest.fixture()
-    def monitor_from_str_metric(self, mock_metric) -> MetricMonitor:
-        """Set up a test instance."""
-        return MetricMonitor(
-            metric=mock_metric.name, min_delta=0.01, patience=2
-        )
-
-    @pytest.fixture()
-    def monitor_from_metric_object(self, mock_metric) -> MetricMonitor:
-        """Set up a test instance."""
-        return MetricMonitor(metric=mock_metric, min_delta=0.01, patience=2)
-
-    def test_init_with_string_metric(
-        self, monitor_from_str_metric, mock_metric
-    ) -> None:
-        """Test instantiating class with a string for the metric."""
-        assert monitor_from_str_metric.metric_name == mock_metric.name
-        assert monitor_from_str_metric.best_is == 'auto'
-
-    def test_init_with_metric_object(
-        self, monitor_from_metric_object, mock_metric
-    ) -> None:
-        """Test instantiating class with a metric-like object."""
-        assert monitor_from_metric_object.metric_name == mock_metric.name
-        assert monitor_from_metric_object.best_is == 'higher'
-
-    def test_negative_patience(self) -> None:
-        """Test invalid patience."""
-        with pytest.raises(ValueError):
-            MetricMonitor(patience=-1)
-
-    def test_get_monitor(self, mock_trainer, monitor_from_str_metric) -> None:
-        """Test getting monitored values."""
-        expected = mock_trainer.validation
-        assert monitor_from_str_metric._get_monitor(mock_trainer) == expected
-        mock_trainer.validation = None
-        expected = mock_trainer
-        assert monitor_from_str_metric._get_monitor(mock_trainer) == expected
-
-    def test_best_result_not_available(self, monitor_from_str_metric) -> None:
-        """Test calling best result before the monitor has started fails."""
-        with pytest.raises(exceptions.ResultNotAvailableError):
-            _ = monitor_from_str_metric.best_value
-
-    def test_aggregate_fn_selection(self, monitor_from_str_metric) -> None:
-        """Test default aggregation method."""
-        assert monitor_from_str_metric.filter([1, 2, 3]) == 3
-
-    def test_is_improving_with_better_value(
-        self, monitor_from_str_metric
-    ) -> None:
-        """Test is_improving returns True for improvement."""
-        monitor_from_str_metric.best_is = 'higher'
-        monitor_from_str_metric.patience = 0
-        monitor_from_str_metric.history.append(1.0)
-        monitor_from_str_metric.history.append(2.0)
-        assert monitor_from_str_metric.is_improving() is True
-
-    def test_is_improving_with_worse_value(
-        self, monitor_from_metric_object
-    ) -> None:
-        """Test is_improving returns False for worse result."""
-        monitor_from_metric_object.best_is = 'higher'
-        monitor_from_metric_object.patience = 0
-        monitor_from_metric_object.history.append(2.0)
-        monitor_from_metric_object.history.append(1.0)
-        assert monitor_from_metric_object.is_improving() is False
-
-    def test_auto_best_is_determination(self, monitor_from_str_metric) -> None:
-        """Test auto-determination of whether higher is better."""
-        monitor_from_str_metric.best_is = 'auto'
-        monitor_from_str_metric.patience = 0
-        monitor_from_str_metric.history.append(1.0)
-        monitor_from_str_metric.history.append(2.0)
-        assert monitor_from_str_metric.is_improving() is True
-        assert monitor_from_str_metric.best_is == 'higher'
-
-    def test_improvement_with_tolerance(self, monitor_from_str_metric) -> None:
-        """Test improvement detection considering min_delta."""
-        monitor_from_str_metric.best_is = 'higher'
-        monitor_from_str_metric.patience = 0
-        monitor_from_str_metric.history.append(1.0)
-        assert monitor_from_str_metric.is_improving()
-
-        monitor_from_str_metric.history.append(1.009)
-        assert not monitor_from_str_metric.is_improving()
-
-        monitor_from_str_metric.history.append(1.011)
-        assert monitor_from_str_metric.is_improving()
-
 
 class TestEarlyStoppingCallback:
     """Tests for EarlyStoppingCallback."""

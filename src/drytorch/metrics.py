@@ -13,8 +13,8 @@ import copy
 import operator
 import warnings
 
-from collections.abc import Callable, Mapping
-from typing import Self, TypeVar
+from collections.abc import Callable, Mapping, Sequence
+from typing import Literal, Self, TypeVar, cast
 
 import torch
 
@@ -674,3 +674,206 @@ def repr_metrics(calculator: p.ObjectiveProtocol) -> Mapping[str, float]:
         return {calculator.__class__.__name__: metrics.item()}
 
     return {}
+
+
+class MetricMonitor:
+    """Handle metric monitoring and alerts when performance stops increasing.
+
+    Attributes:
+        metric_name: name of the metric to monitor.
+        optional_monitor: evaluation protocol to monitor.
+        min_delta: minimum change required to qualify as an improvement.
+        patience: number of checks to wait before triggering callback.
+        filter: function to aggregate recent metric values.
+        history: logs of the recorded metrics.
+    """
+
+    def __init__(
+        self,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = operator.itemgetter(-1),
+    ) -> None:
+        """Constructor.
+
+        Args:
+            metric: name of the metric to monitor or metric calculator instance.
+                Defaults to the first metric found.
+            monitor: evaluation protocol to monitor. Defaults to validation
+                if available, trainer instance otherwise.
+            min_delta: minimum change required to qualify as an improvement.
+            patience: number of checks to wait before triggering callback.
+            best_is: whether higher or lower metric values are better.
+                Default determined from initial measurements.
+                Metric's "higher_is_better" attribute supercedes.
+            filter_fn: function to aggregate recent metric values. Default
+                gets the last value.
+        """
+        metric_name = None if metric is None else self._get_metric_name(metric)
+        self.metric_name = metric_name
+        self.best_is = self._get_metric_best_is(metric) or best_is
+        self.filter_fn = filter_fn
+        self.min_delta = min_delta
+        self._validate_patience(patience)
+        self.patience = patience
+        self.optional_monitor = monitor
+        self.history = list[float]()
+        self._patience_countdown = patience
+        self._best_value: float | None = None
+        return
+
+    @property
+    def best_value(self) -> float:
+        """Get the best result observed so far.
+
+        Returns:
+            The best filtered value according to the best_is criterion.
+
+        Raises:
+            ResultNotAvailableError: if no results have been logged yet.
+        """
+        if self._best_value is None:
+            try:
+                self._best_value = self.history[0]
+            except IndexError as ie:
+                raise exceptions.ResultNotAvailableError() from ie
+
+        return self._best_value
+
+    @best_value.setter
+    def best_value(self, value: float) -> None:
+        """Set the best result value."""
+        self._best_value = value
+        return
+
+    @property
+    def filtered_value(self) -> float:
+        """Get the current value.
+
+        Returns:
+            The current value aggregated from recent ones.
+
+        Raises:
+            ResultNotAvailableError: if no results have been logged yet.
+        """
+        return self.filter_fn(self.history)
+
+    def is_better(self, value: float, reference: float) -> bool:
+        """Determine if the value is better than a reference value.
+
+        When best_is is in 'auto' mode, it is assumed that the given value is
+        better than the first recorded one.
+
+        Args:
+            value: the value to compare.
+            reference: the reference.
+
+        Returns:
+            True if value is a potential improvement, False otherwise.
+        """
+        if value != value:  # Check for NaN
+            return False
+
+        if self.best_is == 'auto':
+            if len(self.history) < 2:
+                return True
+            if self.history[0] > self.history[1]:
+                self.best_is = 'lower'
+            else:
+                self.best_is = 'higher'
+
+        if self.best_is == 'lower':
+            return reference - self.min_delta > value
+        else:
+            return reference + self.min_delta < value
+
+    def is_improving(self) -> bool:
+        """Determine if the model performance is improving.
+
+        Returns:
+            True if there has been an improvement, False otherwise.
+
+        Side Effects:
+            If there is no improvement, the patience countdown is reduced.
+            Otherwise, it is restored to the maximum.
+        """
+        if len(self.history) <= 1:
+            return True
+
+        aggregated_value = self.filtered_value
+
+        if self.is_better(aggregated_value, self.best_value):
+            self.best_value = aggregated_value
+            self._patience_countdown = self.patience
+            return True
+
+        self._patience_countdown -= 1
+        return False
+
+    def is_patient(self) -> bool:
+        """Check whether to be patient."""
+        return self._patience_countdown > 0
+
+    def record_metric_value(self, instance: p.TrainerProtocol) -> None:
+        """Register a new metric value from a monitored evaluation.
+
+        If no evaluation is specified, it falls back on the trainer instance
+        or if present, the validation instance contained there.
+
+        Args:
+            instance: Trainer instance to fall back on.
+
+        Raises:
+            MetricNotFoundError: if the specified metric is not found.
+        """
+        monitor = self._get_monitor(instance)
+        last_metrics = repr_metrics(monitor.objective)
+
+        if self.metric_name is None:
+            self.metric_name = next(iter(last_metrics.keys()))
+        elif self.metric_name not in last_metrics:
+            raise exceptions.MetricNotFoundError(monitor.name, self.metric_name)
+
+        value = last_metrics[self.metric_name]
+        self.history.append(value)
+        return
+
+    def _get_monitor(self, instance: p.TrainerProtocol) -> p.ValidationProtocol:
+        if self.optional_monitor is None:
+            if instance.validation is None:
+                return cast(p.ValidationProtocol, instance)  # correct
+
+            return instance.validation
+
+        return self.optional_monitor
+
+    @staticmethod
+    def _get_metric_name(metric: str | p.ObjectiveProtocol) -> str:
+        if isinstance(metric, str):
+            return metric
+        elif name := getattr(metric, 'name', False):
+            return str(name)
+        elif name := getattr(metric, '_get_name', False):
+            return str(name)
+        else:
+            return metric.__class__.__name__
+
+    @staticmethod
+    def _get_metric_best_is(
+        metric: str | p.ObjectiveProtocol | None,
+    ) -> Literal['auto', 'higher', 'lower'] | None:
+        higher_is_better = getattr(metric, 'higher_is_better', None)
+        if higher_is_better is None:
+            return None
+        else:
+            return 'higher' if higher_is_better else 'lower'
+
+    @staticmethod
+    def _validate_patience(patience: int) -> None:
+        if patience < 0:
+            raise ValueError('Patience must be a non-negative integer.')
+
+        return

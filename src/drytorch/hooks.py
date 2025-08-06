@@ -6,11 +6,11 @@ import abc
 import operator
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Generic, Literal, ParamSpec, TypeVar, cast
+from typing import Generic, Literal, ParamSpec, TypeVar
 
 from typing_extensions import override
 
-from drytorch import exceptions, metrics, schedulers
+from drytorch import metrics, schedulers
 from drytorch import protocols as p
 
 
@@ -54,8 +54,8 @@ class HookRegistry(Generic[_T_contra]):
         return
 
     def register_all(
-            self,
-            hook_list: list[Callable[[_T_contra], None]],
+        self,
+        hook_list: list[Callable[[_T_contra], None]],
     ) -> None:
         """Register multiple hooks.
 
@@ -78,10 +78,11 @@ class AbstractHook(metaclass=abc.ABCMeta):
             trainer: the trainer to pass to the wrapped function.
         """
 
-    def bind(self,
-             f: Callable[[AbstractHook], AbstractHook],
-             /,
-             ) -> AbstractHook:
+    def bind(
+        self,
+        f: Callable[[AbstractHook], AbstractHook],
+        /,
+    ) -> AbstractHook:
         """Allow transformation of the Hook.
 
         Args:
@@ -155,10 +156,12 @@ class OptionalCallable(Hook, metaclass=abc.ABCMeta):
 class CallEvery(OptionalCallable):
     """Call a function at specified intervals."""
 
-    def __init__(self,
-                 wrapped: Callable[[p.TrainerProtocol], None],
-                 interval: int,
-                 start: int) -> None:
+    def __init__(
+        self,
+        wrapped: Callable[[p.TrainerProtocol], None],
+        interval: int,
+        start: int,
+    ) -> None:
         """Constructor.
 
         Args:
@@ -186,8 +189,8 @@ class CallEvery(OptionalCallable):
 
 
 def call_every(
-        interval: int,
-        start: int = 0,
+    interval: int,
+    start: int = 0,
 ) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEvery]:
     """Create a decorator for periodic hook execution.
 
@@ -217,7 +220,7 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
 
 
 def static_hook_class(
-        cls: Callable[_P, Callable[[], None]]
+    cls: Callable[_P, Callable[[], None]],
 ) -> Callable[_P, StaticHook]:
     """Class decorator to wrap a callable class into a static hook type.
 
@@ -229,201 +232,12 @@ def static_hook_class(
     """
 
     class _StaticHookDecorator(StaticHook):
-
         @override
         def __init__(self, *args: _P.args, **kwargs: _P.kwargs):
             super().__init__(cls(*args, **kwargs))
 
     return _StaticHookDecorator
 
-
-class MetricMonitor:
-    """Handle metric monitoring and alerts when performance stops increasing.
-
-    Attributes:
-        metric_name: name of the metric to monitor.
-        optional_monitor: evaluation protocol to monitor.
-        min_delta: minimum change required to qualify as an improvement.
-        patience: number of checks to wait before triggering callback.
-        filter: function to aggregate recent metric values.
-        history: logs of the recorded metrics.
-    """
-
-    def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 10,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-    ) -> None:
-        """Constructor.
-
-        Args:
-            metric: name of the metric to monitor or metric calculator instance.
-                Defaults to the first metric found.
-            monitor: evaluation protocol to monitor. Defaults to validation
-                if available, trainer instance otherwise.
-            min_delta: minimum change required to qualify as an improvement.
-            patience: number of checks to wait before triggering callback.
-            best_is: whether higher or lower metric values are better.
-                Default 'auto' will determine it from initial measurements.
-            filter_fn: function to aggregate recent metric values. Default
-                gets the last value.
-        """
-        if metric is None or isinstance(metric, str):
-            self.metric_name = metric
-        elif name := getattr(metric, 'name', False):
-            self.metric_name = str(name)
-        else:
-            self.metric_name = metric.__class__.__name__
-
-        higher_is_better = getattr(metric, 'higher_is_better', None)
-        if higher_is_better:
-            self.best_is = 'higher'
-        elif higher_is_better is False:
-            self.best_is = 'lower'
-        else:
-            self.best_is = best_is
-
-        if patience < 0:
-            raise ValueError('Patience must be a non-negative integer.')
-
-        self.filter = filter_fn
-        self.min_delta = min_delta
-        self.patience = patience
-        self.optional_monitor = monitor
-        self.history = list[float]()
-        self._patience_countdown = patience
-        self._best_value: float | None = None
-        return
-
-    @property
-    def best_value(self) -> float:
-        """Get the best result observed so far.
-
-        Returns:
-            The best filtered value according to the best_is criterion.
-
-        Raises:
-            ResultNotAvailableError: if no results have been logged yet.
-        """
-        if self._best_value is None:
-            try:
-                self._best_value = self.history[0]
-            except IndexError as ie:
-                raise exceptions.ResultNotAvailableError() from ie
-
-        return self._best_value
-
-    @best_value.setter
-    def best_value(self, value: float) -> None:
-        """Set the best result value."""
-        self._best_value = value
-        return
-
-    @property
-    def filtered_value(self) -> float:
-        """Get the current value.
-
-        Returns:
-            The current value aggregated from recent ones.
-
-        Raises:
-            ResultNotAvailableError: if no results have been logged yet.
-        """
-        return self.filter(self.history)
-
-    def is_better(self, value: float, reference: float) -> bool:
-        """Determine if the value is better than a reference value.
-
-        When best_is is in 'auto' mode, it is assumed that the given value is
-        better than the first recorded one.
-
-        Args:
-            value: the value to compare.
-            reference: the reference.
-
-        Returns:
-            True if value is a potential improvement, False otherwise.
-        """
-        if value != value:  # Check for NaN
-            return False
-
-        if self.best_is == 'auto':
-            if len(self.history) < 2:
-                return True
-            if self.history[0] > self.history[1]:
-                self.best_is = 'lower'
-            else:
-                self.best_is = 'higher'
-
-        if self.best_is == 'lower':
-            return reference - self.min_delta > value
-        else:
-            return reference + self.min_delta < value
-
-    def is_improving(self) -> bool:
-        """Determine if the model performance is improving.
-
-        Returns:
-            True if there has been an improvement, False otherwise.
-
-        Side Effects:
-            If there is no improvement, the patience countdown is reduced.
-            Otherwise, it is restored to the maximum.
-        """
-        if len(self.history) <= 1:
-            return True
-
-        aggregated_value = self.filtered_value
-
-        if self.is_better(aggregated_value, self.best_value):
-            self.best_value = aggregated_value
-            self._patience_countdown = self.patience
-            return True
-
-        self._patience_countdown -= 1
-        return False
-
-    def is_patient(self) -> bool:
-        """Check whether to be patient."""
-        return self._patience_countdown > 0
-
-    def record_metric_value(self, instance: p.TrainerProtocol) -> None:
-        """Register a new metric value from a monitored evaluation.
-
-        If no evaluation is specified, it falls back on the trainer instance
-        or if present, the validation instance contained there.
-
-        Args:
-            instance: Trainer instance to fall back on.
-
-        Raises:
-            MetricNotFoundError: if the specified metric is not found.
-        """
-        monitor = self._get_monitor(instance)
-        last_metrics = metrics.repr_metrics(monitor.objective)
-
-        if self.metric_name is None:
-            self.metric_name = next(iter(last_metrics.keys()))
-        elif self.metric_name not in last_metrics:
-            raise exceptions.MetricNotFoundError(monitor.name,
-                                                 self.metric_name)
-
-        value = last_metrics[self.metric_name]
-        self.history.append(value)
-        return
-
-    def _get_monitor(self, instance: p.TrainerProtocol) -> p.ValidationProtocol:
-        if self.optional_monitor is None:
-            if instance.validation is None:
-                return cast(p.ValidationProtocol, instance)  # correct
-
-            return instance.validation
-
-        return self.optional_monitor
 
 
 class EarlyStoppingCallback:
@@ -435,14 +249,14 @@ class EarlyStoppingCallback:
     """
 
     def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 10,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            start_from_epoch: int = 2,
+        self,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 10,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        start_from_epoch: int = 2,
     ) -> None:
         """Constructor.
 
@@ -459,7 +273,7 @@ class EarlyStoppingCallback:
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
-        self.monitor = MetricMonitor(
+        self.monitor = metrics.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -500,13 +314,13 @@ class PruneCallback:
     """
 
     def __init__(
-            self,
-            thresholds: Mapping[int, float | None],
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
+        self,
+        thresholds: Mapping[int, float | None],
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol | None = None,
+        min_delta: float = 1e-8,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """Constructor.
 
@@ -523,7 +337,7 @@ class PruneCallback:
             values. Default
                 gets the last value.
         """
-        self.monitor = MetricMonitor(
+        self.monitor = metrics.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -565,14 +379,14 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     """
 
     def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            cooldown: int = 0,
+        self,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -589,7 +403,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
-        self.monitor = MetricMonitor(
+        self.monitor = metrics.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -617,16 +431,17 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
         if self.monitor.is_improving() or self.monitor.is_patient():
             return
 
-        scheduler = self.get_scheduler(epoch,
-                                       instance.learning_scheme.scheduler)
+        scheduler = self.get_scheduler(
+            epoch, instance.learning_scheme.scheduler
+        )
         instance.update_learning_rate(base_lr=None, scheduler=scheduler)
         self._cooldown_counter = self.cooldown  # start the cooldown period
         return
 
     @abc.abstractmethod
-    def get_scheduler(self,
-                      epoch: int,
-                      scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
+    def get_scheduler(
+        self, epoch: int, scheduler: p.SchedulerProtocol
+    ) -> p.SchedulerProtocol:
         """Modify input scheduler.
 
         Args:
@@ -648,15 +463,15 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     """
 
     def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            factor: float = 0.1,
-            cooldown: int = 0,
+        self,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        factor: float = 0.1,
+        cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -685,9 +500,9 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
         )
         self.factor = factor
 
-    def get_scheduler(self,
-                      epoch: int,
-                      scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
+    def get_scheduler(
+        self, epoch: int, scheduler: p.SchedulerProtocol
+    ) -> p.SchedulerProtocol:
         """Modify the input scheduler to scale down the learning rate.
 
         Args:
@@ -708,9 +523,9 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
         cooldown: number of calls to skip after changing the schedule.
     """
 
-    def get_scheduler(self,
-                      epoch: int,
-                      scheduler: p.SchedulerProtocol) -> p.SchedulerProtocol:
+    def get_scheduler(
+        self, epoch: int, scheduler: p.SchedulerProtocol
+    ) -> p.SchedulerProtocol:
         """Consider training until now a warm-up and restart scheduling.
 
         Args:
