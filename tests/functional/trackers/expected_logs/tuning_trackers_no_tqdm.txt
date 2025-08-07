@@ -1,4 +1,4 @@
-[2024-01-01 12:00:00] - Running experiment: test_exp (my_variation).
+[2024-01-01 12:00:00] - Running experiment: test_exp.
 [2024-01-01 12:00:00] - Training test_model started.
 [2024-01-01 12:00:00] - Training test_model terminated at epoch 7. Reason: test event.
 [2024-01-01 12:00:00] - Training ended.

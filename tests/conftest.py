@@ -11,26 +11,22 @@ def example_exp_name() -> str:
     return 'test_exp'
 
 
-@pytest.fixture(scope='package',
-                params=['test_variation', None],
-                ids=['with_variation', 'without_variation'])
-def example_variation(request) -> str | None:
-    """Yields either a variation name or None."""
-    return request.param
-
-
-@pytest.fixture(scope='package',
-                params=[['test_tag'], []],
-                ids=['with_tags', 'without_tags'])
-def example_tags(request) -> list[str] | None:
-    """Yields either a tag or None."""
-    return request.param
+@pytest.fixture(scope='package')
+def example_run_ts() -> str:
+    """Example timestamp for the experiment."""
+    return '10_2025-08-01T12-54-21'
 
 
 @pytest.fixture(scope='package')
-def example_exp_ts() -> str:
-    """Example timestamp for the experiment."""
-    return '10_2025-08-01T12-54-21'
+def example_run_id(example_run_ts) -> str:
+    """Yields the run id default (the timestamp)."""
+    return example_run_ts
+
+
+@pytest.fixture(scope='package')
+def example_tags(request) -> list[str]:
+    """Yields either a tag or None."""
+    return ['test_tag']
 
 
 @pytest.fixture(scope='package')

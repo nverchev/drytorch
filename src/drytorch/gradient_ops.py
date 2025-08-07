@@ -12,7 +12,7 @@ import torch
 
 from typing_extensions import override
 
-from drytorch import protocols as p
+from drytorch.core import protocols as p
 
 
 ClipFunction: TypeAlias = Callable[[float, float], float]

@@ -20,8 +20,7 @@ import torch
 
 from typing_extensions import override
 
-from drytorch import exceptions
-from drytorch import protocols as p
+from drytorch.core import exceptions, protocols as p
 from drytorch.utils import statistics
 
 
@@ -684,7 +683,7 @@ class MetricMonitor:
         optional_monitor: evaluation protocol to monitor.
         min_delta: minimum change required to qualify as an improvement.
         patience: number of checks to wait before triggering callback.
-        filter: function to aggregate recent metric values.
+        filter_fn: function to aggregate recent metric values.
         history: logs of the recorded metrics.
     """
 
@@ -708,7 +707,7 @@ class MetricMonitor:
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
                 Default determined from initial measurements.
-                Metric's "higher_is_better" attribute supercedes.
+                Metric's "higher_is_better" attribute supersedes.
             filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
         """

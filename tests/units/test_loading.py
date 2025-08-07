@@ -9,7 +9,7 @@ from typing_extensions import override
 
 import pytest
 
-from drytorch import exceptions
+from drytorch.core import exceptions
 from drytorch.loading import (
     DataLoader,
     Permutation,

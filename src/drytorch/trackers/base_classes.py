@@ -3,6 +3,7 @@
 import abc
 import functools
 import pathlib
+import warnings
 
 from collections.abc import Iterable
 from typing import Generic, TypeAlias, TypeVar
@@ -12,8 +13,7 @@ import numpy.typing as npt
 
 from typing_extensions import override
 
-from drytorch import exceptions, experiments, log_events, tracking
-
+from drytorch.core import exceptions, experiments, log_events, tracking
 
 HistoryMetric: TypeAlias = tuple[list[int], list[float]]
 HistoryMetrics: TypeAlias = tuple[list[int], dict[str, list[float]]]
@@ -26,32 +26,55 @@ Plot = TypeVar('Plot')
 
 
 class Dumper(tracking.Tracker):
-    """Dump metrics or metadata in a custom directory."""
+    """Tracker with a standard folder structure.
+
+    Class Attributes:
+        folder_name: name of the folder containing the output.
+    """
+    folder_name: str = 'tracker'
 
     def __init__(self, par_dir: pathlib.Path | None = None):
         """Constructor.
 
         Args:
-            par_dir: the directory where to dump metadata. Default uses the one
-                  for the current experiment.
+            par_dir: the parent directory for the tracker data. Default uses
+                the same of the current experiment.
         """
         super().__init__()
-        self._par_dir = par_dir
-        self._exp_dir: pathlib.Path | None = None
+        self.user_par_dir = par_dir
+        self._par_dir: pathlib.Path | None = None
+        self._exp_name: str | None = None
+        self._run_id: str | None = None
         return
 
     @property
     def par_dir(self) -> pathlib.Path:
-        """Return the directory where the files will be saved."""
-        if self._par_dir is None:
-            if self._exp_dir is None:
+        """Return the parent directory for the experiments."""
+        if self.user_par_dir is None:
+            if self._par_dir is None:
                 raise exceptions.AccessOutsideScopeError()
-            path = self._exp_dir
-        else:
             path = self._par_dir
+        else:
+            path = self.user_par_dir
 
         path.mkdir(exist_ok=True, parents=True)
         return path
+
+    @property
+    def run_id(self) -> str:
+        """Return the identifier for the experiment run."""
+        if self._run_id is None:
+            raise exceptions.AccessOutsideScopeError()
+
+        return self._run_id
+
+    @property
+    def exp_name(self) -> str:
+        """Return the name of the experiment."""
+        if self._exp_name is None:
+            raise exceptions.AccessOutsideScopeError()
+
+        return self._exp_name
 
     @functools.singledispatchmethod
     @override
@@ -60,21 +83,46 @@ class Dumper(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-        self._exp_dir = event.exp_dir
+        self._par_dir = event.par_dir
+        self._exp_name = event.exp_name
+        self._run_id = event.run_id
         return super().notify(event)
 
     @notify.register
-    def _(self, _: log_events.StopExperimentEvent) -> None:
-        self._exp_dir = None
+    def _(self, event: log_events.StopExperimentEvent) -> None:
+        self._par_dir = None
+        self._run_id = None
+        return super().notify(event)
+
+    def _get_exp_dir(self) -> pathlib.Path:
+        exp_dir = self.par_dir / self.folder_name / self.exp_name
+        exp_dir.mkdir(exist_ok=True, parents=True)
+        return exp_dir
+
+    def _get_last_run_dir(self) -> pathlib.Path:
+        exp_dir = self._get_exp_dir()
+        all_dirs = [d for d in exp_dir.iterdir() if d.is_dir()]
+        if not all_dirs:
+            tracker_name = self.__class__.__name__
+            msg = f'{tracker_name}: No previous runs. Starting a new one.'
+            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+            return self._get_run_dir()
+        return max(all_dirs, key=lambda d: d.stat().st_ctime)
+
+    def _get_run_dir(self, mkdir: bool = True) -> pathlib.Path:
+        run_dir = self._get_exp_dir() / self.run_id
+        if mkdir:
+            run_dir.mkdir(exist_ok=True)
+        return run_dir
 
 
 class MetricLoader(tracking.Tracker, abc.ABC):
     """Interface for trackers that load metrics."""
 
     def load_metrics(
-        self, model_name: str, max_epoch: int = -1
+            self, model_name: str, max_epoch: int = -1
     ) -> SourcedMetrics:
-        """Load metrics stored by the tracker.
+        """Load metrics from the last run of the experiment.
 
         Args:
             model_name: the name of the model.
@@ -82,15 +130,7 @@ class MetricLoader(tracking.Tracker, abc.ABC):
 
         Returns:
             The current epochs and named metric values by the source.
-
-        Raises:
-            AccessOutsideScopeError: if called outside the experiment scope.
         """
-        try:
-            experiments.Experiment.current()
-        except exceptions.NoActiveExperimentError as naee:
-            raise exceptions.AccessOutsideScopeError() from naee
-
         if max_epoch == 0:
             return {}
 
@@ -101,8 +141,9 @@ class MetricLoader(tracking.Tracker, abc.ABC):
 
     @abc.abstractmethod
     def _load_metrics(
-        self, model_name: str, max_epoch: int = -1
-    ) -> SourcedMetrics: ...
+            self, model_name: str, max_epoch: int = -1
+    ) -> SourcedMetrics:
+        ...
 
 
 class MemoryMetrics(tracking.Tracker):
@@ -156,12 +197,12 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
     """Abstract class for plotting trajectory from sources."""
 
     def __init__(
-        self,
-        model_names: Iterable[str] = (),
-        source_names: Iterable[str] = (),
-        metric_names: Iterable[str] = (),
-        start: int = 1,
-        metric_loader: MetricLoader | None = None,
+            self,
+            model_names: Iterable[str] = (),
+            source_names: Iterable[str] = (),
+            metric_names: Iterable[str] = (),
+            start: int = 1,
+            metric_loader: MetricLoader | None = None,
     ) -> None:
         """Constructor.
 
@@ -209,11 +250,11 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         return super().notify(event)
 
     def plot(
-        self,
-        model_name: str,
-        source_names: Iterable[str] = (),
-        metric_names: Iterable[str] = (),
-        start_epoch: int = 1,
+            self,
+            model_name: str,
+            source_names: Iterable[str] = (),
+            metric_names: Iterable[str] = (),
+            start_epoch: int = 1,
     ) -> list[Plot]:
         """Plot the learning curves.
 
@@ -242,11 +283,11 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
         return self._plot(model_name, source_names, metric_names, start_epoch)
 
     def _plot(
-        self,
-        model_name: str,
-        source_names: Iterable[str],
-        metric_names: Iterable[str],
-        start: int,
+            self,
+            model_name: str,
+            source_names: Iterable[str],
+            metric_names: Iterable[str],
+            start: int,
     ) -> list[Plot]:
         sourced_metrics = self.model_dict.get(model_name, {})
         if source_names:
@@ -276,15 +317,16 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
 
     @abc.abstractmethod
     def _plot_metric(
-        self, model_name: str, metric_name: str, **sourced_array: NpArray
-    ) -> Plot: ...
+            self, model_name: str, metric_name: str, **sourced_array: NpArray
+    ) -> Plot:
+        ...
 
     def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
         _not_used = model_name, metric_names
         return
 
     def _process_source(
-        self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
+            self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
     ) -> SourcedArray:
         sourced_metric = self._filter_metric(sourced_metrics, metric_name)
         ordered_sources = self._order_sources(sourced_metric)
@@ -304,7 +346,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
 
     @staticmethod
     def _filter_metric(
-        sourced_metrics: SourcedMetrics, metric_name: str
+            sourced_metrics: SourcedMetrics, metric_name: str
     ) -> SourcedMetric:
         return {
             source_name: (epochs, metrics[metric_name])
@@ -314,7 +356,7 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
 
     @staticmethod
     def _filter_by_epoch(
-        sourced_array: SourcedArray, start: int
+            sourced_array: SourcedArray, start: int
     ) -> SourcedArray:
         if start == 1:
             return sourced_array

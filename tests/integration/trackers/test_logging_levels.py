@@ -7,7 +7,7 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch import log_events
+from drytorch.core import log_events
 from drytorch.trackers.logging import INFO_LEVELS, BuiltinLogger, set_verbosity
 
 
@@ -58,10 +58,10 @@ def setup(
 @pytest.fixture
 def event_workflow(
         start_experiment_event,
-        model_creation_event,
+        model_registration_event,
         load_model_event,
         start_training_event,
-        call_model_event,
+        source_registration_event,
         start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,
@@ -77,10 +77,10 @@ def event_workflow(
     """Yields events in typical order of execution."""
     event_tuple = (
         start_experiment_event,
-        model_creation_event,
+        model_registration_event,
         load_model_event,
         start_training_event,
-        call_model_event,
+        source_registration_event,
         start_epoch_event,
         iterate_batch_event,
         epoch_metrics_event,

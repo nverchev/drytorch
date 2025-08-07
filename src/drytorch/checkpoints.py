@@ -2,6 +2,7 @@
 
 import abc
 import pathlib
+from typing import Any
 import warnings
 
 import numpy as np
@@ -12,9 +13,7 @@ import torch
 
 from typing_extensions import override
 
-from drytorch import exceptions, experiments, log_events
-from drytorch import protocols as p
-
+from drytorch.core import exceptions, experiments, log_events, protocols as p
 
 SAFE_GLOBALS = [
     np.bool_,
@@ -41,12 +40,16 @@ torch.serialization.add_safe_globals(SAFE_GLOBALS)
 class CheckpointPathManager:
     """Manage paths for the experiment.
 
+    Class Attributes:
+        folder_name: name of the folder where the checkpoints are stored.
+
     Attributes:
         model: the model whose paths are to be managed.
     """
+    folder_name = 'checkpoints'
 
     def __init__(
-        self, model: p.ModelProtocol, root_dir: pathlib.Path | None = None
+            self, model: p.ModelProtocol, root_dir: pathlib.Path | None = None
     ) -> None:
         """Constructor.
 
@@ -62,9 +65,11 @@ class CheckpointPathManager:
         """Root directory."""
         if self._root_dir is None:
             try:
-                return experiments.Experiment.current().dir
+                exp = experiments.Experiment[Any].current()
             except exceptions.NoActiveExperimentError as naee:
                 raise exceptions.AccessOutsideScopeError from naee
+            else:
+                return exp.par_dir / self.folder_name / exp.name
 
         return self._root_dir
 
@@ -76,16 +81,9 @@ class CheckpointPathManager:
         return model_dir
 
     @property
-    def checkpoint_dir(self) -> pathlib.Path:
-        """Directory for a checkpoint at the current epoch."""
-        epoch_directory = self.model_dir / 'checkpoints'
-        epoch_directory.mkdir(exist_ok=True)
-        return epoch_directory
-
-    @property
     def epoch_dir(self) -> pathlib.Path:
         """Directory for a checkpoint at the current epoch."""
-        epoch_directory = self.checkpoint_dir / f'epoch_{self.model.epoch}'
+        epoch_directory = self.model_dir / f'epoch_{self.model.epoch}'
         epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
@@ -158,10 +156,12 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         return 'model_state' if self.optimizer is None else 'checkpoint'
 
     @abc.abstractmethod
-    def _get_last_saved_epoch(self) -> int: ...
+    def _get_last_saved_epoch(self) -> int:
+        ...
 
     @abc.abstractmethod
-    def _get_location(self) -> str: ...
+    def _get_location(self) -> str:
+        ...
 
     def _update_epoch(self, epoch: int):
         if epoch < -1:
@@ -215,10 +215,10 @@ class LocalCheckpoint(AbstractCheckpoint):
         return
 
     def _get_last_saved_epoch(self) -> int:
-        checkpoint_directory = self.paths.checkpoint_dir
-        all_epochs = [d for d in checkpoint_directory.iterdir() if d.is_dir()]
+        model_directory = self.paths.model_dir
+        all_epochs = [d for d in model_directory.iterdir() if d.is_dir()]
         if not all_epochs:
-            raise exceptions.ModelNotFoundError(checkpoint_directory)
+            raise exceptions.ModelNotFoundError(model_directory)
 
         last_epoch_dir = max(all_epochs, key=self._creation_time)
         return self._get_epoch(last_epoch_dir)

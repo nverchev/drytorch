@@ -7,8 +7,8 @@ import abc
 from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 
-from drytorch import protocols as p
-from drytorch.metrics import _Tensor
+from drytorch.core import protocols as p
+from drytorch.objectives import _Tensor
 
 
 @runtime_checkable

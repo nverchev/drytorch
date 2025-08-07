@@ -12,7 +12,7 @@ from collections.abc import Generator
 
 import numpy as np
 
-from drytorch import exceptions
+from drytorch.core import exceptions
 from drytorch.trackers.visdom import VisdomOpts, VisdomPlotter
 
 
@@ -69,15 +69,12 @@ class TestVisdomPlotter:
     def test_notify_start_experiment(self,
                                      tracker,
                                      start_experiment_mock_event,
-                                     example_variation) -> None:
+                                     example_run_id) -> None:
         """Test StartExperiment notification."""
         tracker.notify(start_experiment_mock_event)
         self.visdom_mock.assert_called_once()
-        env = start_experiment_mock_event.exp_name
-        if example_variation:
-            env = f'{env}_{example_variation}'
         self.viz_instance.close.assert_called_once_with(
-            env=env
+            env=f'{start_experiment_mock_event.exp_name}_{example_run_id}'
         )
 
     def test_notify_start_experiment_fails(self,

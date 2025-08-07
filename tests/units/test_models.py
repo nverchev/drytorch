@@ -4,8 +4,17 @@ import torch
 
 import pytest
 
-from drytorch import Model, exceptions
+from drytorch import Model
+
+from drytorch.core import exceptions
 from drytorch.models import ModelOptimizer
+
+
+@pytest.fixture(autouse=True, scope='module')
+def setup_module(session_mocker) -> None:
+    """Fixture for a mock experiment."""
+    session_mocker.patch('drytorch.core.registering.register_model')
+    return
 
 
 class ComplexModule(torch.nn.Module):
@@ -61,7 +70,7 @@ class TestModelOptimizer:
 
     @pytest.fixture()
     def model_optimizer(
-        self, complex_model, mock_learning_scheme
+            self, complex_model, mock_learning_scheme
     ) -> ModelOptimizer:
         """Set up a test instance."""
         return ModelOptimizer(
@@ -83,7 +92,7 @@ class TestModelOptimizer:
 
         param_groups = model_optimizer._optimizer.param_groups
         for param_group, lr in zip(
-            param_groups, dict_lr.values(), strict=False
+                param_groups, dict_lr.values(), strict=False
         ):
             assert param_group['lr'] == lr
 

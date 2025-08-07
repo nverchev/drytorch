@@ -43,8 +43,9 @@ class TestSQLConnectionFullCycle:
             start_experiment_event,
             stop_experiment_event,
     ) -> Generator[SQLConnection, None, None]:
-        """Set up the instance."""
-        resumed_tracker = SQLConnection(engine=tracker.engine, resume_run=True)
+        """Resume previous run."""
+        start_experiment_event.resume_last_run = True
+        resumed_tracker = SQLConnection(engine=tracker.engine)
         resumed_tracker.notify(start_experiment_event)
         yield resumed_tracker
 
@@ -61,7 +62,12 @@ class TestSQLConnectionFullCycle:
 
         # verify key columns exist
         runs_columns = {col['name'] for col in inspector.get_columns('runs')}
-        assert 'run_id' in runs_columns
+        expected_columns = {
+            'run_id',
+            'run_name',
+            'run_ts',
+        }
+        assert runs_columns == expected_columns
 
         experiments_columns = {
             col['name'] for col in inspector.get_columns('experiments')
@@ -69,8 +75,6 @@ class TestSQLConnectionFullCycle:
         expected_columns = {
             'experiment_id',
             'experiment_name',
-            'experiment_variation',
-            'experiment_ts',
             'run_id',
         }
         assert experiments_columns == expected_columns
@@ -172,10 +176,10 @@ class TestSQLConnectionFullCycle:
     def test_multiple_sources_in_same_run(
             self,
             resumed_tracker,
-            call_model_event,
+            source_registration_event,
     ):
         """Test multiple log sources are correctly tracked in the same run."""
-        second_call_model = call_model_event
+        second_call_model = source_registration_event
         second_call_model.source_name = 'second_source'
         resumed_tracker.notify(second_call_model)
         with resumed_tracker.session_factory() as session:
@@ -221,14 +225,14 @@ class TestSQLConnectionFullCycle:
     def test_load_metrics_with_resumed_sources(
             self,
             resumed_tracker,
-            call_model_event,
+            source_registration_event,
             example_epoch,
             metrics_event,
             start_training_event,
     ):
         """Test _load_metrics get data from two sources with the same name."""
         model_name = start_training_event.model_name
-        resumed_tracker.notify(call_model_event)
+        resumed_tracker.notify(source_registration_event)
         metrics_event.epoch = 8
         resumed_tracker.notify(metrics_event)
         loaded_metrics = resumed_tracker._load_metrics(model_name)

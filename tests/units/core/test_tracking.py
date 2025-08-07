@@ -5,8 +5,8 @@ import functools
 
 import pytest
 
-from drytorch import exceptions, log_events
-from drytorch.tracking import (
+from drytorch.core import exceptions, log_events
+from drytorch.core.tracking import (
     EventDispatcher,
     MetadataManager,
     Tracker,
@@ -72,7 +72,7 @@ class TestMetadataManager:
         mock_obj = mocker.Mock()
         mock_obj.name = 'mock obj'
         mock_log_event = mocker.patch(
-            'drytorch.log_events.SourceRegistrationEvent'
+            'drytorch.core.log_events.SourceRegistrationEvent'
         )
         manager.register_source(mock_obj, mock_model)
         assert mock_obj.name in manager.used_names
@@ -83,7 +83,7 @@ class TestMetadataManager:
     def test_register_model(self, mocker, mock_model, manager) -> None:
         """Test registering a model creates the event."""
         mock_log_event = mocker.patch(
-            'drytorch.log_events.ModelRegistrationEvent'
+            'drytorch.core.log_events.ModelRegistrationEvent'
         )
         manager.register_model(mock_model)
         assert mock_model.name in manager.used_names

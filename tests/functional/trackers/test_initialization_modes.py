@@ -11,7 +11,7 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch import log_events, tracking
+from drytorch.core import log_events, tracking
 from drytorch.trackers.logging import (
     INFO_LEVELS,
     BuiltinLogger,

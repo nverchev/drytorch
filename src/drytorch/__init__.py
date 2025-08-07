@@ -19,30 +19,36 @@ import os
 import sys
 import warnings
 
+from types import ModuleType
 from typing import Literal, TypeGuard
 
 from drytorch.evaluating import Diagnostic, Test, Validation
-from drytorch.exceptions import FailedOptionalImportWarning
-from drytorch.experiments import Experiment, SpecsMixin
+from drytorch.core.exceptions import FailedOptionalImportWarning
+from drytorch.core.experiments import Experiment
 from drytorch.learning import LearningScheme
 from drytorch.loading import DataLoader
-from drytorch.metrics import Loss, Metric
+from drytorch.objectives import Loss, Metric
 from drytorch.models import Model
 from drytorch.trackers import logging as builtin_logging
 from drytorch.trackers.logging import INFO_LEVELS
-from drytorch.tracking import (
+from drytorch.core.tracking import (
     Tracker,
     extend_default_trackers,
     remove_all_default_trackers,
 )
 from drytorch.training import Trainer
 
+yaml: ModuleType | None = None
+YAML_EXCEPTION: Exception | None = None
+tqdm: ModuleType | None = None
+TQDM_EXCEPTION: Exception | None = None
+
 
 try:
     from drytorch.trackers import yaml
 except (ImportError, ModuleNotFoundError) as ie:
     yaml = None
-    YAML_EXCEPTION: Exception | None = ie
+    YAML_EXCEPTION = ie
 else:
     YAML_EXCEPTION = None
 
@@ -51,7 +57,7 @@ try:
     from drytorch.trackers import tqdm
 except (ImportError, ModuleNotFoundError) as ie:
     tqdm = None
-    TQDM_EXCEPTION: Exception | None = ie
+    TQDM_EXCEPTION = ie
 else:
     TQDM_EXCEPTION = None
 
@@ -64,7 +70,6 @@ __all__ = [
     'Loss',
     'Metric',
     'Model',
-    'SpecsMixin',
     'Test',
     'Tracker',
     'Trainer',

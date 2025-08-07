@@ -4,6 +4,12 @@ import pytest
 
 from drytorch.evaluating import Diagnostic, Test, Validation
 
+@pytest.fixture(autouse=True)
+def setup_module(session_mocker) -> None:
+    """Fixture for a mock experiment."""
+    session_mocker.patch('drytorch.core.registering.register_source')
+    return
+
 
 class TestDiagnostic:
     """Tests for the ModelRunner class."""
@@ -55,7 +61,7 @@ class TestValidation:
             metric=mock_metric,
         )
 
-    def test_initialization(self, evaluation) -> None:
+    def test_initialization(self, validation) -> None:
         """Test parent __init__ is called."""
         self.mock_super_init.called_once()
 
@@ -67,11 +73,13 @@ class TestTest:
     def setup(self, mocker) -> None:
         """Set up the tests."""
         self.mock_start_test = mocker.patch(
-            'drytorch.log_events.StartTestEvent'
+            'drytorch.core.log_events.StartTestEvent'
         )
-        self.mock_end_test = mocker.patch('drytorch.log_events.EndTestEvent')
+        self.mock_end_test = mocker.patch(
+            'drytorch.core.log_events.EndTestEvent'
+        )
         self.mock_super_call = mocker.patch(
-            'drytorch.evaluating.Evaluation.__call__'
+            'drytorch.evaluating.Validation.__call__'
         )
         return
 

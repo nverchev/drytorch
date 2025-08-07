@@ -2,8 +2,20 @@
 
 import pytest
 
-from drytorch import exceptions
-from drytorch.registering import ALL_MODULES, register_model, register_source
+from drytorch.core import exceptions
+from drytorch.core.registering import (
+    ALL_MODULES,
+    register_model,
+    register_source)
+from tests.units.core.conftest import mock_experiment
+
+
+@pytest.fixture(autouse=True, scope='module')
+def setup_module(session_mocker, tmpdir_factory, mock_experiment) -> None:
+    """Fixture for a mock experiment."""
+    session_mocker.patch('drytorch.Experiment.current',
+                         return_value=mock_experiment)
+    return
 
 
 class _SimpleCaller:
@@ -13,18 +25,17 @@ class _SimpleCaller:
 def test_record_model_call(mock_experiment, mock_model) -> None:
     """Test a successful record model call."""
     caller = _SimpleCaller()
-    manager = mock_experiment.metadata_manager
+    manager = mock_experiment._metadata_manager
     # Monkey patch model registration
     ALL_MODULES[mock_model.module] = mock_experiment
     register_source(caller, mock_model)
 
-    manager.register_source.assert_called_once_with(caller,
-                                                      mock_model)
+    manager.register_source.assert_called_once_with(caller, mock_model)
 
 
 def test_register_model(mock_experiment, mock_model) -> None:
     """Test successful model registration."""
-    manager = mock_experiment.metadata_manager
+    manager = mock_experiment._metadata_manager
     register_model(mock_model)
 
     manager.register_model.assert_called_once_with(mock_model)

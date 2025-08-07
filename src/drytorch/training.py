@@ -8,8 +8,9 @@ import torch
 
 from typing_extensions import override
 
-from drytorch import evaluating, exceptions, hooks, log_events, models, running
-from drytorch import protocols as p
+from drytorch import evaluating, hooks, models, running
+
+from drytorch.core import exceptions, log_events, protocols as p
 
 
 _Input = TypeVar('_Input', bound=p.InputType)

@@ -8,7 +8,7 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch import log_events
+from drytorch.core import log_events
 
 
 @pytest.fixture(scope='package', autouse=True)
@@ -19,18 +19,21 @@ def allow_event_creation_outside_scope() -> None:
 
 
 @pytest.fixture()
-def start_experiment_event(tmp_path,
-                           example_exp_name,
-                           example_exp_ts,
-                           example_config) -> log_events.StartExperimentEvent:
+def start_experiment_event(
+        tmp_path,
+        example_exp_name,
+        example_config,
+        example_run_ts,
+        example_run_id,
+) -> log_events.StartExperimentEvent:
     """Provides a StartExperiment event instance."""
-
-    # variation name and tags are not tested in integration
     return log_events.StartExperimentEvent(
-        exp_name=example_exp_name,
-        exp_dir=pathlib.Path(tmp_path) / example_exp_name,
-        exp_ts=example_exp_ts,
         config=example_config,
+        exp_name=example_exp_name,
+        run_ts=example_run_ts,
+        run_id=example_run_id,
+        par_dir=pathlib.Path(tmp_path),
+        tags=['my_tag'],
     )
 
 
@@ -41,9 +44,10 @@ def stop_experiment_event(example_exp_name) -> log_events.StopExperimentEvent:
 
 
 @pytest.fixture
-def model_creation_event(example_model_name,
-                         example_metadata) -> log_events.ModelRegistrationEvent:
-    """Provides a ModelCreation event instance."""
+def model_registration_event(
+        example_model_name, example_metadata
+) -> log_events.ModelRegistrationEvent:
+    """Provides a ModelRegistration event instance."""
     return log_events.ModelRegistrationEvent(
         model_name=example_model_name,
         model_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
@@ -52,10 +56,10 @@ def model_creation_event(example_model_name,
 
 
 @pytest.fixture
-def call_model_event(example_source_name,
-                     example_model_name,
-                     example_metadata) -> log_events.SourceRegistrationEvent:
-    """Provides a CallModel event instance."""
+def source_registration_event(
+        example_source_name, example_model_name, example_metadata
+) -> log_events.SourceRegistrationEvent:
+    """Provides a SourceRegistration event instance."""
     return log_events.SourceRegistrationEvent(
         source_name=example_source_name,
         source_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
@@ -66,7 +70,8 @@ def call_model_event(example_source_name,
 
 
 @pytest.fixture
-def save_model_event(example_model_name, example_epoch) -> log_events.SaveModelEvent:
+def save_model_event(example_model_name,
+                     example_epoch) -> log_events.SaveModelEvent:
     """Provides a SaveModel event instance."""
     return log_events.SaveModelEvent(
         model_name=example_model_name,
@@ -77,7 +82,8 @@ def save_model_event(example_model_name, example_epoch) -> log_events.SaveModelE
 
 
 @pytest.fixture
-def load_model_event(example_model_name, example_epoch) -> log_events.LoadModelEvent:
+def load_model_event(example_model_name,
+                     example_epoch) -> log_events.LoadModelEvent:
     """Provides a LoadModel event instance."""
     return log_events.LoadModelEvent(
         model_name=example_model_name,
@@ -106,9 +112,9 @@ def start_epoch_event(example_source_name,
                       example_epoch) -> log_events.StartEpochEvent:
     """Provides a StartEpoch event instance."""
     return log_events.StartEpochEvent(source_name=example_source_name,
-                                 model_name=example_model_name,
-                                 epoch=example_epoch,
-                                 end_epoch=example_epoch + 3)
+                                      model_name=example_model_name,
+                                      epoch=example_epoch,
+                                      end_epoch=example_epoch + 3)
 
 
 @pytest.fixture
@@ -117,8 +123,8 @@ def end_epoch_event(example_source_name,
                     example_epoch) -> log_events.EndEpochEvent:
     """Provides an EndEpoch event instance."""
     return log_events.EndEpochEvent(source_name=example_source_name,
-                               model_name=example_model_name,
-                               epoch=example_epoch)
+                                    model_name=example_model_name,
+                                    epoch=example_epoch)
 
 
 @pytest.fixture
@@ -159,7 +165,7 @@ def start_test_event(example_source_name,
                      example_model_name) -> log_events.StartTestEvent:
     """Provides a Test event instance."""
     return log_events.StartTestEvent(source_name=example_source_name,
-                                model_name=example_model_name)
+                                     model_name=example_model_name)
 
 
 @pytest.fixture
@@ -167,7 +173,7 @@ def end_test_event(example_source_name,
                    example_model_name) -> log_events.EndTestEvent:
     """Provides a Test event instance."""
     return log_events.EndTestEvent(source_name=example_source_name,
-                              model_name=example_model_name)
+                                   model_name=example_model_name)
 
 
 @pytest.fixture

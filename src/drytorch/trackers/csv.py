@@ -6,7 +6,7 @@ import pathlib
 
 from typing_extensions import override
 
-from drytorch import exceptions, log_events
+from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
@@ -22,51 +22,31 @@ class DryTorchDialect(csv.Dialect):
 
 
 class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
-    """Dump metrics into a CSV file.
-
-    Class Attributes:
-        folder_name: name of the folder containing the output.
-
-    Attributes:
-        resume_run: load previous session having the same directory.
-    """
+    """Dump metrics into a CSV file."""
 
     folder_name = 'csv_metrics'
     _default_dialect = DryTorchDialect()
 
     def __init__(
-        self,
-        par_dir: pathlib.Path | None = None,
-        dialect: csv.Dialect = _default_dialect,
-        resume_run: bool = False,
+            self,
+            par_dir: pathlib.Path | None = None,
+            dialect: csv.Dialect = _default_dialect,
     ) -> None:
         """Constructor.
 
         Args:
-            par_dir: the directory where to dump metadata. Defaults to the
-                one for the current experiment.
+            par_dir: the parent directory for the tracker data. Default uses
+                the same of the current experiment.
             dialect: the format specification. Defaults to local dialect.
-            resume_run: load the previous session having the same directory.
         """
         super().__init__(par_dir)
-        self.resume_run = resume_run
         self._active_sources = set[str]()
         self._dialect = dialect
         self._exp_dir: pathlib.Path | None = None
         self._base_headers = ('Model', 'Source', 'Epoch')
-
-    def file_name(self, model_name: str, source_name: str) -> pathlib.Path:
-        """Return the path to the csv file.
-
-        Args:
-            model_name: the name of the model.
-            source_name: the source of the metrics.
-
-        Returns:
-            The path to the csv file.
-        """
-        path = self._get_folder_path(model_name)
-        return (path / source_name).with_suffix('.csv')
+        self._resume_run = False
+        self._run_id: str | None = None
+        return
 
     @functools.singledispatchmethod
     @override
@@ -74,12 +54,28 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
+    def _(self, event: log_events.StartExperimentEvent) -> None:
+        self._resume_run = event.resume_last_run
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.StopExperimentEvent) -> None:
+        self.clean_up()
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
-        file_address = self.file_name(event.model_name, event.source_name)
+        if self._resume_run:
+            run_dir = self._get_last_run_dir()
+        else:
+            run_dir = self._get_run_dir()
+        file_address = self._file_path(run_dir,
+                                       event.model_name,
+                                       event.source_name)
         metric_names = tuple(event.metrics)
         headers = self._base_headers + metric_names
         if event.source_name not in self._active_sources:
-            if self.resume_run:
+            if self._resume_run and file_address.exists():
                 with file_address.open() as log:
                     reader = csv.reader(log, dialect=self._dialect)
                     previous_headers = tuple(next(reader))
@@ -109,10 +105,10 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         return super().notify(event)
 
     def read_csv(
-        self,
-        model_name: str,
-        source: str,
-        max_epoch: int = -1,
+            self,
+            model_name: str,
+            source: str,
+            max_epoch: int = -1,
     ) -> base_classes.HistoryMetrics:
         """Read the CSV file associated with the given model and source.
 
@@ -124,7 +120,9 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         Returns:
             Epochs and relative value for each metric.
         """
-        file_address = self.file_name(model_name, source)
+        run_dir = self._get_run_dir()
+        file_address = self._file_path(run_dir, model_name, source)
+
         with file_address.open() as log:
             reader = csv.reader(log, dialect=self._dialect)
             headers = next(reader)
@@ -144,33 +142,43 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
                 epochs.append(epoch)
                 for metric, value in zip(
-                    metric_names, row[len_base:], strict=True
+                        metric_names, row[len_base:], strict=True
                 ):
                     value_list = named_metric_values.setdefault(metric, [])
                     value_list.append(float(value))
 
             return epochs, named_metric_values
 
-    def _get_folder_path(self, model_name: str) -> pathlib.Path:
-        path = self.par_dir / model_name / self.folder_name
-        path.mkdir(exist_ok=True, parents=True)
-        return path
+    @override
+    def clean_up(self) -> None:
+        self._resume_run = False
+        return super().clean_up()
 
     def _find_sources(self, model_name: str) -> set[str]:
-        path = self._get_folder_path(model_name)
+        path = self._get_run_dir() / model_name
         named_sources = {file.stem for file in path.glob('*.csv')}
         if not named_sources:
-            msg = f'No sources for model {model_name}.'
+            msg = f'No sources in {path}.'
             raise exceptions.TrackerError(self, msg)
 
         return named_sources
 
+    @staticmethod
+    def _file_path(
+            run_dir: pathlib.Path,
+            model_name: str,
+            source_name: str,
+    ) -> pathlib.Path:
+        model_path = run_dir / model_name
+        model_path.mkdir(exist_ok=True)
+        return model_path / f'{source_name}.csv'
+
     def _load_metrics(
-        self, model_name: str, max_epoch: int = -1
+            self, model_name: str, max_epoch: int = -1
     ) -> base_classes.SourcedMetrics:
         out: base_classes.SourcedMetrics = {}
 
-        if self.resume_run:
+        if self._resume_run:
             sources = self._find_sources(model_name)
         elif self._active_sources:
             sources = self._active_sources

@@ -12,7 +12,7 @@ import tqdm
 
 from typing_extensions import override
 
-from drytorch import log_events, tracking
+from drytorch.core import log_events, tracking
 
 
 if TYPE_CHECKING:

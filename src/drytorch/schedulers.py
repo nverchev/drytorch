@@ -11,7 +11,7 @@ import numpy as np
 
 from typing_extensions import override
 
-from drytorch import protocols as p
+from drytorch.core import protocols as p
 
 
 class AbstractScheduler(p.SchedulerProtocol):

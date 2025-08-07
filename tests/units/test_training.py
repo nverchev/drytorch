@@ -4,7 +4,16 @@ import torch
 
 import pytest
 
-from drytorch import Trainer, exceptions
+from drytorch.core import exceptions
+from drytorch import Trainer
+
+
+@pytest.fixture(autouse=True)
+def setup_module(session_mocker) -> None:
+    """Fixture for a mock experiment."""
+    # Patch at the point where register_source is called
+    session_mocker.patch('drytorch.core.registering.register_source')
+    return
 
 
 class TestTrainer:
@@ -17,31 +26,31 @@ class TestTrainer:
             'drytorch.models.ModelOptimizer'
         )
         self.start_training_event = mocker.patch(
-            'drytorch.log_events.StartTrainingEvent'
+            'drytorch.core.log_events.StartTrainingEvent'
         )
         self.end_training_event = mocker.patch(
-            'drytorch.log_events.EndTrainingEvent'
+            'drytorch.core.log_events.EndTrainingEvent'
         )
         self.start_epoch_event = mocker.patch(
-            'drytorch.log_events.StartEpochEvent'
+            'drytorch.core.log_events.StartEpochEvent'
         )
         self.end_epoch_event = mocker.patch(
-            'drytorch.log_events.EndEpochEvent'
+            'drytorch.core.log_events.EndEpochEvent'
         )
         self.iterate_event = mocker.patch(
-            'drytorch.log_events.IterateBatchEvent'
+            'drytorch.core.log_events.IterateBatchEvent'
         )
         self.metrics_event = mocker.patch(
-            'drytorch.log_events.MetricEvent'
+            'drytorch.core.log_events.MetricEvent'
         )
         self.terminated_event = mocker.patch(
-            'drytorch.log_events.TerminatedTrainingEvent'
+            'drytorch.core.log_events.TerminatedTrainingEvent'
         )
         return
 
     @pytest.fixture()
     def trainer(
-        self, mock_model, mock_learning_scheme, mock_loss, mock_loader
+            self, mock_model, mock_learning_scheme, mock_loss, mock_loader
     ) -> Trainer:
         """Set up a Trainer instance with mock components."""
         return Trainer(
@@ -86,6 +95,7 @@ class TestTrainer:
     def test_hook_execution_order(self, mocker, trainer) -> None:
         """Test that hooks are executed in the correct order."""
         # Mock the hooks to track their order of execution
+        mocker.patch('drytorch.running.registering.register_source')
         pre_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         post_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         trainer.pre_epoch_hooks.register_all(pre_hook_list)

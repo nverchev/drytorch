@@ -8,7 +8,7 @@ import pathlib
 from collections.abc import Callable, Mapping
 from typing import Any, ClassVar
 
-from drytorch import exceptions
+from drytorch.core import exceptions
 
 
 @dataclasses.dataclass
@@ -21,7 +21,7 @@ class Event:
         """Publish the event on creation."""
         if Event._auto_publish is None:
             raise exceptions.AccessOutsideScopeError()
-        Event._auto_publish(self) # pylint: disable=not-callable
+        Event._auto_publish(self)  # pylint: disable=not-callable
         return
 
     @staticmethod
@@ -36,19 +36,21 @@ class StartExperimentEvent(Event):
     """Event logged when an experiment starts.
 
     Attributes:
-        exp_name: the name of the experiment.
-        exp_ts: experiment timestamp.
-        exp_dir: the directory where the experiment is stored.
         config: configuration for the experiment.
-        variation: variation of the experiment.
+        exp_name: the name of the experiment.
+        run_ts: run's timestamp.
+        run_id: identifier of the run.
+        par_dir: the parent directory for the experiment.
+        resume_last_run: resume the previous run, else start a new one.
         tags: descriptors for the experiment's variation (e.g., "lr=0.01").
     """
 
+    config: Any
     exp_name: str
-    exp_ts: str
-    exp_dir: pathlib.Path
-    config: Any = None
-    variation: str | None = None
+    run_ts: str
+    run_id: str
+    par_dir: pathlib.Path = pathlib.Path()
+    resume_last_run: bool = False
     tags: list[str] = dataclasses.field(default_factory=list)
 
 

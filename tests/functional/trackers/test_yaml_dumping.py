@@ -2,7 +2,6 @@
 
 import pytest
 
-
 try:
     import yaml
 except ImportError:
@@ -20,54 +19,35 @@ class TestSQLConnectionFullCycle:
         """Set up the instance."""
         return YamlDumper()
 
-    @pytest.fixture(autouse=True)
-    def full_cycle(self, tracker, event_workflow) -> None:
-        """Run an example session."""
-        for event in event_workflow:
-            tracker.notify(event)
-        return
-
     def test_model_metadata(self,
+                            tracker,
                             start_experiment_event,
-                            model_creation_event,
+                            model_registration_event,
                             example_metadata):
         """Test correct dumping of metadata from the model."""
-        par_dir = start_experiment_event.exp_dir
-        model_name = model_creation_event.model_name
-        model_version = model_creation_event.model_ts
-        metadata_path = par_dir / model_name / YamlDumper.metadata_folder
+        tracker.notify(start_experiment_event)
+        model_name = model_registration_event.model_name
+        metadata_path = tracker._get_run_dir() / model_name
         address = metadata_path / model_name
+        tracker.notify(model_registration_event)
         with address.with_suffix('.yaml').open() as file:
-            metadata = yaml.safe_load(file)
-
-        assert metadata == example_metadata
-
-        archive_folder = metadata_path / YamlDumper.archive_folder / model_name
-        archive_address = archive_folder / model_version
-        with archive_address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 
         assert metadata == example_metadata
 
     def test_caller_metadata(self,
+                             tracker,
                              start_experiment_event,
-                             call_model_event,
+                             source_registration_event,
                              example_metadata):
         """Test correct dumping of metadata from the caller."""
-        par_dir = start_experiment_event.exp_dir
-        model_name = call_model_event.model_name
-        file_name = call_model_event.source_name
-        source_version = call_model_event.source_ts
-        metadata_path = par_dir / model_name / YamlDumper.metadata_folder
-        address = metadata_path / file_name
+        tracker.notify(start_experiment_event)
+        model_name = source_registration_event.model_name
+        source_name = source_registration_event.source_name
+        metadata_path = tracker._get_run_dir() / model_name
+        address = metadata_path / source_name
+        tracker.notify(source_registration_event)
         with address.with_suffix('.yaml').open() as file:
-            metadata = yaml.safe_load(file)
-
-        assert metadata == example_metadata
-
-        archive_folder = metadata_path / YamlDumper.archive_folder / file_name
-        archive_address = archive_folder / source_version
-        with archive_address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 
         assert metadata == example_metadata

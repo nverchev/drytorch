@@ -12,7 +12,7 @@ import time
 
 from collections.abc import Generator
 
-from drytorch import exceptions
+from drytorch.core import exceptions
 from drytorch.trackers.tensorboard import TensorBoard
 
 
@@ -33,11 +33,6 @@ class TestTensorBoard:
     def tracker(self, tmp_path) -> TensorBoard:
         """Set up the instance."""
         return TensorBoard(par_dir=tmp_path, open_browser=True)
-
-    @pytest.fixture
-    def tracker_with_resume(self, tmp_path) -> TensorBoard:
-        """Set up the instance with resume."""
-        return TensorBoard(resume_run=True, open_browser=True)
 
     @pytest.fixture
     def tracker_started(
@@ -63,22 +58,15 @@ class TestTensorBoard:
             tracker,
             start_experiment_mock_event,
             stop_experiment_mock_event,
-            example_variation,
+            example_run_id,
     ) -> None:
         """Test experiment notifications."""
         start_experiment_mock_event.config = {'simple_config': 3}
         tracker.notify(start_experiment_mock_event)
-        if example_variation:
-            par_dir = tracker.par_dir.parent
-        else:
-            par_dir = tracker.par_dir
-
-        tensorboard_runs_path = par_dir / TensorBoard.folder_name
-
         # log_dir should be a subdirectory of tensorboard_runs_path
         called_args = self.summary_writer_mock.call_args[1]
         called_log_dir = pathlib.Path(called_args['log_dir'])
-        assert called_log_dir.parent == tensorboard_runs_path
+        assert called_log_dir == tracker._get_run_dir()
 
         writer = tracker.writer
         tracker.notify(stop_experiment_mock_event)
@@ -89,37 +77,24 @@ class TestTensorBoard:
             self,
             mocker,
             tmp_path,
-            tracker_with_resume,
-            example_variation,
+            tracker,
             start_experiment_mock_event,
             stop_experiment_mock_event,
     ) -> None:
         """Test resume previous run."""
         start_experiment_mock_event.config = {'simple_config': 3}
-        last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
+        start_experiment_mock_event.resume_last_run = True
+        last_run = mocker.patch.object(tracker, '_get_last_run_dir')
         last_run.return_value = tmp_path
 
-        tracker_with_resume.notify(start_experiment_mock_event)
+        tracker.notify(start_experiment_mock_event)
 
         called_args = self.summary_writer_mock.call_args[1]
         called_log_dir = pathlib.Path(called_args['log_dir'])
         assert called_log_dir == tmp_path
 
         self.summary_writer_mock.reset_mock()
-        tracker_with_resume.notify(stop_experiment_mock_event)
-
-        # no previous run -> should create a subfolder under exp_dir/folder_name
-        last_run.return_value = None
-        tracker_with_resume.notify(start_experiment_mock_event)
-
-        par_dir = start_experiment_mock_event.exp_dir
-        expected_parent = par_dir / TensorBoard.folder_name
-        called_args = self.summary_writer_mock.call_args[1]
-        called_log_dir = pathlib.Path(called_args['log_dir'])
-
-        # assert it's a new subdirectory under the expected base directory
-
-        assert called_log_dir.parent == expected_parent
+        tracker.notify(stop_experiment_mock_event)
 
     def test_notify_metrics(self,
                             tracker_started,
@@ -135,18 +110,6 @@ class TestTensorBoard:
         """Test no logging occurs before experiment start."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
             tracker.notify(epoch_metrics_mock_event)
-
-    def test_get_last_run(self, tmp_path) -> None:
-        """Test last created folder is selected."""
-        with pytest.warns(exceptions.DryTorchWarning):
-            TensorBoard._get_last_run(tmp_path)
-        for i in range(3, 0, -1):
-            folder_name = str(i)
-            path = tmp_path / folder_name
-            path.mkdir()
-            time.sleep(0.01)
-
-        assert TensorBoard._get_last_run(tmp_path) == tmp_path / '1'
 
     def test_tensorboard_launch_fails_on_port_conflict(self, mocker, tmp_path):
         """Test error is raised if no free ports are available."""

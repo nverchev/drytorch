@@ -63,7 +63,7 @@ def test_hook_repr():
             {
                 'class': 'EarlyStoppingCallback',
                 'monitor': {
-                    'filter':
+                    'filter_fn':
                         'moving_average(decay=0.8, mass_coverage=0.99)',
                     'best_is': 'auto',
                     'class': 'MetricMonitor',

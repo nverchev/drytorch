@@ -8,7 +8,7 @@ import pytest
 import drytorch
 
 from drytorch import FailedOptionalImportWarning
-from drytorch.tracking import DEFAULT_TRACKERS
+from drytorch.core.tracking import DEFAULT_TRACKERS
 
 
 def test_standard_trackers():

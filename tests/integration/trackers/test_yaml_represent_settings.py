@@ -8,6 +8,7 @@ try:
     from hypothesis.strategies import characters, text
 except ImportError:
     pytest.skip('hypothesis not available', allow_module_level=True)
+    raise
 
 try:
     import yaml
@@ -70,21 +71,21 @@ def test_represent_omitted():
 
 
 def test_represent_unknown_omitted():
-    """Test correct representation of an unknown amount of omitted values."""
+    """Test correct representation of an unknown number of omitted values."""
     omitted = repr_utils.Omitted()
     yaml_string = yaml.dump(omitted, Dumper=yaml.Dumper)
     assert yaml_string == '!Omitted\nomitted_elements: .nan\n'
 
 
 def test_represent_list_with_omitted():
-    """Test correct representation of omitted values inside a list."""
+    """Test the correct representation of omitted values inside a list."""
     yaml_string = yaml.dump([2, repr_utils.Omitted(5), 3])
     assert yaml_string == "[2, !Omitted {omitted_elements: 5}, 3]\n"
 
 
 @given(text(characters(codec='ascii', exclude_categories=['Cc', 'Cs'])))
 def test_literal_str_yaml_representation(string):
-    """Test LiteralStr is represented wiht the pipe style."""
+    """Test LiteralStr is represented with the pipe style."""
     # pipe style incompatible with trailing spaces or empty strings
     stripped = string.strip()
     assume(stripped)

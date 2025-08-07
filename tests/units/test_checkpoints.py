@@ -1,12 +1,28 @@
 """Tests for the "checkpoint" module."""
 
+import pathlib
 import time
 
 import torch
 
 import pytest
 
-from drytorch import checkpointing, exceptions, log_events
+from drytorch import checkpoints
+
+from drytorch.core.experiments import Experiment
+
+from drytorch.core import exceptions, log_events
+
+
+@pytest.fixture(autouse=True, scope='module')
+def setup_module(session_mocker, tmpdir_factory) -> None:
+    """Fixture for a mock experiment."""
+    mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
+    mock_experiment.name = 'mock_experiment'
+    mock_experiment.par_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
+    session_mocker.patch(
+        'drytorch.Experiment.current', return_value=mock_experiment
+    )
 
 
 class TestPathManager:
@@ -15,20 +31,20 @@ class TestPathManager:
     @pytest.fixture()
     def manager(self,
                 mock_model,
-                tmp_path) -> checkpointing.CheckpointPathManager:
+                tmp_path) -> checkpoints.CheckpointPathManager:
         """Set up the path manager."""
-        return checkpointing.CheckpointPathManager(mock_model, tmp_path)
+        return checkpoints.CheckpointPathManager(mock_model, tmp_path)
 
     def test_dirs_creation(self, manager, mock_model):
         """Test that the directories are created when called."""
-        checkpoint_dir = manager._root_dir / mock_model.name / 'checkpoints'
-        epoch_dir = checkpoint_dir / f'epoch_{mock_model.epoch}'
-        expected_dirs = [checkpoint_dir, epoch_dir]
+        model_dir = manager._root_dir / mock_model.name
+        epoch_dir = model_dir / f'epoch_{mock_model.epoch}'
+        expected_dirs = [model_dir, epoch_dir]
 
         for expected_dir in expected_dirs:
             assert not expected_dir.exists()
 
-        dirs = [manager.checkpoint_dir, manager.epoch_dir]
+        dirs = [manager.model_dir, manager.epoch_dir]
 
         for dir_, expected_dir in zip(dirs, expected_dirs, strict=False):
             assert dir_ == expected_dir
@@ -63,9 +79,9 @@ class TestLocalCheckpoint:
     @pytest.fixture()
     def checkpoint(self,
                    mock_model,
-                   optimizer) -> checkpointing.LocalCheckpoint:
+                   optimizer) -> checkpoints.LocalCheckpoint:
         """Set up the checkpoint."""
-        checkpoint = checkpointing.LocalCheckpoint()
+        checkpoint = checkpoints.LocalCheckpoint()
         checkpoint.register_model(mock_model)
         checkpoint.register_optimizer(optimizer)
         return checkpoint

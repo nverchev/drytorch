@@ -4,7 +4,7 @@ from typing_extensions import override
 
 import pytest
 
-from drytorch import exceptions
+from drytorch.core import exceptions
 from drytorch.running import (
     ModelCaller,
     ModelRunner,
@@ -12,6 +12,13 @@ from drytorch.running import (
     ModelRunnerWithObjective,
     Source,
 )
+
+
+@pytest.fixture(autouse=True, scope='module')
+def setup_module(session_mocker) -> None:
+    """Fixture for a mock experiment."""
+    session_mocker.patch('drytorch.core.registering.register_source')
+    return
 
 
 class SimpleCaller(ModelCaller):
@@ -56,7 +63,7 @@ class TestSource:
     def setup(self, mocker) -> None:
         """Set up the tests."""
         self.mock_register_source = mocker.patch(
-            'drytorch.registering.register_source'
+            'drytorch.core.registering.register_source'
         )
         return
 
@@ -72,7 +79,7 @@ class TestSource:
         source()
         assert source._registered is True
         self.mock_register_source.assert_called_once_with(source,
-                                                            source.model)
+                                                          source.model)
 
         # the second call should not register again
         self.mock_register_source.reset_mock()
@@ -96,10 +103,11 @@ class TestModelRunner:
         self.mock_apply_to = mocker.patch('drytorch.utils.apply_ops.apply_to')
         self.mock_apply_to.side_effect = lambda x, device: x
         self.mock_iterate_batch = mocker.patch(
-            'drytorch.log_events.IterateBatchEvent'
+            'drytorch.core.log_events.IterateBatchEvent'
         )
-        self.mock_repr_metrics = mocker.patch('drytorch.metrics.repr_metrics',
-                                              return_value={'loss': 0.1})
+        self.mock_repr_metrics = mocker.patch(
+            'drytorch.objectives.repr_metrics', return_value={'loss': 0.1}
+        )
         return
 
     @pytest.fixture
@@ -227,8 +235,9 @@ class TestModelRunnerWithObjective:
         mocker.patch('drytorch.running.ModelRunner.__init__')
         mocker.patch('drytorch.running.ModelRunner._run_epoch')
         mocker.patch('drytorch.running.ModelRunner._run_backward')
-        self.mock_repr_metrics = mocker.patch('drytorch.metrics.repr_metrics',
-                                              return_value={'loss': 0.1})
+        self.mock_repr_metrics = mocker.patch(
+            'drytorch.objectives.repr_metrics', return_value={'loss': 0.1
+        })
         return
 
     @pytest.fixture
@@ -271,7 +280,7 @@ class TestModelRunnerWithLogs:
         mocker.patch('drytorch.running.ModelRunnerWithObjective._get_metrics',
                      return_value=example_named_metrics)
         self.mock_log_events_metrics = mocker.patch(
-            'drytorch.log_events.MetricEvent'
+            'drytorch.core.log_events.MetricEvent'
         )
         return
 
