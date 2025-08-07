@@ -34,7 +34,7 @@ class TestWandbFullCycle:
             stop_experiment_event,
     ) -> Generator[Wandb, None, None]:
         """Set up a resumed instance."""
-        tracker = Wandb(settings=self.settings, resume_run=True)
+        tracker = Wandb(settings=self.settings)
         tracker.notify(start_experiment_event)
         yield tracker
 
@@ -43,13 +43,8 @@ class TestWandbFullCycle:
 
     def test_folder_creation(self, tmp_path, example_exp_name):
         """Test that wandb creates local files and directories."""
-        created_items = list((tmp_path / example_exp_name).iterdir())
-        assert created_items  # Should not be empty
-
-        # Check for wandb directory structure
-        wandb_dirs = [item for item in created_items if
-                      item.name.startswith('wandb')]
-        assert wandb_dirs
+        created_items = list((tmp_path / Wandb.folder_name).iterdir())
+        assert created_items
 
     @pytest.mark.skip(reason='wandb does not support resuming offline runs')
     def test_resume_functionality(self,

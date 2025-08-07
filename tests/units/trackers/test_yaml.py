@@ -43,35 +43,21 @@ class TestYamlDumper:
 
     def test_class_attributes(self) -> None:
         """Test class attributes' existence."""
-        assert isinstance(YamlDumper.metadata_folder, str)
+        assert isinstance(YamlDumper.folder_name, str)
         assert isinstance(YamlDumper.archive_folder, str)
 
-    def test_notify_model_creation(self,
-                                   tracker_started,
-                                   model_creation_mock_event) -> None:
-        """Test notification of model creation event."""
-        tracker_started.notify(model_creation_mock_event)
+    def test_notify_model_registration(self,
+                                       tracker_started,
+                                       model_registration_mock_event) -> None:
+        """Test notification of a model registration event."""
+        tracker_started.notify(model_registration_mock_event)
         # metadata dumped in the metadata folder and in the archive folder
-        assert self.mock_dump.call_count == 2
+        self.mock_dump.assert_called_once()
 
-    def test_notify_call_model(self,
-                               tracker_started,
-                               call_model_mock_event) -> None:
-        """Test notification of call model event."""
-        tracker_started.notify(call_model_mock_event)
+    def test_notify_source_registration(self,
+                                        tracker_started,
+                                        source_registration_mock_event) -> None:
+        """Test notification of a source registration event."""
+        tracker_started.notify(source_registration_mock_event)
         # metadata dumped in the metadata folder and in the archive folder
-        assert self.mock_dump.call_count == 2
-
-    def test_version_method_creates_directories(self,
-                                                tracker,
-                                                tmp_path) -> None:
-        """Test _version method creates the correct directory structure."""
-        metadata = {'key': 'value'}
-        sub_folder = 'test_model'
-        file_name = 'model_file'
-        file_version = 'v1.0'
-        tracker._version(metadata, sub_folder, file_name, file_version)
-        metadata_path = tmp_path / sub_folder / YamlDumper.metadata_folder
-        archived_path = metadata_path / YamlDumper.archive_folder
-        assert metadata_path.exists()
-        assert archived_path.exists()
+        self.mock_dump.assert_called_once()

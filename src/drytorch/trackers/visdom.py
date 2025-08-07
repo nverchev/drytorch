@@ -11,7 +11,7 @@ import visdom
 
 from typing_extensions import override
 
-from drytorch import exceptions, log_events
+from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
@@ -130,9 +130,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-        env = event.exp_name
-        if event.variation:
-            env += "_" + event.variation
+        env = event.exp_name + '_' + event.run_id
         try:
             self._viz = visdom.Visdom(server=self.server,
                                       port=self.port,

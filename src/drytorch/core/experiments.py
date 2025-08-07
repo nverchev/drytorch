@@ -1,14 +1,13 @@
-"""Module containing the experiment and support classes."""
+"""Module containing the experiment class."""
 
 from __future__ import annotations
 
-import abc
 import pathlib
 
 from types import TracebackType
-from typing import Any, Generic, Self, TypeVar
+from typing import Generic, Self, TypeVar, Final
 
-from drytorch import exceptions, log_events, tracking
+from drytorch.core import exceptions, log_events, tracking
 from drytorch.utils import repr_utils
 
 _T_co = TypeVar('_T_co', covariant=True)
@@ -16,16 +15,18 @@ _U_co = TypeVar('_U_co', covariant=True)
 
 
 class Experiment(repr_utils.Versioned, Generic[_T_co]):
-    """Manage experiment metadata, configuration, and tracking.
+    """Manage experiment configuration, metadata, and tracking.
+
+    This class links code related to a machine learning experiment to a
+    configuration object. Specifically:
+        - it makes the configuration globally accessible
+        - prevents conflicts between experiments
+        - it standardizes the settings across external trackers
 
     Attributes:
-        dir: the directory for storing experiment files.
-        config: configuration object for the experiment.
-        variation: variation of the experiment.
-        tags: descriptors for the experiment's variation.
-        metadata_manager: manager for recording metadata.
+        par_dir: parent directory for experiment data.
+        tags: descriptors for the experiment's branch.
         trackers: dispatcher for publishing events.
-
     """
 
     _current: Experiment | None = None
@@ -34,36 +35,36 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
     def __init__(
             self,
             config: _T_co,
+            *,
             name: str = '',
             par_dir: str | pathlib.Path = pathlib.Path(),
-            variation: str | None = None,
+            run_id: str | None = None,
+            resume_last_run: bool = False,
             tags: list[str] | None = None,
     ) -> None:
         """Constructor.
 
-        The experiment folder is determined by the parent directory, the name,
-        and the variant, if present, which are converted to string. The
-        path is of the form: par_dir/name(/variant).
-
         Args:
             name: the name of the experiment. Defaults to class name.
             par_dir: parent directory for experiment data.
+            run_id: identifier of the run, else a timestamp is used.
             config: configuration for the experiment.
-            variation: variation of the experiment.
-        tags: descriptors for the experiment's variation (e.g., "lr=0.01").
+            resume_last_run: if run_id is not set, resume the previous run.
+            tags: descriptors for the experiment's branch (e.g., "lr=0.01").
         """
         super().__init__()
-        self._validate_name(name)
+        self.__config: Final[_T_co] = config
         self._name = name
-        self.dir = pathlib.Path(par_dir) / self.name
-        self.config = config
-        self.variation = variation
-        if self.variation is not None:
-            self.dir /= self.variation
+        self.par_dir = pathlib.Path(par_dir)
+        self.run_id: str = run_id or self.created_at
+        self._resume_last_run = resume_last_run
         self.tags = tags or []
-        self.metadata_manager = tracking.MetadataManager()
         self.trackers = tracking.EventDispatcher(self.name)
         self.trackers.register(**tracking.DEFAULT_TRACKERS)
+        self._metadata_manager = tracking.MetadataManager()
+        self._validate_name(name)
+        self._validate_run_id(run_id, resume_last_run)
+        return
 
     def __enter__(self) -> Self:
         """Start the experiment scope."""
@@ -73,11 +74,13 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         Experiment._current = self
         log_events.Event.set_auto_publish(self.trackers.publish)
         log_events.StartExperimentEvent(
+            self.__config,
             self.name,
             self.created_at,
-            self.dir,
-            self.config,
-            self.variation,
+            self.run_id,
+            self.par_dir,
+            self._resume_last_run,
+            self.tags,
         )
         return self
 
@@ -127,7 +130,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         Returns:
             _T: configuration object of the current experiment.
         """
-        return cls.current().config
+        return cls.current().__config
 
     @classmethod
     def _check_if_active(cls) -> bool:
@@ -142,57 +145,11 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
 
         return
 
+    @staticmethod
+    def _validate_run_id(run_id: str | None, resume_last_run: bool) -> None:
+        if run_id is not None and resume_last_run:
+            raise ValueError(
+                'Cannot resume last run when a run_id is provided.'
+            )
 
-class SpecsMixin(Generic[_U_co], metaclass=abc.ABCMeta):
-    """Generic mixin for adding specifications to experiments.
-
-    This class is useful when dividing an experiment in smaller units
-    that have different similar internal configurations (here called
-    specifications). This mixin creates sub-experiments that specify
-    which internal configuration to use, avoiding code duplication.
-    """
-    metadata_manager: tracking.MetadataManager
-    trackers: tracking.EventDispatcher
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Constructor.
-
-        Args:
-            args: positional arguments to pass on.
-            kwargs: keyword arguments to pass on.
-        """
-        super().__init__(*args, **kwargs)
-        self.specs: _U_co | None = None
-
-    @classmethod
-    @abc.abstractmethod
-    def current(cls) -> Self:
-        """Method of the Experiment class."""
-
-    @classmethod
-    def get_specs(cls) -> _U_co:
-        """Get specs from the currently active experiment."""
-        exp = cls.current()
-        if exp.specs is None:
-            raise exceptions.NoSpecificationError()
-        return exp.specs
-
-    @classmethod
-    def from_experiment(
-            cls,
-            base_exp: Experiment[_T_co],
-            specs_name: str = '',
-            specs: _U_co | None = None,
-            variation: str | None = None
-    ) -> Self:
-        """Create an ExperimentWithSpecs from an existing experiment."""
-        instance = cls(
-            name=specs_name,
-            par_dir=base_exp.dir,
-            config=base_exp.config,
-            variation=variation,
-        )
-        instance.metadata_manager = base_exp.metadata_manager
-        instance.trackers = base_exp.trackers
-        instance.specs = specs
-        return instance
+        return

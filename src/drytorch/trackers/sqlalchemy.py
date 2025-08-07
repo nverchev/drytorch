@@ -13,7 +13,7 @@ import sqlalchemy
 from sqlalchemy import orm, sql
 from typing_extensions import override
 
-from drytorch import exceptions, log_events
+from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
@@ -28,6 +28,8 @@ class Run(orm.MappedAsDataclass, Base):
 
     Attributes:
         run_id: the unique id for the table.
+        run_name: global identifier for the run.
+        run_ts: the run's timestamp.
         experiments: the list of experiments in the same run
         sources: the list of sources from experiments
     """
@@ -38,6 +40,8 @@ class Run(orm.MappedAsDataclass, Base):
         primary_key=True,
         autoincrement=True,
     )
+    run_ts: orm.Mapped[str] = orm.mapped_column()
+    run_name: orm.Mapped[str] = orm.mapped_column(index=True)
     experiments: orm.Mapped[list[Experiment]] = orm.relationship(
         init=False,
         cascade='all, delete-orphan',
@@ -54,8 +58,6 @@ class Experiment(orm.MappedAsDataclass, Base):
     Attributes:
         experiment_id: the unique id for the table.
         experiment_name: the experiment's name.
-        experiment_variation: the experiment's variation.
-        experiment_ts: the experiment's timestamp.
         run_id: the id of the run for the experiment.
         run: the entry for the run for the experiment.
     """
@@ -67,8 +69,6 @@ class Experiment(orm.MappedAsDataclass, Base):
         autoincrement=True,
     )
     experiment_name: orm.Mapped[str] = orm.mapped_column(index=True)
-    experiment_variation: orm.Mapped[str] = orm.mapped_column(index=True)
-    experiment_ts: orm.Mapped[str] = orm.mapped_column()
     tags: orm.Mapped[list[Tags]] = orm.relationship(
         init=False,
         cascade='all, delete-orphan',
@@ -185,7 +185,6 @@ class SQLConnection(base_classes.MetricLoader):
     Attributes:
         engine: the sqlalchemy Engine for the connection.
         session_factory: the Session class to initiate a sqlalchemy session.
-        resume_run: resume the previous run instead of creating a new one.
     """
 
     default_url = sqlalchemy.URL.create('sqlite', database='metrics.db')
@@ -193,19 +192,16 @@ class SQLConnection(base_classes.MetricLoader):
     def __init__(
             self,
             engine: sqlalchemy.Engine | None = None,
-            resume_run: bool = False,
     ) -> None:
         """Constructor.
 
         Args:
             engine: the engine for the session. Default uses default_url.
-            resume_run: whether to resume the previous run.
         """
         super().__init__()
         self.engine = engine or sqlalchemy.create_engine(self.default_url)
         Base.metadata.create_all(bind=self.engine)
         self.session_factory = orm.sessionmaker(bind=self.engine)
-        self.resume_run = resume_run
         self._run: Run | None = None
         self._sources = dict[str, Source]()
         return
@@ -231,10 +227,9 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-        variation = event.variation or 'default'
         with self.session_factory() as session:
-            if self.resume_run:
-                run_or_none = self._get_last_run(event.exp_name, variation)
+            if event.resume_last_run:
+                run_or_none = self._get_last_run(event.exp_name)
                 if run_or_none is None:
                     msg = 'SQLConnection: No previous runs. Starting a new one.'
                     warnings.warn(msg, stacklevel=2)
@@ -242,12 +237,10 @@ class SQLConnection(base_classes.MetricLoader):
                 self._run = run_or_none
 
             if self._run is None:
-                self._run = Run()
+                self._run = Run(event.run_ts, event.run_id)
 
             experiment = Experiment(
                 experiment_name=event.exp_name,
-                experiment_ts=event.exp_ts,
-                experiment_variation=variation,
                 run=self.run,
             )
 
@@ -319,13 +312,13 @@ class SQLConnection(base_classes.MetricLoader):
 
             return named_sources
 
-    def _get_last_run(self, exp_name: str, variation: str) -> Run | None:
+    def _get_last_run(self, exp_name: str) -> Run | None:
         with self.session_factory() as session:
+            sqlalchemy.select(Run)
             query = (
                 sqlalchemy.select(Run)
                 .join(Experiment)
                 .where(Experiment.experiment_name.is_(exp_name))
-                .where(Experiment.experiment_variation.is_(variation))
                 .order_by(Run.run_id.desc())
                 .limit(1)
             )

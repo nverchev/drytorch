@@ -13,8 +13,7 @@ import warnings
 from abc import abstractmethod
 from typing import Any, Self
 
-from drytorch import exceptions, log_events
-from drytorch import protocols as p
+from drytorch.core import exceptions, log_events, protocols as p
 from drytorch.utils import repr_utils
 
 

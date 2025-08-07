@@ -12,10 +12,9 @@ from numpy import random
 from torch.utils import data
 from typing_extensions import override
 
-from drytorch import exceptions
-from drytorch import protocols as p
 from drytorch.utils import apply_ops
 
+from drytorch.core import exceptions, protocols as p
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[p.InputType, p.TargetType], covariant=True

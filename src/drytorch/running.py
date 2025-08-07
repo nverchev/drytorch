@@ -10,10 +10,10 @@ from typing import Generic, TypeVar
 
 from typing_extensions import override
 
-from drytorch import exceptions, loading, log_events, metrics, registering
-from drytorch import protocols as p
-from drytorch.utils import apply_ops, repr_utils
+from drytorch import loading, objectives
 
+from drytorch.core import exceptions, log_events, registering, protocols as p
+from drytorch.utils import apply_ops, repr_utils
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -30,7 +30,7 @@ class ModelCaller(Generic[_Input, _Output], metaclass=abc.ABCMeta):
     _name = repr_utils.DefaultName()
 
     def __init__(
-        self, model: p.ModelProtocol[_Input, _Output], name: str = ''
+            self, model: p.ModelProtocol[_Input, _Output], name: str = ''
     ) -> None:
         """Constructor.
 
@@ -97,11 +97,11 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
     max_stored_output: int = sys.maxsize
 
     def __init__(
-        self,
-        model: p.ModelProtocol[_Input, _Output],
-        name: str = '',
-        *,
-        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+            self,
+            model: p.ModelProtocol[_Input, _Output],
+            name: str = '',
+            *,
+            loader: p.LoaderProtocol[tuple[_Input, _Target]],
     ) -> None:
         """Constructor.
 
@@ -142,8 +142,8 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
         return
 
     def _run_batch(
-        self,
-        batch: tuple[_Input, _Target],
+            self,
+            batch: tuple[_Input, _Target],
     ) -> _Output:
         inputs, targets = batch
         outputs = self._run_forward(inputs)
@@ -169,8 +169,8 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
         try:
             outputs = apply_ops.apply_cpu_detach(outputs)
         except (
-            exceptions.FuncNotApplicableError,
-            exceptions.NamedTupleOnlyError,
+                exceptions.FuncNotApplicableError,
+                exceptions.NamedTupleOnlyError,
         ) as err:
             warnings.warn(
                 exceptions.CannotStoreOutputWarning(err), stacklevel=3
@@ -190,12 +190,12 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
     """
 
     def __init__(
-        self,
-        model: p.ModelProtocol[_Input, _Output],
-        name: str = '',
-        *,
-        loader: p.LoaderProtocol[tuple[_Input, _Target]],
-        objective: p.ObjectiveProtocol[_Output, _Target],
+            self,
+            model: p.ModelProtocol[_Input, _Output],
+            name: str = '',
+            *,
+            loader: p.LoaderProtocol[tuple[_Input, _Target]],
+            objective: p.ObjectiveProtocol[_Output, _Target],
     ) -> None:
         """Constructor.
 
@@ -214,7 +214,7 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
 
     @override
     def _get_metrics(self) -> Mapping[str, float]:
-        return metrics.repr_metrics(self.objective)
+        return objectives.repr_metrics(self.objective)
 
     @override
     def _run_epoch(self, store_outputs: bool):

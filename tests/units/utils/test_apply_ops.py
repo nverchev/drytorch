@@ -6,7 +6,7 @@ import torch
 
 import pytest
 
-from drytorch import exceptions
+from drytorch.core import exceptions
 from drytorch.utils.apply_ops import apply_to, recursive_apply
 
 

@@ -1,4 +1,4 @@
-"""Tests for the "metrics" module."""
+"""Tests for the "objectives" module."""
 
 from collections.abc import Callable
 
@@ -6,9 +6,9 @@ import torch
 
 import pytest
 
-from drytorch import exceptions
-from drytorch import protocols as p
-from drytorch.metrics import (
+from drytorch.core import exceptions
+from drytorch.core import protocols as p
+from drytorch.objectives import (
     CompositionalLoss,
     Loss,
     Metric,

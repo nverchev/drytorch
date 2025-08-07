@@ -10,9 +10,8 @@ from typing import Generic, Literal, ParamSpec, TypeVar
 
 from typing_extensions import override
 
-from drytorch import metrics, schedulers
-from drytorch import protocols as p
-
+from drytorch import objectives, schedulers
+from drytorch.core import protocols as p
 
 _T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
@@ -54,8 +53,8 @@ class HookRegistry(Generic[_T_contra]):
         return
 
     def register_all(
-        self,
-        hook_list: list[Callable[[_T_contra], None]],
+            self,
+            hook_list: list[Callable[[_T_contra], None]],
     ) -> None:
         """Register multiple hooks.
 
@@ -79,9 +78,9 @@ class AbstractHook(metaclass=abc.ABCMeta):
         """
 
     def bind(
-        self,
-        f: Callable[[AbstractHook], AbstractHook],
-        /,
+            self,
+            f: Callable[[AbstractHook], AbstractHook],
+            /,
     ) -> AbstractHook:
         """Allow transformation of the Hook.
 
@@ -157,10 +156,10 @@ class CallEvery(OptionalCallable):
     """Call a function at specified intervals."""
 
     def __init__(
-        self,
-        wrapped: Callable[[p.TrainerProtocol], None],
-        interval: int,
-        start: int,
+            self,
+            wrapped: Callable[[p.TrainerProtocol], None],
+            interval: int,
+            start: int,
     ) -> None:
         """Constructor.
 
@@ -189,8 +188,8 @@ class CallEvery(OptionalCallable):
 
 
 def call_every(
-    interval: int,
-    start: int = 0,
+        interval: int,
+        start: int = 0,
 ) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEvery]:
     """Create a decorator for periodic hook execution.
 
@@ -220,7 +219,7 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
 
 
 def static_hook_class(
-    cls: Callable[_P, Callable[[], None]],
+        cls: Callable[_P, Callable[[], None]],
 ) -> Callable[_P, StaticHook]:
     """Class decorator to wrap a callable class into a static hook type.
 
@@ -239,7 +238,6 @@ def static_hook_class(
     return _StaticHookDecorator
 
 
-
 class EarlyStoppingCallback:
     """Implement early stopping logic for training models.
 
@@ -249,14 +247,14 @@ class EarlyStoppingCallback:
     """
 
     def __init__(
-        self,
-        metric: str | p.ObjectiveProtocol | None = None,
-        monitor: p.ValidationProtocol | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 10,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-        start_from_epoch: int = 2,
+            self,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
+            min_delta: float = 1e-8,
+            patience: int = 10,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
+            start_from_epoch: int = 2,
     ) -> None:
         """Constructor.
 
@@ -273,7 +271,7 @@ class EarlyStoppingCallback:
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
-        self.monitor = metrics.MetricMonitor(
+        self.monitor = objectives.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -314,13 +312,13 @@ class PruneCallback:
     """
 
     def __init__(
-        self,
-        thresholds: Mapping[int, float | None],
-        metric: str | p.ObjectiveProtocol | None = None,
-        monitor: p.ValidationProtocol | None = None,
-        min_delta: float = 1e-8,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
+            self,
+            thresholds: Mapping[int, float | None],
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
+            min_delta: float = 1e-8,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """Constructor.
 
@@ -337,7 +335,7 @@ class PruneCallback:
             values. Default
                 gets the last value.
         """
-        self.monitor = metrics.MetricMonitor(
+        self.monitor = objectives.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -379,14 +377,14 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     """
 
     def __init__(
-        self,
-        metric: str | p.ObjectiveProtocol | None = None,
-        monitor: p.ValidationProtocol | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-        cooldown: int = 0,
+            self,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
+            min_delta: float = 1e-8,
+            patience: int = 0,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
+            cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -403,7 +401,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
-        self.monitor = metrics.MetricMonitor(
+        self.monitor = objectives.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -440,7 +438,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_scheduler(
-        self, epoch: int, scheduler: p.SchedulerProtocol
+            self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify input scheduler.
 
@@ -463,15 +461,15 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     """
 
     def __init__(
-        self,
-        metric: str | p.ObjectiveProtocol | None = None,
-        monitor: p.ValidationProtocol | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-        factor: float = 0.1,
-        cooldown: int = 0,
+            self,
+            metric: str | p.ObjectiveProtocol | None = None,
+            monitor: p.ValidationProtocol | None = None,
+            min_delta: float = 1e-8,
+            patience: int = 0,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
+            factor: float = 0.1,
+            cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -501,7 +499,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
         self.factor = factor
 
     def get_scheduler(
-        self, epoch: int, scheduler: p.SchedulerProtocol
+            self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify the input scheduler to scale down the learning rate.
 
@@ -524,7 +522,7 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
     """
 
     def get_scheduler(
-        self, epoch: int, scheduler: p.SchedulerProtocol
+            self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Consider training until now a warm-up and restart scheduling.
 

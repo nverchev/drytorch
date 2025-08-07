@@ -1,33 +1,14 @@
 """Configuration module with mockups."""
 
-import pathlib
-
 import torch
 
 import pytest
 
 from drytorch import Experiment
-from drytorch import protocols as p
+from drytorch.core import protocols as p
 
 
 experiment_current_original = Experiment.current
-
-
-@pytest.fixture(autouse=True, scope='module')
-def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
-    """Fixture for a mock experiment."""
-    mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
-    mock_experiment.name = 'mock_experiment'
-    mock_experiment.dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
-    mock_experiment.metadata_manager = session_mocker.Mock()
-    mock_experiment.metadata_manager.record_model_call = session_mocker.Mock()
-    mock_experiment.metadata_manager.register_model = session_mocker.Mock()
-    session_mocker.patch('drytorch.experiments.Experiment.current',
-                         return_value=mock_experiment)
-    session_mocker.patch('drytorch.registering.register_model')
-    session_mocker.patch('drytorch.registering.register_source')
-
-    return mock_experiment
 
 
 @pytest.fixture
@@ -49,7 +30,7 @@ def mock_scheduler(mocker) -> p.SchedulerProtocol:
     """Fixture for a mock scheduler."""
     mock = mocker.create_autospec(spec=p.SchedulerProtocol,
                                   instance=True,
-                                  side_effect= lambda x, y: x)
+                                  side_effect=lambda x, y: x)
     return mock
 
 

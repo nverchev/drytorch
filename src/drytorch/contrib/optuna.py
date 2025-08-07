@@ -7,8 +7,10 @@ import optuna
 
 from omegaconf import DictConfig
 
-from drytorch import exceptions, hooks
-from drytorch import protocols as p
+from drytorch import hooks, objectives
+
+from drytorch.core import exceptions
+from drytorch.core import protocols as p
 
 
 class TrialCallback:
@@ -41,7 +43,7 @@ class TrialCallback:
             best_is: Whether higher or lower metric values are better. Default
                'auto' will determine this from the first measurements.
         """
-        self.monitor = hooks.MetricMonitor(
+        self.monitor = objectives.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,

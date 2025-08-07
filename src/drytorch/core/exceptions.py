@@ -117,7 +117,7 @@ class InvalidBatchError(DryTorchError):
         """Constructor.
 
         Args:
-            batch_size: the requested number of element in the mini-batch.
+            batch_size: the requested number of elements in the mini-batch.
         """
         self.batch_size = batch_size
         super().__init__(batch_size)

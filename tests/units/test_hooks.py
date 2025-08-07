@@ -17,7 +17,6 @@ from drytorch.hooks import (
     static_hook_class,
 )
 
-
 Accuracy = 'Accuracy'
 Criterion = 'Loss'
 
@@ -103,6 +102,7 @@ def test_call_every(mocker, mock_trainer) -> None:
     hook(mock_trainer)
     mock_hook.assert_called_once_with(mock_trainer)
 
+
 class TestEarlyStoppingCallback:
     """Tests for EarlyStoppingCallback."""
 
@@ -121,7 +121,7 @@ class TestEarlyStoppingCallback:
         mock_trainer.terminate_training.assert_not_called()  # type: ignore
 
     def test_stops_on_plateau(self, mock_trainer, callback) -> None:
-        """Test training stops after plateau."""
+        """Test training stops after a plateau."""
         mock_trainer.validation.objective.higher_is_better = True
         for _ in range(callback.monitor.patience + 1):
             callback(mock_trainer)
@@ -144,13 +144,13 @@ class TestPruneCallback:
         )
 
     def test_no_pruning_before_threshold(self, mock_trainer, callback) -> None:
-        """Test no pruning before defined epoch."""
+        """Test no pruning before the defined epoch."""
         mock_trainer.model.epoch = 2
         callback(mock_trainer)
         mock_trainer.terminate_training.assert_not_called()  # type: ignore
 
     def test_prunes_at_threshold(self, mock_trainer, callback) -> None:
-        """Test pruning occurs when threshold condition is met."""
+        """Test pruning occurs when the threshold condition is met."""
         mock_trainer.model.epoch = 5
         callback(mock_trainer)
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
@@ -167,7 +167,7 @@ class TestReduceLROnPlateau:
         )
 
     def test_reduces_lr_and_respects_cooldown(
-        self, mocker, mock_trainer, callback
+            self, mocker, mock_trainer, callback
     ) -> None:
         """Test LR reduction and cooldown enforcement."""
         scheduler = schedulers.ConstantScheduler()
@@ -194,7 +194,7 @@ class TestRestartScheduleOnPlateau:
         )
 
     def test_restarts_schedule_on_plateau(
-        self, mocker, mock_trainer, callback
+            self, mocker, mock_trainer, callback
     ) -> None:
         """Test learning schedule restart after plateau."""
         scheduler = schedulers.ConstantScheduler()

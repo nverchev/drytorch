@@ -10,8 +10,9 @@ import torch
 from torch import cuda
 from typing_extensions import override
 
-from drytorch import checkpointing, exceptions, registering
-from drytorch import protocols as p
+from drytorch import checkpoints
+
+from drytorch.core import exceptions, registering, protocols as p
 from drytorch.utils import repr_utils
 
 
@@ -37,7 +38,7 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         mixed_precision: whether to use mixed precision computing.
     """
 
-    _default_checkpoint = checkpointing.LocalCheckpoint()
+    _default_checkpoint = checkpoints.LocalCheckpoint()
     _name = repr_utils.DefaultName()
 
     def __init__(  # type: ignore
@@ -136,7 +137,7 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
     """
-    _default_checkpoint = checkpointing.LocalCheckpoint()
+    _default_checkpoint = checkpoints.LocalCheckpoint()
 
     def __init__(
         self,

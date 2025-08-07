@@ -4,7 +4,7 @@ from collections.abc import Generator, Sequence
 
 import pytest
 
-from drytorch import log_events, tracking
+from drytorch.core import log_events, tracking
 
 
 try:

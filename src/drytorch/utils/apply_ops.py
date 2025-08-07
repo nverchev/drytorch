@@ -7,8 +7,7 @@ from typing import Any, TypeVar
 
 import torch
 
-from drytorch import exceptions
-
+from drytorch.core import exceptions
 
 _T = TypeVar('_T')
 _C = TypeVar('_C')
@@ -21,7 +20,7 @@ def recursive_apply(obj: _C,
 
     The implementation is similar to default_convert in
     github.com/pytorch/pytorch/blob/main/torch/utils/data/_utils/collate.py.
-    It makes a copy of a MutableMapping or MutableSequence container and
+    It makes a deepcopy of a MutableMapping or MutableSequence container and
     modifies the elements of the expected type using the functions or act
     recursively on other containers. If obj is a namedtuple, the
     function uses the class constructor to create a new instance with the
@@ -38,7 +37,7 @@ def recursive_apply(obj: _C,
 
     Raises:
         FuncNotApplicableError: if the object is of an unexpected type.
-        NamedTupleOnlyError: if the tuple object is not a namedtuple.
+        NamedTupleOnlyError: if the attempt of copying a tuple failed.
     """
     if isinstance(obj, expected_type):
         return func(obj)  # type: ignore
@@ -56,7 +55,7 @@ def recursive_apply(obj: _C,
         for i, value in enumerate(obj):
             sequence[i] = recursive_apply(value, expected_type, func)
 
-        return sequence
+        return sequence  # type: ignore
 
     if isinstance(obj, tuple):
         new = (recursive_apply(item, expected_type, func) for item in obj)

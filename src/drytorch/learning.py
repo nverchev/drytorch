@@ -8,9 +8,9 @@ from typing import Any
 
 import torch
 
-from drytorch import protocols as p
 from drytorch import schedulers
 
+from drytorch.core import protocols as p
 
 _default_scheduler = schedulers.ConstantScheduler()
 

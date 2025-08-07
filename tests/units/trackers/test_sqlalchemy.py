@@ -12,7 +12,7 @@ import warnings
 
 from collections.abc import Generator
 
-from drytorch import exceptions
+from drytorch.core import exceptions
 from drytorch.trackers.sqlalchemy import (
     Experiment,
     Log,
@@ -41,6 +41,7 @@ class TestSQLConnection:
         self.run = mocker.create_autospec(Run, instance=True)
         self.source = mocker.create_autospec(Source, instance=True)
         self.tags = mocker.create_autospec(Tags, instance=True)
+        self.mock_last_run = mocker.Mock()
         mocker.patch('sqlalchemy.create_engine', self.create_engine_mock)
         mocker.patch('sqlalchemy.orm.sessionmaker', self.make_mock_session)
         mocker.patch('sqlalchemy.schema.MetaData.create_all')
@@ -62,18 +63,13 @@ class TestSQLConnection:
         return SQLConnection()
 
     @pytest.fixture
-    def tracker_with_resume(self) -> SQLConnection:
-        """Set up the instance with resume."""
-        return SQLConnection(resume_run=True)
-
-    @pytest.fixture
     def tracker_started(
             self,
             tracker,
             start_experiment_mock_event,
             stop_experiment_mock_event,
     ) -> Generator[SQLConnection, None, None]:
-        """Set up the instance with resume."""
+        """Start the instance."""
         tracker.notify(start_experiment_mock_event)
         yield tracker
 
@@ -90,11 +86,6 @@ class TestSQLConnection:
         """Test initialization with default parameters."""
         self.create_engine_mock.assert_called_once_with(tracker.default_url)
         self.make_mock_session.assert_called_once_with(bind=self.mock_engine)
-        assert tracker.resume_run is False
-
-    def test_init_with_resume(self, tracker_with_resume) -> None:
-        """Test initialization with resume_run=True."""
-        assert tracker_with_resume.resume_run is True
 
     def test_run_property_before_start_raises_exception(self, tracker) -> None:
         """Test run property raises exception before experiment start."""
@@ -122,52 +113,55 @@ class TestSQLConnection:
     def test_notify_start_experiment_with_resume_no_previous_run(
             self,
             mocker,
-            tracker_with_resume,
+            tracker,
             start_experiment_mock_event,
     ) -> None:
         """Test start experiment with resume when no previous run exists."""
+        start_experiment_mock_event.resume_last_run = True
         last_run = None
-        get_last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
+        get_last_run = mocker.patch.object(tracker,
+                                           '_get_last_run')
         get_last_run.return_value = last_run
         with warnings.catch_warnings(record=True) as w:
-            tracker_with_resume.notify(start_experiment_mock_event)
+            tracker.notify(start_experiment_mock_event)
             assert 'No previous runs' in str(w[0].message)
-        run = tracker_with_resume.run
+        run = tracker.run
         assert run == self.run
 
     def test_notify_start_experiment_with_resume_existing_run(
             self,
             mocker,
-            tracker_with_resume,
+            tracker,
             start_experiment_mock_event,
     ) -> None:
         """Test start experiment with resume when the previous run exists."""
-        # Create a previous run
+        # mock a previous run
+        start_experiment_mock_event.resume_last_run = True
         last_run = mocker.Mock()
-        get_last_run = mocker.patch.object(tracker_with_resume, '_get_last_run')
+        get_last_run = mocker.patch.object(tracker, '_get_last_run')
         get_last_run.return_value = last_run
-        tracker_with_resume.notify(start_experiment_mock_event)
-        resumed_run = tracker_with_resume.run
+        tracker.notify(start_experiment_mock_event)
+        resumed_run = tracker.run
         assert resumed_run == last_run
 
     def test_notify_call_model(
             self,
             tracker_started,
-            call_model_mock_event,
+            source_registration_mock_event,
     ) -> None:
         """Test call model notification creates the source."""
-        tracker_started.notify(call_model_mock_event)
+        tracker_started.notify(source_registration_mock_event)
         self.mock_context.add.assert_called_with(self.source)
-        assert call_model_mock_event.source_name in tracker_started._sources
+        assert source_registration_mock_event.source_name in tracker_started._sources
 
     def test_notify_metrics(
             self,
             tracker_started,
-            call_model_mock_event,
+            source_registration_mock_event,
             epoch_metrics_mock_event,
     ) -> None:
         """Test metrics notification creates log entries."""
-        tracker_started.notify(call_model_mock_event)
+        tracker_started.notify(source_registration_mock_event)
         tracker_started.notify(epoch_metrics_mock_event)
         self.mock_context.merge.assert_called_with(self.source)
         self.mock_context.add.assert_called_with(self.log)
@@ -175,11 +169,11 @@ class TestSQLConnection:
     def test_unknown_source(
             self,
             tracker_started,
-            call_model_mock_event,
+            source_registration_mock_event,
             epoch_metrics_mock_event,
     ) -> None:
         """Test metrics notification from an unknown source raises an error."""
-        tracker_started.notify(call_model_mock_event)
+        tracker_started.notify(source_registration_mock_event)
         epoch_metrics_mock_event.source_name = 'unknown_source'
         with pytest.raises(exceptions.TrackerError):
             tracker_started.notify(epoch_metrics_mock_event)

@@ -20,7 +20,7 @@ from typing_extensions import override
 
 import drytorch
 
-from drytorch import log_events, tracking
+from drytorch.core import log_events, tracking
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
@@ -168,10 +168,6 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         msg = 'Running experiment: %(name)s'
         args = {'name': event.exp_name}
-        if event.variation is not None:
-            msg += ' (%(variation)s)'
-            args.update({'variation': event.variation})
-
         logger.log(INFO_LEVELS.experiment, msg + '.', args)
         return super().notify(event)
 

@@ -6,7 +6,7 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch import log_events
+from drytorch.core import log_events
 from drytorch.trackers.logging import (
     INFO_LEVELS,
     BuiltinLogger,

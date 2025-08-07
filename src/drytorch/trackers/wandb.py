@@ -9,34 +9,29 @@ import wandb
 from typing_extensions import override
 from wandb.sdk import wandb_run, wandb_settings
 
-from drytorch import exceptions, log_events
+from drytorch.core import exceptions, log_events
 from drytorch.trackers.base_classes import Dumper
+from drytorch.utils.repr_utils import recursive_repr
 
 
 class Wandb(Dumper):
-    """Tracker that wraps a run for the wandb library.
-
-    Attributes:
-        resume_run: resume the previous run from the project.
-    """
+    """Tracker that wraps a run for the wandb library."""
     _default_settings = wandb_settings.Settings()
+    folder_name = 'wandb'
 
     def __init__(
             self,
             par_dir: pathlib.Path | None = None,
             settings: wandb_settings.Settings = _default_settings,
-            resume_run: bool = False,
     ) -> None:
         """Constructor.
 
         Args:
-            par_dir: the directory where to dump metadata. Overwrites settings.
-                Defaults to the one for the current experiment.
+            par_dir: the parent directory for the tracker data. Default uses
+                the same of the current experiment.
             settings: settings object from wandb containing all init arguments.
-            resume_run: resume the previous run from the project.
         """
         super().__init__(par_dir)
-        self.resume_run = resume_run
         self._settings = settings
         self._run: wandb_run.Run | None = None
 
@@ -61,38 +56,34 @@ class Wandb(Dumper):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-        # determine main directory
         super().notify(event)
         project = self._settings.project or event.exp_name
-        if event.variation is None or self._par_dir is None:
-            dir_ = self.par_dir
-        else:
-            self.par_dir.parent
+        group = self._settings.run_group or event.exp_name
+        run_id = ''
+        if event.resume_last_run:
+            api = wandb.Api()
+            entity = self._settings.entity or api.default_entity
+            runs = api.runs(
+                f'{entity}/{project}',
+                filters={'group': event.exp_name},
+            )
+            if runs:
+                run_id = runs[0].id
+            else:
+                msg = 'Wandb: No previous runs. Starting a new one.'
+                warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
 
         if self._settings.run_id:
             run_id = self._settings.run_id
-        else:
-            run_id = event.exp_ts.replace(":", "_")
-            if event.variation:
-                run_id = event.variation + '_' + run_id
 
-        if self.resume_run:
-            runs = wandb.Api().runs(project)
-            run_id = runs[len(runs) - 1].id
-
-        config_has_dict = hasattr(event.config, '__dict__')
-        config_is_recognizable = isinstance(event.config, (dict, str))
-        if config_has_dict or config_is_recognizable:
-            config = event.config
-        else:
-            config = None
-            msg = 'Config format not supported and will not be logged.'
-            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+        if not run_id:
+            run_id = event.exp_name + '_' + event.run_id
 
         self._run = wandb.init(id=run_id,
-                               dir=dir_,
+                               dir=self.par_dir.as_posix(),
                                project=project,
-                               config=config,
+                               group=group,
+                               config=recursive_repr(event.config),
                                tags=event.tags,
                                settings=self._settings,
                                resume='allow')

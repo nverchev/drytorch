@@ -15,7 +15,7 @@ import yaml
 
 from typing_extensions import override
 
-from drytorch import log_events
+from drytorch.core import log_events
 from drytorch.trackers import base_classes
 from drytorch.utils import repr_utils
 
@@ -28,10 +28,10 @@ class YamlDumper(base_classes.Dumper):
     """Tracker that dumps metadata in a YAML file.
 
     Class Attributes:
-        metadata_folder: name for the folder that contains metadata.
+        folder_name: name for the folder that contains metadata.
         archive_folder: namee for the folder that contains archived metadata.
     """
-    metadata_folder = 'metadata'
+    folder_name = 'metadata'
     archive_folder = 'archive'
 
     def __init__(self, par_dir: pathlib.Path | None = None):
@@ -51,40 +51,34 @@ class YamlDumper(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
-        self._version(event.metadata,
-                      event.model_name,
-                      event.model_name,
-                      event.model_ts)
+        run_dir = self._get_run_dir()
+        file = self._file_path(run_dir, event.model_name, event.model_name)
+        self._dump(event.metadata, file)
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.SourceRegistrationEvent) -> None:
-        model_name = event.model_name
-        self._version(event.metadata,
-                      model_name,
-                      event.source_name,
-                      event.source_ts)
+        run_dir = self._get_run_dir()
+        file = self._file_path(run_dir, event.model_name, event.source_name)
+        self._dump(event.metadata, file)
         return super().notify(event)
-
-    def _version(self,
-                 metadata: dict[str, Any],
-                 sub_folder: str,
-                 file_name: str,
-                 file_version: str) -> None:
-        directory = self.par_dir / sub_folder / self.metadata_folder
-        archive_directory = directory / self.archive_folder / file_name
-        archive_directory.mkdir(exist_ok=True, parents=True)
-        self._dump(metadata, directory / file_name)
-        self._dump(metadata, archive_directory / file_version)
-        return
 
     @staticmethod
     def _dump(metadata: dict[str, Any], file_path: pathlib.Path) -> None:
-        file_with_suffix = file_path.with_suffix(file_path.suffix + '.yaml')
-        with file_with_suffix.open('w') as metadata_file:
+        with file_path.open('w') as metadata_file:
             yaml.dump(metadata, metadata_file)
 
         return
+
+    @staticmethod
+    def _file_path(
+            run_dir: pathlib.Path,
+            model_name: str,
+            obj_name: str,
+    ) -> pathlib.Path:
+        model_path = run_dir / model_name
+        model_path.mkdir(exist_ok=True)
+        return model_path / f'{obj_name}.yaml'
 
 
 def has_short_repr(obj: object,

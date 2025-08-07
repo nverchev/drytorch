@@ -7,7 +7,7 @@ import pytest
 
 if not importlib.util.find_spec('hydra'):
     pytest.skip('hydra not available', allow_module_level=True)
-from drytorch import exceptions
+from drytorch.core import exceptions
 from drytorch.trackers.hydra import HydraLink
 
 
@@ -39,16 +39,16 @@ class TestHydraLink:
     def test_cleanup_no_copy(
         self, tracker_no_copy, start_experiment_mock_event
     ):
-        """Test cleanup does not copy hydra folder."""
+        """Test cleanup does not copy the hydra folder."""
         tracker_no_copy.notify(start_experiment_mock_event)
         tracker_no_copy.clean_up()
-        assert tracker_no_copy.dir.is_symlink()
+        assert tracker_no_copy._get_run_dir().is_symlink()
 
     def test_cleanup_with_copy(self, tracker, start_experiment_mock_event):
         """Test cleanup copies hydra folder."""
         tracker.notify(start_experiment_mock_event)
         tracker.clean_up()
-        assert tracker.dir.is_dir()
+        assert tracker._get_run_dir().is_dir()
 
     def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
         """Test initialization with a valid Hydra configuration."""
@@ -62,13 +62,6 @@ class TestHydraLink:
         with pytest.raises(exceptions.TrackerError):
             HydraLink(par_dir=tmp_path / 'not_existing')
 
-    def test_dir_property(self, tracker, start_experiment_mock_event) -> None:
-        """Test dir property returns the same directory twice."""
-        tracker.notify(start_experiment_mock_event)
-        dir1 = tracker.dir
-        dir2 = tracker.dir
-        assert dir1 == dir2
-
     def test_notify_start_experiment_creates_symlink(
         self,
         tracker,
@@ -76,5 +69,5 @@ class TestHydraLink:
     ) -> None:
         """Test start experiment notification creates symlink."""
         tracker.notify(start_experiment_mock_event)
-        assert tracker.dir.is_symlink()
-        assert tracker.dir.resolve() == self.hydra_output_dir
+        assert tracker._get_run_dir().is_symlink()
+        assert tracker._get_run_dir().resolve() == self.hydra_output_dir

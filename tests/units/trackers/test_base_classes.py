@@ -1,5 +1,6 @@
 """Tests for the "base_classes" module."""
-
+import time
+from collections.abc import Generator
 import functools
 import pathlib
 
@@ -9,7 +10,7 @@ from typing_extensions import override
 
 import pytest
 
-from drytorch import exceptions, log_events
+from drytorch.core import exceptions, log_events
 from drytorch.trackers.base_classes import (
     BasePlotter,
     Dumper,
@@ -79,57 +80,83 @@ class TestDumper:
         """Set up the instance."""
         return Dumper(par_dir=par_dir)
 
-    def test_par_dir(self,
-                     par_dir,
-                     tracker,
-                     start_experiment_mock_event,
-                     stop_experiment_mock_event) -> None:
-        """Test par_dir property."""
-        if par_dir is None:
-            with pytest.raises(exceptions.AccessOutsideScopeError):
-                _ = tracker.par_dir
-
+    @pytest.fixture
+    def tracker_started(
+            self,
+            tracker,
+            start_experiment_mock_event,
+            stop_experiment_mock_event
+    ) -> Generator[Dumper, None, None]:
+        """Start the instance."""
         tracker.notify(start_experiment_mock_event)
-        if par_dir is None:
-            assert tracker.par_dir == start_experiment_mock_event.exp_dir
-        else:
-            assert tracker.par_dir == par_dir
-
+        yield tracker
         tracker.notify(stop_experiment_mock_event)
+        return
+
+    def test_par_dir_fails(self, par_dir, tracker) -> None:
+        """Test par_dir property fails when outside scope."""
         if par_dir is None:
             with pytest.raises(exceptions.AccessOutsideScopeError):
                 _ = tracker.par_dir
+
+    def test_par_dir_success(self,
+                             par_dir,
+                             tracker_started,
+                             start_experiment_mock_event) -> None:
+        """Test par_dir property inside scope."""
+        exp_par_dir = start_experiment_mock_event.par_dir
+        if par_dir is None:
+            assert tracker_started.par_dir == exp_par_dir
+        else:
+            assert tracker_started.par_dir == par_dir
+
+    def test_get_last_run(self, tmp_path, tracker_started) -> None:
+        """Test last created folder is selected."""
+
+        expected = tracker_started._get_run_dir()
+        assert tracker_started._get_last_run_dir() == expected
+
+        for i in range(3, 0, -1):
+            path = tracker_started._get_exp_dir() / str(i)
+            path.mkdir()
+            time.sleep(0.01)
+
+        expected = tracker_started._get_exp_dir() / '1'
+        assert tracker_started._get_last_run_dir() == expected
 
 
 class TestMetricLoader:
     """Tests for Metric Loader."""
 
+    @pytest.fixture
+    def loader_started(
+            self,
+            metric_loader,
+            start_experiment_mock_event,
+            stop_experiment_mock_event
+    ) -> Generator[MetricLoader, None, None]:
+        """Start the instance."""
+        metric_loader.notify(start_experiment_mock_event)
+        yield metric_loader
+        metric_loader.notify(stop_experiment_mock_event)
+        return
+
     def test_correct_functioning(self,
                                  example_model_name,
-                                 metric_loader,
+                                 loader_started,
                                  example_sourced_metrics) -> None:
         """Test correct functioning."""
-        loaded_metrics = metric_loader.load_metrics(example_model_name)
+        loaded_metrics = loader_started.load_metrics(example_model_name)
         assert loaded_metrics == example_sourced_metrics
 
-    def test_null(self, example_model_name, metric_loader) -> None:
+    def test_null(self, example_model_name, loader_started) -> None:
         """Test empty dictionary return."""
-        assert metric_loader.load_metrics(example_model_name, 0) == {}
+        assert loader_started.load_metrics(example_model_name, 0) == {}
 
-    def test_value_error(self, example_model_name, metric_loader) -> None:
+    def test_value_error(self, example_model_name, loader_started) -> None:
         """Test value error."""
         with pytest.raises(ValueError):
-            _ = metric_loader.load_metrics(example_model_name, -2)
-
-    def test_access_outside(self,
-                            mocker,
-                            example_model_name,
-                            metric_loader) -> None:
-        """Test correct exception."""
-        patch = mocker.patch('drytorch.experiments.Experiment.current')
-        patch.side_effect = exceptions.NoActiveExperimentError()
-        with pytest.raises(exceptions.AccessOutsideScopeError):
-            _ = metric_loader.load_metrics(example_model_name, 0)
+            _ = loader_started.load_metrics(example_model_name, -2)
 
 
 class TestMemoryMetrics:
