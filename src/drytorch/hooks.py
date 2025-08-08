@@ -89,7 +89,7 @@ class AbstractHook(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
             AbstractHook[_Input, _Target, _Output],
         ],
         /,
-    ) -> AbstractHook:
+    ) -> AbstractHook[_Input, _Target, _Output]:
         """Allow transformation of the Hook.
 
         Args:
@@ -126,7 +126,7 @@ class Hook(AbstractHook[_Input, _Target, _Output]):
         self.wrapped(trainer)
 
 
-class StaticHook(AbstractHook[_Input, _Target, _Output]):
+class StaticHook(AbstractHook[p.InputType, p.TargetType, p.OutputType]):
     """Ignoring arguments and execute a wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
@@ -227,7 +227,7 @@ def call_every(
 
     def _decorator(
         func: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
-    ) -> CallEvery:
+    ) -> CallEvery[_Input, _Target, _Output]:
         return CallEvery(func, interval, start)
 
     return _decorator
@@ -274,7 +274,7 @@ class EarlyStoppingCallback:
 
     def __init__(
         self,
-        metric: str | p.ObjectiveProtocol | None = None,
+        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
         monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
         min_delta: float = 1e-8,
         patience: int = 10,
@@ -342,7 +342,7 @@ class PruneCallback:
     def __init__(
         self,
         thresholds: Mapping[int, float | None],
-        metric: str | p.ObjectiveProtocol | None = None,
+        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
         monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -408,7 +408,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
     def __init__(
         self,
-        metric: str | p.ObjectiveProtocol | None = None,
+        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
         monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
@@ -494,7 +494,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
 
     def __init__(
         self,
-        metric: str | p.ObjectiveProtocol | None = None,
+        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
         monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
