@@ -10,51 +10,21 @@ from typing import (
     Protocol,
     TypeAlias,
     TypeVar,
-    overload,
-    runtime_checkable,
+    runtime_checkable, NamedTuple,
 )
 
 import torch
 
 from torch.utils import data
 
+# pyright: reportReturnType=false
 
 _T = TypeVar('_T')
 
 Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
-
-# pyright: reportReturnType=false
-
-
-@runtime_checkable
-class NamedTupleProtocol(Protocol):
-    """Optional protocol for the input and target types.
-
-    Correctly handled by the default collate function.
-    NamedTuples containing different types are currently interpreted as
-    Generic[Any]. At the moment, this protocol won't support these interfaces.
-    """
-
-    _fields: tuple[str, ...]
-
-    @overload
-    def __getitem__(self, key: int, /) -> Any: ...
-
-    @overload
-    def __getitem__(self, key: slice, /) -> tuple[Any, ...]: ...
-
-    def __getitem__(self, key: Any, /) -> Any | tuple[Any, ...]:
-        """Get the indexed element or slice."""
-
-    def __len__(self) -> int:
-        """Return the length of the tuple."""
-
-    def _asdict(self) -> dict[str, Any]: ...
-
-
-InputType: TypeAlias = Tensors | NamedTupleProtocol
+InputType: TypeAlias = Tensors | NamedTuple
 OutputType: TypeAlias = Any
-TargetType: TypeAlias = Tensors | NamedTupleProtocol
+TargetType: TypeAlias = Tensors | NamedTuple
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[InputType, TargetType], covariant=True
@@ -75,7 +45,6 @@ class LoaderProtocol(Protocol[_Data_co]):
 
     Attributes:
         batch_size: the batch size.
-        dataset: dataset
     """
 
     batch_size: int | None
