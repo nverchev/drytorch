@@ -336,7 +336,7 @@ class TrackerAlreadyRegisteredError(DryTorchError):
         super().__init__(tracker_name, exp_name)
 
 
-class TrackerNotRegisteredError(DryTorchError):
+class TrackerNotActiveError(DryTorchError):
     """Raised when trying to access a tracker that is not registered."""
 
     msg = 'Tracker {} not registered in any active experiment.'

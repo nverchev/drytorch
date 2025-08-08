@@ -147,7 +147,7 @@ class TestEventDispatcher:
 
     def test_remove_nonexistent_tracker_raises_error(self, dispatcher):
         """Test that removing a non-existent tracker raises an error."""
-        with pytest.raises(exceptions.TrackerNotRegisteredError):
+        with pytest.raises(exceptions.TrackerNotActiveError):
             dispatcher.remove('NonexistentTracker')
 
     def test_publish_event_calls_tracker_notify(self, tracker, dispatcher):

@@ -141,7 +141,7 @@ class Tracker(metaclass=abc.ABCMeta):
             TrackerNotRegisteredError: if the tracker is not registered.
         """
         if cls._current is None:
-            raise exceptions.TrackerNotRegisteredError(cls.__name__)
+            raise exceptions.TrackerNotActiveError(cls.__name__)
         return cls._current
 
     @classmethod
@@ -246,7 +246,7 @@ class EventDispatcher:
         try:
             self.named_trackers.pop(tracker_name)
         except KeyError as ke:
-            raise exceptions.TrackerNotRegisteredError(tracker_name) from ke
+            raise exceptions.TrackerNotActiveError(tracker_name) from ke
         return
 
     def remove_all(self) -> None:
