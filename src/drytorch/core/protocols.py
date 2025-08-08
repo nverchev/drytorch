@@ -7,15 +7,17 @@ import abc
 from collections.abc import Iterable, Iterator, Mapping, MutableSequence
 from typing import (
     Any,
+    NamedTuple,
     Protocol,
     TypeAlias,
     TypeVar,
-    runtime_checkable, NamedTuple,
+    runtime_checkable,
 )
 
 import torch
 
 from torch.utils import data
+
 
 # pyright: reportReturnType=false
 
@@ -46,7 +48,6 @@ class LoaderProtocol(Protocol[_Data_co]):
     Attributes:
         batch_size: the batch size.
     """
-
     batch_size: int | None
 
     def get_dataset(self) -> data.Dataset[_Data_co]:
