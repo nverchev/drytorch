@@ -6,11 +6,12 @@ import abc
 import operator
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Generic, Literal, ParamSpec, TypeVar
+from typing import Any, Generic, Literal, ParamSpec, TypeVar, cast
 
 from typing_extensions import override
 
 from drytorch import objectives, schedulers
+from drytorch.core import exceptions
 from drytorch.core import protocols as p
 
 
@@ -56,8 +57,8 @@ class HookRegistry(Generic[_T_contra]):
         return
 
     def register_all(
-        self,
-        hook_list: list[Callable[[_T_contra], None]],
+            self,
+            hook_list: list[Callable[[_T_contra], None]],
     ) -> None:
         """Register multiple hooks.
 
@@ -74,7 +75,7 @@ class AbstractHook(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __call__(
-        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+            self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> None:
         """Execute the call.
 
@@ -83,12 +84,12 @@ class AbstractHook(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
         """
 
     def bind(
-        self,
-        f: Callable[
-            [AbstractHook[_Input, _Target, _Output]],
-            AbstractHook[_Input, _Target, _Output],
-        ],
-        /,
+            self,
+            f: Callable[
+                [AbstractHook[_Input, _Target, _Output]],
+                AbstractHook[_Input, _Target, _Output],
+            ],
+            /,
     ) -> AbstractHook[_Input, _Target, _Output]:
         """Allow transformation of the Hook.
 
@@ -105,8 +106,9 @@ class Hook(AbstractHook[_Input, _Target, _Output]):
     """Wrapper for callable taking a Trainer as input."""
 
     def __init__(
-        self,
-        wrapped: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
+            self,
+            wrapped: Callable[
+                [p.TrainerProtocol[_Input, _Target, _Output]], None],
     ) -> None:
         """Constructor.
 
@@ -116,7 +118,7 @@ class Hook(AbstractHook[_Input, _Target, _Output]):
         self.wrapped = wrapped
 
     def __call__(
-        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+            self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> None:
         """Execute the call.
 
@@ -126,7 +128,7 @@ class Hook(AbstractHook[_Input, _Target, _Output]):
         self.wrapped(trainer)
 
 
-class StaticHook(AbstractHook[p.InputType, p.TargetType, p.OutputType]):
+class StaticHook(AbstractHook[Any, Any, Any]):
     """Ignoring arguments and execute a wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
@@ -138,7 +140,7 @@ class StaticHook(AbstractHook[p.InputType, p.TargetType, p.OutputType]):
         self.wrapped = wrapped
 
     def __call__(
-        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+            self, trainer: p.TrainerProtocol[Any, Any, Any]
     ) -> None:
         """Execute the call.
 
@@ -152,7 +154,7 @@ class OptionalCallable(Hook[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     """Abstract class for callables that execute based on custom conditions."""
 
     def __call__(
-        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+            self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> None:
         """Execute the call.
 
@@ -166,7 +168,7 @@ class OptionalCallable(Hook[_Input, _Target, _Output], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def _should_call(
-        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+            self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> bool:
         """Determine if the callable should be executed."""
 
@@ -175,10 +177,11 @@ class CallEvery(OptionalCallable[_Input, _Target, _Output]):
     """Call a function at specified intervals."""
 
     def __init__(
-        self,
-        wrapped: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
-        interval: int,
-        start: int,
+            self,
+            wrapped: Callable[
+                [p.TrainerProtocol[_Input, _Target, _Output]], None],
+            interval: int,
+            start: int,
     ) -> None:
         """Constructor.
 
@@ -194,7 +197,7 @@ class CallEvery(OptionalCallable[_Input, _Target, _Output]):
 
     @override
     def _should_call(
-        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+            self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> bool:
         """Determine if the hook should be called based on the epoch.
 
@@ -209,8 +212,8 @@ class CallEvery(OptionalCallable[_Input, _Target, _Output]):
 
 
 def call_every(
-    interval: int,
-    start: int = 0,
+        interval: int,
+        start: int = 0,
 ) -> Callable[
     [Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None]],
     CallEvery[_Input, _Target, _Output],
@@ -226,7 +229,7 @@ def call_every(
     """
 
     def _decorator(
-        func: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
+            func: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
     ) -> CallEvery[_Input, _Target, _Output]:
         return CallEvery(func, interval, start)
 
@@ -245,7 +248,7 @@ def saving_hook(trainer: p.TrainerProtocol[_Input, _Target, _Output]) -> None:
 
 
 def static_hook_class(
-    cls: Callable[_P, Callable[[], None]],
+        cls: Callable[_P, Callable[[], None]],
 ) -> Callable[_P, StaticHook]:
     """Class decorator to wrap a callable class into a static hook type.
 
@@ -264,7 +267,208 @@ def static_hook_class(
     return _StaticHookDecorator
 
 
-class EarlyStoppingCallback:
+class MetricExtractor(Generic[_Input, _Target, _Output]):
+    """Handle extraction of metrics from trainer/validation protocols.
+
+    This class is responsible for interfacing with trainer and validation
+    protocols to extract metric values.
+
+    Attributes:
+        metric_spec: the metric specification (name or protocol instance).
+        optional_monitor: evaluation protocol to monitor.
+    """
+
+    def __init__(
+            self,
+            metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
+            monitor: p.ValidationProtocol[
+                         _Input, _Target, _Output] | None =
+            None,
+    ) -> None:
+        """Constructor.
+
+        Args:
+            metric: name of the metric to monitor or metric calculator instance.
+            monitor: evaluation protocol to monitor.
+        """
+        self.metric_spec = metric
+        self.optional_monitor = monitor
+        self._resolved_metric_name: str | None = None
+
+    @property
+    def metric_name(self) -> str | None:
+        """Get the resolved metric name."""
+        return self._resolved_metric_name
+
+    def extract_metric_value(
+            self,
+            instance: p.TrainerProtocol[_Input, _Target, _Output],
+            tracker: objectives.MetricTracker[_Output, _Target]
+    ) -> float:
+        """Extract and return the metric value from the instance.
+
+        Args:
+            instance: Trainer instance to extract from.
+            tracker: objectives.MetricTracker to potentially update metric name.
+
+        Returns:
+            The extracted metric value.
+
+        Raises:
+            MetricNotFoundError: if the specified metric is not found.
+        """
+        monitor = self._get_monitor(instance)
+        last_metrics = objectives.repr_metrics(monitor.objective)
+
+        if self._resolved_metric_name is None:
+            if self.metric_spec is None:
+                self._resolved_metric_name = next(iter(last_metrics.keys()))
+            else:
+                self._resolved_metric_name = self._get_metric_name(
+                    self.metric_spec)
+
+            tracker.metric_name = self._resolved_metric_name
+
+        if self._resolved_metric_name not in last_metrics:
+            raise exceptions.MetricNotFoundError(monitor.name,
+                                                 self._resolved_metric_name)
+
+        return last_metrics[self._resolved_metric_name]
+
+    def get_metric_best_is(self) -> Literal['auto', 'higher', 'lower'] | None:
+        """Get the best_is preference from the metric if available."""
+        return self._get_metric_best_is(self.metric_spec)
+
+    def _get_monitor(
+            self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> p.ValidationProtocol[_Input, _Target, _Output]:
+        if self.optional_monitor is None:
+            if instance.validation is None:
+                # TrainerProtocol is stricter than ValidationProtocol
+                return cast(p.ValidationProtocol[_Input, _Target, _Output],
+                            instance)
+            return instance.validation
+        return self.optional_monitor
+
+    @staticmethod
+    def _get_metric_name(metric: p.ObjectiveProtocol[
+                                    _Output, _Target] | str) -> str:
+        if isinstance(metric, str):
+            return metric
+        elif name := getattr(metric, 'name', False):
+            return str(name)
+        elif name := getattr(metric, '_get_name', False):
+            return str(name)
+        else:
+            return metric.__class__.__name__
+
+    @staticmethod
+    def _get_metric_best_is(
+            metric: str | p.ObjectiveProtocol[_Output, _Target] | None,
+    ) -> Literal['auto', 'higher', 'lower'] | None:
+        higher_is_better = getattr(metric, 'higher_is_better', None)
+        if higher_is_better is None:
+            return None
+        else:
+            return 'higher' if higher_is_better else 'lower'
+
+
+class MetricMonitor(Generic[_Input, _Target, _Output]):
+    """Handle metric monitoring and alerts when performance stops increasing.
+
+    Attributes:
+        metric_tracker: handles metric value tracking and improvement detection.
+        extractor: handles metric extraction from protocols.
+    """
+
+    def __init__(
+            self,
+            metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
+            monitor: p.ValidationProtocol[
+                         _Input, _Target, _Output] | None = None,
+            min_delta: float = 1e-8,
+            patience: int = 0,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
+    ) -> None:
+        """Constructor.
+
+        Args:
+            metric: name of the metric to monitor or metric calculator instance.
+            monitor: evaluation protocol to monitor.
+            min_delta: minimum change required to qualify as an improvement.
+            patience: number of checks to wait before triggering callback.
+            best_is: whether higher or lower metric values are better.
+            filter_fn: function to aggregate recent metric values.
+        """
+        self.extractor = MetricExtractor(metric=metric, monitor=monitor)
+
+        metric_best_is = self.extractor.get_metric_best_is()
+        if metric_best_is is not None:
+            best_is = metric_best_is
+
+        initial_metric_name = None
+        if isinstance(metric, str):
+            initial_metric_name = metric
+
+        self.metric_tracker: objectives.MetricTracker[_Output, _Target]
+        self.metric_tracker = objectives.MetricTracker(
+            metric_name=initial_metric_name,
+            min_delta=min_delta,
+            patience=patience,
+            best_is=best_is,
+            filter_fn=filter_fn,
+        )
+
+    @property
+    def metric_name(self) -> str | None:
+        """Get the metric name being monitored."""
+        return self.extractor.metric_name or self.metric_tracker.metric_name
+
+    @property
+    def best_value(self) -> float:
+        """Get the best result observed so far."""
+        return self.metric_tracker.best_value
+
+    @property
+    def filtered_value(self) -> float:
+        """Get the current filtered value."""
+        return self.metric_tracker.filtered_value
+
+    @property
+    def history(self) -> list[float]:
+        """Get the metric history."""
+        return self.metric_tracker.history
+
+    def is_better(self, value: float, reference: float) -> bool:
+        """Check whether to be patient."""
+        return self.metric_tracker.is_better(value, reference)
+
+    def is_improving(self) -> bool:
+        """Determine if the model performance is improving."""
+        return self.metric_tracker.is_improving()
+
+    def is_patient(self) -> bool:
+        """Check whether to be patient."""
+        return self.metric_tracker.is_patient()
+
+    def record_metric_value(
+            self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
+        """Register a new metric value from a monitored evaluation.
+
+        Args:
+            instance: Trainer instance to extract metric from.
+
+        Raises:
+            MetricNotFoundError: if the specified metric is not found.
+        """
+        value = self.extractor.extract_metric_value(instance,
+                                                    self.metric_tracker)
+        self.metric_tracker.add_value(value)
+
+
+class EarlyStoppingCallback(Generic[_Input, _Target, _Output]):
     """Implement early stopping logic for training models.
 
     Attributes:
@@ -273,14 +477,15 @@ class EarlyStoppingCallback:
     """
 
     def __init__(
-        self,
-        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
-        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 10,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-        start_from_epoch: int = 2,
+            self,
+            metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
+            monitor: p.ValidationProtocol[
+                         _Input, _Target, _Output] | None = None,
+            min_delta: float = 1e-8,
+            patience: int = 10,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
+            start_from_epoch: int = 2,
     ) -> None:
         """Constructor.
 
@@ -297,7 +502,7 @@ class EarlyStoppingCallback:
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
-        self.monitor = objectives.MetricMonitor(
+        self.monitor = MetricMonitor[_Input, _Target, _Output](
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -309,7 +514,7 @@ class EarlyStoppingCallback:
         return
 
     def __call__(
-        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+            self, instance: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> None:
         """Evaluate whether training should be stopped early.
 
@@ -331,7 +536,7 @@ class EarlyStoppingCallback:
         return
 
 
-class PruneCallback:
+class PruneCallback(Generic[_Input, _Target, _Output]):
     """Implement pruning logic for training models.
 
     Attributes:
@@ -340,13 +545,14 @@ class PruneCallback:
     """
 
     def __init__(
-        self,
-        thresholds: Mapping[int, float | None],
-        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
-        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
-        min_delta: float = 1e-8,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
+            self,
+            thresholds: Mapping[int, float | None],
+            metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
+            monitor: p.ValidationProtocol[
+                         _Input, _Target, _Output] | None = None,
+            min_delta: float = 1e-8,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """Constructor.
 
@@ -363,11 +569,10 @@ class PruneCallback:
             values. Default
                 gets the last value.
         """
-        self.monitor = objectives.MetricMonitor(
+        self.monitor = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
-            patience=0,
             best_is=best_is,
             filter_fn=filter_fn,
         )
@@ -376,7 +581,7 @@ class PruneCallback:
         return
 
     def __call__(
-        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+            self, instance: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> None:
         """Evaluate whether training should be stopped early.
 
@@ -398,7 +603,9 @@ class PruneCallback:
         return
 
 
-class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
+class ChangeSchedulerOnPlateauCallback(
+    (Generic[_Input, _Target, _Output]), metaclass=abc.ABCMeta
+):
     """Change the learning rate schedule when a metric has stopped improving.
 
     Attributes:
@@ -407,14 +614,15 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     """
 
     def __init__(
-        self,
-        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
-        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-        cooldown: int = 0,
+            self,
+            metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
+            monitor: p.ValidationProtocol[
+                         _Input, _Target, _Output] | None = None,
+            min_delta: float = 1e-8,
+            patience: int = 0,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
+            cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -431,7 +639,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
-        self.monitor = objectives.MetricMonitor(
+        self.monitor = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -444,7 +652,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
         return
 
     def __call__(
-        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+            self, instance: p.TrainerProtocol[_Input, _Target, _Output]
     ) -> None:
         """Check if there is a plateau and reduce the learning rate if needed.
 
@@ -470,7 +678,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_scheduler(
-        self, epoch: int, scheduler: p.SchedulerProtocol
+            self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify input scheduler.
 
@@ -483,7 +691,9 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
         """
 
 
-class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
+class ReduceLROnPlateau(
+    ChangeSchedulerOnPlateauCallback[_Input, _Target, _Output]
+):
     """Reduce the learning rate when a metric has stopped improving.
 
     Attributes:
@@ -493,15 +703,16 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     """
 
     def __init__(
-        self,
-        metric: str | p.ObjectiveProtocol[ _Output, _Target] | None = None,
-        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-        factor: float = 0.1,
-        cooldown: int = 0,
+            self,
+            metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
+            monitor: p.ValidationProtocol[
+                         _Input, _Target, _Output] | None = None,
+            min_delta: float = 1e-8,
+            patience: int = 0,
+            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+            filter_fn: Callable[[Sequence[float]], float] = get_last,
+            factor: float = 0.1,
+            cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -531,7 +742,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
         self.factor = factor
 
     def get_scheduler(
-        self, epoch: int, scheduler: p.SchedulerProtocol
+            self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify the input scheduler to scale down the learning rate.
 
@@ -554,7 +765,7 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
     """
 
     def get_scheduler(
-        self, epoch: int, scheduler: p.SchedulerProtocol
+            self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Consider training until now a warm-up and restart scheduling.
 

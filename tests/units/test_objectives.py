@@ -13,7 +13,7 @@ from drytorch.objectives import (
     Loss,
     Metric,
     MetricCollection,
-    MetricMonitor,
+    MetricTracker,
     dict_apply,
     repr_metrics,
 )
@@ -36,7 +36,7 @@ def metric_2() -> str:
 
 @pytest.fixture(scope='module')
 def metric_fun_1(
-    metric_1: str,
+        metric_1: str,
 ) -> dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
     """Simple metric fun."""
     return {metric_1: lambda x, y: x}
@@ -44,7 +44,7 @@ def metric_fun_1(
 
 @pytest.fixture(scope='module')
 def metric_fun_2(
-    metric_2: str,
+        metric_2: str,
 ) -> dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
     """Another simple metric fun."""
     return {metric_2: lambda x, y: y}
@@ -70,7 +70,7 @@ class TestMetricCollection:
         return
 
     def test_update_compute_and_reset(
-        self, metric_1, metric_2, metrics
+            self, metric_1, metric_2, metrics
     ) -> None:
         """Test it stores, reduces, and resets metrics correctly."""
         simple_outputs_1 = torch.tensor(1)
@@ -160,7 +160,7 @@ class TestCompositionalLoss:
 
     @pytest.fixture(scope='class')
     def example_metric_results(
-        self, metric_1, metric_2
+            self, metric_1, metric_2
     ) -> dict[str, torch.Tensor]:
         """A possible calculated value for metrics."""
         return {
@@ -188,6 +188,7 @@ class TestCompositionalLoss:
             higher_is_better=False,
             **metric_fun_2,
         )
+
     @pytest.fixture(scope='class')
     def composed_loss_1(self, loss_1) -> CompositionalLoss:
         """Set up a CompositionalLoss instance with simple arguments."""
@@ -204,10 +205,9 @@ class TestCompositionalLoss:
         simple_targets = torch.tensor(0.0)
         expected = {'Loss': torch.tensor(2.0), metric_1: torch.tensor(1.0)}
         assert (
-            composed_loss_1.calculate(simple_outputs, simple_targets)
-            == expected
+                composed_loss_1.calculate(simple_outputs, simple_targets)
+                == expected
         )
-
 
     def test_negate_loss(self, composed_loss_1, example_metric_results) -> None:
         """Test negation of a loss."""
@@ -216,7 +216,7 @@ class TestCompositionalLoss:
         assert neg_loss.formula == '(-(2 x [Metric_1]))'
 
     def test_add_losses(
-        self, composed_loss_1, composed_loss_2, example_metric_results
+            self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test addition of two losses."""
         combined_loss = composed_loss_1 + composed_loss_2
@@ -224,7 +224,7 @@ class TestCompositionalLoss:
         assert combined_loss.formula == '(2 x [Metric_1] + 3 x [Metric_2])'
 
     def test_subtract_losses(
-        self, composed_loss_1, composed_loss_2, example_metric_results
+            self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test subtraction of two losses."""
         combined_loss = composed_loss_1 - -composed_loss_2
@@ -232,7 +232,7 @@ class TestCompositionalLoss:
         assert combined_loss.formula == '(2 x [Metric_1] - (-(3 x [Metric_2])))'
 
     def test_multiply_losses(
-        self, composed_loss_1, composed_loss_2, example_metric_results
+            self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test multiplication of two losses."""
         combined_loss = composed_loss_1 * composed_loss_2
@@ -240,7 +240,7 @@ class TestCompositionalLoss:
         assert combined_loss.formula == '(2 x [Metric_1]) x (3 x [Metric_2])'
 
     def test_divide_losses(
-        self, composed_loss_1, composed_loss_2, example_metric_results
+            self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test division of two losses."""
         combined_loss = composed_loss_1 / -composed_loss_2
@@ -312,13 +312,13 @@ class TestLoss:
 
     def test_positive_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by positive float."""
-        combined_loss = loss_1**2
-        assert combined_loss.criterion(example_metric_results) == 2**2
+        combined_loss = loss_1 ** 2
+        assert combined_loss.criterion(example_metric_results) == 2 ** 2
         assert combined_loss.formula == '([Metric_1]^2)'
 
     def test_negative_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by negative float."""
-        combined_loss = loss_1**-2
+        combined_loss = loss_1 ** -2
         assert combined_loss.criterion(example_metric_results) == 2 ** (-2)
         assert combined_loss.formula == '(1 / [Metric_1]^2)'
 
@@ -344,21 +344,21 @@ def test_dict_apply(mocker) -> None:
     [
         # Case 1: Mapping of metrics
         (
-            {'metric_1': torch.tensor(1), 'metric_2': torch.tensor(2)},
-            None,
-            {'metric_1': 1, 'metric_2': 2},
+                {'metric_1': torch.tensor(1), 'metric_2': torch.tensor(2)},
+                None,
+                {'metric_1': 1, 'metric_2': 2},
         ),
         # Case 2: Single tensor
         (
-            torch.tensor(0.5),
-            'metric_1',
-            {'metric_1': 0.5},
+                torch.tensor(0.5),
+                'metric_1',
+                {'metric_1': 0.5},
         ),
         # Case 3: None
         (
-            None,
-            None,
-            {},
+                None,
+                None,
+                {},
         ),
     ],
 )
@@ -376,95 +376,167 @@ def test_repr_metrics(mocker, compute_return, class_name, expected):
     assert result == expected
 
 
-class TestMetricMonitor:
-    """Tests for MetricMonitor class."""
+class TestMetricTracker:
+    """Tests for MetricTracker class."""
 
     @pytest.fixture()
-    def monitor_from_str_metric(self, mock_metric) -> MetricMonitor:
-        """Set up a test instance."""
-        return MetricMonitor(
-            metric=mock_metric.name, min_delta=0.01, patience=2
+    def tracker_auto(self) -> MetricTracker:
+        """Set up a basic test instance."""
+        return MetricTracker(
+            metric_name="test_loss", min_delta=0.01, patience=2
         )
 
     @pytest.fixture()
-    def monitor_from_metric_object(self, mock_metric) -> MetricMonitor:
-        """Set up a test instance."""
-        return MetricMonitor(metric=mock_metric, min_delta=0.01, patience=2)
+    def tracker_higher_is_better(self) -> MetricTracker:
+        """Set up a test instance with higher is better."""
+        return MetricTracker(
+            metric_name="test_acc", min_delta=0.01, patience=2, best_is='higher'
+        )
 
-    def test_init_with_string_metric(
-        self, monitor_from_str_metric, mock_metric
-    ) -> None:
-        """Test instantiating class with a string for the metric."""
-        assert monitor_from_str_metric.metric_name == mock_metric.name
-        assert monitor_from_str_metric.best_is == 'auto'
+    @pytest.fixture()
+    def tracker_lower_is_better(self) -> MetricTracker:
+        """Set up a test instance with lower is better."""
+        return MetricTracker(
+            metric_name="test_loss", min_delta=0.01, patience=2, best_is='lower'
+        )
 
-    def test_init_with_metric_object(
-        self, monitor_from_metric_object, mock_metric
-    ) -> None:
-        """Test instantiating class with a metric-like object."""
-        assert monitor_from_metric_object.metric_name == mock_metric.name
-        assert monitor_from_metric_object.best_is == 'higher'
+    def test_init_auto(self, tracker_auto) -> None:
+        """Test basic instantiation."""
+        assert tracker_auto.metric_name == "test_loss"
+        assert tracker_auto.best_is == 'auto'
+        assert tracker_auto.min_delta == 0.01
+        assert tracker_auto.patience == 2
+        assert len(tracker_auto.history) == 0
 
     def test_negative_patience(self) -> None:
         """Test invalid patience."""
         with pytest.raises(ValueError):
-            MetricMonitor(patience=-1)
+            MetricTracker(patience=-1)
 
-    def test_get_monitor(self, mock_trainer, monitor_from_str_metric) -> None:
-        """Test getting monitored values."""
-        expected = mock_trainer.validation
-        assert monitor_from_str_metric._get_monitor(mock_trainer) == expected
-        mock_trainer.validation = None
-        expected = mock_trainer
-        assert monitor_from_str_metric._get_monitor(mock_trainer) == expected
-
-    def test_best_result_not_available(self, monitor_from_str_metric) -> None:
-        """Test calling best result before the monitor has started fails."""
+    def test_best_result_not_available(self, tracker_auto) -> None:
+        """Test calling best result before any values are added fails."""
         with pytest.raises(exceptions.ResultNotAvailableError):
-            _ = monitor_from_str_metric.best_value
+            _ = tracker_auto.best_value
 
-    def test_aggregate_fn_selection(self, monitor_from_str_metric) -> None:
-        """Test default aggregation method."""
-        assert monitor_from_str_metric.filter_fn([1, 2, 3]) == 3
+    def test_add_value(self, tracker_auto) -> None:
+        """Test adding values to history."""
+        tracker_auto.add_value(1.0)
+        assert len(tracker_auto.history) == 1
+        assert tracker_auto.history[0] == 1.0
 
-    def test_is_improving_with_better_value(
-        self, monitor_from_str_metric
+        tracker_auto.add_value(2.0)
+        assert len(tracker_auto.history) == 2
+        assert tracker_auto.history[1] == 2.0
+
+    def test_filtered_value_default(self, tracker_auto) -> None:
+        """Test default aggregation method (last value)."""
+        tracker_auto.add_value(1.0)
+        tracker_auto.add_value(2.0)
+        tracker_auto.add_value(3.0)
+        assert tracker_auto.filtered_value == 3.0
+
+    def test_is_improving_with_better_value_higher(
+            self, tracker_higher_is_better
     ) -> None:
-        """Test is_improving returns True for improvement."""
-        monitor_from_str_metric.best_is = 'higher'
-        monitor_from_str_metric.patience = 0
-        monitor_from_str_metric.history.append(1.0)
-        monitor_from_str_metric.history.append(2.0)
-        assert monitor_from_str_metric.is_improving() is True
+        """Test is_improving for improvement when higher is better."""
+        tracker_higher_is_better.add_value(1.0)
+        tracker_higher_is_better.add_value(2.0)
+        assert tracker_higher_is_better.is_improving() is True
 
-    def test_is_improving_with_worse_value(
-        self, monitor_from_metric_object
+    def test_is_improving_with_worse_value_higher(
+            self, tracker_higher_is_better
     ) -> None:
-        """Test is_improving returns False for worse result."""
-        monitor_from_metric_object.best_is = 'higher'
-        monitor_from_metric_object.patience = 0
-        monitor_from_metric_object.history.append(2.0)
-        monitor_from_metric_object.history.append(1.0)
-        assert monitor_from_metric_object.is_improving() is False
+        """Test is_improving for worse results when higher is better."""
+        tracker_higher_is_better.add_value(2.0)
+        tracker_higher_is_better.add_value(1.0)
+        assert tracker_higher_is_better.is_improving() is False
 
-    def test_auto_best_is_determination(self, monitor_from_str_metric) -> None:
-        """Test auto-determination of whether higher is better."""
-        monitor_from_str_metric.best_is = 'auto'
-        monitor_from_str_metric.patience = 0
-        monitor_from_str_metric.history.append(1.0)
-        monitor_from_str_metric.history.append(2.0)
-        assert monitor_from_str_metric.is_improving() is True
-        assert monitor_from_str_metric.best_is == 'higher'
+    def test_is_improving_with_better_value_lower(
+            self, tracker_lower_is_better
+    ) -> None:
+        """Test is_improving for improvement when lower is better."""
+        tracker_lower_is_better.add_value(2.0)
+        tracker_lower_is_better.add_value(1.0)
+        assert tracker_lower_is_better.is_improving() is True
 
-    def test_improvement_with_tolerance(self, monitor_from_str_metric) -> None:
+    def test_is_improving_with_worse_value_lower(
+            self, tracker_lower_is_better
+    ) -> None:
+        """Test is_improving for worse results when lower is better."""
+        tracker_lower_is_better.add_value(1.0)
+        tracker_lower_is_better.add_value(2.0)
+        assert tracker_lower_is_better.is_improving() is False
+
+    def test_auto_best_is_determination_higher(self, tracker_auto) -> None:
+        """Test auto-determination when values are increasing."""
+        tracker_auto.add_value(1.0)
+        tracker_auto.add_value(2.0)
+        assert tracker_auto.is_improving() is True
+        assert tracker_auto.best_is == 'higher'
+
+    def test_auto_best_is_determination_lower(self, tracker_auto) -> None:
+        """Test auto-determination when values are decreasing."""
+        tracker_auto.add_value(2.0)
+        tracker_auto.add_value(1.0)
+        assert tracker_auto.is_improving() is True
+        assert tracker_auto.best_is == 'lower'
+
+    def test_improvement_with_tolerance(self, tracker_higher_is_better) -> None:
         """Test improvement detection considering min_delta."""
-        monitor_from_str_metric.best_is = 'higher'
-        monitor_from_str_metric.patience = 0
-        monitor_from_str_metric.history.append(1.0)
-        assert monitor_from_str_metric.is_improving()
+        tracker_higher_is_better.add_value(1.0)
+        assert tracker_higher_is_better.is_improving()
 
-        monitor_from_str_metric.history.append(1.009)
-        assert not monitor_from_str_metric.is_improving()
+        tracker_higher_is_better.add_value(1.009)
+        assert not tracker_higher_is_better.is_improving()
 
-        monitor_from_str_metric.history.append(1.011)
-        assert monitor_from_str_metric.is_improving()
+        tracker_higher_is_better.add_value(1.011)
+        assert tracker_higher_is_better.is_improving()
+
+    def test_patience_countdown(self, tracker_higher_is_better) -> None:
+        """Test patience countdown mechanism."""
+        tracker_higher_is_better.add_value(2.0)
+        assert tracker_higher_is_better.is_improving()
+        assert tracker_higher_is_better.is_patient()
+
+        tracker_higher_is_better.add_value(1.0)  # worse
+        assert not tracker_higher_is_better.is_improving()
+        assert tracker_higher_is_better.is_patient()
+
+        tracker_higher_is_better.add_value(1.0)  # still worse
+        assert not tracker_higher_is_better.is_improving()
+        assert not tracker_higher_is_better.is_patient()
+
+    def test_patience_reset_on_improvement(self,
+                                           tracker_higher_is_better) -> None:
+        """Test patience resets when improvement occurs."""
+        tracker_higher_is_better.add_value(1.0)
+        tracker_higher_is_better.add_value(0.5)  # worse
+        assert not tracker_higher_is_better.is_improving()
+        assert tracker_higher_is_better.is_patient()
+
+        tracker_higher_is_better.add_value(1.5)  # better
+        assert tracker_higher_is_better.is_improving()
+        assert tracker_higher_is_better.is_patient()
+
+    def test_reset_patience_method(self, tracker_higher_is_better) -> None:
+        """Test manual patience reset."""
+        tracker_higher_is_better.add_value(2.0)
+        tracker_higher_is_better.add_value(1.0)  # worse
+        assert not tracker_higher_is_better.is_improving()
+
+        tracker_higher_is_better.add_value(1.0)  # worse
+        assert not tracker_higher_is_better.is_improving()
+        assert not tracker_higher_is_better.is_patient()
+
+        tracker_higher_is_better.reset_patience()
+        assert tracker_higher_is_better.is_patient()
+
+    def test_is_better_with_nan(self, tracker_higher_is_better) -> None:
+        """Test is_better handles NaN values correctly."""
+        assert not tracker_higher_is_better.is_better(float('nan'), 1.0)
+
+    def test_single_value_always_improving(self,
+                                           tracker_higher_is_better) -> None:
+        """Test that single values are always considered improving."""
+        tracker_higher_is_better.add_value(1.0)
+        assert tracker_higher_is_better.is_improving()
