@@ -1,16 +1,22 @@
 """Utilities for Stochastic Weight Averaging."""
 
+from typing import TypeVar
+
 import torch
 
+from drytorch.core import protocols as p
 from drytorch.running import ModelCaller
 
 
+_Input = TypeVar('_Input', bound=p.InputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 # noinspection PyProtectedMember
 # pylint: disable=protected-access
 AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
 
 
-class ModelMomentaUpdater(ModelCaller):
+class ModelMomentaUpdater(ModelCaller[_Input, _Output]):
     """Update the momenta in the batch normalization layers."""
 
     def __call__(self) -> None:

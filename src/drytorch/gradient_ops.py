@@ -57,7 +57,7 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
             param.grad = (grad - grad.mean()) / (grad.std() + self._eps)
 
 
-class ClipOperation(p.GradientOpProtocol):
+class ClipOperation(p.GradientOpProtocol, abc.ABC):
     """Abstract base class for gradient operations."""
 
     @abc.abstractmethod

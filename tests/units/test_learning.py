@@ -8,7 +8,6 @@ import pytest
 
 from drytorch import schedulers
 from drytorch.core import protocols as p
-
 from drytorch.learning import LearningScheme
 
 

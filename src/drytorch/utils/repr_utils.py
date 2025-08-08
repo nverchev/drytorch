@@ -1,5 +1,7 @@
 """Module containing utilities to extract readable representations."""
 
+
+
 from __future__ import annotations
 
 import dataclasses
@@ -10,7 +12,8 @@ import math
 import numbers
 import types
 
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
+from itertools import count
 from typing import Any
 
 import numpy as np
@@ -38,8 +41,7 @@ class DefaultName:
 
     def __init__(self):
         """Constructor."""
-        self._prefixes = dict[str, itertools.count]()
-
+        self._prefixes: dict[str, count[int]] = {}
     def __get__(self, instance: Any, objtype: type | None = None) -> str:
         """Return the default name for the instance or class."""
         return instance.__name  # pylint: disable=protected-access
@@ -131,7 +133,7 @@ def has_own_repr(obj: Any) -> bool:
     return not repr(obj).endswith(str(hex(id(obj))) + '>')
 
 
-def limit_size(container: Iterable, max_size: int) -> list:
+def limit_size(container: Iterable[Any], max_size: int) -> list[Any]:
     """Limit the size of iterables and adds an Omitted object."""
     # prevents infinite iterators
     if hasattr(container, '__len__'):
@@ -236,7 +238,7 @@ def _(obj: numbers.Number, *, max_size: int = 10) -> numbers.Number:
 
 
 @recursive_repr.register
-def _(obj: tuple, *, max_size: int = 10) -> tuple:
+def _(obj: tuple, *, max_size: int = 10) -> tuple[Any, ...]:
     return tuple(
         recursive_repr(item, max_size=max_size)
         for item in limit_size(obj, max_size=max_size)
@@ -244,7 +246,7 @@ def _(obj: tuple, *, max_size: int = 10) -> tuple:
 
 
 @recursive_repr.register
-def _(obj: list, *, max_size: int = 10) -> list:
+def _(obj: list, *, max_size: int = 10) -> list[Any]:
     return [
         recursive_repr(item, max_size=max_size)
         for item in limit_size(obj, max_size=max_size)
@@ -252,7 +254,7 @@ def _(obj: list, *, max_size: int = 10) -> list:
 
 
 @recursive_repr.register
-def _(obj: set, *, max_size: int = 10) -> set:
+def _(obj: set, *, max_size: int = 10) -> set[Hashable]:
     return {
         recursive_repr(item, max_size=max_size)
         for item in limit_size(obj, max_size=max_size)

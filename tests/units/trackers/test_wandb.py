@@ -6,6 +6,7 @@ from collections.abc import Generator
 
 import pytest
 
+
 if not importlib.util.find_spec('wandb'):
     pytest.skip('wandb not available', allow_module_level=True)
 

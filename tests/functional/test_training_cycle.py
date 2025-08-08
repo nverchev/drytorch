@@ -68,7 +68,7 @@ def test_reduce_lr_on_plateau(square_loss_calc,
                               identity_trainer) -> None:
     """Test learning rate reduction on plateau."""
     factor = 0.1
-    initial_lr = identity_trainer._model_optimizer._base_lr
+    initial_lr = identity_trainer._model_optimizer.base_lr
     identity_trainer.post_epoch_hooks.register(
         hooks.ReduceLROnPlateau(
             metric=square_loss_calc,
@@ -85,7 +85,7 @@ def test_restart_schedule_on_plateau(square_loss_calc,
                                      identity_trainer) -> None:
     """Test learning rate schedule restart on plateau."""
     exp_scheduler = schedulers.ExponentialScheduler()
-    initial_lr = identity_trainer._model_optimizer._base_lr
+    initial_lr = identity_trainer._model_optimizer.base_lr
     identity_trainer.update_learning_rate(scheduler=exp_scheduler)
     identity_trainer.post_epoch_hooks.register(
         hooks.RestartScheduleOnPlateau(metric=square_loss_calc)

@@ -9,8 +9,8 @@ import torch
 from typing_extensions import override
 
 from drytorch import evaluating, hooks, models, running
-
-from drytorch.core import exceptions, log_events, protocols as p
+from drytorch.core import exceptions, log_events
+from drytorch.core import protocols as p
 
 
 _Input = TypeVar('_Input', bound=p.InputType)
@@ -62,8 +62,12 @@ class Trainer(
             p.ValidationProtocol[_Input, _Target, _Output] | None
         ) = None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
-        self.pre_epoch_hooks = hooks.HookRegistry[Trainer]()
-        self.post_epoch_hooks = hooks.HookRegistry[Trainer]()
+        self.pre_epoch_hooks = hooks.HookRegistry[
+            Trainer[_Input, _Target, _Output]
+        ]()
+        self.post_epoch_hooks = hooks.HookRegistry[
+            Trainer[_Input, _Target, _Output]
+        ]()
         self._terminated = False
         return
 

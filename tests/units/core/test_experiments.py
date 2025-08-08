@@ -1,10 +1,8 @@
 """Test for the "experiments" module."""
-from typing import Generator
 
 import pytest
 
 from drytorch.core import exceptions, log_events
-
 from drytorch.core.experiments import Experiment
 
 

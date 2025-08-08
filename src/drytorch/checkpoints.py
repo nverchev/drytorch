@@ -2,20 +2,21 @@
 
 import abc
 import pathlib
-from typing import Any
 import warnings
 
-import numpy as np
-# noqa: PLC2701,F401
-import numpy._core.multiarray  # pyright: ignore[reportPrivateImportUsage]
+from typing import Any
 
+import numpy as np
+import numpy._core.multiarray  # pyright: ignore[reportPrivateImportUsage]
 import torch
 
 from typing_extensions import override
 
-from drytorch.core import exceptions, experiments, log_events, protocols as p
+from drytorch.core import exceptions, experiments, log_events
+from drytorch.core import protocols as p
 
-SAFE_GLOBALS = [
+
+SAFE_GLOBALS: list[Any] = [
     np.bool_,
     np.int8,
     np.int16,
@@ -31,7 +32,7 @@ SAFE_GLOBALS = [
     np.complex64,
     np.complex128,
     np.dtype,
-    np._core.multiarray.scalar
+    np._core.multiarray.scalar  # type: ignore
 ]
 SAFE_GLOBALS.extend([getattr(np.dtypes, name) for name in np.dtypes.__all__])
 torch.serialization.add_safe_globals(SAFE_GLOBALS)
@@ -49,7 +50,9 @@ class CheckpointPathManager:
     folder_name = 'checkpoints'
 
     def __init__(
-            self, model: p.ModelProtocol, root_dir: pathlib.Path | None = None
+        self,
+        model: p.ModelProtocol[Any, Any],
+        root_dir: pathlib.Path | None = None,
     ) -> None:
         """Constructor.
 
@@ -105,7 +108,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     def __init__(self) -> None:
         """Constructor."""
-        self._model: p.ModelProtocol | None = None
+        self._model: p.ModelProtocol[Any, Any] | None = None
         self._optimizer: torch.optim.Optimizer | None = None
 
     @property
@@ -135,7 +138,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         self._model = None
         self._optimizer = None
 
-    def register_model(self, model: p.ModelProtocol):
+    def register_model(self, model: p.ModelProtocol[Any, Any]):
         """Register the model to manage."""
         self._model = model
 

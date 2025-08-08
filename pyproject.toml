@@ -54,6 +54,11 @@ third_party_stubs = [
     "types-PyYAML",
 ]
 
+type = [
+    "basedpyright>=1.31.1",
+    "mypy>=1.17.1",
+]
+
 all = [
     "drytorch[all_trackers]",
     "drytorch[support]",
@@ -94,3 +99,8 @@ log_cli_level = "WARNING"
 mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+]

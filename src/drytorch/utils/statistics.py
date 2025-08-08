@@ -8,7 +8,7 @@ import copy
 import math
 
 from collections.abc import Callable, KeysView, Mapping, Sequence
-from typing import Generic, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 
 import torch
 
@@ -41,7 +41,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         self.__iadd__(kwargs)
         self._cached_reduce: dict[str, _T] = {}
 
-    def __add__(self, other: AbstractAverager | Mapping[str, _T]) -> Self:
+    def __add__(self, other: AbstractAverager[_T] | Mapping[str, _T]) -> Self:
         """Join current data with data from another Averager.
 
         Args:
@@ -58,7 +58,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         """Return True if data is present."""
         return bool(self.aggregate)
 
-    def __deepcopy__(self, memo: dict) -> Self:
+    def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
         """Deep copy magic method.
 
         Args:
@@ -83,7 +83,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
             return False
         return self.aggregate == other.aggregate and self.counts == other.counts
 
-    def __iadd__(self, other: AbstractAverager | Mapping[str, _T]) -> Self:
+    def __iadd__(self, other: AbstractAverager[_T] | Mapping[str, _T]) -> Self:
         """Merge current data with data from another Averager.
 
         Args:

@@ -5,15 +5,17 @@ import functools
 import pathlib
 import warnings
 
-from collections.abc import Iterable
-from typing import Generic, TypeAlias, TypeVar
+from collections.abc import Generator, Iterable
+from pathlib import Path
+from typing import Final, Generic, TypeAlias, TypeVar
 
 import numpy as np
 import numpy.typing as npt
 
 from typing_extensions import override
 
-from drytorch.core import exceptions, experiments, log_events, tracking
+from drytorch.core import exceptions, log_events, tracking
+
 
 HistoryMetric: TypeAlias = tuple[list[int], list[float]]
 HistoryMetrics: TypeAlias = tuple[list[int], dict[str, list[float]]]
@@ -41,7 +43,7 @@ class Dumper(tracking.Tracker):
                 the same of the current experiment.
         """
         super().__init__()
-        self.user_par_dir = par_dir
+        self.user_par_dir: Path | None = par_dir
         self._par_dir: pathlib.Path | None = None
         self._exp_name: str | None = None
         self._run_id: str | None = None
@@ -160,8 +162,8 @@ class MemoryMetrics(tracking.Tracker):
             metric_loader: object to load the metrics.
         """
         super().__init__()
-        self._metric_loader = metric_loader
-        self.model_dict = dict[str, SourcedMetrics]()
+        self._metric_loader: Final = metric_loader
+        self.model_dict: dict[str, SourcedMetrics] = dict[str, SourcedMetrics]()
         return
 
     @functools.singledispatchmethod
@@ -193,7 +195,7 @@ class MemoryMetrics(tracking.Tracker):
         return super().notify(event)
 
 
-class BasePlotter(MemoryMetrics, Generic[Plot]):
+class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     """Abstract class for plotting trajectory from sources."""
 
     def __init__(
@@ -220,10 +222,10 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
             its entirety.
         """
         super().__init__(metric_loader)
-        self._model_names = model_names
-        self._source_names = source_names
-        self._metric_names = metric_names
-        self._start = start
+        self._model_names: Iterable[str] = model_names
+        self._source_names: Iterable[str] = source_names
+        self._metric_names: Iterable[str] = metric_names
+        self._start: int = start
         self._removed_start = False
 
     @functools.singledispatchmethod
@@ -297,7 +299,9 @@ class BasePlotter(MemoryMetrics, Generic[Plot]):
                 if source in sourced_metrics
             }
         if not metric_names:
-            all_metrics = (set(logs[1]) for logs in sourced_metrics.values())
+            all_metrics: Generator[set[str], None, None] = (
+                set(logs[1]) for logs in sourced_metrics.values()
+            )
             metric_names = sorted(set().union(*all_metrics))
 
         plots = list[Plot]()

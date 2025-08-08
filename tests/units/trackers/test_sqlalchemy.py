@@ -152,7 +152,8 @@ class TestSQLConnection:
         """Test call model notification creates the source."""
         tracker_started.notify(source_registration_mock_event)
         self.mock_context.add.assert_called_with(self.source)
-        assert source_registration_mock_event.source_name in tracker_started._sources
+        sources = tracker_started._sources
+        assert source_registration_mock_event.source_name in sources
 
     def test_notify_metrics(
             self,

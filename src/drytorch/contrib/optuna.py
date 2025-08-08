@@ -1,16 +1,20 @@
 """Support for optuna."""
 
 from collections.abc import Callable, Sequence
-from typing import Literal
+from typing import Literal, TypeVar
 
 import optuna
 
 from omegaconf import DictConfig
 
 from drytorch import hooks, objectives
-
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
+
+
+_Input = TypeVar('_Input', bound=p.InputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class TrialCallback:
@@ -25,8 +29,8 @@ class TrialCallback:
         self,
         trial: optuna.Trial,
         filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
-        metric: str | p.ObjectiveProtocol | None = None,
-        monitor: p.ValidationProtocol | None = None,
+        metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
+        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:
@@ -55,7 +59,9 @@ class TrialCallback:
         self.reported = dict[int, float]()
         return
 
-    def __call__(self, instance: p.TrainerProtocol) -> None:
+    def __call__(
+        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Evaluate whether training should be stopped early.
 
         Args:

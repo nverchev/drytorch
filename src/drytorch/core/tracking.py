@@ -13,7 +13,8 @@ import warnings
 from abc import abstractmethod
 from typing import Any, Self
 
-from drytorch.core import exceptions, log_events, protocols as p
+from drytorch.core import exceptions, log_events
+from drytorch.core import protocols as p
 from drytorch.utils import repr_utils
 
 
@@ -38,7 +39,9 @@ class MetadataManager:
         self.used_names = set[str]()
         self.max_items_repr = max_items_repr
 
-    def register_source(self, source: Any, model: p.ModelProtocol) -> None:
+    def register_source(
+        self, source: Any, model: p.ModelProtocol[Any, Any]
+    ) -> None:
         """Record metadata of an object that calls the model.
 
         Args:
@@ -55,7 +58,7 @@ class MetadataManager:
         )
         return
 
-    def register_model(self, model: p.ModelProtocol) -> None:
+    def register_model(self, model: p.ModelProtocol[Any, Any]) -> None:
         """Record metadata of a given model.
 
         Args:

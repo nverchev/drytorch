@@ -4,8 +4,8 @@ import torch
 
 import pytest
 
-from drytorch.core import exceptions
 from drytorch import Trainer
+from drytorch.core import exceptions
 
 
 @pytest.fixture(autouse=True)

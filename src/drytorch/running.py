@@ -11,9 +11,10 @@ from typing import Generic, TypeVar
 from typing_extensions import override
 
 from drytorch import loading, objectives
-
-from drytorch.core import exceptions, log_events, registering, protocols as p
+from drytorch.core import exceptions, log_events, registering
+from drytorch.core import protocols as p
 from drytorch.utils import apply_ops, repr_utils
+
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
@@ -57,7 +58,7 @@ class ModelCaller(Generic[_Input, _Output], metaclass=abc.ABCMeta):
         return self._name
 
 
-class Source(ModelCaller[_Input, _Output], repr_utils.Versioned):
+class Source(repr_utils.Versioned, ModelCaller[_Input, _Output]):
     """Document itself when the model is first called.
 
     Attributes:
@@ -85,7 +86,9 @@ class Source(ModelCaller[_Input, _Output], repr_utils.Versioned):
         return
 
 
-class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
+class ModelRunner(
+    ModelCaller[_Input, _Output], Generic[_Input, _Target, _Output]
+):
     """Run a model on a dataset.
 
     Attributes:
@@ -152,7 +155,7 @@ class ModelRunner(ModelCaller, Generic[_Input, _Target, _Output]):
 
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
-        num_samples = loading.validate_dataset_length(self.loader.dataset)
+        num_samples = loading.validate_dataset_length(self.loader.get_dataset())
         pbar = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), num_samples
         )
@@ -230,7 +233,8 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
 
 
 class ModelRunnerWithLogs(
-    ModelRunnerWithObjective[_Input, _Target, _Output], Source
+    ModelRunnerWithObjective[_Input, _Target, _Output],
+    Source[_Input, _Output],
 ):
     """Run a model on a dataset and log the value of an objective function.
 

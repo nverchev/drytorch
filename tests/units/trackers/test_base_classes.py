@@ -1,8 +1,9 @@
 """Tests for the "base_classes" module."""
-import time
-from collections.abc import Generator
 import functools
 import pathlib
+import time
+
+from collections.abc import Generator
 
 import numpy as np
 
@@ -112,7 +113,6 @@ class TestDumper:
 
     def test_get_last_run(self, tmp_path, tracker_started) -> None:
         """Test last created folder is selected."""
-
         expected = tracker_started._get_run_dir()
         assert tracker_started._get_last_run_dir() == expected
 

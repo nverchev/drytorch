@@ -14,13 +14,14 @@ import operator
 import warnings
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Literal, Self, TypeVar, cast
+from typing import Any, Literal, Self, TypeVar, cast
 
 import torch
 
 from typing_extensions import override
 
-from drytorch.core import exceptions, protocols as p
+from drytorch.core import exceptions
+from drytorch.core import protocols as p
 from drytorch.utils import statistics
 
 
@@ -133,7 +134,7 @@ class Objective(
         named_metric_fun = self.named_metric_fun | other.named_metric_fun
         return MetricCollection(**named_metric_fun)
 
-    def __deepcopy__(self, memo: dict) -> Self:
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
         """Deep copy magic method.
 
         Args:
@@ -330,7 +331,7 @@ class LossBase(
             **named_metric_fun,
         )
 
-    def __neg__(self) -> CompositionalLoss:
+    def __neg__(self) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Negates the loss.
 
         Returns:
@@ -347,7 +348,7 @@ class LossBase(
     def __add__(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
-    ) -> CompositionalLoss:
+    ) -> CompositionalLoss[Any, Any]:
         """Adds another loss or a float to this loss.
 
         Args:
@@ -358,7 +359,7 @@ class LossBase(
         """
         return self._combine(other, operator.add, '{} + {}', False)
 
-    def __radd__(self, other: float) -> CompositionalLoss:
+    def __radd__(self, other: float) -> CompositionalLoss[Any, Any]:
         """Implements reverse addition for the loss.
 
         Args:
@@ -372,7 +373,7 @@ class LossBase(
     def __sub__(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
-    ) -> CompositionalLoss:
+    ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Subtracts another loss or a float from this loss.
 
         Args:
@@ -384,7 +385,9 @@ class LossBase(
         neg_other = other.__neg__()
         return self.__add__(neg_other)
 
-    def __rsub__(self, other: float) -> CompositionalLoss:
+    def __rsub__(
+        self, other: float
+    ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Implements reverse subtraction for the loss.
 
         Args:
@@ -399,7 +402,7 @@ class LossBase(
     def __mul__(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
-    ) -> CompositionalLoss:
+    ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Multiplies this loss by another loss or a float.
 
         Args:
@@ -410,7 +413,9 @@ class LossBase(
         """
         return self._combine(other, operator.mul, '{} x {}')
 
-    def __rmul__(self, other: float) -> CompositionalLoss:
+    def __rmul__(
+        self, other: float
+    ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Implements reverse multiplication for the loss.
 
         Args:
@@ -424,7 +429,7 @@ class LossBase(
     def __truediv__(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
-    ) -> CompositionalLoss:
+    ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Divides this loss by another loss or a float.
 
         Args:
@@ -436,7 +441,9 @@ class LossBase(
         mul_inv_other = other.__pow__(-1)
         return self.__mul__(mul_inv_other)
 
-    def __rtruediv__(self, other: float) -> CompositionalLoss:
+    def __rtruediv__(
+        self, other: float
+    ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Implements reverse division for the loss.
 
         Args:
@@ -448,7 +455,9 @@ class LossBase(
         mul_inv_self = self.__pow__(-1)
         return mul_inv_self.__mul__(other)
 
-    def __pow__(self, other: float) -> CompositionalLoss:
+    def __pow__(
+        self, other: float
+    ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Raises the loss to a given power.
 
         Args:
@@ -483,7 +492,9 @@ class LossBase(
         """Returns the string representation of the LossBase object."""
         return f'{self.__class__.__name__}({self.formula})'
 
-    def _check_same_direction(self, other: LossBase) -> None:
+    def _check_same_direction(
+        self, other: LossBase[_Output_contra, _Target_contra]
+    ) -> None:
         """Checks if two losses have the same optimization direction.
 
         Args:
@@ -656,7 +667,9 @@ def dict_apply(
     }
 
 
-def repr_metrics(calculator: p.ObjectiveProtocol) -> Mapping[str, float]:
+def repr_metrics(
+    calculator: p.ObjectiveProtocol[Any, Any],
+) -> Mapping[str, float]:
     """Represent the metrics as a mapping of named values.
 
     Args:
@@ -689,8 +702,8 @@ class MetricMonitor:
 
     def __init__(
         self,
-        metric: str | p.ObjectiveProtocol | None = None,
-        monitor: p.ValidationProtocol | None = None,
+        metric: str | p.ObjectiveProtocol[Any, Any] | None = None,
+        monitor: p.ValidationProtocol[Any, Any, Any] | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -816,7 +829,9 @@ class MetricMonitor:
         """Check whether to be patient."""
         return self._patience_countdown > 0
 
-    def record_metric_value(self, instance: p.TrainerProtocol) -> None:
+    def record_metric_value(
+        self, instance: p.TrainerProtocol[Any, Any, Any]
+    ) -> None:
         """Register a new metric value from a monitored evaluation.
 
         If no evaluation is specified, it falls back on the trainer instance
@@ -840,17 +855,20 @@ class MetricMonitor:
         self.history.append(value)
         return
 
-    def _get_monitor(self, instance: p.TrainerProtocol) -> p.ValidationProtocol:
+    def _get_monitor(
+        self, instance: p.TrainerProtocol[Any, Any, Any]
+    ) -> p.ValidationProtocol[Any, Any, Any]:
         if self.optional_monitor is None:
             if instance.validation is None:
-                return cast(p.ValidationProtocol, instance)  # correct
+                # TrainerProtocol is stricter than ValidationProtocol
+                return cast(p.ValidationProtocol[Any, Any, Any], instance)
 
             return instance.validation
 
         return self.optional_monitor
 
     @staticmethod
-    def _get_metric_name(metric: str | p.ObjectiveProtocol) -> str:
+    def _get_metric_name(metric: str | p.ObjectiveProtocol[Any, Any]) -> str:
         if isinstance(metric, str):
             return metric
         elif name := getattr(metric, 'name', False):
@@ -862,7 +880,7 @@ class MetricMonitor:
 
     @staticmethod
     def _get_metric_best_is(
-        metric: str | p.ObjectiveProtocol | None,
+        metric: str | p.ObjectiveProtocol[Any, Any] | None,
     ) -> Literal['auto', 'higher', 'lower'] | None:
         higher_is_better = getattr(metric, 'higher_is_better', None)
         if higher_is_better is None:

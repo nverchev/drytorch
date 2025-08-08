@@ -105,7 +105,7 @@ def represent_literal_str(
 
 def represent_sequence(
         dumper: yaml.Dumper,
-        sequence: Sequence | set,
+        sequence: Sequence[Any] | set[Any],
         max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
 ) -> yaml.SequenceNode:
     """YAML representer for sequences."""

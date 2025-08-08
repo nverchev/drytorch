@@ -17,6 +17,7 @@ from drytorch.hooks import (
     static_hook_class,
 )
 
+
 Accuracy = 'Accuracy'
 Criterion = 'Loss'
 

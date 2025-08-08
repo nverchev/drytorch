@@ -7,8 +7,8 @@ import torch
 from typing_extensions import override
 
 from drytorch import running
-
-from drytorch.core import log_events, protocols as p
+from drytorch.core import log_events
+from drytorch.core import protocols as p
 
 
 _Input = TypeVar('_Input', bound=p.InputType)

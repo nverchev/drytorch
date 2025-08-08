@@ -5,7 +5,6 @@ import torch
 import pytest
 
 from drytorch import Model
-
 from drytorch.core import exceptions
 from drytorch.models import ModelOptimizer
 
@@ -99,4 +98,4 @@ class TestModelOptimizer:
     def test_missing_param_error(self, model_optimizer) -> None:
         """Test that MissingParamError is raised when params are missing."""
         with pytest.raises(exceptions.MissingParamError):
-            model_optimizer._base_lr = {'linear': 0.1}
+            model_optimizer.base_lr = {'linear': 0.1}

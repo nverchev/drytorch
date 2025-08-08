@@ -4,6 +4,7 @@ from collections.abc import Generator
 
 import pytest
 
+
 try:
     import sqlalchemy
 except ImportError:

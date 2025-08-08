@@ -2,6 +2,7 @@
 
 import pytest
 
+
 try:
     import yaml
 except ImportError:

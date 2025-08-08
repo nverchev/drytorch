@@ -35,7 +35,7 @@ class NamedTupleProtocol(Protocol):
     Generic[Any]. At the moment, this protocol won't support these interfaces.
     """
 
-    _fields: tuple
+    _fields: tuple[str, ...]
 
     @overload
     def __getitem__(self, key: int, /) -> Any: ...
@@ -79,7 +79,9 @@ class LoaderProtocol(Protocol[_Data_co]):
     """
 
     batch_size: int | None
-    dataset: data.Dataset
+
+    def get_dataset(self) -> data.Dataset[_Data_co]:
+        """Returns the dataset."""
 
     def __iter__(self) -> Iterator[_Data_co]:
         """Return an iterator over the dataset in batches."""
@@ -236,7 +238,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 class CheckpointProtocol(Protocol):
     """Protocol that stores and loads weight for a ModelProtocol class."""
 
-    def register_model(self, model: ModelProtocol):
+    def register_model(self, model: ModelProtocol[Any, Any]):
         """Register the model to manage."""
 
     def register_optimizer(self, optimizer: torch.optim.Optimizer):

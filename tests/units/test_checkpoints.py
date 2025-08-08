@@ -8,10 +8,8 @@ import torch
 import pytest
 
 from drytorch import checkpoints
-
-from drytorch.core.experiments import Experiment
-
 from drytorch.core import exceptions, log_events
+from drytorch.core.experiments import Experiment
 
 
 @pytest.fixture(autouse=True, scope='module')

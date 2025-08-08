@@ -13,10 +13,13 @@ from typing_extensions import override
 from drytorch import objectives, schedulers
 from drytorch.core import protocols as p
 
+
 _T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
-
+_Input = TypeVar('_Input', bound=p.InputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 get_last = operator.itemgetter(-1)
 
 
@@ -53,8 +56,8 @@ class HookRegistry(Generic[_T_contra]):
         return
 
     def register_all(
-            self,
-            hook_list: list[Callable[[_T_contra], None]],
+        self,
+        hook_list: list[Callable[[_T_contra], None]],
     ) -> None:
         """Register multiple hooks.
 
@@ -66,11 +69,13 @@ class HookRegistry(Generic[_T_contra]):
         return
 
 
-class AbstractHook(metaclass=abc.ABCMeta):
+class AbstractHook(Generic[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     """Callable supporting bind operations."""
 
     @abc.abstractmethod
-    def __call__(self, trainer: p.TrainerProtocol) -> None:
+    def __call__(
+        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Execute the call.
 
         Args:
@@ -78,9 +83,12 @@ class AbstractHook(metaclass=abc.ABCMeta):
         """
 
     def bind(
-            self,
-            f: Callable[[AbstractHook], AbstractHook],
-            /,
+        self,
+        f: Callable[
+            [AbstractHook[_Input, _Target, _Output]],
+            AbstractHook[_Input, _Target, _Output],
+        ],
+        /,
     ) -> AbstractHook:
         """Allow transformation of the Hook.
 
@@ -93,10 +101,13 @@ class AbstractHook(metaclass=abc.ABCMeta):
         return f(self)
 
 
-class Hook(AbstractHook):
+class Hook(AbstractHook[_Input, _Target, _Output]):
     """Wrapper for callable taking a Trainer as input."""
 
-    def __init__(self, wrapped: Callable[[p.TrainerProtocol], None]) -> None:
+    def __init__(
+        self,
+        wrapped: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
+    ) -> None:
         """Constructor.
 
         Args:
@@ -104,7 +115,9 @@ class Hook(AbstractHook):
         """
         self.wrapped = wrapped
 
-    def __call__(self, trainer: p.TrainerProtocol) -> None:
+    def __call__(
+        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Execute the call.
 
         Args:
@@ -113,7 +126,7 @@ class Hook(AbstractHook):
         self.wrapped(trainer)
 
 
-class StaticHook(AbstractHook):
+class StaticHook(AbstractHook[_Input, _Target, _Output]):
     """Ignoring arguments and execute a wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
@@ -124,7 +137,9 @@ class StaticHook(AbstractHook):
         """
         self.wrapped = wrapped
 
-    def __call__(self, trainer: p.TrainerProtocol) -> None:
+    def __call__(
+        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Execute the call.
 
         Args:
@@ -133,10 +148,12 @@ class StaticHook(AbstractHook):
         return self.wrapped()
 
 
-class OptionalCallable(Hook, metaclass=abc.ABCMeta):
+class OptionalCallable(Hook[_Input, _Target, _Output], metaclass=abc.ABCMeta):
     """Abstract class for callables that execute based on custom conditions."""
 
-    def __call__(self, trainer: p.TrainerProtocol) -> None:
+    def __call__(
+        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Execute the call.
 
         Args:
@@ -148,18 +165,20 @@ class OptionalCallable(Hook, metaclass=abc.ABCMeta):
         return None
 
     @abc.abstractmethod
-    def _should_call(self, trainer: p.TrainerProtocol) -> bool:
+    def _should_call(
+        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> bool:
         """Determine if the callable should be executed."""
 
 
-class CallEvery(OptionalCallable):
+class CallEvery(OptionalCallable[_Input, _Target, _Output]):
     """Call a function at specified intervals."""
 
     def __init__(
-            self,
-            wrapped: Callable[[p.TrainerProtocol], None],
-            interval: int,
-            start: int,
+        self,
+        wrapped: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
+        interval: int,
+        start: int,
     ) -> None:
         """Constructor.
 
@@ -174,7 +193,9 @@ class CallEvery(OptionalCallable):
         return
 
     @override
-    def _should_call(self, trainer: p.TrainerProtocol) -> bool:
+    def _should_call(
+        self, trainer: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> bool:
         """Determine if the hook should be called based on the epoch.
 
         Args:
@@ -188,9 +209,12 @@ class CallEvery(OptionalCallable):
 
 
 def call_every(
-        interval: int,
-        start: int = 0,
-) -> Callable[[Callable[[p.TrainerProtocol], None]], CallEvery]:
+    interval: int,
+    start: int = 0,
+) -> Callable[
+    [Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None]],
+    CallEvery[_Input, _Target, _Output],
+]:
     """Create a decorator for periodic hook execution.
 
     Args:
@@ -201,14 +225,16 @@ def call_every(
         A decorator that wraps a function in a CallEvery hook.
     """
 
-    def _decorator(func: Callable[[p.TrainerProtocol], None]) -> CallEvery:
+    def _decorator(
+        func: Callable[[p.TrainerProtocol[_Input, _Target, _Output]], None],
+    ) -> CallEvery:
         return CallEvery(func, interval, start)
 
     return _decorator
 
 
 @Hook
-def saving_hook(trainer: p.TrainerProtocol) -> None:
+def saving_hook(trainer: p.TrainerProtocol[_Input, _Target, _Output]) -> None:
     """Create a hook that saves the model's checkpoint.
 
     Args:
@@ -219,7 +245,7 @@ def saving_hook(trainer: p.TrainerProtocol) -> None:
 
 
 def static_hook_class(
-        cls: Callable[_P, Callable[[], None]],
+    cls: Callable[_P, Callable[[], None]],
 ) -> Callable[_P, StaticHook]:
     """Class decorator to wrap a callable class into a static hook type.
 
@@ -247,14 +273,14 @@ class EarlyStoppingCallback:
     """
 
     def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 10,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            start_from_epoch: int = 2,
+        self,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 10,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        start_from_epoch: int = 2,
     ) -> None:
         """Constructor.
 
@@ -282,7 +308,9 @@ class EarlyStoppingCallback:
         self.start_from_epoch = start_from_epoch
         return
 
-    def __call__(self, instance: p.TrainerProtocol) -> None:
+    def __call__(
+        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Evaluate whether training should be stopped early.
 
         Args:
@@ -312,13 +340,13 @@ class PruneCallback:
     """
 
     def __init__(
-            self,
-            thresholds: Mapping[int, float | None],
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
+        self,
+        thresholds: Mapping[int, float | None],
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
+        min_delta: float = 1e-8,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """Constructor.
 
@@ -347,7 +375,9 @@ class PruneCallback:
         self.trial_values: dict[int, float] = {}
         return
 
-    def __call__(self, instance: p.TrainerProtocol) -> None:
+    def __call__(
+        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Evaluate whether training should be stopped early.
 
         Args:
@@ -377,14 +407,14 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
     """
 
     def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            cooldown: int = 0,
+        self,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -413,7 +443,9 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
         self._cooldown_counter = 0
         return
 
-    def __call__(self, instance: p.TrainerProtocol) -> None:
+    def __call__(
+        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+    ) -> None:
         """Check if there is a plateau and reduce the learning rate if needed.
 
         Args:
@@ -438,7 +470,7 @@ class ChangeSchedulerOnPlateauCallback(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_scheduler(
-            self, epoch: int, scheduler: p.SchedulerProtocol
+        self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify input scheduler.
 
@@ -461,15 +493,15 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     """
 
     def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol | None = None,
-            monitor: p.ValidationProtocol | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            factor: float = 0.1,
-            cooldown: int = 0,
+        self,
+        metric: str | p.ObjectiveProtocol | None = None,
+        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        factor: float = 0.1,
+        cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -499,7 +531,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
         self.factor = factor
 
     def get_scheduler(
-            self, epoch: int, scheduler: p.SchedulerProtocol
+        self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify the input scheduler to scale down the learning rate.
 
@@ -522,7 +554,7 @@ class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
     """
 
     def get_scheduler(
-            self, epoch: int, scheduler: p.SchedulerProtocol
+        self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Consider training until now a warm-up and restart scheduling.
 

@@ -1,9 +1,11 @@
 """Testing local reorganization of hydra folders."""
 
 import sys
+
 from collections.abc import Generator
 
 import pytest
+
 
 try:
     import hydra

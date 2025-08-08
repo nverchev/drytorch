@@ -3,7 +3,7 @@
 import functools
 
 from collections.abc import Iterable
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 import numpy.typing as npt
@@ -38,7 +38,7 @@ class VisdomOpts(TypedDict, total=False):
     markers: bool
     markersymbol: str
     markersize: float
-    markercolor: npt.NDArray
+    markercolor: npt.NDArray[np.str_]
     markerborderwidth: float
     mode: str
     dash: npt.NDArray[np.str_]  # e.g., np.array(['solid', 'dash'])
@@ -50,7 +50,7 @@ class VisdomOpts(TypedDict, total=False):
     ymax: float
 
     # Colors & Style
-    linecolor: npt.NDArray  # shape: (num_lines, 3) RGB
+    linecolor: npt.NDArray[Any]  # shape: (num_lines, 3) RGB
     colormap: str  # matplotlib-style colormap name (for some plots)
 
     # Legend
@@ -58,8 +58,8 @@ class VisdomOpts(TypedDict, total=False):
     showlegend: bool
 
     # Fonts
-    titlefont: dict  # e.g., {"size": 16, "color": "red"}
-    tickfont: dict
+    titlefont: dict[str, Any]  # e.g., {"size": 16, "color": "red"}
+    tickfont: dict[str, Any]
 
     # Misc
     opacity: float

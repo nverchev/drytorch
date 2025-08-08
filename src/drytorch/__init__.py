@@ -22,33 +22,28 @@ import warnings
 from types import ModuleType
 from typing import Literal, TypeGuard
 
-from drytorch.evaluating import Diagnostic, Test, Validation
 from drytorch.core.exceptions import FailedOptionalImportWarning
 from drytorch.core.experiments import Experiment
-from drytorch.learning import LearningScheme
-from drytorch.loading import DataLoader
-from drytorch.objectives import Loss, Metric
-from drytorch.models import Model
-from drytorch.trackers import logging as builtin_logging
-from drytorch.trackers.logging import INFO_LEVELS
 from drytorch.core.tracking import (
     Tracker,
     extend_default_trackers,
     remove_all_default_trackers,
 )
+from drytorch.evaluating import Diagnostic, Test, Validation
+from drytorch.learning import LearningScheme
+from drytorch.loading import DataLoader
+from drytorch.models import Model
+from drytorch.objectives import Loss, Metric
+from drytorch.trackers import logging as builtin_logging
+from drytorch.trackers.logging import INFO_LEVELS
 from drytorch.training import Trainer
-
-yaml: ModuleType | None = None
-YAML_EXCEPTION: Exception | None = None
-tqdm: ModuleType | None = None
-TQDM_EXCEPTION: Exception | None = None
 
 
 try:
     from drytorch.trackers import yaml
 except (ImportError, ModuleNotFoundError) as ie:
-    yaml = None
-    YAML_EXCEPTION = ie
+    yaml: ModuleType | None = None
+    YAML_EXCEPTION: ImportError | ModuleNotFoundError | None = ie
 else:
     YAML_EXCEPTION = None
 
@@ -56,8 +51,8 @@ else:
 try:
     from drytorch.trackers import tqdm
 except (ImportError, ModuleNotFoundError) as ie:
-    tqdm = None
-    TQDM_EXCEPTION = ie
+    tqdm: ModuleType | None = None
+    TQDM_EXCEPTION: ImportError | ModuleNotFoundError | None = ie
 else:
     TQDM_EXCEPTION = None
 
@@ -65,13 +60,11 @@ __all__ = [
     'DataLoader',
     'Diagnostic',
     'Experiment',
-    'FailedOptionalImportWarning',
     'LearningScheme',
     'Loss',
     'Metric',
     'Model',
     'Test',
-    'Tracker',
     'Trainer',
     'Validation',
 ]

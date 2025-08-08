@@ -11,8 +11,8 @@ from torch import cuda
 from typing_extensions import override
 
 from drytorch import checkpoints
-
-from drytorch.core import exceptions, registering, protocols as p
+from drytorch.core import exceptions, registering
+from drytorch.core import protocols as p
 from drytorch.utils import repr_utils
 
 
@@ -208,7 +208,7 @@ class ModelOptimizer:
         self._model = model
         self._module = model.module
         self._params_lr: list[_OptParams] = []
-        self._base_lr = learning_scheme.base_lr
+        self.base_lr = learning_scheme.base_lr
         self._scheduler = learning_scheme.scheduler
         self._optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
@@ -233,12 +233,12 @@ class ModelOptimizer:
         )
 
     @property
-    def _base_lr(self) -> float | dict[str, float]:
+    def base_lr(self) -> float | dict[str, float]:
         """Learning rate(s) for the module parameters."""
         return self._lr
 
-    @_base_lr.setter
-    def _base_lr(self, lr: float | dict[str, float]) -> None:
+    @base_lr.setter
+    def base_lr(self, lr: float | dict[str, float]) -> None:
         self._lr = lr
         if isinstance(lr, float | int):
             self._params_lr = [
@@ -296,7 +296,7 @@ class ModelOptimizer:
             self._scheduler = scheduler
 
         if base_lr is not None:
-            self._base_lr = base_lr
+            self.base_lr = base_lr
 
         for g, up_g in zip(
             self._optimizer.param_groups, self.get_opt_params(), strict=False
@@ -330,6 +330,6 @@ class ModelOptimizer:
         return total_params_lr == total_params_model
 
 
-def count_params(params: Iterator) -> int:
+def count_params(params: Iterator[Any]) -> int:
     """Count the number of parameters."""
     return sum(1 for _ in params)

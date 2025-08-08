@@ -5,10 +5,10 @@ import pathlib
 
 import pytest
 
+
 if not importlib.util.find_spec('tensorboard'):
     pytest.skip('tensorboard not available', allow_module_level=True)
 
-import time
 
 from collections.abc import Generator
 

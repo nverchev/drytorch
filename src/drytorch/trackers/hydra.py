@@ -5,6 +5,7 @@ import pathlib
 import shutil
 
 import hydra
+import hydra.core.hydra_config
 
 from typing_extensions import override
 
@@ -37,7 +38,7 @@ class HydraLink(base_classes.Dumper):
         """
         super().__init__(par_dir)
         # get hydra configuration
-        hydra_config = hydra.core.hydra_config.HydraConfig.get()  # type: ignore
+        hydra_config = hydra.core.hydra_config.HydraConfig.get()
         str_dir = hydra_config.runtime.output_dir
         self.hydra_dir = pathlib.Path(str_dir)
         if not self.hydra_dir.exists():

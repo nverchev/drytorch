@@ -4,6 +4,7 @@ import pytest
 
 from drytorch.evaluating import Diagnostic, Test, Validation
 
+
 @pytest.fixture(autouse=True)
 def setup_module(session_mocker) -> None:
     """Fixture for a mock experiment."""

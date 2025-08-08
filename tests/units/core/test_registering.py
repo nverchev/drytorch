@@ -6,8 +6,8 @@ from drytorch.core import exceptions
 from drytorch.core.registering import (
     ALL_MODULES,
     register_model,
-    register_source)
-from tests.units.core.conftest import mock_experiment
+    register_source,
+)
 
 
 @pytest.fixture(autouse=True, scope='module')

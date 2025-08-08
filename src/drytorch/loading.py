@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from typing import Final, TypeVar, overload
+from typing import Any, Final, TypeVar, overload
 
 import numpy as np
 import torch
@@ -12,9 +12,10 @@ from numpy import random
 from torch.utils import data
 from typing_extensions import override
 
+from drytorch.core import exceptions
+from drytorch.core import protocols as p
 from drytorch.utils import apply_ops
 
-from drytorch.core import exceptions, protocols as p
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[p.InputType, p.TargetType], covariant=True
@@ -122,7 +123,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
 
     Attributes:
         batch_size: number of samples per batch.
-        dataset: the dataset being loaded.
+        dataset: the dataset to load data from.
         dataset_len: length of the dataset.
     """
 
@@ -157,6 +158,10 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
             return num_batches(self.dataset_len, batch_size)
 
         return self.dataset_len // batch_size
+
+    def get_dataset(self) -> data.Dataset[_Data_co]:
+        """Returns the dataset."""
+        return self.dataset
 
     def get_loader(
         self,
@@ -245,7 +250,7 @@ def _validate_batch_size(batch_size: int | None) -> int:
     return batch_size
 
 
-def validate_dataset_length(dataset: data.Dataset) -> int:
+def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
     """Checks if a dataset has a valid length.
 
     Args:
