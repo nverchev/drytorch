@@ -16,9 +16,21 @@ class TestSQLConnectionFullCycle:
     """Complete SQLConnection session and tests it afterward."""
 
     @pytest.fixture
-    def tracker(self) -> YamlDumper:
+    def tracker(self, tmp_path) -> YamlDumper:
         """Set up the instance."""
-        return YamlDumper()
+        return YamlDumper(tmp_path)
+
+    def test_config_metadata(self,
+                             tracker,
+                             start_experiment_event,
+                             example_config):
+        """Test correct dumping off config metadata."""
+        tracker.notify(start_experiment_event)
+        address = tracker._get_run_dir() / 'config.yaml'
+        with address.with_suffix('.yaml').open() as file:
+            metadata = yaml.safe_load(file)
+
+        assert metadata == example_config
 
     def test_model_metadata(self,
                             tracker,

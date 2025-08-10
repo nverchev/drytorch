@@ -18,7 +18,7 @@ from typing_extensions import override
 from drytorch.core import log_events
 from drytorch.trackers import base_classes
 from drytorch.utils import repr_utils
-
+from drytorch.utils.repr_utils import recursive_repr
 
 MAX_LENGTH_PLAIN_REPR = 30
 MAX_LENGTH_SHORT_REPR = 10
@@ -29,10 +29,8 @@ class YamlDumper(base_classes.Dumper):
 
     Class Attributes:
         folder_name: name for the folder that contains metadata.
-        archive_folder: namee for the folder that contains archived metadata.
     """
     folder_name = 'metadata'
-    archive_folder = 'archive'
 
     def __init__(self, par_dir: pathlib.Path | None = None):
         """Constructor.
@@ -48,6 +46,14 @@ class YamlDumper(base_classes.Dumper):
     @override
     def notify(self, event: log_events.Event) -> None:
         return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.StartExperimentEvent) -> None:
+        super().notify(event)
+        run_dir = self._get_run_dir()
+        safe_config = recursive_repr(event.config, max_size=99)
+        self._dump(safe_config, run_dir / 'config.yaml')
+        return
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
