@@ -7,8 +7,8 @@ import torch
 
 import pytest
 
-from drytorch.core.experiments import Run
 from drytorch.contrib.optuna import TrialCallback, get_final_value
+from drytorch.core.experiments import Run
 from tests.simple_classes import TorchData
 
 

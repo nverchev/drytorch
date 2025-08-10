@@ -5,10 +5,11 @@ from __future__ import annotations
 import pathlib
 
 from types import TracebackType
-from typing import Any, Final, Generic, Self, TypeVar
+from typing import Any, ClassVar, Final, Generic, Self, TypeVar
 
 from drytorch.core import exceptions, log_events, tracking
 from drytorch.utils import repr_utils
+
 
 _T_co = TypeVar('_T_co', covariant=True)
 
@@ -31,7 +32,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         trackers: dispatcher for publishing events.
     """
 
-    runs: list[Run[Any]] = []
+    runs: ClassVar[list[Run[Any]]] = []
     _name = repr_utils.DefaultName()
     __current: Experiment[Any] | None = None
 
@@ -108,7 +109,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         return self._run
 
     @run.setter
-    def run(self, current_run: Run) -> None:
+    def run(self, current_run: Run[_T_co]) -> None:
         self._run = current_run
         self.runs.append(current_run)
         return
@@ -141,7 +142,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         return Experiment.__current
 
     @staticmethod
-    def set_current(experiment: Experiment) -> None:
+    def set_current(experiment: Experiment[_T_co]) -> None:
         """Set an experiment as the currently active experiment.
 
         Args:

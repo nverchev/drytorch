@@ -1,7 +1,7 @@
 """Support for optuna."""
 
 from collections.abc import Callable, Sequence
-from typing import Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 import optuna
 
@@ -12,12 +12,15 @@ from drytorch.core import exceptions
 from drytorch.core import protocols as p
 
 
-_Input = TypeVar('_Input', bound=p.InputType)
-_Target = TypeVar('_Target', bound=p.TargetType)
-_Output = TypeVar('_Output', bound=p.OutputType)
+_Target_contra = TypeVar(
+    '_Target_contra', bound=p.TargetType, contravariant=True
+)
+_Output_contra = TypeVar(
+    '_Output_contra', bound=p.OutputType, contravariant=True
+)
 
 
-class TrialCallback:
+class TrialCallback(Generic[_Output_contra, _Target_contra]):
     """Implements pruning logic for training models.
 
     Attributes:
@@ -29,8 +32,11 @@ class TrialCallback:
         self,
         trial: optuna.Trial,
         filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
-        metric: str | p.ObjectiveProtocol[_Output, _Target] | None = None,
-        monitor: p.ValidationProtocol[_Input, _Target, _Output] | None = None,
+        metric: str
+        | p.ObjectiveProtocol[_Output_contra, _Target_contra]
+        | None = None,
+        monitor: p.ValidationProtocol[Any, _Target_contra, _Output_contra]
+        | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:
@@ -60,7 +66,8 @@ class TrialCallback:
         return
 
     def __call__(
-        self, instance: p.TrainerProtocol[_Input, _Target, _Output]
+        self,
+        instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra],
     ) -> None:
         """Evaluate whether training should be stopped early.
 

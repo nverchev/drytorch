@@ -20,6 +20,7 @@ from drytorch.trackers import base_classes
 from drytorch.utils import repr_utils
 from drytorch.utils.repr_utils import recursive_repr
 
+
 MAX_LENGTH_PLAIN_REPR = 30
 MAX_LENGTH_SHORT_REPR = 10
 

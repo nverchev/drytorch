@@ -57,7 +57,9 @@ class TestRun:
         """Set up a run for an experiment."""
         return Run(experiment)
 
-    def test_start_and_stop_run(self, run, experiment, config, tmp_path) -> None:
+    def test_start_and_stop_run(
+            self, run, experiment, config, tmp_path
+        ) -> None:
         """Test starting and stopping a run using the context manager."""
         with run:
             assert Experiment.get_current() is experiment

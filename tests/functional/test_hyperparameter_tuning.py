@@ -4,7 +4,7 @@ from collections.abc import Generator, MutableMapping
 
 import pytest
 
-from drytorch import Experiment, Model, Trainer, hooks
+from drytorch import Model, Trainer, hooks
 from drytorch.core.experiments import Run
 from tests.simple_classes import Linear
 

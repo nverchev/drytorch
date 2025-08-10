@@ -14,6 +14,7 @@ from drytorch import objectives, schedulers
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 
+
 _T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
@@ -75,7 +76,7 @@ class HookRegistry(Generic[_T_contra]):
         return
 
 
-class AbstractHook(Generic[_Input_contra, _Target_contra, _Output_contra],
+class TrainerHook(Generic[_Input_contra, _Target_contra, _Output_contra],
                    metaclass=abc.ABCMeta):
     """Callable supporting bind operations."""
 
@@ -94,11 +95,11 @@ class AbstractHook(Generic[_Input_contra, _Target_contra, _Output_contra],
     def bind(
             self,
             f: Callable[
-                [AbstractHook[_Input_contra, _Target_contra, _Output_contra]],
-                AbstractHook[_Input_contra, _Target_contra, _Output_contra],
+                [TrainerHook[_Input_contra, _Target_contra, _Output_contra]],
+                TrainerHook[_Input_contra, _Target_contra, _Output_contra],
             ],
             /,
-    ) -> AbstractHook[_Input_contra, _Target_contra, _Output_contra]:
+    ) -> TrainerHook[_Input_contra, _Target_contra, _Output_contra]:
         """Allow transformation of the Hook.
 
         Args:
@@ -110,45 +111,8 @@ class AbstractHook(Generic[_Input_contra, _Target_contra, _Output_contra],
         return f(self)
 
 
-class TrainerHook(
-    AbstractHook,
-    Generic[_Input_contra, _Target_contra, _Output_contra],
-    metaclass=abc.ABCMeta
-):
-    """Callable supporting bind operations."""
 
-    @abc.abstractmethod
-    def __call__(
-            self, trainer: p.TrainerProtocol[
-                _Input_contra, _Target_contra, _Output_contra
-            ]
-    ) -> None:
-        """Execute the call.
-
-        Args:
-            trainer: the trainer to pass to the wrapped function.
-        """
-
-    def bind(
-            self,
-            f: Callable[
-                [AbstractHook[_Input_contra, _Target_contra, _Output_contra]],
-                AbstractHook[_Input_contra, _Target_contra, _Output_contra],
-            ],
-            /,
-    ) -> AbstractHook[_Input_contra, _Target_contra, _Output_contra]:
-        """Allow transformation of the Hook.
-
-        Args:
-            f: a function specifying the transformation.
-
-        Returns:
-            the transformed Hook.
-        """
-        return f(self)
-
-
-class Hook(AbstractHook[_Input_contra, _Target_contra, _Output_contra]):
+class Hook(TrainerHook[_Input_contra, _Target_contra, _Output_contra]):
     """Wrapper for callable taking a Trainer as input."""
 
     def __init__(
@@ -181,7 +145,7 @@ class Hook(AbstractHook[_Input_contra, _Target_contra, _Output_contra]):
         self.wrapped(trainer)
 
 
-class StaticHook(AbstractHook[Any, Any, Any]):
+class StaticHook(TrainerHook[Any, Any, Any]):
     """Ignoring arguments and execute a wrapped function."""
 
     def __init__(self, wrapped: Callable[[], None]):
