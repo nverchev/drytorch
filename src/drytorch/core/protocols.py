@@ -11,7 +11,9 @@ from typing import (
     Protocol,
     TypeAlias,
     TypeVar,
+    TYPE_CHECKING,
     runtime_checkable,
+    Union,
 )
 
 import torch
@@ -22,20 +24,25 @@ from torch.utils import data
 # pyright: reportReturnType=false
 
 _T = TypeVar('_T')
-
 Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
-InputType: TypeAlias = Tensors | NamedTuple
+InputType: TypeAlias = Union[Tensors, NamedTuple]
 OutputType: TypeAlias = Any
-TargetType: TypeAlias = Tensors | NamedTuple
+TargetType: TypeAlias = Union[Tensors, NamedTuple]
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[InputType, TargetType], covariant=True
 )
 _Output_co = TypeVar('_Output_co', bound=OutputType, covariant=True)
 
-_Input_contra = TypeVar('_Input_contra', bound=InputType, contravariant=True)
-_Target_contra = TypeVar('_Target_contra', bound=TargetType, contravariant=True)
-_Output_contra = TypeVar('_Output_contra', bound=OutputType, contravariant=True)
+_Input_contra = TypeVar('_Input_contra',
+                        bound=InputType,
+                        contravariant=True)
+_Target_contra = TypeVar('_Target_contra',
+                         bound=TargetType,
+                         contravariant=True)
+_Output_contra = TypeVar('_Output_contra',
+                         bound=OutputType,
+                         contravariant=True)
 
 _Input = TypeVar('_Input', bound=InputType)
 _Target = TypeVar('_Target', bound=TargetType)

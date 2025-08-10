@@ -8,7 +8,7 @@ from drytorch import Experiment
 from drytorch.core import protocols as p
 
 
-experiment_current_original = Experiment.current
+experiment_current_original = Experiment.get_current
 
 
 @pytest.fixture

@@ -17,6 +17,7 @@ from drytorch import (
     Model,
     Trainer,
 )
+from drytorch.core.experiments import Run
 from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 
 
@@ -102,13 +103,12 @@ def identity_trainer(
     )
     return trainer
 
-
 @pytest.fixture(scope='module')
-def experiment(tmpdir_factory) -> Generator[Experiment, None, None]:
+def run(tmpdir_factory, example_run_id) -> Generator[Run, None, None]:
     """Fixture of an experiment."""
     drytorch.remove_all_default_trackers()
     par_dir = tmpdir_factory.mktemp('experiments')
     exp = Experiment(name='TestExperiment', par_dir=par_dir, config=None)
-    with exp:
-        yield exp
+    with exp.create_run(run_id=example_run_id) as run:
+        yield run
     return

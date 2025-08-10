@@ -19,7 +19,7 @@ def setup_module(session_mocker, tmpdir_factory) -> None:
     mock_experiment.name = 'mock_experiment'
     mock_experiment.par_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
     session_mocker.patch(
-        'drytorch.Experiment.current', return_value=mock_experiment
+        'drytorch.Experiment.get_current', return_value=mock_experiment
     )
 
 

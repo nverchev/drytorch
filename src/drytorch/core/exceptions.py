@@ -273,17 +273,22 @@ class NoActiveExperimentError(DryTorchError):
 
     msg = 'No experiment {}has been started.'
 
-    def __init__(self, experiment_class: type | None = None) -> None:
+    def __init__(self,
+                 experiment_name: type | None = None,
+                 experiment_class: type | None = None) -> None:
         """Constructor.
 
         Args:
             experiment_class: specifies experiment class.
         """
         self.experiment_class = experiment_class
-        if experiment_class is not None:
+        if experiment_name is not None:
+            specify_string = f'named {experiment_name} '
+        elif experiment_class is not None:
             specify_string = f'of class {experiment_class.__class__.__name__} '
         else:
             specify_string = ''
+
         super().__init__(specify_string)
 
 

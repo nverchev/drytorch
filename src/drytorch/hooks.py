@@ -111,8 +111,8 @@ class AbstractHook(Generic[_Input_contra, _Target_contra, _Output_contra],
 
 
 class TrainerHook(
-    Generic[_Input_contra, _Target_contra, _Output_contra],
     AbstractHook,
+    Generic[_Input_contra, _Target_contra, _Output_contra],
     metaclass=abc.ABCMeta
 ):
     """Callable supporting bind operations."""

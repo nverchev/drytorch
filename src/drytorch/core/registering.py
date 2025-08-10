@@ -16,7 +16,7 @@ from drytorch.core import exceptions, experiments
 from drytorch.core import protocols as p
 
 
-ALL_MODULES = dict[nn.Module, experiments.Experiment[Any]]()
+ALL_MODULES = dict[nn.Module, experiments.Run[Any]]()
 
 
 def register_model(model: p.ModelProtocol[Any, Any]) -> None:
@@ -25,13 +25,13 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
     Args:
         model: the model to register.
     """
-    exp: experiments.Experiment[Any] = experiments.Experiment.current()
+    run: experiments.Run[Any] = experiments.Experiment.get_current().run
     module = model.module
     if module in ALL_MODULES:
-        raise exceptions.ModuleAlreadyRegisteredError(model.name, exp.name)
+        raise exceptions.ModuleAlreadyRegisteredError(model.name, run.run_id)
 
-    ALL_MODULES[module] = exp
-    exp._metadata_manager.register_model(model)
+    ALL_MODULES[module] = run
+    run.metadata_manager.register_model(model)
     return
 
 
@@ -42,12 +42,12 @@ def register_source(source: Any, model: p.ModelProtocol[Any, Any]) -> None:
         source: the object to document.
         model: the model that the object calls.
     """
-    exp: experiments.Experiment[Any] = experiments.Experiment.current()
-    exp._metadata_manager.register_source(source, model)
+    run: experiments.Run[Any] = experiments.Experiment.get_current().run
+    run.metadata_manager.register_source(source, model)
     module = model.module
     if module in ALL_MODULES:
         model_exp = ALL_MODULES[module]
-        if exp is model_exp:
+        if run is model_exp:
             return
 
-    raise exceptions.ModelNotRegisteredError(model.name, exp.name)
+    raise exceptions.ModelNotRegisteredError(model.name, run.run_id)

@@ -12,7 +12,7 @@ from drytorch.utils.statistics import get_moving_average
 
 
 @pytest.fixture(autouse=True, scope='module')
-def start_experiment(experiment) -> Generator[None, None, None]:
+def start_experiment(run) -> Generator[None, None, None]:
     """Create an experimental scope for the tests."""
     yield
     return
@@ -63,16 +63,20 @@ def test_hook_repr():
             {
                 'class': 'EarlyStoppingCallback',
                 'monitor': {
-                    'filter_fn':
-                        'moving_average(decay=0.8, mass_coverage=0.99)',
-                    'best_is': 'auto',
                     'class': 'MetricMonitor',
-                    'min_delta': 1e-08,
-                    'patience': 10,
+                    'extractor': 'MetricExtractor',
+                    'metric_tracker': {
+                        'best_is': 'auto',
+                        'class': 'MetricTracker',
+                        'filter_fn':
+                            'moving_average(decay=0.8, mass_coverage=0.99)',
+                        'min_delta': 1e-08,
+                        'patience': 10
+                    }
                 },
-                'start_from_epoch': 2,
-            },
-        ],
+                'start_from_epoch': 2
+            }
+        ]
     }
     assert recursive_repr(registry) == expected
 

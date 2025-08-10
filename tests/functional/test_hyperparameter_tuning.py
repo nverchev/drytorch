@@ -5,13 +5,14 @@ from collections.abc import Generator, MutableMapping
 import pytest
 
 from drytorch import Experiment, Model, Trainer, hooks
+from drytorch.core.experiments import Run
 from tests.simple_classes import Linear
 
 
 @pytest.fixture(autouse=True, scope='module')
-def autorun_experiment(experiment) -> Generator[Experiment, None, None]:
+def autorun_experiment(run) -> Generator[Run, None, None]:
     """Create an experimental scope for the tests."""
-    yield experiment
+    yield run
     return
 
 

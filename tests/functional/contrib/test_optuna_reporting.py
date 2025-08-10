@@ -7,17 +7,16 @@ import torch
 
 import pytest
 
-from drytorch import Experiment
+from drytorch.core.experiments import Run
 from drytorch.contrib.optuna import TrialCallback, get_final_value
 from tests.simple_classes import TorchData
 
 
 @pytest.fixture(autouse=True, scope='module')
-def autorun_experiment(experiment) -> Generator[Experiment, None, None]:
+def autorun_experiment(run) -> Generator[Run, None, None]:
     """Create an experimental scope for the tests."""
-    yield experiment
+    yield run
     return
-
 
 class TestTrialCallbackAsk:
     """Test report and retrial of optuna trial values when created with ask."""

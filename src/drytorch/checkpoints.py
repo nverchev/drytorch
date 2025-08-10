@@ -68,7 +68,7 @@ class CheckpointPathManager:
         """Root directory."""
         if self._root_dir is None:
             try:
-                exp = experiments.Experiment[Any].current()
+                exp = experiments.Experiment[Any].get_current()
             except exceptions.NoActiveExperimentError as naee:
                 raise exceptions.AccessOutsideScopeError from naee
             else:

@@ -11,9 +11,13 @@ from drytorch.core.registering import (
 
 
 @pytest.fixture(autouse=True, scope='module')
-def setup_module(session_mocker, tmpdir_factory, mock_experiment) -> None:
+def setup_module(session_mocker,
+                 tmpdir_factory,
+                 mock_experiment,
+                 mock_run) -> None:
     """Fixture for a mock experiment."""
-    session_mocker.patch('drytorch.Experiment.current',
+    mock_experiment.run = mock_run
+    session_mocker.patch('drytorch.Experiment.get_current',
                          return_value=mock_experiment)
     return
 
@@ -22,36 +26,36 @@ class _SimpleCaller:
     name = "simple_caller"
 
 
-def test_record_model_call(mock_experiment, mock_model) -> None:
+def test_record_model_call(mock_run, mock_model) -> None:
     """Test a successful record model call."""
     caller = _SimpleCaller()
-    manager = mock_experiment._metadata_manager
+    manager = mock_run.metadata_manager
     # Monkey patch model registration
-    ALL_MODULES[mock_model.module] = mock_experiment
+    ALL_MODULES[mock_model.module] = mock_run
     register_source(caller, mock_model)
 
     manager.register_source.assert_called_once_with(caller, mock_model)
 
 
-def test_register_model(mock_experiment, mock_model) -> None:
+def test_register_model(mock_run, mock_model) -> None:
     """Test successful model registration."""
-    manager = mock_experiment._metadata_manager
+    manager = mock_run.metadata_manager
     register_model(mock_model)
 
     manager.register_model.assert_called_once_with(mock_model)
     assert mock_model.module in ALL_MODULES
-    assert ALL_MODULES[mock_model.module] == mock_experiment
+    assert ALL_MODULES[mock_model.module] == mock_run
 
 
-def test_register_model_already_registered(mock_experiment, mock_model) -> None:
+def test_register_model_already_registered(mock_run, mock_model) -> None:
     """Test error when registering a model that is already registered."""
-    ALL_MODULES[mock_model.module] = mock_experiment
+    ALL_MODULES[mock_model.module] = mock_run
 
     with pytest.raises(exceptions.ModuleAlreadyRegisteredError):
         register_model(mock_model)
 
 
-def test_record_model_call_unregistered_model(mock_experiment,
+def test_record_model_call_unregistered_model(mock_run,
                                               mock_model) -> None:
     """Test error when recording a call for an unregistered model."""
     with pytest.raises(exceptions.ModelNotRegisteredError):
@@ -59,7 +63,7 @@ def test_record_model_call_unregistered_model(mock_experiment,
 
 
 def test_record_model_call_wrong_experiment(mocker,
-                                            mock_experiment,
+                                            mock_run,
                                             mock_model) -> None:
     """Test error when recording a call for a model from another experiment."""
     other_experiment = mocker.Mock()

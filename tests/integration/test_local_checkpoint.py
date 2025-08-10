@@ -9,9 +9,9 @@ from drytorch.models import ModelOptimizer
 
 
 @pytest.fixture(autouse=True, scope='module')
-def autorun_experiment(experiment) -> Generator[Experiment, None, None]:
+def autorun_experiment(run) -> Generator[Experiment, None, None]:
     """Create an experimental scope for the tests."""
-    yield experiment
+    yield run
     return
 
 

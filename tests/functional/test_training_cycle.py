@@ -6,13 +6,14 @@ import torch
 
 import pytest
 
-from drytorch import Experiment, hooks, schedulers
+from drytorch import hooks, schedulers
+from drytorch.core.experiments import Run
 
 
 @pytest.fixture(autouse=True, scope='module')
-def autorun_experiment(experiment) -> Generator[Experiment, None, None]:
+def autorun_experiment(run) -> Generator[Run, None, None]:
     """Create an experimental scope for the tests."""
-    yield experiment
+    yield run
     return
 
 

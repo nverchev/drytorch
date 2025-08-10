@@ -220,7 +220,7 @@ class TestMetricExtractor:
             self, mock_trainer, mock_validation
     ) -> None:
         """Test getting monitored values with optional monitor specified."""
-        extractor = MetricExtractor[Any, Any, Any](monitor=mock_validation)
+        extractor = MetricExtractor[Any, Any](monitor=mock_validation)
         assert extractor._get_monitor(mock_trainer) == mock_validation
 
     def test_get_metric_name_from_string(self) -> None:
