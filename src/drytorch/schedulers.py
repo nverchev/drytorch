@@ -281,7 +281,7 @@ class StepScheduler(AbstractScheduler):
     Reduces learning rate by a factor at specified milestones.
 
     Attributes:
-        milestones: iterable of epochs at which to reduce learning rate.
+        milestones: iterable of epochs at which to reduce the learning rate.
         gamma: factor by which to reduce learning rate.
     """
 
