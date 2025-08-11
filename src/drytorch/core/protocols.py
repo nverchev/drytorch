@@ -11,6 +11,7 @@ from typing import (
     Protocol,
     TypeAlias,
     TypeVar,
+    Union,
     runtime_checkable,
 )
 
@@ -23,9 +24,9 @@ from torch.utils import data
 
 _T = TypeVar('_T')
 Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
-InputType: TypeAlias = Tensors | NamedTuple
+InputType: TypeAlias = Union[Tensors, NamedTuple]  # noqa: UP007
 OutputType: TypeAlias = Any
-TargetType: TypeAlias = Tensors | NamedTuple
+TargetType: TypeAlias = Union[Tensors, NamedTuple]  # noqa: UP007
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[InputType, TargetType], covariant=True
