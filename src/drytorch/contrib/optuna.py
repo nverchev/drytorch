@@ -32,11 +32,12 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         self,
         trial: optuna.Trial,
         filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
-        metric: str
-        | p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | None = None,
-        monitor: p.ValidationProtocol[Any, _Target_contra, _Output_contra]
-        | None = None,
+        metric: p.ObjectiveProtocol[
+                    _Output_contra, _Target_contra
+                ] | str | None = None,
+        monitor: p.ValidationProtocol[
+                     Any, _Target_contra, _Output_contra
+                 ] | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:
