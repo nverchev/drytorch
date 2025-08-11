@@ -35,7 +35,7 @@ class TestPathManager:
 
     def test_dirs_creation(self, manager, mock_model):
         """Test that the directories are created when called."""
-        model_dir = manager._root_dir / mock_model.name
+        model_dir = manager._par_dir / mock_model.name
         epoch_dir = model_dir / f'epoch_{mock_model.epoch}'
         expected_dirs = [model_dir, epoch_dir]
 
@@ -54,8 +54,9 @@ class TestPathManager:
     def test_paths(self, manager):
         """Test that the paths have the correct name."""
         epoch_dir = manager.epoch_dir
-        paths = [manager.state_path, manager.optimizer_path]
-        expected_paths = [epoch_dir / 'state.pt', epoch_dir / 'optimizer.pt']
+        paths = [manager.model_state_path, manager.optimizer_state_path]
+        expected_paths = [epoch_dir / 'model_state.pt',
+                          epoch_dir / 'optimizer_state.pt']
 
         for path, expected_path in zip(paths, expected_paths, strict=False):
             assert path == expected_path

@@ -52,21 +52,21 @@ class CheckpointPathManager:
     def __init__(
         self,
         model: p.ModelProtocol[Any, Any],
-        root_dir: pathlib.Path | None = None,
+        par_dir: pathlib.Path | None = None,
     ) -> None:
         """Constructor.
 
         Args:
             model: the model whose paths are to be managed.
-            root_dir: parent directory for experiment data.
+            par_dir: parent directory for experiment data.
         """
         self.model = model
-        self._root_dir = root_dir
+        self._par_dir = par_dir
 
     @property
-    def root_dir(self) -> pathlib.Path:
-        """Root directory."""
-        if self._root_dir is None:
+    def par_dir(self) -> pathlib.Path:
+        """Parent directory for the checkpoints."""
+        if self._par_dir is None:
             try:
                 exp = experiments.Experiment[Any].get_current()
             except exceptions.NoActiveExperimentError as naee:
@@ -74,12 +74,12 @@ class CheckpointPathManager:
             else:
                 return exp.par_dir / self.folder_name / exp.name
 
-        return self._root_dir
+        return self._par_dir
 
     @property
     def model_dir(self) -> pathlib.Path:
         """Directory for the model."""
-        model_dir = self.root_dir / self.model.name
+        model_dir = self.par_dir / self.model.name
         model_dir.mkdir(exist_ok=True, parents=True)
         return model_dir
 
@@ -91,16 +91,16 @@ class CheckpointPathManager:
         return epoch_directory
 
     @property
-    def state_path(self) -> pathlib.Path:
+    def model_state_path(self) -> pathlib.Path:
         """Name of the file with the state."""
         epoch_directory = self.epoch_dir
-        return epoch_directory / 'state.pt'
+        return epoch_directory / 'model_state.pt'
 
     @property
-    def optimizer_path(self) -> pathlib.Path:
+    def optimizer_state_path(self) -> pathlib.Path:
         """Name of the file with the optimizer state."""
         epoch_directory = self.epoch_dir
-        return epoch_directory / 'optimizer.pt'
+        return epoch_directory / 'optimizer_state.pt'
 
 
 class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
@@ -176,17 +176,27 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 class LocalCheckpoint(AbstractCheckpoint):
     """Manage locally saving and loading the model state and optimizer."""
 
+    def __init__(self, par_dir: pathlib.Path | None = None) -> None:
+        """Constructor.
+
+        Args:
+            par_dir: parent directory for experiment data.
+        """
+        super().__init__()
+        self._par_dir = par_dir
+        return
+
     @property
     def paths(self) -> CheckpointPathManager:
         """Path manager for directories and checkpoints."""
-        return CheckpointPathManager(self.model)
+        return CheckpointPathManager(self.model, self._par_dir)
 
     @override
     def load(self, epoch: int = -1) -> None:
         super().load(epoch)
         self.model.module.load_state_dict(
             torch.load(
-                self.paths.state_path,
+                self.paths.model_state_path,
                 map_location=self.model.device,
                 weights_only=True,
             )
@@ -195,7 +205,7 @@ class LocalCheckpoint(AbstractCheckpoint):
             try:
                 self.optimizer.load_state_dict(
                     torch.load(
-                        self.paths.optimizer_path,
+                        self.paths.optimizer_state_path,
                         map_location=self.model.device,
                         weights_only=True,
                     ),
@@ -211,9 +221,9 @@ class LocalCheckpoint(AbstractCheckpoint):
     @override
     def save(self) -> None:
         super().save()
-        torch.save(self.model.module.state_dict(), self.paths.state_path)
+        torch.save(self.model.module.state_dict(), self.paths.model_state_path)
         if self.optimizer is not None:
-            torch.save(self.optimizer.state_dict(), self.paths.optimizer_path)
+            torch.save(self.optimizer.state_dict(), self.paths.optimizer_state_path)
 
         return
 

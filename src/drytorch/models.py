@@ -7,6 +7,7 @@ from typing import Any, TypedDict, TypeVar, cast
 
 import torch
 
+from torch import amp  # pyright: ignore[reportPrivateImportUsage]
 from torch import cuda
 from typing_extensions import override
 
@@ -217,7 +218,7 @@ class ModelOptimizer:
         self._gradient_op = learning_scheme.gradient_op
         self._checkpoint = self._model.checkpoint
         self._checkpoint.register_optimizer(self._optimizer)
-        scaler = torch.amp.GradScaler(  # pyright: ignore[reportPrivateImportUsage]
+        scaler = amp.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,
         )
