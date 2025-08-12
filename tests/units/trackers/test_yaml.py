@@ -6,10 +6,8 @@ from collections.abc import Generator
 
 import pytest
 
-
 if not importlib.util.find_spec('yaml'):
     pytest.skip('yaml not available', allow_module_level=True)
-
 
 from drytorch.trackers.yaml import YamlDumper
 
@@ -44,12 +42,17 @@ class TestYamlDumper:
     def test_class_attributes(self) -> None:
         """Test class attributes' existence."""
         assert isinstance(YamlDumper.folder_name, str)
-        assert isinstance(YamlDumper.archive_folder, str)
+
+    def test_notify_configuration(self, tracker_started) -> None:
+        """Test notification of a model registration event."""
+        self.mock_dump.assert_called_once()
 
     def test_notify_model_registration(self,
                                        tracker_started,
                                        model_registration_mock_event) -> None:
         """Test notification of a model registration event."""
+        self.mock_dump.assert_called_once()
+        self.mock_dump.reset_mock()
         tracker_started.notify(model_registration_mock_event)
         # metadata dumped in the metadata folder and in the archive folder
         self.mock_dump.assert_called_once()
@@ -58,6 +61,8 @@ class TestYamlDumper:
                                         tracker_started,
                                         source_registration_mock_event) -> None:
         """Test notification of a source registration event."""
+        self.mock_dump.assert_called_once()
+        self.mock_dump.reset_mock()
         tracker_started.notify(source_registration_mock_event)
         # metadata dumped in the metadata folder and in the archive folder
         self.mock_dump.assert_called_once()
