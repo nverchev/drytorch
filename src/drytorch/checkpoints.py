@@ -80,14 +80,12 @@ class CheckpointPathManager:
     def model_dir(self) -> pathlib.Path:
         """Directory for the model."""
         model_dir = self.exp_dir / self.model.name
-        model_dir.mkdir(exist_ok=True, parents=True)
         return model_dir
 
     @property
     def epoch_dir(self) -> pathlib.Path:
         """Directory for a checkpoint at the current epoch."""
         epoch_directory = self.model_dir / f'epoch_{self.model.epoch}'
-        epoch_directory.mkdir(exist_ok=True)
         return epoch_directory
 
     @property
@@ -194,6 +192,12 @@ class LocalCheckpoint(AbstractCheckpoint):
     @override
     def load(self, epoch: int = -1) -> None:
         super().load(epoch)
+        if not self.paths.model_dir.exists():
+            raise exceptions.ModelNotFoundError(self.paths.exp_dir)
+
+        if not self.paths.epoch_dir.exists():
+            raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)
+
         self.model.module.load_state_dict(
             torch.load(
                 self.paths.model_state_path,
@@ -221,15 +225,21 @@ class LocalCheckpoint(AbstractCheckpoint):
     @override
     def save(self) -> None:
         super().save()
+        self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
         torch.save(self.model.module.state_dict(), self.paths.model_state_path)
         if self.optimizer is not None:
-            torch.save(self.optimizer.state_dict(), self.paths.optimizer_state_path)
+            torch.save(self.optimizer.state_dict(),
+                       self.paths.optimizer_state_path)
 
         return
 
     def _get_last_saved_epoch(self) -> int:
         model_directory = self.paths.model_dir
-        all_epochs = [d for d in model_directory.iterdir() if d.is_dir()]
+        if model_directory.exists():
+            all_epochs = [d for d in model_directory.iterdir() if d.is_dir()]
+        else:
+            all_epochs = []
+
         if not all_epochs:
             raise exceptions.ModelNotFoundError(model_directory)
 

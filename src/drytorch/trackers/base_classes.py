@@ -59,7 +59,6 @@ class Dumper(tracking.Tracker):
         else:
             path = self.user_par_dir
 
-        path.mkdir(exist_ok=True, parents=True)
         return path
 
     @property
@@ -88,11 +87,13 @@ class Dumper(tracking.Tracker):
         self._par_dir = event.par_dir
         self._exp_name = event.exp_name
         self._run_id = event.run_id
+        self.par_dir.mkdir(exist_ok=True, parents=True)
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StopExperimentEvent) -> None:
         self._par_dir = None
+        self._exp_name = None
         self._run_id = None
         return super().notify(event)
 
@@ -231,24 +232,25 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
+        # noinspection PyCallingNonCallable
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndEpochEvent) -> None:
-        super().notify(event)
         if self._start < 0:
             start = max(1, event.epoch + self._start)
         else:
             start = self._start if event.epoch >= 2 * self._start else 1
 
         self._update_plot(model_name=event.model_name, start=start)
+        # noinspection PyCallingNonCallable
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndTestEvent) -> None:
-        super().notify(event)
         start = max(1, self._start)
         self._update_plot(model_name=event.model_name, start=start)
+        # noinspection PyCallingNonCallable
         return super().notify(event)
 
     def plot(

@@ -90,6 +90,22 @@ class ConvergenceError(DryTorchError):
         self.criterion = criterion
         super().__init__(criterion)
 
+class EpochNotFoundError(DryTorchError):
+    """Raised when no saved model is found in the checkpoint directory."""
+
+    msg = 'No checkpoints for epoch {} found in {}.'
+
+    def __init__(self,
+                 epoch: int,
+                 checkpoint_directory: pathlib.Path) -> None:
+        """Constructor.
+
+        Args:
+            checkpoint_directory: the directory path where no model was found.
+        """
+        self.model_directory = checkpoint_directory
+        super().__init__(epoch, checkpoint_directory)
+
 
 class FuncNotApplicableError(DryTorchError):
     """Raised when a function cannot be applied to a specific type."""

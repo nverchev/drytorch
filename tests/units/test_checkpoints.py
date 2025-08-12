@@ -33,23 +33,6 @@ class TestPathManager:
         """Set up the path manager."""
         return checkpoints.CheckpointPathManager(mock_model, tmp_path)
 
-    def test_dirs_creation(self, manager, mock_model):
-        """Test that the directories are created when called."""
-        model_dir = manager._exp_dir / mock_model.name
-        epoch_dir = model_dir / f'epoch_{mock_model.epoch}'
-        expected_dirs = [model_dir, epoch_dir]
-
-        for expected_dir in expected_dirs:
-            assert not expected_dir.exists()
-
-        dirs = [manager.model_dir, manager.epoch_dir]
-
-        for dir_, expected_dir in zip(dirs, expected_dirs, strict=False):
-            assert dir_ == expected_dir
-            assert dir_.exists()
-            assert dir_.is_dir()
-
-        return
 
     def test_paths(self, manager):
         """Test that the paths have the correct name."""
