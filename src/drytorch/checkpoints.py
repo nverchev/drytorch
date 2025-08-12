@@ -52,34 +52,35 @@ class CheckpointPathManager:
     def __init__(
         self,
         model: p.ModelProtocol[Any, Any],
-        exp_dir: pathlib.Path | None = None,
+        run_dir: pathlib.Path | None = None,
     ) -> None:
         """Constructor.
 
         Args:
             model: the model whose paths are to be managed.
-            exp_dir: the directory for experiment data.
+            run_dir: the directory for experiment data.
         """
         self.model = model
-        self._exp_dir = exp_dir
+        self._run_dir = run_dir
 
     @property
-    def exp_dir(self) -> pathlib.Path:
+    def run_dir(self) -> pathlib.Path:
         """Parent directory for the checkpoints."""
-        if self._exp_dir is None:
+        if self._run_dir is None:
             try:
                 exp = experiments.Experiment[Any].get_current()
             except exceptions.NoActiveExperimentError as naee:
                 raise exceptions.AccessOutsideScopeError from naee
             else:
-                return exp.par_dir / self.folder_name / exp.name
+                exp_dir = exp.par_dir / self.folder_name / exp.name
+                return exp_dir / exp.run.run_id
 
-        return self._exp_dir
+        return self._run_dir
 
     @property
     def model_dir(self) -> pathlib.Path:
         """Directory for the model."""
-        model_dir = self.exp_dir / self.model.name
+        model_dir = self.run_dir / self.model.name
         return model_dir
 
     @property
@@ -193,7 +194,7 @@ class LocalCheckpoint(AbstractCheckpoint):
     def load(self, epoch: int = -1) -> None:
         super().load(epoch)
         if not self.paths.model_dir.exists():
-            raise exceptions.ModelNotFoundError(self.paths.exp_dir)
+            raise exceptions.ModelNotFoundError(self.paths.run_dir)
 
         if not self.paths.epoch_dir.exists():
             raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)

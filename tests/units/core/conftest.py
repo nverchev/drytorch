@@ -23,6 +23,6 @@ def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     """Fixture for a mock experiment."""
     mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
     mock_experiment.name = 'mock_experiment'
-    mock_experiment.exp_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
+    mock_experiment.run_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
     mock_experiment.runs = []
     return mock_experiment

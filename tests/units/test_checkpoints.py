@@ -17,7 +17,7 @@ def setup_module(session_mocker, tmpdir_factory) -> None:
     """Fixture for a mock experiment."""
     mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
     mock_experiment.name = 'mock_experiment'
-    mock_experiment.exp_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
+    mock_experiment.run_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
     session_mocker.patch(
         'drytorch.Experiment.get_current', return_value=mock_experiment
     )
