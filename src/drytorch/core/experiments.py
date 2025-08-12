@@ -17,8 +17,9 @@ _T_co = TypeVar('_T_co', covariant=True)
 class Experiment(repr_utils.Versioned, Generic[_T_co]):
     """Manage experiment configuration, directory, and tracking.
 
-    This class associates a configuration file, a name and a working directory
-    to a machine learning experiment. It also contains the trackers responsible
+    This class associates a configuration file, a name, and a working directory
+    with a machine learning experiment. It also contains the trackers
+    responsible
     for tracking the metadata and metrics for the experiment. Finally, it
     allows global access to a configuration file with the correct type
     annotations.
@@ -99,7 +100,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
 
     @property
     def run(self) -> Run[_T_co]:
-        """Get current run.
+        """Get the current run.
 
         Raises:
             NoActiveExperimentError: if the experiment is not active.
@@ -136,6 +137,7 @@ class Experiment(repr_utils.Versioned, Generic[_T_co]):
         if Experiment.__current is None:
             raise exceptions.NoActiveExperimentError()
 
+        # noinspection PyUnreachableCode
         if not isinstance(Experiment.__current, cls):
             raise exceptions.NoActiveExperimentError(experiment_class=cls)
 
@@ -182,12 +184,12 @@ class Run(Generic[_T_co]):
     """Execution lifecycle for a single run of an Experiment.
 
     This class is a context manager for the experiment. It encapsulates its
-    execution so it can be run preventing conflicts with other experiments or
+    execution, so it can be a run preventing conflicts with other experiments or
     runs.
 
     Attributes:
         run_id: the id of the run.
-        metadata_manager: object responsible to register objects to this run.
+        metadata_manager: object that registers objects to this run.
     """
 
     def __init__(
