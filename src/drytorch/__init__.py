@@ -19,7 +19,6 @@ import os
 import sys
 import warnings
 
-from types import ModuleType
 from typing import Literal, TypeGuard
 
 from drytorch.core.exceptions import FailedOptionalImportWarning
@@ -42,7 +41,6 @@ from drytorch.training import Trainer
 try:
     from drytorch.trackers import yaml
 except (ImportError, ModuleNotFoundError) as ie:
-    yaml: ModuleType | None = None
     YAML_EXCEPTION: ImportError | ModuleNotFoundError | None = ie
 else:
     YAML_EXCEPTION = None
@@ -51,7 +49,6 @@ else:
 try:
     from drytorch.trackers import tqdm
 except (ImportError, ModuleNotFoundError) as ie:
-    tqdm: ModuleType | None = None
     TQDM_EXCEPTION: ImportError | ModuleNotFoundError | None = ie
 else:
     TQDM_EXCEPTION = None
@@ -67,6 +64,7 @@ __all__ = [
     'Test',
     'Trainer',
     'Validation',
+    'initialize_trackers'
 ]
 
 logger = logging.getLogger('drytorch')
@@ -97,7 +95,8 @@ def initialize_trackers(
 
     tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
 
-    if tqdm is not None:
+    if TQDM_EXCEPTION is None:
+        # noinspection PyUnreachableCode
         if mode == 'standard':
             # metrics logs redundant because already visible in the progress bar
             verbosity = builtin_logging.INFO_LEVELS.epoch
@@ -120,7 +119,7 @@ def initialize_trackers(
             builtin_logging.set_formatter('progress')
 
     if mode != 'tuning':
-        if yaml is not None:
+        if YAML_EXCEPTION is None:
             tracker_list.append(yaml.YamlDumper())
         else:
             warnings.warn(FailedOptionalImportWarning('yaml'), stacklevel=2)
