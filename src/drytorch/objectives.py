@@ -57,7 +57,10 @@ class Objective(
 
     @override
     def compute(self: Self) -> dict[str, _Tensor]:
-        """Computes the aggregated objective value(s).
+        """Return the aggregated objective value(s).
+
+        Despite the name, which follows common practice, this method caches
+        previous computed values and returns them if available.
 
         Returns:
             A dictionary of computed metric values.
@@ -327,7 +330,6 @@ class LossBase(
             criterion=_combined,
             higher_is_better=self.higher_is_better,
             formula=formula,
-            name=self.name,
             **named_metric_fun,
         )
 
@@ -341,7 +343,6 @@ class LossBase(
             criterion=lambda x: -self.criterion(x),
             higher_is_better=not self.higher_is_better,
             formula=f'-{self.formula}',
-            name=self.name,
             **self.named_metric_fun,
         )
 
@@ -484,7 +485,6 @@ class LossBase(
             criterion=lambda x: _to_floating_point(self.criterion(x)) ** other,
             higher_is_better=higher_is_better,
             formula=formula,
-            name=self.name,
             **self.named_metric_fun,
         )
 
@@ -562,10 +562,6 @@ class CompositionalLoss(
         )
         self.higher_is_better = higher_is_better
         return
-
-    def __repr__(self):
-        """Returns the string representation of the CompositionalLoss object."""
-        return f'{self.__class__.__name__}{self.formula}'
 
     @override
     def calculate(
@@ -834,7 +830,7 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
         return self._patience_countdown > 0
 
     def reset_patience(self) -> None:
-        """Reset patience countdown to maximum."""
+        """Reset patience countdown to the maximum."""
         self._patience_countdown = self.patience
 
     @staticmethod
