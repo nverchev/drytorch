@@ -78,9 +78,10 @@ class TestLocalCheckpoint:
     @pytest.fixture()
     def checkpoint(self,
                    mock_model,
-                   optimizer) -> checkpoints.LocalCheckpoint:
+                   optimizer,
+                   tmp_path) -> checkpoints.LocalCheckpoint:
         """Set up the checkpoint."""
-        checkpoint = checkpoints.LocalCheckpoint()
+        checkpoint = checkpoints.LocalCheckpoint(tmp_path)
         checkpoint.register_model(mock_model)
         checkpoint.register_optimizer(optimizer)
         return checkpoint
