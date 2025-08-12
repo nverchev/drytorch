@@ -358,6 +358,9 @@ class LossBase(
         Returns:
             A new CompositionalLoss representing the sum.
         """
+        if other == 0 and isinstance(self, CompositionalLoss):
+            return self
+
         return self._combine(other, operator.add, '{} + {}', False)
 
     def __radd__(self, other: float) -> CompositionalLoss[Any, Any]:
@@ -412,6 +415,9 @@ class LossBase(
         Returns:
             A new CompositionalLoss representing the product.
         """
+        if other == 1 and isinstance(self, CompositionalLoss):
+            return self
+
         return self._combine(other, operator.mul, '{} x {}')
 
     def __rmul__(
@@ -439,6 +445,9 @@ class LossBase(
         Returns:
             A new CompositionalLoss representing the quotient.
         """
+        if other == 1 and isinstance(self, CompositionalLoss):
+            return self
+
         mul_inv_other = other.__pow__(-1)
         return self.__mul__(mul_inv_other)
 
@@ -473,6 +482,9 @@ class LossBase(
 
         def _to_floating_point(x: _Tensor) -> _Tensor:
             return x if torch.is_floating_point(x) else x.float()
+
+        if other == 1 and isinstance(self, CompositionalLoss):
+            return self
 
         if other >= 0:
             higher_is_better = self.higher_is_better
