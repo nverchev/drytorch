@@ -34,7 +34,7 @@ def start_experiment_mock_event(mocker,
     mock.run_name = example_run_id
     mock.run_ts = example_run_ts
     mock.run_id = example_run_id
-    mock.par_dir = tmp_path
+    mock.exp_dir = tmp_path
     mock.resume_last_run = False
     mock.tags = example_tags
     return mock

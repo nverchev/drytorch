@@ -52,21 +52,21 @@ class CheckpointPathManager:
     def __init__(
         self,
         model: p.ModelProtocol[Any, Any],
-        par_dir: pathlib.Path | None = None,
+        exp_dir: pathlib.Path | None = None,
     ) -> None:
         """Constructor.
 
         Args:
             model: the model whose paths are to be managed.
-            par_dir: parent directory for experiment data.
+            exp_dir: the directory for experiment data.
         """
         self.model = model
-        self._par_dir = par_dir
+        self._exp_dir = exp_dir
 
     @property
-    def par_dir(self) -> pathlib.Path:
+    def exp_dir(self) -> pathlib.Path:
         """Parent directory for the checkpoints."""
-        if self._par_dir is None:
+        if self._exp_dir is None:
             try:
                 exp = experiments.Experiment[Any].get_current()
             except exceptions.NoActiveExperimentError as naee:
@@ -74,12 +74,12 @@ class CheckpointPathManager:
             else:
                 return exp.par_dir / self.folder_name / exp.name
 
-        return self._par_dir
+        return self._exp_dir
 
     @property
     def model_dir(self) -> pathlib.Path:
         """Directory for the model."""
-        model_dir = self.par_dir / self.model.name
+        model_dir = self.exp_dir / self.model.name
         model_dir.mkdir(exist_ok=True, parents=True)
         return model_dir
 
