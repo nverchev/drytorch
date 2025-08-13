@@ -23,7 +23,7 @@ class HydraLink(base_classes.Dumper):
         hydra_dir: the directory where hydra saves the run.
     """
 
-    hydra_folder = 'hydra'
+    folder_name = 'hydra'
 
     def __init__(
             self, par_dir: pathlib.Path | None = None, copy_hydra: bool = True
