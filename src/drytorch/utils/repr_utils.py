@@ -1,7 +1,5 @@
 """Module containing utilities to extract readable representations."""
 
-
-
 from __future__ import annotations
 
 import dataclasses
@@ -23,7 +21,7 @@ import torch
 class Versioned:
     """Mixin saving instantiation timestamp."""
 
-    ts_fmt = '%Y%m%d.%H%M%S'
+    ts_fmt = '%Y-%m-%d@%Hh%Mm%Ss'
 
     def __init__(self, *args, **kwargs) -> None:
         """Constructor."""
@@ -39,9 +37,10 @@ class Versioned:
 class DefaultName:
     """Add a counter to a prefix."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Constructor."""
         self._prefixes: dict[str, count[int]] = {}
+
     def __get__(self, instance: Any, objtype: type | None = None) -> str:
         """Return the default name for the instance or class."""
         return instance.__name  # pylint: disable=protected-access
@@ -76,7 +75,8 @@ else:
         """
 
         def __init__(
-            self, precision: int = 3, max_rows: int = 10, max_columns: int = 10
+                self, precision: int = 3, max_rows: int = 10,
+                max_columns: int = 10
         ) -> None:
             """Constructor.
 
@@ -101,14 +101,15 @@ else:
                 pd.set_option(key, value)
 
         def __exit__(
-            self,
-            exc_type: None = None,
-            exc_val: None = None,
-            exc_tb: None = None,
+                self,
+                exc_type: None = None,
+                exc_val: None = None,
+                exc_tb: None = None,
         ) -> None:
             """Restore original settings."""
             for key, value in self._original_options.items():
                 pd.set_option(key, value)
+
 
     PandasObject = pd.core.base.PandasObject  # type: ignore
 
@@ -141,7 +142,7 @@ def limit_size(container: Iterable[Any], max_size: int) -> list[Any]:
         if len(listed) > max_size:
             omitted = [Omitted(len(listed) - max_size)]
             listed = (
-                listed[: max_size // 2] + omitted + listed[-max_size // 2:]
+                    listed[: max_size // 2] + omitted + listed[-max_size // 2:]
             )
 
     else:
@@ -280,9 +281,9 @@ def _(obj: torch.Tensor, *, max_size: int = 10) -> LiteralStr:
 
 @recursive_repr.register
 def _(
-    obj: PandasObject,  # type: ignore
-    *,
-    max_size: int = 10,
+        obj: PandasObject,  # type: ignore
+        *,
+        max_size: int = 10,
 ) -> LiteralStr:
     # only called when Pandas is imported
     with PandasPrintOptions(max_rows=max_size, max_columns=max_size):
@@ -293,10 +294,10 @@ def _(
 def _(obj: np.ndarray, *, max_size: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
     with np.printoptions(
-        precision=3,
-        suppress=True,
-        threshold=max_size // size_factor,
-        edgeitems=max_size // (size_factor * 2),
+            precision=3,
+            suppress=True,
+            threshold=max_size // size_factor,
+            edgeitems=max_size // (size_factor * 2),
     ):
         return LiteralStr(obj)
 
