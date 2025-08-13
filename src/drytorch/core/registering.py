@@ -28,7 +28,9 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
     run: experiments.Run[Any] = experiments.Experiment.get_current().run
     module = model.module
     if module in ALL_MODULES:
-        raise exceptions.ModuleAlreadyRegisteredError(model.name, run.run_id)
+        raise exceptions.ModuleAlreadyRegisteredError(model.name,
+                                                      run.experiment.name,
+                                                      run.run_id)
 
     ALL_MODULES[module] = run
     run.metadata_manager.register_model(model)
@@ -50,4 +52,6 @@ def register_source(source: Any, model: p.ModelProtocol[Any, Any]) -> None:
         if run is model_exp:
             return
 
-    raise exceptions.ModelNotRegisteredError(model.name, run.run_id)
+    raise exceptions.ModelNotRegisteredError(model.name,
+                                             run.experiment.name,
+                                             run.run_id)

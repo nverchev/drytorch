@@ -246,7 +246,8 @@ def _validate_batch_size(batch_size: int | None) -> int:
         InvalidBatchError: if the batch size is invalid.
     """
     if batch_size is None or batch_size < 1:
-        raise exceptions.InvalidBatchError(batch_size)
+        raise ValueError('Batch size must be a positive integer. Got {}.')
+
     return batch_size
 
 

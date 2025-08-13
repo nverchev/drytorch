@@ -90,6 +90,7 @@ class ConvergenceError(DryTorchError):
         self.criterion = criterion
         super().__init__(criterion)
 
+
 class EpochNotFoundError(DryTorchError):
     """Raised when no saved model is found in the checkpoint directory."""
 
@@ -122,21 +123,6 @@ class FuncNotApplicableError(DryTorchError):
         self.func_name = func_name
         self.type_name = type_name
         super().__init__(func_name, type_name)
-
-
-class InvalidBatchError(DryTorchError):
-    """Raised when the batch size of a loader is invalid."""
-
-    msg = 'Batch size must be a positive integer. Got {}.'
-
-    def __init__(self, batch_size: int | None) -> None:
-        """Constructor.
-
-        Args:
-            batch_size: the requested number of elements in the mini-batch.
-        """
-        self.batch_size = batch_size
-        super().__init__(batch_size)
 
 
 class LossNotScalarError(DryTorchError):
@@ -177,7 +163,7 @@ class MissingParamError(DryTorchError):
     msg = 'Parameter groups in input learning rate miss parameters {}.'
 
     def __init__(
-        self, module_names: list[str], lr_param_groups: list[str]
+            self, module_names: list[str], lr_param_groups: list[str]
     ) -> None:
         """Constructor.
 
@@ -194,17 +180,20 @@ class MissingParamError(DryTorchError):
 class ModelNotRegisteredError(DryTorchError):
     """Raised when trying to access a model that hasn't been registered."""
 
-    msg = 'Model {} has not been registered in experiment {}.'
+    msg = 'Model {} has not been registered in experiment {} run {}.'
 
-    def __init__(self, model_name: str, exp_name: str) -> None:
+    def __init__(self, model_name: str, exp_name: str, run_id) -> None:
         """Constructor.
 
         Args:
             model_name: the name of the model that was not registered.
-            exp_name: current experiment.
+            exp_name: the name of the current experiment.
+            run_id: the current run's id.
         """
         self.model_name = model_name
-        super().__init__(str(model_name), exp_name)
+        self.exp_name = exp_name
+        self.run_id = run_id
+        super().__init__(model_name, exp_name, run_id)
 
 
 class ModelNotFoundError(DryTorchError):
@@ -225,23 +214,25 @@ class ModelNotFoundError(DryTorchError):
 class ModuleAlreadyRegisteredError(DryTorchError):
     """Raised when attempting to register an already registered module."""
 
-    msg = 'Module has already been registered from model {} in experiment {}.'
+    msg = 'Module already registered from model {} in experiment {} run {}.'
 
-    def __init__(self, model_name: str, exp_name: str) -> None:
+    def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
         """Constructor.
 
         Args:
             model_name: the name of the model that is already registered.
             exp_name: the name of the experiment where the model is registered.
+            run_id: the registered run's id.
+
         """
         self.model_name = model_name
-        super().__init__(str(model_name), exp_name)
+        super().__init__(str(model_name), exp_name, run_id)
 
 
 class NameAlreadyRegisteredError(DryTorchError):
     """Raised when attempting to register a name already in use."""
 
-    msg = 'Name {} has already been registered in the current experiment.'
+    msg = 'Name {} has already been registered in the current run.'
 
     def __init__(self, name: str) -> None:
         """Constructor.
@@ -309,12 +300,6 @@ class NoActiveExperimentError(DryTorchError):
         super().__init__(specify_string)
 
 
-class NoSpecificationError(DryTorchError):
-    """Raised when no configuration is available for the experiment."""
-
-    msg = 'No specification available for the experiment.'
-
-
 class DatasetHasNoLengthError(DryTorchError):
     """Raised when a dataset does not implement the __len__ method."""
 
@@ -325,21 +310,6 @@ class ResultNotAvailableError(DryTorchError):
     """Raised when trying to access a result before the hook has been called."""
 
     msg = 'The result will be available only after the hook has been called.'
-
-
-class SubExperimentNotRegisteredError(DryTorchError):
-    """Raised when a sub-experiment has not been registered."""
-
-    msg = 'SubExperiment {} has not been registered to any MainExperiment.'
-
-    def __init__(self, experiment_cls: type) -> None:
-        """Constructor.
-
-        Args:
-            experiment_cls: the sub-experiment class that is not registered.
-        """
-        self.experiment_cls = experiment_cls
-        super().__init__(experiment_cls.__name__)
 
 
 class TrackerAlreadyRegisteredError(DryTorchError):
