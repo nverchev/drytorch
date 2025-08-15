@@ -12,7 +12,7 @@ import torch
 
 from typing_extensions import override
 
-from drytorch.core import exceptions, experiments, log_events
+from drytorch.core import exceptions, experiment, log_events
 from drytorch.core import protocols as p
 
 
@@ -68,12 +68,16 @@ class CheckpointPathManager:
         """Parent directory for the checkpoints."""
         if self._run_dir is None:
             try:
-                exp = experiments.Experiment[Any].get_current()
+                exp = experiment.Experiment[Any].get_current()
             except exceptions.NoActiveExperimentError as naee:
                 raise exceptions.AccessOutsideScopeError from naee
             else:
                 exp_dir = exp.par_dir / self.folder_name / exp.name
-                return exp_dir / exp.run.run_id
+                if '@' in exp.run.id:
+                    day, time = exp.run.id.split('@')
+                    return exp_dir / day / time
+                else:
+                    return exp_dir / exp.run.id
 
         return self._run_dir
 

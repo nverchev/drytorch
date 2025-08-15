@@ -23,10 +23,10 @@ def event_workflow(
         model_registration_event,
         load_model_event,
         start_training_event,
-        source_registration_event,
+        actor_registration_event,
         start_epoch_event,
         iterate_batch_event,
-        epoch_metrics_event,
+        metrics_event,
         end_epoch_event,
         update_learning_rate_event,
         terminated_training_event,
@@ -42,10 +42,10 @@ def event_workflow(
         model_registration_event,
         load_model_event,
         start_training_event,
-        source_registration_event,
+        actor_registration_event,
         start_epoch_event,
         iterate_batch_event,
-        epoch_metrics_event,
+        metrics_event,
         end_epoch_event,
         update_learning_rate_event,
         terminated_training_event,
@@ -108,7 +108,7 @@ class TestSQLConnection:
                                        memory_engine,
                                        mocker,
                                        start_experiment_event,
-                                       source_registration_event) -> None:
+                                       actor_registration_event) -> None:
         """Test that sessions are properly rolled back on errors."""
         tracker = SQLConnection(engine=memory_engine)
 
@@ -116,12 +116,12 @@ class TestSQLConnection:
             raise sqlalchemy_exc.IntegrityError("", "", ValueError())
 
         tracker.notify(start_experiment_event)
-        tracker.notify(source_registration_event)
+        tracker.notify(actor_registration_event)
         mocker.patch.object(sqlalchemy.orm.Session,  # type: ignore
                             'add',
                             side_effect=_raise_integrity_error)
         with pytest.raises(sqlalchemy_exc.IntegrityError):
-            tracker.notify(source_registration_event)
+            tracker.notify(actor_registration_event)
 
         # verify database state is consistent (no partial commits)
         with tracker.session_factory() as session:
@@ -131,16 +131,3 @@ class TestSQLConnection:
             assert len(experiments) == 1
             assert len(sources) == 1
 
-    def test_resume_nonexistent_experiment(self,
-                                           memory_engine,
-                                           start_experiment_event) -> None:
-        """Test resume_run behavior when no previous runs exist."""
-        tracker = SQLConnection(engine=memory_engine)
-        start_experiment_event.exp_name = 'nonexistent'
-        start_experiment_event.resume_last_run = True
-
-        with pytest.warns(UserWarning, match='No previous runs'):
-            tracker.notify(start_experiment_event)
-
-        # should create the new run despite resume_run=True
-        assert tracker._run is not None

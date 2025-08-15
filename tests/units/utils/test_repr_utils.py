@@ -1,15 +1,17 @@
 """Tests for the "repr_utils" module."""
 
+import datetime
+
 import numpy as np
 import torch
 
 import pytest
 
 from drytorch.utils.repr_utils import (
+    CreatedAtMixin,
     DefaultName,
     LiteralStr,
     Omitted,
-    Versioned,
     has_own_repr,
     limit_size,
     recursive_repr,
@@ -43,17 +45,18 @@ class _SlottedClass(_SimpleClass):
     __slots__ = ('int_value', 'string_value')
 
 
-class TestVersioned:
+class TestCreatedAtMixin:
     """Test formatting as expected."""
 
     @pytest.fixture
-    def versioned(self) -> Versioned:
-        """Set up the instance."""
-        return Versioned()
+    def created_at(self) -> CreatedAtMixin:
+        """Set up the instance with no version."""
+        return CreatedAtMixin()
 
-    def test_property(self, versioned):
+    def test_property(self, created_at) -> None:
         """Test that the version is not an empty string."""
-        assert versioned.created_at
+        assert isinstance(created_at.created_at, datetime.datetime)
+        assert created_at.created_at_str
 
 
 class TestDefaultName:

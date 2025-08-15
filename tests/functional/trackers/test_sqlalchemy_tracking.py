@@ -45,7 +45,7 @@ class TestSQLConnectionFullCycle:
             stop_experiment_event,
     ) -> Generator[SQLConnection, None, None]:
         """Resume previous run."""
-        start_experiment_event.resume_last_run = True
+        start_experiment_event.resumed = True
         resumed_tracker = SQLConnection(engine=tracker.engine)
         resumed_tracker.notify(start_experiment_event)
         yield resumed_tracker
@@ -62,46 +62,48 @@ class TestSQLConnectionFullCycle:
         assert expected_tables.issubset(set(table_names))
 
         # verify key columns exist
-        runs_columns = {col['name'] for col in inspector.get_columns('runs')}
-        expected_columns = {
-            'run_id',
-            'run_name',
-            'run_ts',
-        }
-        assert runs_columns == expected_columns
-
         experiments_columns = {
             col['name'] for col in inspector.get_columns('experiments')
         }
         expected_columns = {
-            'experiment_id',
+            'row_id',
             'experiment_name',
-            'run_id',
         }
         assert experiments_columns == expected_columns
+
         tags_columns = {col['name'] for col in inspector.get_columns('tags')}
         expected_columns = {
-            'tag_id',
+            'row_id',
             'experiment_id',
             'text',
         }
         assert tags_columns == expected_columns
+
+        runs_columns = {col['name'] for col in inspector.get_columns('runs')}
+        expected_columns = {
+            'row_id',
+            'run_id',
+            'run_ts',
+            'experiment_id',
+        }
+        assert runs_columns == expected_columns
+
         sources_columns = {
             col['name'] for col in inspector.get_columns('sources')
         }
         expected_columns = {
+            'row_id',
             'model_name',
             'model_ts',
-            'run_id',
-            'source_id',
             'source_name',
             'source_ts',
+            'run_table_id',
         }
         assert sources_columns == expected_columns
 
         logs_columns = {col['name'] for col in inspector.get_columns('logs')}
         expected_columns = {
-            'log_id',
+            'row_id',
             'source_id',
             'epoch',
             'metric_name',
@@ -117,13 +119,13 @@ class TestSQLConnectionFullCycle:
             runs = session.query(Run).all()
             assert len(runs) == 1
 
-            run = runs[-1]
+            first_run = runs[-1]
             # verify the experiment was created and linked to run
             experiments = session.query(Experiment).all()
             assert len(experiments) == 1
 
             first_experiment = experiments[0]
-            assert first_experiment.run_id == run.run_id
+            assert first_experiment.row_id == first_run.experiment_id
 
             tags = session.query(Tags).all()
             assert len(tags) == 1
@@ -133,13 +135,13 @@ class TestSQLConnectionFullCycle:
             assert len(sources) == 1
 
             for source in sources:
-                assert source.run_id == run.run_id
+                assert source.run_table_id == first_run.row_id
 
             # verify logs were created and linked to sources
             logs = session.query(Log).all()
             assert len(logs) > 0
 
-            source_ids = {source.source_id for source in sources}
+            source_ids = {source.row_id for source in sources}
             for log in logs:
                 assert log.source_id in source_ids
 
@@ -168,27 +170,24 @@ class TestSQLConnectionFullCycle:
             # expected 3 training epochs based on event_workflow
             assert len(set(epoch_values)) == 3
 
-    def test_resume_run_functionality(self, resumed_tracker, ):
-        """Test resume_run=True continues the previous run."""
-        with resumed_tracker.session_factory() as session:
-            runs = session.query(Run).all()
-            assert len(runs) == 1
-
     def test_multiple_sources_in_same_run(
             self,
             resumed_tracker,
-            source_registration_event,
-    ):
+            actor_registration_event,
+    ) -> None:
         """Test multiple log sources are correctly tracked in the same run."""
-        second_call_model = source_registration_event
-        second_call_model.source_name = 'second_source'
+        second_call_model = actor_registration_event
+        second_call_model.actor_name = 'second_source'
         resumed_tracker.notify(second_call_model)
         with resumed_tracker.session_factory() as session:
             sources = session.query(Source).all()
             assert len(sources) == 2
 
             # all sources should belong to the same run
-            run_ids = {source.run_id for source in sources}
+            run_ids = set()
+            source: type[Source]
+            for source in sources:
+                run_ids.add(source.run.run_id)
             assert len(run_ids) == 1
 
             # have different source names
@@ -226,14 +225,14 @@ class TestSQLConnectionFullCycle:
     def test_load_metrics_with_resumed_sources(
             self,
             resumed_tracker,
-            source_registration_event,
+            actor_registration_event,
             example_epoch,
             metrics_event,
             start_training_event,
     ):
         """Test _load_metrics get data from two sources with the same name."""
         model_name = start_training_event.model_name
-        resumed_tracker.notify(source_registration_event)
+        resumed_tracker.notify(actor_registration_event)
         metrics_event.epoch = 8
         resumed_tracker.notify(metrics_event)
         loaded_metrics = resumed_tracker._load_metrics(model_name)

@@ -6,7 +6,7 @@ import torch
 
 import pytest
 
-from drytorch.utils.statistics import (
+from drytorch.utils.average import (
     AbstractAverager,
     Averager,
     TorchAverager,

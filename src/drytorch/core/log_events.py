@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import pathlib
 
 from collections.abc import Callable, Mapping
@@ -40,17 +41,17 @@ class StartExperimentEvent(Event):
         exp_name: the name of the experiment.
         run_ts: run's timestamp.
         run_id: identifier of the run.
+        resumed: this run was resumed.
         par_dir: the parent directory for the experiment.
-        resume_last_run: resume the previous run, else start a new one.
         tags: descriptors for the experiment's variation (e.g., "lr=0.01").
     """
 
     config: Any
     exp_name: str
-    run_ts: str
+    run_ts: datetime.datetime
     run_id: str
+    resumed: bool = False
     par_dir: pathlib.Path = pathlib.Path()
-    resume_last_run: bool = False
     tags: list[str] = dataclasses.field(default_factory=list)
 
 
@@ -76,26 +77,26 @@ class ModelRegistrationEvent(Event):
     """
 
     model_name: str
-    model_ts: str
+    model_ts: datetime.datetime
     metadata: dict[str, Any]
 
 
 @dataclasses.dataclass
-class SourceRegistrationEvent(Event):
+class ActorRegistrationEvent(Event):
     """Event logged when a source has been registered.
 
     Attributes:
-        source_name: the name of the caller.
-        source_ts: the source's timestamp.
+        actor_name: the name of the caller.
+        actor_ts: the source's timestamp.
         model_name: the name of the model that was called.
         model_ts: the model's timestamp.
         metadata: additional metadata about the caller.
     """
 
-    source_name: str
-    source_ts: str
+    actor_name: str
+    actor_ts: datetime.datetime
     model_name: str
-    model_ts: str
+    model_ts: datetime.datetime
     metadata: dict[str, Any]
 
 

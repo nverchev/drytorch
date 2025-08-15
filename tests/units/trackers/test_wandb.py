@@ -66,7 +66,7 @@ class TestWandb:
             config=example_config,
             group=example_exp_name,
             settings=mocker.ANY,
-            resume='allow',
+            resume=None,
             tags=example_tags
         )
 

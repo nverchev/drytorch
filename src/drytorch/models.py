@@ -7,12 +7,14 @@ from typing import Any, TypedDict, TypeVar, cast
 
 import torch
 
-from torch import amp  # pyright: ignore[reportPrivateImportUsage]
-from torch import cuda
+from torch import (
+    amp,  # pyright: ignore[reportPrivateImportUsage]
+    cuda,
+)
 from typing_extensions import override
 
 from drytorch import checkpoints
-from drytorch.core import exceptions, registering
+from drytorch.core import exceptions, register
 from drytorch.core import protocols as p
 from drytorch.utils import repr_utils
 
@@ -30,7 +32,9 @@ class _OptParams(TypedDict):
     lr: float
 
 
-class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
+class Model(
+    repr_utils.CreatedAtMixin, p.ModelProtocol[_Input_contra, _Output_co]
+):
     """Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
@@ -43,13 +47,13 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
     _name = repr_utils.DefaultName()
 
     def __init__(  # type: ignore
-        self,
-        torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
-        /,
-        name: str = '',
-        device: torch.device | None = None,
-        checkpoint: p.CheckpointProtocol = _default_checkpoint,
-        mixed_precision: bool = False,
+            self,
+            torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
+            /,
+            name: str = '',
+            device: torch.device | None = None,
+            checkpoint: p.CheckpointProtocol = _default_checkpoint,
+            mixed_precision: bool = False,
     ) -> None:
         """Constructor.
 
@@ -67,17 +71,16 @@ class Model(repr_utils.Versioned, p.ModelProtocol[_Input_contra, _Output_co]):
         self._name = name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
-        registering.register_model(self)
         self.checkpoint = checkpoint
         self.checkpoint.register_model(self)
         self.mixed_precision = mixed_precision
-
+        register.register_model(self)
         return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
         """Execute forward pass."""
         with torch.autocast(
-            device_type=self.device.type, enabled=self.mixed_precision
+                device_type=self.device.type, enabled=self.mixed_precision
         ):
             return self.module(inputs)
 
@@ -141,18 +144,22 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
     _default_checkpoint = checkpoints.LocalCheckpoint()
 
     def __init__(
-        self,
-        torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
-        /,
-        name: str = '',
-        device: torch.device | None = None,
-        checkpoint: p.CheckpointProtocol = _default_checkpoint,
-        mixed_precision: bool = False,
-        avg_fn: Callable[[_Tensor, _Tensor, _Tensor | int], _Tensor]
-        | None = None,
-        multi_avg_fn: Callable[[_ParamList, _ParamList, _Tensor | int], None]
-        | None = None,
-        use_buffers: bool = False,
+            self,
+            torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
+            /,
+            name: str = '',
+            device: torch.device | None = None,
+            checkpoint: p.CheckpointProtocol = _default_checkpoint,
+            mixed_precision: bool = False,
+            avg_fn: Callable[
+                        [_Tensor, _Tensor, _Tensor | int],
+                        _Tensor
+                    ] | None = None,
+            multi_avg_fn: Callable[
+                              [_ParamList, _ParamList, _Tensor | int],
+                              None
+                          ] | None = None,
+            use_buffers: bool = False,
     ) -> None:
         """Constructor.
 
@@ -196,9 +203,9 @@ class ModelOptimizer:
     """
 
     def __init__(
-        self,
-        model: p.ModelProtocol[_Input_contra, _Output_co],
-        learning_scheme: p.LearningProtocol,
+            self,
+            model: p.ModelProtocol[_Input_contra, _Output_co],
+            learning_scheme: p.LearningProtocol,
     ) -> None:
         """Constructor.
 
@@ -278,9 +285,9 @@ class ModelOptimizer:
         self._checkpoint.load(epoch=epoch)
 
     def update_learning_rate(
-        self,
-        base_lr: float | dict[str, float] | None = None,
-        scheduler: p.SchedulerProtocol | None = None,
+            self,
+            base_lr: float | dict[str, float] | None = None,
+            scheduler: p.SchedulerProtocol | None = None,
     ) -> None:
         """Recalculate the learning rates for the current epoch.
 
@@ -300,7 +307,8 @@ class ModelOptimizer:
             self.base_lr = base_lr
 
         for g, up_g in zip(
-            self._optimizer.param_groups, self.get_opt_params(), strict=False
+                self._optimizer.param_groups, self.get_opt_params(),
+                strict=False
         ):
             g['lr'] = up_g['lr']
 

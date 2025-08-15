@@ -38,7 +38,7 @@ class TestHydraFullCycle:
                    tmp_path_factory,
                    monkeypatch,
                    start_experiment_event,
-                   epoch_metrics_event,
+                   metrics_event,
                    iterate_batch_event,
                    stop_experiment_event) -> None:
         """Setup test environment with actual hydra configuration."""
@@ -61,7 +61,7 @@ class TestHydraFullCycle:
                             TqdmLogger(leave=False),
                             HydraLink())
                 events = (start_experiment_event,
-                          epoch_metrics_event,
+                          metrics_event,
                           iterate_batch_event,
                           stop_experiment_event)
 

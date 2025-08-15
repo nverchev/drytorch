@@ -17,7 +17,7 @@ from drytorch import (
     Model,
     Trainer,
 )
-from drytorch.core.experiments import Run
+from drytorch.core.experiment import Run
 from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 
 

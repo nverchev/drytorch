@@ -22,20 +22,20 @@ import warnings
 from typing import Literal, TypeGuard
 
 from drytorch.core.exceptions import FailedOptionalImportWarning
-from drytorch.core.experiments import Experiment
-from drytorch.core.tracking import (
+from drytorch.core.experiment import Experiment
+from drytorch.core.track import (
     Tracker,
     extend_default_trackers,
     remove_all_default_trackers,
 )
-from drytorch.evaluating import Diagnostic, Test, Validation
-from drytorch.learning import LearningScheme
-from drytorch.loading import DataLoader
+from drytorch.evaluations import Diagnostic, Test, Validation
+from drytorch.learn import LearningScheme
+from drytorch.load import DataLoader
 from drytorch.models import Model
 from drytorch.objectives import Loss, Metric
 from drytorch.trackers import logging as builtin_logging
 from drytorch.trackers.logging import INFO_LEVELS
-from drytorch.training import Trainer
+from drytorch.train import Trainer
 
 
 try:

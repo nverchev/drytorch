@@ -77,7 +77,7 @@ class HookRegistry(Generic[_T_contra]):
 
 
 class TrainerHook(Generic[_Input_contra, _Target_contra, _Output_contra],
-                   metaclass=abc.ABCMeta):
+                  metaclass=abc.ABCMeta):
     """Callable supporting bind operations."""
 
     @abc.abstractmethod
@@ -109,7 +109,6 @@ class TrainerHook(Generic[_Input_contra, _Target_contra, _Output_contra],
             the transformed Hook.
         """
         return f(self)
-
 
 
 class Hook(TrainerHook[_Input_contra, _Target_contra, _Output_contra]):
@@ -332,7 +331,7 @@ class MetricExtractor(Generic[_Output_contra, _Target_contra]):
             metric: p.ObjectiveProtocol[
                         _Output_contra, _Target_contra,
                     ] | str | None = None,
-            monitor: p.ValidationProtocol[
+            monitor: p.SourceProtocol[
                          _Input_contra, _Target_contra, _Output_contra
                      ] | None = None,
     ) -> None:
@@ -396,11 +395,11 @@ class MetricExtractor(Generic[_Output_contra, _Target_contra]):
             self, instance: p.TrainerProtocol[
                 Any, _Target_contra, _Output_contra
             ]
-    ) -> p.ValidationProtocol[Any, _Target_contra, _Output_contra]:
+    ) -> p.SourceProtocol[Any, _Target_contra, _Output_contra]:
         if self.optional_monitor is None:
             if instance.validation is None:
                 # TrainerProtocol is stricter than ValidationProtocol
-                return cast(p.ValidationProtocol[
+                return cast(p.SourceProtocol[
                                 Any, _Target_contra, _Output_contra
                             ], instance)
             return instance.validation
@@ -446,7 +445,7 @@ class MetricMonitor(Generic[_Output_contra, _Target_contra]):
             metric: p.ObjectiveProtocol[
                         _Output_contra, _Target_contra
                     ] | str | None = None,
-            monitor: p.ValidationProtocol[
+            monitor: p.SourceProtocol[
                          Any, _Target_contra, _Output_contra
                      ] | None = None,
             min_delta: float = 1e-8,
@@ -547,7 +546,7 @@ class EarlyStoppingCallback(Generic[_Output_contra, _Target_contra]):
             metric: p.ObjectiveProtocol[
                         _Output_contra, _Target_contra
                     ] | str | None = None,
-            monitor: p.ValidationProtocol[
+            monitor: p.SourceProtocol[
                          Any, _Target_contra, _Output_contra
                      ] | None = None,
             min_delta: float = 1e-8,
@@ -620,7 +619,7 @@ class PruneCallback(Generic[_Output_contra, _Target_contra]):
             thresholds: Mapping[int, float | None],
             metric: str | p.ObjectiveProtocol[
                 _Output_contra, _Target_contra] | None = None,
-            monitor: p.ValidationProtocol[
+            monitor: p.SourceProtocol[
                          Any, _Target_contra, _Output_contra
                      ] | None = None,
             min_delta: float = 1e-8,
@@ -694,7 +693,7 @@ class ChangeSchedulerOnPlateauCallback(
             metric: p.ObjectiveProtocol[
                         _Output_contra, _Target_contra
                     ] | str | None = None,
-            monitor: p.ValidationProtocol[
+            monitor: p.SourceProtocol[
                          Any, _Target_contra, _Output_contra
                      ] | None = None,
             min_delta: float = 1e-8,
@@ -787,7 +786,7 @@ class ReduceLROnPlateau(
             self,
             metric: str | p.ObjectiveProtocol[
                 _Output_contra, _Target_contra] | None = None,
-            monitor: p.ValidationProtocol[
+            monitor: p.SourceProtocol[
                          _Input_contra, _Target_contra, _Output_contra
                      ] | None = None,
             min_delta: float = 1e-8,

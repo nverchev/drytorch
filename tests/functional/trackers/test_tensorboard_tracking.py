@@ -31,7 +31,7 @@ class TestTensorBoardFullCycle:
     ) -> Generator[TensorBoard, None, None]:
         """Set up the resumed instance."""
         tracker = TensorBoard()
-        start_experiment_event.resume_last_run = True
+        start_experiment_event.resumed = True
         tracker.notify(start_experiment_event)
         yield tracker
 

@@ -1,7 +1,7 @@
 """Tests for the "base_classes" module."""
+
 import functools
 import pathlib
-import time
 
 from collections.abc import Generator
 
@@ -67,7 +67,7 @@ def metric_loader(example_sourced_metrics) -> MetricLoader:
 
 
 class TestDumper:
-    """Tests for AbstractDumper."""
+    """Tests for the Dumper class."""
 
     @pytest.fixture(scope='class',
                     params=[None, 'test'],
@@ -110,19 +110,6 @@ class TestDumper:
             assert tracker_started.par_dir == exp_par_dir
         else:
             assert tracker_started.par_dir == par_dir
-
-    def test_get_last_run(self, tmp_path, tracker_started) -> None:
-        """Test last created folder is selected."""
-        expected = tracker_started._get_run_dir()
-        assert tracker_started._get_last_run_dir() == expected
-
-        for i in range(3, 0, -1):
-            path = tracker_started._get_exp_dir() / str(i)
-            path.mkdir()
-            time.sleep(0.01)
-
-        expected = tracker_started._get_exp_dir() / '1'
-        assert tracker_started._get_last_run_dir() == expected
 
 
 class TestMetricLoader:

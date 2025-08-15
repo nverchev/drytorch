@@ -60,7 +60,7 @@ class Wandb(Dumper):
         project = self._settings.project or event.exp_name
         group = self._settings.run_group or event.exp_name
         run_id = ''
-        if event.resume_last_run:
+        if event.resumed:
             api = wandb.Api()
             entity = self._settings.entity or api.default_entity
             runs = api.runs(
@@ -86,7 +86,7 @@ class Wandb(Dumper):
                                config=recursive_repr(event.config, max_size=99),
                                tags=event.tags,
                                settings=self._settings,
-                               resume='allow')
+                               resume='allow' if event.resumed else None)
         return
 
     @notify.register

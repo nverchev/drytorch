@@ -53,7 +53,7 @@ class TestHydraLink:
     def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
         """Test initialization with a valid Hydra configuration."""
         assert tracker.par_dir == tmp_path
-        assert isinstance(tracker.hydra_folder, str)
+        assert isinstance(tracker.folder_name, str)
         assert tracker.hydra_dir == self.hydra_output_dir
 
     def test_init_without_hydra_raises_exception(self, tmp_path) -> None:

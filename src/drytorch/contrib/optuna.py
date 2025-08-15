@@ -35,7 +35,7 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         metric: p.ObjectiveProtocol[
                     _Output_contra, _Target_contra
                 ] | str | None = None,
-        monitor: p.ValidationProtocol[
+        monitor: p.SourceProtocol[
                      Any, _Target_contra, _Output_contra
                  ] | None = None,
         min_delta: float = 1e-8,
@@ -58,7 +58,6 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
-            patience=0,
             best_is=best_is,
             filter_fn=filter_fn,
         )

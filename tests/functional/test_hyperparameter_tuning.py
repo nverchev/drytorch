@@ -1,11 +1,12 @@
 """Functional tests for simple hyperparameter tuning."""
 
 from collections.abc import Generator, MutableMapping
+from typing import Any
 
 import pytest
 
 from drytorch import Model, Trainer, hooks
-from drytorch.core.experiments import Run
+from drytorch.core.experiment import Run
 from tests.simple_classes import Linear
 
 
@@ -38,7 +39,7 @@ def test_automatic_names(standard_learning_scheme,
                           learning_scheme=standard_learning_scheme,
                           loss=square_loss_calc)
         trainer.add_validation(val_loader)
-        early_stopping = hooks.EarlyStoppingCallback()
+        early_stopping = hooks.EarlyStoppingCallback[Any, Any]()
         trainer.post_epoch_hooks.register(early_stopping)
         trainer.train(10)
         results[linear_model.name] = early_stopping.monitor.best_value
@@ -62,7 +63,8 @@ def test_iterative_pruning(benchmark_values,
                           learning_scheme=standard_learning_scheme,
                           loss=square_loss_calc)
         trainer.add_validation(val_loader)
-        prune_callback = hooks.PruneCallback(benchmark_values, best_is='lower')
+        prune_callback = hooks.PruneCallback[Any, Any](benchmark_values,
+                                                       best_is='lower')
         trainer.post_epoch_hooks.register(prune_callback)
         trainer.train(4)
         benchmark_values = prune_callback.trial_values

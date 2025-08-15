@@ -73,28 +73,6 @@ class TestTensorBoard:
         writer.close.assert_called_once()
         assert tracker._writer is None
 
-    def test_resume(
-            self,
-            mocker,
-            tmp_path,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
-    ) -> None:
-        """Test resume previous run."""
-        start_experiment_mock_event.config = {'simple_config': 3}
-        start_experiment_mock_event.resume_last_run = True
-        last_run = mocker.patch.object(tracker, '_get_last_run_dir')
-        last_run.return_value = tmp_path
-
-        tracker.notify(start_experiment_mock_event)
-
-        called_args = self.summary_writer_mock.call_args[1]
-        called_log_dir = pathlib.Path(called_args['log_dir'])
-        assert called_log_dir == tmp_path
-
-        self.summary_writer_mock.reset_mock()
-        tracker.notify(stop_experiment_mock_event)
 
     def test_notify_metrics(self,
                             tracker_started,

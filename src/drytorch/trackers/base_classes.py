@@ -3,7 +3,6 @@
 import abc
 import functools
 import pathlib
-import warnings
 
 from collections.abc import Generator, Iterable
 from pathlib import Path
@@ -14,7 +13,7 @@ import numpy.typing as npt
 
 from typing_extensions import override
 
-from drytorch.core import exceptions, log_events, tracking
+from drytorch.core import exceptions, log_events, track
 
 
 HistoryMetric: TypeAlias = tuple[list[int], list[float]]
@@ -27,7 +26,7 @@ SourcedArray: TypeAlias = dict[str, NpArray]
 Plot = TypeVar('Plot')
 
 
-class Dumper(tracking.Tracker):
+class Dumper(track.Tracker):
     """Tracker with a standard folder structure.
 
     Class Attributes:
@@ -102,24 +101,19 @@ class Dumper(tracking.Tracker):
         exp_dir.mkdir(exist_ok=True, parents=True)
         return exp_dir
 
-    def _get_last_run_dir(self) -> pathlib.Path:
-        exp_dir = self._get_exp_dir()
-        all_dirs = [d for d in exp_dir.iterdir() if d.is_dir()]
-        if not all_dirs:
-            tracker_name = self.__class__.__name__
-            msg = f'{tracker_name}: No previous runs. Starting a new one.'
-            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
-            return self._get_run_dir()
-        return max(all_dirs, key=lambda d: d.stat().st_ctime)
-
     def _get_run_dir(self, mkdir: bool = True) -> pathlib.Path:
-        run_dir = self._get_exp_dir() / self.run_id
+        exp_dir = self._get_exp_dir()
+        if '@' in self.run_id:
+            day, time = self.run_id.split('@')
+            run_dir = exp_dir / day / time
+        else:
+            run_dir = exp_dir / self.run_id
         if mkdir:
-            run_dir.mkdir(exist_ok=True)
+            run_dir.mkdir(exist_ok=True, parents=True)
         return run_dir
 
 
-class MetricLoader(tracking.Tracker, abc.ABC):
+class MetricLoader(track.Tracker, abc.ABC):
     """Interface for trackers that load metrics."""
 
     def load_metrics(
@@ -149,7 +143,7 @@ class MetricLoader(tracking.Tracker, abc.ABC):
         ...
 
 
-class MemoryMetrics(tracking.Tracker):
+class MemoryMetrics(track.Tracker):
     """Keep all metrics in memory.
 
     Attributes:

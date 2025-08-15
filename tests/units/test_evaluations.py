@@ -1,14 +1,14 @@
-"""Tests for the "evaluating" module."""
+"""Tests for the "evaluations" module."""
 
 import pytest
 
-from drytorch.evaluating import Diagnostic, Test, Validation
+from drytorch.evaluations import Diagnostic, Test, Validation
 
 
 @pytest.fixture(autouse=True)
 def setup_module(session_mocker) -> None:
     """Fixture for a mock experiment."""
-    session_mocker.patch('drytorch.core.registering.register_source')
+    session_mocker.patch('drytorch.core.register.register_actor')
     return
 
 
@@ -19,7 +19,7 @@ class TestDiagnostic:
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
         self.mock_super_call = mocker.patch(
-            'drytorch.running.ModelRunnerWithObjective.__call__'
+            'drytorch.runners.ModelRunnerWithObjective.__call__'
         )
         return
 
@@ -48,7 +48,7 @@ class TestValidation:
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
         self.mock_super_init = mocker.patch(
-            'drytorch.running.ModelRunnerWithLogs.__init__'
+            'drytorch.runners.ModelRunnerWithLogs.__init__'
         )
         return
 
@@ -80,7 +80,7 @@ class TestTest:
             'drytorch.core.log_events.EndTestEvent'
         )
         self.mock_super_call = mocker.patch(
-            'drytorch.evaluating.Validation.__call__'
+            'drytorch.evaluations.Validation.__call__'
         )
         return
 

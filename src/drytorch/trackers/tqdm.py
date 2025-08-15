@@ -12,7 +12,7 @@ import tqdm
 
 from typing_extensions import override
 
-from drytorch.core import log_events, tracking
+from drytorch.core import log_events, track
 
 
 if TYPE_CHECKING:
@@ -156,7 +156,7 @@ class TrainingBar:
         return
 
 
-class TqdmLogger(tracking.Tracker):
+class TqdmLogger(track.Tracker):
     """Create an epoch progress bar."""
 
     def __init__(

@@ -6,7 +6,7 @@ import torch
 
 from typing_extensions import override
 
-from drytorch import running
+from drytorch import runners
 from drytorch.core import log_events
 from drytorch.core import protocols as p
 
@@ -17,10 +17,9 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class Diagnostic(
-    running.ModelRunnerWithLogs[_Input, _Target, _Output],
-    p.ValidationProtocol[_Input, _Target, _Output],
+    runners.ModelRunnerWithLogs[_Input, _Target, _Output],
 ):
-    """Evaluate model on inference mode without logging the metrics.
+    """Evaluate the model on inference mode without logging the metrics.
 
     Attributes:
         model: the model containing the weights to evaluate.
@@ -44,7 +43,7 @@ class Diagnostic(
 
 class Validation(
     Diagnostic[_Input, _Target, _Output],
-    running.ModelRunnerWithLogs[_Input, _Target, _Output],
+    runners.ModelRunnerWithLogs[_Input, _Target, _Output],
 ):
     """Evaluate model on inference mode.
 

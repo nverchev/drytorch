@@ -10,6 +10,10 @@ except ImportError:
     raise
 
 from drytorch.trackers.yaml import YamlDumper
+from drytorch.utils import repr_utils
+
+
+TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 
 
 class TestSQLConnectionFullCycle:
@@ -23,10 +27,12 @@ class TestSQLConnectionFullCycle:
     def test_config_metadata(self,
                              tracker,
                              start_experiment_event,
+                             example_run_ts,
                              example_config):
         """Test correct dumping off config metadata."""
         tracker.notify(start_experiment_event)
-        address = tracker._get_run_dir() / 'config.yaml'
+        example_run_ts_str = example_run_ts.strftime(TS_FMT)
+        address = tracker._get_run_dir() / f'config_{example_run_ts_str}.yaml'
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 
@@ -36,12 +42,15 @@ class TestSQLConnectionFullCycle:
                             tracker,
                             start_experiment_event,
                             model_registration_event,
+                            example_model_name,
+                            example_model_ts,
                             example_metadata):
         """Test correct dumping of metadata from the model."""
         tracker.notify(start_experiment_event)
-        model_name = model_registration_event.model_name
-        metadata_path = tracker._get_run_dir() / model_name
-        address = metadata_path / model_name
+        example_model_ts_str = example_model_ts.strftime(TS_FMT)
+        metadata_folder = f'{example_model_name}_{example_model_ts_str}'
+        metadata_path = tracker._get_run_dir() / metadata_folder
+        address = metadata_path / 'architecture'
         tracker.notify(model_registration_event)
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
@@ -51,15 +60,22 @@ class TestSQLConnectionFullCycle:
     def test_caller_metadata(self,
                              tracker,
                              start_experiment_event,
-                             source_registration_event,
+                             actor_registration_event,
+                             example_model_name,
+                             example_model_ts,
+                             example_source_name,
+                             example_source_ts,
                              example_metadata):
         """Test correct dumping of metadata from the caller."""
         tracker.notify(start_experiment_event)
-        model_name = source_registration_event.model_name
-        source_name = source_registration_event.source_name
-        metadata_path = tracker._get_run_dir() / model_name
-        address = metadata_path / source_name
-        tracker.notify(source_registration_event)
+        example_model_ts_str = example_model_ts.strftime(TS_FMT)
+        metadata_folder = f'{example_model_name}_{example_model_ts_str}'
+        metadata_path = tracker._get_run_dir() / metadata_folder
+        example_source_ts_str = example_source_ts.strftime(TS_FMT)
+        address = metadata_path / (
+            f'{example_source_name}_{example_source_ts_str}'
+        )
+        tracker.notify(actor_registration_event)
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 

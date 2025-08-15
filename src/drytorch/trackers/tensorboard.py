@@ -85,11 +85,7 @@ class TensorBoard(base_classes.Dumper):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
-
-        if event.resume_last_run:
-            run_dir = self._get_last_run_dir()
-        else:
-            run_dir = self._get_run_dir()
+        run_dir = self._get_run_dir()
 
         # start the TensorBoard server
         if self._start_server:

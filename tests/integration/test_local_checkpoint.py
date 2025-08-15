@@ -4,12 +4,12 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch import Experiment
+from drytorch.core.experiment import Run
 from drytorch.models import ModelOptimizer
 
 
 @pytest.fixture(autouse=True, scope='module')
-def autorun_experiment(run) -> Generator[Experiment, None, None]:
+def autorun_experiment(run) -> Generator[Run, None, None]:
     """Create an experimental scope for the tests."""
     yield run
     return
@@ -46,7 +46,7 @@ def test_state_save_and_load(linear_model):
 
 
 def test_checkpoint_save_and_load(linear_model, standard_learning_scheme):
-    """Test saving and loading the model's ans the optimizer's states."""
+    """Test saving and loading the model's and the optimizer's states."""
     model_optimizer = ModelOptimizer(linear_model, standard_learning_scheme)
 
     param_list = [param.clone() for param in linear_model.module.parameters()]

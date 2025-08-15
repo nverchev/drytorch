@@ -1,23 +1,22 @@
-"""Tests for the "evaluating" module."""
+"""Tests for the "runners" module."""
 
 from typing_extensions import override
 
 import pytest
 
-from drytorch.core import exceptions
-from drytorch.running import (
+from drytorch.runners import (
     ModelCaller,
     ModelRunner,
     ModelRunnerWithLogs,
     ModelRunnerWithObjective,
-    Source,
 )
+from drytorch.core import exceptions
 
 
 @pytest.fixture(autouse=True, scope='module')
 def setup_module(session_mocker) -> None:
     """Fixture for a mock experiment."""
-    session_mocker.patch('drytorch.core.registering.register_source')
+    session_mocker.patch('drytorch.core.register.register_actor')
     return
 
 
@@ -26,11 +25,20 @@ class SimpleCaller(ModelCaller):
 
     @override
     def __call__(self) -> None:
+        super().__call__()
         return
 
 
 class TestModelCaller:
     """Tests for the ModelCaller class."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker) -> None:
+        """Set up the tests."""
+        self.mock_register_actor = mocker.patch(
+            'drytorch.core.register.register_actor'
+        )
+        return
 
     @pytest.fixture
     def caller_name(self) -> str:
@@ -55,37 +63,11 @@ class TestModelCaller:
         """Test string representation of the class."""
         assert str(caller).startswith(caller_name)
 
-
-class TestSource:
-    """Tests for the Source class."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, mocker) -> None:
-        """Set up the tests."""
-        self.mock_register_source = mocker.patch(
-            'drytorch.core.registering.register_source'
-        )
-        return
-
-    @pytest.fixture
-    def source(self, mock_model) -> Source:
-        """Set up a test instance."""
-        return Source(mock_model)
-
-    def test_call_registration(self, source) -> None:
+    def test_call_registration(self, caller) -> None:
         """Test __call__ method registers model on first call."""
-        assert source._registered is False
-
-        source()
-        assert source._registered is True
-        self.mock_register_source.assert_called_once_with(source,
-                                                          source.model)
-
-        # the second call should not register again
-        self.mock_register_source.reset_mock()
-
-        source()
-        self.mock_register_source.assert_not_called()
+        caller()
+        self.mock_register_actor.assert_called_once_with(caller,
+                                                         caller.model)
 
 
 class TestModelRunner:
@@ -228,16 +210,19 @@ class TestModelRunnerWithObjective:
     """Tests for the ModelRunner class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker) -> None:
+    def setup(self, mocker, mock_loss) -> None:
         """Set up the tests."""
         self.mock_target = mocker.Mock()
         self.mock_output = mocker.Mock()
-        mocker.patch('drytorch.running.ModelRunner.__init__')
-        mocker.patch('drytorch.running.ModelRunner._run_epoch')
-        mocker.patch('drytorch.running.ModelRunner._run_backward')
+        mocker.patch('drytorch.runners.ModelRunner.__init__')
+        mocker.patch('drytorch.runners.ModelRunner._run_epoch')
+        mocker.patch('drytorch.runners.ModelRunner._run_backward')
         self.mock_repr_metrics = mocker.patch(
-            'drytorch.objectives.repr_metrics', return_value={'loss': 0.1
-        })
+            'drytorch.objectives.repr_metrics', return_value={'loss': 0.1}
+        )
+        self.mock_deepcopy = mocker.patch(
+            'copy.deepcopy', return_value=mock_loss
+        )
         return
 
     @pytest.fixture
@@ -255,7 +240,7 @@ class TestModelRunnerWithObjective:
     def test_initialization(self, mock_loss, runner) -> None:
         """Test initialization with all parameters."""
         assert runner.objective == mock_loss
-        mock_loss.__deepcopy__.assert_called_once()
+        self.mock_deepcopy.assert_called_once()
 
     def test_run_backward(self, runner) -> None:
         """Test backward pass updates the objective."""
@@ -276,8 +261,8 @@ class TestModelRunnerWithLogs:
     @pytest.fixture(autouse=True)
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
-        mocker.patch('drytorch.running.ModelRunnerWithObjective._run_epoch')
-        mocker.patch('drytorch.running.ModelRunnerWithObjective._get_metrics',
+        mocker.patch('drytorch.runners.ModelRunnerWithObjective._run_epoch')
+        mocker.patch('drytorch.runners.ModelRunnerWithObjective._get_metrics',
                      return_value=example_named_metrics)
         self.mock_log_events_metrics = mocker.patch(
             'drytorch.core.log_events.MetricEvent'

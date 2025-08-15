@@ -102,6 +102,7 @@ class EpochNotFoundError(DryTorchError):
         """Constructor.
 
         Args:
+            epoch: the epoch that was not found.
             checkpoint_directory: the directory path where no model was found.
         """
         self.model_directory = checkpoint_directory

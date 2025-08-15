@@ -18,20 +18,25 @@ import numpy as np
 import torch
 
 
-class Versioned:
+class CreatedAtMixin:
     """Mixin saving instantiation timestamp."""
 
     ts_fmt = '%Y-%m-%d@%Hh%Mm%Ss'
 
     def __init__(self, *args, **kwargs) -> None:
         """Constructor."""
-        self._created_at = datetime.datetime.now().strftime(self.ts_fmt)
+        self._created_at = datetime.datetime.now()
         super().__init__(*args, **kwargs)
 
     @property
-    def created_at(self) -> str:
+    def created_at(self) -> datetime.datetime:
         """Read-only timestamp."""
         return self._created_at
+
+    @property
+    def created_at_str(self) -> str:
+        """Read-only timestamp."""
+        return self._created_at.strftime(self.ts_fmt)
 
 
 class DefaultName:

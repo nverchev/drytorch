@@ -8,7 +8,7 @@ import torch
 
 from typing_extensions import override
 
-from drytorch import evaluating, hooks, models, running
+from drytorch import runners, evaluations, hooks, models
 from drytorch.core import exceptions, log_events
 from drytorch.core import protocols as p
 
@@ -19,7 +19,7 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class Trainer(
-    running.ModelRunnerWithLogs[_Input, _Target, _Output],
+    runners.ModelRunnerWithLogs[_Input, _Target, _Output],
     p.TrainerProtocol[_Input, _Target, _Output],
 ):
     """Implement the standard Pytorch training loop.
@@ -59,7 +59,7 @@ class Trainer(
         )
         self.learning_scheme = learning_scheme
         self.validation: (
-            p.ValidationProtocol[_Input, _Target, _Output] | None
+                p.SourceProtocol[_Input, _Target, _Output] | None
         ) = None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[
@@ -107,7 +107,7 @@ class Trainer(
         Args:
             val_loader: the loader for validation.
         """
-        validation = evaluating.Validation(
+        validation = evaluations.Validation(
             self.model, loader=val_loader, metric=self.objective
         )
         val_hook = hooks.StaticHook(validation)

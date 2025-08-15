@@ -22,7 +22,7 @@ from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.utils import statistics
+from drytorch.utils import average
 
 
 _Output_contra = TypeVar(
@@ -52,7 +52,7 @@ class Objective(
         Args:
             **named_metric_fun: named functions that compute the metric.
         """
-        self._aggregator = statistics.TorchAverager()
+        self._aggregator = average.TorchAverager()
         self.named_metric_fun = named_metric_fun
 
     @override

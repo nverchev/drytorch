@@ -6,6 +6,7 @@ from collections.abc import Generator
 
 import pytest
 
+
 if not importlib.util.find_spec('yaml'):
     pytest.skip('yaml not available', allow_module_level=True)
 
@@ -54,15 +55,14 @@ class TestYamlDumper:
         self.mock_dump.assert_called_once()
         self.mock_dump.reset_mock()
         tracker_started.notify(model_registration_mock_event)
-        # metadata dumped in the metadata folder and in the archive folder
         self.mock_dump.assert_called_once()
 
-    def test_notify_source_registration(self,
-                                        tracker_started,
-                                        source_registration_mock_event) -> None:
+    def test_notify_actor_registration(self,
+                                       tracker_started,
+                                       actor_registration_mock_event) -> None:
         """Test notification of a source registration event."""
         self.mock_dump.assert_called_once()
         self.mock_dump.reset_mock()
-        tracker_started.notify(source_registration_mock_event)
+        tracker_started.notify(actor_registration_mock_event)
         # metadata dumped in the metadata folder and in the archive folder
         self.mock_dump.assert_called_once()

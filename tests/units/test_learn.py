@@ -1,4 +1,4 @@
-"""Tests for the "learning" module."""
+"""Tests for the "learn" module."""
 
 import dataclasses
 
@@ -8,7 +8,7 @@ import pytest
 
 from drytorch import schedulers
 from drytorch.core import protocols as p
-from drytorch.learning import LearningScheme
+from drytorch.learn import LearningScheme
 
 
 @pytest.fixture

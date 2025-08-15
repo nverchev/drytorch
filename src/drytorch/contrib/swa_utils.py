@@ -4,8 +4,8 @@ from typing import TypeVar
 
 import torch
 
+from drytorch.runners import ModelCaller
 from drytorch.core import protocols as p
-from drytorch.running import ModelCaller
 
 
 _Input = TypeVar('_Input', bound=p.InputType)

@@ -67,6 +67,7 @@ class HydraLink(base_classes.Dumper):
         # call super method to create par_dir first
         super().notify(event)
         link = self._get_run_dir(mkdir=False)
+        link.parent.mkdir(exist_ok=True, parents=True)
         link.symlink_to(self.hydra_dir, target_is_directory=True)
         return
 

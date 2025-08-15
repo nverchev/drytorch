@@ -1,6 +1,5 @@
 """Configuration module defining example mocked events."""
 
-import datetime
 import io
 
 from collections.abc import Generator
@@ -31,11 +30,11 @@ def start_experiment_mock_event(mocker,
     # Set default attribute values
     mock.config = example_config
     mock.exp_name = example_exp_name
-    mock.run_name = example_run_id
-    mock.run_ts = example_run_ts
     mock.run_id = example_run_id
+    mock.run_ts = example_run_ts
+    mock.row_id = example_run_id
     mock.run_dir = tmp_path
-    mock.resume_last_run = False
+    mock.resumed = False
     mock.tags = example_tags
     return mock
 
@@ -55,28 +54,31 @@ def model_registration_mock_event(
         mocker,
         example_model_name,
         example_metadata,
+        example_model_ts
 ) -> log_events.ModelRegistrationEvent:
     """Mock ModelRegistration event instance."""
     mock = mocker.create_autospec(log_events.ModelRegistrationEvent)
     mock.model_name = example_model_name
-    mock.model_ts = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    mock.model_ts = example_model_ts
     mock.metadata = example_metadata
     return mock
 
 
 @pytest.fixture
-def source_registration_mock_event(
+def actor_registration_mock_event(
         mocker,
         example_source_name,
+        example_source_ts,
         example_model_name,
+        example_model_ts,
         example_metadata,
-) -> log_events.SourceRegistrationEvent:
+) -> log_events.ActorRegistrationEvent:
     """Mock SourceRegistration event instance."""
-    mock = mocker.create_autospec(log_events.SourceRegistrationEvent)
-    mock.source_name = example_source_name
-    mock.source_ts = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    mock = mocker.create_autospec(log_events.ActorRegistrationEvent)
+    mock.actor_name = example_source_name
+    mock.actor_ts = example_source_ts
     mock.model_name = example_model_name
-    mock.model_ts = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    mock.model_ts = example_model_ts
     mock.metadata = example_metadata
     return mock
 

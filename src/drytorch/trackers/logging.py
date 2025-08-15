@@ -20,7 +20,7 @@ from typing_extensions import override
 
 import drytorch
 
-from drytorch.core import log_events, tracking
+from drytorch.core import log_events, track
 
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ class InfoLevels(NamedTuple):
     test: int
 
 
-class BuiltinLogger(tracking.Tracker):
+class BuiltinLogger(track.Tracker):
     """Tracker that streams logging messages through the built-in logger."""
 
     @functools.singledispatchmethod
@@ -210,11 +210,11 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.SourceRegistrationEvent) -> None:
+    def _(self, event: log_events.ActorRegistrationEvent) -> None:
         msg = 'Source %(source_name)s %(model_name)s has been registered.'
         args = {
             'model_name': event.model_name,
-            'source_name': event.source_name,
+            'source_name': event.actor_name,
         }
         logger.log(INFO_LEVELS.internal, msg, args)
         return super().notify(event)
@@ -317,6 +317,7 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
     return
 
 
+# noinspection PyUnreachableCode
 def set_formatter(style: Literal['drytorch', 'progress']) -> None:
     """Set the formatter for the stream handler of the drytorch logger."""
     for handler in logger.handlers:
@@ -325,6 +326,7 @@ def set_formatter(style: Literal['drytorch', 'progress']) -> None:
                 handler.formatter = ProgressFormatter()
             elif style == 'drytorch':
                 handler.formatter = DryTorchFormatter()
+
             else:
                 raise ValueError('Invalid formatter style.')
 

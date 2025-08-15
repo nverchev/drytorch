@@ -17,7 +17,7 @@ from drytorch import (
     Model,
     Trainer,
 )
-from drytorch.core.experiments import Run
+from drytorch.core.experiment import Run
 from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 
 
@@ -92,7 +92,7 @@ def identity_trainer(
         standard_learning_scheme: LearningScheme,
         square_loss_calc: Loss[TorchData, torch.Tensor],
         identity_loader: DataLoader[tuple[TorchTuple, torch.Tensor]],
-) -> Trainer:
+) -> Trainer[TorchTuple, torch.Tensor, TorchData]:
     """Instantiate a trainer for the linear model using the identity dataset."""
     trainer = Trainer(
         linear_model,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import functools
-import warnings
 
 from typing import cast
 
@@ -21,49 +20,18 @@ class Base(orm.DeclarativeBase):
     """Base class for tables."""
 
 
-class Run(orm.MappedAsDataclass, Base):
-    """Table for runs.
-
-    A new run is created for each experiment scope, unless specified.
-
-    Attributes:
-        run_id: the unique id for the table.
-        run_name: global identifier for the run.
-        run_ts: the run's timestamp.
-        experiments: the list of experiments in the same run
-        sources: the list of sources from experiments
-    """
-
-    __tablename__ = 'runs'
-    run_id: orm.Mapped[int] = orm.mapped_column(
-        init=False,
-        primary_key=True,
-        autoincrement=True,
-    )
-    run_ts: orm.Mapped[str] = orm.mapped_column()
-    run_name: orm.Mapped[str] = orm.mapped_column(index=True)
-    experiments: orm.Mapped[list[Experiment]] = orm.relationship(
-        init=False,
-        cascade='all, delete-orphan',
-    )
-    sources: orm.Mapped[list[Source]] = orm.relationship(
-        init=False,
-        cascade='all, delete-orphan',
-    )
-
-
 class Experiment(orm.MappedAsDataclass, Base):
     """Table for experiments.
 
     Attributes:
-        experiment_id: the unique id for the table.
+        row_id: the unique id for the table.
         experiment_name: the experiment's name.
-        run_id: the id of the run for the experiment.
-        run: the entry for the run for the experiment.
+        runs: the entry for the run for the experiment.
+        tags: the list of tags for the experiment.
     """
 
     __tablename__ = 'experiments'
-    experiment_id: orm.Mapped[int] = orm.mapped_column(
+    row_id: orm.Mapped[int] = orm.mapped_column(
         init=False,
         primary_key=True,
         autoincrement=True,
@@ -73,30 +41,30 @@ class Experiment(orm.MappedAsDataclass, Base):
         init=False,
         cascade='all, delete-orphan',
     )
-    run_id: orm.Mapped[int] = orm.mapped_column(
-        sqlalchemy.ForeignKey(Run.run_id),
+
+    runs: orm.Mapped[list[Run]] = orm.relationship(
         init=False,
+        cascade='all, delete-orphan',
     )
-    run: orm.Mapped[Run] = orm.relationship(back_populates=Run.experiments.key)
 
 
 class Tags(orm.MappedAsDataclass, Base):
     """Table for tags for experiments.
 
     Attributes:
-        tag_id: the unique id for the table.
+        row_id: the unique id for the table.
         experiment_id: the id for the experiment.
         text: a tag for the experiment.
     """
 
     __tablename__ = 'tags'
-    tag_id: orm.Mapped[int] = orm.mapped_column(
+    row_id: orm.Mapped[int] = orm.mapped_column(
         init=False,
         primary_key=True,
         autoincrement=True,
     )
     experiment_id: orm.Mapped[int] = orm.mapped_column(
-        sqlalchemy.ForeignKey(Experiment.experiment_id),
+        sqlalchemy.ForeignKey(Experiment.row_id),
         init=False,
     )
     experiment: orm.Mapped[Experiment] = orm.relationship(
@@ -105,32 +73,67 @@ class Tags(orm.MappedAsDataclass, Base):
     text: orm.Mapped[str] = orm.mapped_column(index=True)
 
 
+class Run(orm.MappedAsDataclass, Base):
+    """Table for runs.
+
+    A new run is created for each experiment scope, unless specified.
+
+    Attributes:
+        row_id: the unique id for the table.
+        run_id: global identifier for the run.
+        run_ts: the run's timestamp.
+        experiment_id: the id of the experiment for the run.
+        experiment: the entry for the experiment for the run.
+        sources: the list of sources from experiments
+    """
+
+    __tablename__ = 'runs'
+    row_id: orm.Mapped[int] = orm.mapped_column(
+        init=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    run_id: orm.Mapped[str] = orm.mapped_column(index=True)
+    run_ts: orm.Mapped[datetime.datetime] = orm.mapped_column()
+    experiment_id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.ForeignKey(Experiment.row_id),
+        init=False,
+    )
+    experiment: orm.Mapped[Experiment] = orm.relationship(
+        back_populates=Experiment.runs.key)
+
+    sources: orm.Mapped[list[Source]] = orm.relationship(
+        init=False,
+        cascade='all, delete-orphan',
+    )
+
+
 class Source(orm.MappedAsDataclass, Base):
     """Table for sources.
 
     Attributes:
-        source_id: the unique id for the table.
+        row_id: the unique id for the table.
         model_name: the model's name.
         model_ts: the model's timestamp.
         source_name: the source's name.
         source_ts: the source's timestamp.
-        run_id: the id of the run for the experiment.
-        run: the entry for the run for the experiment.
+        run_table_id: the table id for the current experiment's run.
+        run: the entry for the current experiment's run.
         logs: the list of logs originating from the source.
     """
 
     __tablename__ = 'sources'
-    source_id: orm.Mapped[int] = orm.mapped_column(
+    row_id: orm.Mapped[int] = orm.mapped_column(
         init=False,
         primary_key=True,
         autoincrement=True,
     )
     model_name: orm.Mapped[str] = orm.mapped_column(index=True)
-    model_ts: orm.Mapped[str] = orm.mapped_column()
+    model_ts: orm.Mapped[datetime.datetime] = orm.mapped_column()
     source_name: orm.Mapped[str] = orm.mapped_column(index=True)
-    source_ts: orm.Mapped[str] = orm.mapped_column()
-    run_id: orm.Mapped[int] = orm.mapped_column(
-        sqlalchemy.ForeignKey(Run.run_id),
+    source_ts: orm.Mapped[datetime.datetime] = orm.mapped_column()
+    run_table_id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.ForeignKey(Run.row_id),
         init=False,
     )
     run: orm.Mapped[Run] = orm.relationship(back_populates=Run.sources.key)
@@ -144,7 +147,7 @@ class Log(orm.MappedAsDataclass, Base):
     """Table for the logs of the metrics.
 
     Attributes:
-        log_id: the unique id for the table.
+        row_id: the unique id for the table.
         source_id: the id of the source creating the log.
         source: the entry for the source creating the log.
         epoch: the number of epochs the model has been trained.
@@ -155,13 +158,13 @@ class Log(orm.MappedAsDataclass, Base):
 
     __tablename__ = 'logs'
 
-    log_id: orm.Mapped[int] = orm.mapped_column(
+    row_id: orm.Mapped[int] = orm.mapped_column(
         init=False,
         primary_key=True,
         autoincrement=True,
     )
     source_id: orm.Mapped[int] = orm.mapped_column(
-        sqlalchemy.ForeignKey(Source.source_id),
+        sqlalchemy.ForeignKey(Source.row_id),
         init=False,
     )
     source: orm.Mapped[Source] = orm.relationship(
@@ -228,25 +231,15 @@ class SQLConnection(base_classes.MetricLoader):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         with self.session_factory() as session:
-            if event.resume_last_run:
-                run_or_none = self._get_last_run(event.exp_name)
-                if run_or_none is None:
-                    msg = 'SQLConnection: No previous runs. Starting a new one.'
-                    warnings.warn(msg, stacklevel=2)
-
-                self._run = run_or_none
-
-            if self._run is None:
-                self._run = Run(event.run_ts, event.run_id)
-
             experiment = Experiment(
                 experiment_name=event.exp_name,
-                run=self.run,
+
             )
 
             for tag_str in event.tags:
                 tag = Tags(text=tag_str, experiment=experiment)
                 session.add(tag)
+            self._run = Run(event.run_id, event.run_ts, experiment)
             session.add(experiment)
             session.commit()
 
@@ -258,19 +251,19 @@ class SQLConnection(base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.SourceRegistrationEvent) -> None:
+    def _(self, event: log_events.ActorRegistrationEvent) -> None:
         with self.session_factory() as session:
             run = session.merge(self.run)
             source = Source(
                 model_name=event.model_name,
                 model_ts=event.model_ts,
-                source_name=event.source_name,
-                source_ts=event.source_ts,
+                source_name=event.actor_name,
+                source_ts=event.actor_ts,
                 run=run,
             )
             session.add(source)
             session.commit()
-            self._sources[event.source_name] = source
+            self._sources[event.actor_name] = source
         return super().notify(event)
 
     @notify.register
@@ -296,8 +289,8 @@ class SQLConnection(base_classes.MetricLoader):
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
         with self.session_factory() as session:
             run = session.merge(self.run)
-            query = session.query(Source).where(
-                Source.run_id.is_(run.run_id),
+            query = session.query(Source).join(Source.run).where(
+                Run.run_id.is_(run.run_id),
                 Source.model_name.is_(model_name),
             )
             named_sources = dict[str, list[Source]]()
@@ -312,18 +305,6 @@ class SQLConnection(base_classes.MetricLoader):
 
             return named_sources
 
-    def _get_last_run(self, exp_name: str) -> Run | None:
-        with self.session_factory() as session:
-            sqlalchemy.select(Run)
-            query = (
-                sqlalchemy.select(Run)
-                .join(Experiment)
-                .where(Experiment.experiment_name.is_(exp_name))
-                .order_by(Run.run_id.desc())
-                .limit(1)
-            )
-            return session.scalars(query).first()
-
     def _get_run_metrics(
             self,
             sources: list[Source],
@@ -332,7 +313,7 @@ class SQLConnection(base_classes.MetricLoader):
         with self.session_factory() as session:
             sources = [session.merge(source) for source in sources]
             query = session.query(Log).where(
-                Log.source_id.in_(source.source_id for source in sources),
+                Log.source_id.in_(source.row_id for source in sources),
             )
             if max_epoch != -1:
                 query = query.where(Log.epoch <= max_epoch)

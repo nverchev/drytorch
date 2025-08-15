@@ -7,8 +7,8 @@ import pytest
 from drytorch.gradient_ops import HistClipping
 from drytorch.hooks import EarlyStoppingCallback, HookRegistry
 from drytorch.schedulers import ExponentialScheduler, WarmupScheduler
+from drytorch.utils.average import get_moving_average
 from drytorch.utils.repr_utils import recursive_repr
-from drytorch.utils.statistics import get_moving_average
 
 
 @pytest.fixture(autouse=True, scope='module')

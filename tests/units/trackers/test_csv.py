@@ -36,7 +36,7 @@ class TestCsvDumper:
             stop_experiment_mock_event,
     ) -> Generator[CSVDumper, None, None]:
         """Start the instance."""
-        start_experiment_mock_event.resume_last_run = True
+        start_experiment_mock_event.resumed = True
         tracker.notify(start_experiment_mock_event)
         yield tracker
         tracker.notify(stop_experiment_mock_event)

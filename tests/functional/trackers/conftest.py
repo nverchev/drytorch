@@ -1,7 +1,6 @@
 """Configuration module defining example events."""
 
 import dataclasses
-import datetime
 import io
 import pathlib
 
@@ -46,26 +45,30 @@ def stop_experiment_event(example_exp_name) -> log_events.StopExperimentEvent:
 
 @pytest.fixture
 def model_registration_event(
-        example_model_name, example_metadata
+        example_model_name, example_metadata, example_model_ts
 ) -> log_events.ModelRegistrationEvent:
     """Provides a ModelRegistration event instance."""
     return log_events.ModelRegistrationEvent(
         model_name=example_model_name,
-        model_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        model_ts=example_model_ts,
         metadata=example_metadata,
     )
 
 
 @pytest.fixture
-def source_registration_event(
-        example_source_name, example_model_name, example_metadata
-) -> log_events.SourceRegistrationEvent:
+def actor_registration_event(
+        example_source_name,
+        example_source_ts,
+        example_model_name,
+        example_model_ts,
+        example_metadata
+) -> log_events.ActorRegistrationEvent:
     """Provides a SourceRegistration event instance."""
-    return log_events.SourceRegistrationEvent(
-        source_name=example_source_name,
-        source_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+    return log_events.ActorRegistrationEvent(
+        actor_name=example_source_name,
+        actor_ts=example_source_ts,
         model_name=example_model_name,
-        model_ts=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        model_ts=example_model_ts,
         metadata=example_metadata,
     )
 
@@ -233,7 +236,7 @@ def event_workflow(
         start_experiment_event,
         model_registration_event,
         load_model_event,
-        source_registration_event,
+        actor_registration_event,
         start_training_event,
         start_epoch_event,
         iterate_batch_event,
@@ -274,7 +277,7 @@ def event_workflow(
         start_experiment_event,
         model_registration_event,
         load_model_event,
-        source_registration_event,
+        actor_registration_event,
         start_training_event,
         start_epoch_event,
         iterate_batch_event,

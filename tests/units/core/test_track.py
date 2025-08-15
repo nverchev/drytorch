@@ -1,4 +1,4 @@
-"""Tests for the "tracking" module."""
+"""Tests for the "track" module."""
 
 import dataclasses
 import functools
@@ -6,7 +6,7 @@ import functools
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.tracking import (
+from drytorch.core.track import (
     EventDispatcher,
     MetadataManager,
     Tracker,
@@ -29,6 +29,11 @@ class _SimpleEvent(log_events.Event):
 @dataclasses.dataclass
 class _UndefinedEvent(log_events.Event):
     """Event subclass that the tracker does not handle."""
+
+
+class _SimpleActor:
+    """Simple actor for testing."""
+    name: str = 'mock obj'
 
 
 class TestEvent:
@@ -62,46 +67,54 @@ class _SimpleTracker(Tracker):
 class TestMetadataManager:
     """Test MetadataManager functionality."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker) -> None:
+        """Set up the tests."""
+        self.mock_model_registration_event = mocker.patch(
+            'drytorch.core.log_events.ModelRegistrationEvent'
+        )
+        self.mock_caller_registration_event = mocker.patch(
+            'drytorch.core.log_events.ActorRegistrationEvent'
+        )
+        return
+
+    @pytest.fixture()
+    def simple_actor(self) -> _SimpleActor:
+        """Set up an actor instance for testing."""
+        return _SimpleActor()
+
     @pytest.fixture()
     def manager(self) -> MetadataManager:
         """Set up the MetadataManager for testing."""
-        return MetadataManager(max_items_repr=10)
+        return MetadataManager()
 
-    def test_register_source(self, mocker, mock_model, manager) -> None:
+    def test_register_actor(self, mock_model, simple_actor, manager) -> None:
         """Test recording metadata creates the event."""
-        mock_obj = mocker.Mock()
-        mock_obj.name = 'mock obj'
-        mock_log_event = mocker.patch(
-            'drytorch.core.log_events.SourceRegistrationEvent'
-        )
-        manager.register_source(mock_obj, mock_model)
-        assert mock_obj.name in manager.used_names
-        mock_log_event.assert_called_once()
+        manager.register_actor(simple_actor, mock_model)
+        assert simple_actor.name in manager.used_names
+        self.mock_caller_registration_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
-            manager.register_source(mock_obj, mock_model)
+            manager.register_actor(simple_actor, mock_model)
 
-    def test_register_model(self, mocker, mock_model, manager) -> None:
+    def test_register_model(self, mock_model, manager) -> None:
         """Test registering a model creates the event."""
-        mock_log_event = mocker.patch(
-            'drytorch.core.log_events.ModelRegistrationEvent'
-        )
         manager.register_model(mock_model)
         assert mock_model.name in manager.used_names
-        mock_log_event.assert_called_once()
+        self.mock_model_registration_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
             manager.register_model(mock_model)
 
-    def test_extract_metadata(self, mocker, manager) -> None:
-        """Test metadata extraction with a recursive_repr wrapper."""
-        mock_obj = mocker.Mock()
+    def test_unregister_actor(self, simple_actor, mock_model, manager) -> None:
+        """Test unregistering an actor removes its name from the used names."""
+        manager.register_actor(simple_actor, mock_model)
+        manager.unregister_actor(simple_actor)
+        assert simple_actor.name not in manager.used_names
 
-        mocker.patch(
-            'drytorch.utils.repr_utils.recursive_repr',
-            return_value={'key': 'value'},
-        )
-
-        metadata = manager.extract_metadata(mock_obj, max_size=5)
-        assert metadata == {'key': 'value'}
+    def test_unregister_model(self, mock_model, manager) -> None:
+        """Test unregistering a model removes its name from the used names."""
+        manager.register_model(mock_model)
+        manager.unregister_actor(mock_model)
+        assert mock_model.name not in manager.used_names
 
     def test_extract_metadata_recursion_error(self, mocker, manager) -> None:
         """Test extract_metadata handles RecursionError gracefully."""

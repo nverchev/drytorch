@@ -7,6 +7,7 @@ Attributes:
 from __future__ import annotations
 
 import abc
+import datetime
 import functools
 import warnings
 
@@ -39,22 +40,22 @@ class MetadataManager:
         self.used_names = set[str]()
         self.max_items_repr = max_items_repr
 
-    def register_source(
-        self, source: Any, model: p.ModelProtocol[Any, Any]
+    def register_actor(
+            self, actor: Any, model: p.ModelProtocol[Any, Any]
     ) -> None:
-        """Record metadata of an object that calls the model.
+        """Record metadata of an object that acts on a model.
 
         Args:
-            source: the object calling the model.
+            actor: the object acting on the model.
             model: the model that is called.
         """
-        source_name = getattr(source, 'name', '') or source.__class__.__name__
-        source_version = self._get_version(source)
-        model_version = self._get_version(model)
-        self._register_name(source_name)
-        metadata = self.extract_metadata(source, max_size=self.max_items_repr)
-        log_events.SourceRegistrationEvent(
-            source_name, source_version, model.name, model_version, metadata
+        actor_name = getattr(actor, 'name', '') or actor.__class__.__name__
+        actor_version = self._get_ts(actor)
+        model_version = self._get_ts(model)
+        self._register_name(actor_name)
+        metadata = self.extract_metadata(actor, max_size=self.max_items_repr)
+        log_events.ActorRegistrationEvent(
+            actor_name, actor_version, model.name, model_version, metadata
         )
         return
 
@@ -66,8 +67,27 @@ class MetadataManager:
         """
         self._register_name(model.name)
         metadata = {'module': repr_utils.LiteralStr(repr(model.module))}
-        model_version = self._get_version(model)
+        model_version = self._get_ts(model)
         log_events.ModelRegistrationEvent(model.name, model_version, metadata)
+        return
+
+    def unregister_actor(self, actor: Any) -> None:
+        """Unregister an object that acts on a model.
+
+        Args:
+            actor: the object actin on the model.
+        """
+        caller_name = getattr(actor, 'name', '') or actor.__class__.__name__
+        self._unregister_name(caller_name)
+        return
+
+    def unregister_model(self, model: p.ModelProtocol[Any, Any]) -> None:
+        """Record metadata of a given model.
+
+        Args:
+            model: the model to document.
+        """
+        self._unregister_name(model.name)
         return
 
     def _register_name(self, name: str) -> None:
@@ -75,6 +95,10 @@ class MetadataManager:
             raise exceptions.NameAlreadyRegisteredError(name)
 
         self.used_names.add(name)
+        return
+
+    def _unregister_name(self, name: str) -> None:
+        self.used_names.remove(name)
         return
 
     @staticmethod
@@ -95,8 +119,12 @@ class MetadataManager:
         return metadata
 
     @staticmethod
-    def _get_version(x: Any) -> str:
-        return getattr(x, 'created_at', '') or repr_utils.Versioned().created_at
+    def _get_ts(x: Any) -> datetime.datetime:
+        possible_version = getattr(x, 'created_at', None)
+        if isinstance(possible_version, datetime.datetime):
+            return possible_version
+        else:
+            return repr_utils.CreatedAtMixin().created_at
 
 
 class Tracker(metaclass=abc.ABCMeta):

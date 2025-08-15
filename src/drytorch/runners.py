@@ -10,8 +10,8 @@ from typing import Generic, TypeVar
 
 from typing_extensions import override
 
-from drytorch import loading, objectives
-from drytorch.core import exceptions, log_events, registering
+from drytorch import load, objectives
+from drytorch.core import exceptions, log_events, register
 from drytorch.core import protocols as p
 from drytorch.utils import apply_ops, repr_utils
 
@@ -21,7 +21,9 @@ _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
 
-class ModelCaller(Generic[_Input, _Output], metaclass=abc.ABCMeta):
+class ModelCaller(repr_utils.CreatedAtMixin,
+                  Generic[_Input, _Output],
+                  metaclass=abc.ABCMeta):
     """Base class that calls a model.
 
     Attributes:
@@ -40,50 +42,25 @@ class ModelCaller(Generic[_Input, _Output], metaclass=abc.ABCMeta):
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
         """
+        super().__init__()
         self.model = model
         self._name = name
+        return
+
+    @property
+    def name(self) -> str:
+        """The name of the model."""
+        return self._name
 
     @abc.abstractmethod
     def __call__(self) -> None:
-        """The call implemented by the concrete class."""
+        """Document itself when the model is first called."""
+        register.register_actor(self, self.model)
         return
 
     @override
     def __repr__(self) -> str:
         return f'{self.name}({self.model.name})'
-
-    @property
-    def name(self) -> str:
-        """The name of the object calling the model."""
-        return self._name
-
-
-class Source(repr_utils.Versioned, ModelCaller[_Input, _Output]):
-    """Document itself when the model is first called.
-
-    Attributes:
-        model: the model containing the weights to evaluate.
-    """
-
-    def __init__(self, model: p.ModelProtocol[_Input, _Output], name: str = ''):
-        """Constructor.
-
-        Args:
-            model: the model containing the weights to evaluate.
-            name: the name associated with the source.
-        """
-        super().__init__(model, name)
-        self._registered = False
-        return
-
-    def __call__(self) -> None:
-        """Record call."""
-        if not self._registered:
-            registering.register_source(self, self.model)
-
-        self._registered = True
-        super().__call__()
-        return
 
 
 class ModelRunner(
@@ -155,7 +132,7 @@ class ModelRunner(
 
     def _run_epoch(self, store_outputs: bool):
         self.outputs_list.clear()
-        num_samples = loading.validate_dataset_length(self.loader.get_dataset())
+        num_samples = load.validate_dataset_length(self.loader.get_dataset())
         pbar = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), num_samples
         )
@@ -232,10 +209,7 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
         return
 
 
-class ModelRunnerWithLogs(
-    ModelRunnerWithObjective[_Input, _Target, _Output],
-    Source[_Input, _Output],
-):
+class ModelRunnerWithLogs(ModelRunnerWithObjective[_Input, _Target, _Output]):
     """Run a model on a dataset and log the value of an objective function.
 
     Attributes:

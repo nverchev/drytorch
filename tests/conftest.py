@@ -1,5 +1,7 @@
 """Configuration module with shared example settings."""
 
+import datetime
+
 from typing import Any
 
 import pytest
@@ -12,15 +14,15 @@ def example_exp_name() -> str:
 
 
 @pytest.fixture(scope='package')
-def example_run_ts() -> str:
+def example_run_ts() -> datetime.datetime:
     """Example timestamp for the experiment."""
-    return '10_2025-08-01T12-54-21'
+    return datetime.datetime(2025, 8, 1, 12, 54, 21)
 
 
 @pytest.fixture(scope='package')
 def example_run_id(example_run_ts) -> str:
     """Yields the run id default (the timestamp)."""
-    return example_run_ts
+    return example_run_ts.strftime('%Y-%m-%d@%Hh%Mm%Ss')
 
 
 @pytest.fixture(scope='package')
@@ -45,9 +47,21 @@ def example_source_name() -> str:
 
 
 @pytest.fixture(scope='package')
+def example_source_ts() -> datetime.datetime:
+    """Example name for the source timestamp."""
+    return datetime.datetime(2025, 8, 1, 12, 54, 21)
+
+
+@pytest.fixture(scope='package')
 def example_model_name() -> str:
     """Example name for the model."""
     return 'test_model'
+
+
+@pytest.fixture(scope='package')
+def example_model_ts() -> datetime.datetime:
+    """Example name for the source timestamp."""
+    return datetime.datetime(2025, 8, 1, 12, 54, 21)
 
 
 @pytest.fixture(scope='package')

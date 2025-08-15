@@ -24,6 +24,8 @@ from drytorch.utils.repr_utils import recursive_repr
 MAX_LENGTH_PLAIN_REPR = 30
 MAX_LENGTH_SHORT_REPR = 10
 
+TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
+
 
 class YamlDumper(base_classes.Dumper):
     """Tracker that dumps metadata in a YAML file.
@@ -53,20 +55,24 @@ class YamlDumper(base_classes.Dumper):
         super().notify(event)
         run_dir = self._get_run_dir()
         safe_config = recursive_repr(event.config, max_size=99)
-        self._dump(safe_config, run_dir / 'config.yaml')
+        model_with_ts = 'config_' + event.run_ts.strftime(TS_FMT) + '.yaml'
+        self._dump(safe_config, run_dir / model_with_ts)
         return
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
         run_dir = self._get_run_dir()
-        file = self._file_path(run_dir, event.model_name, event.model_name)
+        name_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
+        file = self._file_path(run_dir, name_with_ts, 'architecture')
         self._dump(event.metadata, file)
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.SourceRegistrationEvent) -> None:
+    def _(self, event: log_events.ActorRegistrationEvent) -> None:
         run_dir = self._get_run_dir()
-        file = self._file_path(run_dir, event.model_name, event.source_name)
+        model_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
+        actor_with_ts = event.actor_name + '_' + event.actor_ts.strftime(TS_FMT)
+        file = self._file_path(run_dir, model_with_ts, actor_with_ts)
         self._dump(event.metadata, file)
         return super().notify(event)
 

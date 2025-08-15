@@ -55,7 +55,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-        self._resume_run = event.resume_last_run
+        self._resume_run = event.resumed
         return super().notify(event)
 
     @notify.register
@@ -65,10 +65,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
-        if self._resume_run:
-            run_dir = self._get_last_run_dir()
-        else:
-            run_dir = self._get_run_dir()
+        run_dir = self._get_run_dir()
         file_address = self._file_path(run_dir,
                                        event.model_name,
                                        event.source_name)

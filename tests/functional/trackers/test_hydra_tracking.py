@@ -46,13 +46,13 @@ class TestHydraLinkFullCycle:
             _app()
             if tracker is None:
                 raise RuntimeError('Setup failed')
+
             tracker.notify(start_experiment_event)
             yield tracker
 
             tracker.notify(stop_experiment_event)
             return
 
-
     def test_log_file(self, tracker) -> None:
-        """Test HydraLink creates file log with expected format."""
+        """Test HydraLink moved the files to the correct location."""
         assert list(tracker._get_run_dir().iterdir())

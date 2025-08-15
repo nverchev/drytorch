@@ -24,9 +24,9 @@ from torch.utils import data
 
 _T = TypeVar('_T')
 Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
-InputType: TypeAlias = Union[Tensors, NamedTuple]  # noqa: UP007
+InputType: TypeAlias = Union[Tensors, NamedTuple]
 OutputType: TypeAlias = Any
-TargetType: TypeAlias = Union[Tensors, NamedTuple]  # noqa: UP007
+TargetType: TypeAlias = Union[Tensors, NamedTuple]
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[InputType, TargetType], covariant=True
@@ -94,7 +94,7 @@ class ObjectiveProtocol(Protocol[_Output_contra, _Target_contra]):
 
     @abc.abstractmethod
     def update(
-        self, outputs: _Output_contra, targets: _Target_contra, /
+            self, outputs: _Output_contra, targets: _Target_contra, /
     ) -> Any:
         """Compute the metrics only.
 
@@ -117,7 +117,7 @@ class LossProtocol(Protocol[_Output_contra, _Target_contra]):
     """Protocol that calculates and returns metrics and the loss."""
 
     def forward(
-        self, outputs: _Output_contra, targets: _Target_contra, /
+            self, outputs: _Output_contra, targets: _Target_contra, /
     ) -> torch.Tensor:
         """Process the outputs and targets and returns the loss.
 
@@ -131,7 +131,7 @@ class LossProtocol(Protocol[_Output_contra, _Target_contra]):
 
     @abc.abstractmethod
     def update(
-        self, outputs: _Output_contra, targets: _Target_contra, /
+            self, outputs: _Output_contra, targets: _Target_contra, /
     ) -> Any:
         """Compute the metrics only.
 
@@ -183,7 +183,6 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         epoch: the number of epochs the model has been trained so far.
         checkpoint: the object responsible for saving and loading the model.
         mixed_precision: whether to use mixed precision computing.
-
     """
 
     module: torch.nn.Module
@@ -227,7 +226,22 @@ class CheckpointProtocol(Protocol):
         """Load the model and optimizer state dictionaries."""
 
 
-class ValidationProtocol(Protocol[_Input, _Target, _Output]):
+class ActorProtocol(Protocol[_Input, _Output]):
+    """Protocol for a class that acts on a model and need registration.
+
+    Attributes:
+        model: the model the actor acts on.
+    """
+    model: ModelProtocol[_Input, _Output]
+
+    def register(self) -> None:
+        """Register as an actor of this model."""
+
+    def unregister(self) -> None:
+        """Unregister the model to manage."""
+
+
+class SourceProtocol(Protocol[_Input, _Target, _Output]):
     """Protocol for a class that validates a model.
 
     Attributes:
@@ -255,7 +269,7 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
     model: ModelProtocol[_Input, _Output]
     learning_scheme: LearningProtocol
     objective: LossProtocol[_Output, _Target]
-    validation: ValidationProtocol[_Input, _Target, _Output] | None
+    validation: SourceProtocol[_Input, _Target, _Output] | None
 
     @property
     def name(self) -> str:
@@ -282,9 +296,9 @@ class TrainerProtocol(Protocol[_Input, _Target, _Output]):
         """Load model and optimizer state from a checkpoint."""
 
     def update_learning_rate(
-        self,
-        base_lr: float | None,
-        scheduler: SchedulerProtocol | None,
+            self,
+            base_lr: float | None,
+            scheduler: SchedulerProtocol | None,
     ) -> None:
         """Update the learning rate(s).
 
