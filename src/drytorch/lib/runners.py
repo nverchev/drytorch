@@ -6,24 +6,27 @@ import sys
 import warnings
 
 from collections.abc import Iterator, Mapping
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from typing_extensions import override
 
-from drytorch import load, objectives
 from drytorch.core import exceptions, log_events, register
 from drytorch.core import protocols as p
+from drytorch.lib import load, objectives
 from drytorch.utils import apply_ops, repr_utils
 
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
+_Objective_co = TypeVar('_Objective_co',
+                        bound=p.LossProtocol[Any, Any],
+                        covariant=True)
 
 
-class ModelCaller(repr_utils.CreatedAtMixin,
-                  Generic[_Input, _Output],
-                  metaclass=abc.ABCMeta):
+class ModelCaller(
+    repr_utils.CreatedAtMixin, Generic[_Input, _Output], metaclass=abc.ABCMeta
+):
     """Base class that calls a model.
 
     Attributes:
@@ -33,7 +36,7 @@ class ModelCaller(repr_utils.CreatedAtMixin,
     _name = repr_utils.DefaultName()
 
     def __init__(
-            self, model: p.ModelProtocol[_Input, _Output], name: str = ''
+        self, model: p.ModelProtocol[_Input, _Output], name: str = ''
     ) -> None:
         """Constructor.
 
@@ -77,11 +80,11 @@ class ModelRunner(
     max_stored_output: int = sys.maxsize
 
     def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            name: str = '',
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        self,
+        model: p.ModelProtocol[_Input, _Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[_Input, _Target]],
     ) -> None:
         """Constructor.
 
@@ -108,22 +111,24 @@ class ModelRunner(
         self._run_epoch(store_outputs)
         return
 
+    @property
+    def computed_metrics(self) -> Mapping[str, float]:
+        """Subclasses can override this to report computed metrics."""
+        return {}
+
     def _get_batches(self) -> Iterator[tuple[_Input, _Target]]:
         return (
             apply_ops.apply_to(batch, self.model.device)
             for batch in self.loader
         )
 
-    def _get_metrics(self) -> Mapping[str, float]:
-        return {}
-
     def _run_backward(self, outputs: _Output, targets: _Target) -> None:
         _not_used = outputs, targets
         return
 
     def _run_batch(
-            self,
-            batch: tuple[_Input, _Target],
+        self,
+        batch: tuple[_Input, _Target],
     ) -> _Output:
         inputs, targets = batch
         outputs = self._run_forward(inputs)
@@ -138,7 +143,7 @@ class ModelRunner(
         )
         for batch in self._get_batches():
             outputs = self._run_batch(batch)
-            pbar.update(self._get_metrics())
+            pbar.update(self.computed_metrics)
             if store_outputs:
                 self._store(outputs)
 
@@ -149,8 +154,8 @@ class ModelRunner(
         try:
             outputs = apply_ops.apply_cpu_detach(outputs)
         except (
-                exceptions.FuncNotApplicableError,
-                exceptions.NamedTupleOnlyError,
+            exceptions.FuncNotApplicableError,
+            exceptions.NamedTupleOnlyError,
         ) as err:
             warnings.warn(
                 exceptions.CannotStoreOutputWarning(err), stacklevel=3
@@ -159,7 +164,11 @@ class ModelRunner(
             self.outputs_list.append(outputs)
 
 
-class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
+class ModelRunnerWithObjective(
+    ModelRunner[_Input, _Target, _Output],
+    p.MonitorProtocol,
+    Generic[_Input, _Target, _Output, _Objective_co],
+):
     """Run a model on a dataset, calculating the value of an objective function.
 
     Attributes:
@@ -170,12 +179,12 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
     """
 
     def __init__(
-            self,
-            model: p.ModelProtocol[_Input, _Output],
-            name: str = '',
-            *,
-            loader: p.LoaderProtocol[tuple[_Input, _Target]],
-            objective: p.ObjectiveProtocol[_Output, _Target],
+        self,
+        model: p.ModelProtocol[_Input, _Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        objective: _Objective_co,
     ) -> None:
         """Constructor.
 
@@ -192,8 +201,9 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
         self.objective.reset()
         return
 
+    @property
     @override
-    def _get_metrics(self) -> Mapping[str, float]:
+    def computed_metrics(self) -> Mapping[str, float]:
         return objectives.repr_metrics(self.objective)
 
     @override
@@ -209,7 +219,9 @@ class ModelRunnerWithObjective(ModelRunner[_Input, _Target, _Output]):
         return
 
 
-class ModelRunnerWithLogs(ModelRunnerWithObjective[_Input, _Target, _Output]):
+class ModelRunnerWithLogs(
+    ModelRunnerWithObjective[_Input, _Target, _Output, _Objective_co]
+):
     """Run a model on a dataset and log the value of an objective function.
 
     Attributes:
@@ -225,6 +237,6 @@ class ModelRunnerWithLogs(ModelRunnerWithObjective[_Input, _Target, _Output]):
             model_name=self.model.name,
             source_name=self.name,
             epoch=self.model.epoch,
-            metrics=self._get_metrics(),
+            metrics=self.computed_metrics,
         )
         return

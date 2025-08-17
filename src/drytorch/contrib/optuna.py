@@ -7,9 +7,9 @@ import optuna
 
 from omegaconf import DictConfig
 
-from drytorch import hooks
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
+from drytorch.lib import hooks
 
 
 _Target_contra = TypeVar(
@@ -35,9 +35,7 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         metric: p.ObjectiveProtocol[
                     _Output_contra, _Target_contra
                 ] | str | None = None,
-        monitor: p.SourceProtocol[
-                     Any, _Target_contra, _Output_contra
-                 ] | None = None,
+        monitor: p.MonitorProtocol | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:

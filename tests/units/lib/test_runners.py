@@ -4,13 +4,13 @@ from typing_extensions import override
 
 import pytest
 
-from drytorch.runners import (
+from drytorch.core import exceptions
+from drytorch.lib.runners import (
     ModelCaller,
     ModelRunner,
     ModelRunnerWithLogs,
     ModelRunnerWithObjective,
 )
-from drytorch.core import exceptions
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -88,7 +88,7 @@ class TestModelRunner:
             'drytorch.core.log_events.IterateBatchEvent'
         )
         self.mock_repr_metrics = mocker.patch(
-            'drytorch.objectives.repr_metrics', return_value={'loss': 0.1}
+            'drytorch.lib.objectives.repr_metrics', return_value={'loss': 0.1}
         )
         return
 
@@ -214,11 +214,11 @@ class TestModelRunnerWithObjective:
         """Set up the tests."""
         self.mock_target = mocker.Mock()
         self.mock_output = mocker.Mock()
-        mocker.patch('drytorch.runners.ModelRunner.__init__')
-        mocker.patch('drytorch.runners.ModelRunner._run_epoch')
-        mocker.patch('drytorch.runners.ModelRunner._run_backward')
+        mocker.patch('drytorch.lib.runners.ModelRunner.__init__')
+        mocker.patch('drytorch.lib.runners.ModelRunner._run_epoch')
+        mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
         self.mock_repr_metrics = mocker.patch(
-            'drytorch.objectives.repr_metrics', return_value={'loss': 0.1}
+            'drytorch.lib.objectives.repr_metrics', return_value={'loss': 0.1}
         )
         self.mock_deepcopy = mocker.patch(
             'copy.deepcopy', return_value=mock_loss
@@ -261,9 +261,13 @@ class TestModelRunnerWithLogs:
     @pytest.fixture(autouse=True)
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
-        mocker.patch('drytorch.runners.ModelRunnerWithObjective._run_epoch')
-        mocker.patch('drytorch.runners.ModelRunnerWithObjective._get_metrics',
-                     return_value=example_named_metrics)
+        mocker.patch('drytorch.lib.runners.ModelRunnerWithObjective._run_epoch')
+        mocker.patch.object(
+            ModelRunnerWithObjective,
+            'computed_metrics',
+            new_callable=mocker.PropertyMock,
+            return_value=example_named_metrics,
+        )
         self.mock_log_events_metrics = mocker.patch(
             'drytorch.core.log_events.MetricEvent'
         )

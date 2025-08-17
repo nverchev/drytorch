@@ -6,27 +6,25 @@ import abc
 import operator
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Generic, Literal, ParamSpec, TypeVar, cast
+from typing import Any, Generic, Literal, ParamSpec, TypeVar
 
 from typing_extensions import override
 
-from drytorch import objectives, schedulers
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
+from drytorch.lib import objectives, schedulers
 
 
 _T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
-_Input_contra = TypeVar('_Input_contra',
-                        bound=p.InputType,
-                        contravariant=True)
-_Target_contra = TypeVar('_Target_contra',
-                         bound=p.TargetType,
-                         contravariant=True)
-_Output_contra = TypeVar('_Output_contra',
-                         bound=p.OutputType,
-                         contravariant=True)
+_Input_contra = TypeVar('_Input_contra', bound=p.InputType, contravariant=True)
+_Target_contra = TypeVar(
+    '_Target_contra', bound=p.TargetType, contravariant=True
+)
+_Output_contra = TypeVar(
+    '_Output_contra', bound=p.OutputType, contravariant=True
+)
 get_last = operator.itemgetter(-1)
 
 
@@ -63,8 +61,8 @@ class HookRegistry(Generic[_T_contra]):
         return
 
     def register_all(
-            self,
-            hook_list: list[Callable[[_T_contra], None]],
+        self,
+        hook_list: list[Callable[[_T_contra], None]],
     ) -> None:
         """Register multiple hooks.
 
@@ -76,15 +74,18 @@ class HookRegistry(Generic[_T_contra]):
         return
 
 
-class TrainerHook(Generic[_Input_contra, _Target_contra, _Output_contra],
-                  metaclass=abc.ABCMeta):
+class TrainerHook(
+    Generic[_Input_contra, _Target_contra, _Output_contra],
+    metaclass=abc.ABCMeta,
+):
     """Callable supporting bind operations."""
 
     @abc.abstractmethod
     def __call__(
-            self, trainer: p.TrainerProtocol[
-                _Input_contra, _Target_contra, _Output_contra
-            ]
+        self,
+        trainer: p.TrainerProtocol[
+            _Input_contra, _Target_contra, _Output_contra
+        ],
     ) -> None:
         """Execute the call.
 
@@ -93,12 +94,12 @@ class TrainerHook(Generic[_Input_contra, _Target_contra, _Output_contra],
         """
 
     def bind(
-            self,
-            f: Callable[
-                [TrainerHook[_Input_contra, _Target_contra, _Output_contra]],
-                TrainerHook[_Input_contra, _Target_contra, _Output_contra],
-            ],
-            /,
+        self,
+        f: Callable[
+            [TrainerHook[_Input_contra, _Target_contra, _Output_contra]],
+            TrainerHook[_Input_contra, _Target_contra, _Output_contra],
+        ],
+        /,
     ) -> TrainerHook[_Input_contra, _Target_contra, _Output_contra]:
         """Allow transformation of the Hook.
 
@@ -115,14 +116,11 @@ class Hook(TrainerHook[_Input_contra, _Target_contra, _Output_contra]):
     """Wrapper for callable taking a Trainer as input."""
 
     def __init__(
-            self,
-            wrapped: Callable[
-                [p.TrainerProtocol[
-                     _Input_contra, _Target_contra, _Output_contra
-                 ]
-                 ],
-                None
-            ],
+        self,
+        wrapped: Callable[
+            [p.TrainerProtocol[_Input_contra, _Target_contra, _Output_contra]],
+            None,
+        ],
     ) -> None:
         """Constructor.
 
@@ -132,9 +130,10 @@ class Hook(TrainerHook[_Input_contra, _Target_contra, _Output_contra]):
         self.wrapped = wrapped
 
     def __call__(
-            self, trainer: p.TrainerProtocol[
-                _Input_contra, _Target_contra, _Output_contra
-            ]
+        self,
+        trainer: p.TrainerProtocol[
+            _Input_contra, _Target_contra, _Output_contra
+        ],
     ) -> None:
         """Execute the call.
 
@@ -155,10 +154,7 @@ class StaticHook(TrainerHook[Any, Any, Any]):
         """
         self.wrapped = wrapped
 
-    def __call__(
-            self,
-            trainer: p.TrainerProtocol[Any, Any, Any]
-    ) -> None:
+    def __call__(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
         """Execute the call.
 
         Args:
@@ -167,14 +163,16 @@ class StaticHook(TrainerHook[Any, Any, Any]):
         return self.wrapped()
 
 
-class OptionalCallable(Hook[_Input_contra, _Target_contra, _Output_contra],
-                       metaclass=abc.ABCMeta):
+class OptionalCallable(
+    Hook[_Input_contra, _Target_contra, _Output_contra], metaclass=abc.ABCMeta
+):
     """Abstract class for callables that execute based on custom conditions."""
 
     def __call__(
-            self, trainer: p.TrainerProtocol[
-                _Input_contra, _Target_contra, _Output_contra
-            ]
+        self,
+        trainer: p.TrainerProtocol[
+            _Input_contra, _Target_contra, _Output_contra
+        ],
     ) -> None:
         """Execute the call.
 
@@ -188,9 +186,10 @@ class OptionalCallable(Hook[_Input_contra, _Target_contra, _Output_contra],
 
     @abc.abstractmethod
     def _should_call(
-            self, trainer: p.TrainerProtocol[
-                _Input_contra, _Target_contra, _Output_contra
-            ]
+        self,
+        trainer: p.TrainerProtocol[
+            _Input_contra, _Target_contra, _Output_contra
+        ],
     ) -> bool:
         """Determine if the callable should be executed."""
 
@@ -201,16 +200,13 @@ class CallEvery(
     """Call a function at specified intervals."""
 
     def __init__(
-            self,
-            wrapped: Callable[
-                [p.TrainerProtocol[
-                     _Input_contra, _Target_contra, _Output_contra
-                 ]
-                 ],
-                None
-            ],
-            interval: int,
-            start: int,
+        self,
+        wrapped: Callable[
+            [p.TrainerProtocol[_Input_contra, _Target_contra, _Output_contra]],
+            None,
+        ],
+        interval: int,
+        start: int,
     ) -> None:
         """Constructor.
 
@@ -226,10 +222,10 @@ class CallEvery(
 
     @override
     def _should_call(
-            self,
-            trainer: p.TrainerProtocol[
-                _Input_contra, _Target_contra, _Output_contra
-            ],
+        self,
+        trainer: p.TrainerProtocol[
+            _Input_contra, _Target_contra, _Output_contra
+        ],
     ) -> bool:
         """Determine if the hook should be called based on the epoch.
 
@@ -244,16 +240,12 @@ class CallEvery(
 
 
 def call_every(
-        interval: int,
-        start: int = 0,
+    interval: int,
+    start: int = 0,
 ) -> Callable[
     [
         Callable[
-            [
-                p.TrainerProtocol[
-                    _Input_contra, _Target_contra, _Output_contra
-                ]
-            ],
+            [p.TrainerProtocol[_Input_contra, _Target_contra, _Output_contra]],
             None,
         ]
     ],
@@ -270,14 +262,10 @@ def call_every(
     """
 
     def _decorator(
-            func: Callable[
-                [
-                    p.TrainerProtocol[
-                        _Input_contra, _Target_contra, _Output_contra
-                    ]
-                ],
-                None,
-            ],
+        func: Callable[
+            [p.TrainerProtocol[_Input_contra, _Target_contra, _Output_contra]],
+            None,
+        ],
     ) -> CallEvery[_Input_contra, _Target_contra, _Output_contra]:
         return CallEvery(func, interval, start)
 
@@ -296,7 +284,7 @@ def saving_hook(trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
 
 
 def static_hook_class(
-        cls: Callable[_P, Callable[[], None]],
+    cls: Callable[_P, Callable[[], None]],
 ) -> Callable[_P, StaticHook]:
     """Class decorator to wrap a callable class into a static hook type.
 
@@ -315,7 +303,7 @@ def static_hook_class(
     return _StaticHookDecorator
 
 
-class MetricExtractor(Generic[_Output_contra, _Target_contra]):
+class MetricExtractor:
     """Handle extraction of metrics from trainer/validation protocols.
 
     This class is responsible for interfacing with trainer and validation
@@ -327,13 +315,9 @@ class MetricExtractor(Generic[_Output_contra, _Target_contra]):
     """
 
     def __init__(
-            self,
-            metric: p.ObjectiveProtocol[
-                        _Output_contra, _Target_contra,
-                    ] | str | None = None,
-            monitor: p.SourceProtocol[
-                         _Input_contra, _Target_contra, _Output_contra
-                     ] | None = None,
+        self,
+        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
+        monitor: p.MonitorProtocol | None = None,
     ) -> None:
         """Constructor.
 
@@ -351,11 +335,11 @@ class MetricExtractor(Generic[_Output_contra, _Target_contra]):
         return self._resolved_metric_name
 
     def extract_metric_value(
-            self,
-            instance: p.TrainerProtocol[
-                _Input_contra, _Target_contra, _Output_contra
-            ],
-            tracker: objectives.MetricTracker[_Output_contra, _Target_contra]
+        self,
+        instance: p.TrainerProtocol[
+            _Input_contra, _Target_contra, _Output_contra
+        ],
+        tracker: objectives.MetricTracker[_Output_contra, _Target_contra],
     ) -> float:
         """Extract and return the metric value from the instance.
 
@@ -370,20 +354,22 @@ class MetricExtractor(Generic[_Output_contra, _Target_contra]):
             MetricNotFoundError: if the specified metric is not found.
         """
         monitor = self._get_monitor(instance)
-        last_metrics = objectives.repr_metrics(monitor.objective)
+        last_metrics = monitor.computed_metrics
 
         if self._resolved_metric_name is None:
             if self.metric_spec is None:
                 self._resolved_metric_name = next(iter(last_metrics.keys()))
             else:
                 self._resolved_metric_name = self._get_metric_name(
-                    self.metric_spec)
+                    self.metric_spec
+                )
 
             tracker.metric_name = self._resolved_metric_name
 
         if self._resolved_metric_name not in last_metrics:
-            raise exceptions.MetricNotFoundError(monitor.name,
-                                                 self._resolved_metric_name)
+            raise exceptions.MetricNotFoundError(
+                monitor.name, self._resolved_metric_name
+            )
 
         return last_metrics[self._resolved_metric_name]
 
@@ -392,23 +378,17 @@ class MetricExtractor(Generic[_Output_contra, _Target_contra]):
         return self._get_metric_best_is(self.metric_spec)
 
     def _get_monitor(
-            self, instance: p.TrainerProtocol[
-                Any, _Target_contra, _Output_contra
-            ]
-    ) -> p.SourceProtocol[Any, _Target_contra, _Output_contra]:
+        self, instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra]
+    ) -> p.MonitorProtocol:
         if self.optional_monitor is None:
             if instance.validation is None:
-                # TrainerProtocol is stricter than ValidationProtocol
-                return cast(p.SourceProtocol[
-                                Any, _Target_contra, _Output_contra
-                            ], instance)
+                return instance
             return instance.validation
         return self.optional_monitor
 
     @staticmethod
     def _get_metric_name(
-            metric: p.ObjectiveProtocol[
-                        _Output_contra, _Target_contra] | str
+        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra] | str,
     ) -> str:
         if isinstance(metric, str):
             return metric
@@ -421,9 +401,9 @@ class MetricExtractor(Generic[_Output_contra, _Target_contra]):
 
     @staticmethod
     def _get_metric_best_is(
-            metric: str | p.ObjectiveProtocol[
-                _Output_contra, _Target_contra
-            ] | None,
+        metric: str
+        | p.ObjectiveProtocol[_Output_contra, _Target_contra]
+        | None,
     ) -> Literal['auto', 'higher', 'lower'] | None:
         higher_is_better = getattr(metric, 'higher_is_better', None)
         if higher_is_better is None:
@@ -441,17 +421,15 @@ class MetricMonitor(Generic[_Output_contra, _Target_contra]):
     """
 
     def __init__(
-            self,
-            metric: p.ObjectiveProtocol[
-                        _Output_contra, _Target_contra
-                    ] | str | None = None,
-            monitor: p.SourceProtocol[
-                         Any, _Target_contra, _Output_contra
-                     ] | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
+        self,
+        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
+        | str
+        | None = None,
+        monitor: p.MonitorProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """Constructor.
 
@@ -516,9 +494,7 @@ class MetricMonitor(Generic[_Output_contra, _Target_contra]):
         return self.metric_tracker.is_patient()
 
     def record_metric_value(
-            self, instance: p.TrainerProtocol[
-                Any, _Target_contra, _Output_contra
-            ]
+        self, instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra]
     ) -> None:
         """Register a new metric value from a monitored evaluation.
 
@@ -528,8 +504,9 @@ class MetricMonitor(Generic[_Output_contra, _Target_contra]):
         Raises:
             MetricNotFoundError: if the specified metric is not found.
         """
-        value = self.extractor.extract_metric_value(instance,
-                                                    self.metric_tracker)
+        value = self.extractor.extract_metric_value(
+            instance, self.metric_tracker
+        )
         self.metric_tracker.add_value(value)
 
 
@@ -542,18 +519,16 @@ class EarlyStoppingCallback(Generic[_Output_contra, _Target_contra]):
     """
 
     def __init__(
-            self,
-            metric: p.ObjectiveProtocol[
-                        _Output_contra, _Target_contra
-                    ] | str | None = None,
-            monitor: p.SourceProtocol[
-                         Any, _Target_contra, _Output_contra
-                     ] | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 10,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            start_from_epoch: int = 2,
+        self,
+        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
+        | str
+        | None = None,
+        monitor: p.MonitorProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 10,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        start_from_epoch: int = 2,
     ) -> None:
         """Constructor.
 
@@ -582,9 +557,7 @@ class EarlyStoppingCallback(Generic[_Output_contra, _Target_contra]):
         return
 
     def __call__(
-            self, instance: p.TrainerProtocol[
-                Any, _Target_contra, _Output_contra
-            ]
+        self, instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra]
     ) -> None:
         """Evaluate whether training should be stopped early.
 
@@ -615,16 +588,15 @@ class PruneCallback(Generic[_Output_contra, _Target_contra]):
     """
 
     def __init__(
-            self,
-            thresholds: Mapping[int, float | None],
-            metric: str | p.ObjectiveProtocol[
-                _Output_contra, _Target_contra] | None = None,
-            monitor: p.SourceProtocol[
-                         Any, _Target_contra, _Output_contra
-                     ] | None = None,
-            min_delta: float = 1e-8,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
+        self,
+        thresholds: Mapping[int, float | None],
+        metric: str
+        | p.ObjectiveProtocol[_Output_contra, _Target_contra]
+        | None = None,
+        monitor: p.MonitorProtocol | None = None,
+        min_delta: float = 1e-8,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """Constructor.
 
@@ -653,9 +625,7 @@ class PruneCallback(Generic[_Output_contra, _Target_contra]):
         return
 
     def __call__(
-            self, instance: p.TrainerProtocol[
-                Any, _Target_contra, _Output_contra
-            ]
+        self, instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra]
     ) -> None:
         """Evaluate whether training should be stopped early.
 
@@ -678,8 +648,7 @@ class PruneCallback(Generic[_Output_contra, _Target_contra]):
 
 
 class ChangeSchedulerOnPlateauCallback(
-    Generic[_Output_contra, _Target_contra],
-    metaclass=abc.ABCMeta
+    Generic[_Output_contra, _Target_contra], metaclass=abc.ABCMeta
 ):
     """Change the learning rate schedule when a metric has stopped improving.
 
@@ -689,18 +658,16 @@ class ChangeSchedulerOnPlateauCallback(
     """
 
     def __init__(
-            self,
-            metric: p.ObjectiveProtocol[
-                        _Output_contra, _Target_contra
-                    ] | str | None = None,
-            monitor: p.SourceProtocol[
-                         Any, _Target_contra, _Output_contra
-                     ] | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            cooldown: int = 0,
+        self,
+        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
+        | str
+        | None = None,
+        monitor: p.MonitorProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -730,9 +697,7 @@ class ChangeSchedulerOnPlateauCallback(
         return
 
     def __call__(
-            self, instance: p.TrainerProtocol[
-                Any, _Target_contra, _Output_contra
-            ]
+        self, instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra]
     ) -> None:
         """Check if there is a plateau and reduce the learning rate if needed.
 
@@ -758,7 +723,7 @@ class ChangeSchedulerOnPlateauCallback(
 
     @abc.abstractmethod
     def get_scheduler(
-            self, epoch: int, scheduler: p.SchedulerProtocol
+        self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify input scheduler.
 
@@ -783,18 +748,17 @@ class ReduceLROnPlateau(
     """
 
     def __init__(
-            self,
-            metric: str | p.ObjectiveProtocol[
-                _Output_contra, _Target_contra] | None = None,
-            monitor: p.SourceProtocol[
-                         _Input_contra, _Target_contra, _Output_contra
-                     ] | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[[Sequence[float]], float] = get_last,
-            factor: float = 0.1,
-            cooldown: int = 0,
+        self,
+        metric: str
+        | p.ObjectiveProtocol[_Output_contra, _Target_contra]
+        | None = None,
+        monitor: p.MonitorProtocol | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        factor: float = 0.1,
+        cooldown: int = 0,
     ) -> None:
         """Constructor.
 
@@ -824,7 +788,7 @@ class ReduceLROnPlateau(
         self.factor = factor
 
     def get_scheduler(
-            self, epoch: int, scheduler: p.SchedulerProtocol
+        self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Modify the input scheduler to scale down the learning rate.
 
@@ -849,7 +813,7 @@ class RestartScheduleOnPlateau(
     """
 
     def get_scheduler(
-            self, epoch: int, scheduler: p.SchedulerProtocol
+        self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Consider training until now a warm-up and restart scheduling.
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from drytorch.schedulers import (
+from drytorch.lib.schedulers import (
     AbstractScheduler,
     ConstantScheduler,
     CosineScheduler,

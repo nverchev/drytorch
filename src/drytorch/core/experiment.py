@@ -14,6 +14,7 @@ from typing_extensions import override
 from drytorch.core import exceptions, log_events, track
 from drytorch.utils import repr_utils
 
+
 _T_co = TypeVar('_T_co', covariant=True)
 
 RunStatus = Literal['created', 'running', 'completed', 'failed']
@@ -168,7 +169,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
     def _handle_resume_logic(
             self,
             run_id: str | None,
-            runs_data: list
+            runs_data: list[RunMetadata]
     ) -> Run[_T_co]:
         """Handle resume logic for existing runs."""
         if self.previous_runs:
@@ -206,7 +207,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
     def _resolve_run_id_from_data(
             self,
             run_id: str | None,
-            runs_data: list
+            runs_data: list[RunMetadata]
     ) -> str:
         """Resolve run_id from runs_data or validate an existing one."""
         if run_id is None:
@@ -222,7 +223,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
     def _create_new_run(
             self,
             run_id: str | None,
-            runs_data: list
+            runs_data: list[RunMetadata]
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
         resolved_run_id = run_id or self.created_at_str

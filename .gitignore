@@ -6,3 +6,4 @@ __pycache__/
 *.hypothesis/
 *.lock
 *.ipynb_checkpoints
+*.coverage

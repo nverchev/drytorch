@@ -4,8 +4,8 @@ from typing import TypeVar
 
 import torch
 
-from drytorch.runners import ModelCaller
 from drytorch.core import protocols as p
+from drytorch.lib import runners
 
 
 _Input = TypeVar('_Input', bound=p.InputType)
@@ -16,7 +16,7 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
 
 
-class ModelMomentaUpdater(ModelCaller[_Input, _Output]):
+class ModelMomentaUpdater(runners.ModelCaller[_Input, _Output]):
     """Update the momenta in the batch normalization layers."""
 
     def __call__(self) -> None:

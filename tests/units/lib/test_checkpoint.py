@@ -7,9 +7,9 @@ import torch
 
 import pytest
 
-from drytorch import checkpoints
 from drytorch.core import exceptions, log_events
 from drytorch.core.experiment import Experiment
+from drytorch.lib import checkpoints
 
 
 @pytest.fixture(autouse=True, scope='module')

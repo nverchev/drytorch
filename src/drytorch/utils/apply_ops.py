@@ -3,7 +3,7 @@
 import copy
 
 from collections.abc import Callable, MutableMapping, MutableSequence
-from typing import Any, TypeVar
+from typing import Any, TypeVar, overload
 
 import torch
 
@@ -13,10 +13,20 @@ from drytorch.core import exceptions
 _T = TypeVar('_T')
 _C = TypeVar('_C')
 
+@overload
+def recursive_apply(
+    obj: _C, expected_type: type[_T], func: Callable[[_T], _T]
+) -> _C: ...
+
+
+@overload
+def recursive_apply(
+    obj: _T, expected_type: type[_T], func: Callable[[_T], _T]
+) -> _T: ...
 
 def recursive_apply(obj: _C,
                     expected_type: type[_T],
-                    func: Callable[[_T], _T]) -> _C:
+                    func: Callable[[_T], _T]) -> _C | _T:
     """Look for an expected type and apply a given function.
 
     The implementation is similar to default_convert in
@@ -41,30 +51,32 @@ def recursive_apply(obj: _C,
         NamedTupleOnlyError: if the attempt of copying a tuple failed.
     """
     if isinstance(obj, expected_type):
-        return func(obj)  # type: ignore
+        return func(obj)
 
     if isinstance(obj, MutableMapping):
         mapping = copy.copy(obj)
         mapping.update(
-            **{key: recursive_apply(item, expected_type, func)
-               for key, item in obj.items()}
+            {
+                key: recursive_apply(item, expected_type, func)
+                for key, item in obj.items()
+            }
         )
-        return mapping  # type: ignore
+        return mapping
 
     if isinstance(obj, MutableSequence):
         sequence = copy.copy(obj)
         for i, value in enumerate(obj):
             sequence[i] = recursive_apply(value, expected_type, func)
 
-        return sequence  # type: ignore
+        return sequence
 
     if isinstance(obj, tuple):
         new = (recursive_apply(item, expected_type, func) for item in obj)
         if obj.__class__ is tuple:
-            return tuple(new)  # type: ignore
+            return obj.__class__(new)
 
         try:
-            return obj.__class__(*new)  # type: ignore
+            return obj.__class__(*new)
         except TypeError as te:
             raise exceptions.NamedTupleOnlyError(obj.__class__.__name__) from te
 

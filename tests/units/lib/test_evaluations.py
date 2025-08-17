@@ -2,7 +2,8 @@
 
 import pytest
 
-from drytorch.evaluations import Diagnostic, Test, Validation
+from drytorch.lib.evaluations import Diagnostic, Validation
+from drytorch.lib.evaluations import Test as _Test
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +20,7 @@ class TestDiagnostic:
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
         self.mock_super_call = mocker.patch(
-            'drytorch.runners.ModelRunnerWithObjective.__call__'
+            'drytorch.lib.runners.ModelRunnerWithObjective.__call__'
         )
         return
 
@@ -48,12 +49,12 @@ class TestValidation:
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
         self.mock_super_init = mocker.patch(
-            'drytorch.runners.ModelRunnerWithLogs.__init__'
+            'drytorch.lib.runners.ModelRunnerWithLogs.__init__'
         )
         return
 
     @pytest.fixture
-    def validation(self, mock_model, mock_metric, mock_loader) -> Diagnostic:
+    def validation(self, mock_model, mock_metric, mock_loader) -> Validation:
         """Set up a test instance."""
         return Validation(
             mock_model,
@@ -80,14 +81,14 @@ class TestTest:
             'drytorch.core.log_events.EndTestEvent'
         )
         self.mock_super_call = mocker.patch(
-            'drytorch.evaluations.Validation.__call__'
+            'drytorch.lib.evaluations.Validation.__call__'
         )
         return
 
     @pytest.fixture
-    def test_instance(self, mock_model, mock_metric, mock_loader) -> Test:
+    def test_instance(self, mock_model, mock_metric, mock_loader) -> _Test:
         """Set up a test instance."""
-        return Test(
+        return _Test(
             mock_model,
             name='test_instance',
             loader=mock_loader,

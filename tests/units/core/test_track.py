@@ -125,7 +125,7 @@ class TestMetadataManager:
             side_effect=RecursionError,
         )
         with pytest.warns(exceptions.RecursionWarning):
-            _ = manager.extract_metadata(mock_obj, max_size=5)
+            _ = manager.extract_metadata(mock_obj)
 
 
 class TestEventDispatcher:

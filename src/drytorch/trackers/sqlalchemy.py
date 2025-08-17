@@ -16,11 +16,11 @@ from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
-class Base(orm.DeclarativeBase):
-    """Base class for tables."""
+reg = orm.registry()
 
 
-class Experiment(orm.MappedAsDataclass, Base):
+@reg.mapped_as_dataclass
+class Experiment:
     """Table for experiments.
 
     Attributes:
@@ -47,8 +47,8 @@ class Experiment(orm.MappedAsDataclass, Base):
         cascade='all, delete-orphan',
     )
 
-
-class Tags(orm.MappedAsDataclass, Base):
+@reg.mapped_as_dataclass
+class Tags:
     """Table for tags for experiments.
 
     Attributes:
@@ -73,7 +73,8 @@ class Tags(orm.MappedAsDataclass, Base):
     text: orm.Mapped[str] = orm.mapped_column(index=True)
 
 
-class Run(orm.MappedAsDataclass, Base):
+@reg.mapped_as_dataclass
+class Run:
     """Table for runs.
 
     A new run is created for each experiment scope, unless specified.
@@ -108,7 +109,8 @@ class Run(orm.MappedAsDataclass, Base):
     )
 
 
-class Source(orm.MappedAsDataclass, Base):
+@reg.mapped_as_dataclass
+class Source:
     """Table for sources.
 
     Attributes:
@@ -143,7 +145,8 @@ class Source(orm.MappedAsDataclass, Base):
     )
 
 
-class Log(orm.MappedAsDataclass, Base):
+@reg.mapped_as_dataclass
+class Log:
     """Table for the logs of the metrics.
 
     Attributes:
@@ -203,7 +206,7 @@ class SQLConnection(base_classes.MetricLoader):
         """
         super().__init__()
         self.engine = engine or sqlalchemy.create_engine(self.default_url)
-        Base.metadata.create_all(bind=self.engine)
+        reg.metadata.create_all(bind=self.engine)
         self.session_factory = orm.sessionmaker(bind=self.engine)
         self._run: Run | None = None
         self._sources = dict[str, Source]()

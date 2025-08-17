@@ -10,7 +10,7 @@ from typing_extensions import override
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.load import (
+from drytorch.lib.load import (
     DataLoader,
     Permutation,
     Sliced,

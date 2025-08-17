@@ -27,21 +27,22 @@ class MetadataManager:
 
     Attributes:
         used_names: set to keep track of already registered names.
-        max_items_repr: maximum number of documented items in an object.
     """
 
-    def __init__(self, max_items_repr: int = 10) -> None:
+    def __init__(
+        self, max_depth_repr: int = 10, max_items_repr: int = 10
+    ) -> None:
         """Constructor.
 
         Args:
+            max_depth_repr: maximum number of recursion when documenting items.
             max_items_repr: maximum number of documented items in an object.
         """
         super().__init__()
         self.used_names = set[str]()
-        self.max_items_repr = max_items_repr
 
     def register_actor(
-            self, actor: Any, model: p.ModelProtocol[Any, Any]
+        self, actor: Any, model: p.ModelProtocol[Any, Any]
     ) -> None:
         """Record metadata of an object that acts on a model.
 
@@ -53,7 +54,7 @@ class MetadataManager:
         actor_version = self._get_ts(actor)
         model_version = self._get_ts(model)
         self._register_name(actor_name)
-        metadata = self.extract_metadata(actor, max_size=self.max_items_repr)
+        metadata = self.extract_metadata(actor)
         log_events.ActorRegistrationEvent(
             actor_name, actor_version, model.name, model_version, metadata
         )
@@ -102,15 +103,19 @@ class MetadataManager:
         return
 
     @staticmethod
-    def extract_metadata(obj: Any, max_size: int) -> dict[str, Any]:
+    def extract_metadata(obj: Any) -> dict[str, Any]:
         """Wrapper of recursive_repr that catches RecursionError.
+
+        To change the maximum number of documented items in an obj,
+        set a maximum number of recursive call, and include properties,
+        see the global variables in utils.repr_utils.
 
         Args:
             obj: an object to document.
-            max_size: maximum number of documented items in an obj.
+            depth: maximum number of recursion when documenting items.
         """
         try:
-            metadata = repr_utils.recursive_repr(obj, max_size=max_size)
+            metadata = repr_utils.recursive_repr(obj)
         except RecursionError:
             # noinspection PyArgumentEqualDefault
             warnings.warn(exceptions.RecursionWarning(), stacklevel=1)

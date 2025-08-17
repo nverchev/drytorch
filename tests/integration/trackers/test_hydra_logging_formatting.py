@@ -56,7 +56,7 @@ class TestHydraFullCycle:
 
             @hydra.main(version_base=None)
             def _app(_: DictConfig):
-                drytorch.initialize_trackers(mode='hydra')
+                drytorch.init_trackers(mode='hydra')
                 trackers = (BuiltinLogger(),
                             TqdmLogger(leave=False),
                             HydraLink())

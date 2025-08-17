@@ -6,7 +6,7 @@ import pytest
 
 from drytorch import Model
 from drytorch.core import exceptions
-from drytorch.models import ModelOptimizer
+from drytorch.lib.models import ModelOptimizer
 
 
 @pytest.fixture(autouse=True, scope='module')

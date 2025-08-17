@@ -6,7 +6,7 @@ import torch
 
 import pytest
 
-from drytorch.gradient_ops import (
+from drytorch.lib.gradient_ops import (
     EMACriterion,
     GradNormalizer,
     GradNormClipper,

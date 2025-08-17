@@ -83,7 +83,7 @@ class Wandb(Dumper):
                                dir=self.par_dir.as_posix(),
                                project=project,
                                group=group,
-                               config=recursive_repr(event.config, max_size=99),
+                               config=recursive_repr(event.config),
                                tags=event.tags,
                                settings=self._settings,
                                resume='allow' if event.resumed else None)

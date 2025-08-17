@@ -23,7 +23,7 @@ class TestTrainer:
     def setup(self, mocker):
         """Set up the test class."""
         self.model_optimizer = mocker.patch(
-            'drytorch.models.ModelOptimizer'
+            'drytorch.lib.models.ModelOptimizer'
         )
         self.start_training_event = mocker.patch(
             'drytorch.core.log_events.StartTrainingEvent'
@@ -95,7 +95,7 @@ class TestTrainer:
     def test_hook_execution_order(self, mocker, trainer) -> None:
         """Test that hooks are executed in the correct order."""
         # Mock the hooks to track their order of execution
-        mocker.patch('drytorch.runners.register.register_actor')
+        mocker.patch('drytorch.lib.runners.register.register_actor')
         pre_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         post_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         trainer.pre_epoch_hooks.register_all(pre_hook_list)

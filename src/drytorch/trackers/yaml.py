@@ -3,6 +3,7 @@
 Attributes:
     MAX_LENGTH_PLAIN_REPR: Maximum length for sequences in plain style.
     MAX_LENGTH_SHORT_REPR: Maximum string length in Sequences in plain style.
+    TS_FMT: format for representing a timestamp.
 """
 
 import functools
@@ -54,7 +55,7 @@ class YamlDumper(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
         run_dir = self._get_run_dir()
-        safe_config = recursive_repr(event.config, max_size=99)
+        safe_config = recursive_repr(event.config)
         model_with_ts = 'config_' + event.run_ts.strftime(TS_FMT) + '.yaml'
         self._dump(safe_config, run_dir / model_with_ts)
         return

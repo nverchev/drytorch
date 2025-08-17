@@ -2,15 +2,15 @@
 
 import warnings
 
-from typing import Self, TypeVar, cast
+from typing import Self, TypeVar
 
 import torch
 
 from typing_extensions import override
 
-from drytorch import runners, evaluations, hooks, models
 from drytorch.core import exceptions, log_events
 from drytorch.core import protocols as p
+from drytorch.lib import evaluations, hooks, models, runners
 
 
 _Input = TypeVar('_Input', bound=p.InputType)
@@ -19,7 +19,9 @@ _Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class Trainer(
-    runners.ModelRunnerWithLogs[_Input, _Target, _Output],
+    runners.ModelRunnerWithLogs[
+        _Input, _Target, _Output, p.LossProtocol[_Output, _Target]
+    ],
     p.TrainerProtocol[_Input, _Target, _Output],
 ):
     """Implement the standard Pytorch training loop.
@@ -27,9 +29,8 @@ class Trainer(
     Attributes:
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
-        objective: processes the model outputs and targets.
         learning_scheme: contains optimizer settings and scheduling.
-        outputs_list: list of optionally stored outputs,
+        validation: class that validates the model,
     """
 
     def __init__(
@@ -52,15 +53,8 @@ class Trainer(
                 Defaults to class name plus eventual counter.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
-        self.model: p.ModelProtocol[_Input, _Output]
-        # covariance not available for protocols, specify the type explicitly
-        self.objective: p.LossProtocol[_Output, _Target] = cast(
-            p.LossProtocol[_Output, _Target], self.objective
-        )
         self.learning_scheme = learning_scheme
-        self.validation: (
-                p.SourceProtocol[_Input, _Target, _Output] | None
-        ) = None
+        self.validation = None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[
             Trainer[_Input, _Target, _Output]

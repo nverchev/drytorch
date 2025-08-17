@@ -8,7 +8,7 @@ import pytest
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.objectives import (
+from drytorch.lib.objectives import (
     CompositionalLoss,
     Loss,
     Metric,
@@ -22,7 +22,7 @@ from drytorch.objectives import (
 _Tensor = torch.Tensor
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope='module')
 def metric_1() -> str:
     """Simple metric."""
     return 'Metric_1'
@@ -36,7 +36,7 @@ def metric_2() -> str:
 
 @pytest.fixture(scope='module')
 def metric_fun_1(
-        metric_1: str,
+    metric_1: str,
 ) -> dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
     """Simple metric fun."""
     return {metric_1: lambda x, y: x}
@@ -44,7 +44,7 @@ def metric_fun_1(
 
 @pytest.fixture(scope='module')
 def metric_fun_2(
-        metric_2: str,
+    metric_2: str,
 ) -> dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
     """Another simple metric fun."""
     return {metric_2: lambda x, y: y}
@@ -70,7 +70,7 @@ class TestMetricCollection:
         return
 
     def test_update_compute_and_reset(
-            self, metric_1, metric_2, metrics
+        self, metric_1, metric_2, metrics
     ) -> None:
         """Test it stores, reduces, and resets metrics correctly."""
         simple_outputs_1 = torch.tensor(1)
@@ -101,7 +101,7 @@ class TestMetricCollection:
         combined_metrics = metrics | new_metrics
 
         expected_keys = {metric_1, metric_2, 'NewMetric'}
-        assert set(combined_metrics.named_metric_fun.keys()) == expected_keys
+        assert set(combined_metrics.named_fun.keys()) == expected_keys
 
         simple_outputs = torch.tensor(1)
         simple_targets = torch.tensor(0)
@@ -145,7 +145,7 @@ class TestMetric:
         combined_metrics = metric | new_metrics
 
         expected_keys = {metric_1, 'NewMetric'}
-        assert set(combined_metrics.named_metric_fun.keys()) == expected_keys
+        assert set(combined_metrics.named_fun.keys()) == expected_keys
 
         simple_outputs = torch.tensor(1)
         simple_targets = torch.tensor(0)
@@ -160,7 +160,7 @@ class TestCompositionalLoss:
 
     @pytest.fixture(scope='class')
     def example_metric_results(
-            self, metric_1, metric_2
+        self, metric_1, metric_2
     ) -> dict[str, torch.Tensor]:
         """A possible calculated value for metrics."""
         return {
@@ -203,10 +203,13 @@ class TestCompositionalLoss:
         """Test it calculates metrics correctly."""
         simple_outputs = torch.tensor(1.0)
         simple_targets = torch.tensor(0.0)
-        expected = {'Loss': torch.tensor(2.0), metric_1: torch.tensor(1.0)}
+        expected = {
+            'Combined Loss': torch.tensor(2.0),
+            metric_1: torch.tensor(1.0),
+        }
         assert (
-                composed_loss_1.calculate(simple_outputs, simple_targets)
-                == expected
+            composed_loss_1.calculate(simple_outputs, simple_targets)
+            == expected
         )
 
     def test_negate_loss(self, composed_loss_1, example_metric_results) -> None:
@@ -216,7 +219,7 @@ class TestCompositionalLoss:
         assert neg_loss.formula == '(-(2 x [Metric_1]))'
 
     def test_add_losses(
-            self, composed_loss_1, composed_loss_2, example_metric_results
+        self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test addition of two losses."""
         combined_loss = composed_loss_1 + composed_loss_2
@@ -224,7 +227,7 @@ class TestCompositionalLoss:
         assert combined_loss.formula == '(2 x [Metric_1] + 3 x [Metric_2])'
 
     def test_subtract_losses(
-            self, composed_loss_1, composed_loss_2, example_metric_results
+        self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test subtraction of two losses."""
         combined_loss = composed_loss_1 - -composed_loss_2
@@ -232,7 +235,7 @@ class TestCompositionalLoss:
         assert combined_loss.formula == '(2 x [Metric_1] - (-(3 x [Metric_2])))'
 
     def test_multiply_losses(
-            self, composed_loss_1, composed_loss_2, example_metric_results
+        self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test multiplication of two losses."""
         combined_loss = composed_loss_1 * composed_loss_2
@@ -240,7 +243,7 @@ class TestCompositionalLoss:
         assert combined_loss.formula == '(2 x [Metric_1]) x (3 x [Metric_2])'
 
     def test_divide_losses(
-            self, composed_loss_1, composed_loss_2, example_metric_results
+        self, composed_loss_1, composed_loss_2, example_metric_results
     ) -> None:
         """Test division of two losses."""
         combined_loss = composed_loss_1 / -composed_loss_2
@@ -260,7 +263,7 @@ class TestLoss:
     @pytest.fixture(scope='class')
     def loss_1(self, metric_1, metric_fun_1) -> Loss:
         """Set up a Loss instance with simple arguments."""
-        return Loss(next(iter(metric_fun_1.values())), name=metric_1)
+        return Loss(metric_1, next(iter(metric_fun_1.values())))
 
     def test_add_float(self, loss_1, example_metric_results) -> None:
         """Test addition by float."""
@@ -312,13 +315,13 @@ class TestLoss:
 
     def test_positive_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by positive float."""
-        combined_loss = loss_1 ** 2
-        assert combined_loss.criterion(example_metric_results) == 2 ** 2
+        combined_loss = loss_1**2
+        assert combined_loss.criterion(example_metric_results) == 2**2
         assert combined_loss.formula == '([Metric_1]^2)'
 
     def test_negative_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by negative float."""
-        combined_loss = loss_1 ** -2
+        combined_loss = loss_1**-2
         assert combined_loss.criterion(example_metric_results) == 2 ** (-2)
         assert combined_loss.formula == '(1 / [Metric_1]^2)'
 
@@ -344,21 +347,21 @@ def test_dict_apply(mocker) -> None:
     [
         # Case 1: Mapping of metrics
         (
-                {'metric_1': torch.tensor(1), 'metric_2': torch.tensor(2)},
-                None,
-                {'metric_1': 1, 'metric_2': 2},
+            {'metric_1': torch.tensor(1), 'metric_2': torch.tensor(2)},
+            None,
+            {'metric_1': 1, 'metric_2': 2},
         ),
         # Case 2: Single tensor
         (
-                torch.tensor(0.5),
-                'metric_1',
-                {'metric_1': 0.5},
+            torch.tensor(0.5),
+            'metric_1',
+            {'metric_1': 0.5},
         ),
         # Case 3: None
         (
-                None,
-                None,
-                {},
+            None,
+            None,
+            {},
         ),
     ],
 )
@@ -383,26 +386,26 @@ class TestMetricTracker:
     def tracker_auto(self) -> MetricTracker:
         """Set up a basic test instance."""
         return MetricTracker(
-            metric_name="test_loss", min_delta=0.01, patience=2
+            metric_name='test_loss', min_delta=0.01, patience=2
         )
 
     @pytest.fixture()
     def tracker_higher_is_better(self) -> MetricTracker:
         """Set up a test instance with higher is better."""
         return MetricTracker(
-            metric_name="test_acc", min_delta=0.01, patience=2, best_is='higher'
+            metric_name='test_acc', min_delta=0.01, patience=2, best_is='higher'
         )
 
     @pytest.fixture()
     def tracker_lower_is_better(self) -> MetricTracker:
         """Set up a test instance with lower is better."""
         return MetricTracker(
-            metric_name="test_loss", min_delta=0.01, patience=2, best_is='lower'
+            metric_name='test_loss', min_delta=0.01, patience=2, best_is='lower'
         )
 
     def test_init_auto(self, tracker_auto) -> None:
         """Test basic instantiation."""
-        assert tracker_auto.metric_name == "test_loss"
+        assert tracker_auto.metric_name == 'test_loss'
         assert tracker_auto.best_is == 'auto'
         assert tracker_auto.min_delta == 0.01
         assert tracker_auto.patience == 2
@@ -436,7 +439,7 @@ class TestMetricTracker:
         assert tracker_auto.filtered_value == 3.0
 
     def test_is_improving_with_better_value_higher(
-            self, tracker_higher_is_better
+        self, tracker_higher_is_better
     ) -> None:
         """Test is_improving for improvement when higher is better."""
         tracker_higher_is_better.add_value(1.0)
@@ -444,7 +447,7 @@ class TestMetricTracker:
         assert tracker_higher_is_better.is_improving() is True
 
     def test_is_improving_with_worse_value_higher(
-            self, tracker_higher_is_better
+        self, tracker_higher_is_better
     ) -> None:
         """Test is_improving for worse results when higher is better."""
         tracker_higher_is_better.add_value(2.0)
@@ -452,7 +455,7 @@ class TestMetricTracker:
         assert tracker_higher_is_better.is_improving() is False
 
     def test_is_improving_with_better_value_lower(
-            self, tracker_lower_is_better
+        self, tracker_lower_is_better
     ) -> None:
         """Test is_improving for improvement when lower is better."""
         tracker_lower_is_better.add_value(2.0)
@@ -460,7 +463,7 @@ class TestMetricTracker:
         assert tracker_lower_is_better.is_improving() is True
 
     def test_is_improving_with_worse_value_lower(
-            self, tracker_lower_is_better
+        self, tracker_lower_is_better
     ) -> None:
         """Test is_improving for worse results when lower is better."""
         tracker_lower_is_better.add_value(1.0)
@@ -506,8 +509,9 @@ class TestMetricTracker:
         assert not tracker_higher_is_better.is_improving()
         assert not tracker_higher_is_better.is_patient()
 
-    def test_patience_reset_on_improvement(self,
-                                           tracker_higher_is_better) -> None:
+    def test_patience_reset_on_improvement(
+        self, tracker_higher_is_better
+    ) -> None:
         """Test patience resets when improvement occurs."""
         tracker_higher_is_better.add_value(1.0)
         tracker_higher_is_better.add_value(0.5)  # worse
@@ -535,8 +539,9 @@ class TestMetricTracker:
         """Test is_better handles NaN values correctly."""
         assert not tracker_higher_is_better.is_better(float('nan'), 1.0)
 
-    def test_single_value_always_improving(self,
-                                           tracker_higher_is_better) -> None:
+    def test_single_value_always_improving(
+        self, tracker_higher_is_better
+    ) -> None:
         """Test that single values are always considered improving."""
         tracker_higher_is_better.add_value(1.0)
         assert tracker_higher_is_better.is_improving()

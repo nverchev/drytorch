@@ -1,23 +1,43 @@
 """Module containing classes for the evaluation of a model."""
 
-from typing import TypeVar
+from typing import Any, Protocol, TypeVar
 
 import torch
 
 from typing_extensions import override
 
-from drytorch import runners
 from drytorch.core import log_events
 from drytorch.core import protocols as p
+from drytorch.lib import runners
 
 
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
+class _RunnerLike(Protocol):
+    model: p.ModelProtocol[Any, Any]
+
+    def __call__(self, store_outputs: bool = False) -> None: ...
+
+
+class EvaluationMixin:
+    """Mixin for running inference in eval mode without gradients."""
+
+    @torch.inference_mode()
+    def __call__(
+        self: _RunnerLike,
+        store_outputs: bool = False,
+    ) -> None:
+        """Set the model in evaluation mode and torch in inference mode."""
+        self.model.module.eval()
+        super().__call__(store_outputs)
+        return
+
 
 class Diagnostic(
-    runners.ModelRunnerWithLogs[_Input, _Target, _Output],
+    EvaluationMixin,
+    runners.ModelRunnerWithLogs[_Input, _Target, _Output, Any],
 ):
     """Evaluate the model on inference mode without logging the metrics.
 
@@ -28,22 +48,10 @@ class Diagnostic(
         outputs_list: list of optionally stored outputs.
     """
 
-    @override
-    @torch.inference_mode()
-    def __call__(self, store_outputs: bool = False) -> None:
-        """Run epoch without tracking gradients and in eval mode.
-
-        Args:
-            store_outputs: whether to store model outputs. Defaults to False.
-        """
-        self.model.module.eval()
-        super().__call__(store_outputs)
-        return
-
 
 class Validation(
-    Diagnostic[_Input, _Target, _Output],
-    runners.ModelRunnerWithLogs[_Input, _Target, _Output],
+    EvaluationMixin,
+    runners.ModelRunnerWithLogs[_Input, _Target, _Output, Any],
 ):
     """Evaluate model on inference mode.
 

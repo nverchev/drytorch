@@ -6,9 +6,9 @@ import torch
 
 import pytest
 
-from drytorch import schedulers
 from drytorch.core import protocols as p
-from drytorch.learn import LearningScheme
+from drytorch.lib import schedulers
+from drytorch.lib.learn import LearningScheme
 
 
 @pytest.fixture

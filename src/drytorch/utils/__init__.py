@@ -1,1 +1,1 @@
-"""General-purpose operations and algorithms."""
+"""Contain general-purpose operations and algorithms."""

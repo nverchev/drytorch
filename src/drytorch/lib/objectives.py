@@ -23,6 +23,7 @@ from typing_extensions import override
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.utils import average
+from drytorch.utils.average import TorchAverager
 
 
 _Output_contra = TypeVar(
@@ -42,18 +43,10 @@ class Objective(
 
     def __init__(
         self,
-        **named_metric_fun: Callable[
-            [_Output_contra, _Target_contra],
-            _Tensor,
-        ],
+        **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
-        """Initializes the Objective with a dictionary of metric functions.
-
-        Args:
-            **named_metric_fun: named functions that compute the metric.
-        """
-        self._aggregator = average.TorchAverager()
-        self.named_metric_fun = named_metric_fun
+        """Initializes the Objective with a dictionary of metric functions."""
+        self._aggregator: TorchAverager = average.TorchAverager()
 
     @override
     def compute(self: Self) -> dict[str, _Tensor]:
@@ -123,20 +116,6 @@ class Objective(
         self._aggregator += other._aggregator
         return
 
-    def __or__(
-        self, other: Objective[_Output_contra, _Target_contra]
-    ) -> MetricCollection[_Output_contra, _Target_contra]:
-        """Combines two Objectives into a MetricCollection.
-
-        Args:
-            other: The other Objective to combine with.
-
-        Returns:
-            A new MetricCollection containing metrics from both instances.
-        """
-        named_metric_fun = self.named_metric_fun | other.named_metric_fun
-        return MetricCollection(**named_metric_fun)
-
     def __deepcopy__(self, memo: dict[int, Any]) -> Self:
         """Deep copy magic method.
 
@@ -157,6 +136,18 @@ class Objective(
 class MetricCollection(Objective[_Output_contra, _Target_contra]):
     """A collection of multiple metrics."""
 
+    def __init__(
+        self,
+        **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
+    ) -> None:
+        """Constructor.
+
+        Args:
+            **named_fun: dictionary of named functions to calculate.
+        """
+        super().__init__()
+        self.named_fun = named_fun
+
     @override
     def calculate(
         self, outputs: _Output_contra, targets: _Target_contra
@@ -170,11 +161,28 @@ class MetricCollection(Objective[_Output_contra, _Target_contra]):
         Returns:
             A dictionary of calculated metric values.
         """
-        return dict_apply(self.named_metric_fun, outputs, targets)
+        return dict_apply(self.named_fun, outputs, targets)
+
+    def __or__(
+        self, other: MetricCollection[_Output_contra, _Target_contra]
+    ) -> MetricCollection[_Output_contra, _Target_contra]:
+        """Constructor that use existing MetricCollection objects as templates.
+
+        This class does not aggregate the states. It you intend to do this,
+        use the merge_state method separately.
+
+        Args:
+            other: anather MetricCollection object to combine with.
+
+        Returns:
+            A new instance containing metrics from both instances.
+        """
+        named_fun = self.named_fun | other.named_fun
+        return MetricCollection(**named_fun)
 
 
-class Metric(Objective[_Output_contra, _Target_contra]):
-    """A single metric."""
+class Metric(MetricCollection[_Output_contra, _Target_contra]):
+    """Subclass for a single metr."""
 
     def __init__(
         self,
@@ -197,21 +205,6 @@ class Metric(Objective[_Output_contra, _Target_contra]):
         self.name = name
         self.higher_is_better = higher_is_better
 
-    @override
-    def calculate(
-        self, outputs: _Output_contra, targets: _Target_contra
-    ) -> dict[str, _Tensor]:
-        """Calculates the value of this single metric.
-
-        Args:
-            outputs: The model outputs.
-            targets: The ground truth targets.
-
-        Returns:
-            A dictionary containing the calculated metric value.
-        """
-        return {self.name: self.fun(outputs, targets)}
-
 
 class LossBase(
     MetricCollection[_Output_contra, _Target_contra],
@@ -225,20 +218,20 @@ class LossBase(
         criterion: Callable[[dict[str, _Tensor]], _Tensor],
         name: str,
         higher_is_better: bool = False,
-        formula: str = 'Loss',
+        formula: str = '',
         **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
         """Constructor.
 
         Args:
-            criterion: function extracting a loss value from metric functions.
+            criterion: logic extracting a loss value from computed value.
             name: identifier for the loss.
             higher_is_better: True if higher values indicate better performance,
                 False if lower values are better.
             formula: string representation of the loss formula.
-            **named_fun: dictionary of named metric functions.
+            **named_fun: dictionary of named functions to calculate.
         """
-        self.name = name
+        self.name: str = name
         self.higher_is_better = higher_is_better
         self.formula = formula
         super().__init__(**named_fun)
@@ -262,7 +255,7 @@ class LossBase(
         return self.criterion(metrics).mean()
 
     def __or__(
-        self, other: Objective[_Output_contra, _Target_contra]
+        self, other: MetricCollection[_Output_contra, _Target_contra]
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
         """Combines a LossBase with another Objective using the OR operator.
 
@@ -272,13 +265,13 @@ class LossBase(
         Returns:
             A new CompositionalLoss containing metrics from both instances.
         """
-        named_metric_fun = self.named_metric_fun | other.named_metric_fun
+        named_fun = self.named_fun | other.named_fun
         return CompositionalLoss(
             criterion=self.criterion,
             name=self.name,
             higher_is_better=self.higher_is_better,
             formula=self.formula,
-            **named_metric_fun,
+            **named_fun,
         )
 
     def _combine(
@@ -300,7 +293,7 @@ class LossBase(
             A new CompositionalLoss representing the combined loss.
         """
         if isinstance(other, LossBase):
-            named_metric_fun = self.named_metric_fun | other.named_metric_fun
+            named_fun = self.named_fun | other.named_fun
             str_first = self.formula
             str_second = other.formula
 
@@ -311,7 +304,7 @@ class LossBase(
                 return operation(self.criterion(x), other.criterion(x))
 
         elif isinstance(other, float | int):
-            named_metric_fun = self.named_metric_fun
+            named_fun = self.named_fun
             str_first = str(other)
             str_second = self.formula
 
@@ -326,15 +319,17 @@ class LossBase(
             str_second = self._remove_outer_parentheses(str_second)
 
         formula = op_fmt.format(str_first, str_second)
+
         return CompositionalLoss(
             criterion=_combined,
             higher_is_better=self.higher_is_better,
+            name='Combined Loss',
             formula=formula,
-            **named_metric_fun,
+            **named_fun,
         )
 
     def __neg__(self) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Negates the loss.
+        """Constructor from existing template.
 
         Returns:
             A new CompositionalLoss representing the negated loss.
@@ -342,15 +337,16 @@ class LossBase(
         return CompositionalLoss(
             criterion=lambda x: -self.criterion(x),
             higher_is_better=not self.higher_is_better,
+            name='Negative ' + self.name,
             formula=f'-{self.formula}',
-            **self.named_metric_fun,
+            **self.named_fun,
         )
 
     def __add__(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss[Any, Any]:
-        """Adds another loss or a float to this loss.
+        """Constructor from exiting templates.
 
         Args:
             other: The other loss or float to add.
@@ -364,7 +360,7 @@ class LossBase(
         return self._combine(other, operator.add, '{} + {}', False)
 
     def __radd__(self, other: float) -> CompositionalLoss[Any, Any]:
-        """Implements reverse addition for the loss.
+        """Constructor from exiting templates.
 
         Args:
             other: The float to add to the loss.
@@ -378,7 +374,7 @@ class LossBase(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Subtracts another loss or a float from this loss.
+        """Constructor from exiting templates.
 
         Args:
             other: The other loss or float to subtract.
@@ -392,7 +388,7 @@ class LossBase(
     def __rsub__(
         self, other: float
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Implements reverse subtraction for the loss.
+        """Constructor from exiting templates.
 
         Args:
             other: The float from which to subtract the loss.
@@ -407,7 +403,7 @@ class LossBase(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Multiplies this loss by another loss or a float.
+        """Constructor from exiting templates.
 
         Args:
             other: The other loss or float to multiply by.
@@ -423,7 +419,7 @@ class LossBase(
     def __rmul__(
         self, other: float
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Implements reverse multiplication for the loss.
+        """Constructor from exiting templates.
 
         Args:
             other: The float to multiply the loss by.
@@ -437,7 +433,7 @@ class LossBase(
         self,
         other: LossBase[_Output_contra, _Target_contra] | float,
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Divides this loss by another loss or a float.
+        """Constructor from exiting templates.
 
         Args:
             other: The other loss or float to divide by.
@@ -454,7 +450,7 @@ class LossBase(
     def __rtruediv__(
         self, other: float
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Implements reverse division for the loss.
+        """Constructor from exiting templates.
 
         Args:
             other: The float to be divided by the loss.
@@ -468,7 +464,7 @@ class LossBase(
     def __pow__(
         self, other: float
     ) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Raises the loss to a given power.
+        """Constructor from exiting templates.
 
         Args:
             other: The power to raise the loss to.
@@ -477,27 +473,27 @@ class LossBase(
             A new CompositionalLoss representing the result.
         """
 
-        def _str_other_op(power: float):
-            return f'^{power}' if power != 1 else ''
-
         def _to_floating_point(x: _Tensor) -> _Tensor:
             return x if torch.is_floating_point(x) else x.float()
 
         if other == 1 and isinstance(self, CompositionalLoss):
             return self
-
-        if other >= 0:
+        elif other == -1:
+            higher_is_better = not self.higher_is_better
+            formula = f'1 / {self.formula}'
+        elif other >= 0:
             higher_is_better = self.higher_is_better
-            formula = f'{self.formula}{_str_other_op(other)}'
+            formula = f'{self.formula}^{other}'
         else:
             higher_is_better = not self.higher_is_better
-            formula = f'1 / {self.formula}{_str_other_op(-other)}'
+            formula = f'1 / {self.formula}^{-other}'
 
         return CompositionalLoss(
             criterion=lambda x: _to_floating_point(self.criterion(x)) ** other,
             higher_is_better=higher_is_better,
+            name='Loss',
             formula=formula,
-            **self.named_metric_fun,
+            **self.named_fun,
         )
 
     def __repr__(self):
@@ -542,7 +538,6 @@ class LossBase(
 
 class CompositionalLoss(
     LossBase[_Output_contra, _Target_contra],
-    MetricCollection[_Output_contra, _Target_contra],
 ):
     """Loss resulting from an operation between other two losses."""
 
@@ -611,22 +606,20 @@ class CompositionalLoss(
         return '(' + formula + ')'
 
 
-class Loss(LossBase[_Output_contra, _Target_contra]):
-    """Class for a simple loss."""
+class Loss(CompositionalLoss[_Output_contra, _Target_contra]):
+    """Subclass for simple losses with a convenient constructor."""
 
     def __init__(
         self,
-        fun: Callable[[_Output_contra, _Target_contra], _Tensor],
-        /,
-        *,
         name: str,
+        fun: Callable[[_Output_contra, _Target_contra], _Tensor],
         higher_is_better: bool = False,
     ):
         """Constructor.
 
         Args:
-            fun: the callable to calculate the loss.
             name: the name for the loss.
+            fun: the callable to calculate the loss.
             higher_is_better: the direction for optimization.
         """
         super().__init__(
@@ -636,64 +629,7 @@ class Loss(LossBase[_Output_contra, _Target_contra]):
             formula=f'[{name}]',
             **{name: fun},
         )
-        self.fun = fun
         return
-
-    @override
-    def calculate(
-        self, outputs: _Output_contra, targets: _Target_contra
-    ) -> dict[str, _Tensor]:
-        """Calculates the value of this single loss.
-
-        Args:
-            outputs: The model outputs.
-            targets: The ground truth targets.
-
-        Returns:
-            A dictionary containing the calculated loss value.
-        """
-        return {self.name: self.fun(outputs, targets)}
-
-
-def dict_apply(
-    dict_fun: dict[str, Callable[[_Output_contra, _Target_contra], _Tensor]],
-    outputs: _Output_contra,
-    targets: _Target_contra,
-) -> dict[str, _Tensor]:
-    """Apply the given tensor callables to the provided outputs and targets.
-
-    Args:
-        dict_fun: a dictionary of named callables (outputs, targets) -> Tensor.
-        outputs: the outputs to apply the tensor callables to.
-        targets: the targets to apply the tensor callables to.
-
-    Returns:
-        A dictionary containing the resulting values.
-    """
-    return {
-        name: function(outputs, targets) for name, function in dict_fun.items()
-    }
-
-
-def repr_metrics(
-    calculator: p.ObjectiveProtocol[Any, Any],
-) -> Mapping[str, float]:
-    """Represent the metrics as a mapping of named values.
-
-    Args:
-        calculator: An ObjectiveProtocol instance from which to compute metrics.
-
-    Returns:
-        A mapping of metric names to their float values.
-    """
-    metrics = calculator.compute()
-    if isinstance(metrics, Mapping):
-        return {name: value.item() for name, value in metrics.items()}
-
-    if isinstance(metrics, _Tensor):
-        return {calculator.__class__.__name__: metrics.item()}
-
-    return {}
 
 
 class MetricTracker(Generic[_Output_contra, _Target_contra]):
@@ -715,13 +651,12 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
     """
 
     def __init__(
-            self,
-            metric_name: str | None = None,
-            min_delta: float = 1e-8,
-            patience: int = 0,
-            best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-            filter_fn: Callable[
-                [Sequence[float]], float] = operator.itemgetter(-1),
+        self,
+        metric_name: str | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
+        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        filter_fn: Callable[[Sequence[float]], float] = operator.itemgetter(-1),
     ) -> None:
         """Constructor.
 
@@ -849,3 +784,44 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
     def _validate_patience(patience: int) -> None:
         if patience < 0:
             raise ValueError('Patience must be a non-negative integer.')
+
+
+def dict_apply(
+    dict_fun: dict[str, Callable[[_Output_contra, _Target_contra], _Tensor]],
+    outputs: _Output_contra,
+    targets: _Target_contra,
+) -> dict[str, _Tensor]:
+    """Apply the given tensor callables to the provided outputs and targets.
+
+    Args:
+        dict_fun: a dictionary of named callables (outputs, targets) -> Tensor.
+        outputs: the outputs to apply the tensor callables to.
+        targets: the targets to apply the tensor callables to.
+
+    Returns:
+        A dictionary containing the resulting values.
+    """
+    return {
+        name: function(outputs, targets) for name, function in dict_fun.items()
+    }
+
+
+def repr_metrics(
+    calculator: p.ObjectiveProtocol[Any, Any],
+) -> Mapping[str, float]:
+    """Represent the metrics as a mapping of named values.
+
+    Args:
+        calculator: An ObjectiveProtocol instance from which to compute metrics.
+
+    Returns:
+        A mapping of metric names to their float values.
+    """
+    metrics = calculator.compute()
+    if isinstance(metrics, Mapping):
+        return {name: value.item() for name, value in metrics.items()}
+
+    if isinstance(metrics, _Tensor):
+        return {calculator.__class__.__name__: metrics.item()}
+
+    return {}

@@ -1,4 +1,4 @@
-"""Tests for the "statistics" module."""
+"""Tests for the "average" module."""
 
 import math
 

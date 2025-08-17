@@ -13,17 +13,17 @@ from drytorch.core.track import DEFAULT_TRACKERS
 
 def test_standard_trackers():
     """Test setting standard trackers adds trackers."""
-    drytorch.initialize_trackers()
+    drytorch.init_trackers()
     assert DEFAULT_TRACKERS
 
 
 def test_env_trackers():
     """Test setting standard trackers adds trackers."""
     drytorch.remove_all_default_trackers()
-    os.environ['drytorch_INIT_MODE'] = 'none'
+    os.environ['DRYTORCH_INIT_MODE'] = 'none'
     importlib.reload(drytorch)
     assert not DEFAULT_TRACKERS
-    os.environ['drytorch_INIT_MODE'] = 'hydra'
+    os.environ['DRYTORCH_INIT_MODE'] = 'hydra'
     importlib.reload(drytorch)
     assert DEFAULT_TRACKERS
 

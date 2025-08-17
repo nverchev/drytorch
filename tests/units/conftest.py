@@ -28,15 +28,14 @@ def mock_model(mocker) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
 @pytest.fixture
 def mock_scheduler(mocker) -> p.SchedulerProtocol:
     """Fixture for a mock scheduler."""
-    mock = mocker.create_autospec(spec=p.SchedulerProtocol,
-                                  instance=True,
-                                  side_effect=lambda x, y: x)
+    mock = mocker.create_autospec(
+        spec=p.SchedulerProtocol, instance=True, side_effect=lambda x, y: x
+    )
     return mock
 
 
 @pytest.fixture
-def mock_learning_scheme(mocker,
-                         mock_scheduler) -> p.LearningProtocol:
+def mock_learning_scheme(mocker, mock_scheduler) -> p.LearningProtocol:
     """Fixture for a mock learning scheme."""
     mock = mocker.create_autospec(spec=p.LearningProtocol, instance=True)
     mock.base_lr = 0.001
@@ -49,12 +48,12 @@ def mock_learning_scheme(mocker,
 
 @pytest.fixture
 def mock_metric(
-        mocker,
+    mocker,
 ) -> p.ObjectiveProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock metric calculator."""
     mock = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
     mock.name = 'mock_metric'
-    mock.compute = mocker.Mock(return_value={'mock_metric': torch.tensor(.5)})
+    mock.compute = mocker.Mock(return_value={'mock_metric': torch.tensor(0.5)})
     mock.higher_is_better = True
     mock.__deepcopy__ = mocker.Mock(return_value=mock)
     return mock
@@ -89,19 +88,21 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
 
 
 @pytest.fixture
-def mock_validation(mocker, mock_metric) -> p.SourceProtocol:
+def mock_validation(
+    mocker, mock_metric, example_named_metrics
+) -> p.MonitorProtocol:
     """Fixture for a mock validation."""
-    mock = mocker.create_autospec(spec=p.SourceProtocol, instance=True)
+    mock = mocker.create_autospec(spec=p.MonitorProtocol, instance=True)
     mock.name = 'mock_validation'
     mock.objective = mock_metric
+    mock.computed_metrics = example_named_metrics
     return mock
 
 
 @pytest.fixture
-def mock_trainer(mocker,
-                 mock_model,
-                 mock_loss,
-                 mock_validation) -> p.TrainerProtocol:
+def mock_trainer(
+    mocker, mock_model, mock_loss, mock_validation, example_named_metrics
+) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
     mock.model = mock_model
@@ -110,6 +111,7 @@ def mock_trainer(mocker,
     mock.objective = mock_loss
     mock.validation = mock_validation
     mock.terminated = False
+    mock.computed_metrics = example_named_metrics
 
     def _terminate_training(reason: str):
         mock.terminated = True

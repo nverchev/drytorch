@@ -1,17 +1,18 @@
 """Init file for the drytorch package.
 
 It automatically initializes some trackers with sets of settings (modes) that
-work well together. The mode can be set as an environmental variable before
-loading the package or explicitly reset after. Alternatively, skip or remove
-initialization and use custom settings.
+work well together. The mode can be set as an environmental variable
+DRYTORCH_INIT_MODE before loading the package or explicitly reset after.
 
-Allowed values for the environmental variable drytorch_INIT_MODE:
+Available modes:
     1) standard: if present, relies on tqdm to print the metrics on stderr.
     2) hydra: logs metrics to stdout to accommodate default hydra settings.
     3) tuning: most output gets overwritten and metadata is not extracted.
     4) none: skip initialization.
 
-Default uses standard mode.
+Attributes:
+    INIT_MODE: the mode the trackers will be initialized with at the start.
+        If DRYTORCH_INIT_MODE is not present it defaults to standard.
 """
 
 import logging
@@ -28,30 +29,15 @@ from drytorch.core.track import (
     extend_default_trackers,
     remove_all_default_trackers,
 )
-from drytorch.evaluations import Diagnostic, Test, Validation
-from drytorch.learn import LearningScheme
-from drytorch.load import DataLoader
-from drytorch.models import Model
-from drytorch.objectives import Loss, Metric
+from drytorch.lib.evaluations import Diagnostic, Test, Validation
+from drytorch.lib.learn import LearningScheme
+from drytorch.lib.load import DataLoader
+from drytorch.lib.models import Model
+from drytorch.lib.objectives import Loss, Metric
+from drytorch.lib.train import Trainer
 from drytorch.trackers import logging as builtin_logging
 from drytorch.trackers.logging import INFO_LEVELS
-from drytorch.train import Trainer
 
-
-try:
-    from drytorch.trackers import yaml
-except (ImportError, ModuleNotFoundError) as ie:
-    YAML_EXCEPTION: ImportError | ModuleNotFoundError | None = ie
-else:
-    YAML_EXCEPTION = None
-
-
-try:
-    from drytorch.trackers import tqdm
-except (ImportError, ModuleNotFoundError) as ie:
-    TQDM_EXCEPTION: ImportError | ModuleNotFoundError | None = ie
-else:
-    TQDM_EXCEPTION = None
 
 __all__ = [
     'DataLoader',
@@ -64,15 +50,15 @@ __all__ = [
     'Test',
     'Trainer',
     'Validation',
-    'initialize_trackers'
+    'init_trackers',
 ]
+
+_InitMode = Literal['standard', 'hydra', 'tuning']
 
 logger = logging.getLogger('drytorch')
 
 
-def initialize_trackers(
-    mode: Literal['standard', 'hydra', 'tuning'] = 'standard',
-) -> None:
+def init_trackers(mode: _InitMode = 'standard') -> None:
     """Initialize trackers used by default during the experiment.
 
     Three initializations are available:
@@ -87,15 +73,30 @@ def initialize_trackers(
         ValueError if mode is not available.
     """
     remove_all_default_trackers()
-    verbosity = builtin_logging.INFO_LEVELS.metrics
     if mode == 'hydra':
         # hydra logs to stdout by default
         builtin_logging.enable_default_handler(sys.stdout)
         builtin_logging.enable_propagation()
 
     tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
+    _add_tqdm(tracker_list, mode=mode)
+    if mode != 'tuning':
+        _add_yaml(tracker_list)
+    extend_default_trackers(tracker_list)
+    return
 
-    if TQDM_EXCEPTION is None:
+
+def _add_tqdm(tracker_list: list[Tracker], mode: _InitMode) -> None:
+    verbosity = builtin_logging.INFO_LEVELS.metrics
+
+    try:
+        from drytorch.trackers import tqdm
+    except (ImportError, ModuleNotFoundError):
+        warnings.warn(FailedOptionalImportWarning('tqdm'), stacklevel=2)
+        if mode == 'tuning':
+            verbosity = builtin_logging.INFO_LEVELS.epoch
+            builtin_logging.set_formatter('progress')
+    else:
         # noinspection PyUnreachableCode
         if mode == 'standard':
             # metrics logs redundant because already visible in the progress bar
@@ -112,21 +113,17 @@ def initialize_trackers(
             raise ValueError('Mode {mode} not available.')
 
         tracker_list.append(tqdm_logger)
+        builtin_logging.set_verbosity(verbosity)
+        return
+
+
+def _add_yaml(tracker_list: list[Tracker]) -> None:
+    try:
+        from drytorch.trackers import yaml
+    except (ImportError, ModuleNotFoundError):
+        warnings.warn(FailedOptionalImportWarning('yaml'), stacklevel=2)
     else:
-        warnings.warn(FailedOptionalImportWarning('tqdm'), stacklevel=2)
-        if mode == 'tuning':
-            verbosity = builtin_logging.INFO_LEVELS.epoch
-            builtin_logging.set_formatter('progress')
-
-    if mode != 'tuning':
-        if YAML_EXCEPTION is None:
-            tracker_list.append(yaml.YamlDumper())
-        else:
-            warnings.warn(FailedOptionalImportWarning('yaml'), stacklevel=2)
-
-    extend_default_trackers(tracker_list)
-    builtin_logging.set_verbosity(verbosity)
-    return
+        tracker_list.append(yaml.YamlDumper())
 
 
 def _check_mode_is_valid(
@@ -135,9 +132,9 @@ def _check_mode_is_valid(
     return mode in ('standard', 'hydra', 'tuning')
 
 
-init_mode = os.getenv('drytorch_INIT_MODE', 'standard')
-if _check_mode_is_valid(init_mode):
-    logger.log(INFO_LEVELS.internal, 'Initializing %s mode.', init_mode)
-    initialize_trackers(init_mode)
-elif init_mode != 'none':
-    raise ValueError(f'drytorch_INIT_MODE: {init_mode} not a valid setting.')
+INIT_MODE = os.getenv('DRYTORCH_INIT_MODE', 'standard')
+if _check_mode_is_valid(INIT_MODE):
+    logger.log(INFO_LEVELS.internal, 'Initializing %s mode.', INIT_MODE)
+    init_trackers(INIT_MODE)
+elif INIT_MODE != 'none':
+    raise ValueError(f'DRYTORCH_INIT_MODE: {INIT_MODE} not a valid setting.')

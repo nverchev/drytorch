@@ -5,7 +5,7 @@ from collections.abc import Generator
 import pytest
 
 from drytorch.core.experiment import Run
-from drytorch.models import ModelOptimizer
+from drytorch.lib.models import ModelOptimizer
 
 
 @pytest.fixture(autouse=True, scope='module')

@@ -1,13 +1,13 @@
 """Module containing classes to save the model state and its optimizer state."""
 
 import abc
+import codecs
 import pathlib
 import warnings
 
 from typing import Any
 
 import numpy as np
-import numpy._core.multiarray  # pyright: ignore[reportPrivateImportUsage]
 import torch
 
 from typing_extensions import override
@@ -32,8 +32,15 @@ SAFE_GLOBALS: list[Any] = [
     np.complex64,
     np.complex128,
     np.dtype,
-    np._core.multiarray.scalar  # type: ignore
+    codecs.encode,
 ]
+try:
+    from numpy._core.multiarray import scalar
+except ImportError:
+    pass
+else:
+    SAFE_GLOBALS.append(scalar)
+
 SAFE_GLOBALS.extend([getattr(np.dtypes, name) for name in np.dtypes.__all__])
 torch.serialization.add_safe_globals(SAFE_GLOBALS)
 
@@ -43,9 +50,6 @@ class CheckpointPathManager:
 
     Class Attributes:
         folder_name: name of the folder where the checkpoints are stored.
-
-    Attributes:
-        model: the model whose paths are to be managed.
     """
     folder_name = 'checkpoints'
 
@@ -60,7 +64,7 @@ class CheckpointPathManager:
             model: the model whose paths are to be managed.
             run_dir: the directory for experiment data.
         """
-        self.model = model
+        self._model = model
         self._run_dir = run_dir
 
     @property
@@ -84,13 +88,13 @@ class CheckpointPathManager:
     @property
     def model_dir(self) -> pathlib.Path:
         """Directory for the model."""
-        model_dir = self.run_dir / self.model.name
+        model_dir = self.run_dir / self._model.name
         return model_dir
 
     @property
     def epoch_dir(self) -> pathlib.Path:
         """Directory for a checkpoint at the current epoch."""
-        epoch_directory = self.model_dir / f'epoch_{self.model.epoch}'
+        epoch_directory = self.model_dir / f'epoch_{self._model.epoch}'
         return epoch_directory
 
     @property

@@ -1,5 +1,7 @@
 """Tests for the "from torchmetrics" module."""
 
+from typing import TYPE_CHECKING
+
 import torch
 
 import pytest
@@ -7,19 +9,22 @@ import pytest
 from drytorch.contrib.torchmetrics import from_torchmetrics
 
 
-torchmetrics = pytest.importorskip('torchmetrics')
+if TYPE_CHECKING:
+    import torchmetrics
+else:
+    torchmetrics = pytest.importorskip('torchmetrics')
 
 
 class TestFromTorchMetrics:
     """Tests for integration with torchmetrics."""
 
     @pytest.fixture
-    def metric_a(self):
+    def metric_a(self) -> torchmetrics.Metric:
         """Fixture for metric A."""
         return torchmetrics.Accuracy(task='binary')
 
     @pytest.fixture
-    def metric_b(self):
+    def metric_b(self) -> torchmetrics.Metric:
         """Fixture for metric B."""
         return torchmetrics.MeanSquaredError()
 
@@ -76,6 +81,7 @@ class TestFromTorchMetrics:
 
         metric.reset()
 
-        # torchmetrics reset Binary Accuracy to 0
+        # all correct prediction
+        metric.update(mock_targets, mock_targets)
         post_reset_result = metric.compute()
-        assert post_reset_result['BinaryAccuracy'] == 0
+        assert post_reset_result['BinaryAccuracy'] == 1

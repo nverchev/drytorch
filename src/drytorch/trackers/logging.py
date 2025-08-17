@@ -18,15 +18,13 @@ from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from typing_extensions import override
 
-import drytorch
-
 from drytorch.core import log_events, track
 
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
-logger = logging.getLogger(drytorch.__name__)
+logger = logging.getLogger('drytorch')
 
 
 class InfoLevels(NamedTuple):
