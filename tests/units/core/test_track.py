@@ -33,6 +33,7 @@ class _UndefinedEvent(log_events.Event):
 
 class _SimpleActor:
     """Simple actor for testing."""
+
     name: str = 'mock obj'
 
 

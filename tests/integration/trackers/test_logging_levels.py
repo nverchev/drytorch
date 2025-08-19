@@ -37,10 +37,10 @@ def stream_handler(string_stream) -> logging.StreamHandler:
 
 @pytest.fixture
 def setup(
-        request,
-        logger,
-        string_stream,
-        stream_handler,
+    request,
+    logger,
+    string_stream,
+    stream_handler,
 ) -> Generator[None, None, None]:
     """Set up a logger with temporary configuration."""
     original_handlers = logger.handlers.copy()
@@ -57,22 +57,22 @@ def setup(
 
 @pytest.fixture
 def event_workflow(
-        start_experiment_event,
-        model_registration_event,
-        load_model_event,
-        start_training_event,
-        actor_registration_event,
-        start_epoch_event,
-        iterate_batch_event,
-        metrics_event,
-        end_epoch_event,
-        update_learning_rate_event,
-        terminated_training_event,
-        end_training_event,
-        start_test_event,
-        end_test_event,
-        save_model_event,
-        stop_experiment_event,
+    start_experiment_event,
+    model_registration_event,
+    load_model_event,
+    start_training_event,
+    actor_registration_event,
+    start_epoch_event,
+    iterate_batch_event,
+    metrics_event,
+    end_epoch_event,
+    update_learning_rate_event,
+    terminated_training_event,
+    end_training_event,
+    start_test_event,
+    end_test_event,
+    save_model_event,
+    stop_experiment_event,
 ) -> tuple[log_events.Event, ...]:
     """Yields events in typical order of execution."""
     event_tuple = (
@@ -97,10 +97,7 @@ def event_workflow(
 
 
 @pytest.mark.parametrize('info_level', list(INFO_LEVELS))
-def test_all_events(setup,
-                    event_workflow,
-                    string_stream,
-                    info_level):
+def test_all_events(setup, event_workflow, string_stream, info_level):
     """Test unformatted logs for every level."""
     set_verbosity(info_level)
     tracker = BuiltinLogger()

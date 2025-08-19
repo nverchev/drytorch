@@ -122,7 +122,7 @@ def reciprocal_clipping(zt: float, z_thresh: float) -> float:
     Returns:
         Renormalization factor (between 0 and 1).
     """
-    return z_thresh ** 2 / zt
+    return z_thresh**2 / zt
 
 
 def mean_clipping(zt: float, z_thresh: float) -> float:
@@ -214,10 +214,12 @@ class EMACriterion(ClippingCriterion):
         clipping_function: function to determine clipping behavior.
     """
 
-    def __init__(self,
-                 alpha: float = 0.98,
-                 r_thresh: float = 1.05,
-                 clipping_function: ClipFunction = max_clipping):
+    def __init__(
+        self,
+        alpha: float = 0.98,
+        r_thresh: float = 1.05,
+        clipping_function: ClipFunction = max_clipping,
+    ):
         """Constructor.
 
         Args:
@@ -276,11 +278,13 @@ class ZStatCriterion(ClippingCriterion):
             clipping_function: function to determine clipping behavior.
     """
 
-    def __init__(self,
-                 alpha: float = 0.97,
-                 z_thresh: float = 2.5,
-                 clipping_function: ClipFunction = reciprocal_clipping,
-                 eps: float = 1e-06):
+    def __init__(
+        self,
+        alpha: float = 0.97,
+        z_thresh: float = 2.5,
+        clipping_function: ClipFunction = reciprocal_clipping,
+        eps: float = 1e-06,
+    ):
         """Constructor.
 
         Args:
@@ -410,13 +414,16 @@ class HistClipping(ClipOperation):
         warmup_clip_strategy: the clipping strategy used during warmup.
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
+
     _default_criterion = ZStatCriterion()
     _default_grad_op = GradNormClipper()
 
-    def __init__(self,
-                 criterion: ClippingCriterion = _default_criterion,
-                 warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
-                 n_warmup_steps: int = 20) -> None:
+    def __init__(
+        self,
+        criterion: ClippingCriterion = _default_criterion,
+        warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
+        n_warmup_steps: int = 20,
+    ) -> None:
         """Constructor.
 
         Args:
@@ -442,8 +449,11 @@ class HistClipping(ClipOperation):
         """
         # needed to allow multiple iterations
         params_list = list(params)
-        squared_norms = [(param.grad ** 2).sum().item() for param in params_list
-                         if param.grad is not None]
+        squared_norms = [
+            (param.grad**2).sum().item()
+            for param in params_list
+            if param.grad is not None
+        ]
         global_norm = math.sqrt(sum(squared_norms))
         if self._warmup_handler.active:
             if not self._warmup_handler.is_complete():
@@ -452,8 +462,7 @@ class HistClipping(ClipOperation):
                 return
             else:
                 self.criterion.set_statistics(
-                    self._warmup_handler.mean,
-                    self._warmup_handler.variance
+                    self._warmup_handler.mean, self._warmup_handler.variance
                 )
 
         if self.criterion.should_clip(global_norm):
@@ -533,8 +542,7 @@ class ParamHistClipping(ClipOperation):
                     continue
                 else:
                     criterion.set_statistics(
-                        warmup_handler.mean,
-                        warmup_handler.variance
+                        warmup_handler.mean, warmup_handler.variance
                     )
             if criterion.should_clip(grad_norm):
                 clip_value = self.criterion.get_clip_value(grad_norm)

@@ -98,28 +98,25 @@ class TestCosineScheduler:
         lr_epoch_0 = scheduler(base_lr, 0)
         assert lr_epoch_0 == base_lr
 
-    def test_cosine_scheduler_mid(self,
-                                  scheduler,
-                                  decay_steps,
-                                  min_decay) -> None:
+    def test_cosine_scheduler_mid(
+        self, scheduler, decay_steps, min_decay
+    ) -> None:
         """Test CosineScheduler midway through the schedule."""
         base_lr = 1.0
         epoch_mid = decay_steps // 2
         assert scheduler(base_lr, epoch_mid) == 0.55
 
-    def test_cosine_scheduler_end(self,
-                                  scheduler,
-                                  decay_steps,
-                                  min_decay) -> None:
+    def test_cosine_scheduler_end(
+        self, scheduler, decay_steps, min_decay
+    ) -> None:
         """Test CosineScheduler at the end of the schedule."""
         base_lr = 1.0
         lr_epoch_end = scheduler(base_lr, decay_steps)
         assert lr_epoch_end == min_decay * base_lr
 
-    def test_cosine_scheduler_beyond_end(self,
-                                         scheduler,
-                                         decay_steps,
-                                         min_decay) -> None:
+    def test_cosine_scheduler_beyond_end(
+        self, scheduler, decay_steps, min_decay
+    ) -> None:
         """Test CosineScheduler beyond decay_steps remains constant."""
         base_lr = 1.0
         lr_beyond_decay = scheduler(base_lr, decay_steps + 10)
@@ -192,53 +189,46 @@ class TestRestartScheduler:
         return CosineScheduler(decay_steps=50, min_decay=0.01)
 
     @pytest.fixture
-    def scheduler(self,
-                  base_scheduler,
-                  restart_interval,
-                  restart_fraction,
-                  max_restart) -> AbstractScheduler:
+    def scheduler(
+        self, base_scheduler, restart_interval, restart_fraction, max_restart
+    ) -> AbstractScheduler:
         """Set up the instance."""
-        return RestartScheduler(base_scheduler=base_scheduler,
-                                restart_interval=restart_interval,
-                                restart_fraction=restart_fraction,
-                                max_restart=max_restart)
+        return RestartScheduler(
+            base_scheduler=base_scheduler,
+            restart_interval=restart_interval,
+            restart_fraction=restart_fraction,
+            max_restart=max_restart,
+        )
 
-    def test_restart_scheduler_no_restart(self,
-                                          scheduler,
-                                          base_scheduler,
-                                          restart_interval) -> None:
+    def test_restart_scheduler_no_restart(
+        self, scheduler, base_scheduler, restart_interval
+    ) -> None:
         """Test RestartScheduler before the first restart."""
         base_lr = 1.0
         epoch = restart_interval - 10
         assert scheduler(base_lr, epoch) == base_scheduler(base_lr, epoch)
 
-    def test_restart_scheduler_first_restart(self,
-                                             scheduler,
-                                             base_scheduler,
-                                             restart_interval,
-                                             restart_fraction) -> None:
+    def test_restart_scheduler_first_restart(
+        self, scheduler, base_scheduler, restart_interval, restart_fraction
+    ) -> None:
         """Test RestartScheduler exactly at the first restart point."""
         base_lr = 1.0
         epoch = restart_interval
         expected = base_scheduler(base_lr * restart_fraction, 0)
         assert scheduler(base_lr, epoch) == expected
 
-    def test_restart_scheduler_after_first_restart(self,
-                                                   scheduler,
-                                                   base_scheduler,
-                                                   restart_interval,
-                                                   max_restart) -> None:
+    def test_restart_scheduler_after_first_restart(
+        self, scheduler, base_scheduler, restart_interval, max_restart
+    ) -> None:
         """Test RestartScheduler after the first restart point."""
         base_lr = 1.0
         epoch = (max_restart + 1) * restart_interval
         expected = base_scheduler(base_lr, epoch)
         assert scheduler(base_lr, epoch) == expected
 
-    def test_restart_scheduler_multiple_restarts(self,
-                                                 scheduler,
-                                                 base_scheduler,
-                                                 restart_interval,
-                                                 restart_fraction) -> None:
+    def test_restart_scheduler_multiple_restarts(
+        self, scheduler, base_scheduler, restart_interval, restart_fraction
+    ) -> None:
         """Test RestartScheduler after multiple restarts."""
         base_lr = 1.0
         epoch = (2 * restart_interval) + 20
@@ -246,11 +236,9 @@ class TestRestartScheduler:
         expected = base_scheduler(expected_start_value, 20)
         assert scheduler(base_lr, epoch) == expected
 
-    def test_restart_after_max_restarts(self,
-                                        scheduler,
-                                        base_scheduler,
-                                        restart_interval,
-                                        restart_fraction) -> None:
+    def test_restart_after_max_restarts(
+        self, scheduler, base_scheduler, restart_interval, restart_fraction
+    ) -> None:
         """Test RestartScheduler after multiple restarts."""
         base_lr = 1.0
         epoch = (2 * restart_interval) + 20
@@ -263,14 +251,17 @@ class TestRestartScheduler:
         with pytest.raises(ValueError):
             RestartScheduler(ConstantScheduler(), restart_interval=0)
         with pytest.raises(ValueError):
-            RestartScheduler(ConstantScheduler(), restart_interval=10,
-                             restart_fraction=0.0)
+            RestartScheduler(
+                ConstantScheduler(), restart_interval=10, restart_fraction=0.0
+            )
         with pytest.raises(ValueError):
-            RestartScheduler(ConstantScheduler(), restart_interval=10,
-                             restart_fraction=-0.1)
+            RestartScheduler(
+                ConstantScheduler(), restart_interval=10, restart_fraction=-0.1
+            )
             with pytest.raises(ValueError):
-                RestartScheduler(ConstantScheduler(), restart_interval=10,
-                                 max_restart=-1)
+                RestartScheduler(
+                    ConstantScheduler(), restart_interval=10, max_restart=-1
+                )
 
 
 class TestWarmupScheduler:
@@ -289,8 +280,9 @@ class TestWarmupScheduler:
     @pytest.fixture
     def scheduler(self, warmup_steps, base_scheduler) -> AbstractScheduler:
         """Set up the instance."""
-        return WarmupScheduler(warmup_steps=warmup_steps,
-                               base_scheduler=base_scheduler)
+        return WarmupScheduler(
+            warmup_steps=warmup_steps, base_scheduler=base_scheduler
+        )
 
     def test_warmup_start(self, scheduler) -> None:
         """Test that warmup starts at zero learning rate."""
@@ -344,38 +336,34 @@ class TestPolynomialScheduler:
         return 0.1
 
     @pytest.fixture
-    def scheduler(
-            self, max_epochs, power, min_decay
-    ) -> AbstractScheduler:
+    def scheduler(self, max_epochs, power, min_decay) -> AbstractScheduler:
         """Set up the instance."""
-        return PolynomialScheduler(max_epochs=max_epochs,
-                                   power=power,
-                                   min_decay=min_decay)
+        return PolynomialScheduler(
+            max_epochs=max_epochs, power=power, min_decay=min_decay
+        )
 
     def test_polynomial_scheduler_start(self, scheduler) -> None:
         """Test PolynomialScheduler at the start of the schedule."""
         base_lr = 1.0
         assert scheduler(base_lr, 0) == base_lr
 
-    def test_polynomial_scheduler_mid(self,
-                                      scheduler,
-                                      max_epochs,
-                                      power,
-                                      min_decay) -> None:
+    def test_polynomial_scheduler_mid(
+        self, scheduler, max_epochs, power, min_decay
+    ) -> None:
         """Test PolynomialScheduler midway through the schedule."""
         base_lr = 1.0
         epoch = max_epochs // 2
         assert scheduler(base_lr, epoch) == pytest.approx(0.7363961)
 
     def test_polynomial_scheduler_end(
-            self, scheduler, max_epochs, min_decay
+        self, scheduler, max_epochs, min_decay
     ) -> None:
         """Test PolynomialScheduler at the end of the schedule."""
         base_lr = 1.0
         assert scheduler(base_lr, max_epochs) == 0.1
 
     def test_polynomial_scheduler_beyond_end(
-            self, scheduler, max_epochs, min_decay
+        self, scheduler, max_epochs, min_decay
     ) -> None:
         """Test PolynomialScheduler beyond max_epochs remains at min_decay."""
         base_lr = 1.0
@@ -425,22 +413,22 @@ class TestStepScheduler:
         """Test StepScheduler between milestones."""
         base_lr = 1.0
         assert scheduler(base_lr, 75) == base_lr * gamma
-        assert scheduler(base_lr, 120) == base_lr * (gamma ** 2)
+        assert scheduler(base_lr, 120) == base_lr * (gamma**2)
 
-    def test_step_scheduler_at_multiple_milestones(self,
-                                                   scheduler,
-                                                   gamma) -> None:
+    def test_step_scheduler_at_multiple_milestones(
+        self, scheduler, gamma
+    ) -> None:
         """Test StepScheduler at multiple milestones."""
         base_lr = 1.0
-        assert scheduler(base_lr, 100) == base_lr * (gamma ** 2)
-        assert scheduler(base_lr, 150) == base_lr * (gamma ** 3)
+        assert scheduler(base_lr, 100) == base_lr * (gamma**2)
+        assert scheduler(base_lr, 150) == base_lr * (gamma**3)
 
-    def test_step_scheduler_beyond_last_milestone(self,
-                                                  scheduler,
-                                                  gamma) -> None:
+    def test_step_scheduler_beyond_last_milestone(
+        self, scheduler, gamma
+    ) -> None:
         """Test StepScheduler beyond the last milestone."""
         base_lr = 1.0
-        assert scheduler(base_lr, 200) == base_lr * (gamma ** 3)
+        assert scheduler(base_lr, 200) == base_lr * (gamma**3)
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
@@ -490,8 +478,9 @@ class TestBindingOperation:
         restart_interval = 10
         restart_fraction = 0.5
 
-        restarted_scheduler = base_scheduler.bind(restart(restart_interval,
-                                                          restart_fraction))
+        restarted_scheduler = base_scheduler.bind(
+            restart(restart_interval, restart_fraction)
+        )
         expected = base_scheduler(base_lr, 5)
         assert restarted_scheduler(base_lr, 5) == expected
 

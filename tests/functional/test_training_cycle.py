@@ -21,28 +21,27 @@ def test_convergence(identity_trainer) -> None:
     """Test trainer convergence to 1."""
     identity_trainer.train(10)
     linear_weight = next(identity_trainer.model.module.parameters())
-    assert torch.isclose(linear_weight, torch.tensor(1.), atol=0.1)
+    assert torch.isclose(linear_weight, torch.tensor(1.0), atol=0.1)
 
 
-def test_early_stopping(square_loss_calc,
-                        identity_trainer) -> None:
+def test_early_stopping(square_loss_calc, identity_trainer) -> None:
     """Test early stopping when monitoring training."""
-    hook = hooks.EarlyStoppingCallback(square_loss_calc,
-                                       patience=2,
-                                       min_delta=1)
+    hook = hooks.EarlyStoppingCallback(
+        square_loss_calc, patience=2, min_delta=1
+    )
     identity_trainer.post_epoch_hooks.register(hook)
     identity_trainer.train(4)
     # 2 epochs of patience and terminate at 3 or 4
     assert identity_trainer.model.epoch in {3, 4}
 
 
-def test_early_stopping_on_val(identity_loader,
-                               square_loss_calc,
-                               identity_trainer) -> None:
+def test_early_stopping_on_val(
+    identity_loader, square_loss_calc, identity_trainer
+) -> None:
     """Test early stopping when monitoring validation."""
-    hook = hooks.EarlyStoppingCallback(square_loss_calc,
-                                       patience=2,
-                                       min_delta=1)
+    hook = hooks.EarlyStoppingCallback(
+        square_loss_calc, patience=2, min_delta=1
+    )
     identity_trainer.add_validation(val_loader=identity_loader)
     identity_trainer.post_epoch_hooks.register(hook)
     identity_trainer.train(4)
@@ -50,10 +49,9 @@ def test_early_stopping_on_val(identity_loader,
     assert identity_trainer.model.epoch == 3
 
 
-def test_pruning_callback(square_loss_calc,
-                          identity_trainer) -> None:
+def test_pruning_callback(square_loss_calc, identity_trainer) -> None:
     """Test pruning based on metric thresholds."""
-    pruning_thresholds = {2: 1., 3: 0.}
+    pruning_thresholds = {2: 1.0, 3: 0.0}
     identity_trainer.post_epoch_hooks.register(
         hooks.PruneCallback(
             thresholds=pruning_thresholds,
@@ -65,8 +63,7 @@ def test_pruning_callback(square_loss_calc,
     assert identity_trainer.model.epoch == 3
 
 
-def test_reduce_lr_on_plateau(square_loss_calc,
-                              identity_trainer) -> None:
+def test_reduce_lr_on_plateau(square_loss_calc, identity_trainer) -> None:
     """Test learning rate reduction on plateau."""
     factor = 0.1
     initial_lr = identity_trainer._model_optimizer.base_lr
@@ -82,8 +79,9 @@ def test_reduce_lr_on_plateau(square_loss_calc,
     assert final_lr == pytest.approx(factor * initial_lr)
 
 
-def test_restart_schedule_on_plateau(square_loss_calc,
-                                     identity_trainer) -> None:
+def test_restart_schedule_on_plateau(
+    square_loss_calc, identity_trainer
+) -> None:
     """Test learning rate schedule restart on plateau."""
     exp_scheduler = schedulers.ExponentialScheduler()
     initial_lr = identity_trainer._model_optimizer.base_lr

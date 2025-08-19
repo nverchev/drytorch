@@ -31,10 +31,10 @@ class TestWandb:
 
     @pytest.fixture
     def tracker_started(
-            self,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
     ) -> Generator[Wandb, None, None]:
         """Set up started instance."""
         tracker.notify(start_experiment_mock_event)
@@ -49,15 +49,17 @@ class TestWandb:
         self.finish_mock.assert_called_once()
         assert tracker._run is None
 
-    def test_notify_start_experiment(self,
-                                     mocker,
-                                     tracker_started,
-                                     example_config,
-                                     example_exp_name,
-                                     example_run_ts,
-                                     start_experiment_mock_event,
-                                     example_run_id,
-                                     example_tags) -> None:
+    def test_notify_start_experiment(
+        self,
+        mocker,
+        tracker_started,
+        example_config,
+        example_exp_name,
+        example_run_ts,
+        start_experiment_mock_event,
+        example_run_id,
+        example_tags,
+    ) -> None:
         """Test StartExperiment notification."""
         self.init_mock.assert_called_once_with(
             id=f'{example_exp_name}_{example_run_id}',
@@ -67,27 +69,32 @@ class TestWandb:
             group=example_exp_name,
             settings=mocker.ANY,
             resume=None,
-            tags=example_tags
+            tags=example_tags,
         )
 
-    def test_notify_metrics(self,
-                            mocker,
-                            tracker_started,
-                            epoch_metrics_mock_event,
-                            example_named_metrics) -> None:
+    def test_notify_metrics(
+        self,
+        mocker,
+        tracker_started,
+        epoch_metrics_mock_event,
+        example_named_metrics,
+    ) -> None:
         """Test Metrics notification."""
         log_mock = mocker.patch.object(tracker_started.run, 'log')
         tracker_started.notify(epoch_metrics_mock_event)
         model_name = epoch_metrics_mock_event.model_name
         source_name = epoch_metrics_mock_event.source_name
-        expected_metrics = {f'{model_name}/{source_name}-{name}': value
-                            for name, value in example_named_metrics.items()}
-        log_mock.assert_called_once_with(expected_metrics,
-                                         step=epoch_metrics_mock_event.epoch)
+        expected_metrics = {
+            f'{model_name}/{source_name}-{name}': value
+            for name, value in example_named_metrics.items()
+        }
+        log_mock.assert_called_once_with(
+            expected_metrics, step=epoch_metrics_mock_event.epoch
+        )
 
-    def test_notify_metrics_outside_scope(self,
-                                          tracker,
-                                          epoch_metrics_mock_event) -> None:
+    def test_notify_metrics_outside_scope(
+        self, tracker, epoch_metrics_mock_event
+    ) -> None:
         """Test Metrics notification outside scope."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
             tracker.notify(epoch_metrics_mock_event)

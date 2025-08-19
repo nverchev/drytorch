@@ -33,11 +33,9 @@ def test_failed_import_warning():
     with pytest.MonkeyPatch().context() as mp:
         original_import = __import__
 
-        def _mock_import(name: str,
-                         globals_=None,
-                         locals_=None,
-                         fromlist=(),
-                         level=0):
+        def _mock_import(
+            name: str, globals_=None, locals_=None, fromlist=(), level=0
+        ):
             if name == 'drytorch.trackers' and fromlist:
                 if 'tqdm' in fromlist:
                     raise ImportError()

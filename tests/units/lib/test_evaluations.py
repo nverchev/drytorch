@@ -99,8 +99,10 @@ class TestTest:
         """Test __call__ method logs start and end test events."""
         test_instance(store_outputs=True)
 
-        self.mock_start_test.assert_called_once_with(test_instance.name,
-                                                     test_instance.model.name)
+        self.mock_start_test.assert_called_once_with(
+            test_instance.name, test_instance.model.name
+        )
         self.mock_super_call.assert_called_once_with(True)
-        self.mock_end_test.assert_called_once_with(test_instance.name,
-                                                   test_instance.model.name)
+        self.mock_end_test.assert_called_once_with(
+            test_instance.name, test_instance.model.name
+        )

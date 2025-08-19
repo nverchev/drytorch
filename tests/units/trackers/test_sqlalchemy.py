@@ -67,10 +67,10 @@ class TestSQLConnection:
 
     @pytest.fixture
     def tracker_started(
-            self,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
     ) -> Generator[SQLConnection, None, None]:
         """Start the instance."""
         tracker.notify(start_experiment_mock_event)
@@ -96,27 +96,27 @@ class TestSQLConnection:
             _ = tracker.run
 
     def test_notify_start_experiment_creates_new_run(
-            self,
-            tracker_started,
-            start_experiment_mock_event,
+        self,
+        tracker_started,
+        start_experiment_mock_event,
     ) -> None:
         """Test start experiment notification creates new tables."""
         assert tracker_started.run == self.run
         self.mock_context.add.assert_called_with(self.exp)
 
     def test_notify_start_stop_experiment(
-            self,
-            tracker_started,
-            stop_experiment_mock_event,
+        self,
+        tracker_started,
+        stop_experiment_mock_event,
     ) -> None:
         """Test stop experiment notification cleans up the state."""
         tracker_started.notify(stop_experiment_mock_event)
         assert tracker_started._run is None
 
     def test_notify_call_model(
-            self,
-            tracker_started,
-            actor_registration_mock_event,
+        self,
+        tracker_started,
+        actor_registration_mock_event,
     ) -> None:
         """Test call model notification creates the source."""
         tracker_started.notify(actor_registration_mock_event)
@@ -125,10 +125,10 @@ class TestSQLConnection:
         assert actor_registration_mock_event.actor_name in sources
 
     def test_notify_metrics(
-            self,
-            tracker_started,
-            actor_registration_mock_event,
-            epoch_metrics_mock_event,
+        self,
+        tracker_started,
+        actor_registration_mock_event,
+        epoch_metrics_mock_event,
     ) -> None:
         """Test metrics notification creates log entries."""
         tracker_started.notify(actor_registration_mock_event)
@@ -137,10 +137,10 @@ class TestSQLConnection:
         self.mock_context.add.assert_called_with(self.log)
 
     def test_unknown_source(
-            self,
-            tracker_started,
-            actor_registration_mock_event,
-            epoch_metrics_mock_event,
+        self,
+        tracker_started,
+        actor_registration_mock_event,
+        epoch_metrics_mock_event,
     ) -> None:
         """Test metrics notification from an unknown source raises an error."""
         tracker_started.notify(actor_registration_mock_event)
@@ -148,9 +148,9 @@ class TestSQLConnection:
         with pytest.raises(exceptions.TrackerError):
             tracker_started.notify(epoch_metrics_mock_event)
 
-    def test_find_sources_nonexistent_model(self,
-                                            mocker,
-                                            tracker_started) -> None:
+    def test_find_sources_nonexistent_model(
+        self, mocker, tracker_started
+    ) -> None:
         """Test _find_sources with a nonexistent model raises an exception."""
         mock_query = mocker.MagicMock()
         mock_query.where.return_value = mock_query
@@ -160,27 +160,27 @@ class TestSQLConnection:
             tracker_started._find_sources('nonexistent_model')
 
     def test_get_run_metrics(
-            self,
-            mocker,
-            tracker_started,
+        self,
+        mocker,
+        tracker_started,
     ) -> None:
         """Test getting multiple metrics from the same epoch."""
         mock_log = mocker.Mock()
         mock_log.epoch = 1
         mock_log.metric_name = 'test_model'
-        mock_log.value = 2.
+        mock_log.value = 2.0
         mock_log2 = mocker.Mock()
         mock_log2.epoch = 1
         mock_log2.metric_name = 'test_model_2'
-        mock_log2.value = 4.
+        mock_log2.value = 4.0
         mock_log3 = mocker.Mock()
         mock_log3.epoch = 2
         mock_log3.metric_name = 'test_model'
-        mock_log3.value = 3.
+        mock_log3.value = 3.0
         mock_log4 = mocker.Mock()
         mock_log4.epoch = 2
         mock_log4.metric_name = 'test_model_2'
-        mock_log4.value = 5.
+        mock_log4.value = 5.0
 
         mock_list = [mock_log, mock_log2, mock_log3, mock_log4]
         mock_query = mocker.MagicMock()
@@ -193,19 +193,19 @@ class TestSQLConnection:
         assert metrics['test_model_2'] == [4, 5]
 
     def test_get_run_wrong_metrics(
-            self,
-            mocker,
-            tracker_started,
+        self,
+        mocker,
+        tracker_started,
     ) -> None:
         """Test missing metric."""
         mock_log3 = mocker.Mock()
         mock_log3.epoch = 1
         mock_log3.metric_name = 'test_model'
-        mock_log3.value = 3.
+        mock_log3.value = 3.0
         mock_log4 = mocker.Mock()
         mock_log4.epoch = 2
         mock_log4.metric_name = 'test_model_2'
-        mock_log4.value = 5.
+        mock_log4.value = 5.0
         mock_list = [mock_log3, mock_log4]
         mock_query = mocker.MagicMock()
         mock_query.where.return_value = mock_query
@@ -217,22 +217,22 @@ class TestSQLConnection:
         assert err.match('test_model_2')
 
     def test_start_experiment_run_creation(
-            self,
-            tracker,
-            start_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
     ) -> None:
         """Test StartExperimentEvent creates Run with the correct parameters."""
         tracker.notify(start_experiment_mock_event)
         self.Run.assert_called_once_with(
             start_experiment_mock_event.run_id,
             start_experiment_mock_event.run_ts,
-            self.exp
+            self.exp,
         )
 
     def test_start_experiment_tags_creation(
-            self,
-            tracker,
-            start_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
     ) -> None:
         """Test that tags are created for each tag in the event."""
         start_experiment_mock_event.tags = ['tag1', 'tag2']
@@ -240,9 +240,9 @@ class TestSQLConnection:
         assert self.Tags.call_count == len(start_experiment_mock_event.tags)
 
     def test_actor_registration_source_creation(
-            self,
-            tracker_started,
-            actor_registration_mock_event,
+        self,
+        tracker_started,
+        actor_registration_mock_event,
     ) -> None:
         """Test ActorRegistrationEvent creates Source correctly."""
         tracker_started.notify(actor_registration_mock_event)
@@ -255,10 +255,10 @@ class TestSQLConnection:
         )
 
     def test_metric_event_log_creation(
-            self,
-            tracker_started,
-            actor_registration_mock_event,
-            epoch_metrics_mock_event,
+        self,
+        tracker_started,
+        actor_registration_mock_event,
+        epoch_metrics_mock_event,
     ) -> None:
         """Test that MetricEvent creates Log entries for each metric."""
         tracker_started.notify(actor_registration_mock_event)
@@ -267,9 +267,9 @@ class TestSQLConnection:
         assert self.Log.call_count == len(epoch_metrics_mock_event.metrics)
 
     def test_sqlalchemy_query_usage(
-            self,
-            mocker,
-            tracker_started,
+        self,
+        mocker,
+        tracker_started,
     ) -> None:
         """Test that SQLAlchemy queries use the correct syntax."""
         mock_query = mocker.MagicMock()
@@ -286,9 +286,9 @@ class TestSQLConnection:
         mock_query.where.assert_called_once()
 
     def test_load_metrics_method(
-            self,
-            mocker,
-            tracker_started,
+        self,
+        mocker,
+        tracker_started,
     ) -> None:
         """Test the _load_metrics method integration."""
         mock_sources = {'source1': [self.source]}
@@ -304,6 +304,4 @@ class TestSQLConnection:
         assert 'source1' in result
         assert result['source1'] == mock_metrics
         find_sources.assert_called_once_with('test_model')
-        get_run_metrics.assert_called_once_with(
-            [self.source], max_epoch=10
-        )
+        get_run_metrics.assert_called_once_with([self.source], max_epoch=10)

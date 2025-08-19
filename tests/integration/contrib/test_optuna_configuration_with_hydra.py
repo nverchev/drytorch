@@ -26,31 +26,32 @@ class TestSuggestOverridesWithHydra:
     @pytest.fixture
     def tune_cfg(self) -> DictConfig:
         """A test configuration."""
-        return OmegaConf.create({
-            'overrides': [],
-            'tune': {
-                'params': {
-                    'model.type': {
-                        'suggest': 'suggest_categorical',
-                        'settings': {'choices': ['cnn', 'mlp']}
-                    },
-                    'batch_size': {
-                        'suggest': 'suggest_int',
-                        'settings': {'low': 16, 'high': 256, 'log': True}
-                    },
-                    'dropouts': {
-                        'suggest': 'suggest_list',
-                        'settings': {
-                            'min_length': 1,
-                            'max_length': 3,
-                            'suggest': 'suggest_float',
-                            'settings': {'low': 0.0, 'high': 0.5}
-
-                        }
+        return OmegaConf.create(
+            {
+                'overrides': [],
+                'tune': {
+                    'params': {
+                        'model.type': {
+                            'suggest': 'suggest_categorical',
+                            'settings': {'choices': ['cnn', 'mlp']},
+                        },
+                        'batch_size': {
+                            'suggest': 'suggest_int',
+                            'settings': {'low': 16, 'high': 256, 'log': True},
+                        },
+                        'dropouts': {
+                            'suggest': 'suggest_list',
+                            'settings': {
+                                'min_length': 1,
+                                'max_length': 3,
+                                'suggest': 'suggest_float',
+                                'settings': {'low': 0.0, 'high': 0.5},
+                            },
+                        },
                     }
-                }
+                },
             }
-        })
+        )
 
     @pytest.fixture
     def config_name(self) -> Generator[str, None, None]:
@@ -91,17 +92,16 @@ class TestSuggestOverridesWithHydra:
         for dropout in dropout_values:
             assert 0.0 <= float(dropout) <= 0.5
 
-    def test_hydra_accepts_overrides(self,
-                                     trial,
-                                     tune_cfg,
-                                     config_name) -> None:
+    def test_hydra_accepts_overrides(
+        self, trial, tune_cfg, config_name
+    ) -> None:
         """Test suggest_overrides with actual optuna trial."""
-        with hydra.initialize(version_base=None,
-                              config_path='.'):
+        with hydra.initialize(version_base=None, config_path='.'):
             overrides = suggest_overrides(tune_cfg, trial)
-            dict_cfg = hydra.compose(config_name=config_name,
-                                     overrides=overrides,
-                                     )
+            dict_cfg = hydra.compose(
+                config_name=config_name,
+                overrides=overrides,
+            )
         assert dict_cfg.model.type in {'cnn', 'mlp'}
         assert 16 <= dict_cfg.batch_size <= 256
         for dropout in dict_cfg.dropouts:

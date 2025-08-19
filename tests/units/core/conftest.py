@@ -18,6 +18,7 @@ def mock_run(session_mocker, tmpdir_factory, example_run_id) -> Run:
     mock_run.id = example_run_id
     return mock_run
 
+
 @pytest.fixture(scope='module')
 def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     """Fixture for a mock experiment."""

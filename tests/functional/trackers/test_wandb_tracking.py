@@ -21,18 +21,18 @@ class TestWandbFullCycle:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path, event_workflow) -> None:
         """Set up a unique experiment name for every test run."""
-        self.settings = wandb_settings.Settings(anonymous='allow',
-                                                mode='offline',
-                                                root_dir=tmp_path.as_posix())
+        self.settings = wandb_settings.Settings(
+            anonymous='allow', mode='offline', root_dir=tmp_path.as_posix()
+        )
         tracker = Wandb(settings=self.settings)
         for event in event_workflow:
             tracker.notify(event)
 
     @pytest.fixture
     def resumed_tracker(
-            self,
-            start_experiment_event,
-            stop_experiment_event,
+        self,
+        start_experiment_event,
+        stop_experiment_event,
     ) -> Generator[Wandb, None, None]:
         """Set up a resumed instance."""
         tracker = Wandb(settings=self.settings)
@@ -48,12 +48,14 @@ class TestWandbFullCycle:
         assert created_items
 
     @pytest.mark.skip(reason='wandb does not support resuming offline runs')
-    def test_resume_functionality(self,
-                                  resumed_tracker,
-                                  start_training_event,
-                                  example_model_name,
-                                  example_source_name,
-                                  example_loss_name):
+    def test_resume_functionality(
+        self,
+        resumed_tracker,
+        start_training_event,
+        example_model_name,
+        example_source_name,
+        example_loss_name,
+    ):
         """Test that resume functionality works correctly."""
         key = f'{example_model_name}/{example_source_name}-{example_loss_name}'
         summary = resumed_tracker.run.summary

@@ -19,9 +19,9 @@ from drytorch.utils import apply_ops, repr_utils
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
-_Objective_co = TypeVar('_Objective_co',
-                        bound=p.LossProtocol[Any, Any],
-                        covariant=True)
+_Objective_co = TypeVar(
+    '_Objective_co', bound=p.LossProtocol[Any, Any], covariant=True
+)
 
 
 class ModelCaller(
@@ -50,6 +50,7 @@ class ModelCaller(
         self._name = name
         return
 
+    # noinspection PyProtocol
     @property
     def name(self) -> str:
         """The name of the model."""

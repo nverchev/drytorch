@@ -306,9 +306,9 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
         for handler in root_logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 if handler.stream in (
-                        h.stream
-                        for h in logger.handlers
-                        if isinstance(h, logging.StreamHandler)
+                    h.stream
+                    for h in logger.handlers
+                    if isinstance(h, logging.StreamHandler)
                 ):
                     handler.addFilter(DryTorchFilter())
 

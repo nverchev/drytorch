@@ -22,8 +22,8 @@ class TestTensorBoard:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Setup test environment."""
-        self.open_browser_mock = mocker.patch("webbrowser.open")
-        self.mock_popen = mocker.patch("subprocess.Popen")
+        self.open_browser_mock = mocker.patch('webbrowser.open')
+        self.mock_popen = mocker.patch('subprocess.Popen')
         self.summary_writer_mock = mocker.patch(
             'torch.utils.tensorboard.SummaryWriter',
         )
@@ -36,10 +36,10 @@ class TestTensorBoard:
 
     @pytest.fixture
     def tracker_started(
-            self,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
     ) -> Generator[TensorBoard, None, None]:
         """Set up the instance with resume."""
         tracker.notify(start_experiment_mock_event)
@@ -54,11 +54,11 @@ class TestTensorBoard:
         assert tracker_started._writer is None
 
     def test_notify_stop_and_start_experiment(
-            self,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
-            example_run_id,
+        self,
+        tracker,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        example_run_id,
     ) -> None:
         """Test experiment notifications."""
         start_experiment_mock_event.config = {'simple_config': 3}
@@ -73,26 +73,26 @@ class TestTensorBoard:
         writer.close.assert_called_once()
         assert tracker._writer is None
 
-
-    def test_notify_metrics(self,
-                            tracker_started,
-                            epoch_metrics_mock_event) -> None:
+    def test_notify_metrics(
+        self, tracker_started, epoch_metrics_mock_event
+    ) -> None:
         """Test there is one call for each metrics."""
         tracker_started.notify(epoch_metrics_mock_event)
         n_metrics = len(epoch_metrics_mock_event.metrics)
         assert tracker_started.writer.add_scalar.call_count == n_metrics
 
-    def test_no_logging_before_start(self,
-                                     tracker,
-                                     epoch_metrics_mock_event) -> None:
+    def test_no_logging_before_start(
+        self, tracker, epoch_metrics_mock_event
+    ) -> None:
         """Test no logging occurs before experiment start."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
             tracker.notify(epoch_metrics_mock_event)
 
     def test_tensorboard_launch_fails_on_port_conflict(self, mocker, tmp_path):
         """Test error is raised if no free ports are available."""
-        port_available_mock = mocker.patch.object(TensorBoard,
-                                                  '_port_available')
+        port_available_mock = mocker.patch.object(
+            TensorBoard, '_port_available'
+        )
         port_available_mock.return_value = False
         with pytest.raises(exceptions.TrackerError):
             TensorBoard._find_free_port(start=6006, max_tries=100)
@@ -108,8 +108,10 @@ class TestTensorBoard:
         """Test each tracker gets a unique port and browser launch."""
         # mock _find_free_port to return different ports for each tracker
         find_port_mock = mocker.patch.object(TensorBoard, '_find_free_port')
-        find_port_mock.side_effect = [6007,
-                                      6008]  # different ports for each call
+        find_port_mock.side_effect = [
+            6007,
+            6008,
+        ]  # different ports for each call
         tracker1 = TensorBoard(par_dir=tmp_path / 'exp1', open_browser=True)
         tracker2 = TensorBoard(par_dir=tmp_path / 'exp2', open_browser=True)
         tracker1._start_tensorboard(tmp_path / 'exp1')

@@ -27,19 +27,20 @@ class TestPathManager:
     """Tests for PathManager."""
 
     @pytest.fixture()
-    def manager(self,
-                mock_model,
-                tmp_path) -> checkpoints.CheckpointPathManager:
+    def manager(
+        self, mock_model, tmp_path
+    ) -> checkpoints.CheckpointPathManager:
         """Set up the path manager."""
         return checkpoints.CheckpointPathManager(mock_model, tmp_path)
-
 
     def test_paths(self, manager):
         """Test that the paths have the correct name."""
         epoch_dir = manager.epoch_dir
         paths = [manager.model_state_path, manager.optimizer_state_path]
-        expected_paths = [epoch_dir / 'model_state.pt',
-                          epoch_dir / 'optimizer_state.pt']
+        expected_paths = [
+            epoch_dir / 'model_state.pt',
+            epoch_dir / 'optimizer_state.pt',
+        ]
 
         for path, expected_path in zip(paths, expected_paths, strict=False):
             assert path == expected_path
@@ -47,6 +48,7 @@ class TestPathManager:
 
 class TestLocalCheckpoint:
     """Tests for LocalCheckpoint."""
+
     @pytest.fixture(autouse=True)
     def setup(self, mocker):
         """Set up the model state class."""
@@ -59,10 +61,9 @@ class TestLocalCheckpoint:
         return torch.optim.SGD(mock_model.module.parameters())
 
     @pytest.fixture()
-    def checkpoint(self,
-                   mock_model,
-                   optimizer,
-                   tmp_path) -> checkpoints.LocalCheckpoint:
+    def checkpoint(
+        self, mock_model, optimizer, tmp_path
+    ) -> checkpoints.LocalCheckpoint:
         """Set up the checkpoint."""
         checkpoint = checkpoints.LocalCheckpoint(tmp_path)
         checkpoint.register_model(mock_model)
@@ -79,7 +80,7 @@ class TestLocalCheckpoint:
         checkpoint.save()
         self.mock_save_event.assert_called_once()
         old_weight = checkpoint.model.module.weight.clone()
-        new_weight = torch.FloatTensor([[0.]])
+        new_weight = torch.FloatTensor([[0.0]])
         checkpoint.model.module.weight = torch.nn.Parameter(new_weight)
         assert old_weight != checkpoint.model.module.weight
         checkpoint.load(checkpoint.model.epoch)

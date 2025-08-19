@@ -99,3 +99,4 @@ log_cli_level = "WARNING"
 mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]
+plugins = ["sqlalchemy.ext.mypy.plugin"]

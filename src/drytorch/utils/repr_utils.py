@@ -1,7 +1,7 @@
 """Module containing utilities to extract readable representations.
 
 Attributes:
-    MAX_DEPTH: Max number of recursion when representing an object.
+    MAX_DEPTH: Max number of recursions when representing an object.
     MAX_REPR_SIZE: Max representation size for iterators and arrays.
     INCLUDE_PROPERTIES: Whether to evaluate properties and represent them.
 """
@@ -159,12 +159,12 @@ class Omitted:
 
 @functools.singledispatch
 def recursive_repr(obj: object, *, depth: int = MAX_DEPTH) -> Any:
-    """Create a recur representation of an object.
+    """Create a hierarchical representation of an object.
 
     It recursively represents each attribute of the object or the contained
     items in tuples, lists, sets, and dictionaries. The latter structures are
     limited in size by limiting the number of elements and replacing the others
-    with an Omitted instance. Arrays are represented using native represenation
+    with an Omitted instance. Arrays are represented using native representation
     Numbers are returned as they are or converted to built-in types.
 
     Args:
@@ -234,7 +234,7 @@ def _(obj: GenericList, *, depth: int = 10) -> list[Any]:
 
 
 @recursive_repr.register
-def _(obj: GenericSet, *, depth: int = 10, max_size: int = 10) -> set[Hashable]:
+def _(obj: GenericSet, *, depth: int = 10) -> set[Hashable]:
     return {recursive_repr(item, depth=depth - 1) for item in _limit_size(obj)}
 
 
@@ -251,7 +251,7 @@ def _(obj: GenericDict, *, depth: int = 10) -> dict[str, Any]:
 
 @recursive_repr.register
 def _(obj: torch.Tensor, *, depth: int = 10) -> LiteralStr:
-    _not_used = MAX_REPR_SIZE
+    _not_used = depth
     return recursive_repr(obj.detach().cpu().numpy())
 
 
@@ -296,7 +296,7 @@ def _get_object_attributes(obj: object) -> dict[str, Any]:
     # Add slot attributes if no __dict__
     if not attributes:
         slot_names = getattr(obj, '__slots__', [])
-        attributes = {name: getattr(obj, name, None) for  name in slot_names}
+        attributes = {name: getattr(obj, name, None) for name in slot_names}
 
     # Add properties if enabled
     if INCLUDE_PROPERTIES:
@@ -335,7 +335,7 @@ def _limit_size(container: Iterable[Any]) -> list[Any]:
             listed = (
                 listed[: MAX_REPR_SIZE // 2]
                 + omitted
-                + listed[-MAX_REPR_SIZE // 2 :]
+                + listed[-MAX_REPR_SIZE // 2:]
             )
 
     else:

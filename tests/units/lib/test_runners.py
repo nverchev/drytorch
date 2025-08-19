@@ -66,8 +66,7 @@ class TestModelCaller:
     def test_call_registration(self, caller) -> None:
         """Test __call__ method registers model on first call."""
         caller()
-        self.mock_register_actor.assert_called_once_with(caller,
-                                                         caller.model)
+        self.mock_register_actor.assert_called_once_with(caller, caller.model)
 
 
 class TestModelRunner:
@@ -81,7 +80,8 @@ class TestModelRunner:
         self.mock_output = mocker.Mock()
         self.mock_apply_ops = mocker.patch(
             'drytorch.utils.apply_ops.apply_cpu_detach',
-            return_value=self.mock_output)
+            return_value=self.mock_output,
+        )
         self.mock_apply_to = mocker.patch('drytorch.utils.apply_ops.apply_to')
         self.mock_apply_to.side_effect = lambda x, device: x
         self.mock_iterate_batch = mocker.patch(
@@ -116,18 +116,16 @@ class TestModelRunner:
     def test_run_batch(self, mocker, runner) -> None:
         """Test batch processing runs forward and backwards."""
         mock_batch = (self.mock_input, self.mock_target)
-        fwd = mocker.patch.object(runner,
-                                  '_run_forward',
-                                  return_value=self.mock_output)
+        fwd = mocker.patch.object(
+            runner, '_run_forward', return_value=self.mock_output
+        )
         bwd = mocker.patch.object(runner, '_run_backward')
         result = runner._run_batch(mock_batch)
         assert result == self.mock_output
         fwd.assert_called_once_with(self.mock_input)
         bwd.assert_called_once_with(self.mock_output, self.mock_target)
 
-    def test_run_forward(self,
-                         runner,
-                         mock_model) -> None:
+    def test_run_forward(self, runner, mock_model) -> None:
         """Test forward pass."""
         mock_model.return_value = self.mock_output
         runner.mixed_precision = False
@@ -135,9 +133,7 @@ class TestModelRunner:
         assert result == self.mock_output
         mock_model.assert_called_once()
 
-    def test_run_epoch_without_storing_outputs(self,
-                                               mocker,
-                                               runner) -> None:
+    def test_run_epoch_without_storing_outputs(self, mocker, runner) -> None:
         """Test epoch run without storing outputs."""
         get_batch = mocker.patch.object(runner, '_get_batches')
         get_batch.return_value = 2 * [(self.mock_input, self.mock_target)]
@@ -166,9 +162,7 @@ class TestModelRunner:
         runner._run_epoch(store_outputs=True)
         _store.assert_called_once_with([self.mock_output])
 
-    def test_outputs_list_cleared_on_epoch_run(self,
-                                               mocker,
-                                               runner) -> None:
+    def test_outputs_list_cleared_on_epoch_run(self, mocker, runner) -> None:
         """Test that the output list is cleared at the start of each epoch."""
         runner.outputs_list = [self.mock_output]
         get_batch = mocker.patch.object(runner, '_get_batches')
@@ -186,18 +180,19 @@ class TestModelRunner:
         self.mock_apply_ops.assert_called_once_with(test_object)
         assert runner.outputs_list == [self.mock_output]
 
-    @pytest.mark.parametrize('warning', [
-        exceptions.FuncNotApplicableError('wrong_func', 'wrong_type'),
-        exceptions.NamedTupleOnlyError('wrong_type')
-
-    ])
-    def test_store_outputs_warning(self, mocker, runner,
-                                   warning) -> None:
+    @pytest.mark.parametrize(
+        'warning',
+        [
+            exceptions.FuncNotApplicableError('wrong_func', 'wrong_type'),
+            exceptions.NamedTupleOnlyError('wrong_type'),
+        ],
+    )
+    def test_store_outputs_warning(self, mocker, runner, warning) -> None:
         """Test warning is raised if output cannot be stored."""
         mock_output = mocker.Mock()
         mock_apply_ops = mocker.patch(
-            'drytorch.utils.apply_ops.apply_cpu_detach',
-            side_effect=warning)
+            'drytorch.utils.apply_ops.apply_cpu_detach', side_effect=warning
+        )
 
         with pytest.warns(exceptions.CannotStoreOutputWarning):
             runner._store(mock_output)
@@ -226,10 +221,9 @@ class TestModelRunnerWithObjective:
         return
 
     @pytest.fixture
-    def runner(self,
-               mock_model,
-               mock_loader,
-               mock_loss) -> ModelRunnerWithObjective:
+    def runner(
+        self, mock_model, mock_loader, mock_loss
+    ) -> ModelRunnerWithObjective:
         """Set up a test instance."""
         return ModelRunnerWithObjective(
             mock_model,
@@ -245,8 +239,9 @@ class TestModelRunnerWithObjective:
     def test_run_backward(self, runner) -> None:
         """Test backward pass updates the objective."""
         runner._run_backward(self.mock_output, self.mock_target)
-        runner.objective.update.assert_called_once_with(self.mock_output,
-                                                        self.mock_target)
+        runner.objective.update.assert_called_once_with(
+            self.mock_output, self.mock_target
+        )
 
     def test_objective_reset_on_epoch_run(self, runner) -> None:
         """Test that the objective is reset at the start of each epoch."""
@@ -282,9 +277,9 @@ class TestModelRunnerWithLogs:
             objective=mock_loss,
         )
 
-    def test_run_epoch_without_storing_outputs(self,
-                                               runner,
-                                               example_named_metrics) -> None:
+    def test_run_epoch_without_storing_outputs(
+        self, runner, example_named_metrics
+    ) -> None:
         """Test epoch run logs metrics."""
         runner._run_epoch(False)
         self.mock_log_events_metrics.assert_called_once_with(

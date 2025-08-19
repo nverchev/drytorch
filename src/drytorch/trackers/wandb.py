@@ -16,13 +16,14 @@ from drytorch.utils.repr_utils import recursive_repr
 
 class Wandb(Dumper):
     """Tracker that wraps a run for the wandb library."""
+
     _default_settings = wandb_settings.Settings()
     folder_name = 'wandb'
 
     def __init__(
-            self,
-            par_dir: pathlib.Path | None = None,
-            settings: wandb_settings.Settings = _default_settings,
+        self,
+        par_dir: pathlib.Path | None = None,
+        settings: wandb_settings.Settings = _default_settings,
     ) -> None:
         """Constructor.
 
@@ -79,14 +80,16 @@ class Wandb(Dumper):
         if not run_id:
             run_id = event.exp_name + '_' + event.run_id
 
-        self._run = wandb.init(id=run_id,
-                               dir=self.par_dir.as_posix(),
-                               project=project,
-                               group=group,
-                               config=recursive_repr(event.config),
-                               tags=event.tags,
-                               settings=self._settings,
-                               resume='allow' if event.resumed else None)
+        self._run = wandb.init(
+            id=run_id,
+            dir=self.par_dir.as_posix(),
+            project=project,
+            group=group,
+            config=recursive_repr(event.config),
+            tags=event.tags,
+            settings=self._settings,
+            resume='allow' if event.resumed else None,
+        )
         return
 
     @notify.register
@@ -99,8 +102,10 @@ class Wandb(Dumper):
         if self.run is None:
             raise exceptions.AccessOutsideScopeError()
 
-        plot_names = {f'{event.model_name}/{event.source_name}-{name}': value
-                      for name, value in event.metrics.items()}
-        # noinspection PyTypeChecker, PydanticTypeChecker
+        plot_names = {
+            f'{event.model_name}/{event.source_name}-{name}': value
+            for name, value in event.metrics.items()
+        }
+        # noinspection PyTypeChecker
         self.run.log(plot_names, step=event.epoch)
         return super().notify(event)

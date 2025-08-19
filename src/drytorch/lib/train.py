@@ -54,7 +54,7 @@ class Trainer(
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
         self.learning_scheme = learning_scheme
-        self.validation = None
+        self.validation: p.MonitorProtocol | None = None
         self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
         self.pre_epoch_hooks = hooks.HookRegistry[
             Trainer[_Input, _Target, _Output]

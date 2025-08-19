@@ -166,13 +166,13 @@ class MetricCollection(Objective[_Output_contra, _Target_contra]):
     def __or__(
         self, other: MetricCollection[_Output_contra, _Target_contra]
     ) -> MetricCollection[_Output_contra, _Target_contra]:
-        """Constructor that use existing MetricCollection objects as templates.
+        """Constructor using existing MetricCollection objects as templates.
 
-        This class does not aggregate the states. It you intend to do this,
+        This class does not aggregate the states. If you intend to do this,
         use the merge_state method separately.
 
         Args:
-            other: anather MetricCollection object to combine with.
+            other: another MetricCollection object to combine with.
 
         Returns:
             A new instance containing metrics from both instances.
@@ -329,7 +329,7 @@ class LossBase(
         )
 
     def __neg__(self) -> CompositionalLoss[_Output_contra, _Target_contra]:
-        """Constructor from existing template.
+        """Constructor from an existing template.
 
         Returns:
             A new CompositionalLoss representing the negated loss.

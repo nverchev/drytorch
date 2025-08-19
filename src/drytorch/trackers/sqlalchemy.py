@@ -7,6 +7,8 @@ import functools
 
 from typing import cast
 
+from typing_extensions import dataclass_transform
+
 import sqlalchemy
 
 from sqlalchemy import orm, sql
@@ -15,11 +17,12 @@ from typing_extensions import override
 from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
-
 reg = orm.registry()
 
 
-@reg.mapped_as_dataclass
+mapped_as_dataclass = dataclass_transform()(reg.mapped_as_dataclass)
+
+@mapped_as_dataclass
 class Experiment:
     """Table for experiments.
 
@@ -47,7 +50,8 @@ class Experiment:
         cascade='all, delete-orphan',
     )
 
-@reg.mapped_as_dataclass
+
+@mapped_as_dataclass
 class Tags:
     """Table for tags for experiments.
 
@@ -73,7 +77,7 @@ class Tags:
     text: orm.Mapped[str] = orm.mapped_column(index=True)
 
 
-@reg.mapped_as_dataclass
+@mapped_as_dataclass
 class Run:
     """Table for runs.
 
@@ -101,7 +105,8 @@ class Run:
         init=False,
     )
     experiment: orm.Mapped[Experiment] = orm.relationship(
-        back_populates=Experiment.runs.key)
+        back_populates=Experiment.runs.key
+    )
 
     sources: orm.Mapped[list[Source]] = orm.relationship(
         init=False,
@@ -109,7 +114,7 @@ class Run:
     )
 
 
-@reg.mapped_as_dataclass
+@mapped_as_dataclass
 class Source:
     """Table for sources.
 
@@ -145,7 +150,7 @@ class Source:
     )
 
 
-@reg.mapped_as_dataclass
+@mapped_as_dataclass
 class Log:
     """Table for the logs of the metrics.
 
@@ -196,8 +201,8 @@ class SQLConnection(base_classes.MetricLoader):
     default_url = sqlalchemy.URL.create('sqlite', database='metrics.db')
 
     def __init__(
-            self,
-            engine: sqlalchemy.Engine | None = None,
+        self,
+        engine: sqlalchemy.Engine | None = None,
     ) -> None:
         """Constructor.
 
@@ -236,7 +241,6 @@ class SQLConnection(base_classes.MetricLoader):
         with self.session_factory() as session:
             experiment = Experiment(
                 experiment_name=event.exp_name,
-
             )
 
             for tag_str in event.tags:
@@ -292,9 +296,13 @@ class SQLConnection(base_classes.MetricLoader):
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
         with self.session_factory() as session:
             run = session.merge(self.run)
-            query = session.query(Source).join(Source.run).where(
-                Run.run_id.is_(run.run_id),
-                Source.model_name.is_(model_name),
+            query = (
+                session.query(Source)
+                .join(Source.run)
+                .where(
+                    Run.run_id.is_(run.run_id),
+                    Source.model_name.is_(model_name),
+                )
             )
             named_sources = dict[str, list[Source]]()
             for source in query:
@@ -309,9 +317,9 @@ class SQLConnection(base_classes.MetricLoader):
             return named_sources
 
     def _get_run_metrics(
-            self,
-            sources: list[Source],
-            max_epoch: int,
+        self,
+        sources: list[Source],
+        max_epoch: int,
     ) -> base_classes.HistoryMetrics:
         with self.session_factory() as session:
             sources = [session.merge(source) for source in sources]
@@ -343,7 +351,7 @@ class SQLConnection(base_classes.MetricLoader):
         return epochs, named_metric_values
 
     def _load_metrics(
-            self, model_name: str, max_epoch: int = -1
+        self, model_name: str, max_epoch: int = -1
     ) -> base_classes.SourcedMetrics:
         last_sources = self._find_sources(model_name)
         out: base_classes.SourcedMetrics = {}

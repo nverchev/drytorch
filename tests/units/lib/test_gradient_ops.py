@@ -45,9 +45,9 @@ def tensor_random_grad(tensor_no_grad) -> torch.nn.Parameter:
 
 
 @pytest.fixture
-def example_parameters(tensor_no_grad,
-                       tensor_zero_grad,
-                       tensor_random_grad) -> Iterable[torch.nn.Parameter]:
+def example_parameters(
+    tensor_no_grad, tensor_zero_grad, tensor_random_grad
+) -> Iterable[torch.nn.Parameter]:
     """Iterator of tensors with: no grad, zero grad, random grad."""
     # create an iterator that will be exhausted as in model.parameters()
     tensor_tuple = (tensor_no_grad, tensor_zero_grad, tensor_random_grad)
@@ -62,11 +62,9 @@ class TestGradNormalizer:
         """Set up the instance."""
         return GradNormalizer()
 
-    def test_call(self,
-                  grad_op,
-                  tensor_zero_grad,
-                  tensor_random_grad,
-                  example_parameters) -> None:
+    def test_call(
+        self, grad_op, tensor_zero_grad, tensor_random_grad, example_parameters
+    ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
         assert not tensor_zero_grad.grad.any()
@@ -81,11 +79,9 @@ class TestGradZScoreNormalizer:
         """Set up the instance."""
         return GradZScoreNormalizer()
 
-    def test_call(self,
-                  grad_op,
-                  tensor_zero_grad,
-                  tensor_random_grad,
-                  example_parameters) -> None:
+    def test_call(
+        self, grad_op, tensor_zero_grad, tensor_random_grad, example_parameters
+    ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
         assert not tensor_zero_grad.grad.any()
@@ -114,11 +110,9 @@ class TestGradNormClipper:
         with pytest.raises(ValueError):
             GradNormClipper(0)
 
-    def test_call(self,
-                  threshold,
-                  grad_op,
-                  tensor_random_grad,
-                  example_parameters) -> None:
+    def test_call(
+        self, threshold, grad_op, tensor_random_grad, example_parameters
+    ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
         norm = tensor_random_grad.grad.norm().item()
@@ -143,11 +137,9 @@ class TestGradValueClipper:
         with pytest.raises(ValueError):
             GradValueClipper(-1)
 
-    def test_call(self,
-                  threshold,
-                  grad_op,
-                  tensor_random_grad,
-                  example_parameters) -> None:
+    def test_call(
+        self, threshold, grad_op, tensor_random_grad, example_parameters
+    ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
         max_value = torch.max(torch.abs(tensor_random_grad.grad)).item()
@@ -392,18 +384,22 @@ class TestHistClipping:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests for the class."""
-        self.mock_get_clip_value = mocker.patch.object(EMACriterion,
-                                                       'get_clip_value')
+        self.mock_get_clip_value = mocker.patch.object(
+            EMACriterion, 'get_clip_value'
+        )
         self.mock_warmup_reset = mocker.patch.object(EMACriterion, 'reset')
-        self.mock_set_statistics = mocker.patch.object(EMACriterion,
-                                                       'set_statistics')
+        self.mock_set_statistics = mocker.patch.object(
+            EMACriterion, 'set_statistics'
+        )
         self.mock_should_clip = mocker.patch.object(EMACriterion, 'should_clip')
         self.mock_update = mocker.patch.object(EMACriterion, 'update')
-        self.mock_init_clip_call = mocker.patch.object(GradNormClipper,
-                                                       '__call__')
+        self.mock_init_clip_call = mocker.patch.object(
+            GradNormClipper, '__call__'
+        )
         self.mock_criterion_reset = mocker.patch.object(StatsCollector, 'reset')
-        self.mock_torch_clip = mocker.patch.object(torch.nn.utils,
-                                                   'clip_grad_norm_')
+        self.mock_torch_clip = mocker.patch.object(
+            torch.nn.utils, 'clip_grad_norm_'
+        )
         return
 
     @pytest.fixture
@@ -465,19 +461,24 @@ class TestParamHistClipping:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests for the class."""
-        self.mock_get_clip_value = mocker.patch.object(ZStatCriterion,
-                                                       'get_clip_value')
+        self.mock_get_clip_value = mocker.patch.object(
+            ZStatCriterion, 'get_clip_value'
+        )
         self.mock_warmup_reset = mocker.patch.object(ZStatCriterion, 'reset')
-        self.mock_set_statistics = mocker.patch.object(ZStatCriterion,
-                                                       'set_statistics')
-        self.mock_should_clip = mocker.patch.object(ZStatCriterion,
-                                                    'should_clip')
+        self.mock_set_statistics = mocker.patch.object(
+            ZStatCriterion, 'set_statistics'
+        )
+        self.mock_should_clip = mocker.patch.object(
+            ZStatCriterion, 'should_clip'
+        )
         self.mock_update = mocker.patch.object(ZStatCriterion, 'update')
-        self.mock_init_clip_call = mocker.patch.object(GradNormClipper,
-                                                       '__call__')
+        self.mock_init_clip_call = mocker.patch.object(
+            GradNormClipper, '__call__'
+        )
         self.mock_criterion_reset = mocker.patch.object(StatsCollector, 'reset')
-        self.mock_torch_clip = mocker.patch.object(torch.nn.utils,
-                                                   'clip_grad_norm_')
+        self.mock_torch_clip = mocker.patch.object(
+            torch.nn.utils, 'clip_grad_norm_'
+        )
         return
 
     @pytest.fixture

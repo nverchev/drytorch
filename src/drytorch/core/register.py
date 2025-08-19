@@ -55,9 +55,9 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
 
         return
 
-    raise exceptions.ModelNotRegisteredError(model.name,
-                                             run.experiment.name,
-                                             run.id)
+    raise exceptions.ModelNotRegisteredError(
+        model.name, run.experiment.name, run.id
+    )
 
 
 def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:

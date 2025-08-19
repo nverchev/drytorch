@@ -32,6 +32,7 @@ class Dumper(track.Tracker):
     Class Attributes:
         folder_name: name of the folder containing the output.
     """
+
     folder_name: str = 'tracker'
 
     def __init__(self, par_dir: pathlib.Path | None = None):
@@ -117,7 +118,7 @@ class MetricLoader(track.Tracker, abc.ABC):
     """Interface for trackers that load metrics."""
 
     def load_metrics(
-            self, model_name: str, max_epoch: int = -1
+        self, model_name: str, max_epoch: int = -1
     ) -> SourcedMetrics:
         """Load metrics from the last run of the experiment.
 
@@ -138,9 +139,8 @@ class MetricLoader(track.Tracker, abc.ABC):
 
     @abc.abstractmethod
     def _load_metrics(
-            self, model_name: str, max_epoch: int = -1
-    ) -> SourcedMetrics:
-        ...
+        self, model_name: str, max_epoch: int = -1
+    ) -> SourcedMetrics: ...
 
 
 class MemoryMetrics(track.Tracker):
@@ -194,12 +194,12 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     """Abstract class for plotting trajectory from sources."""
 
     def __init__(
-            self,
-            model_names: Iterable[str] = (),
-            source_names: Iterable[str] = (),
-            metric_names: Iterable[str] = (),
-            start: int = 1,
-            metric_loader: MetricLoader | None = None,
+        self,
+        model_names: Iterable[str] = (),
+        source_names: Iterable[str] = (),
+        metric_names: Iterable[str] = (),
+        start: int = 1,
+        metric_loader: MetricLoader | None = None,
     ) -> None:
         """Constructor.
 
@@ -248,11 +248,11 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         return super().notify(event)
 
     def plot(
-            self,
-            model_name: str,
-            source_names: Iterable[str] = (),
-            metric_names: Iterable[str] = (),
-            start_epoch: int = 1,
+        self,
+        model_name: str,
+        source_names: Iterable[str] = (),
+        metric_names: Iterable[str] = (),
+        start_epoch: int = 1,
     ) -> list[Plot]:
         """Plot the learning curves.
 
@@ -281,11 +281,11 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         return self._plot(model_name, source_names, metric_names, start_epoch)
 
     def _plot(
-            self,
-            model_name: str,
-            source_names: Iterable[str],
-            metric_names: Iterable[str],
-            start: int,
+        self,
+        model_name: str,
+        source_names: Iterable[str],
+        metric_names: Iterable[str],
+        start: int,
     ) -> list[Plot]:
         sourced_metrics = self.model_dict.get(model_name, {})
         if source_names:
@@ -317,16 +317,15 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
 
     @abc.abstractmethod
     def _plot_metric(
-            self, model_name: str, metric_name: str, **sourced_array: NpArray
-    ) -> Plot:
-        ...
+        self, model_name: str, metric_name: str, **sourced_array: NpArray
+    ) -> Plot: ...
 
     def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
         _not_used = model_name, metric_names
         return
 
     def _process_source(
-            self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
+        self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
     ) -> SourcedArray:
         sourced_metric = self._filter_metric(sourced_metrics, metric_name)
         ordered_sources = self._order_sources(sourced_metric)
@@ -346,7 +345,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
 
     @staticmethod
     def _filter_metric(
-            sourced_metrics: SourcedMetrics, metric_name: str
+        sourced_metrics: SourcedMetrics, metric_name: str
     ) -> SourcedMetric:
         return {
             source_name: (epochs, metrics[metric_name])
@@ -356,7 +355,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
 
     @staticmethod
     def _filter_by_epoch(
-            sourced_array: SourcedArray, start: int
+        sourced_array: SourcedArray, start: int
     ) -> SourcedArray:
         if start == 1:
             return sourced_array

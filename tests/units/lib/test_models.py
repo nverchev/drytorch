@@ -69,7 +69,7 @@ class TestModelOptimizer:
 
     @pytest.fixture()
     def model_optimizer(
-            self, complex_model, mock_learning_scheme
+        self, complex_model, mock_learning_scheme
     ) -> ModelOptimizer:
         """Set up a test instance."""
         return ModelOptimizer(
@@ -91,7 +91,7 @@ class TestModelOptimizer:
 
         param_groups = model_optimizer._optimizer.param_groups
         for param_group, lr in zip(
-                param_groups, dict_lr.values(), strict=False
+            param_groups, dict_lr.values(), strict=False
         ):
             assert param_group['lr'] == lr
 

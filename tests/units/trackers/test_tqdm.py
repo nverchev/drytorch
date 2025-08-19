@@ -106,10 +106,7 @@ class TestTqdmLogger:
     @pytest.fixture
     def tracker_with_double_bar(self) -> TqdmLogger:
         """Set up the instance."""
-        return TqdmLogger(
-            enable_training_bar=True,
-            file=self.stream
-        )
+        return TqdmLogger(enable_training_bar=True, file=self.stream)
 
     def test_cleanup(self, tracker):
         """Test correct clean up."""
@@ -118,9 +115,9 @@ class TestTqdmLogger:
         assert tracker._epoch_bar is None
 
     def test_iterate_batch_event(
-            self,
-            tracker,
-            iterate_batch_mock_event,
+        self,
+        tracker,
+        iterate_batch_mock_event,
     ) -> None:
         """Test handling of the IterateBatch event."""
         tracker.notify(iterate_batch_mock_event)
@@ -130,19 +127,19 @@ class TestTqdmLogger:
         assert iterate_batch_mock_event.source_name in output
 
     def test_start_training_event(
-            self,
-            tracker_with_double_bar,
-            start_training_mock_event,
+        self,
+        tracker_with_double_bar,
+        start_training_mock_event,
     ) -> None:
         """Test handling of the StartTraining event."""
         tracker_with_double_bar.notify(start_training_mock_event)
         assert tracker_with_double_bar._training_bar is not None
 
     def test_start_epoch_event(
-            self,
-            tracker_with_double_bar,
-            start_training_mock_event,
-            start_epoch_mock_event,
+        self,
+        tracker_with_double_bar,
+        start_training_mock_event,
+        start_epoch_mock_event,
     ) -> None:
         """Test handling of StartEpoch event with active training bar."""
         tracker_with_double_bar.notify(start_training_mock_event)

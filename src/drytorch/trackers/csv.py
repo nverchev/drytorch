@@ -28,9 +28,9 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     _default_dialect = DryTorchDialect()
 
     def __init__(
-            self,
-            par_dir: pathlib.Path | None = None,
-            dialect: csv.Dialect = _default_dialect,
+        self,
+        par_dir: pathlib.Path | None = None,
+        dialect: csv.Dialect = _default_dialect,
     ) -> None:
         """Constructor.
 
@@ -66,9 +66,9 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
         run_dir = self._get_run_dir()
-        file_address = self._file_path(run_dir,
-                                       event.model_name,
-                                       event.source_name)
+        file_address = self._file_path(
+            run_dir, event.model_name, event.source_name
+        )
         metric_names = tuple(event.metrics)
         headers = self._base_headers + metric_names
         if event.source_name not in self._active_sources:
@@ -102,10 +102,10 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         return super().notify(event)
 
     def read_csv(
-            self,
-            model_name: str,
-            source: str,
-            max_epoch: int = -1,
+        self,
+        model_name: str,
+        source: str,
+        max_epoch: int = -1,
     ) -> base_classes.HistoryMetrics:
         """Read the CSV file associated with the given model and source.
 
@@ -139,7 +139,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
                 epochs.append(epoch)
                 for metric, value in zip(
-                        metric_names, row[len_base:], strict=True
+                    metric_names, row[len_base:], strict=True
                 ):
                     value_list = named_metric_values.setdefault(metric, [])
                     value_list.append(float(value))
@@ -162,16 +162,16 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
     @staticmethod
     def _file_path(
-            run_dir: pathlib.Path,
-            model_name: str,
-            source_name: str,
+        run_dir: pathlib.Path,
+        model_name: str,
+        source_name: str,
     ) -> pathlib.Path:
         model_path = run_dir / model_name
         model_path.mkdir(exist_ok=True)
         return model_path / f'{source_name}.csv'
 
     def _load_metrics(
-            self, model_name: str, max_epoch: int = -1
+        self, model_name: str, max_epoch: int = -1
     ) -> base_classes.SourcedMetrics:
         out: base_classes.SourcedMetrics = {}
 

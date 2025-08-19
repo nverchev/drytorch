@@ -80,7 +80,7 @@ def test_represent_unknown_omitted():
 def test_represent_list_with_omitted():
     """Test the correct representation of omitted values inside a list."""
     yaml_string = yaml.dump([2, repr_utils.Omitted(5), 3])
-    assert yaml_string == "[2, !Omitted {omitted_elements: 5}, 3]\n"
+    assert yaml_string == '[2, !Omitted {omitted_elements: 5}, 3]\n'
 
 
 @given(text(characters(codec='ascii', exclude_categories=['Cc', 'Cs'])))

@@ -29,15 +29,8 @@ class MetadataManager:
         used_names: set to keep track of already registered names.
     """
 
-    def __init__(
-        self, max_depth_repr: int = 10, max_items_repr: int = 10
-    ) -> None:
-        """Constructor.
-
-        Args:
-            max_depth_repr: maximum number of recursion when documenting items.
-            max_items_repr: maximum number of documented items in an object.
-        """
+    def __init__(self) -> None:
+        """Constructor."""
         super().__init__()
         self.used_names = set[str]()
 
@@ -107,12 +100,11 @@ class MetadataManager:
         """Wrapper of recursive_repr that catches RecursionError.
 
         To change the maximum number of documented items in an obj,
-        set a maximum number of recursive call, and include properties,
+        set a maximum number of recursive calls and include properties,
         see the global variables in utils.repr_utils.
 
         Args:
             obj: an object to document.
-            depth: maximum number of recursion when documenting items.
         """
         try:
             metadata = repr_utils.recursive_repr(obj)

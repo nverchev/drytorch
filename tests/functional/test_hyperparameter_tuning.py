@@ -23,21 +23,22 @@ def benchmark_values() -> MutableMapping[int, float | None]:
     return {}.fromkeys(range(1, 5))
 
 
-def test_automatic_names(standard_learning_scheme,
-                         square_loss_calc,
-                         linear_model,
-                         identity_loader) -> None:
+def test_automatic_names(
+    standard_learning_scheme, square_loss_calc, linear_model, identity_loader
+) -> None:
     """Test the creation of models in a loop with automatic names."""
     results = dict[str, float]()
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
         standard_learning_scheme.base_lr = lr
-        trainer = Trainer(linear_model,
-                          name='MyTrainer',
-                          loader=training_loder,
-                          learning_scheme=standard_learning_scheme,
-                          loss=square_loss_calc)
+        trainer = Trainer(
+            linear_model,
+            name='MyTrainer',
+            loader=training_loder,
+            learning_scheme=standard_learning_scheme,
+            loss=square_loss_calc,
+        )
         trainer.add_validation(val_loader)
         early_stopping = hooks.EarlyStoppingCallback[Any, Any]()
         trainer.post_epoch_hooks.register(early_stopping)
@@ -47,24 +48,29 @@ def test_automatic_names(standard_learning_scheme,
     assert {'Model', 'Model_1', 'Model_2', 'Model_3'} == set(results)
 
 
-def test_iterative_pruning(benchmark_values,
-                           standard_learning_scheme,
-                           linear_model,
-                           square_loss_calc,
-                           identity_loader) -> None:
+def test_iterative_pruning(
+    benchmark_values,
+    standard_learning_scheme,
+    linear_model,
+    square_loss_calc,
+    identity_loader,
+) -> None:
     """Test a pruning strategy that requires model improvement at each epoch."""
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
         standard_learning_scheme.base_lr = lr
-        trainer = Trainer(linear_model,
-                          name='MyTrainer',
-                          loader=training_loder,
-                          learning_scheme=standard_learning_scheme,
-                          loss=square_loss_calc)
+        trainer = Trainer(
+            linear_model,
+            name='MyTrainer',
+            loader=training_loder,
+            learning_scheme=standard_learning_scheme,
+            loss=square_loss_calc,
+        )
         trainer.add_validation(val_loader)
-        prune_callback = hooks.PruneCallback[Any, Any](benchmark_values,
-                                                       best_is='lower')
+        prune_callback = hooks.PruneCallback[Any, Any](
+            benchmark_values, best_is='lower'
+        )
         trainer.post_epoch_hooks.register(prune_callback)
         trainer.train(4)
         benchmark_values = prune_callback.trial_values

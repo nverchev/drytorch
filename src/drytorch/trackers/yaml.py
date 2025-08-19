@@ -34,6 +34,7 @@ class YamlDumper(base_classes.Dumper):
     Class Attributes:
         folder_name: name for the folder that contains metadata.
     """
+
     folder_name = 'metadata'
 
     def __init__(self, par_dir: pathlib.Path | None = None):
@@ -86,17 +87,18 @@ class YamlDumper(base_classes.Dumper):
 
     @staticmethod
     def _file_path(
-            run_dir: pathlib.Path,
-            model_name: str,
-            obj_name: str,
+        run_dir: pathlib.Path,
+        model_name: str,
+        obj_name: str,
     ) -> pathlib.Path:
         model_path = run_dir / model_name
         model_path.mkdir(exist_ok=True)
         return model_path / f'{obj_name}.yaml'
 
 
-def has_short_repr(obj: object,
-                   max_length: int = MAX_LENGTH_SHORT_REPR) -> bool:
+def has_short_repr(
+    obj: object, max_length: int = MAX_LENGTH_SHORT_REPR
+) -> bool:
     """Indicate whether an object has a short representation."""
     if isinstance(obj, repr_utils.LiteralStr):
         return False
@@ -109,18 +111,18 @@ def has_short_repr(obj: object,
 
 
 def represent_literal_str(
-        dumper: yaml.Dumper,
-        literal_str: repr_utils.LiteralStr) -> yaml.ScalarNode:
+    dumper: yaml.Dumper, literal_str: repr_utils.LiteralStr
+) -> yaml.ScalarNode:
     """YAML representer for literal strings."""
-    return dumper.represent_scalar('tag:yaml.org,2002:str',
-                                   literal_str,
-                                   style='|')
+    return dumper.represent_scalar(
+        'tag:yaml.org,2002:str', literal_str, style='|'
+    )
 
 
 def represent_sequence(
-        dumper: yaml.Dumper,
-        sequence: Sequence[Any] | set[Any],
-        max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
+    dumper: yaml.Dumper,
+    sequence: Sequence[Any] | set[Any],
+    max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
 ) -> yaml.SequenceNode:
     """YAML representer for sequences."""
     flow_style = False
@@ -128,16 +130,18 @@ def represent_sequence(
         if all(has_short_repr(elem) for elem in sequence):
             flow_style = True
 
-    return dumper.represent_sequence(tag='tag:yaml.org,2002:seq',
-                                     sequence=sequence,
-                                     flow_style=flow_style)
+    return dumper.represent_sequence(
+        tag='tag:yaml.org,2002:seq', sequence=sequence, flow_style=flow_style
+    )
 
 
-def represent_omitted(dumper: yaml.Dumper,
-                      data: repr_utils.Omitted) -> yaml.MappingNode:
+def represent_omitted(
+    dumper: yaml.Dumper, data: repr_utils.Omitted
+) -> yaml.MappingNode:
     """YAML representer for omitted values."""
-    return dumper.represent_mapping('!Omitted',
-                                    {'omitted_elements': data.count})
+    return dumper.represent_mapping(
+        '!Omitted', {'omitted_elements': data.count}
+    )
 
 
 yaml.add_representer(repr_utils.LiteralStr, represent_literal_str)

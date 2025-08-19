@@ -20,6 +20,7 @@ class VisdomOpts(TypedDict, total=False):
 
     See: https://github.com/fossasia/visdom/blob/master/py/visdom/__init__.py.
     """
+
     title: str
     xlabel: str
     ylabel: str
@@ -76,15 +77,15 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     """
 
     def __init__(
-            self,
-            server: str = 'http://localhost',
-            port: int = 8097,
-            opts: VisdomOpts | None = None,
-            model_names: Iterable[str] = (),
-            source_names: Iterable[str] = (),
-            metric_names: Iterable[str] = (),
-            metric_loader: base_classes.MetricLoader | None = None,
-            start: int = 1,
+        self,
+        server: str = 'http://localhost',
+        port: int = 8097,
+        opts: VisdomOpts | None = None,
+        model_names: Iterable[str] = (),
+        source_names: Iterable[str] = (),
+        metric_names: Iterable[str] = (),
+        metric_loader: base_classes.MetricLoader | None = None,
+        start: int = 1,
     ) -> None:
         """Constructor.
 
@@ -99,11 +100,9 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
         """
-        super().__init__(model_names,
-                         source_names,
-                         metric_names,
-                         start,
-                         metric_loader)
+        super().__init__(
+            model_names, source_names, metric_names, start, metric_loader
+        )
         self.server = server
         self.port = port
         self.opts: VisdomOpts = opts or VisdomOpts()
@@ -132,10 +131,12 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         env = event.exp_name + '_' + event.run_id
         try:
-            self._viz = visdom.Visdom(server=self.server,
-                                      port=self.port,
-                                      env=env,
-                                      raise_exceptions=True)
+            self._viz = visdom.Visdom(
+                server=self.server,
+                port=self.port,
+                env=env,
+                raise_exceptions=True,
+            )
         except ConnectionError as cre:
             msg = 'server not available.'
             raise exceptions.TrackerError(self, msg) from cre
@@ -150,15 +151,18 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         return super().notify(event)
 
     @override
-    def _plot_metric(self,
-                     model_name: str,
-                     metric_name: str,
-                     **sourced_array: base_classes.NpArray) -> str:
-
-        layout = VisdomOpts(xlabel='Epoch',
-                            ylabel=metric_name,
-                            title=model_name,
-                            showlegend=True)
+    def _plot_metric(
+        self,
+        model_name: str,
+        metric_name: str,
+        **sourced_array: base_classes.NpArray,
+    ) -> str:
+        layout = VisdomOpts(
+            xlabel='Epoch',
+            ylabel=metric_name,
+            title=model_name,
+            showlegend=True,
+        )
         scatter_opts = VisdomOpts(mode='markers', markersymbol='24')
         # noinspection PydanticTypeChecker
         opts = self.opts | layout  # type: ignore
@@ -166,20 +170,22 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         for name, log in sourced_array.items():
             self.viz.scatter(None, win=win, update='remove', name=name)
             if log.shape[0] > 1:
-                self.viz.line(X=log[:, 0],
-                              Y=log[:, 1],
-                              opts=opts,
-                              update='append',
-                              win=win,
-                              name=name,
-                              )
+                self.viz.line(
+                    X=log[:, 0],
+                    Y=log[:, 1],
+                    opts=opts,
+                    update='append',
+                    win=win,
+                    name=name,
+                )
             else:
-                self.viz.scatter(X=log[:, 0],
-                                 Y=log[:, 1],
-                                 opts=opts | scatter_opts,
-                                 update='append',
-                                 win=win,
-                                 name=name,
-                                 )
+                self.viz.scatter(
+                    X=log[:, 0],
+                    Y=log[:, 1],
+                    opts=opts | scatter_opts,
+                    update='append',
+                    win=win,
+                    name=name,
+                )
 
         return win

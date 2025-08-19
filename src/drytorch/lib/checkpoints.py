@@ -35,6 +35,7 @@ SAFE_GLOBALS: list[Any] = [
     codecs.encode,
 ]
 try:
+    # noinspection PyUnusedImports
     from numpy._core.multiarray import scalar
 except ImportError:
     pass
@@ -51,6 +52,7 @@ class CheckpointPathManager:
     Class Attributes:
         folder_name: name of the folder where the checkpoints are stored.
     """
+
     folder_name = 'checkpoints'
 
     def __init__(
@@ -166,12 +168,10 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         return 'model_state' if self.optimizer is None else 'checkpoint'
 
     @abc.abstractmethod
-    def _get_last_saved_epoch(self) -> int:
-        ...
+    def _get_last_saved_epoch(self) -> int: ...
 
     @abc.abstractmethod
-    def _get_location(self) -> str:
-        ...
+    def _get_location(self) -> str: ...
 
     def _update_epoch(self, epoch: int):
         if epoch < -1:
@@ -237,8 +237,9 @@ class LocalCheckpoint(AbstractCheckpoint):
         self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
         torch.save(self.model.module.state_dict(), self.paths.model_state_path)
         if self.optimizer is not None:
-            torch.save(self.optimizer.state_dict(),
-                       self.paths.optimizer_state_path)
+            torch.save(
+                self.optimizer.state_dict(), self.paths.optimizer_state_path
+            )
 
         return
 

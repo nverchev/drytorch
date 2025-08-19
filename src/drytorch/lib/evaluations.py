@@ -15,6 +15,7 @@ _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
 
+
 class _RunnerLike(Protocol):
     model: p.ModelProtocol[Any, Any]
 
@@ -29,9 +30,9 @@ class EvaluationMixin:
         self: _RunnerLike,
         store_outputs: bool = False,
     ) -> None:
-        """Set the model in evaluation mode and torch in inference mode."""
+        """Set the model in evaluation mode and PyTorch in inference mode."""
         self.model.module.eval()
-        super().__call__(store_outputs)
+        super().__call__(store_outputs)  # type: ignore
         return
 
 
@@ -82,6 +83,7 @@ class Validation(
             metric: metric to evaluate the model.
 
         """
+        # noinspection PyTypeChecker
         super().__init__(model, loader=loader, name=name, objective=metric)
         return
 

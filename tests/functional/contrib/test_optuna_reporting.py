@@ -18,6 +18,7 @@ def autorun_experiment(run) -> Generator[Run, None, None]:
     yield run
     return
 
+
 class TestTrialCallbackAsk:
     """Test report and retrial of optuna trial values when created with ask."""
 
@@ -30,18 +31,14 @@ class TestTrialCallbackAsk:
     @pytest.fixture
     def trial_callback(self, trial) -> TrialCallback:
         """Create a TrialCallback instance for testing."""
-        return TrialCallback(
-            trial=trial,
-            best_is='lower'
-        )
+        return TrialCallback(trial=trial, best_is='lower')
 
-    def test_reported(self,
-                      trial_callback,
-                      identity_trainer) -> None:
+    def test_reported(self, trial_callback, identity_trainer) -> None:
         """Test reported values."""
         identity_trainer.model.epoch = 3
-        identity_trainer.objective.update(TorchData(torch.ones(2)),
-                                          torch.zeros(2))
+        identity_trainer.objective.update(
+            TorchData(torch.ones(2)), torch.zeros(2)
+        )
         trial_callback(identity_trainer)
         # here you can tell a result with trial.study.tell(trial, {your_result})
         assert trial_callback.reported == {3: 1}
@@ -61,12 +58,10 @@ class TestTrialCallbackObjective:
 
         def _objective(trial: optuna.Trial) -> float:
             identity_trainer.model.epoch = 3
-            identity_trainer.objective.update(TorchData(torch.ones(2)),
-                                              torch.zeros(2))
-            trial_callback = TrialCallback(
-                trial=trial,
-                best_is='lower'
+            identity_trainer.objective.update(
+                TorchData(torch.ones(2)), torch.zeros(2)
             )
+            trial_callback = TrialCallback(trial=trial, best_is='lower')
             trial_callback(identity_trainer)
             return get_final_value(trial)
 

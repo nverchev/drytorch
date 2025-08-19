@@ -13,6 +13,7 @@ from drytorch.core import exceptions
 _T = TypeVar('_T')
 _C = TypeVar('_C')
 
+
 @overload
 def recursive_apply(
     obj: _C, expected_type: type[_T], func: Callable[[_T], _T]
@@ -24,9 +25,10 @@ def recursive_apply(
     obj: _T, expected_type: type[_T], func: Callable[[_T], _T]
 ) -> _T: ...
 
-def recursive_apply(obj: _C,
-                    expected_type: type[_T],
-                    func: Callable[[_T], _T]) -> _C | _T:
+
+def recursive_apply(
+    obj: _C, expected_type: type[_T], func: Callable[[_T], _T]
+) -> _C | _T:
     """Look for an expected type and apply a given function.
 
     The implementation is similar to default_convert in
@@ -61,32 +63,31 @@ def recursive_apply(obj: _C,
                 for key, item in obj.items()
             }
         )
-        return mapping
+        return mapping  # type: ignore
 
     if isinstance(obj, MutableSequence):
         sequence = copy.copy(obj)
         for i, value in enumerate(obj):
             sequence[i] = recursive_apply(value, expected_type, func)
 
-        return sequence
+        return sequence  # type: ignore
 
     if isinstance(obj, tuple):
         new = (recursive_apply(item, expected_type, func) for item in obj)
         if obj.__class__ is tuple:
-            return obj.__class__(new)
+            return obj.__class__(new)  # type: ignore
 
         try:
-            return obj.__class__(*new)
+            return obj.__class__(*new)  # type: ignore
         except TypeError as te:
             raise exceptions.NamedTupleOnlyError(obj.__class__.__name__) from te
 
-    raise exceptions.FuncNotApplicableError(func.__name__,
-                                            obj.__class__.__name__)
+    raise exceptions.FuncNotApplicableError(
+        func.__name__, obj.__class__.__name__
+    )
 
 
-def apply(obj: _C,
-          expected_type: type[_T],
-          func: Callable[[_T], _T]) -> _C:
+def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     """Extend recursive_apply supports.
 
     If the input has attributes, it calls recursive_apply, creates a new
@@ -114,18 +115,15 @@ def apply(obj: _C,
     if dict_attr:
         obj_copy = copy.copy(obj)
         for key, value in dict_attr.items():
-            setattr(obj_copy,
-                    key,
-                    recursive_apply(value,
-                                    expected_type=expected_type,
-                                    func=func)
-                    )
+            setattr(
+                obj_copy,
+                key,
+                recursive_apply(value, expected_type=expected_type, func=func),
+            )
 
         return obj_copy
     else:
-        return recursive_apply(obj,
-                               expected_type=expected_type,
-                               func=func)
+        return recursive_apply(obj, expected_type=expected_type, func=func)
 
 
 def apply_to(obj: _C, device: torch.device) -> _C:

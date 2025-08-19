@@ -33,14 +33,16 @@ class TestHydraFullCycle:
 
     # TODO: full_cycle fixture's scope should be changed to "class"
     @pytest.fixture(autouse=True)
-    def full_cycle(self,
-                   capsys,
-                   tmp_path_factory,
-                   monkeypatch,
-                   start_experiment_event,
-                   metrics_event,
-                   iterate_batch_event,
-                   stop_experiment_event) -> None:
+    def full_cycle(
+        self,
+        capsys,
+        tmp_path_factory,
+        monkeypatch,
+        start_experiment_event,
+        metrics_event,
+        iterate_batch_event,
+        stop_experiment_event,
+    ) -> None:
         """Setup test environment with actual hydra configuration."""
         self.hydra_dir = tmp_path_factory.mktemp('outputs')
         run_dir_arg = f'++hydra.run.dir={self.hydra_dir.as_posix()}'
@@ -57,13 +59,17 @@ class TestHydraFullCycle:
             @hydra.main(version_base=None)
             def _app(_: DictConfig):
                 drytorch.init_trackers(mode='hydra')
-                trackers = (BuiltinLogger(),
-                            TqdmLogger(leave=False),
-                            HydraLink())
-                events = (start_experiment_event,
-                          metrics_event,
-                          iterate_batch_event,
-                          stop_experiment_event)
+                trackers = (
+                    BuiltinLogger(),
+                    TqdmLogger(leave=False),
+                    HydraLink(),
+                )
+                events = (
+                    start_experiment_event,
+                    metrics_event,
+                    iterate_batch_event,
+                    stop_experiment_event,
+                )
 
                 for event in events:
                     for tracker in trackers:
@@ -91,7 +97,7 @@ class TestHydraFullCycle:
         with expected_log.open() as file:
             expected_file_log = file.read()
 
-        with (log_file.with_suffix('.log').open() as hydra_file):
+        with log_file.with_suffix('.log').open() as hydra_file:
             hydra_log = hydra_file.read().strip().expandtabs(4)
 
         assert hydra_log == expected_file_log.strip()

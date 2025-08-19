@@ -23,11 +23,11 @@ class TestHydraLinkFullCycle:
 
     @pytest.fixture()
     def tracker(
-            self,
-            tmp_path_factory,
-            monkeypatch,
-            start_experiment_event,
-            stop_experiment_event,
+        self,
+        tmp_path_factory,
+        monkeypatch,
+        start_experiment_event,
+        stop_experiment_event,
     ) -> Generator[HydraLink, None, None]:
         """Setup test environment with actual hydra configuration."""
         self.hydra_dir = tmp_path_factory.mktemp('outputs')

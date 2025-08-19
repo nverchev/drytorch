@@ -48,21 +48,33 @@ class TestFromTorchMetrics:
         """Fixture for mock targets."""
         return torch.tensor([1, 0])
 
-    def test_update_and_compute(self, metric, metric_a, metric_b,
-                                mock_outputs: torch.Tensor,
-                                mock_targets: torch.Tensor) -> None:
+    def test_update_and_compute(
+        self,
+        metric,
+        metric_a,
+        metric_b,
+        mock_outputs: torch.Tensor,
+        mock_targets: torch.Tensor,
+    ) -> None:
         """Test it correctly updates and computes metrics as dictionaries."""
         metric.update(mock_outputs, mock_targets)
         result = metric.compute()
 
         # update modifies the state of the input metric
-        expected = {metric_a.__class__.__name__: metric_a.compute(),
-                    metric_b.__class__.__name__: metric_b.compute()}
+        expected = {
+            metric_a.__class__.__name__: metric_a.compute(),
+            metric_b.__class__.__name__: metric_b.compute(),
+        }
 
         assert result == expected
 
-    def test_forward(self, metric, additive_metric, mock_outputs: torch.Tensor,
-                     mock_targets: torch.Tensor) -> None:
+    def test_forward(
+        self,
+        metric,
+        additive_metric,
+        mock_outputs: torch.Tensor,
+        mock_targets: torch.Tensor,
+    ) -> None:
         """Test that forward still outputs a Tensor with the correct value."""
         result = metric.forward(mock_outputs, mock_targets)
 
@@ -72,8 +84,9 @@ class TestFromTorchMetrics:
         assert isinstance(result, torch.Tensor)
         assert torch.allclose(result, expected)
 
-    def test_reset(self, metric, mock_outputs: torch.Tensor,
-                   mock_targets: torch.Tensor) -> None:
+    def test_reset(
+        self, metric, mock_outputs: torch.Tensor, mock_targets: torch.Tensor
+    ) -> None:
         """Test that reset properly resets the underlying metrics."""
         metric.update(mock_outputs, mock_targets)
         pre_reset_result = metric.compute()

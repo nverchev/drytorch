@@ -26,7 +26,7 @@ class HydraLink(base_classes.Dumper):
     folder_name = 'hydra'
 
     def __init__(
-            self, par_dir: pathlib.Path | None = None, copy_hydra: bool = True
+        self, par_dir: pathlib.Path | None = None, copy_hydra: bool = True
     ) -> None:
         """Constructor.
 

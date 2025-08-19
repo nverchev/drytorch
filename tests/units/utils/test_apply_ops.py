@@ -23,7 +23,7 @@ class _TorchLikeTuple(NamedTuple):
 def test_recursive_apply() -> None:
     """Test works when expected to."""
     expected_type = torch.Tensor
-    tuple_data = (torch.tensor(1.), [1, 2])
+    tuple_data = (torch.tensor(1.0), [1, 2])
     dict_data = {'list': tuple_data}
 
     def _times_two(x: torch.Tensor) -> torch.Tensor:
@@ -31,25 +31,32 @@ def test_recursive_apply() -> None:
 
     # fail because it expects torch.Tensors and not int
     with pytest.raises(exceptions.FuncNotApplicableError):
-        recursive_apply(obj=dict_data,
-                        expected_type=expected_type,
-                        func=_times_two)
+        recursive_apply(
+            obj=dict_data, expected_type=expected_type, func=_times_two
+        )
 
-    new_tuple_data = [torch.tensor(1.),
-                      _TorchTuple(torch.tensor(1.), torch.tensor(2.))]
+    new_tuple_data = [
+        torch.tensor(1.0),
+        _TorchTuple(torch.tensor(1.0), torch.tensor(2.0)),
+    ]
     new_dict_data = {'list': new_tuple_data}
-    out = recursive_apply(obj=new_dict_data,
-                          expected_type=expected_type,
-                          func=_times_two)
-    expected = {'list': [torch.tensor(2.),
-                         _TorchTuple(torch.tensor(2.), torch.tensor(4.))]}
+    out = recursive_apply(
+        obj=new_dict_data, expected_type=expected_type, func=_times_two
+    )
+    expected = {
+        'list': [
+            torch.tensor(2.0),
+            _TorchTuple(torch.tensor(2.0), torch.tensor(4.0)),
+        ]
+    }
     assert out == expected
 
 
 def test_recursive_to() -> None:
     """Test ``recursive_to`` works as expected."""
-    list_data = _TorchLikeTuple(torch.tensor(1.),
-                                [torch.tensor(1.), torch.tensor(2.)])
+    list_data = _TorchLikeTuple(
+        torch.tensor(1.0), [torch.tensor(1.0), torch.tensor(2.0)]
+    )
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     list_data = apply_to(list_data, device=device)
     assert list_data[0].device == device

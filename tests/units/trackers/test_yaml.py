@@ -29,10 +29,10 @@ class TestYamlDumper:
 
     @pytest.fixture
     def tracker_started(
-            self,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
     ) -> Generator[YamlDumper, None, None]:
         """Set up the instance with resume."""
         tracker.notify(start_experiment_mock_event)
@@ -48,18 +48,18 @@ class TestYamlDumper:
         """Test notification of a model registration event."""
         self.mock_dump.assert_called_once()
 
-    def test_notify_model_registration(self,
-                                       tracker_started,
-                                       model_registration_mock_event) -> None:
+    def test_notify_model_registration(
+        self, tracker_started, model_registration_mock_event
+    ) -> None:
         """Test notification of a model registration event."""
         self.mock_dump.assert_called_once()
         self.mock_dump.reset_mock()
         tracker_started.notify(model_registration_mock_event)
         self.mock_dump.assert_called_once()
 
-    def test_notify_actor_registration(self,
-                                       tracker_started,
-                                       actor_registration_mock_event) -> None:
+    def test_notify_actor_registration(
+        self, tracker_started, actor_registration_mock_event
+    ) -> None:
         """Test notification of a source registration event."""
         self.mock_dump.assert_called_once()
         self.mock_dump.reset_mock()

@@ -45,11 +45,14 @@ def simple_seq() -> Sequence[tuple[int, int]]:
 class TestSliced:
     """Test Sliced class functionality."""
 
-    @pytest.mark.parametrize('slice_, expected', [
-        (slice(0, 5), [(0, 0), (1, 2), (2, 4), (3, 6), (4, 8)]),
-        (slice(5, 10), [(5, 10), (6, 12), (7, 14), (8, 16), (9, 18)]),
-        (slice(0, 0), []),
-    ])
+    @pytest.mark.parametrize(
+        'slice_, expected',
+        [
+            (slice(0, 5), [(0, 0), (1, 2), (2, 4), (3, 6), (4, 8)]),
+            (slice(5, 10), [(5, 10), (6, 12), (7, 14), (8, 16), (9, 18)]),
+            (slice(0, 0), []),
+        ],
+    )
     def test_sliced(self, simple_seq, slice_, expected) -> None:
         """Test slicing functionality of the Sliced class."""
         sliced = Sliced(simple_seq, slice_)
@@ -99,7 +102,6 @@ class TestDataLoader:
     def dataset(self, simple_seq) -> data.Dataset:
         """Set up a simple dataset for testing."""
         return SimpleDataset(simple_seq)
-
 
     @pytest.fixture(autouse=True)
     def loader(self, dataset) -> DataLoader:

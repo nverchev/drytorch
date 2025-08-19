@@ -36,12 +36,12 @@ class TensorBoard(base_classes.Dumper):
     instance_count = 0
 
     def __init__(
-            self,
-            par_dir: pathlib.Path | None = None,
-            start_server: bool = True,
-            open_browser: bool = False,
-            max_queue_size: int = 10,
-            flush_secs: int = 120,
+        self,
+        par_dir: pathlib.Path | None = None,
+        start_server: bool = True,
+        open_browser: bool = False,
+        max_queue_size: int = 10,
+        flush_secs: int = 120,
     ) -> None:
         """Constructor.
 

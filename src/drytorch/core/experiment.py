@@ -23,6 +23,7 @@ RunStatus = Literal['created', 'running', 'completed', 'failed']
 @dataclasses.dataclass
 class RunMetadata:
     """Metadata for a run."""
+
     id: str
     status: RunStatus
     hashed_config: int | None = None
@@ -100,12 +101,12 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
     run_file: ClassVar[str] = 'runs.json'
 
     def __init__(
-            self,
-            config: _T_co,
-            *,
-            name: str = "",
-            par_dir: str | pathlib.Path = pathlib.Path(),
-            tags: list[str] | None = None,
+        self,
+        config: _T_co,
+        *,
+        name: str = '',
+        par_dir: str | pathlib.Path = pathlib.Path(),
+        tags: list[str] | None = None,
     ) -> None:
         """Constructor.
 
@@ -143,10 +144,10 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return self.__config
 
     def create_run(
-            self,
-            *,
-            run_id: str | None = None,
-            resume: bool = False,
+        self,
+        *,
+        run_id: str | None = None,
+        resume: bool = False,
     ) -> Run[_T_co]:
         """Convenience constructor for a Run using this experiment.
 
@@ -167,9 +168,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
             return self._create_new_run(run_id, runs_data)
 
     def _handle_resume_logic(
-            self,
-            run_id: str | None,
-            runs_data: list[RunMetadata]
+        self, run_id: str | None, runs_data: list[RunMetadata]
     ) -> Run[_T_co]:
         """Handle resume logic for existing runs."""
         if self.previous_runs:
@@ -181,7 +180,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         if not runs_data:
             raise ValueError(
-                f"No previous runs found for experiment {self.name}"
+                f'No previous runs found for experiment {self.name}'
             )
 
         resolved_run_id = self._resolve_run_id_from_data(run_id, runs_data)
@@ -198,16 +197,14 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         if len(matching_runs) > 1:
             raise ValueError(
-                f"Multiple runs with id {run_id} found for "
-                f"experiment {self.name}"
+                f'Multiple runs with id {run_id} found for '
+                f'experiment {self.name}'
             )
 
         return matching_runs[0]
 
     def _resolve_run_id_from_data(
-            self,
-            run_id: str | None,
-            runs_data: list[RunMetadata]
+        self, run_id: str | None, runs_data: list[RunMetadata]
     ) -> str:
         """Resolve run_id from runs_data or validate an existing one."""
         if run_id is None:
@@ -215,15 +212,13 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         if not any(r_data.id == run_id for r_data in runs_data):
             raise ValueError(
-                f"Run {run_id} not found for experiment {self.name}"
+                f'Run {run_id} not found for experiment {self.name}'
             )
 
         return run_id
 
     def _create_new_run(
-            self,
-            run_id: str | None,
-            runs_data: list[RunMetadata]
+        self, run_id: str | None, runs_data: list[RunMetadata]
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
         resolved_run_id = run_id or self.created_at_str
@@ -231,9 +226,9 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
             hashed_config: int | None = hash(self.__config)
         except TypeError:
             hashed_config = None
-        run_data = RunMetadata(id=resolved_run_id,
-                               status='created',
-                               hashed_config=hashed_config)
+        run_data = RunMetadata(
+            id=resolved_run_id, status='created', hashed_config=hashed_config
+        )
         runs_data.append(run_data)
         self.run_io.save_all(runs_data)
         return Run(experiment=self, run_id=resolved_run_id)
@@ -296,10 +291,10 @@ class Run(Generic[_T_co]):
     """
 
     def __init__(
-            self,
-            experiment: Experiment[_T_co],
-            run_id: str,
-            resumed: bool = False,
+        self,
+        experiment: Experiment[_T_co],
+        run_id: str,
+        resumed: bool = False,
     ) -> None:
         """Constructor.
 
@@ -328,10 +323,10 @@ class Run(Generic[_T_co]):
         return self
 
     def __exit__(
-            self,
-            exc_type: type[BaseException] | None,
-            exc_val: BaseException | None,
-            exc_tb: TracebackType | None,
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit the experiment scope."""
         if exc_type is None:
@@ -369,5 +364,5 @@ class Run(Generic[_T_co]):
 def _validate_chars(name: str) -> None:
     not_allowed_chars = set(r'\/:*?"<>|')
     if invalid_chars := set(name) & not_allowed_chars:
-        msg = f"Name contains invalid character(s): {invalid_chars!r}"
+        msg = f'Name contains invalid character(s): {invalid_chars!r}'
         raise ValueError(msg)

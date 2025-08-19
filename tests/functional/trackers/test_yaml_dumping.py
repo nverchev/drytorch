@@ -24,11 +24,9 @@ class TestSQLConnectionFullCycle:
         """Set up the instance."""
         return YamlDumper(tmp_path)
 
-    def test_config_metadata(self,
-                             tracker,
-                             start_experiment_event,
-                             example_run_ts,
-                             example_config):
+    def test_config_metadata(
+        self, tracker, start_experiment_event, example_run_ts, example_config
+    ):
         """Test correct dumping off config metadata."""
         tracker.notify(start_experiment_event)
         example_run_ts_str = example_run_ts.strftime(TS_FMT)
@@ -38,13 +36,15 @@ class TestSQLConnectionFullCycle:
 
         assert metadata == example_config
 
-    def test_model_metadata(self,
-                            tracker,
-                            start_experiment_event,
-                            model_registration_event,
-                            example_model_name,
-                            example_model_ts,
-                            example_metadata):
+    def test_model_metadata(
+        self,
+        tracker,
+        start_experiment_event,
+        model_registration_event,
+        example_model_name,
+        example_model_ts,
+        example_metadata,
+    ):
         """Test correct dumping of metadata from the model."""
         tracker.notify(start_experiment_event)
         example_model_ts_str = example_model_ts.strftime(TS_FMT)
@@ -57,15 +57,17 @@ class TestSQLConnectionFullCycle:
 
         assert metadata == example_metadata
 
-    def test_caller_metadata(self,
-                             tracker,
-                             start_experiment_event,
-                             actor_registration_event,
-                             example_model_name,
-                             example_model_ts,
-                             example_source_name,
-                             example_source_ts,
-                             example_metadata):
+    def test_caller_metadata(
+        self,
+        tracker,
+        start_experiment_event,
+        actor_registration_event,
+        example_model_name,
+        example_model_ts,
+        example_source_name,
+        example_source_ts,
+        example_metadata,
+    ):
         """Test correct dumping of metadata from the caller."""
         tracker.notify(start_experiment_event)
         example_model_ts_str = example_model_ts.strftime(TS_FMT)

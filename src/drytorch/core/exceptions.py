@@ -96,9 +96,7 @@ class EpochNotFoundError(DryTorchError):
 
     msg = 'No checkpoints for epoch {} found in {}.'
 
-    def __init__(self,
-                 epoch: int,
-                 checkpoint_directory: pathlib.Path) -> None:
+    def __init__(self, epoch: int, checkpoint_directory: pathlib.Path) -> None:
         """Constructor.
 
         Args:
@@ -164,7 +162,7 @@ class MissingParamError(DryTorchError):
     msg = 'Parameter groups in input learning rate miss parameters {}.'
 
     def __init__(
-            self, module_names: list[str], lr_param_groups: list[str]
+        self, module_names: list[str], lr_param_groups: list[str]
     ) -> None:
         """Constructor.
 
@@ -281,9 +279,11 @@ class NoActiveExperimentError(DryTorchError):
 
     msg = 'No experiment {}has been started.'
 
-    def __init__(self,
-                 experiment_name: str | None = None,
-                 experiment_class: type | None = None) -> None:
+    def __init__(
+        self,
+        experiment_name: str | None = None,
+        experiment_class: type | None = None,
+    ) -> None:
         """Constructor.
 
         Args:

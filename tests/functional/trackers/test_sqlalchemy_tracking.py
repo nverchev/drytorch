@@ -39,10 +39,10 @@ class TestSQLConnectionFullCycle:
 
     @pytest.fixture
     def resumed_tracker(
-            self,
-            tracker,
-            start_experiment_event,
-            stop_experiment_event,
+        self,
+        tracker,
+        start_experiment_event,
+        stop_experiment_event,
     ) -> Generator[SQLConnection, None, None]:
         """Resume previous run."""
         start_experiment_event.resumed = True
@@ -146,7 +146,7 @@ class TestSQLConnectionFullCycle:
                 assert log.source_id in source_ids
 
     def test_epoch_metrics_stored_with_correct_values(
-            self, tracker, example_epoch, example_named_metrics
+        self, tracker, example_epoch, example_named_metrics
     ):
         """Test metrics are correctly stored in the database."""
         with tracker.session_factory() as session:
@@ -171,9 +171,9 @@ class TestSQLConnectionFullCycle:
             assert len(set(epoch_values)) == 3
 
     def test_multiple_sources_in_same_run(
-            self,
-            resumed_tracker,
-            actor_registration_event,
+        self,
+        resumed_tracker,
+        actor_registration_event,
     ) -> None:
         """Test multiple log sources are correctly tracked in the same run."""
         second_call_model = actor_registration_event
@@ -195,7 +195,7 @@ class TestSQLConnectionFullCycle:
             assert len(source_names) == 2
 
     def test_load_metrics_returns_correct_data(
-            self, resumed_tracker, start_training_event
+        self, resumed_tracker, start_training_event
     ):
         """Test _load_metrics returns the stored data correctly."""
         model_name = start_training_event.model_name
@@ -211,7 +211,7 @@ class TestSQLConnectionFullCycle:
                 assert len(values) == len(epochs)
 
     def test_load_metrics_with_max_epoch_filter(
-            self, resumed_tracker, example_epoch, start_training_event
+        self, resumed_tracker, example_epoch, start_training_event
     ):
         """Test _load_metrics respects max_epoch parameter."""
         model_name = start_training_event.model_name
@@ -223,12 +223,12 @@ class TestSQLConnectionFullCycle:
             assert epochs == [max_epoch]
 
     def test_load_metrics_with_resumed_sources(
-            self,
-            resumed_tracker,
-            actor_registration_event,
-            example_epoch,
-            metrics_event,
-            start_training_event,
+        self,
+        resumed_tracker,
+        actor_registration_event,
+        example_epoch,
+        metrics_event,
+        start_training_event,
     ):
         """Test _load_metrics get data from two sources with the same name."""
         model_name = start_training_event.model_name

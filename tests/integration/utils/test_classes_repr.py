@@ -60,9 +60,7 @@ def test_repr_trainer(identity_trainer, mocker):
 def test_hook_repr():
     """Test the representation of a hook registry."""
     registry = HookRegistry()
-    registry.register(
-        EarlyStoppingCallback(filter_fn=get_moving_average(.8))
-    )
+    registry.register(EarlyStoppingCallback(filter_fn=get_moving_average(0.8)))
     expected = {
         'class': 'HookRegistry',
         'hooks': [
@@ -74,39 +72,45 @@ def test_hook_repr():
                     'metric_tracker': {
                         'best_is': 'auto',
                         'class': 'MetricTracker',
-                        'filter_fn':
-                            'moving_average(decay=0.8, mass_coverage=0.99)',
+                        'filter_fn': 'moving_average(decay=0.8, mass_coverage=0.99)',
                         'min_delta': 1e-08,
-                        'patience': 10
-                    }
+                        'patience': 10,
+                    },
                 },
-                'start_from_epoch': 2
+                'start_from_epoch': 2,
             }
-        ]
+        ],
     }
     assert recursive_repr(registry) == expected
 
 
 def test_gradient_op_repr():
     """Test the representation of a gradient op."""
-    expected = {'class': 'HistClipping',
-                'criterion': {'alpha': 0.97,
-                              'class': 'ZStatCriterion',
-                              'clipping_function': 'reciprocal_clipping',
-                              'z_thresh': 2.5},
-                'n_warmup_steps': 20,
-                'warmup_clip_strategy': {'class': 'GradNormClipper',
-                                         'threshold': 1.0}}
+    expected = {
+        'class': 'HistClipping',
+        'criterion': {
+            'alpha': 0.97,
+            'class': 'ZStatCriterion',
+            'clipping_function': 'reciprocal_clipping',
+            'z_thresh': 2.5,
+        },
+        'n_warmup_steps': 20,
+        'warmup_clip_strategy': {'class': 'GradNormClipper', 'threshold': 1.0},
+    }
 
     assert recursive_repr(HistClipping()) == expected
 
 
 def test_scheduler_repr():
     """Test the representation of a scheduler."""
-    expected = {'class': 'WarmupScheduler',
-                'base_scheduler': {'class': 'ExponentialScheduler',
-                                   'exp_decay': 0.975,
-                                   'min_decay': 0.0},
-                'warmup_steps': 2}
+    expected = {
+        'class': 'WarmupScheduler',
+        'base_scheduler': {
+            'class': 'ExponentialScheduler',
+            'exp_decay': 0.975,
+            'min_decay': 0.0,
+        },
+        'warmup_steps': 2,
+    }
     scheduler = WarmupScheduler(ExponentialScheduler(), 2)
     assert recursive_repr(scheduler) == expected

@@ -26,14 +26,14 @@ class TestRunIO:
 
     def test_init_creates_parent_directory(self, tmp_path) -> None:
         """Test that RunIO creates parent directories if they don't exist."""
-        nested_path = tmp_path / "nested" / "deep" / "runs.json"
+        nested_path = tmp_path / 'nested' / 'deep' / 'runs.json'
         run_io = RunIO(nested_path)
         assert nested_path.parent.exists()
         assert nested_path.exists()
 
     def test_init_creates_empty_json_file(self, tmp_path) -> None:
         """Test that RunIO creates an empty JSON file on initialization."""
-        json_file = tmp_path / "runs.json"
+        json_file = tmp_path / 'runs.json'
         run_io = RunIO(json_file)
         assert json_file.exists()
         data = run_io.load_all()
@@ -54,7 +54,7 @@ class TestRunIO:
 
     def test_load_all_nonexistent_file(self, tmp_path) -> None:
         """Test loading from a non-existent file returns an empty list."""
-        json_file = tmp_path / "nonexistent.json"
+        json_file = tmp_path / 'nonexistent.json'
         run_io = RunIO.__new__(RunIO)  # Create without calling __init__
         run_io.json_file = json_file
 
@@ -63,8 +63,8 @@ class TestRunIO:
 
     def test_load_all_corrupted_json(self, tmp_path) -> None:
         """Test loading from a corrupted JSON file returns an empty list."""
-        json_file = tmp_path / "corrupted.json"
-        json_file.write_text("{ invalid json }")
+        json_file = tmp_path / 'corrupted.json'
+        json_file.write_text('{ invalid json }')
 
         run_io = RunIO.__new__(RunIO)  # Create without calling __init__
         run_io.json_file = json_file
@@ -136,16 +136,17 @@ class TestExperiment:
 
     def test_create_run_resume_no_previous_runs_error(self, experiment) -> None:
         """Test that resuming with no previous runs raises an error."""
-        with pytest.raises(ValueError, match="No previous runs found"):
+        with pytest.raises(ValueError, match='No previous runs found'):
             experiment.create_run(resume=True)
 
-    def test_create_run_resume_nonexistent_run_id_error(self,
-                                                        experiment) -> None:
+    def test_create_run_resume_nonexistent_run_id_error(
+        self, experiment
+    ) -> None:
         """Test that resuming with a nonexistent run ID raises an error."""
         # Create a run first to have some data
         experiment.create_run(run_id='existing-run', resume=False)
 
-        with pytest.raises(ValueError, match="Run nonexistent-run not found"):
+        with pytest.raises(ValueError, match='Run nonexistent-run not found'):
             experiment.create_run(run_id='nonexistent-run', resume=True)
 
     def test_run_property_no_active_run_error(self, experiment) -> None:
@@ -155,12 +156,12 @@ class TestExperiment:
 
     def test_validate_chars_invalid_name_error(self, config, tmp_path) -> None:
         """Test invalid characters in the experiment name raise an error."""
-        with pytest.raises(ValueError, match="Name contains invalid character"):
+        with pytest.raises(ValueError, match='Name contains invalid character'):
             Experiment(config, name='Invalid*Name', par_dir=tmp_path)
 
     def test_validate_chars_invalid_run_id_error(self, experiment) -> None:
         """Test that invalid characters in run ID raise an error."""
-        with pytest.raises(ValueError, match="Name contains invalid character"):
+        with pytest.raises(ValueError, match='Name contains invalid character'):
             experiment.create_run(run_id='invalid|id', resume=False)
 
 
@@ -190,7 +191,7 @@ class TestRun:
         return experiment.create_run(resume=False)
 
     def test_start_and_stop_run(
-            self, run, experiment, config, tmp_path
+        self, run, experiment, config, tmp_path
     ) -> None:
         """Test starting and stopping a run using the context manager."""
         with run:
@@ -223,7 +224,7 @@ class TestRun:
         """Test that run status is set to 'failed' when an exception occurs."""
         with pytest.raises(RuntimeError):
             with run:
-                raise RuntimeError("Test exception")
+                raise RuntimeError('Test exception')
 
         assert run.status == 'failed'
 

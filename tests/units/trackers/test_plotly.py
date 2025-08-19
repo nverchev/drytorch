@@ -31,11 +31,13 @@ class TestPlotlyPlotter:
         """Set up the instance."""
         return PlotlyPlotter()
 
-    def test_plot_single_point(self,
-                               tracker,
-                               example_loss_name,
-                               example_source_name,
-                               example_model_name) -> None:
+    def test_plot_single_point(
+        self,
+        tracker,
+        example_loss_name,
+        example_source_name,
+        example_model_name,
+    ) -> None:
         """Test plot_metric with a single datapoint."""
         model_name = example_model_name
         data = np.array([[1, 0.8]])
@@ -44,11 +46,13 @@ class TestPlotlyPlotter:
         self.go_mock.scatter.Marker.assert_called_once_with(symbol=24, size=20)
         self.go_mock.Figure.assert_called_once()
 
-    def test_plot_multiple_points(self,
-                                  tracker,
-                                  example_loss_name,
-                                  example_source_name,
-                                  example_model_name) -> None:
+    def test_plot_multiple_points(
+        self,
+        tracker,
+        example_loss_name,
+        example_source_name,
+        example_model_name,
+    ) -> None:
         """Test plot_metric with multiple points."""
         model_name = example_model_name
         multi_points = np.array([[1, 0.7], [2, 0.8], [3, 0.85]])

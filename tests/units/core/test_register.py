@@ -14,19 +14,19 @@ from drytorch.core.register import (
 
 
 @pytest.fixture(autouse=True, scope='module')
-def setup_module(session_mocker,
-                 tmpdir_factory,
-                 mock_experiment,
-                 mock_run) -> None:
+def setup_module(
+    session_mocker, tmpdir_factory, mock_experiment, mock_run
+) -> None:
     """Fixture for a mock experiment."""
     mock_experiment.run = mock_run
-    session_mocker.patch('drytorch.Experiment.get_current',
-                         return_value=mock_experiment)
+    session_mocker.patch(
+        'drytorch.Experiment.get_current', return_value=mock_experiment
+    )
     return
 
 
 class _SimpleCaller:
-    name = "simple_caller"
+    name = 'simple_caller'
 
 
 def test_register_model(mock_run, mock_model) -> None:
@@ -48,9 +48,9 @@ def test_register_actor(mock_run, mock_model) -> None:
     assert id(caller) in ALL_ACTORS[mock_model.module]
 
 
-def test_register_actor_with_wrong_experiment(mocker,
-                                              mock_run,
-                                              mock_model) -> None:
+def test_register_actor_with_wrong_experiment(
+    mocker, mock_run, mock_model
+) -> None:
     """Test error if registering an actor on a model from another experiment."""
     other_experiment = mocker.Mock()
     ALL_MODULES[mock_model.module] = other_experiment
