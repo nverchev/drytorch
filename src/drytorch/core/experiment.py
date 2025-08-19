@@ -317,7 +317,39 @@ class Run(Generic[_T_co]):
         if not self.resumed:
             experiment.previous_runs.append(self)
 
+    @property
+    def experiment(self) -> Experiment[_T_co]:
+        """The experiment this run belongs to."""
+        return self._experiment
+
     def __enter__(self) -> Self:
+        """Enter the experiment scope."""
+        self.start()
+        return self
+
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+    ) -> None:
+        """Exit the experiment scope."""
+        if exc_type is None:
+            self.status = 'completed'
+        else:
+            self.status = 'failed'
+
+        self.end()
+        return
+
+    def end(self) -> None:
+        """End the experiment scope."""
+        log_events.StopExperimentEvent(self.experiment.name)
+        log_events.Event.set_auto_publish(None)
+        Experiment.clear_current()
+        return
+
+    def start(self) -> None:
         """Start the experiment scope."""
         self.status = 'running'
         Experiment.set_current(self.experiment)
@@ -331,28 +363,7 @@ class Run(Generic[_T_co]):
             self.experiment.par_dir,
             self.experiment.tags,
         )
-        return self
-
-    def __exit__(
-            self,
-            exc_type: type[BaseException] | None,
-            exc_val: BaseException | None,
-            exc_tb: TracebackType | None,
-    ) -> None:
-        """End the experiment scope."""
-        if exc_type is None:
-            self.status = 'completed'
-        else:
-            self.status = 'failed'
-
-        log_events.StopExperimentEvent(self.experiment.name)
-        log_events.Event.set_auto_publish(None)
-        Experiment.clear_current()
-
-    @property
-    def experiment(self) -> Experiment[_T_co]:
-        """The experiment this run belongs to."""
-        return self._experiment
+        return
 
 
 def _validate_chars(name: str) -> None:
