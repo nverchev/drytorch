@@ -401,9 +401,9 @@ class MetricExtractor:
 
     @staticmethod
     def _get_metric_best_is(
-        metric: str
-        | p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | None,
+        metric:  p.ObjectiveProtocol[
+            _Output_contra, _Target_contra
+        ] | str | None,
     ) -> Literal['auto', 'higher', 'lower'] | None:
         higher_is_better = getattr(metric, 'higher_is_better', None)
         if higher_is_better is None:
@@ -422,9 +422,9 @@ class MetricMonitor(Generic[_Output_contra, _Target_contra]):
 
     def __init__(
         self,
-        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | str
-        | None = None,
+        metric: p.ObjectiveProtocol[
+                    _Output_contra, _Target_contra
+                ] | str | None = None,
         monitor: p.MonitorProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
@@ -520,9 +520,9 @@ class EarlyStoppingCallback(Generic[_Output_contra, _Target_contra]):
 
     def __init__(
         self,
-        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | str
-        | None = None,
+        metric: p.ObjectiveProtocol[
+                    _Output_contra, _Target_contra
+                ] | str | None = None,
         monitor: p.MonitorProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 10,
@@ -659,9 +659,9 @@ class ChangeSchedulerOnPlateauCallback(
 
     def __init__(
         self,
-        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | str
-        | None = None,
+        metric: p.ObjectiveProtocol[
+                    _Output_contra, _Target_contra
+                ] | str | None = None,
         monitor: p.MonitorProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
@@ -749,9 +749,9 @@ class ReduceLROnPlateau(
 
     def __init__(
         self,
-        metric: str
-        | p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | None = None,
+        metric: p.ObjectiveProtocol[
+            _Output_contra, _Target_contra
+        ] | str | None = None,
         monitor: p.MonitorProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
