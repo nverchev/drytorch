@@ -22,15 +22,8 @@ from drytorch.lib.hooks import (
     static_hook_class,
 )
 
-
 Accuracy = 'Accuracy'
 Criterion = 'Loss'
-
-
-@pytest.fixture
-def mock_metric_tracker(mocker) -> objectives.MetricTracker:
-    """Returns a mock object."""
-    return mocker.create_autospec(objectives.MetricTracker)
 
 
 class TestHookRegistry:
@@ -120,7 +113,7 @@ class TestMetricExtractor:
 
     @pytest.fixture()
     def mock_metric_higher_is_better(self, mocker) -> p.ObjectiveProtocol:
-        """Mock metric object with higher_is_better = True."""
+        """Mock a metric object with higher_is_better = True."""
         mock = mocker.MagicMock()
         mock.higher_is_better = True
         mock.name = 'test_accuracy'
@@ -128,7 +121,7 @@ class TestMetricExtractor:
 
     @pytest.fixture()
     def mock_metric_lower_is_better(self, mocker) -> p.ObjectiveProtocol:
-        """Mock metric object with higher_is_better = False."""
+        """Mock a metric object with higher_is_better = False."""
         mock = mocker.MagicMock()
         mock.higher_is_better = False
         mock.name = 'test_loss'
@@ -136,7 +129,7 @@ class TestMetricExtractor:
 
     @pytest.fixture()
     def mock_metric_no_preference(self, mocker) -> p.ObjectiveProtocol:
-        """Mock metric object with no higher_is_better attribute."""
+        """Mock a metric object with no higher_is_better attribute."""
         mock = mocker.MagicMock()
         del mock.higher_is_better  # Remove the attribute
         mock.name = 'test_metric'
@@ -144,7 +137,7 @@ class TestMetricExtractor:
 
     @pytest.fixture()
     def mock_metric_with_get_name(self, mocker) -> p.ObjectiveProtocol:
-        """Mock metric object with _get_name method."""
+        """Mock a metric object with the _get_name method."""
         mock = mocker.MagicMock()
         mock._get_name = 'dynamic_name'
         del mock.name  # Remove name attribute
@@ -152,37 +145,42 @@ class TestMetricExtractor:
 
     @pytest.fixture()
     def extractor_from_str(self, example_loss_name) -> MetricExtractor:
-        """Set up extractor with string metric."""
+        """Set up an extractor with string metric."""
         return MetricExtractor(metric=example_loss_name)
 
     @pytest.fixture()
     def extractor_from_object(
-        self, mock_metric_higher_is_better
+            self, mock_metric_higher_is_better
     ) -> MetricExtractor:
-        """Set up extractor with a metric object."""
+        """Set up an extractor with a metric object."""
         return MetricExtractor(metric=mock_metric_higher_is_better)
 
     @pytest.fixture()
     def extractor_no_metric(self) -> MetricExtractor:
-        """Set up extractor with no specified metric."""
+        """Set up an extractor with no specified metric."""
         return MetricExtractor()
 
+    @pytest.fixture
+    def mock_metric_tracker(self, mocker) -> objectives.MetricTracker:
+        """Returns a mock object."""
+        return mocker.create_autospec(objectives.MetricTracker)
+
     def test_init_with_string_metric(
-        self, extractor_from_str, example_loss_name
+            self, extractor_from_str, example_loss_name
     ) -> None:
         """Test instantiation with string metric."""
         assert extractor_from_str.metric_spec == example_loss_name
         assert extractor_from_str.metric_name is None  # Not resolved yet
 
     def test_init_with_metric_object(
-        self, extractor_from_object, mock_metric_higher_is_better
+            self, extractor_from_object, mock_metric_higher_is_better
     ) -> None:
         """Test instantiation with a metric object."""
         assert extractor_from_object.metric_spec == mock_metric_higher_is_better
         assert extractor_from_object.metric_name is None  # Not resolved yet
 
     def test_get_monitor_with_validation(
-        self, extractor_from_str, mock_trainer, mock_validation
+            self, extractor_from_str, mock_trainer, mock_validation
     ) -> None:
         """Test getting monitored values with validation available."""
         mock_trainer.validation = mock_validation
@@ -190,16 +188,16 @@ class TestMetricExtractor:
         assert monitor == mock_trainer.validation
 
     def test_get_monitor_without_validation(
-        self, extractor_from_str, mock_trainer
+            self, extractor_from_str, mock_trainer
     ) -> None:
         """Test getting monitored values without validation."""
         mock_trainer.validation = None
         assert extractor_from_str._get_monitor(mock_trainer) == mock_trainer
 
     def test_get_monitor_with_optional_monitor(
-        self, mock_trainer, mock_validation
+            self, mock_trainer, mock_validation
     ) -> None:
-        """Test getting monitored values with optional monitor specified."""
+        """Test getting monitored values with an optional monitor specified."""
         extractor = MetricExtractor(monitor=mock_validation)
         assert extractor._get_monitor(mock_trainer) == mock_validation
 
@@ -208,19 +206,19 @@ class TestMetricExtractor:
         assert MetricExtractor._get_metric_name('test_loss') == 'test_loss'
 
     def test_get_metric_name_from_object_with_name(
-        self, mock_metric_higher_is_better
+            self, mock_metric_higher_is_better
     ) -> None:
-        """Test extracting metric name from an object with name attribute."""
+        """Test extracting a name from an object with a name attribute."""
         name = MetricExtractor._get_metric_name(mock_metric_higher_is_better)
         assert name == 'test_accuracy'
 
     def test_get_metric_name_from_object_with_get_name(
-        self, mock_metric_with_get_name
+            self, mock_metric_with_get_name
     ) -> None:
-        """Test extracting metric name from an object with _get_name method."""
+        """Test extracting a name from an object with the _get_name method."""
         assert (
-            MetricExtractor._get_metric_name(mock_metric_with_get_name)
-            == 'dynamic_name'
+                MetricExtractor._get_metric_name(mock_metric_with_get_name)
+                == 'dynamic_name'
         )
 
     def test_get_metric_name_from_class_name(self,
@@ -232,28 +230,29 @@ class TestMetricExtractor:
         assert MetricExtractor._get_metric_name(mock) == example_loss_name
 
     def test_get_metric_best_is_higher(
-        self, mock_metric_higher_is_better
+            self, mock_metric_higher_is_better
     ) -> None:
         """Test getting best_is preference when higher is better."""
         assert (
-            MetricExtractor._get_metric_best_is(mock_metric_higher_is_better)
-            == 'higher'
+                MetricExtractor._get_metric_best_is(
+                    mock_metric_higher_is_better)
+                == 'higher'
         )
 
     def test_get_metric_best_is_lower(
-        self, mock_metric_lower_is_better
+            self, mock_metric_lower_is_better
     ) -> None:
         """Test getting best_is preference when lower is better."""
         assert (
-            MetricExtractor._get_metric_best_is(mock_metric_lower_is_better)
-            == 'lower'
+                MetricExtractor._get_metric_best_is(mock_metric_lower_is_better)
+                == 'lower'
         )
 
     def test_get_metric_best_is_none(self, mock_metric_no_preference) -> None:
         """Test getting best_is preference when not specified."""
         assert (
-            MetricExtractor._get_metric_best_is(mock_metric_no_preference)
-            is None
+                MetricExtractor._get_metric_best_is(mock_metric_no_preference)
+                is None
         )
 
     def test_get_metric_best_is_string_metric(self) -> None:
@@ -265,11 +264,11 @@ class TestMetricExtractor:
         assert MetricExtractor._get_metric_best_is(None) is None
 
     def test_extract_metric_value_with_string_metric(
-        self,
-        extractor_from_str,
-        mock_trainer,
-        mock_metric_tracker,
-        example_loss_name,
+            self,
+            extractor_from_str,
+            mock_trainer,
+            mock_metric_tracker,
+            example_loss_name,
     ) -> None:
         """Test extracting metric value with string metric specification."""
         extractor_from_str.extract_metric_value(
@@ -279,11 +278,11 @@ class TestMetricExtractor:
         assert extractor_from_str._resolved_metric_name == example_loss_name
 
     def test_extract_metric_value_auto_select_first_metric(
-        self,
-        extractor_no_metric,
-        mock_trainer,
-        mock_metric_tracker,
-        example_loss_name,
+            self,
+            extractor_no_metric,
+            mock_trainer,
+            mock_metric_tracker,
+            example_loss_name,
     ) -> None:
         """Test extracting metric value when no metric specified."""
         extractor_no_metric.extract_metric_value(
@@ -293,21 +292,21 @@ class TestMetricExtractor:
         assert extractor_no_metric._resolved_metric_name == example_loss_name
 
     def test_extract_metric_value_metric_not_found(
-        self,
-        extractor_from_str,
-        mock_trainer,
-        mock_metric_tracker,
+            self,
+            extractor_from_str,
+            mock_trainer,
+            mock_metric_tracker,
     ) -> None:
-        """Test exception when specified metric is not found."""
-        mock_trainer.computed_metrics = {}
-
+        """Test exception when the specified metric is not found."""
+        mock_trainer.validation = None
+        mock_trainer.computed_metrics.return_value = {}
         with pytest.raises(exceptions.MetricNotFoundError):
             extractor_from_str.extract_metric_value(
                 mock_trainer, mock_metric_tracker
             )
 
     def test_get_metric_best_is_delegation(self, extractor_from_object) -> None:
-        """Test get_metric_best_is delegates to static method."""
+        """Test get_metric_best_is delegates to a static method."""
         result = extractor_from_object.get_metric_best_is()
         assert result == 'higher'
 
@@ -316,19 +315,23 @@ class TestMetricMonitor:
     """Tests for MetricMonitor class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker, mock_metric_tracker) -> None:
+    def setup(self, mocker) -> None:
         """Set up the tests."""
-        mock_extractor = mocker.create_autospec(MetricExtractor)
-        mock_extractor.get_metric_best_is = mocker.Mock(return_value='higher')
-
+        self.mock_extractor = mocker.create_autospec(MetricExtractor)
+        self.mock_extractor.get_metric_best_is = mocker.Mock(
+            return_value='higher'
+        )
+        self.mock_metric_tracker = mocker.create_autospec(
+            objectives.MetricTracker
+        )
         self.mock_metric_tracker_cls = mocker.patch(
             'drytorch.lib.objectives.MetricTracker'
         )
-        self.mock_metric_extractor = mocker.patch(
+        self.mock_metric_extractor_cls = mocker.patch(
             'drytorch.lib.hooks.MetricExtractor'
         )
-        self.mock_metric_tracker_cls.return_value = mock_metric_tracker
-        self.mock_metric_extractor.return_value = mock_extractor
+        self.mock_metric_tracker_cls.return_value = self.mock_metric_tracker
+        self.mock_metric_extractor_cls.return_value = self.mock_extractor
         return
 
     def test_init_calls_metric_extractor_and_metric_tracker(self) -> None:
@@ -345,7 +348,7 @@ class TestMetricMonitor:
             best_is=best_is,
         )
 
-        self.mock_metric_extractor.assert_called_once_with(
+        self.mock_metric_extractor_cls.assert_called_once_with(
             metric=metric, monitor=None
         )
         self.mock_metric_tracker_cls.assert_called_once_with(  # type: ignore
@@ -359,21 +362,20 @@ class TestMetricMonitor:
     def test_record_extractor_and_tracker_calls(self, mocker) -> None:
         """Test that record_metric_value calls the necessary methods."""
         instance = mocker.Mock()
-        monitor = MetricMonitor(metric='accuracy')
-        monitor.extractor.extract_metric_value.return_value = 0.95  # type: ignore
-
+        monitor = MetricMonitor[Any, Any](metric='accuracy')
+        self.mock_extractor.extract_metric_value.return_value = 0.95
         monitor.record_metric_value(instance)
 
-        monitor.extractor.extract_metric_value.assert_called_once_with(  # type: ignore
+        self.mock_extractor.extract_metric_value.assert_called_once_with(
             instance, monitor.metric_tracker
         )
-        monitor.metric_tracker.add_value.assert_called_once_with(0.95)  # type: ignore
+        self.mock_metric_tracker.add_value.assert_called_once_with(0.95)
 
     def test_properties_delegate_to_tracker(self):
         """Test properties delegate all calls to the internal tracker."""
         monitor = MetricMonitor(metric='accuracy')
         monitor.metric_tracker.best_value = 0.99
-        monitor.metric_tracker.filtered_value = 0.95  # type: ignore
+        self.mock_metric_tracker.filtered_value = 0.95
         monitor.metric_tracker.history = [0.9, 0.92, 0.95]
 
         assert monitor.best_value == 0.99
@@ -383,32 +385,32 @@ class TestMetricMonitor:
     def test_is_improving_and_is_patient_delegate_to_tracker(self):
         """Test that is_improving and is_patient delegate to the tracker."""
         monitor = MetricMonitor(metric='accuracy')
-        monitor.metric_tracker.is_improving.return_value = True  # type: ignore
-        monitor.metric_tracker.is_patient.return_value = False  # type: ignore
+        monitor.metric_tracker.is_improving.return_value = True
+        monitor.metric_tracker.is_patient.return_value = False
 
         is_improving = monitor.is_improving()
         is_patient = monitor.is_patient()
 
         assert is_improving is True
         assert is_patient is False
-        monitor.metric_tracker.is_improving.assert_called_once()  # type: ignore
-        monitor.metric_tracker.is_patient.assert_called_once()  # type: ignore
+        self.mock_metric_tracker.is_improving.assert_called_once()
+        self.mock_metric_tracker.is_patient.assert_called_once()
 
     def test_is_better_delegates_to_tracker(self):
         """Test that is_better delegates to the tracker."""
         monitor = MetricMonitor(metric='accuracy')
-        monitor.metric_tracker.is_better.return_value = True  # type: ignore
+        self.mock_metric_tracker.is_better.return_value = True  # type: ignore
 
         result = monitor.is_better(0.95, 0.9)
 
         assert result is True
-        monitor.metric_tracker.is_better.assert_called_once_with(0.95, 0.9)  # type: ignore
+        self.mock_metric_tracker.is_better.assert_called_once_with(0.95, 0.9)
 
     def test_metric_name_property_delegates_to_extractor_and_tracker(self):
         """Test that the metric_name property delegates correctly."""
         monitor = MetricMonitor(metric='accuracy')
-        monitor.extractor.metric_name = 'test_accuracy'  # type: ignore
-        monitor.metric_tracker.metric_name = 'tracker_accuracy'
+        self.mock_extractor.metric_name = 'test_accuracy'
+        self.mock_metric_tracker.metric_name = 'tracker_accuracy'
 
         assert monitor.metric_name == 'test_accuracy'
 
@@ -432,7 +434,8 @@ class TestEarlyStoppingCallback:
 
     def test_stops_on_plateau(self, mock_trainer, callback) -> None:
         """Test training stops after a plateau."""
-        mock_trainer.validation.objective.higher_is_better = True
+        objective = mock_trainer.validation.objective  # type: ignore
+        objective.higher_is_better = True
         for _ in range(callback.monitor.metric_tracker.patience + 1):
             callback(mock_trainer)
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
@@ -479,7 +482,7 @@ class TestReduceLROnPlateau:
         )
 
     def test_reduces_lr_and_respects_cooldown(
-        self, mocker, mock_trainer, callback
+            self, mocker, mock_trainer, callback
     ) -> None:
         """Test LR reduction and cooldown enforcement."""
         scheduler = schedulers.ConstantScheduler()
@@ -506,7 +509,7 @@ class TestRestartScheduleOnPlateau:
         )
 
     def test_restarts_schedule_on_plateau(
-        self, mocker, mock_trainer, callback
+            self, mocker, mock_trainer, callback
     ) -> None:
         """Test learning schedule restart after plateau."""
         scheduler = schedulers.ConstantScheduler()

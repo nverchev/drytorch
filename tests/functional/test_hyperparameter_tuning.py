@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from drytorch import Model, Trainer, hooks
+from drytorch import Trainer
 from drytorch.core.experiment import Run
-from tests.simple_classes import Linear
+from drytorch.lib import hooks
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -25,12 +25,12 @@ def benchmark_values() -> MutableMapping[int, float | None]:
 
 def test_automatic_names(standard_learning_scheme,
                          square_loss_calc,
+                         linear_model,
                          identity_loader) -> None:
     """Test the creation of models in a loop with automatic names."""
     results = dict[str, float]()
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
-        linear_model = Model(Linear(1, 1))
         lr = 10 ** (-lr_pow)
         standard_learning_scheme.base_lr = lr
         trainer = Trainer(linear_model,
@@ -49,12 +49,12 @@ def test_automatic_names(standard_learning_scheme,
 
 def test_iterative_pruning(benchmark_values,
                            standard_learning_scheme,
+                           linear_model,
                            square_loss_calc,
                            identity_loader) -> None:
     """Test a pruning strategy that requires model improvement at each epoch."""
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
-        linear_model = Model(Linear(1, 1))
         lr = 10 ** (-lr_pow)
         standard_learning_scheme.base_lr = lr
         trainer = Trainer(linear_model,

@@ -53,7 +53,7 @@ class TestRunIO:
         assert loaded_runs[2].status == 'running'
 
     def test_load_all_nonexistent_file(self, tmp_path) -> None:
-        """Test loading from a non-existent file returns empty list."""
+        """Test loading from a non-existent file returns an empty list."""
         json_file = tmp_path / "nonexistent.json"
         run_io = RunIO.__new__(RunIO)  # Create without calling __init__
         run_io.json_file = json_file
@@ -62,7 +62,7 @@ class TestRunIO:
         assert result == []
 
     def test_load_all_corrupted_json(self, tmp_path) -> None:
-        """Test loading from a corrupted JSON file returns empty list."""
+        """Test loading from a corrupted JSON file returns an empty list."""
         json_file = tmp_path / "corrupted.json"
         json_file.write_text("{ invalid json }")
 
@@ -154,7 +154,7 @@ class TestExperiment:
             _ = experiment.run
 
     def test_validate_chars_invalid_name_error(self, config, tmp_path) -> None:
-        """Test that invalid characters in experiment name raise an error."""
+        """Test invalid characters in the experiment name raise an error."""
         with pytest.raises(ValueError, match="Name contains invalid character"):
             Experiment(config, name='Invalid*Name', par_dir=tmp_path)
 

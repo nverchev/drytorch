@@ -6,8 +6,8 @@ import torch
 
 import pytest
 
-from drytorch import hooks, schedulers
 from drytorch.core.experiment import Run
+from drytorch.lib import hooks, schedulers
 
 
 @pytest.fixture(autouse=True, scope='module')

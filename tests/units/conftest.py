@@ -3,10 +3,10 @@
 import torch
 
 import pytest
+from defer import return_value
 
 from drytorch import Experiment
 from drytorch.core import protocols as p
-
 
 experiment_current_original = Experiment.get_current
 
@@ -48,7 +48,7 @@ def mock_learning_scheme(mocker, mock_scheduler) -> p.LearningProtocol:
 
 @pytest.fixture
 def mock_metric(
-    mocker,
+        mocker,
 ) -> p.ObjectiveProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock metric calculator."""
     mock = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
@@ -89,7 +89,7 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
 
 @pytest.fixture
 def mock_validation(
-    mocker, mock_metric, example_named_metrics
+        mocker, mock_metric, example_named_metrics
 ) -> p.MonitorProtocol:
     """Fixture for a mock validation."""
     mock = mocker.create_autospec(spec=p.MonitorProtocol, instance=True)
@@ -101,7 +101,7 @@ def mock_validation(
 
 @pytest.fixture
 def mock_trainer(
-    mocker, mock_model, mock_loss, mock_validation, example_named_metrics
+        mocker, mock_model, mock_loss, mock_validation, example_named_metrics
 ) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
@@ -111,7 +111,9 @@ def mock_trainer(
     mock.objective = mock_loss
     mock.validation = mock_validation
     mock.terminated = False
-    mock.computed_metrics = example_named_metrics
+    mock.__class__.computed_metrics = mocker.PropertyMock(
+        return_value=example_named_metrics
+    )
 
     def _terminate_training(reason: str):
         mock.terminated = True
