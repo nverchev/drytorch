@@ -8,7 +8,7 @@ version = "0.0.1"
 authors = [{ name = "Nicolas Vercheval", email = "nicolas.vercheval@ugent.be" }]
 description = "This package helps train, document and evaluate a Pytorch model."
 keywords = ["pytorch", "logger"]
-readme = "README.md"
+readme = "docs/README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 classifiers = [
@@ -99,8 +99,3 @@ log_cli_level = "WARNING"
 mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]
-
-[dependency-groups]
-dev = [
-    "mypy>=1.17.1",
-]
