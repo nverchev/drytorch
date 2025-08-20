@@ -67,8 +67,8 @@ all = [
 ]
 
 
-#[tool.coverage.run]
-#source = ["drytorch"]
+[tool.coverage.run]
+source = ["drytorch"]
 
 [tool.setuptools.package-data]
 "drytorch" = ["py.typed"]
@@ -88,9 +88,9 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-#    "--cov=.",
-#    "--cov-report=term-missing",
-#    "--cov-report=html",
+    "--cov=.",
+    "--cov-report=term-missing",
+    "--cov-report=html",
 ]
 log_cli = true
 log_cli_level = "WARNING"
