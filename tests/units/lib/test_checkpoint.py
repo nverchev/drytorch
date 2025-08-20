@@ -70,10 +70,22 @@ class TestLocalCheckpoint:
         checkpoint.register_optimizer(optimizer)
         return checkpoint
 
+    def test_checkpoint_not_initialized(self, tmp_path) -> None:
+        """Test it raises an error if no model was registered."""
+        checkpoint = checkpoints.LocalCheckpoint(tmp_path)
+        with pytest.raises(exceptions.CheckpointNotInitializedError):
+            checkpoint.load()
+
     def test_get_last_saved_epoch_no_checkpoints(self, checkpoint) -> None:
         """Test it raises an error if it cannot find any folder."""
         with pytest.raises(exceptions.ModelNotFoundError):
             checkpoint.load()
+
+    def test_get_last_saved_epoch_wrong_checkpoint(self, checkpoint) -> None:
+        """Test it raises an error if it cannot find any folder."""
+        checkpoint.save()
+        with pytest.raises(exceptions.EpochNotFoundError):
+            checkpoint.load(1000)
 
     def test_save_and_load(self, checkpoint) -> None:
         """Test it saves the model's state."""

@@ -335,7 +335,7 @@ def _limit_size(container: Iterable[Any]) -> list[Any]:
             listed = (
                 listed[: MAX_REPR_SIZE // 2]
                 + omitted
-                + listed[-MAX_REPR_SIZE // 2:]
+                + listed[-MAX_REPR_SIZE // 2 :]
             )
 
     else:

@@ -389,6 +389,27 @@ class FailedOptionalImportWarning(DryTorchWarning):
         super().__init__(self.msg.format(package_name))
 
 
+class NoPreviousRunsWarning(DryTorchWarning):
+    """Attempted to resume the last run, but none were found."""
+
+    msg = 'No previous runs found. Starting a new one.'
+
+
+class NotExistingRunWarning(DryTorchWarning):
+    """Attempted to resume a not existing run."""
+
+    msg = 'Run with id {} not found. Starting a new one.'
+
+    def __init__(self, run_id: str) -> None:
+        """Constructor.
+
+        Args:
+            run_id: the id of the run that was not found.
+        """
+        self.run_id = run_id
+        super().__init__(run_id)
+
+
 class OptimizerNotLoadedWarning(DryTorchWarning):
     """Warning raised when the optimizer has not been correctly loaded."""
 

@@ -59,7 +59,7 @@ class MetadataManager:
         Args:
             model: the model to document.
         """
-        metadata =repr_utils.LiteralStr(repr(model.module))
+        metadata = repr_utils.LiteralStr(repr(model.module))
         self._register_metadata(model.name, metadata)
         model_version = self._get_ts(model)
         log_events.ModelRegistrationEvent(model.name, model_version, metadata)

@@ -32,7 +32,7 @@ def test_automatic_names(
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
-        linear_model_copy =  Model(linear_model.module)
+        linear_model_copy = Model(linear_model.module)
         standard_learning_scheme.base_lr = lr
         trainer = Trainer(
             linear_model_copy,

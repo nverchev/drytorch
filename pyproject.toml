@@ -88,7 +88,7 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-    "--cov=.",
+#    "--cov=.",
     "--cov-report=term-missing",
     "--cov-report=html",
 ]

@@ -3,17 +3,17 @@
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.experiment import Experiment, Run, RunIO, RunMetadata
+from drytorch.core.experiment import Experiment, Run, RunRegistry, RunMetadata
 
 
-class TestRunIO:
+class TestRunRegistry:
     """Test the RunIO class."""
 
     @pytest.fixture()
-    def run_io(self, tmp_path) -> RunIO:
+    def registry(self, tmp_path) -> RunRegistry:
         """Set up a RunIO instance."""
         json_file = tmp_path / 'test_runs.json'
-        return RunIO(json_file)
+        return RunRegistry(json_file)
 
     @pytest.fixture()
     def sample_runs(self) -> list[RunMetadata]:
@@ -25,24 +25,24 @@ class TestRunIO:
         ]
 
     def test_init_creates_parent_directory(self, tmp_path) -> None:
-        """Test that RunIO creates parent directories if they don't exist."""
+        """Test it creates parent directories if they don't exist."""
         nested_path = tmp_path / 'nested' / 'deep' / 'runs.json'
-        run_io = RunIO(nested_path)
+        _ = RunRegistry(nested_path)
         assert nested_path.parent.exists()
         assert nested_path.exists()
 
     def test_init_creates_empty_json_file(self, tmp_path) -> None:
-        """Test that RunIO creates an empty JSON file on initialization."""
+        """Test it creates an empty JSON file on initialization."""
         json_file = tmp_path / 'runs.json'
-        run_io = RunIO(json_file)
+        run_io = RunRegistry(json_file)
         assert json_file.exists()
         data = run_io.load_all()
         assert data == []
 
-    def test_save_and_load_all(self, run_io, sample_runs) -> None:
+    def test_save_and_load_all(self, registry, sample_runs) -> None:
         """Test saving and loading run metadata."""
-        run_io.save_all(sample_runs)
-        loaded_runs = run_io.load_all()
+        registry.save_all(sample_runs)
+        loaded_runs = registry.load_all()
 
         assert len(loaded_runs) == 3
         assert loaded_runs[0].id == 'run1'
@@ -55,9 +55,8 @@ class TestRunIO:
     def test_load_all_nonexistent_file(self, tmp_path) -> None:
         """Test loading from a non-existent file returns an empty list."""
         json_file = tmp_path / 'nonexistent.json'
-        run_io = RunIO.__new__(RunIO)  # Create without calling __init__
+        run_io = RunRegistry.__new__(RunRegistry)
         run_io.json_file = json_file
-
         result = run_io.load_all()
         assert result == []
 
@@ -65,30 +64,25 @@ class TestRunIO:
         """Test loading from a corrupted JSON file returns an empty list."""
         json_file = tmp_path / 'corrupted.json'
         json_file.write_text('{ invalid json }')
-
-        run_io = RunIO.__new__(RunIO)  # Create without calling __init__
+        run_io = RunRegistry.__new__(RunRegistry)
         run_io.json_file = json_file
-
         result = run_io.load_all()
         assert result == []
 
-    def test_save_all_empty_list(self, run_io) -> None:
+    def test_save_all_empty_list(self, registry) -> None:
         """Test saving an empty list."""
-        run_io.save_all([])
-        loaded_runs = run_io.load_all()
+        registry.save_all([])
+        loaded_runs = registry.load_all()
         assert loaded_runs == []
 
-    def test_roundtrip_data_integrity(self, run_io) -> None:
+    def test_roundtrip_data_integrity(self, registry) -> None:
         """Test that data maintains integrity through save/load cycles."""
         original_runs = [
             RunMetadata(id='test-run-1', status='created'),
             RunMetadata(id='test-run-2', status='completed'),
         ]
-
-        run_io.save_all(original_runs)
-        loaded_runs = run_io.load_all()
-
-        # Verify all fields match exactly
+        registry.save_all(original_runs)
+        loaded_runs = registry.load_all()
         assert len(loaded_runs) == len(original_runs)
         for original, loaded in zip(original_runs, loaded_runs, strict=False):
             assert original.id == loaded.id
@@ -122,7 +116,7 @@ class TestExperiment:
 
     def test_create_run_new(self, experiment) -> None:
         """Test creating a new run."""
-        run = experiment.create_run(resume=False)
+        run = experiment.create_run()
         assert isinstance(run, Run)
         assert run.experiment is experiment
         assert run.status == 'created'
@@ -130,23 +124,21 @@ class TestExperiment:
 
     def test_create_run_with_custom_id(self, experiment) -> None:
         """Test creating a new run with a custom ID."""
-        run = experiment.create_run(run_id='custom-id', resume=False)
+        run = experiment.create_run(run_id='custom-id')
         assert run.id == 'custom-id'
         assert not run.resumed
 
     def test_create_run_resume_no_previous_runs_error(self, experiment) -> None:
         """Test that resuming with no previous runs raises an error."""
-        with pytest.raises(ValueError, match='No previous runs found'):
+        with pytest.warns(exceptions.NoPreviousRunsWarning):
             experiment.create_run(resume=True)
 
     def test_create_run_resume_nonexistent_run_id_error(
         self, experiment
     ) -> None:
         """Test that resuming with a nonexistent run ID raises an error."""
-        # Create a run first to have some data
-        experiment.create_run(run_id='existing-run', resume=False)
-
-        with pytest.raises(ValueError, match='Run nonexistent-run not found'):
+        experiment.create_run(run_id='other-run')
+        with pytest.warns(exceptions.NotExistingRunWarning):
             experiment.create_run(run_id='nonexistent-run', resume=True)
 
     def test_run_property_no_active_run_error(self, experiment) -> None:
