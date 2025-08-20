@@ -79,7 +79,7 @@ class YamlDumper(base_classes.Dumper):
         return super().notify(event)
 
     @staticmethod
-    def _dump(metadata: dict[str, Any], file_path: pathlib.Path) -> None:
+    def _dump(metadata: dict[str, Any] | str, file_path: pathlib.Path) -> None:
         with file_path.open('w') as metadata_file:
             yaml.dump(metadata, metadata_file)
 
