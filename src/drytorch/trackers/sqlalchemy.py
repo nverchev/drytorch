@@ -7,8 +7,6 @@ import functools
 
 from typing import cast
 
-from typing_extensions import dataclass_transform
-
 import sqlalchemy
 
 from sqlalchemy import orm, sql
@@ -17,12 +15,11 @@ from typing_extensions import override
 from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
+
 reg = orm.registry()
 
 
-mapped_as_dataclass = dataclass_transform()(reg.mapped_as_dataclass)
-
-@mapped_as_dataclass
+@reg.mapped_as_dataclass
 class Experiment:
     """Table for experiments.
 
@@ -51,7 +48,7 @@ class Experiment:
     )
 
 
-@mapped_as_dataclass
+@reg.mapped_as_dataclass
 class Tags:
     """Table for tags for experiments.
 
@@ -77,7 +74,7 @@ class Tags:
     text: orm.Mapped[str] = orm.mapped_column(index=True)
 
 
-@mapped_as_dataclass
+@reg.mapped_as_dataclass
 class Run:
     """Table for runs.
 
@@ -114,7 +111,7 @@ class Run:
     )
 
 
-@mapped_as_dataclass
+@reg.mapped_as_dataclass
 class Source:
     """Table for sources.
 
@@ -150,7 +147,7 @@ class Source:
     )
 
 
-@mapped_as_dataclass
+@reg.mapped_as_dataclass
 class Log:
     """Table for the logs of the metrics.
 

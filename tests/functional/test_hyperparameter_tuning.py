@@ -8,6 +8,7 @@ import pytest
 from drytorch import Trainer
 from drytorch.core.experiment import Run
 from drytorch.lib import hooks
+from drytorch.lib.models import Model
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -31,9 +32,10 @@ def test_automatic_names(
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
+        linear_model_copy =  Model(linear_model.module)
         standard_learning_scheme.base_lr = lr
         trainer = Trainer(
-            linear_model,
+            linear_model_copy,
             name='MyTrainer',
             loader=training_loder,
             learning_scheme=standard_learning_scheme,
@@ -43,7 +45,7 @@ def test_automatic_names(
         early_stopping = hooks.EarlyStoppingCallback[Any, Any]()
         trainer.post_epoch_hooks.register(early_stopping)
         trainer.train(10)
-        results[linear_model.name] = early_stopping.monitor.best_value
+        results[linear_model_copy.name] = early_stopping.monitor.best_value
 
     assert {'Model', 'Model_1', 'Model_2', 'Model_3'} == set(results)
 

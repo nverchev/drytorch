@@ -92,7 +92,7 @@ class TestMetadataManager:
     def test_register_actor(self, mock_model, simple_actor, manager) -> None:
         """Test recording metadata creates the event."""
         manager.register_actor(simple_actor, mock_model)
-        assert simple_actor.name in manager.used_names
+        assert simple_actor.name in manager.metadata_dict
         self.mock_caller_registration_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
             manager.register_actor(simple_actor, mock_model)
@@ -100,7 +100,7 @@ class TestMetadataManager:
     def test_register_model(self, mock_model, manager) -> None:
         """Test registering a model creates the event."""
         manager.register_model(mock_model)
-        assert mock_model.name in manager.used_names
+        assert mock_model.name in manager.metadata_dict
         self.mock_model_registration_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
             manager.register_model(mock_model)
@@ -109,13 +109,13 @@ class TestMetadataManager:
         """Test unregistering an actor removes its name from the used names."""
         manager.register_actor(simple_actor, mock_model)
         manager.unregister_actor(simple_actor)
-        assert simple_actor.name not in manager.used_names
+        assert simple_actor.name not in manager.metadata_dict
 
     def test_unregister_model(self, mock_model, manager) -> None:
         """Test unregistering a model removes its name from the used names."""
         manager.register_model(mock_model)
         manager.unregister_actor(mock_model)
-        assert mock_model.name not in manager.used_names
+        assert mock_model.name not in manager.metadata_dict
 
     def test_extract_metadata_recursion_error(self, mocker, manager) -> None:
         """Test extract_metadata handles RecursionError gracefully."""

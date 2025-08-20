@@ -45,13 +45,13 @@ def stop_experiment_event(example_exp_name) -> log_events.StopExperimentEvent:
 
 @pytest.fixture
 def model_registration_event(
-    example_model_name, example_metadata, example_model_ts
+    example_model_name, example_architecure_repr, example_model_ts
 ) -> log_events.ModelRegistrationEvent:
     """Provides a ModelRegistration event instance."""
     return log_events.ModelRegistrationEvent(
         model_name=example_model_name,
         model_ts=example_model_ts,
-        metadata=example_metadata,
+        architecure_repr=example_architecure_repr,
     )
 
 

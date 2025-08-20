@@ -43,7 +43,7 @@ class TestSQLConnectionFullCycle:
         model_registration_event,
         example_model_name,
         example_model_ts,
-        example_metadata,
+        example_architecure_repr,
     ):
         """Test correct dumping of metadata from the model."""
         tracker.notify(start_experiment_event)
@@ -55,7 +55,7 @@ class TestSQLConnectionFullCycle:
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 
-        assert metadata == example_metadata
+        assert metadata == example_architecure_repr
 
     def test_caller_metadata(
         self,

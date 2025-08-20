@@ -86,8 +86,14 @@ def example_named_metrics(example_loss_name) -> dict[str, float]:
     }
 
 
+@pytest.fixture(scope='package')
+def example_architecure_repr() -> str:
+    """Example architecture representation."""
+    return 'MyResnet(many layers...)'
+
+
 # tests need primitive types
 @pytest.fixture(scope='package')
 def example_metadata() -> dict[str, Any]:
-    """Example for metadata."""
-    return {'architecture': 'ResNet18', 'long_list': [0] * 20}
+    """Example metadata."""
+    return {'batch_size': 23, 'long_list': [0] * 20}

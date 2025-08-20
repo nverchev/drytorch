@@ -73,12 +73,12 @@ class ModelRegistrationEvent(Event):
     Attributes:
         model_name: the name of the model.
         model_ts: the model's timestamp.
-        metadata: Additional metadata about the model.
+        architecure_repr: the model'.
     """
 
     model_name: str
     model_ts: datetime.datetime
-    metadata: dict[str, Any]
+    architecure_repr: str
 
 
 @dataclasses.dataclass

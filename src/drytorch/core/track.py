@@ -26,13 +26,13 @@ class MetadataManager:
     """Class that handles and generates metadata.
 
     Attributes:
-        used_names: set to keep track of already registered names.
+        metadata_dict: set to keep track of already registered names.
     """
 
     def __init__(self) -> None:
         """Constructor."""
         super().__init__()
-        self.used_names = set[str]()
+        self.metadata_dict = dict[str, Any]()
 
     def register_actor(
         self, actor: Any, model: p.ModelProtocol[Any, Any]
@@ -46,8 +46,8 @@ class MetadataManager:
         actor_name = getattr(actor, 'name', '') or actor.__class__.__name__
         actor_version = self._get_ts(actor)
         model_version = self._get_ts(model)
-        self._register_name(actor_name)
         metadata = self.extract_metadata(actor)
+        self._register_metadata(actor_name, metadata)
         log_events.ActorRegistrationEvent(
             actor_name, actor_version, model.name, model_version, metadata
         )
@@ -59,8 +59,8 @@ class MetadataManager:
         Args:
             model: the model to document.
         """
-        self._register_name(model.name)
-        metadata = {'module': repr_utils.LiteralStr(repr(model.module))}
+        metadata =repr_utils.LiteralStr(repr(model.module))
+        self._register_metadata(model.name, metadata)
         model_version = self._get_ts(model)
         log_events.ModelRegistrationEvent(model.name, model_version, metadata)
         return
@@ -72,7 +72,7 @@ class MetadataManager:
             actor: the object actin on the model.
         """
         caller_name = getattr(actor, 'name', '') or actor.__class__.__name__
-        self._unregister_name(caller_name)
+        self._unregister_metadata(caller_name)
         return
 
     def unregister_model(self, model: p.ModelProtocol[Any, Any]) -> None:
@@ -81,18 +81,18 @@ class MetadataManager:
         Args:
             model: the model to document.
         """
-        self._unregister_name(model.name)
+        self._unregister_metadata(model.name)
         return
 
-    def _register_name(self, name: str) -> None:
-        if name in self.used_names:
+    def _register_metadata(self, name: str, metadata: Any) -> None:
+        if name in self.metadata_dict:
             raise exceptions.NameAlreadyRegisteredError(name)
 
-        self.used_names.add(name)
+        self.metadata_dict[name] = metadata
         return
 
-    def _unregister_name(self, name: str) -> None:
-        self.used_names.remove(name)
+    def _unregister_metadata(self, name: str) -> None:
+        self.metadata_dict.pop(name)
         return
 
     @staticmethod
