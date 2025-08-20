@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import pathlib
+import warnings
 
 from types import TracebackType
 from typing import Any, ClassVar, Final, Generic, Literal, Self, TypeVar
@@ -13,7 +14,6 @@ from typing_extensions import override
 
 from drytorch.core import exceptions, log_events, track
 from drytorch.utils import repr_utils
-
 
 _T_co = TypeVar('_T_co', covariant=True)
 
@@ -29,7 +29,7 @@ class RunMetadata:
     hashed_config: int | None = None
 
 
-class RunIO:
+class RunRegistry:
     """Creates and manages a JSON file for run metadata.
 
     Attributes:
@@ -125,7 +125,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self.trackers = track.EventDispatcher(self.name)
         self.trackers.register(**track.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
-        self.run_io = RunIO(run_file)
+        self._registry = RunRegistry(run_file)
         self._active_run: Run[_T_co] | None = None
         self.previous_runs: list[Run[_T_co]] = []
 
@@ -161,7 +161,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
         if run_id is not None:
             _validate_chars(run_id)
 
-        runs_data = self.run_io.load_all()
+        runs_data = self._registry.load_all()
         if resume:
             return self._handle_resume_logic(run_id, runs_data)
         else:
@@ -179,12 +179,17 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
                 return run
 
         if not runs_data:
-            raise ValueError(
-                f'No previous runs found for experiment {self.name}'
-            )
+            warnings.warn(exceptions.NoPreviousRunsWarning())
+            return self._create_new_run(run_id, runs_data)
 
-        resolved_run_id = self._resolve_run_id_from_data(run_id, runs_data)
-        return Run(experiment=self, run_id=resolved_run_id, resumed=True)
+        if run_id is None:
+            run_id = runs_data[-1].id
+        else:
+            if not any(r_data.id == run_id for r_data in runs_data):
+                warnings.warn(exceptions.NotExistingRunWarning(run_id))
+                return self._create_new_run(run_id, runs_data)
+
+        return Run(experiment=self, run_id=run_id, resumed=True)
 
     def _get_run_from_previous(self, run_id: str | None) -> Run[_T_co] | None:
         """Get run from the previous_runs list."""
@@ -196,26 +201,10 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
             return None
 
         if len(matching_runs) > 1:
-            raise ValueError(
-                f'Multiple runs with id {run_id} found for '
-                f'experiment {self.name}'
-            )
+            msg = f'Multiple runs with id {run_id} found for exp {self.name}'
+            raise ValueError(msg)
 
         return matching_runs[0]
-
-    def _resolve_run_id_from_data(
-        self, run_id: str | None, runs_data: list[RunMetadata]
-    ) -> str:
-        """Resolve run_id from runs_data or validate an existing one."""
-        if run_id is None:
-            return runs_data[-1].id
-
-        if not any(r_data.id == run_id for r_data in runs_data):
-            raise ValueError(
-                f'Run {run_id} not found for experiment {self.name}'
-            )
-
-        return run_id
 
     def _create_new_run(
         self, run_id: str | None, runs_data: list[RunMetadata]
@@ -230,7 +219,7 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
             id=resolved_run_id, status='created', hashed_config=hashed_config
         )
         runs_data.append(run_data)
-        self.run_io.save_all(runs_data)
+        self._registry.save_all(runs_data)
         return Run(experiment=self, run_id=resolved_run_id)
 
     @property
