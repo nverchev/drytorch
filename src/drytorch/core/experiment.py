@@ -6,14 +6,25 @@ import dataclasses
 import json
 import pathlib
 import warnings
+import weakref
 
 from types import TracebackType
-from typing import Any, ClassVar, Final, Generic, Literal, Self, TypeVar
+from typing import (
+    Any,
+    ClassVar,
+    Final,
+    Generic,
+    Literal,
+    Self,
+    TypeVar,
+)
+from weakref import finalize
 
 from typing_extensions import override
 
 from drytorch.core import exceptions, log_events, track
 from drytorch.utils import repr_utils
+
 
 _T_co = TypeVar('_T_co', covariant=True)
 
@@ -26,6 +37,7 @@ class RunMetadata:
 
     id: str
     status: RunStatus
+    timestamp: str
     hashed_config: int | None = None
 
 
@@ -75,7 +87,7 @@ class RunRegistry:
         self.json_file.write_text(json.dumps(run_data, indent=2))
 
 
-class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
+class Experiment(Generic[_T_co]):
     """Manage experiment configuration, directory, and tracking.
 
     This class associates a configuration file, a name, and a working directory
@@ -116,7 +128,6 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
             par_dir: Parent directory for experiment data.
             tags: Descriptors for the experiment (e.g., ``"lr=0.01"``).
         """
-        super().__init__()
         _validate_chars(name)
         self.__config: Final[_T_co] = config
         self._name = name
@@ -179,14 +190,16 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
                 return run
 
         if not runs_data:
-            warnings.warn(exceptions.NoPreviousRunsWarning())
+            warnings.warn(exceptions.NoPreviousRunsWarning(), stacklevel=2)
             return self._create_new_run(run_id, runs_data)
 
         if run_id is None:
             run_id = runs_data[-1].id
         else:
             if not any(r_data.id == run_id for r_data in runs_data):
-                warnings.warn(exceptions.NotExistingRunWarning(run_id))
+                warnings.warn(
+                    exceptions.NotExistingRunWarning(run_id), stacklevel=2
+                )
                 return self._create_new_run(run_id, runs_data)
 
         return Run(experiment=self, run_id=run_id, resumed=True)
@@ -210,17 +223,24 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self, run_id: str | None, runs_data: list[RunMetadata]
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
-        resolved_run_id = run_id or self.created_at_str
         try:
             hashed_config: int | None = hash(self.__config)
         except TypeError:
+            warnings.warn(
+                exceptions.ConfigNotHashableWarning(self.__config), stacklevel=2
+            )
             hashed_config = None
+
+        run = Run(experiment=self, run_id=run_id)
         run_data = RunMetadata(
-            id=resolved_run_id, status='created', hashed_config=hashed_config
+            id=run.id,
+            status='created',
+            timestamp=run.created_at_str,
+            hashed_config=hashed_config,
         )
         runs_data.append(run_data)
         self._registry.save_all(runs_data)
-        return Run(experiment=self, run_id=resolved_run_id)
+        return run
 
     @property
     def run(self) -> Run[_T_co]:
@@ -260,16 +280,13 @@ class Experiment(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def clear_current() -> None:
+    def _clear_current() -> None:
         """Clear the active experiment."""
-        if Experiment.__current is None:
-            raise exceptions.NoActiveExperimentError()
-
         Experiment.__current = None
         return
 
 
-class Run(Generic[_T_co]):
+class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     """Execution lifecycle for a single run of an Experiment.
 
     Attributes:
@@ -282,7 +299,7 @@ class Run(Generic[_T_co]):
     def __init__(
         self,
         experiment: Experiment[_T_co],
-        run_id: str,
+        run_id: str | None,
         resumed: bool = False,
     ) -> None:
         """Constructor.
@@ -292,12 +309,13 @@ class Run(Generic[_T_co]):
             run_id: identifier of the run.
             resumed: whether the run was resumed.
         """
+        super().__init__()
         self._experiment = experiment
-        self.id = run_id
+        self._id = run_id or self.created_at_str
         self.resumed = resumed
         self.status: RunStatus = 'created'
         self.metadata_manager = track.MetadataManager()
-        experiment.run = self
+        self._finalizer: finalize[..., Self] | None = None
         if not self.resumed:
             experiment.previous_runs.append(self)
 
@@ -305,6 +323,11 @@ class Run(Generic[_T_co]):
     def experiment(self) -> Experiment[_T_co]:
         """The experiment this run belongs to."""
         return self._experiment
+
+    @property
+    def id(self) -> str:
+        """The identifier of the run."""
+        return self._id or self.created_at_str
 
     def __enter__(self) -> Self:
         """Enter the experiment scope."""
@@ -318,36 +341,87 @@ class Run(Generic[_T_co]):
         exc_tb: TracebackType | None,
     ) -> None:
         """Exit the experiment scope."""
-        if exc_type is None:
-            self.status = 'completed'
-        else:
+        if exc_type is not None:
             self.status = 'failed'
 
-        self.end()
+        self.stop()
         return
 
-    def end(self) -> None:
-        """End the experiment scope."""
-        log_events.StopExperimentEvent(self.experiment.name)
-        log_events.Event.set_auto_publish(None)
-        Experiment.clear_current()
+    def is_active(self) -> bool:
+        """Check if the run is currently active."""
+        return self.status == 'running'
+
+    def stop(self) -> None:
+        """Stop the experiment scope."""
+        if self.status == 'running':  # failed is left as is
+            self.status = 'completed'
+        elif self.status == 'created':
+            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
+            return
+        elif self.status == 'completed':
+            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
+            return
+
+        self._update_registry()
+        self._cleanup_resources(self.experiment)
+        if self._finalizer is not None:
+            self._finalizer.detach()
+            self._finalizer = None
         return
 
     def start(self) -> None:
         """Start the experiment scope."""
+        if self.status == 'running':
+            warnings.warn(exceptions.RunAlreadyRunningWarning(), stacklevel=1)
+            return
+        self._finalizer = weakref.finalize(
+            self, self._cleanup_resources, self.experiment
+        )
         self.status = 'running'
+        self._update_registry()
+        self.experiment._active_run = self
         Experiment.set_current(self.experiment)
         log_events.Event.set_auto_publish(self.experiment.trackers.publish)
         log_events.StartExperimentEvent(
             self.experiment.config,
             self.experiment.name,
-            self.experiment.created_at,
+            self.created_at,
             self.id,
             self.resumed,
             self.experiment.par_dir,
             self.experiment.tags,
         )
         return
+
+    def _update_registry(self) -> None:
+        """Update the run status in the experiment's registry."""
+        if hasattr(self.experiment, '_registry') and self.experiment._registry:
+            run_data = self.experiment._registry.load_all()
+
+            for run_metadata in run_data:
+                if run_metadata.id == self.id:
+                    run_metadata.status = self.status
+                    break
+            else:
+                run_data.append(
+                    RunMetadata(
+                        id=self.id,
+                        status=self.status,
+                        timestamp=self.created_at_str,
+                    )
+                )
+
+            self.experiment._registry.save_all(run_data)
+
+        return
+
+    @staticmethod
+    def _cleanup_resources(experiment: Experiment[_T_co]):
+        """Cleanup without holding reference to Run instance."""
+        experiment._active_run = None
+        log_events.StopExperimentEvent(experiment.name)
+        log_events.Event.set_auto_publish(None)
+        Experiment._clear_current()
 
 
 def _validate_chars(name: str) -> None:

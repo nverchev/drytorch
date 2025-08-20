@@ -374,6 +374,21 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         super().__init__(calculator.__class__.__name__)
 
 
+class ConfigNotHashableWarning(DryTorchWarning):
+    """Warning raised when athe configuration file is not hashable."""
+
+    msg = 'The configuration is not hashable. Does it contain mutable objects?'
+
+    def __init__(self, config: Any) -> None:
+        """Constructor.
+
+        Args:
+            config: the configuration for the experiment.
+        """
+        self.config = config
+        super().__init__()
+
+
 class FailedOptionalImportWarning(DryTorchWarning):
     """Warning raised when an optional dependency fails to import."""
 
@@ -386,7 +401,7 @@ class FailedOptionalImportWarning(DryTorchWarning):
             package_name: the name of the package that failed to import.
         """
         self.package_name = package_name
-        super().__init__(self.msg.format(package_name))
+        super().__init__(package_name)
 
 
 class NoPreviousRunsWarning(DryTorchWarning):
@@ -446,6 +461,24 @@ class RecursionWarning(DryTorchWarning):
     """Warning raised when recursive objects obstruct metadata extraction."""
 
     msg = 'Impossible to extract metadata because there are recursive objects.'
+
+
+class RunNotStartedWarning(DryTorchWarning):
+    """Warning raised when a run is stopped before being started."""
+
+    msg = """Attempted to stop a Run instance that is not active."""
+
+
+class RunAlreadyCompletedWarning(DryTorchWarning):
+    """Warning raised when a run is stopped after completion."""
+
+    msg = """Attempted to stop a Run instance that is already completed."""
+
+
+class RunAlreadyRunningWarning(DryTorchWarning):
+    """Warning raised when a run is started when aleady running."""
+
+    msg = """Attempted to start a Run instance that is already runnning."""
 
 
 class TerminatedTrainingWarning(DryTorchWarning):

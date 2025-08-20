@@ -3,7 +3,7 @@
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.experiment import Experiment, Run, RunRegistry, RunMetadata
+from drytorch.core.experiment import Experiment, Run, RunMetadata, RunRegistry
 
 
 class TestRunRegistry:
@@ -19,9 +19,9 @@ class TestRunRegistry:
     def sample_runs(self) -> list[RunMetadata]:
         """Set up sample run metadata."""
         return [
-            RunMetadata(id='run1', status='completed'),
-            RunMetadata(id='run2', status='failed'),
-            RunMetadata(id='run3', status='running'),
+            RunMetadata(id='run1', status='completed', timestamp='1245'),
+            RunMetadata(id='run2', status='failed', timestamp='1246'),
+            RunMetadata(id='run3', status='running', timestamp='1247'),
         ]
 
     def test_init_creates_parent_directory(self, tmp_path) -> None:
@@ -47,10 +47,13 @@ class TestRunRegistry:
         assert len(loaded_runs) == 3
         assert loaded_runs[0].id == 'run1'
         assert loaded_runs[0].status == 'completed'
+        assert loaded_runs[0].timestamp == '1245'
         assert loaded_runs[1].id == 'run2'
         assert loaded_runs[1].status == 'failed'
+        assert loaded_runs[1].timestamp == '1246'
         assert loaded_runs[2].id == 'run3'
         assert loaded_runs[2].status == 'running'
+        assert loaded_runs[2].timestamp == '1247'
 
     def test_load_all_nonexistent_file(self, tmp_path) -> None:
         """Test loading from a non-existent file returns an empty list."""
@@ -78,8 +81,8 @@ class TestRunRegistry:
     def test_roundtrip_data_integrity(self, registry) -> None:
         """Test that data maintains integrity through save/load cycles."""
         original_runs = [
-            RunMetadata(id='test-run-1', status='created'),
-            RunMetadata(id='test-run-2', status='completed'),
+            RunMetadata(id='test-run-1', status='created', timestamp='1245'),
+            RunMetadata(id='test-run-2', status='completed', timestamp='1245'),
         ]
         registry.save_all(original_runs)
         loaded_runs = registry.load_all()
@@ -87,6 +90,7 @@ class TestRunRegistry:
         for original, loaded in zip(original_runs, loaded_runs, strict=False):
             assert original.id == loaded.id
             assert original.status == loaded.status
+            assert original.timestamp == loaded.timestamp
 
 
 class TestExperiment:
@@ -141,6 +145,12 @@ class TestExperiment:
         with pytest.warns(exceptions.NotExistingRunWarning):
             experiment.create_run(run_id='nonexistent-run', resume=True)
 
+    def test_config_not_hashable(self, tmp_path) -> None:
+        """Test that resuming with a nonexistent run ID raises an error."""
+        experiment = Experiment([], par_dir=tmp_path)
+        with pytest.warns(exceptions.ConfigNotHashableWarning):
+            experiment.create_run()
+
     def test_run_property_no_active_run_error(self, experiment) -> None:
         """Test accessing run property with no active run raises an error."""
         with pytest.raises(exceptions.NoActiveExperimentError):
@@ -163,8 +173,8 @@ class TestRun:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up mocks for event logging."""
-        mocker.patch.object(log_events, 'StartExperimentEvent')
-        mocker.patch.object(log_events, 'StopExperimentEvent')
+        self.start_exp = mocker.patch.object(log_events, 'StartExperimentEvent')
+        self.stop_exp = mocker.patch.object(log_events, 'StopExperimentEvent')
         return
 
     @pytest.fixture()
@@ -186,12 +196,16 @@ class TestRun:
         self, run, experiment, config, tmp_path
     ) -> None:
         """Test starting and stopping a run using the context manager."""
-        with run:
-            assert run.status == 'running'
-            assert Experiment.get_current() is experiment
-            assert Experiment.get_current().par_dir == tmp_path
-            assert Experiment.get_config() is config
+        self.start_exp.reset_mock()
+        run.start()
+        assert run.status == 'running'
+        assert Experiment.get_current() is experiment
+        assert Experiment.get_current().par_dir == tmp_path
+        assert Experiment.get_config() is config
+        assert experiment._active_run is run
+        self.start_exp.assert_called_once()
 
+        run.stop()
         assert run.status == 'completed'
         with pytest.raises(exceptions.NoActiveExperimentError):
             Experiment.get_current()
@@ -227,13 +241,11 @@ class TestRun:
         assert run.experiment is experiment
         assert run.status == 'created'
         assert not run.resumed
-        assert experiment._active_run is run
 
     def test_run_constructor_resumed(self, experiment) -> None:
         """Test creating a Run with resumed=True."""
         run = Run(experiment, run_id='resumed-run', resumed=True)
         assert run.resumed
-        # Resumed runs should not be added to previous_runs
         assert run not in experiment.previous_runs
 
     def test_run_not_resumed_added_to_previous_runs(self, experiment) -> None:
@@ -243,7 +255,63 @@ class TestRun:
         assert len(experiment.previous_runs) == initial_count + 1
         assert run in experiment.previous_runs
 
-    def test_experiment_run_property_access(self, experiment) -> None:
-        """Test accessing the current run through the experiment."""
-        run = experiment.create_run(resume=False)
-        assert experiment.run is run
+    def test_is_active_status(self, run) -> None:
+        """Test the is_active method returns correct status."""
+        assert not run.is_active()
+
+        run.start()
+        assert run.is_active()
+
+        run.stop()
+        assert not run.is_active()
+
+    def test_double_start_warning(self, run) -> None:
+        """Test that starting an already running run issues a warning."""
+        with run:
+            with pytest.warns(exceptions.RunAlreadyRunningWarning):
+                run.start()
+
+            # warn without changing status
+            assert run.status == 'running'
+
+    def test_stop_without_start_warning(self, run) -> None:
+        """Test that stopping a never-started run issues a warning."""
+        with pytest.warns(exceptions.RunNotStartedWarning):
+            run.stop()
+
+        # warn without changing status
+        assert run.status == 'created'
+
+    def test_double_stop_warning(self, run) -> None:
+        """Test that stopping an already completed run issues a warning."""
+        run.start()
+        run.stop()
+
+        with pytest.warns(exceptions.RunAlreadyCompletedWarning):
+            run.stop()
+
+        # warn without changing status
+        assert run.status == 'completed'
+
+    def test_stop_failed_run_no_warning(self, run) -> None:
+        """Test stopping a failed run keep the status."""
+        run.start()
+        run.status = 'failed'
+        run.stop()
+        assert run.status == 'failed'
+
+    def test_cleanup_resources_static_method(self, experiment, mocker) -> None:
+        """Test the _cleanup_resources static method directly."""
+        self.stop_exp.reset_mock()
+        mock_set_auto_publish = mocker.patch.object(
+            log_events.Event, 'set_auto_publish'
+        )
+        mock_clear_current = mocker.patch.object(Experiment, '_clear_current')
+        experiment._active_run = 'dummy_run'
+
+        Run._cleanup_resources(experiment)
+
+        assert experiment._active_run is None
+        self.stop_exp.assert_called_once_with(experiment.name)
+        mock_set_auto_publish.assert_called_once_with(None)
+        mock_clear_current.assert_called_once()
