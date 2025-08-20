@@ -7,7 +7,7 @@ import pytest
 from drytorch.lib.gradient_ops import HistClipping
 from drytorch.lib.hooks import EarlyStoppingCallback, HookRegistry
 from drytorch.lib.schedulers import ExponentialScheduler, WarmupScheduler
-from drytorch.utils.average import get_moving_average
+from drytorch.utils.average import get_trailing_mean
 from drytorch.utils.repr_utils import recursive_repr
 
 
@@ -60,7 +60,7 @@ def test_repr_trainer(identity_trainer, mocker):
 def test_hook_repr():
     """Test the representation of a hook registry."""
     registry = HookRegistry()
-    registry.register(EarlyStoppingCallback(filter_fn=get_moving_average(0.8)))
+    registry.register(EarlyStoppingCallback(filter_fn=get_trailing_mean(9)))
     expected = {
         'class': 'HookRegistry',
         'hooks': [
@@ -72,7 +72,7 @@ def test_hook_repr():
                     'metric_tracker': {
                         'best_is': 'auto',
                         'class': 'MetricTracker',
-                        'filter_fn': 'moving_average(decay=0.8, mass_coverage=0.99)',
+                        'filter_fn': 'trailing_mean(window_size=9)',
                         'min_delta': 1e-08,
                         'patience': 10,
                     },
