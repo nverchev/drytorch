@@ -59,7 +59,6 @@ class Objective(
             A dictionary of computed metric values.
         """
         if not self._aggregator:
-            # noinspection PyArgumentEqualDefault
             warnings.warn(
                 exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
             )
@@ -112,7 +111,6 @@ class Objective(
         Args:
             other: metric to be merged with.
         """
-        # pylint: disable=protected-access
         self._aggregator += other._aggregator
         return
 

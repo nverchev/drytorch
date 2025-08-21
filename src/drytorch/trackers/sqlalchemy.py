@@ -180,7 +180,7 @@ class Log:
     value: orm.Mapped[float] = orm.mapped_column()
     created_at: orm.Mapped[datetime.datetime] = orm.mapped_column(
         init=False,
-        insert_default=sql.func.now(),  # pylint: disable=not-callable
+        insert_default=sql.func.now(),
     )
 
 

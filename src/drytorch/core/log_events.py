@@ -22,7 +22,7 @@ class Event:
         """Publish the event on creation."""
         if Event._auto_publish is None:
             raise exceptions.AccessOutsideScopeError()
-        Event._auto_publish(self)  # pylint: disable=not-callable
+        Event._auto_publish(self)
         return
 
     @staticmethod

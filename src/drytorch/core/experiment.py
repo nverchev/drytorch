@@ -265,7 +265,6 @@ class Experiment(Generic[_T_co]):
         if Experiment.__current is None:
             raise exceptions.NoActiveExperimentError()
 
-        # noinspection PyUnreachableCode
         if not isinstance(Experiment.__current, cls):
             raise exceptions.NoActiveExperimentError(experiment_class=cls)
         return Experiment.__current
@@ -290,7 +289,6 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     """Execution lifecycle for a single run of an Experiment.
 
     Attributes:
-        id: Identifier of the run.
         status: Current status of the run.
         resumed: whether the run was resumed.
         metadata_manager: Manager for run metadata.
@@ -369,7 +367,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             self._finalizer = None
         return
 
-    def start(self) -> None:
+    def start(self: Self) -> None:
         """Start the experiment scope."""
         if self.status == 'running':
             warnings.warn(exceptions.RunAlreadyRunningWarning(), stacklevel=1)
@@ -416,7 +414,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
     @staticmethod
     def _cleanup_resources(experiment: Experiment[_T_co]):
-        """Cleanup without holding reference to Run instance."""
+        """Cleanup without holding reference to a Run instance."""
         experiment._active_run = None
         log_events.StopExperimentEvent(experiment.name)
         log_events.Event.set_auto_publish(None)

@@ -109,7 +109,6 @@ class MetadataManager:
         try:
             metadata = repr_utils.recursive_repr(obj)
         except RecursionError:
-            # noinspection PyArgumentEqualDefault
             warnings.warn(exceptions.RecursionWarning(), stacklevel=1)
             metadata = {}
 
@@ -210,9 +209,8 @@ class EventDispatcher:
                 tracker.notify(event)
             except (KeyboardInterrupt, SystemExit) as e:
                 raise e
-            except Exception as err:  # pylint: disable=broad-except
+            except Exception as err:
                 name = tracker.__class__.__name__
-                # noinspection PyArgumentEqualDefault
                 warnings.warn(
                     exceptions.TrackerExceptionWarning(name, err), stacklevel=1
                 )
