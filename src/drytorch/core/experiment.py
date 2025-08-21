@@ -395,23 +395,22 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
     def _update_registry(self) -> None:
         """Update the run status in the experiment's registry."""
-        if hasattr(self.experiment, '_registry') and self.experiment._registry:
-            run_data = self.experiment._registry.load_all()
+        run_data = self.experiment._registry.load_all()
 
-            for run_metadata in run_data:
-                if run_metadata.id == self.id:
-                    run_metadata.status = self.status
-                    break
-            else:
-                run_data.append(
-                    RunMetadata(
-                        id=self.id,
-                        status=self.status,
-                        timestamp=self.created_at_str,
-                    )
+        for run_metadata in run_data:
+            if run_metadata.id == self.id:
+                run_metadata.status = self.status
+                break
+        else:
+            run_data.append(
+                RunMetadata(
+                    id=self.id,
+                    status=self.status,
+                    timestamp=self.created_at_str,
                 )
+            )
 
-            self.experiment._registry.save_all(run_data)
+        self.experiment._registry.save_all(run_data)
 
         return
 
