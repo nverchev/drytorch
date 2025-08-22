@@ -76,6 +76,36 @@ class CheckpointNotInitializedError(DryTorchError):
     msg = 'The checkpoint did not register any model.'
 
 
+class ConfigNotHashableError(DryTorchError):
+    """Error raised when the configuration file is not hashable."""
+
+    msg = 'The configuration is not hashable. Does it contain mutable objects?'
+
+    def __init__(self, config: Any) -> None:
+        """Constructor.
+
+        Args:
+            config: the configuration for the experiment.
+        """
+        self.config = config
+        super().__init__()
+
+
+class ConfigHashMismatchError(DryTorchError):
+    """Error raised when the configuration file is not hashable."""
+
+    msg = 'The hashed configuration does not match the previous ones.'
+
+    def __init__(self, config: Any) -> None:
+        """Constructor.
+
+        Args:
+            config: the configuration for the experiment.
+        """
+        self.config = config
+        super().__init__()
+
+
 class ConvergenceError(DryTorchError):
     """Raised when a module fails to converge during training."""
 
@@ -89,6 +119,12 @@ class ConvergenceError(DryTorchError):
         """
         self.criterion = criterion
         super().__init__(criterion)
+
+
+class DatasetHasNoLengthError(DryTorchError):
+    """Raised when a dataset does not implement the __len__ method."""
+
+    msg = 'Dataset does not implement __len__ method.'
 
 
 class EpochNotFoundError(DryTorchError):
@@ -162,7 +198,7 @@ class MissingParamError(DryTorchError):
     msg = 'Parameter groups in input learning rate miss parameters {}.'
 
     def __init__(
-        self, module_names: list[str], lr_param_groups: list[str]
+            self, module_names: list[str], lr_param_groups: list[str]
     ) -> None:
         """Constructor.
 
@@ -280,9 +316,9 @@ class NoActiveExperimentError(DryTorchError):
     msg = 'No experiment {}has been started.'
 
     def __init__(
-        self,
-        experiment_name: str | None = None,
-        experiment_class: type | None = None,
+            self,
+            experiment_name: str | None = None,
+            experiment_class: type | None = None,
     ) -> None:
         """Constructor.
 
@@ -299,12 +335,6 @@ class NoActiveExperimentError(DryTorchError):
             specify_string = ''
 
         super().__init__(specify_string)
-
-
-class DatasetHasNoLengthError(DryTorchError):
-    """Raised when a dataset does not implement the __len__ method."""
-
-    msg = 'Dataset does not implement __len__ method.'
 
 
 class ResultNotAvailableError(DryTorchError):
@@ -344,6 +374,23 @@ class TrackerNotActiveError(DryTorchError):
         super().__init__(tracker_name)
 
 
+class WrongConfig(DryTorchError):
+    """Raised when the configuration does not match the resumed one."""
+
+    msg = 'The configuration does not match the one from the resumed run.'
+
+    def __init__(self, config: Any, resumed_hash: int) -> None:
+        """Constructor.
+
+        Args:
+            config: the input configuration.
+            resumed_hash: the hash of the configuration that was resumed.
+        """
+        self.config = config
+        self.resumed_hash = resumed_hash
+        super().__init__()
+
+
 class CannotStoreOutputWarning(DryTorchWarning):
     """Warning raised when output cannot be stored due to an error."""
 
@@ -375,7 +422,7 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
 
 
 class ConfigNotHashableWarning(DryTorchWarning):
-    """Warning raised when athe configuration file is not hashable."""
+    """Warning raised when the configuration file is not hashable."""
 
     msg = 'The configuration is not hashable. Does it contain mutable objects?'
 
@@ -476,9 +523,9 @@ class RunAlreadyCompletedWarning(DryTorchWarning):
 
 
 class RunAlreadyRunningWarning(DryTorchWarning):
-    """Warning raised when a run is started when aleady running."""
+    """Warning raised when a run is started when already running."""
 
-    msg = """Attempted to start a Run instance that is already runnning."""
+    msg = """Attempted to start a Run instance that is already running."""
 
 
 class TerminatedTrainingWarning(DryTorchWarning):
