@@ -101,7 +101,7 @@ class TestMetricCollection:
         combined_metrics = metrics | new_metrics
 
         expected_keys = {metric_1, metric_2, 'NewMetric'}
-        assert set(combined_metrics.named_fun.keys()) == expected_keys
+        assert set(combined_metrics.named_fn.keys()) == expected_keys
 
         simple_outputs = torch.tensor(1)
         simple_targets = torch.tensor(0)
@@ -145,7 +145,7 @@ class TestMetric:
         combined_metrics = metric | new_metrics
 
         expected_keys = {metric_1, 'NewMetric'}
-        assert set(combined_metrics.named_fun.keys()) == expected_keys
+        assert set(combined_metrics.named_fn.keys()) == expected_keys
 
         simple_outputs = torch.tensor(1)
         simple_targets = torch.tensor(0)
@@ -263,7 +263,7 @@ class TestLoss:
     @pytest.fixture(scope='class')
     def loss_1(self, metric_1, metric_fun_1) -> Loss:
         """Set up a Loss instance with simple arguments."""
-        return Loss(metric_1, next(iter(metric_fun_1.values())))
+        return Loss(next(iter(metric_fun_1.values())), metric_1)
 
     def test_add_float(self, loss_1, example_metric_results) -> None:
         """Test addition by float."""

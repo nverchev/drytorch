@@ -46,11 +46,11 @@ class Trainer(
 
         Args:
             model: the model containing the weights to evaluate.
+            name: the base name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
             loader: provides inputs and targets in batches.
             loss: processes the model outputs and targets.
             learning_scheme: contains optimizer settings and scheduling.
-            name: the base name for the object for logging purposes.
-                Defaults to class name plus eventual counter.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
         self.learning_scheme = learning_scheme
