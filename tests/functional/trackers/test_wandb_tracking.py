@@ -51,11 +51,10 @@ class TestWandbFullCycle:
     def test_resume_functionality(
         self,
         resumed_tracker,
-        start_training_event,
         example_model_name,
         example_source_name,
         example_loss_name,
-    ):
+    ) -> None:
         """Test that resume functionality works correctly."""
         key = f'{example_model_name}/{example_source_name}-{example_loss_name}'
         summary = resumed_tracker.run.summary

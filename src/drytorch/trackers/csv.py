@@ -4,6 +4,8 @@ import csv
 import functools
 import pathlib
 
+from typing import ClassVar, Final
+
 from typing_extensions import override
 
 from drytorch.core import exceptions, log_events
@@ -25,7 +27,8 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     """Dump metrics into a CSV file."""
 
     folder_name = 'csv_metrics'
-    _default_dialect = DryTorchDialect()
+    _default_dialect: ClassVar[csv.Dialect] = DryTorchDialect()
+    _base_headers: ClassVar[tuple[str, ...]] = ('Model', 'Source', 'Epoch')
 
     def __init__(
         self,
@@ -40,12 +43,8 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             dialect: the format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
-        self._active_sources = set[str]()
-        self._dialect = dialect
-        self._exp_dir: pathlib.Path | None = None
-        self._base_headers = ('Model', 'Source', 'Epoch')
-        self._resume_run = False
-        self._run_id: str | None = None
+        self._active_sources: Final = set[str]()
+        self._dialect: csv.Dialect = dialect
         return
 
     @functools.singledispatchmethod

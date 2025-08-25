@@ -8,6 +8,7 @@ import pathlib
 import warnings
 import weakref
 
+from pathlib import Path
 from types import TracebackType
 from typing import (
     Any,
@@ -45,7 +46,7 @@ class RunRegistry:
     """Creates and manages a JSON file for run metadata.
 
     Attributes:
-        json_file: path to the JSON file.
+        file_path: path to the JSON file.
     """
 
     def __init__(self, path: pathlib.Path):
@@ -54,20 +55,20 @@ class RunRegistry:
         Args:
             path: path to the JSON file.
         """
-        self.json_file = path
-        self.json_file.parent.mkdir(parents=True, exist_ok=True)
-        if not self.json_file.exists():
+        self.file_path: Path = path
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.file_path.exists():
             self.save_all([])
 
         return
 
     def load_all(self) -> list[RunMetadata]:
         """Loads all run metadata from a JSON file."""
-        if not self.json_file.exists():
+        if not self.file_path.exists():
             return []
 
         try:
-            with self.json_file.open() as f:
+            with self.file_path.open() as f:
                 data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return []
@@ -84,7 +85,7 @@ class RunRegistry:
         for run in runs:
             run_data.append(dataclasses.asdict(run))
 
-        self.json_file.write_text(json.dumps(run_data, indent=2))
+        self.file_path.write_text(json.dumps(run_data, indent=2))
 
 
 class Experiment(Generic[_T_co]):
@@ -107,8 +108,8 @@ class Experiment(Generic[_T_co]):
         trackers: Dispatcher for publishing events.
     """
 
-    _name = repr_utils.DefaultName()
-    __current: Experiment[Any] | None = None
+    _name: ClassVar = repr_utils.DefaultName()
+    __current: ClassVar[Experiment[Any] | None] = None
     folder_name: ClassVar[str] = '.drytorch'
     run_file: ClassVar[str] = 'runs.json'
 
@@ -131,12 +132,12 @@ class Experiment(Generic[_T_co]):
         _validate_chars(name)
         self.__config: Final[_T_co] = config
         self._name = name
-        self.par_dir = pathlib.Path(par_dir)
-        self.tags = tags or []
-        self.trackers = track.EventDispatcher(self.name)
+        self.par_dir: Path = pathlib.Path(par_dir)
+        self.tags: list[str] = tags or []
+        self.trackers: Final = track.EventDispatcher(self.name)
         self.trackers.register(**track.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
-        self._registry = RunRegistry(run_file)
+        self._registry: RunRegistry = RunRegistry(run_file)
         self._active_run: Run[_T_co] | None = None
         self.previous_runs: list[Run[_T_co]] = []
 
@@ -310,11 +311,11 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             resumed: whether the run was resumed.
         """
         super().__init__()
-        self._experiment = experiment
-        self._id = run_id or self.created_at_str
-        self.resumed = resumed
+        self._experiment: Final[Experiment[_T_co]] = experiment
+        self._id: Final = run_id or self.created_at_str
+        self.resumed: bool = resumed
         self.status: RunStatus = 'created'
-        self.metadata_manager = track.MetadataManager()
+        self.metadata_manager: Final = track.MetadataManager()
         self._finalizer: finalize[..., Self] | None = None
         if not self.resumed:
             experiment.previous_runs.append(self)
@@ -415,7 +416,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _cleanup_resources(experiment: Experiment[_T_co]):
+    def _cleanup_resources(experiment: Experiment[_T_co]) -> None:
         """Cleanup without holding reference to Run instance."""
         experiment._active_run = None
         log_events.StopExperimentEvent(experiment.name)

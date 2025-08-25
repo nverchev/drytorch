@@ -45,7 +45,6 @@ class YamlDumper(base_classes.Dumper):
                 experiment's one.
         """
         super().__init__(par_dir)
-        self._exp_dir: pathlib.Path | None = None
 
     @functools.singledispatchmethod
     @override

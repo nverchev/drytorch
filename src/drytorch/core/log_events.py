@@ -12,7 +12,7 @@ from typing import Any, ClassVar
 from drytorch.core import exceptions
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Event:
     """Class for logging events."""
 
@@ -32,7 +32,7 @@ class Event:
         return
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class StartExperimentEvent(Event):
     """Event logged when an experiment starts.
 
@@ -55,7 +55,7 @@ class StartExperimentEvent(Event):
     tags: list[str] = dataclasses.field(default_factory=list)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class StopExperimentEvent(Event):
     """Event logged when an experiment stops.
 
@@ -66,7 +66,7 @@ class StopExperimentEvent(Event):
     exp_name: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class ModelRegistrationEvent(Event):
     """Event logged when a model is created.
 
@@ -81,7 +81,7 @@ class ModelRegistrationEvent(Event):
     architecure_repr: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class ActorRegistrationEvent(Event):
     """Event logged when a source has been registered.
 
@@ -100,7 +100,7 @@ class ActorRegistrationEvent(Event):
     metadata: dict[str, Any]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class SaveModelEvent(Event):
     """Event logged when a checkpoint is saved.
 
@@ -117,7 +117,7 @@ class SaveModelEvent(Event):
     epoch: int
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class LoadModelEvent(Event):
     """Event logged when a model is loaded.
 
@@ -134,7 +134,7 @@ class LoadModelEvent(Event):
     epoch: int
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class StartTrainingEvent(Event):
     """Event logged when training starts.
 
@@ -151,7 +151,7 @@ class StartTrainingEvent(Event):
     end_epoch: int
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class StartEpochEvent(Event):
     """Event logged when an epoch starts.
 
@@ -168,7 +168,7 @@ class StartEpochEvent(Event):
     end_epoch: int | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class EndEpochEvent(Event):
     """Event logged when an epoch ends.
 
@@ -183,7 +183,7 @@ class EndEpochEvent(Event):
     epoch: int
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class IterateBatchEvent(Event):
     """Event logged to create during batch iteration.
 
@@ -214,7 +214,7 @@ class IterateBatchEvent(Event):
         return
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class TerminatedTrainingEvent(Event):
     """Event logged when training is terminated.
 
@@ -231,7 +231,7 @@ class TerminatedTrainingEvent(Event):
     reason: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class EndTrainingEvent(Event):
     """Event logged when training ends.
 
@@ -242,7 +242,7 @@ class EndTrainingEvent(Event):
     source_name: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class StartTestEvent(Event):
     """Event logged when a test is started.
 
@@ -255,7 +255,7 @@ class StartTestEvent(Event):
     model_name: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class EndTestEvent(Event):
     """Event logged when a test is ended.
 
@@ -268,7 +268,7 @@ class EndTestEvent(Event):
     model_name: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MetricEvent(Event):
     """Event logged when metrics from the dataset are aggregated.
 
@@ -285,7 +285,7 @@ class MetricEvent(Event):
     metrics: Mapping[str, float]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class LearningRateEvent(Event):
     """Event logged when the learning rate is updated.
 

@@ -4,10 +4,13 @@ import functools
 import pathlib
 import warnings
 
+from typing import ClassVar
+
 import wandb
 
 from typing_extensions import override
 from wandb.sdk import wandb_run, wandb_settings
+from wandb.sdk.wandb_settings import Settings
 
 from drytorch.core import exceptions, log_events
 from drytorch.trackers.base_classes import Dumper
@@ -17,7 +20,9 @@ from drytorch.utils.repr_utils import recursive_repr
 class Wandb(Dumper):
     """Tracker that wraps a run for the wandb library."""
 
-    _default_settings = wandb_settings.Settings()
+    _default_settings: ClassVar[wandb_settings.Settings] = (
+        wandb_settings.Settings()
+    )
     folder_name = 'wandb'
 
     def __init__(
@@ -33,8 +38,9 @@ class Wandb(Dumper):
             settings: settings object from wandb containing all init arguments.
         """
         super().__init__(par_dir)
-        self._settings = settings
+        self._settings: Settings = settings
         self._run: wandb_run.Run | None = None
+        return
 
     @property
     def run(self) -> wandb_run.Run:

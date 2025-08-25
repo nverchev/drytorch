@@ -24,7 +24,7 @@ from drytorch.core import log_events, track
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
-logger = logging.getLogger('drytorch')
+logger: logging.Logger = logging.getLogger('drytorch')
 
 
 class InfoLevels(NamedTuple):

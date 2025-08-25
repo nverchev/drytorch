@@ -2,7 +2,7 @@
 
 import warnings
 
-from typing import Self, TypeVar
+from typing import Final, Self, TypeVar
 
 import torch
 
@@ -55,11 +55,13 @@ class Trainer(
         super().__init__(model, loader=loader, objective=loss, name=name)
         self.learning_scheme = learning_scheme
         self.validation: p.MonitorProtocol | None = None
-        self._model_optimizer = models.ModelOptimizer(model, learning_scheme)
-        self.pre_epoch_hooks = hooks.HookRegistry[
+        self._model_optimizer: Final = models.ModelOptimizer(
+            model, learning_scheme
+        )
+        self.pre_epoch_hooks: Final = hooks.HookRegistry[
             Trainer[_Input, _Target, _Output]
         ]()
-        self.post_epoch_hooks = hooks.HookRegistry[
+        self.post_epoch_hooks: Final = hooks.HookRegistry[
             Trainer[_Input, _Target, _Output]
         ]()
         self._terminated = False

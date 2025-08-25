@@ -12,10 +12,10 @@ from drytorch.core import protocols as p
 from drytorch.lib import schedulers
 
 
-_default_scheduler = schedulers.ConstantScheduler()
+_default_scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class LearningScheme(p.LearningProtocol):
     """Class with specifications for the learning algorithm.
 

@@ -6,12 +6,13 @@ import abc
 import operator
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Generic, Literal, ParamSpec, TypeVar
+from typing import Any, Final, Generic, Literal, ParamSpec, TypeVar
 
 from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
+from drytorch.core.protocols import MonitorProtocol
 from drytorch.lib import objectives, schedulers
 
 
@@ -25,7 +26,7 @@ _Target_contra = TypeVar(
 _Output_contra = TypeVar(
     '_Output_contra', bound=p.OutputType, contravariant=True
 )
-get_last = operator.itemgetter(-1)
+get_last: Final = operator.itemgetter(-1)
 
 
 class HookRegistry(Generic[_T_contra]):
@@ -127,7 +128,7 @@ class Hook(TrainerHook[_Input_contra, _Target_contra, _Output_contra]):
         Args:
             wrapped: the function to be conditionally called.
         """
-        self.wrapped = wrapped
+        self.wrapped: Final = wrapped
 
     def __call__(
         self,
@@ -152,7 +153,7 @@ class StaticHook(TrainerHook[Any, Any, Any]):
         Args:
             wrapped: the function to be wrapped and called statically.
         """
-        self.wrapped = wrapped
+        self.wrapped: Callable[[], None] = wrapped
 
     def __call__(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
         """Execute the call.
@@ -215,8 +216,8 @@ class CallEvery(
             interval: the frequency of calling the hook.
             wrapped: the function to be called periodically.
         """
-        self.start = start
-        self.interval = interval
+        self.start: int = start
+        self.interval: int = interval
         super().__init__(wrapped)
         return
 
@@ -325,8 +326,8 @@ class MetricExtractor:
             metric: name of the metric to monitor or metric calculator instance.
             monitor: evaluation protocol to monitor.
         """
-        self.metric_spec = metric
-        self.optional_monitor = monitor
+        self.metric_spec: Final = metric
+        self.optional_monitor: MonitorProtocol | None = monitor
         self._resolved_metric_name: str | None = None
 
     @property
@@ -441,7 +442,7 @@ class MetricMonitor(Generic[_Output_contra, _Target_contra]):
             best_is: whether higher or lower metric values are better.
             filter_fn: function to aggregate recent metric values.
         """
-        self.extractor = MetricExtractor(metric=metric, monitor=monitor)
+        self.extractor: Final = MetricExtractor(metric=metric, monitor=monitor)
 
         metric_best_is = self.extractor.get_metric_best_is()
         if metric_best_is is not None:
@@ -545,7 +546,7 @@ class EarlyStoppingCallback(Generic[_Output_contra, _Target_contra]):
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
-        self.monitor = MetricMonitor(
+        self.monitor: Final = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -613,7 +614,7 @@ class PruneCallback(Generic[_Output_contra, _Target_contra]):
             values. Default
                 gets the last value.
         """
-        self.monitor = MetricMonitor(
+        self.monitor: Final = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -684,7 +685,7 @@ class ChangeSchedulerOnPlateauCallback(
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
-        self.monitor = MetricMonitor(
+        self.monitor: Final = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,

@@ -21,12 +21,12 @@ def remove_trackers() -> None:
     return
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class _SimpleEvent(log_events.Event):
     """Simple Event subclass for testing."""
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class _UndefinedEvent(log_events.Event):
     """Event subclass that the tracker does not handle."""
 

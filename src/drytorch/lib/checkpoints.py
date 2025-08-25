@@ -5,7 +5,8 @@ import codecs
 import pathlib
 import warnings
 
-from typing import Any
+from pathlib import Path
+from typing import Any, Final
 
 import numpy as np
 import torch
@@ -66,8 +67,8 @@ class CheckpointPathManager:
             model: the model whose paths are to be managed.
             run_dir: the directory for experiment data.
         """
-        self._model = model
-        self._run_dir = run_dir
+        self._model: Final = model
+        self._run_dir: Path | None = run_dir
 
     @property
     def run_dir(self) -> pathlib.Path:
@@ -190,7 +191,7 @@ class LocalCheckpoint(AbstractCheckpoint):
             par_dir: parent directory for experiment data.
         """
         super().__init__()
-        self._par_dir = par_dir
+        self._par_dir: Path | None = par_dir
         return
 
     @property

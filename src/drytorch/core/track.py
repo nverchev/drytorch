@@ -12,7 +12,7 @@ import functools
 import warnings
 
 from abc import abstractmethod
-from typing import Any, Self
+from typing import Any, ClassVar, Final, Self
 
 from drytorch.core import exceptions, log_events
 from drytorch.core import protocols as p
@@ -32,7 +32,7 @@ class MetadataManager:
     def __init__(self) -> None:
         """Constructor."""
         super().__init__()
-        self.metadata_dict = dict[str, Any]()
+        self.metadata_dict: Final = dict[str, Any]()
 
     def register_actor(
         self, actor: Any, model: p.ModelProtocol[Any, Any]
@@ -127,7 +127,7 @@ class MetadataManager:
 class Tracker(metaclass=abc.ABCMeta):
     """Abstract base class for tracking events with priority ordering."""
 
-    _current: Self | None = None
+    _current: ClassVar[Self | None] = None
 
     @functools.singledispatchmethod
     @abstractmethod
@@ -194,8 +194,8 @@ class EventDispatcher:
         Args:
             exp_name: name of the current experiment.
         """
-        self.exp_name = str(exp_name)
-        self.named_trackers: dict[str, Tracker] = {}
+        self.exp_name: Final = str(exp_name)
+        self.named_trackers: Final = dict[str, Tracker]()
         return
 
     def publish(self, event: log_events.Event) -> None:

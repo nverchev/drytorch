@@ -1,5 +1,7 @@
 """Functional tests for connecting to a SQL database."""
 
+import dataclasses
+
 from collections.abc import Generator
 
 import pytest
@@ -45,9 +47,9 @@ class TestSQLConnectionFullCycle:
         stop_experiment_event,
     ) -> Generator[SQLConnection, None, None]:
         """Resume previous run."""
-        start_experiment_event.resumed = True
+        resumed_event =dataclasses.replace(start_experiment_event, resumed=True)
         resumed_tracker = SQLConnection(engine=tracker.engine)
-        resumed_tracker.notify(start_experiment_event)
+        resumed_tracker.notify(resumed_event)
         yield resumed_tracker
 
         resumed_tracker.notify(stop_experiment_event)
@@ -177,7 +179,9 @@ class TestSQLConnectionFullCycle:
     ) -> None:
         """Test multiple log sources are correctly tracked in the same run."""
         second_call_model = actor_registration_event
-        second_call_model.actor_name = 'second_source'
+        second_call_model = dataclasses.replace(
+            actor_registration_event, actor_name='second_source'
+        )
         resumed_tracker.notify(second_call_model)
         with resumed_tracker.session_factory() as session:
             sources = session.query(Source).all()
@@ -233,8 +237,8 @@ class TestSQLConnectionFullCycle:
         """Test _load_metrics get data from two sources with the same name."""
         model_name = start_training_event.model_name
         resumed_tracker.notify(actor_registration_event)
-        metrics_event.epoch = 8
-        resumed_tracker.notify(metrics_event)
+        newe_poch_metrics = dataclasses.replace(metrics_event, epoch=8)
+        resumed_tracker.notify(newe_poch_metrics)
         loaded_metrics = resumed_tracker._load_metrics(model_name)
         assert len(loaded_metrics) == 1  # source is resumed
 

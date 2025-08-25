@@ -16,7 +16,7 @@ class TorchTuple(NamedTuple):
     input: torch.Tensor
 
 
-@dataclasses.dataclass()
+@dataclasses.dataclass(frozen=True)
 class TorchData:
     """Simple output class for a neural network model."""
 

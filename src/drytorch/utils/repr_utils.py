@@ -18,7 +18,7 @@ import types
 
 from collections.abc import Hashable, Iterable
 from itertools import count
-from typing import TYPE_CHECKING, Any, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeAlias
 
 import numpy as np
 import torch
@@ -47,11 +47,11 @@ INCLUDE_PROPERTIES: bool = False
 class CreatedAtMixin:
     """Mixin saving instantiation timestamp."""
 
-    ts_fmt = '%Y-%m-%d@%Hh%Mm%Ss'
+    ts_fmt: ClassVar = '%Y-%m-%d@%Hh%Mm%Ss'
 
     def __init__(self, *args, **kwargs) -> None:
         """Constructor."""
-        self._created_at = datetime.datetime.now()
+        self._created_at: Final = datetime.datetime.now()
         super().__init__(*args, **kwargs)
 
     @property

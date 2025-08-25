@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, TypedDict, TypeVar, cast
+from typing import Any, Final, TypedDict, TypeVar, cast
 
 import torch
 
+from torch.amp import grad_scaler
 from typing_extensions import override
 
 from drytorch.core import exceptions, register
@@ -67,7 +68,7 @@ class Model(
         self._name = name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
-        self.checkpoint = checkpoint
+        self.checkpoint: p.CheckpointProtocol = checkpoint
         self.checkpoint.register_model(self)
         self.mixed_precision = mixed_precision
         register.register_model(self)
@@ -92,7 +93,7 @@ class Model(
         return
 
     @property
-    def name(self):
+    def name(self) -> str:
         """The name of the model."""
         return self._name
 
@@ -121,7 +122,9 @@ class Model(
         return torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     @staticmethod
-    def _validate_module(torch_model) -> torch.nn.Module:
+    def _validate_module(
+        torch_model: p.ModuleProtocol[_Input_contra, _Output_co],
+    ) -> torch.nn.Module:
         if not isinstance(torch_model, torch.nn.Module):
             raise TypeError('torch_module must be a torch.nn.Module subclass')
 
@@ -206,8 +209,8 @@ class ModelOptimizer:
             model: the model to be optimized.
             learning_scheme: the learning scheme for the optimizer.
         """
-        self._model = model
-        self._module = model.module
+        self._model: Final = model
+        self._module: Final = model.module
         self._lr: float | dict[str, float] = {}
         self._params_lr: list[_OptParams] = []
         self.base_lr = learning_scheme.base_lr
@@ -216,14 +219,15 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_scheme.optimizer_defaults,
         )
-        self._gradient_op = learning_scheme.gradient_op
-        self._checkpoint = self._model.checkpoint
+        self._gradient_op: p.GradientOpProtocol | None = (
+            learning_scheme.gradient_op
+        )
+        self._checkpoint: p.CheckpointProtocol = self._model.checkpoint
         self._checkpoint.register_optimizer(self._optimizer)
-        scaler = torch.amp.grad_scaler.GradScaler(
+        self._scaler: grad_scaler.GradScaler = grad_scaler.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,
         )
-        self._scaler = scaler
 
     @override
     def __repr__(self) -> str:

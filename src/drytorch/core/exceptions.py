@@ -3,7 +3,7 @@
 import pathlib
 import traceback
 
-from typing import Any
+from typing import Any, Final
 
 import torch
 
@@ -87,7 +87,7 @@ class ConvergenceError(DryTorchError):
         Args:
             criterion: the convergence criterion that was not met.
         """
-        self.criterion = criterion
+        self.criterion: Final = criterion
         super().__init__(criterion)
 
 
@@ -103,7 +103,7 @@ class EpochNotFoundError(DryTorchError):
             epoch: the epoch that was not found.
             checkpoint_directory: the directory path where no model was found.
         """
-        self.model_directory = checkpoint_directory
+        self.model_directory: Final = checkpoint_directory
         super().__init__(epoch, checkpoint_directory)
 
 
@@ -119,8 +119,8 @@ class FuncNotApplicableError(DryTorchError):
             func_name: the name of the function that cannot be applied.
             type_name: the name of the type that doesn't support the function.
         """
-        self.func_name = func_name
-        self.type_name = type_name
+        self.func_name: Final = func_name
+        self.type_name: Final = type_name
         super().__init__(func_name, type_name)
 
 
@@ -135,7 +135,7 @@ class LossNotScalarError(DryTorchError):
         Args:
             size: the actual size of the non-scalar loss tensor.
         """
-        self.size = size
+        self.size: Final = size
         super().__init__(size)
 
 
@@ -151,8 +151,8 @@ class MetricNotFoundError(DryTorchError):
             source_name: the name of the source where the metric was not found.
             metric_name: the name of the metric that was not found.
         """
-        self.source_name = source_name
-        self.metric_name = metric_name + ' ' if metric_name else ''
+        self.source_name: Final = source_name
+        self.metric_name: Final = metric_name + ' ' if metric_name else ''
         super().__init__(self.metric_name, source_name)
 
 
@@ -170,9 +170,9 @@ class MissingParamError(DryTorchError):
             module_names: list of module names that should have parameters.
             lr_param_groups: group names in the parameter learning rate config.
         """
-        self.module_names = module_names
-        self.lr_param_groups = lr_param_groups
-        self.missing = set(module_names) - set(lr_param_groups)
+        self.module_names: Final = module_names
+        self.lr_param_groups: Final = lr_param_groups
+        self.missing: Final = set(module_names) - set(lr_param_groups)
         super().__init__(self.missing)
 
 
@@ -189,9 +189,9 @@ class ModelNotRegisteredError(DryTorchError):
             exp_name: the name of the current experiment.
             run_id: the current run's id.
         """
-        self.model_name = model_name
-        self.exp_name = exp_name
-        self.run_id = run_id
+        self.model_name: Final = model_name
+        self.exp_name: Final = exp_name
+        self.run_id: Final = run_id
         super().__init__(model_name, exp_name, run_id)
 
 
@@ -206,7 +206,7 @@ class ModelNotFoundError(DryTorchError):
         Args:
             checkpoint_directory: the directory path where no model was found.
         """
-        self.checkpoint_directory = checkpoint_directory
+        self.checkpoint_directory: Final = checkpoint_directory
         super().__init__(checkpoint_directory)
 
 
@@ -224,7 +224,7 @@ class ModuleAlreadyRegisteredError(DryTorchError):
             run_id: the registered run's id.
 
         """
-        self.model_name = model_name
+        self.model_name: Final = model_name
         super().__init__(str(model_name), exp_name, run_id)
 
 
@@ -253,7 +253,7 @@ class NamedTupleOnlyError(DryTorchError):
         Args:
             tuple_type: the actual type of the tuple that was provided.
         """
-        self.tuple_type = tuple_type
+        self.tuple_type: Final = tuple_type
         super().__init__(tuple_type)
 
 
@@ -269,8 +269,8 @@ class NestedScopeError(DryTorchError):
             current_exp_name: the name of the currently active experiment.
             new_exp_name: the name of the experiment that cannot be started.
         """
-        self.current_exp_name = current_exp_name
-        self.new_exp_name = new_exp_name
+        self.current_exp_name: Final = current_exp_name
+        self.new_exp_name: Final = new_exp_name
         super().__init__(current_exp_name, new_exp_name)
 
 
@@ -290,7 +290,7 @@ class NoActiveExperimentError(DryTorchError):
             experiment_name: specifies experiment's name.
             experiment_class: specifies experiment's name.
         """
-        self.experiment_class = experiment_class
+        self.experiment_class: Final = experiment_class
         if experiment_name is not None:
             specify_string = f'named {experiment_name} '
         elif experiment_class is not None:
@@ -325,7 +325,7 @@ class TrackerAlreadyRegisteredError(DryTorchError):
             tracker_name: the name of the tracker that is already registered.
             exp_name: the name of the experiment where to register the tracker.
         """
-        self.tracker_name = tracker_name
+        self.tracker_name: Final = tracker_name
         super().__init__(tracker_name, exp_name)
 
 
@@ -340,7 +340,7 @@ class TrackerNotActiveError(DryTorchError):
         Args:
             tracker_name: the name of the tracker that is not registered.
         """
-        self.tracker_name = tracker_name
+        self.tracker_name: Final = tracker_name
         super().__init__(tracker_name)
 
 
@@ -355,7 +355,7 @@ class CannotStoreOutputWarning(DryTorchWarning):
         Args:
             error: the error that prevented output storage.
         """
-        self.error = error
+        self.error: Final = error
         super().__init__(str(error))
 
 
@@ -370,7 +370,7 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         Args:
             calculator: the calculator object that was computed before updating.
         """
-        self.calculator = calculator
+        self.calculator: Final = calculator
         super().__init__(calculator.__class__.__name__)
 
 
@@ -385,7 +385,7 @@ class ConfigNotHashableWarning(DryTorchWarning):
         Args:
             config: the configuration for the experiment.
         """
-        self.config = config
+        self.config: Final = config
         super().__init__()
 
 
@@ -400,7 +400,7 @@ class FailedOptionalImportWarning(DryTorchWarning):
         Args:
             package_name: the name of the package that failed to import.
         """
-        self.package_name = package_name
+        self.package_name: Final = package_name
         super().__init__(package_name)
 
 
@@ -421,7 +421,7 @@ class NotExistingRunWarning(DryTorchWarning):
         Args:
             run_id: the id of the run that was not found.
         """
-        self.run_id = run_id
+        self.run_id: Final = run_id
         super().__init__(run_id)
 
 
@@ -436,7 +436,7 @@ class OptimizerNotLoadedWarning(DryTorchWarning):
         Args:
             error: the error that occurred while loading the optimizer.
         """
-        self.error = error
+        self.error: Final = error
         super().__init__(error)
 
 
@@ -452,8 +452,8 @@ class PastEpochWarning(DryTorchWarning):
             selected_epoch: the epoch that training was requested until.
             current_epoch: the current epoch number.
         """
-        self.selected_epoch = selected_epoch
-        self.current_epoch = current_epoch
+        self.selected_epoch: Final = selected_epoch
+        self.current_epoch: Final = current_epoch
         super().__init__(selected_epoch, current_epoch)
 
 
@@ -499,7 +499,7 @@ class TrackerExceptionWarning(DryTorchWarning):
             subscriber_name: the name of the tracker that encountered the error.
             error: the error that occurred in the tracker.
         """
-        self.subscriber_name = subscriber_name
-        self.error = error
-        formatted_traceback = traceback.format_exc()
+        self.subscriber_name: Final = subscriber_name
+        self.error: Final = error
+        formatted_traceback: Final = traceback.format_exc()
         super().__init__(subscriber_name, formatted_traceback)

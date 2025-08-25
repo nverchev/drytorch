@@ -1,7 +1,7 @@
 """Support for optuna."""
 
 from collections.abc import Callable, Sequence
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Final, Generic, Literal, TypeVar
 
 import optuna
 
@@ -59,8 +59,8 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.trial = trial
-        self.reported = dict[int, float]()
+        self.trial: Final = trial
+        self.reported: Final = dict[int, float]()
         return
 
     def __call__(

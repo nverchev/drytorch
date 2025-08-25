@@ -6,7 +6,7 @@ import pathlib
 
 from collections.abc import Generator, Iterable
 from pathlib import Path
-from typing import Final, Generic, TypeAlias, TypeVar
+from typing import ClassVar, Final, Generic, TypeAlias, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -33,9 +33,9 @@ class Dumper(track.Tracker):
         folder_name: name of the folder containing the output.
     """
 
-    folder_name: str = 'tracker'
+    folder_name: ClassVar[str] = 'tracker'
 
-    def __init__(self, par_dir: pathlib.Path | None = None):
+    def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Constructor.
 
         Args:
@@ -158,7 +158,7 @@ class MemoryMetrics(track.Tracker):
         """
         super().__init__()
         self._metric_loader: Final = metric_loader
-        self.model_dict: dict[str, SourcedMetrics] = dict[str, SourcedMetrics]()
+        self.model_dict: Final = dict[str, SourcedMetrics]()
         return
 
     @functools.singledispatchmethod
@@ -217,9 +217,9 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
             its entirety.
         """
         super().__init__(metric_loader)
-        self._model_names: Iterable[str] = model_names
-        self._source_names: Iterable[str] = source_names
-        self._metric_names: Iterable[str] = metric_names
+        self._model_names: Final = model_names
+        self._source_names: Final = source_names
+        self._metric_names: Final = metric_names
         self._start: int = start
         self._removed_start = False
 
@@ -232,7 +232,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     @notify.register
     def _(self, event: log_events.EndEpochEvent) -> None:
         if self._start < 0:
-            start = max(1, event.epoch + self._start)
+            start: int = max(1, event.epoch + self._start)
         else:
             start = self._start if event.epoch >= 2 * self._start else 1
 

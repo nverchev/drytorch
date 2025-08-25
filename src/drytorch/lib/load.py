@@ -92,10 +92,10 @@ class Permutation(Sequence[int]):
             size: the length of the permutation.
             seed: seed for the random generator.
         """
-        self.size = size
-        self.seed = np.random.randint(2**16) if seed is None else seed
+        self.size: Final = size
+        self.seed: Final = np.random.randint(2**16) if seed is None else seed
         rng = random.default_rng(self.seed)
-        self._new_indices = rng.permutation(self.size).tolist()
+        self._new_indices: Final = rng.permutation(self.size).tolist()
 
     @overload
     def __getitem__(self, idx: int) -> int: ...
@@ -141,11 +141,11 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
             pin_memory: pin memory for faster GPU training. Defaults to true
                 when GPU is available.
         """
-        self.batch_size = batch_size
-        self.dataset = dataset
-        self.dataset_len = validate_dataset_length(dataset)
+        self.batch_size: int | None = batch_size
+        self.dataset: Final = dataset
+        self.dataset_len: int = validate_dataset_length(dataset)
         cuda_flag = torch.cuda.is_available()
-        self._pin_memory = cuda_flag if pin_memory is None else pin_memory
+        self._pin_memory: bool = cuda_flag if pin_memory is None else pin_memory
 
     @override
     def __iter__(self) -> Iterator[_Data_co]:

@@ -252,27 +252,43 @@ def event_workflow(
 ) -> tuple[log_events.Event, ...]:
     """Yields events in typical order of execution."""
     initial_epoch = start_training_event.start_epoch
-    second_start_epoch_event = dataclasses.replace(start_epoch_event)
-    second_epoch_metrics_event = dataclasses.replace(metrics_event)
-    second_end_epoch_event = dataclasses.replace(end_epoch_event)
-    second_start_epoch_event.epoch += 1
-    second_epoch_metrics_event.epoch += 1
-    second_end_epoch_event.epoch += 1
-    save_model_event.epoch = start_training_event.start_epoch + 1
+    second_start_epoch_event = dataclasses.replace(
+        start_epoch_event, epoch=start_epoch_event.epoch + 1
+    )
+    second_epoch_metrics_event = dataclasses.replace(
+        metrics_event, epoch=metrics_event.epoch + 1
+    )
+    second_end_epoch_event = dataclasses.replace(
+        end_epoch_event, epoch=end_epoch_event.epoch + 1
+    )
+    save_model_event = dataclasses.replace(
+        save_model_event, epoch=start_training_event.start_epoch + 1
+    )
     new_location = save_model_event.location.replace(
         str(initial_epoch), str(initial_epoch + 1)
     )
-    update_learning_rate_event.epoch += 1
-    save_model_event.location = new_location
-    third_start_epoch_event = dataclasses.replace(start_epoch_event)
-    third_epoch_metrics_event = dataclasses.replace(metrics_event)
-    third_end_epoch_event = dataclasses.replace(end_epoch_event)
-    third_start_epoch_event.epoch += 2
-    third_epoch_metrics_event.epoch += 2
-    third_end_epoch_event.epoch += 2
-    test_metrics_event = dataclasses.replace(metrics_event)
-    test_metrics_event.epoch += 2
-    terminated_training_event.epoch = start_training_event.start_epoch + 2
+    update_learning_rate_event = dataclasses.replace(
+        update_learning_rate_event, epoch=update_learning_rate_event.epoch + 1
+    )
+    save_model_event = dataclasses.replace(
+        save_model_event, location=new_location
+    )
+    third_start_epoch_event = dataclasses.replace(
+        start_epoch_event, epoch=start_epoch_event.epoch + 2
+    )
+    third_epoch_metrics_event = dataclasses.replace(
+        metrics_event, epoch=metrics_event.epoch + 2
+    )
+    third_end_epoch_event = dataclasses.replace(
+        end_epoch_event, epoch=end_epoch_event.epoch + 2
+    )
+    test_metrics_event = dataclasses.replace(
+        metrics_event, epoch=metrics_event.epoch + 2
+    )
+    terminated_training_event = dataclasses.replace(
+        terminated_training_event, epoch=start_training_event.start_epoch + 2
+    )
+
     event_tuple = (
         start_experiment_event,
         model_registration_event,

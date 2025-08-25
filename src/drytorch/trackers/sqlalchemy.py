@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 import functools
 
-from typing import cast
+from typing import Final, cast
 
 import sqlalchemy
 
@@ -207,11 +207,13 @@ class SQLConnection(base_classes.MetricLoader):
             engine: the engine for the session. Default uses default_url.
         """
         super().__init__()
-        self.engine = engine or sqlalchemy.create_engine(self.default_url)
+        self.engine: Final = engine or sqlalchemy.create_engine(
+            self.default_url
+        )
         reg.metadata.create_all(bind=self.engine)
-        self.session_factory = orm.sessionmaker(bind=self.engine)
+        self.session_factory: Final = orm.sessionmaker(bind=self.engine)
         self._run: Run | None = None
-        self._sources = dict[str, Source]()
+        self._sources: Final = dict[str, Source]()
         return
 
     @property
@@ -225,7 +227,7 @@ class SQLConnection(base_classes.MetricLoader):
     @override
     def clean_up(self) -> None:
         self._run = None
-        self._sources = {}
+        self._sources.clear()
         return
 
     @functools.singledispatchmethod

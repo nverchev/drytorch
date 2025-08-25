@@ -72,7 +72,7 @@ class ConstantScheduler(AbstractScheduler):
         return start_value
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class PolynomialScheduler(AbstractScheduler):
     """Polynomial learning rate scheduler: f(x) = C0 + C1(1 - x/C2)^C3.
 
@@ -112,7 +112,7 @@ class PolynomialScheduler(AbstractScheduler):
         return self.min_decay + decay_factor * (1 - self.min_decay)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class ExponentialScheduler(AbstractScheduler):
     """Schedule exponential decay: f(x) = C0 + C1(C2^x).
 
@@ -144,7 +144,7 @@ class ExponentialScheduler(AbstractScheduler):
         return (start_value - min_value) * self.exp_decay**epoch + min_value
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class CosineScheduler(AbstractScheduler):
     """Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
@@ -179,7 +179,7 @@ class CosineScheduler(AbstractScheduler):
         return min_lr + (start_value - min_lr) * (1 + from_1_to_minus1) / 2
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class RescaleScheduler(AbstractScheduler):
     """Scale the output of an existing scheduler.
 
@@ -201,7 +201,7 @@ class RescaleScheduler(AbstractScheduler):
         return self.factor * self.base_scheduler(start_value, epoch)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class RestartScheduler(AbstractScheduler):
     """Wraps another scheduler to provide periodic restarts.
 
@@ -241,7 +241,7 @@ class RestartScheduler(AbstractScheduler):
         return self.base_scheduler(start_value, epoch)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class WarmupScheduler(AbstractScheduler):
     """Adds a warmup phase to any scheduler.
 
@@ -274,7 +274,7 @@ class WarmupScheduler(AbstractScheduler):
         return f'{wrapped_repr} with {self.warmup_steps} warm-up steps'
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class StepScheduler(AbstractScheduler):
     """Step-wise learning rate scheduler.
 

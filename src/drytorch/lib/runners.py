@@ -6,7 +6,7 @@ import sys
 import warnings
 
 from collections.abc import Iterator, Mapping
-from typing import Any, Generic, TypeVar
+from typing import Any, Final, Generic, TypeVar
 
 from typing_extensions import override
 
@@ -99,7 +99,7 @@ class ModelRunner(
         super().__init__(model, name)
         self.model = model
         self.loader = loader
-        self.outputs_list = list[_Output]()
+        self.outputs_list: Final = list[_Output]()
         return
 
     def __call__(self, store_outputs: bool = False) -> None:

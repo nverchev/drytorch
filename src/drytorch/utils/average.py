@@ -8,7 +8,7 @@ import copy
 import math
 
 from collections.abc import Callable, KeysView, Mapping, Sequence
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, Final, Generic, Self, TypeVar
 
 import torch
 
@@ -28,7 +28,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         counts: a dictionary with the count of the total elements.
     """
 
-    __slots__ = ('_cached_reduce', 'aggregate', 'counts')
+    __slots__: Final = ('_cached_reduce', 'aggregate', 'counts')
 
     def __init__(self, **kwargs: _T):
         """Constructor.
@@ -37,7 +37,9 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
             kwargs: named values to average.
         """
         self.aggregate: dict[str, _T] = {}
-        self.counts = collections.defaultdict[str, int](int)
+        self.counts: collections.defaultdict[str, int] = (
+            collections.defaultdict(int)
+        )
         self.__iadd__(kwargs)
         self._cached_reduce: dict[str, _T] = {}
 
@@ -104,8 +106,8 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
                 self.aggregate[key] += value
                 self.counts[key] += other_counts[key]
         else:
-            self.aggregate = other_aggregate
-            self.counts = other_counts
+            self.aggregate.update(other_aggregate)
+            self.counts.update(other_counts)
 
         self._cached_reduce = {}
         return self

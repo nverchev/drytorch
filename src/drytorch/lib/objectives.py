@@ -14,7 +14,7 @@ import operator
 import warnings
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Generic, Literal, Self, TypeVar
+from typing import Any, Final, Generic, Literal, Self, TypeVar
 
 import torch
 
@@ -146,7 +146,7 @@ class MetricCollection(Objective[_Output_contra, _Target_contra]):
             **named_fun: dictionary of named functions to calculate.
         """
         super().__init__()
-        self.named_fun = named_fun
+        self.named_fun: Final = named_fun
 
     @override
     def calculate(
@@ -201,9 +201,9 @@ class Metric(MetricCollection[_Output_contra, _Target_contra]):
                 False if lower values are better, None if unspecified.
         """
         super().__init__(**{name: fun})
-        self.fun = fun
-        self.name = name
-        self.higher_is_better = higher_is_better
+        self.fun: Final = fun
+        self.name: Final = name
+        self.higher_is_better: Final = higher_is_better
 
 
 class LossBase(
@@ -231,9 +231,9 @@ class LossBase(
             formula: string representation of the loss formula.
             **named_fun: dictionary of named functions to calculate.
         """
-        self.name: str = name
-        self.higher_is_better = higher_is_better
-        self.formula = formula
+        self.name: Final = name
+        self.higher_is_better: Final = higher_is_better
+        self.formula: str = formula
         super().__init__(**named_fun)
         self.criterion = criterion
         return
@@ -547,7 +547,7 @@ class CompositionalLoss(
         *,
         name='Loss',
         higher_is_better: bool,
-        formula: str,
+        formula: str = '',
         **named_fun: Callable[[_Output_contra, _Target_contra], _Tensor],
     ) -> None:
         """Constructor.
@@ -567,7 +567,6 @@ class CompositionalLoss(
             **named_fun,
             formula=self._format_formula(formula),
         )
-        self.higher_is_better = higher_is_better
         return
 
     @override
@@ -667,13 +666,13 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
             best_is: whether higher or lower metric values are better.
             filter_fn: function to aggregate recent metric values.
         """
-        self.metric_name = metric_name
-        self.best_is = best_is
-        self.filter_fn = filter_fn
-        self.min_delta = min_delta
+        self.metric_name: str | None = metric_name
+        self.best_is: Literal['auto', 'higher', 'lower'] = best_is
+        self.filter_fn: Final = filter_fn
+        self.min_delta: float = min_delta
         self._validate_patience(patience)
-        self.patience = patience
-        self.history = list[float]()
+        self.patience: int = patience
+        self.history: Final = list[float]()
         self._patience_countdown = patience
         self._best_value: float | None = None
 

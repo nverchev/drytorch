@@ -1,5 +1,7 @@
 """Functional tests for simple hyperparameter tuning."""
 
+import dataclasses
+
 from collections.abc import Generator, MutableMapping
 from typing import Any
 
@@ -33,12 +35,14 @@ def test_automatic_names(
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
         linear_model_copy = Model(linear_model.module)
-        standard_learning_scheme.base_lr = lr
+        new_learning_scheme = dataclasses.replace(
+            standard_learning_scheme, base_lr=lr
+        )
         trainer = Trainer(
             linear_model_copy,
             name='MyTrainer',
             loader=training_loder,
-            learning_scheme=standard_learning_scheme,
+            learning_scheme=new_learning_scheme,
             loss=square_loss_calc,
         )
         trainer.add_validation(val_loader)
@@ -61,12 +65,14 @@ def test_iterative_pruning(
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
-        standard_learning_scheme.base_lr = lr
+        new_learning_scheme = dataclasses.replace(
+            standard_learning_scheme, base_lr=lr
+        )
         trainer = Trainer(
             linear_model,
             name='MyTrainer',
             loader=training_loder,
-            learning_scheme=standard_learning_scheme,
+            learning_scheme=new_learning_scheme,
             loss=square_loss_calc,
         )
         trainer.add_validation(val_loader)

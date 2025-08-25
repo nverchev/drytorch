@@ -3,7 +3,7 @@
 import math
 
 from collections.abc import Iterable
-from typing import TypeAlias
+from typing import Final, TypeAlias
 
 import matplotlib.pyplot as plt
 
@@ -40,7 +40,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
         super().__init__(
             model_names, source_names, metric_names, start, metric_loader
         )
-        self._model_figure = dict[
+        self._model_figure: Final = dict[
             str, tuple[figure.Figure, dict[str, axes.Axes]]
         ]()
         plt.ion()

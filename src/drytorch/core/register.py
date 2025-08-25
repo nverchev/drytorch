@@ -8,7 +8,7 @@ Attributes:
     ALL_MODULES: A dictionary that maps module instances to experiments.
 """
 
-from typing import Any
+from typing import Any, Final
 
 from torch import nn
 
@@ -16,8 +16,8 @@ from drytorch.core import exceptions, experiment
 from drytorch.core import protocols as p
 
 
-ALL_MODULES = dict[nn.Module, experiment.Run[Any]]()
-ALL_ACTORS = dict[nn.Module, set[int]]()
+ALL_MODULES: Final = dict[nn.Module, experiment.Run[Any]]()
+ALL_ACTORS: Final = dict[nn.Module, set[int]]()
 
 
 def register_model(model: p.ModelProtocol[Any, Any]) -> None:

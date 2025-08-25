@@ -40,10 +40,10 @@ class HydraLink(base_classes.Dumper):
         # get hydra configuration
         hydra_config = hydra.core.hydra_config.HydraConfig.get()
         str_dir = hydra_config.runtime.output_dir
-        self.hydra_dir = pathlib.Path(str_dir)
+        self.hydra_dir: pathlib.Path = pathlib.Path(str_dir)
         if not self.hydra_dir.exists():
             raise exceptions.TrackerError(self, 'Hydra has not started.')
-        self._copy_hydra = copy_hydra
+        self._copy_hydra: bool = copy_hydra
         return
 
     @override
