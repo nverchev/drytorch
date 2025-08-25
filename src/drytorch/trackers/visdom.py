@@ -164,7 +164,6 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
             showlegend=True,
         )
         scatter_opts = VisdomOpts(mode='markers', markersymbol='24')
-        # noinspection PydanticTypeChecker
         opts = self.opts | layout  # type: ignore
         win = '_'.join((model_name, metric_name))
         for name, log in sourced_array.items():

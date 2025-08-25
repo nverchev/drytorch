@@ -48,7 +48,7 @@ def test_repr_trainer(identity_trainer, mocker):
             'formula': '[MSE]',
             'higher_is_better': False,
             'name': 'MSE',
-            'named_fun': {'MSE': 'mse'},
+            'named_fn': {'MSE': 'mse'},
         },
         'post_epoch_hooks': 'HookRegistry',
         'pre_epoch_hooks': 'HookRegistry',

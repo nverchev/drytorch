@@ -36,7 +36,6 @@ SAFE_GLOBALS: list[Any] = [
     codecs.encode,
 ]
 try:
-    # noinspection PyUnusedImports
     from numpy._core.multiarray import scalar
 except ImportError:
     pass
@@ -225,7 +224,6 @@ class LocalCheckpoint(AbstractCheckpoint):
                     ),
                 )
             except ValueError as ve:
-                # noinspection PyArgumentEqualDefault
                 warnings.warn(
                     exceptions.OptimizerNotLoadedWarning(ve), stacklevel=1
                 )

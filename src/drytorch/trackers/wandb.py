@@ -112,6 +112,5 @@ class Wandb(Dumper):
             f'{event.model_name}/{event.source_name}-{name}': value
             for name, value in event.metrics.items()
         }
-        # noinspection PyTypeChecker
         self.run.log(plot_names, step=event.epoch)
         return super().notify(event)

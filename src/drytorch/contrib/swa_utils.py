@@ -11,8 +11,7 @@ from drytorch.lib import runners
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)
-# noinspection PyProtectedMember
-# pylint: disable=protected-access
+
 AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
 
 

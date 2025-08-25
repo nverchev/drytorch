@@ -226,7 +226,6 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
-        # noinspection PyCallingNonCallable
         return super().notify(event)
 
     @notify.register
@@ -237,14 +236,12 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
             start = self._start if event.epoch >= 2 * self._start else 1
 
         self._update_plot(model_name=event.model_name, start=start)
-        # noinspection PyCallingNonCallable
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndTestEvent) -> None:
         start = max(1, self._start)
         self._update_plot(model_name=event.model_name, start=start)
-        # noinspection PyCallingNonCallable
         return super().notify(event)
 
     def plot(

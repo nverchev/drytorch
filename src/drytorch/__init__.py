@@ -97,7 +97,6 @@ def _add_tqdm(tracker_list: list[Tracker], mode: _InitMode) -> None:
             verbosity = builtin_logging.INFO_LEVELS.epoch
             builtin_logging.set_formatter('progress')
     else:
-        # noinspection PyUnreachableCode
         if mode == 'standard':
             # metrics logs redundant because already visible in the progress bar
             verbosity = builtin_logging.INFO_LEVELS.epoch

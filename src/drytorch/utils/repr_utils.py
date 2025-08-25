@@ -74,7 +74,7 @@ class DefaultName:
 
     def __get__(self, instance: Any, objtype: type | None = None) -> str:
         """Return the default name for the instance or class."""
-        return instance.__name  # pylint: disable=protected-access
+        return instance.__name
 
     def __set__(self, instance: Any, value: str) -> None:
         """Return the default name for the instance or class."""
@@ -82,7 +82,6 @@ class DefaultName:
         count_iter = self._prefixes.setdefault(value, itertools.count())
         if count_value := next(count_iter):
             value = f'{value}_{count_value}'
-        # pylint: disable=unused-private-member, protected-access
         instance.__name = value
         return
 

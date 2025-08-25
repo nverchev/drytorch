@@ -147,7 +147,7 @@ class TestExperiment:
 
     def test_config_not_hashable(self, tmp_path) -> None:
         """Test that resuming with a nonexistent run ID raises an error."""
-        experiment = Experiment([], par_dir=tmp_path)
+        experiment = Experiment([1], par_dir=tmp_path)
         with pytest.warns(exceptions.ConfigNotHashableWarning):
             experiment.create_run()
 
@@ -262,7 +262,7 @@ class TestRun:
         assert run in experiment.previous_runs
 
     def test_is_active_status(self, run) -> None:
-        """Test the is_active method returns correct status."""
+        """Test the is_active method returns the correct status."""
         assert not run.is_active()
 
         run.start()
@@ -272,7 +272,7 @@ class TestRun:
         assert not run.is_active()
 
     def test_double_start_warning(self, run) -> None:
-        """Test that starting an already running run issues a warning."""
+        """Test that starting an already started run issues a warning."""
         with run:
             with pytest.warns(exceptions.RunAlreadyRunningWarning):
                 run.start()
@@ -313,7 +313,7 @@ class TestRun:
             log_events.Event, 'set_auto_publish'
         )
         mock_clear_current = mocker.patch.object(Experiment, '_clear_current')
-        experiment._active_run = 'dummy_run'
+        experiment._active_run = mocker.Mock()
 
         Run._cleanup_resources(experiment)
 

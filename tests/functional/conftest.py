@@ -77,7 +77,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
         """
         return ((outputs.output - targets) ** 2).mean()
 
-    return Loss('MSE', mse)
+    return Loss(mse, 'MSE')
 
 
 @pytest.fixture

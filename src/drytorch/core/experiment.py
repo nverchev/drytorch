@@ -8,6 +8,7 @@ import pathlib
 import warnings
 import weakref
 
+from collections.abc import Hashable
 from pathlib import Path
 from types import TracebackType
 from typing import (
@@ -27,7 +28,7 @@ from drytorch.core import exceptions, log_events, track
 from drytorch.utils import repr_utils
 
 
-_T_co = TypeVar('_T_co', covariant=True)
+_T_co = TypeVar('_T_co', covariant=True, bound=Hashable)
 
 RunStatus = Literal['created', 'running', 'completed', 'failed']
 
@@ -98,28 +99,30 @@ class Experiment(Generic[_T_co]):
     type annotations.
 
     Class Variables:
-        runs: List of all previous runs created by this class.
-        folder_name: Name of the hidden folder storing experiment metadata.
-        run_file: Filename storing the registry of run IDs for this experiment.
+        runs: a list of all previous runs created by this class.
+        folder_name: name of the hidden folder storing experiment metadata.
+        run_file: filename storing the registry of run IDs for this experiment.
+        strict_config: enforce consistent hashable configs per experiment.
 
     Attributes:
-        par_dir: Parent directory for experiment data.
-        tags: Descriptors for the experiment.
-        trackers: Dispatcher for publishing events.
+        par_dir: parent directory for experiment data.
+        tags: descriptors for the experiment.
+        trackers: dispatcher for publishing events.
     """
 
     _name: ClassVar = repr_utils.DefaultName()
     __current: ClassVar[Experiment[Any] | None] = None
     folder_name: ClassVar[str] = '.drytorch'
     run_file: ClassVar[str] = 'runs.json'
+    strict_config: ClassVar[bool] = False
 
     def __init__(
-        self,
-        config: _T_co,
-        *,
-        name: str = '',
-        par_dir: str | pathlib.Path = pathlib.Path(),
-        tags: list[str] | None = None,
+            self,
+            config: _T_co,
+            *,
+            name: str = '',
+            par_dir: str | pathlib.Path = pathlib.Path(),
+            tags: list[str] | None = None,
     ) -> None:
         """Constructor.
 
@@ -156,10 +159,10 @@ class Experiment(Generic[_T_co]):
         return self.__config
 
     def create_run(
-        self,
-        *,
-        run_id: str | None = None,
-        resume: bool = False,
+            self,
+            *,
+            run_id: str | None = None,
+            resume: bool = False,
     ) -> Run[_T_co]:
         """Convenience constructor for a Run using this experiment.
 
@@ -180,7 +183,7 @@ class Experiment(Generic[_T_co]):
             return self._create_new_run(run_id, runs_data)
 
     def _handle_resume_logic(
-        self, run_id: str | None, runs_data: list[RunMetadata]
+            self, run_id: str | None, runs_data: list[RunMetadata]
     ) -> Run[_T_co]:
         """Handle resume logic for existing runs."""
         if self.previous_runs:
@@ -197,11 +200,23 @@ class Experiment(Generic[_T_co]):
         if run_id is None:
             run_id = runs_data[-1].id
         else:
-            if not any(r_data.id == run_id for r_data in runs_data):
+            matching_runs = [r for r in runs_data if r.id == run_id]
+            if not matching_runs:
                 warnings.warn(
-                    exceptions.NotExistingRunWarning(run_id), stacklevel=2
+                    exceptions.NotExistingRunWarning(run_id), stacklevel=1
                 )
                 return self._create_new_run(run_id, runs_data)
+
+            matching_run, *other_runs = matching_runs
+            if other_runs:
+                msg = f'Multiple runs with id {run_id} found in the registry.'
+                raise RuntimeError(msg)
+
+            if matching_run.hashed_config is not None:
+                if hash(self.__config) != matching_run.hashed_config:
+                    raise exceptions.WrongConfig(
+                        self.__config, matching_run.hashed_config
+                    )
 
         return Run(experiment=self, run_id=run_id, resumed=True)
 
@@ -214,23 +229,33 @@ class Experiment(Generic[_T_co]):
         if not matching_runs:
             return None
 
-        if len(matching_runs) > 1:
+        matching_run, *other_runs = matching_runs
+        if other_runs:
             msg = f'Multiple runs with id {run_id} found for exp {self.name}'
-            raise ValueError(msg)
+            raise RuntimeError(msg)
 
-        return matching_runs[0]
+        return matching_run
 
     def _create_new_run(
-        self, run_id: str | None, runs_data: list[RunMetadata]
+            self, run_id: str | None, runs_data: list[RunMetadata]
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
         try:
             hashed_config: int | None = hash(self.__config)
         except TypeError:
+            if self.strict_config:
+                raise exceptions.ConfigNotHashableError(self.__config)
+
             warnings.warn(
                 exceptions.ConfigNotHashableWarning(self.__config), stacklevel=2
             )
             hashed_config = None
+        else:
+            if self.strict_config:
+                existing_hashes = {r.hashed_config for r in runs_data if
+                                   r.hashed_config is not None}
+                if existing_hashes and hashed_config not in existing_hashes:
+                    raise exceptions.ConfigHashMismatchError(self.__config)
 
         run = Run(experiment=self, run_id=run_id)
         run_data = RunMetadata(
@@ -266,7 +291,6 @@ class Experiment(Generic[_T_co]):
         if Experiment.__current is None:
             raise exceptions.NoActiveExperimentError()
 
-        # noinspection PyUnreachableCode
         if not isinstance(Experiment.__current, cls):
             raise exceptions.NoActiveExperimentError(experiment_class=cls)
         return Experiment.__current
@@ -291,17 +315,16 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     """Execution lifecycle for a single run of an Experiment.
 
     Attributes:
-        id: Identifier of the run.
         status: Current status of the run.
         resumed: whether the run was resumed.
         metadata_manager: Manager for run metadata.
     """
 
     def __init__(
-        self,
-        experiment: Experiment[_T_co],
-        run_id: str | None,
-        resumed: bool = False,
+            self,
+            experiment: Experiment[_T_co],
+            run_id: str | None,
+            resumed: bool = False,
     ) -> None:
         """Constructor.
 
@@ -336,10 +359,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return self
 
     def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
     ) -> None:
         """Exit the experiment scope."""
         if exc_type is not None:
@@ -370,7 +393,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             self._finalizer = None
         return
 
-    def start(self) -> None:
+    def start(self: Self) -> None:
         """Start the experiment scope."""
         if self.status == 'running':
             warnings.warn(exceptions.RunAlreadyRunningWarning(), stacklevel=1)
@@ -417,7 +440,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
     @staticmethod
     def _cleanup_resources(experiment: Experiment[_T_co]) -> None:
-        """Cleanup without holding reference to Run instance."""
+        """Cleanup without holding reference to a Run instance."""
         experiment._active_run = None
         log_events.StopExperimentEvent(experiment.name)
         log_events.Event.set_auto_publish(None)

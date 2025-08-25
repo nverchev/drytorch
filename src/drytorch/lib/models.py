@@ -45,8 +45,7 @@ class Model(
 
     def __init__(  # type: ignore
         self,
-        torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
-        /,
+        module: p.ModuleProtocol[_Input_contra, _Output_co],
         name: str = '',
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol = _default_checkpoint,
@@ -55,7 +54,7 @@ class Model(
         """Constructor.
 
         Args:
-            torch_module: Pytorch module with type annotations.
+            module: Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
@@ -64,7 +63,7 @@ class Model(
                 Defaults to False.
         """
         super().__init__()
-        self.module = self._validate_module(torch_module)
+        self.module = self._validate_module(module)
         self._name = name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device

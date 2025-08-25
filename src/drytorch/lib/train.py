@@ -46,11 +46,11 @@ class Trainer(
 
         Args:
             model: the model containing the weights to evaluate.
+            name: the base name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
             loader: provides inputs and targets in batches.
             loss: processes the model outputs and targets.
             learning_scheme: contains optimizer settings and scheduling.
-            name: the base name for the object for logging purposes.
-                Defaults to class name plus eventual counter.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
         self.learning_scheme = learning_scheme
@@ -80,7 +80,6 @@ class Trainer(
             store_outputs: whether to store model outputs.
         """
         if self.terminated:
-            # noinspection PyArgumentEqualDefault
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
         self.model.module.train()
@@ -139,7 +138,6 @@ class Trainer(
     @override
     def train(self, num_epochs: int) -> None:
         if self.terminated:
-            # noinspection PyArgumentEqualDefault
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
         final_epoch = self.model.epoch + num_epochs
@@ -180,7 +178,6 @@ class Trainer(
         if remaining_epochs > 0:
             self.train(remaining_epochs)
         if remaining_epochs < 0:
-            # noinspection PyArgumentEqualDefault
             warnings.warn(
                 exceptions.PastEpochWarning(epoch, self.model.epoch),
                 stacklevel=1,

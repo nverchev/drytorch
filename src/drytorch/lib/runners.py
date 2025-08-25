@@ -50,7 +50,6 @@ class ModelCaller(
         self._name = name
         return
 
-    # noinspection PyProtocol
     @property
     def name(self) -> str:
         """The name of the model."""

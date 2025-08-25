@@ -83,7 +83,6 @@ class Validation(
             metric: metric to evaluate the model.
 
         """
-        # noinspection PyTypeChecker
         super().__init__(model, loader=loader, name=name, objective=metric)
         return
 
