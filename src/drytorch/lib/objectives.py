@@ -189,7 +189,7 @@ class Metric(MetricCollection[_Output_contra, _Target_contra]):
         """Constructor.
 
         Args:
-            The callable that computes the metric value.
+            fn: the callable that computes the metric value.
             name: identifier for the metric.
             higher_is_better: True if higher values indicate better performance,
                 False if lower values are better, None if unspecified.
@@ -612,7 +612,7 @@ class Loss(CompositionalLoss[_Output_contra, _Target_contra]):
         """Constructor.
 
         Args:
-            The callable to calculate the loss.
+            fn: the callable to calculate the loss.
             name: the name for the loss.
             higher_is_better: the direction for optimization.
         """

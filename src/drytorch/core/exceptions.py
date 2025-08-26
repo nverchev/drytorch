@@ -344,23 +344,6 @@ class TrackerNotActiveError(DryTorchError):
         super().__init__(tracker_name)
 
 
-class WrongConfig(DryTorchError):
-    """Raised when the configuration does not match the resumed one."""
-
-    msg = 'The configuration does not match the one from the resumed run.'
-
-    def __init__(self, config: Any, resumed_hash: int) -> None:
-        """Constructor.
-
-        Args:
-            config: the input configuration.
-            resumed_hash: the hash of the configuration that was resumed.
-        """
-        self.config = config
-        self.resumed_hash = resumed_hash
-        super().__init__()
-
-
 class CannotStoreOutputWarning(DryTorchWarning):
     """Warning raised when output cannot be stored due to an error."""
 

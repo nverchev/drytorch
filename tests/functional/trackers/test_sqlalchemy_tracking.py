@@ -47,7 +47,9 @@ class TestSQLConnectionFullCycle:
         stop_experiment_event,
     ) -> Generator[SQLConnection, None, None]:
         """Resume previous run."""
-        resumed_event =dataclasses.replace(start_experiment_event, resumed=True)
+        resumed_event = dataclasses.replace(
+            start_experiment_event, resumed=True
+        )
         resumed_tracker = SQLConnection(engine=tracker.engine)
         resumed_tracker.notify(resumed_event)
         yield resumed_tracker
