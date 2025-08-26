@@ -76,36 +76,6 @@ class CheckpointNotInitializedError(DryTorchError):
     msg = 'The checkpoint did not register any model.'
 
 
-class ConfigNotHashableError(DryTorchError):
-    """Error raised when the configuration file is not hashable."""
-
-    msg = 'The configuration is not hashable. Does it contain mutable objects?'
-
-    def __init__(self, config: Any) -> None:
-        """Constructor.
-
-        Args:
-            config: the configuration for the experiment.
-        """
-        self.config = config
-        super().__init__()
-
-
-class ConfigHashMismatchError(DryTorchError):
-    """Error raised when the configuration file is not hashable."""
-
-    msg = 'The hashed configuration does not match the previous ones.'
-
-    def __init__(self, config: Any) -> None:
-        """Constructor.
-
-        Args:
-            config: the configuration for the experiment.
-        """
-        self.config = config
-        super().__init__()
-
-
 class ConvergenceError(DryTorchError):
     """Raised when a module fails to converge during training."""
 
@@ -198,7 +168,7 @@ class MissingParamError(DryTorchError):
     msg = 'Parameter groups in input learning rate miss parameters {}.'
 
     def __init__(
-            self, module_names: list[str], lr_param_groups: list[str]
+        self, module_names: list[str], lr_param_groups: list[str]
     ) -> None:
         """Constructor.
 
@@ -316,9 +286,9 @@ class NoActiveExperimentError(DryTorchError):
     msg = 'No experiment {}has been started.'
 
     def __init__(
-            self,
-            experiment_name: str | None = None,
-            experiment_class: type | None = None,
+        self,
+        experiment_name: str | None = None,
+        experiment_class: type | None = None,
     ) -> None:
         """Constructor.
 
@@ -419,21 +389,6 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         """
         self.calculator: Final = calculator
         super().__init__(calculator.__class__.__name__)
-
-
-class ConfigNotHashableWarning(DryTorchWarning):
-    """Warning raised when the configuration file is not hashable."""
-
-    msg = 'The configuration is not hashable. Does it contain mutable objects?'
-
-    def __init__(self, config: Any) -> None:
-        """Constructor.
-
-        Args:
-            config: the configuration for the experiment.
-        """
-        self.config: Final = config
-        super().__init__()
 
 
 class FailedOptionalImportWarning(DryTorchWarning):

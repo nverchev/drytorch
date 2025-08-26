@@ -145,12 +145,6 @@ class TestExperiment:
         with pytest.warns(exceptions.NotExistingRunWarning):
             experiment.create_run(run_id='nonexistent-run', resume=True)
 
-    def test_config_not_hashable(self, tmp_path) -> None:
-        """Test that resuming with a nonexistent run ID raises an error."""
-        experiment = Experiment([1], par_dir=tmp_path)
-        with pytest.warns(exceptions.ConfigNotHashableWarning):
-            experiment.create_run()
-
     def test_run_property_no_active_run_error(self, experiment) -> None:
         """Test accessing run property with no active run raises an error."""
         with pytest.raises(exceptions.NoActiveExperimentError):
