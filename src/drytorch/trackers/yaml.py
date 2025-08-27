@@ -19,7 +19,6 @@ from typing_extensions import override
 from drytorch.core import log_events
 from drytorch.trackers import base_classes
 from drytorch.utils import repr_utils
-from drytorch.utils.repr_utils import recursive_repr
 
 
 MAX_LENGTH_PLAIN_REPR = 30
@@ -55,9 +54,9 @@ class YamlDumper(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
         run_dir = self._get_run_dir()
-        safe_config = recursive_repr(event.config)
+        repr_config = repr_utils.recursive_repr(event.config, depth=1000)
         model_with_ts = 'config_' + event.run_ts.strftime(TS_FMT) + '.yaml'
-        self._dump(safe_config, run_dir / model_with_ts)
+        self._dump(repr_config, run_dir / model_with_ts)
         return
 
     @notify.register

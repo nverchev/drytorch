@@ -14,7 +14,7 @@ from wandb.sdk.wandb_settings import Settings
 
 from drytorch.core import exceptions, log_events
 from drytorch.trackers.base_classes import Dumper
-from drytorch.utils.repr_utils import recursive_repr
+from drytorch.utils import repr_utils
 
 
 class Wandb(Dumper):
@@ -76,6 +76,7 @@ class Wandb(Dumper):
             )
             if runs:
                 run_id = runs[0].id
+
             else:
                 msg = 'Wandb: No previous runs. Starting a new one.'
                 warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
@@ -86,12 +87,13 @@ class Wandb(Dumper):
         if not run_id:
             run_id = event.exp_name + '_' + event.run_id
 
+        repr_config = repr_utils.recursive_repr(event.config, depth=1000)
         self._run = wandb.init(
             id=run_id,
             dir=self.par_dir.as_posix(),
             project=project,
             group=group,
-            config=recursive_repr(event.config),
+            config=repr_config,
             tags=event.tags,
             settings=self._settings,
             resume='allow' if event.resumed else None,
