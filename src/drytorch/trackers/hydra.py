@@ -11,6 +11,9 @@ from typing_extensions import override
 
 from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
+from drytorch.utils import repr_utils
+
+TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 
 
 class HydraLink(base_classes.Dumper):
@@ -66,6 +69,7 @@ class HydraLink(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         # call super method to create par_dir first
         super().notify(event)
+        self._run_id = event.run_ts.strftime(TS_FMT)  # use ts instead of id
         link = self._get_run_dir(mkdir=False)
         link.parent.mkdir(exist_ok=True, parents=True)
         link.symlink_to(self.hydra_dir, target_is_directory=True)
