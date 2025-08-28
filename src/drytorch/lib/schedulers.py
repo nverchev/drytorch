@@ -235,9 +235,9 @@ class RestartScheduler(AbstractScheduler):
         if epoch >= self.restart_interval:
             num_restart, restarted_epoch = divmod(epoch, self.restart_interval)
             if self.max_restart is None or num_restart <= self.max_restart:
-                if epoch > 0:
+                if restarted_epoch:
                     start_value *= self.restart_fraction
-                    epoch = restarted_epoch + 1
+                    epoch = restarted_epoch
                 else:
                     epoch = self.restart_interval
 

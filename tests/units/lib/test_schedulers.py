@@ -213,8 +213,8 @@ class TestRestartScheduler:
     ) -> None:
         """Test RestartScheduler exactly at the first restart point."""
         base_lr = 1.0
-        epoch = restart_interval
-        expected = base_scheduler(base_lr * restart_fraction, 0)
+        epoch = restart_interval + 1
+        expected = base_scheduler(base_lr * restart_fraction, 1)
         assert scheduler(base_lr, epoch) == expected
 
     def test_restart_scheduler_after_first_restart(
