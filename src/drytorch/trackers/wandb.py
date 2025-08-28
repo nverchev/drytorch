@@ -110,6 +110,11 @@ class Wandb(Dumper):
         if self.run is None:
             raise exceptions.AccessOutsideScopeError()
 
+        wandb_step = self.run.step
+        if wandb_step is not None and wandb_step > event.epoch:
+            msg = f'can only resume runs from the last epoch. Quitting.'
+            raise exceptions.TrackerError(self, msg)
+
         plot_names = {
             f'{event.model_name}/{event.source_name}-{name}': value
             for name, value in event.metrics.items()
