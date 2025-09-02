@@ -40,6 +40,7 @@ class Wandb(Dumper):
         super().__init__(par_dir)
         self._settings: Settings = settings
         self._run: wandb_run.Run | None = None
+        self._defined_metrics: set[str] = set()
         return
 
     @property
@@ -110,14 +111,18 @@ class Wandb(Dumper):
         if self.run is None:
             raise exceptions.AccessOutsideScopeError()
 
-        wandb_step = self.run.step
-        if wandb_step is not None and wandb_step > event.epoch:
-            msg = f'can only resume runs from the last epoch. Quitting.'
-            raise exceptions.TrackerError(self, msg)
-
         plot_names = {
             f'{event.model_name}/{event.source_name}-{name}': value
             for name, value in event.metrics.items()
         }
-        self.run.log(plot_names, step=event.epoch)
+        step_key = f'step/{event.model_name}'
+        plot_step = {step_key: event.epoch}
+
+        # define new metrics only once
+        for name in plot_names:
+            if name not in self._defined_metrics:
+                self.run.define_metric(name, step_metric=step_key)
+                self._defined_metrics.add(name)
+
+        self.run.log(plot_names | plot_step)
         return super().notify(event)

@@ -6,6 +6,7 @@ from collections.abc import Generator
 
 import pytest
 
+
 if not importlib.util.find_spec('wandb'):
     pytest.skip('wandb not available', allow_module_level=True)
 
@@ -30,10 +31,10 @@ class TestWandb:
 
     @pytest.fixture
     def tracker_started(
-            self,
-            tracker,
-            start_experiment_mock_event,
-            stop_experiment_mock_event,
+        self,
+        tracker,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
     ) -> Generator[Wandb, None, None]:
         """Set up started instance."""
         tracker.notify(start_experiment_mock_event)
@@ -49,15 +50,15 @@ class TestWandb:
         assert tracker._run is None
 
     def test_notify_start_experiment(
-            self,
-            mocker,
-            tracker_started,
-            example_config,
-            example_exp_name,
-            example_run_ts,
-            start_experiment_mock_event,
-            example_run_id,
-            example_tags,
+        self,
+        mocker,
+        tracker_started,
+        example_config,
+        example_exp_name,
+        example_run_ts,
+        start_experiment_mock_event,
+        example_run_id,
+        example_tags,
     ) -> None:
         """Test StartExperiment notification."""
         self.init_mock.assert_called_once_with(
@@ -72,11 +73,11 @@ class TestWandb:
         )
 
     def test_notify_metrics(
-            self,
-            mocker,
-            tracker_started,
-            epoch_metrics_mock_event,
-            example_named_metrics,
+        self,
+        mocker,
+        tracker_started,
+        epoch_metrics_mock_event,
+        example_named_metrics,
     ) -> None:
         """Test Metrics notification."""
         log_mock = mocker.patch.object(tracker_started.run, 'log')
@@ -88,23 +89,11 @@ class TestWandb:
             f'{model_name}/{source_name}-{name}': value
             for name, value in example_named_metrics.items()
         }
-        log_mock.assert_called_once_with(
-            expected_metrics, step=epoch_metrics_mock_event.epoch
-        )
-
-    def test_global_step_error(
-            self,
-            tracker_started,
-            epoch_metrics_mock_event,
-            example_named_metrics,
-    ) -> None:
-        """Test logging from an epoch lower than the global step fails."""
-        tracker_started.run.step = 100
-        with pytest.raises(exceptions.TrackerError):
-            tracker_started.notify(epoch_metrics_mock_event)
+        step_dict = {f'step/{model_name}': epoch_metrics_mock_event.epoch}
+        log_mock.assert_called_once_with(expected_metrics | step_dict)
 
     def test_notify_metrics_outside_scope(
-            self, tracker, epoch_metrics_mock_event
+        self, tracker, epoch_metrics_mock_event
     ) -> None:
         """Test Metrics notification outside scope."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
