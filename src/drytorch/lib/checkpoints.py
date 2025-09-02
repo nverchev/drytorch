@@ -165,7 +165,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         )
 
     def _get_definition(self) -> str:
-        return 'model_state' if self.optimizer is None else 'checkpoint'
+        return 'state' if self.optimizer is None else 'checkpoint'
 
     @abc.abstractmethod
     def _get_last_saved_epoch(self) -> int: ...
