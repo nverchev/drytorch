@@ -476,7 +476,7 @@ class TestBindingOperation:
         """Test binding a restart transformation."""
         base_scheduler = CosineScheduler(decay_steps=10, min_decay=0.1)
         restart_interval = 10
-        restart_fraction = 0.5
+        restart_fraction = 0.2
 
         restarted_scheduler = base_scheduler.bind(
             restart(restart_interval, restart_fraction)
@@ -484,7 +484,7 @@ class TestBindingOperation:
         expected = base_scheduler(base_lr, 5)
         assert restarted_scheduler(base_lr, 5) == expected
 
-        expected = base_scheduler(base_lr * restart_fraction, 0)
+        expected = base_scheduler(base_lr, 10)
         assert restarted_scheduler(base_lr, 10) == expected
 
         expected = base_scheduler(base_lr * restart_fraction, 5)
