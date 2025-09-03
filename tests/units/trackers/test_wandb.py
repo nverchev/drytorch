@@ -89,7 +89,7 @@ class TestWandb:
             f'{model_name}/{source_name}-{name}': value
             for name, value in example_named_metrics.items()
         }
-        step_dict = {f'step/{model_name}': epoch_metrics_mock_event.epoch}
+        step_dict = {f'Progress/{model_name}': epoch_metrics_mock_event.epoch}
         log_mock.assert_called_once_with(expected_metrics | step_dict)
 
     def test_notify_metrics_outside_scope(

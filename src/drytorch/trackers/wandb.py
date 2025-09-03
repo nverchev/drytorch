@@ -115,7 +115,7 @@ class Wandb(Dumper):
             f'{event.model_name}/{event.source_name}-{name}': value
             for name, value in event.metrics.items()
         }
-        step_key = f'step/{event.model_name}'
+        step_key = f'Progress/{event.model_name}'
         plot_step = {step_key: event.epoch}
 
         # define new metrics only once
