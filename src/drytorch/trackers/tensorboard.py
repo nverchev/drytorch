@@ -87,11 +87,9 @@ class TensorBoard(base_classes.Dumper):
         super().notify(event)
         run_dir = self._get_run_dir()
 
-        # start the TensorBoard server
         if self._start_server:
-            self._start_tensorboard(self.par_dir)
+            self._start_tensorboard(self.par_dir / self.folder_name)
 
-        # initialize writer
         self._writer = tensorboard.SummaryWriter(
             log_dir=run_dir.as_posix(),
             max_queue=self._max_queue_size,
@@ -119,22 +117,21 @@ class TensorBoard(base_classes.Dumper):
 
     def _start_tensorboard(self, logdir: pathlib.Path) -> None:
         """Start a TensorBoard server and open it in the default browser."""
-        # allocate a port
         instance_port = self.base_port + self._instance_number
         port = self._find_free_port(start=instance_port)
         self._port = port
         if not isinstance(port, int) or port < 1 or port > 65535:
             raise exceptions.TrackerError(self, 'Invalid port')
 
-        tensorboard_path = shutil.which('tensorboard')
-        if tensorboard_path is None:
+        tensorboard_executable_path = shutil.which('tensorboard')
+        if tensorboard_executable_path is None:
             msg = 'TensorBoard executable not found.'
             raise exceptions.TrackerError(self, msg)
 
         try:
             subprocess.Popen(  # noqa: S603
                 [
-                    tensorboard_path,
+                    tensorboard_executable_path,
                     'serve',
                     '--logdir',
                     str(logdir),
