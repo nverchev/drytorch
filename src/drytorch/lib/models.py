@@ -40,7 +40,6 @@ class Model(
         mixed_precision: whether to use mixed precision computing.
     """
 
-    _default_checkpoint = checkpoints.LocalCheckpoint()
     _name = repr_utils.DefaultName()
 
     def __init__(  # type: ignore
@@ -48,7 +47,7 @@ class Model(
         module: p.ModuleProtocol[_Input_contra, _Output_co],
         name: str = '',
         device: torch.device | None = None,
-        checkpoint: p.CheckpointProtocol = _default_checkpoint,
+        checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
     ) -> None:
         """Constructor.
@@ -67,6 +66,9 @@ class Model(
         self._name = name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
+        if checkpoint is None:
+            checkpoint = checkpoints.LocalCheckpoint()
+
         self.checkpoint: p.CheckpointProtocol = checkpoint
         self.checkpoint.register_model(self)
         self.mixed_precision = mixed_precision
