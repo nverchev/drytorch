@@ -1,4 +1,5 @@
 ![drytorch_logo.png](resources/drytorch_logo.png)
+[![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](LICENSE)
 ## Don't Repeat Yourself:
 - Functionalities for a wide range of machine-learning applications.
 - Modularity to build project-specific classes and data types.
