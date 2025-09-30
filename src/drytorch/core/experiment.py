@@ -159,6 +159,7 @@ class Experiment(Generic[_T_co]):
         *,
         run_id: str | None = None,
         resume: bool = False,
+        register: bool = True,
     ) -> Run[_T_co]:
         """Convenience constructor for a Run using this experiment.
 
@@ -176,7 +177,7 @@ class Experiment(Generic[_T_co]):
         if resume:
             return self._handle_resume_logic(run_id, runs_data)
         else:
-            return self._create_new_run(run_id, runs_data)
+            return self._create_new_run(run_id, runs_data, register)
 
     def _handle_resume_logic(
         self, run_id: str | None, runs_data: list[RunMetadata]
@@ -191,7 +192,7 @@ class Experiment(Generic[_T_co]):
 
         if not runs_data:
             warnings.warn(exceptions.NoPreviousRunsWarning(), stacklevel=2)
-            return self._create_new_run(run_id, runs_data)
+            return self._create_new_run(run_id, runs_data, True)
 
         if run_id is None:
             run_id = runs_data[-1].id
@@ -201,7 +202,7 @@ class Experiment(Generic[_T_co]):
                 warnings.warn(
                     exceptions.NotExistingRunWarning(run_id), stacklevel=1
                 )
-                return self._create_new_run(run_id, runs_data)
+                return self._create_new_run(run_id, runs_data, True)
 
             matching_run, *other_runs = matching_runs
             if other_runs:
@@ -227,7 +228,7 @@ class Experiment(Generic[_T_co]):
         return matching_run
 
     def _create_new_run(
-        self, run_id: str | None, runs_data: list[RunMetadata]
+        self, run_id: str | None, runs_data: list[RunMetadata], register: bool,
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
         run = Run(experiment=self, run_id=run_id)
@@ -237,7 +238,8 @@ class Experiment(Generic[_T_co]):
             timestamp=run.created_at_str,
         )
         runs_data.append(run_data)
-        self._registry.save_all(runs_data)
+        if register:
+            self._registry.save_all(runs_data)
         return run
 
     @property
