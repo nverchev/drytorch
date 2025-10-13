@@ -267,6 +267,7 @@ class Experiment(Generic[_T_co]):
 
         if not isinstance(Experiment.__current, cls):
             raise exceptions.NoActiveExperimentError(experiment_class=cls)
+
         return Experiment.__current
 
     @staticmethod
@@ -325,7 +326,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     @property
     def id(self) -> str:
         """The identifier of the run."""
-        return self._id or self.created_at_str
+        return self._id
 
     def __enter__(self) -> Self:
         """Enter the experiment scope."""
@@ -373,21 +374,21 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             warnings.warn(exceptions.RunAlreadyRunningWarning(), stacklevel=1)
             return
         self._finalizer = weakref.finalize(
-            self, self._cleanup_resources, self.experiment
+            self, self._cleanup_resources, self._experiment
         )
         self.status = 'running'
         self._update_registry()
-        self.experiment._active_run = self
-        Experiment.set_current(self.experiment)
-        log_events.Event.set_auto_publish(self.experiment.trackers.publish)
+        self._experiment._active_run = self
+        Experiment.set_current(self._experiment)
+        log_events.Event.set_auto_publish(self._experiment.trackers.publish)
         log_events.StartExperimentEvent(
-            self.experiment.config,
-            self.experiment.name,
+            self._experiment.config,
+            self._experiment.name,
             self.created_at,
-            self.id,
+            self._id,
             self.resumed,
-            self.experiment.par_dir,
-            self.experiment.tags,
+            self._experiment.par_dir,
+            self._experiment.tags,
         )
         return
 
