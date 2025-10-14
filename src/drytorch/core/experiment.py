@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import gc
 import json
 import pathlib
 import warnings
@@ -420,6 +421,8 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         log_events.StopExperimentEvent(experiment.name)
         log_events.Event.set_auto_publish(None)
         Experiment._clear_current()
+        gc.collect()
+        return
 
 
 def _validate_chars(name: str) -> None:
