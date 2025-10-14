@@ -426,6 +426,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
 
 def _validate_chars(name: str) -> None:
+    if len(name) > 255:
+        msg = f'Name is too long (max 255 chars): {len(name)}'
+        raise ValueError(msg)
+
     not_allowed_chars = set(r'\/:*?"<>|')
     if invalid_chars := set(name) & not_allowed_chars:
         msg = f'Name contains invalid character(s): {invalid_chars!r}'
