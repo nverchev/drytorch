@@ -5,19 +5,17 @@ experiments at the time of calling. The experiment must be the same. Then the
 Experiment class is called to create the log events.
 
 Attributes:
-    ALL_MODULES: A dictionary that maps module instances to experiments.
+    ALL_MODULES: A dictionary that maps module references to experiments.
 """
 
 from typing import Any, Final
-
-from torch import nn
 
 from drytorch.core import exceptions, experiment
 from drytorch.core import protocols as p
 
 
-ALL_MODULES: Final = dict[nn.Module, experiment.Run[Any]]()
-ALL_ACTORS: Final = dict[nn.Module, set[int]]()
+ALL_MODULES: Final = dict[int, experiment.Run[Any]]()
+ALL_ACTORS: Final = dict[int, set[int]]()
 
 
 def register_model(model: p.ModelProtocol[Any, Any]) -> None:
@@ -27,11 +25,11 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
         model: the model to register.
     """
     run: experiment.Run[Any] = experiment.Experiment.get_current().run
-    module = model.module
-    if module in ALL_MODULES:
+    id_module = id(model.module)
+    if id_module in ALL_MODULES:
         return
 
-    ALL_MODULES[module] = run
+    ALL_MODULES[id_module] = run
     run.metadata_manager.register_model(model)
     return
 
@@ -44,14 +42,14 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
         model: the model that the object acts on.
     """
     run: experiment.Run[Any] = experiment.Experiment.get_current().run
-    module = model.module
-    if module in ALL_MODULES and ALL_MODULES[module] is run:
-        if module not in ALL_ACTORS:
-            ALL_ACTORS[module] = set()
+    id_module = id(model.module)
+    if id_module in ALL_MODULES and ALL_MODULES[id_module] is run:
+        if id_module not in ALL_ACTORS:
+            ALL_ACTORS[id_module] = set()
 
-        if id(actor) not in ALL_ACTORS[module]:
+        if id(actor) not in ALL_ACTORS[id_module]:
             run.metadata_manager.register_actor(actor, model)
-            ALL_ACTORS[module].add(id(actor))
+            ALL_ACTORS[id_module].add(id(actor))
 
         return
 
@@ -66,9 +64,9 @@ def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
     Args:
         model: the model to register.
     """
-    module = model.module
-    if module in ALL_MODULES:
-        del ALL_MODULES[module]
+    id_module = id(model.module)
+    if id_module in ALL_MODULES:
+        del ALL_MODULES[id_module]
 
     run: experiment.Run[Any] = experiment.Experiment.get_current().run
     run.metadata_manager.unregister_model(model)
