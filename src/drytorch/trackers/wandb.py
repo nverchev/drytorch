@@ -75,10 +75,9 @@ class Wandb(Dumper):
                 f'{entity}/{project}',
                 filters={'group': event.exp_name},
             )
-            if runs:
+            try:
                 run_id = runs[0].id
-
-            else:
+            except (IndexError, ValueError):
                 msg = 'Wandb: No previous runs. Starting a new one.'
                 warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
 
