@@ -4,7 +4,7 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch.lib.gradient_ops import HistClipping
+from drytorch.lib.gradient_ops import HistClipper
 from drytorch.lib.hooks import EarlyStoppingCallback, HookRegistry
 from drytorch.lib.schedulers import ExponentialScheduler, WarmupScheduler
 from drytorch.utils.average import get_trailing_mean
@@ -98,7 +98,7 @@ def test_gradient_op_repr():
         'warmup_clip_strategy': {'class': 'GradNormClipper', 'threshold': 1.0},
     }
 
-    assert recursive_repr(HistClipping()) == expected
+    assert recursive_repr(HistClipper()) == expected
 
 
 def test_scheduler_repr():

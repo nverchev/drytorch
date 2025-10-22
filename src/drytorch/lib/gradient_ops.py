@@ -405,7 +405,7 @@ class StatsCollector:
         return
 
 
-class HistClipping(ClipOperation):
+class HistClipper(ClipOperation):
     """Global gradient clipping strategy that uses previous gradient statistics.
 
     The gradients' norm is renormalized according to a clipping criterion.
@@ -480,7 +480,7 @@ class HistClipping(ClipOperation):
         return
 
 
-class ParamHistClipping(ClipOperation):
+class ParamHistClipper(ClipOperation):
     """Gradient clipping strategy that keeps per-parameter statistics.
 
     The gradients' norm is renormalized according to a clipping criterion.

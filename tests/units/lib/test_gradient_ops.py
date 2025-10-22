@@ -12,8 +12,8 @@ from drytorch.lib.gradient_ops import (
     GradNormClipper,
     GradValueClipper,
     GradZScoreNormalizer,
-    HistClipping,
-    ParamHistClipping,
+    HistClipper,
+    ParamHistClipper,
     StatsCollector,
     ZStatCriterion,
     max_clipping,
@@ -403,13 +403,13 @@ class TestHistClipping:
         return
 
     @pytest.fixture
-    def grad_clipping(self) -> HistClipping:
+    def grad_clipping(self) -> HistClipper:
         """Set up a test instance."""
         # criterion clips when higher than mean
         criterion = EMACriterion(alpha=0.9, r_thresh=1.0)
-        return HistClipping(criterion=criterion, n_warmup_steps=1)
+        return HistClipper(criterion=criterion, n_warmup_steps=1)
 
-    def test_init(self, grad_clipping: HistClipping) -> None:
+    def test_init(self, grad_clipping: HistClipper) -> None:
         """Test initialization."""
         assert isinstance(grad_clipping.criterion, EMACriterion)
         assert isinstance(grad_clipping.warmup_clip_strategy, GradNormClipper)
@@ -448,7 +448,7 @@ class TestHistClipping:
         self.mock_torch_clip.assert_called_once()
         self.mock_update.assert_called_once()
 
-    def test_reset(self, grad_clipping: HistClipping) -> None:
+    def test_reset(self, grad_clipping: HistClipper) -> None:
         """Test reset method."""
         grad_clipping.reset()
         self.mock_warmup_reset.assert_called_once()
@@ -482,12 +482,12 @@ class TestParamHistClipping:
         return
 
     @pytest.fixture
-    def grad_clipping(self) -> ParamHistClipping:
+    def grad_clipping(self) -> ParamHistClipper:
         """Set up a test instance."""
         criterion = ZStatCriterion(alpha=0.9, z_thresh=1.0)
-        return ParamHistClipping(criterion=criterion, n_warmup_steps=1)
+        return ParamHistClipper(criterion=criterion, n_warmup_steps=1)
 
-    def test_init(self, grad_clipping: HistClipping) -> None:
+    def test_init(self, grad_clipping: HistClipper) -> None:
         """Test initialization."""
         assert isinstance(grad_clipping.criterion, ZStatCriterion)
         assert isinstance(grad_clipping.warmup_clip_strategy, GradNormClipper)
@@ -534,7 +534,7 @@ class TestParamHistClipping:
         assert self.mock_torch_clip.call_count == len(list_params)
         assert self.mock_update.call_count == len(list_params)
 
-    def test_reset(self, grad_clipping: ParamHistClipping) -> None:
+    def test_reset(self, grad_clipping: ParamHistClipper) -> None:
         """Test reset method."""
         # add some entries to the dictionaries first
         grad_clipping._dict_warmup_handler[1] = StatsCollector(1)
