@@ -79,7 +79,7 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         self.reported[epoch] = value
         if self.trial.should_prune():
             metric_name = self.monitor.metric_name
-            msg = f'Optuna pruning while monitoring {metric_name}.'
+            msg = f'Optuna pruning while monitoring {metric_name}'
             instance.terminate_training(msg)
             raise optuna.TrialPruned()
 
