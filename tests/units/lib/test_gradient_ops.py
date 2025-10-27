@@ -8,7 +8,7 @@ import pytest
 
 from drytorch.lib.gradient_ops import (
     EMACriterion,
-    GradNormalizer,
+    GradParamNormalizer,
     GradNormClipper,
     GradValueClipper,
     GradZScoreNormalizer,
@@ -60,7 +60,7 @@ class TestGradNormalizer:
     @pytest.fixture
     def grad_op(self):
         """Set up the instance."""
-        return GradNormalizer()
+        return GradParamNormalizer()
 
     def test_call(
         self, grad_op, tensor_zero_grad, tensor_random_grad, example_parameters

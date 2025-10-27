@@ -87,7 +87,7 @@ def test_hook_repr():
 def test_gradient_op_repr():
     """Test the representation of a gradient op."""
     expected = {
-        'class': 'HistClipping',
+        'class': 'HistClipper',
         'criterion': {
             'alpha': 0.97,
             'class': 'ZStatCriterion',
