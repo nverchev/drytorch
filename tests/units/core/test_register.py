@@ -38,6 +38,13 @@ def test_register_model(mock_run, mock_model) -> None:
     assert ALL_MODULES[id(mock_model.module)] == mock_run
 
 
+def test_register_model_with_existing_module(mock_run, mock_model) -> None:
+    """Test successful model registration."""
+    ALL_MODULES[id(mock_model.module)] = mock_run
+    with pytest.raises(exceptions.ModuleAlreadyRegisteredError):
+        register_model(mock_model)
+
+
 def test_register_actor(mock_run, mock_model) -> None:
     """Test a successful actor registration."""
     caller = _SimpleCaller()
@@ -54,7 +61,7 @@ def test_register_actor_with_wrong_experiment(
     """Test error if registering an actor on a model from another experiment."""
     other_experiment = mocker.Mock()
     ALL_MODULES[id(mock_model.module)] = other_experiment
-    with pytest.raises(exceptions.ModelNotRegisteredError):
+    with pytest.raises(exceptions.ModuleNotRegisteredError):
         register_actor(_SimpleCaller(), mock_model)
 
 

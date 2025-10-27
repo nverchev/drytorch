@@ -72,7 +72,8 @@ class Model(
         self.checkpoint: p.CheckpointProtocol = checkpoint
         self.checkpoint.register_model(self)
         self.mixed_precision = mixed_precision
-        register.register_model(self)
+        self._registered: bool = False
+        self.register()
         return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
@@ -81,6 +82,11 @@ class Model(
             device_type=self.device.type, enabled=self.mixed_precision
         ):
             return self.module(inputs)
+
+    def __del__(self):
+        """Unregister from the registry when deleted/garbage-collected."""
+        self.unregister()
+        return
 
     @property
     def device(self) -> torch.device:
@@ -106,12 +112,25 @@ class Model(
         """Load the weights and epoch of the model."""
         self.checkpoint.load(epoch=epoch)
 
+    def register(self) -> None:
+        """Register to the registry."""
+        register.register_model(self)
+        self._registered = True
+        return
+
     def save_state(self) -> None:
         """Save the weights and epoch of the model."""
         self.checkpoint.save()
 
     def update_parameters(self) -> None:
         """Update the parameters of the model."""
+        return
+
+    def unregister(self) -> None:
+        """Unregister from the registry."""
+        if self._registered:
+            register.unregister_model(self)
+
         return
 
     def to(self, device: torch.device) -> None:

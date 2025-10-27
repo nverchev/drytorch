@@ -19,7 +19,7 @@ ALL_ACTORS: Final = dict[int, set[int]]()
 
 
 def register_model(model: p.ModelProtocol[Any, Any]) -> None:
-    """Record mode in the current experiment.
+    """Register a module in the current experiment.
 
     Args:
         model: the model to register.
@@ -27,7 +27,9 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
     run: experiment.Run[Any] = experiment.Experiment.get_current().run
     id_module = id(model.module)
     if id_module in ALL_MODULES:
-        return
+        raise exceptions.ModuleAlreadyRegisteredError(
+            model.name, run.experiment.name, run.id
+        )
 
     ALL_MODULES[id_module] = run
     run.metadata_manager.register_model(model)
@@ -35,7 +37,7 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
 
 
 def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
-    """Record actor in the current experiment.
+    """Register an actor in the current run.
 
     Args:
         actor: the object to document.
@@ -43,23 +45,21 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
     """
     run: experiment.Run[Any] = experiment.Experiment.get_current().run
     id_module = id(model.module)
-    if id_module in ALL_MODULES and ALL_MODULES[id_module] is run:
-        if id_module not in ALL_ACTORS:
-            ALL_ACTORS[id_module] = set()
+    if id_module not in ALL_MODULES or ALL_MODULES[id_module] is not run:
+        raise exceptions.ModuleNotRegisteredError(
+            model.name, run.experiment.name, run.id
+        )
 
-        if id(actor) not in ALL_ACTORS[id_module]:
-            run.metadata_manager.register_actor(actor, model)
-            ALL_ACTORS[id_module].add(id(actor))
+    actors = ALL_ACTORS.setdefault(id_module, set())
+    if id(actor) not in actors:
+        run.metadata_manager.register_actor(actor, model)
+        actors.add(id(actor))
 
-        return
-
-    raise exceptions.ModelNotRegisteredError(
-        model.name, run.experiment.name, run.id
-    )
+    return
 
 
 def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
-    """Unregister a model and all its actors from the current experiment.
+    """Unregister a module and all its actors from the current experiment.
 
     Args:
         model: the model to register.
@@ -68,8 +68,16 @@ def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
     if id_module in ALL_MODULES:
         del ALL_MODULES[id_module]
 
-    run: experiment.Run[Any] = experiment.Experiment.get_current().run
-    run.metadata_manager.unregister_model(model)
+    if id_module in ALL_ACTORS:
+        del ALL_ACTORS[id_module]
+
+    try:
+        run: experiment.Run[Any] = experiment.Experiment.get_current().run
+    except exceptions.NoActiveExperimentError:
+        pass
+    else:
+        run.metadata_manager.unregister_model(model)
+
     return
 
 
