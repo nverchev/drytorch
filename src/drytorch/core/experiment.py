@@ -167,6 +167,7 @@ class Experiment(Generic[_T_co]):
         Args:
             run_id: identifier of the run; defaults to timestamp.
             resume: resume the selected run if run_id is set, else the last run.
+            register: register the run in the registry.
 
         Returns:
             Run: The created run object.
