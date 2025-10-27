@@ -14,7 +14,7 @@ def mock_run(session_mocker, tmpdir_factory, example_run_id) -> Run:
     mock_run = session_mocker.create_autospec(Run, instance=True)
     mock_run.metadata_manager = session_mocker.Mock()
     mock_run.metadata_manager.record_model_call = session_mocker.Mock()
-    mock_run.metadata_manager.register_model = session_mocker.Mock()
+    mock_run.metadata_manager.bind_model = session_mocker.Mock()
     mock_run.id = example_run_id
     return mock_run
 

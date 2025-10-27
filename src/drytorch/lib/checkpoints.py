@@ -147,12 +147,12 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         self._model = None
         self._optimizer = None
 
-    def register_model(self, model: p.ModelProtocol[Any, Any]):
-        """Register the model to manage."""
+    def bind_model(self, model: p.ModelProtocol[Any, Any]):
+        """Bind the model to manage."""
         self._model = model
 
-    def register_optimizer(self, optimizer: torch.optim.Optimizer):
-        """Register the optimizer connected to the model."""
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer):
+        """Bind the optimizer connected to the model."""
         self._optimizer = optimizer
 
     def save(self) -> None:

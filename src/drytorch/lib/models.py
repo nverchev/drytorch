@@ -70,7 +70,7 @@ class Model(
             checkpoint = checkpoints.LocalCheckpoint()
 
         self.checkpoint: p.CheckpointProtocol = checkpoint
-        self.checkpoint.register_model(self)
+        self.checkpoint.bind_model(self)
         self.mixed_precision = mixed_precision
         self._registered: bool = False
         self.register()
@@ -243,7 +243,7 @@ class ModelOptimizer:
             learning_scheme.gradient_op
         )
         self._checkpoint: p.CheckpointProtocol = self._model.checkpoint
-        self._checkpoint.register_optimizer(self._optimizer)
+        self._checkpoint.bind_optimizer(self._optimizer)
         self._scaler: grad_scaler.GradScaler = grad_scaler.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,
@@ -325,7 +325,8 @@ class ModelOptimizer:
             self.base_lr = base_lr
 
         for g, up_g in zip(
-            self._optimizer.param_groups, self.get_opt_params(), strict=False
+                self._optimizer.param_groups, self.get_opt_params(),
+                strict=False
         ):
             g['lr'] = up_g['lr']
 
