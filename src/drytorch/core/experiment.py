@@ -160,14 +160,14 @@ class Experiment(Generic[_T_co]):
         *,
         run_id: str | None = None,
         resume: bool = False,
-        register: bool = True,
+        record: bool = True,
     ) -> Run[_T_co]:
         """Convenience constructor for a Run using this experiment.
 
         Args:
             run_id: identifier of the run; defaults to timestamp.
             resume: resume the selected run if run_id is set, else the last run.
-            register: register the run in the registry.
+            record: register the run in the registry.
 
         Returns:
             Run: The created run object.
@@ -179,7 +179,7 @@ class Experiment(Generic[_T_co]):
         if resume:
             return self._handle_resume_logic(run_id, runs_data)
         else:
-            return self._create_new_run(run_id, runs_data, register)
+            return self._create_new_run(run_id, runs_data, record)
 
     def _handle_resume_logic(
         self, run_id: str | None, runs_data: list[RunMetadata]
