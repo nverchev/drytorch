@@ -12,7 +12,6 @@ from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.core.protocols import MonitorProtocol
 from drytorch.lib import objectives, schedulers
 
 
@@ -327,7 +326,7 @@ class MetricExtractor:
             monitor: evaluation protocol to monitor.
         """
         self.metric_spec: Final = metric
-        self.optional_monitor: MonitorProtocol | None = monitor
+        self.optional_monitor: p.MonitorProtocol | None = monitor
         self._resolved_metric_name: str | None = None
 
     @property
