@@ -85,7 +85,11 @@ class Model(
 
     def __del__(self):
         """Unregister from the registry when deleted/garbage-collected."""
-        self.unregister()
+        try:
+            self.unregister()
+        except AttributeError:  # may happen during instantiation
+            pass
+
         return
 
     @property
@@ -122,15 +126,15 @@ class Model(
         """Save the weights and epoch of the model."""
         self.checkpoint.save()
 
-    def update_parameters(self) -> None:
-        """Update the parameters of the model."""
-        return
-
     def unregister(self) -> None:
         """Unregister from the registry."""
         if self._registered:
             register.unregister_model(self)
 
+        return
+
+    def update_parameters(self) -> None:
+        """Update the parameters of the model."""
         return
 
     def to(self, device: torch.device) -> None:
