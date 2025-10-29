@@ -131,6 +131,7 @@ class Model(
         if self._registered:
             register.unregister_model(self)
 
+        self._registered = False
         return
 
     def update_parameters(self) -> None:
