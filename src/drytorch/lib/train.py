@@ -89,6 +89,8 @@ class Trainer(
             super().__call__()
         except exceptions.ConvergenceError as ce:
             self.terminate_training(reason=str(ce))
+            raise ce
+
         return
 
     def add_validation(
