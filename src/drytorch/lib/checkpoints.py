@@ -36,7 +36,7 @@ SAFE_GLOBALS: list[Any] = [
     codecs.encode,
 ]
 try:
-    from numpy._core.multiarray import scalar
+    from numpy._core.multiarray import scalar  # type: ignore # pyright: ignore
 except ImportError:
     pass
 else:
