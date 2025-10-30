@@ -86,9 +86,6 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-#    "--cov=.",
-    "--cov-report=term-missing",
-    "--cov-report=html",
 ]
 log_cli = true
 log_cli_level = "WARNING"
