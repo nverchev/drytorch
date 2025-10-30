@@ -23,8 +23,10 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeAlias
 import numpy as np
 import torch
 
+
 if TYPE_CHECKING:
     import numpy.typing as npt
+
     from pandas.core.generic import NDFrame
 
     GenericDict: TypeAlias = dict[Hashable, Any]
@@ -35,11 +37,11 @@ if TYPE_CHECKING:
 
 else:
     from numpy.core.records import ndarray
+
     GenericList = list
     GenericDict = dict
     GenericSet = set
     GenericTuple = tuple
-
 
 MAX_DEPTH: int = 10
 MAX_REPR_SIZE: int = 10
@@ -106,7 +108,8 @@ else:
         """
 
         def __init__(
-            self, precision: int = 3, max_rows: int = 10, max_columns: int = 10
+                self, precision: int = 3, max_rows: int = 10,
+                max_columns: int = 10
         ) -> None:
             """Constructor.
 
@@ -131,14 +134,15 @@ else:
                 pd.set_option(key, value)
 
         def __exit__(
-            self,
-            exc_type: None = None,
-            exc_val: None = None,
-            exc_tb: None = None,
+                self,
+                exc_type: None = None,
+                exc_val: None = None,
+                exc_tb: None = None,
         ) -> None:
             """Restore original settings."""
             for key, value in self._original_options.items():
                 pd.set_option(key, value)
+
 
     from pandas.core.generic import NDFrame
 
@@ -268,10 +272,10 @@ def _(obj: NDFrame, *, depth: int = 10) -> LiteralStr:
 def _(obj: ndarray, *, depth: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
     with np.printoptions(
-        precision=3,
-        suppress=True,
-        threshold=MAX_REPR_SIZE // size_factor,
-        edgeitems=MAX_REPR_SIZE // (size_factor * 2),
+            precision=3,
+            suppress=True,
+            threshold=MAX_REPR_SIZE // size_factor,
+            edgeitems=MAX_REPR_SIZE // (size_factor * 2),
     ):
         _not_used = depth
         return LiteralStr(obj)
@@ -334,9 +338,9 @@ def _limit_size(container: Iterable[Any]) -> list[Any]:
         if len(listed) > MAX_REPR_SIZE:
             omitted = [Omitted(len(listed) - MAX_REPR_SIZE)]
             listed = (
-                listed[: MAX_REPR_SIZE // 2]
-                + omitted
-                + listed[-MAX_REPR_SIZE // 2 :]
+                    listed[: MAX_REPR_SIZE // 2]
+                    + omitted
+                    + listed[-MAX_REPR_SIZE // 2:]
             )
 
     else:
