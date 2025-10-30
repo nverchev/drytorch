@@ -151,7 +151,7 @@ def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
                 try:
                     bound_suggest = getattr(trial, param.settings.suggest)
                 except AttributeError as ae:
-                    msg = f'Invalid Optuna suggest configuration: {ae}'
+                    msg = f'Invalid Optuna suggest configuration: {ae}.'
                     raise exceptions.DryTorchError(msg) from ae
                 new_value.append(
                     bound_suggest(
@@ -162,7 +162,7 @@ def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
             try:
                 bound_suggest = getattr(trial, param.suggest)
             except AttributeError as ae:
-                msg = f'Invalid Optuna suggest configuration: {ae}'
+                msg = f'Invalid Optuna suggest configuration: {ae}.'
                 raise exceptions.DryTorchError(msg) from ae
             new_value = bound_suggest(attr_name, **param.settings)
         all_overrides.append(f'{attr_name}={new_value}')
