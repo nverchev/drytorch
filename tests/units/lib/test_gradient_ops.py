@@ -8,8 +8,8 @@ import pytest
 
 from drytorch.lib.gradient_ops import (
     EMACriterion,
-    GradParamNormalizer,
     GradNormClipper,
+    GradParamNormalizer,
     GradValueClipper,
     GradZScoreNormalizer,
     HistClipper,

@@ -206,8 +206,7 @@ class Experiment(Generic[_T_co]):
                 )
                 return self._create_new_run(run_id, runs_data, True)
 
-            matching_run, *other_runs = matching_runs
-            if other_runs:
+            if len(matching_runs) > 1:
                 msg = f'Multiple runs with id {run_id} found in the registry.'
                 raise RuntimeError(msg)
 
@@ -230,7 +229,10 @@ class Experiment(Generic[_T_co]):
         return matching_run
 
     def _create_new_run(
-        self, run_id: str | None, runs_data: list[RunMetadata], register: bool,
+        self,
+        run_id: str | None,
+        runs_data: list[RunMetadata],
+        register: bool,
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
         run = Run(experiment=self, run_id=run_id)

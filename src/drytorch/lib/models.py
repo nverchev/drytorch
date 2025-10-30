@@ -330,8 +330,7 @@ class ModelOptimizer:
             self.base_lr = base_lr
 
         for g, up_g in zip(
-                self._optimizer.param_groups, self.get_opt_params(),
-                strict=False
+            self._optimizer.param_groups, self.get_opt_params(), strict=False
         ):
             g['lr'] = up_g['lr']
 

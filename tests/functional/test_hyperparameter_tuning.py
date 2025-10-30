@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 
 from drytorch import Trainer
-from drytorch.core.experiment import Run
 from drytorch.core import register
+from drytorch.core.experiment import Run
 from drytorch.lib import hooks
 from drytorch.lib.models import Model
 

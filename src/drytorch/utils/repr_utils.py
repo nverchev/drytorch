@@ -263,7 +263,7 @@ def _(obj: NDFrame, *, depth: int = 10) -> LiteralStr:
 
 
 @recursive_repr.register
-def _(obj: np.ndarray, *, depth: int = 10) -> LiteralStr:
+def _(obj: np.ndarray[Any, Any], *, depth: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
     with np.printoptions(
         precision=3,
