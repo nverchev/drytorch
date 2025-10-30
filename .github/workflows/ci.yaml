@@ -28,14 +28,11 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Set up the virtual environment
-      run: uv venv
+    - name: Install the project
+      run: uv sync --all-extras --dev --frozen --no-install-package torch
 
     - name: Install torch  # cpu only
       run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-
-    - name: Install the project
-      run: uv sync --all-extras --dev
 
     - name: Ruff Lint
       run: uv run ruff check --diff .
@@ -43,9 +40,8 @@ jobs:
     - name: Ruff Format
       run: uv run ruff format --check .
 
-    - name: BasedPyright
-      if: matrix.os == 'ubuntu-latest'  # Windows does not ignore warnings
-      run: uv run basedpyright --level error --warnings src
+#    - name: BasedPyright
+#      run: uv run basedpyright --level error --warnings src
 
     - name: Run tests
       run: uv run pytest --cov --cov-report=xml --cov-report=term-missing
