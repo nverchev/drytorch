@@ -204,7 +204,7 @@ class ModuleAlreadyRegisteredError(DryTorchError):
 class ModuleNotRegisteredError(DryTorchError):
     """Raised an actor tries to access a module that hasn't been registered."""
 
-    msg = 'Module from model {} is not registered in the current run {}.'
+    msg = 'Module from model {} is not registered in the current run {} - {}.'
 
     def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
         """Constructor.

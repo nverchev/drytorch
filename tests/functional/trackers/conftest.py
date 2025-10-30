@@ -160,7 +160,7 @@ def terminated_training_event(
         model_name=example_model_name,
         source_name=example_source_name,
         epoch=example_epoch,
-        reason='test event',
+        reason='test event.',
     )
 
 
