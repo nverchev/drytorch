@@ -1,6 +1,7 @@
 """Functional tests for simple hyperparameter tuning."""
 
 import dataclasses
+import gc
 
 from collections.abc import Generator, MutableMapping
 from typing import Any
@@ -32,14 +33,16 @@ def test_automatic_names(
 ) -> None:
     """Test the creation of models in a loop with automatic names."""
     results = dict[str, float]()
+    module = linear_model.module
     register.unregister_model(linear_model)
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
-        linear_model_copy = Model(linear_model.module)
+        linear_model_copy = Model(module)
         new_learning_scheme = dataclasses.replace(
             standard_learning_scheme, base_lr=lr
         )
+
         trainer = Trainer(
             linear_model_copy,
             name='MyTrainer',
@@ -53,6 +56,7 @@ def test_automatic_names(
         trainer.train(10)
         results[linear_model_copy.name] = early_stopping.monitor.best_value
         register.unregister_model(linear_model_copy)
+        gc.collect()
 
     assert {'Model', 'Model_1', 'Model_2', 'Model_3'} == set(results)
 
@@ -88,6 +92,8 @@ def test_iterative_pruning(
         trainer.train(4)
         benchmark_values = prune_callback.trial_values
         register.unregister_model(linear_model_copy)
+        gc.collect()
+
 
     # the last run should be immediately pruned.
     assert len(benchmark_values) <= 1
