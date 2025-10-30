@@ -50,26 +50,18 @@ dev = [
     "pytest-mock >= 3.4.0",
     "pytest-cov>=2.12.1",
     "hypothesis >= 0.1.0",
-    "notebook"
-]
-
-third_party_stubs = [
-    "pandas-stubs",
-    "plotly-stubs",
-    "types-tqdm",
-    "types-PyYAML",
+    "notebook",
+    "basedpyright>=1.31.1",
+    "mypy>=1.17.1",
+    "ruff>=0.14.2",
 ]
 
 type = [
     "basedpyright>=1.31.1",
-    "mypy>=1.17.1",
-]
-
-all = [
-    "drytorch[all_trackers]",
-    "drytorch[support]",
-    "drytorch[dev]",
-    "drytorch[third_party_stubs]",
+    "pandas-stubs",
+    "plotly-stubs",
+    "types-tqdm",
+    "types-PyYAML",
 ]
 
 
