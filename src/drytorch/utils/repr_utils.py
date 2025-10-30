@@ -23,16 +23,18 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeAlias
 import numpy as np
 import torch
 
-
 if TYPE_CHECKING:
+    import numpy.typing as npt
     from pandas.core.generic import NDFrame
 
     GenericDict: TypeAlias = dict[Hashable, Any]
     GenericList: TypeAlias = list[Any]
     GenericSet: TypeAlias = set[Any]
     GenericTuple: TypeAlias = tuple[Any, ...]
+    ndarray: TypeAlias = npt.NDArray[Any]
 
 else:
+    from numpy.core.records import ndarray
     GenericList = list
     GenericDict = dict
     GenericSet = set
@@ -263,7 +265,7 @@ def _(obj: NDFrame, *, depth: int = 10) -> LiteralStr:
 
 
 @recursive_repr.register
-def _(obj: np.ndarray[Any, Any], *, depth: int = 10) -> LiteralStr:
+def _(obj: ndarray, *, depth: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
     with np.printoptions(
         precision=3,
