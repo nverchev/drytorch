@@ -94,6 +94,5 @@ def test_iterative_pruning(
         register.unregister_model(linear_model_copy)
         gc.collect()
 
-
     # the last run should be immediately pruned.
     assert len(benchmark_values) <= 1
