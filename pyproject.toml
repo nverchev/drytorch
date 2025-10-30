@@ -93,6 +93,9 @@ addopts = [
 log_cli = true
 log_cli_level = "WARNING"
 
+[tool.basedpyright]
+reportWarningsAsErrors = false
+
 [tool.mypy]
 mypy_path = "."
 namespace_packages = false
