@@ -38,7 +38,7 @@ jobs:
       run: uv run ruff format --check .
 
     - name: BasedPyright
-      run: uv run basedpyright --level error src
+      run: uv run basedpyright --level error --warnings src
 
     - name: Run tests
       run: uv run pytest --cov --cov-report=xml --cov-report=term-missing
