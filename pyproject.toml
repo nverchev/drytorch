@@ -59,7 +59,6 @@ support = [
 ]
 
 dev = [
-
     "pytest>=8.0.0",
     "pytest-mock >= 3.4.0",
     "pytest-cov>=2.12.1",

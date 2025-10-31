@@ -2,18 +2,19 @@
 
 import math
 
+
 from collections.abc import Iterable
 from typing import Final, TypeAlias
 
 import matplotlib.pyplot as plt
 
-from matplotlib import axes, figure
+from matplotlib import axes,  figure
 from typing_extensions import override
 
 from drytorch.trackers import base_classes
 
 
-Plot: TypeAlias = tuple[figure.Figure, axes.Axes]
+Plot: TypeAlias = tuple[figure.Figure, axes.Axes, int]
 
 
 class MatPlotter(base_classes.BasePlotter[Plot]):
