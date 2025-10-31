@@ -59,14 +59,13 @@ support = [
 ]
 
 dev = [
+
     "pytest>=8.0.0",
     "pytest-mock >= 3.4.0",
     "pytest-cov>=2.12.1",
     "hypothesis >= 0.1.0",
     "notebook",
-    "basedpyright>=1.31.1",
-    "mypy>=1.17.1",
-    "ruff>=0.14.2",
+    "pre-commit>=4.3.0",
 ]
 
 type = [
