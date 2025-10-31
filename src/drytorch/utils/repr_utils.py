@@ -325,8 +325,9 @@ def _get_object_properties(obj: object) -> dict[str, Any]:
 
 def _has_own_repr(obj: Any) -> bool:
     """Indicate whether __repr__ has been overridden."""
-    return not repr(obj).endswith(str(hex(id(obj))) + '>')
-
+    repr_str = repr(obj).lower()  # Windows use the upper case
+    hex_id = hex(id(obj))[2:]  # remove '0x' prefix
+    return not repr_str.endswith(hex_id + '>')
 
 def _limit_size(container: Iterable[Any]) -> list[Any]:
     """Limit the size of iterables and adds an Omitted object."""
