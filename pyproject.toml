@@ -23,11 +23,11 @@ dependencies = [
 
 [tool.uv]
 override-dependencies = [
-    "torch==2.9.0+cpu ; sys_platform != 'darwin'",  # torch for Mac is only cpu
+    "torch==2.9.0+cpu",
 ]
 
 [tool.uv.sources]
-torch = { index = "pytorch-cpu", marker = "sys_platform != 'darwin'" }
+torch = { index = "pytorch-cpu" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
