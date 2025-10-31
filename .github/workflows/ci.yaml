@@ -27,12 +27,13 @@ jobs:
       uses: astral-sh/setup-uv@v6
       with:
         python-version: ${{ matrix.python-version }}
+        enable-cache: true  # Optional: cache UV downloads
+
+    - name: Lock dependencies
+      run: uv lock
 
     - name: Install the project
-      run: uv sync --all-extras --dev --no-install-package torch
-
-    - name: Install torch  # cpu only
-      run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+      run: uv sync --all-extras --dev
 
     - name: Ruff Lint
       run: uv run ruff check --diff .

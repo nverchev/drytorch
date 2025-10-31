@@ -21,6 +21,19 @@ dependencies = [
     "numpy>=1.26.0",
 ]
 
+[tool.uv]
+override-dependencies = [
+    "torch==2.9.0+cpu",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [project.optional-dependencies]
 recommended_trackers = [
     "PyYAML >= 6.0",
