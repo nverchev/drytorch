@@ -329,6 +329,7 @@ def _has_own_repr(obj: Any) -> bool:
     hex_id = hex(id(obj))[2:]  # remove '0x' prefix
     return not repr_str.endswith(hex_id + '>')
 
+
 def _limit_size(container: Iterable[Any]) -> list[Any]:
     """Limit the size of iterables and adds an Omitted object."""
     # prevents infinite iterators

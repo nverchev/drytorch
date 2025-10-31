@@ -314,6 +314,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             experiment: the experiment this run belongs to.
             run_id: identifier of the run.
             resumed: whether the run was resumed.
+            record: register the run in the registry.
         """
         super().__init__()
         self._experiment: Final[Experiment[_T_co]] = experiment
