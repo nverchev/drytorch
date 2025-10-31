@@ -54,7 +54,7 @@ all_trackers = [
 support = [
     "torchmetrics >= 1.0.0",
     "torcheval",
-    "pandas == 2.2.0",
+    "pandas == 2.3.0",
     "optuna >= 4.0.0",
 ]
 
@@ -108,3 +108,6 @@ mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+[tool.basedpyright]
+reportGeneralTypeIssues = "error"
