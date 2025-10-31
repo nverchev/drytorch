@@ -23,23 +23,23 @@ dependencies = [
 
 [tool.uv]
 override-dependencies = [
-    "torch==2.9.0+cpu ; sys_platform != 'darwin' and sys_platform != 'macos' and sys_platform != 'macosx'",
+    "torch==2.9.0+cpu ; sys_platform != 'darwin'",
 ]
 
 [tool.uv.sources]
+# torch from pytorch.org on Linux/Windows, from PyPI on macOS
 torch = [
-  { index = "pytorch-cpu", marker = "sys_platform != 'darwin' and sys_platform != 'macos' and sys_platform != 'macosx'" },
-  { index = "pypi", marker = "sys_platform == 'darwin' or sys_platform == 'macos' or sys_platform == 'macosx'" }
+  { index = "pytorch-cpu", marker = "sys_platform != 'darwin'" },
+  { index = "default", marker = "sys_platform == 'darwin'" }
 ]
+
+[[tool.uv.index]]
+name = "default"
+url = "https://pypi.org/simple"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
 explicit = true
 
 [project.optional-dependencies]
