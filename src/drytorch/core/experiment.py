@@ -177,12 +177,12 @@ class Experiment(Generic[_T_co]):
 
         runs_data = self._registry.load_all()
         if resume:
-            return self._handle_resume_logic(run_id, runs_data)
+            return self._handle_resume_logic(run_id, runs_data, record)
         else:
             return self._create_new_run(run_id, runs_data, record)
 
     def _handle_resume_logic(
-        self, run_id: str | None, runs_data: list[RunMetadata]
+        self, run_id: str | None, runs_data: list[RunMetadata], record: bool
     ) -> Run[_T_co]:
         """Handle resume logic for existing runs."""
         if self.previous_runs:
@@ -194,7 +194,7 @@ class Experiment(Generic[_T_co]):
 
         if not runs_data:
             warnings.warn(exceptions.NoPreviousRunsWarning(), stacklevel=2)
-            return self._create_new_run(run_id, runs_data, True)
+            return self._create_new_run(run_id, runs_data, record)
 
         if run_id is None:
             run_id = runs_data[-1].id
@@ -204,13 +204,13 @@ class Experiment(Generic[_T_co]):
                 warnings.warn(
                     exceptions.NotExistingRunWarning(run_id), stacklevel=1
                 )
-                return self._create_new_run(run_id, runs_data, True)
+                return self._create_new_run(run_id, runs_data, record)
 
             if len(matching_runs) > 1:
                 msg = f'Multiple runs with id {run_id} found in the registry.'
                 raise RuntimeError(msg)
 
-        return Run(experiment=self, run_id=run_id, resumed=True)
+        return Run(experiment=self, run_id=run_id, resumed=True, record=record)
 
     def _get_run_from_previous(self, run_id: str | None) -> Run[_T_co] | None:
         """Get run from the previous_runs list."""
@@ -232,18 +232,19 @@ class Experiment(Generic[_T_co]):
         self,
         run_id: str | None,
         runs_data: list[RunMetadata],
-        register: bool,
+        record: bool,
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
-        run = Run(experiment=self, run_id=run_id)
+        run = Run(experiment=self, run_id=run_id, record=record)
         run_data = RunMetadata(
             id=run.id,
             status='created',
             timestamp=run.created_at_str,
         )
         runs_data.append(run_data)
-        if register:
+        if record:
             self._registry.save_all(runs_data)
+
         return run
 
     @property
@@ -297,6 +298,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         status: Current status of the run.
         resumed: whether the run was resumed.
         metadata_manager: Manager for run metadata.
+        record: whether to record the run in the registry.
     """
 
     def __init__(
@@ -304,6 +306,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         experiment: Experiment[_T_co],
         run_id: str | None,
         resumed: bool = False,
+        record: bool = True,
     ) -> None:
         """Constructor.
 
@@ -316,6 +319,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self._experiment: Final[Experiment[_T_co]] = experiment
         self._id: Final = run_id or self.created_at_str
         self.resumed: bool = resumed
+        self.record: bool = record
         self.status: RunStatus = 'created'
         self.metadata_manager: Final = track.MetadataManager()
         self._finalizer: finalize[..., Self] | None = None
@@ -364,8 +368,8 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         elif self.status == 'completed':
             warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
             return
-
-        self._update_registry()
+        if self.record:
+            self._update_registry()
         self._cleanup_resources(self.experiment)
         if self._finalizer is not None:
             self._finalizer.detach()
@@ -381,7 +385,8 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             self, self._cleanup_resources, self._experiment
         )
         self.status = 'running'
-        self._update_registry()
+        if self.record:
+            self._update_registry()
         self._experiment._active_run = self
         Experiment.set_current(self._experiment)
         log_events.Event.set_auto_publish(self._experiment.trackers.publish)
