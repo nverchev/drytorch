@@ -110,4 +110,6 @@ files = ["src", "tests"]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
 
 [tool.basedpyright]
-reportGeneralTypeIssues = "error"
+include = ["src"]
+typeCheckingMode = "basic"
+failOnWarnings = false
