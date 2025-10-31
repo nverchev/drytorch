@@ -20,17 +20,9 @@ dependencies = [
     "torch>=2.5.1",
     "numpy>=1.26.0",
 ]
-
-[tool.uv]
-override-dependencies = [
-    "torch==2.9.0+cpu ; sys_platform != 'darwin'",
-]
-
 [tool.uv.sources]
-# torch from pytorch.org on Linux/Windows, from PyPI on macOS
 torch = [
-  { index = "pytorch-cpu", marker = "sys_platform != 'darwin'" },
-  { index = "default", marker = "sys_platform == 'darwin'" }
+    { index = "pytorch-cpu", marker = "sys_platform != 'darwin'" },
 ]
 
 [[tool.uv.index]]
