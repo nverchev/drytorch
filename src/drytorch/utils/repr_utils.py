@@ -25,19 +25,23 @@ import torch
 
 
 if TYPE_CHECKING:
+    import numpy.typing as npt
+
     from pandas.core.generic import NDFrame
 
     GenericDict: TypeAlias = dict[Hashable, Any]
     GenericList: TypeAlias = list[Any]
     GenericSet: TypeAlias = set[Any]
     GenericTuple: TypeAlias = tuple[Any, ...]
+    ndarray: TypeAlias = npt.NDArray[Any]
 
 else:
+    from numpy.core.records import ndarray
+
     GenericList = list
     GenericDict = dict
     GenericSet = set
     GenericTuple = tuple
-
 
 MAX_DEPTH: int = 10
 MAX_REPR_SIZE: int = 10
@@ -263,7 +267,7 @@ def _(obj: NDFrame, *, depth: int = 10) -> LiteralStr:
 
 
 @recursive_repr.register
-def _(obj: np.ndarray, *, depth: int = 10) -> LiteralStr:
+def _(obj: ndarray, *, depth: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
     with np.printoptions(
         precision=3,
@@ -321,7 +325,9 @@ def _get_object_properties(obj: object) -> dict[str, Any]:
 
 def _has_own_repr(obj: Any) -> bool:
     """Indicate whether __repr__ has been overridden."""
-    return not repr(obj).endswith(str(hex(id(obj))) + '>')
+    repr_str = repr(obj).lower()  # Windows use the upper case
+    hex_id = hex(id(obj))[2:]  # remove '0x' prefix
+    return not repr_str.endswith(hex_id + '>')
 
 
 def _limit_size(container: Iterable[Any]) -> list[Any]:

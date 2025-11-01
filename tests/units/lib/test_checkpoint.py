@@ -66,8 +66,8 @@ class TestLocalCheckpoint:
     ) -> checkpoints.LocalCheckpoint:
         """Set up the checkpoint."""
         checkpoint = checkpoints.LocalCheckpoint(tmp_path)
-        checkpoint.register_model(mock_model)
-        checkpoint.register_optimizer(optimizer)
+        checkpoint.bind_model(mock_model)
+        checkpoint.bind_optimizer(optimizer)
         return checkpoint
 
     def test_checkpoint_not_initialized(self, tmp_path) -> None:
@@ -118,7 +118,7 @@ class TestLocalCheckpoint:
         model_with_no_bias = torch.nn.Linear(1, 1, bias=False)
         optimizer = torch.optim.SGD(model_with_no_bias.parameters())
         checkpoint.remove_model()
-        checkpoint.register_model(mock_model)
-        checkpoint.register_optimizer(optimizer)
+        checkpoint.bind_model(mock_model)
+        checkpoint.bind_optimizer(optimizer)
         with pytest.warns(exceptions.OptimizerNotLoadedWarning):
             checkpoint.load()

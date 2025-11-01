@@ -72,7 +72,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         headers = self._base_headers + metric_names
         if event.source_name not in self._active_sources:
             if self._resume_run and file_address.exists():
-                with file_address.open() as log:
+                with file_address.open(newline='') as log:
                     reader = csv.reader(log, dialect=self._dialect)
                     previous_headers = tuple(next(reader))
                     if headers != previous_headers:
@@ -83,12 +83,12 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
                         raise exceptions.TrackerError(self, msg)
 
             else:
-                with file_address.open('w') as log:  # reset the file.
+                with file_address.open('w', newline='') as log:  # reset
                     writer = csv.writer(log, dialect=self._dialect)
                     writer.writerow(headers)
 
             self._active_sources.add(event.source_name)
-        with file_address.open('a') as log:
+        with file_address.open('a', newline='') as log:
             writer = csv.writer(log, dialect=self._dialect)
             writer.writerow(
                 [
@@ -119,7 +119,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         run_dir = self._get_run_dir()
         file_address = self._file_path(run_dir, model_name, source)
 
-        with file_address.open() as log:
+        with file_address.open(newline='') as log:
             reader = csv.reader(log, dialect=self._dialect)
             headers = next(reader)
             len_base = len(self._base_headers)
@@ -128,6 +128,8 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             named_metric_values = dict[str, list[float]]()
             epoch_column = self._base_headers.index('Epoch')
             for row in reader:
+                if not row:  # Skip empty rows
+                    continue
                 epoch = int(row[epoch_column])
                 if epochs and epochs[-1] >= epoch:  # only load the last run
                     epochs.clear()

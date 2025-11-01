@@ -24,7 +24,7 @@ def _validate_threshold(threshold: float) -> None:
         raise ValueError('Gradient threshold must be positive.')
 
 
-class GradNormalizer(p.GradientOpProtocol):
+class GradParamNormalizer(p.GradientOpProtocol):
     """Strategy that normalizes each parameter's gradient to unit norm."""
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -271,7 +271,8 @@ class ZStatCriterion(ClippingCriterion):
     """Clipping criterion based on the Z-statistic.
 
     Tracks both mean and variance using exponential moving averages. The
-    clipping threshold is on the Z-score (standardized deviation).
+    clipping threshold is on the Z-score (standardized deviation). See also
+    https://arxiv.org/pdf/2504.02507.
 
     Attributes:
             alpha: exponential moving average decay factor (0 < alpha < 1).
@@ -290,7 +291,7 @@ class ZStatCriterion(ClippingCriterion):
 
         Args:
             alpha: exponential moving average decay factor (0 < alpha < 1).
-            z_thresh: Z-score threshold between !z_score| and z_thresh.
+            z_thresh: threshold for the Z-score.
             clipping_function: function to determine clipping behavior.
             eps: small constant for numerical stability.
         """
@@ -405,7 +406,7 @@ class StatsCollector:
         return
 
 
-class HistClipping(ClipOperation):
+class HistClipper(ClipOperation):
     """Global gradient clipping strategy that uses previous gradient statistics.
 
     The gradients' norm is renormalized according to a clipping criterion.
@@ -480,7 +481,7 @@ class HistClipping(ClipOperation):
         return
 
 
-class ParamHistClipping(ClipOperation):
+class ParamHistClipper(ClipOperation):
     """Gradient clipping strategy that keeps per-parameter statistics.
 
     The gradients' norm is renormalized according to a clipping criterion.

@@ -20,6 +20,19 @@ dependencies = [
     "torch>=2.5.1",
     "numpy>=1.26.0",
 ]
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform != 'darwin'" },
+]
+
+[[tool.uv.index]]
+name = "default"
+url = "https://pypi.org/simple"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [project.optional-dependencies]
 recommended_trackers = [
@@ -41,7 +54,7 @@ all_trackers = [
 support = [
     "torchmetrics >= 1.0.0",
     "torcheval",
-    "pandas == 2.2.0",
+    "pandas == 2.3.0",
     "optuna >= 4.0.0",
 ]
 
@@ -50,26 +63,18 @@ dev = [
     "pytest-mock >= 3.4.0",
     "pytest-cov>=2.12.1",
     "hypothesis >= 0.1.0",
-    "notebook"
-]
-
-third_party_stubs = [
-    "pandas-stubs",
-    "plotly-stubs",
-    "types-tqdm",
-    "types-PyYAML",
+    "notebook",
+    "basedpyright>=1.31.1",
+    "mypy>=1.17.1",
+    "ruff>=0.14.2",
 ]
 
 type = [
     "basedpyright>=1.31.1",
-    "mypy>=1.17.1",
-]
-
-all = [
-    "drytorch[all_trackers]",
-    "drytorch[support]",
-    "drytorch[dev]",
-    "drytorch[third_party_stubs]",
+    "pandas-stubs",
+    "plotly-stubs",
+    "types-tqdm",
+    "types-PyYAML",
 ]
 
 
@@ -94,9 +99,6 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-#    "--cov=.",
-    "--cov-report=term-missing",
-    "--cov-report=html",
 ]
 log_cli = true
 log_cli_level = "WARNING"
@@ -106,3 +108,8 @@ mypy_path = "."
 namespace_packages = false
 files = ["src", "tests"]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+[tool.basedpyright]
+include = ["src"]
+typeCheckingMode = "basic"
+failOnWarnings = false

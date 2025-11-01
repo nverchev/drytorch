@@ -1,6 +1,7 @@
 """Functional tests for simple hyperparameter tuning."""
 
 import dataclasses
+import gc
 
 from collections.abc import Generator, MutableMapping
 from typing import Any
@@ -8,6 +9,7 @@ from typing import Any
 import pytest
 
 from drytorch import Trainer
+from drytorch.core import register
 from drytorch.core.experiment import Run
 from drytorch.lib import hooks
 from drytorch.lib.models import Model
@@ -31,13 +33,16 @@ def test_automatic_names(
 ) -> None:
     """Test the creation of models in a loop with automatic names."""
     results = dict[str, float]()
+    module = linear_model.module
+    register.unregister_model(linear_model)
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
-        linear_model_copy = Model(linear_model.module)
+        linear_model_copy = Model(module)
         new_learning_scheme = dataclasses.replace(
             standard_learning_scheme, base_lr=lr
         )
+
         trainer = Trainer(
             linear_model_copy,
             name='MyTrainer',
@@ -50,6 +55,8 @@ def test_automatic_names(
         trainer.post_epoch_hooks.register(early_stopping)
         trainer.train(10)
         results[linear_model_copy.name] = early_stopping.monitor.best_value
+        register.unregister_model(linear_model_copy)
+        gc.collect()
 
     assert {'Model', 'Model_1', 'Model_2', 'Model_3'} == set(results)
 
@@ -62,14 +69,16 @@ def test_iterative_pruning(
     identity_loader,
 ) -> None:
     """Test a pruning strategy that requires model improvement at each epoch."""
+    register.unregister_model(linear_model)
     for lr_pow in range(4):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
+        linear_model_copy = Model(linear_model.module)
         new_learning_scheme = dataclasses.replace(
             standard_learning_scheme, base_lr=lr
         )
         trainer = Trainer(
-            linear_model,
+            model=linear_model_copy,
             name='MyTrainer',
             loader=training_loder,
             learning_scheme=new_learning_scheme,
@@ -82,6 +91,8 @@ def test_iterative_pruning(
         trainer.post_epoch_hooks.register(prune_callback)
         trainer.train(4)
         benchmark_values = prune_callback.trial_values
+        register.unregister_model(linear_model_copy)
+        gc.collect()
 
     # the last run should be immediately pruned.
     assert len(benchmark_values) <= 1

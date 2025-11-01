@@ -65,7 +65,7 @@ class TestValidation:
 
     def test_initialization(self, validation) -> None:
         """Test parent __init__ is called."""
-        self.mock_super_init.called_once()
+        self.mock_super_init.assert_called_once()
 
 
 class TestTest:

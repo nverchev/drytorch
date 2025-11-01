@@ -92,7 +92,9 @@ class MetadataManager:
         return
 
     def _unregister_metadata(self, name: str) -> None:
-        self.metadata_dict.pop(name)
+        if name in self.metadata_dict:
+            del self.metadata_dict[name]
+
         return
 
     @staticmethod

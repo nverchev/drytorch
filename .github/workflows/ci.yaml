@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: macos-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.13"
+
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Install uv and set the Python version
+      uses: astral-sh/setup-uv@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+        enable-cache: true  # Optional: cache UV downloads
+
+    - name: Lock dependencies
+      run: uv lock
+
+    - name: Install the project
+      run: uv sync --all-extras --dev
+
+    - name: Ruff Lint
+      run: uv run ruff check --diff .
+
+    - name: Ruff Format
+      run: uv run ruff format --check .
+
+    - name: BasedPyright
+      run: uv run basedpyright
+
+    - name: Run tests
+      run: uv run pytest --cov --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v5
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false

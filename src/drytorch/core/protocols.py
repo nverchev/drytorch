@@ -189,11 +189,11 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 class CheckpointProtocol(Protocol):
     """Protocol that stores and loads weight for a ModelProtocol class."""
 
-    def register_model(self, model: ModelProtocol[Any, Any]):
-        """Register the model to manage."""
+    def bind_model(self, model: ModelProtocol[Any, Any]):
+        """Bind the model to manage."""
 
-    def register_optimizer(self, optimizer: torch.optim.Optimizer):
-        """Register the optimizer connected to the model."""
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer):
+        """Bind the optimizer connected to the model."""
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""

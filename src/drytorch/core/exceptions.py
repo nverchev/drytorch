@@ -182,12 +182,31 @@ class MissingParamError(DryTorchError):
         super().__init__(self.missing)
 
 
-class ModelNotRegisteredError(DryTorchError):
-    """Raised when trying to access a model that hasn't been registered."""
+class ModuleAlreadyRegisteredError(DryTorchError):
+    """Raised when trying to access a model that has already been registered."""
 
-    msg = 'Model {} has not been registered in experiment {} run {}.'
+    msg = 'Module from model {} is already registered in experiment {} run {}.'
 
-    def __init__(self, model_name: str, exp_name: str, run_id) -> None:
+    def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
+        """Constructor.
+
+        Args:
+            model_name: the name of the model that was not registered.
+            exp_name: the name of the current experiment.
+            run_id: the current run's id.
+        """
+        self.model_name: Final = model_name
+        self.exp_name: Final = exp_name
+        self.run_id: Final = run_id
+        super().__init__(model_name, exp_name, run_id)
+
+
+class ModuleNotRegisteredError(DryTorchError):
+    """Raised an actor tries to access a module that hasn't been registered."""
+
+    msg = 'Module from model {} is not registered in the current run {} - {}.'
+
+    def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
         """Constructor.
 
         Args:
@@ -214,24 +233,6 @@ class ModelNotFoundError(DryTorchError):
         """
         self.checkpoint_directory: Final = checkpoint_directory
         super().__init__(checkpoint_directory)
-
-
-class ModuleAlreadyRegisteredError(DryTorchError):
-    """Raised when attempting to register an already registered module."""
-
-    msg = 'Module already registered from model {} in experiment {} run {}.'
-
-    def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
-        """Constructor.
-
-        Args:
-            model_name: the name of the model that is already registered.
-            exp_name: the name of the experiment where the model is registered.
-            run_id: the registered run's id.
-
-        """
-        self.model_name: Final = model_name
-        super().__init__(str(model_name), exp_name, run_id)
 
 
 class NameAlreadyRegisteredError(DryTorchError):

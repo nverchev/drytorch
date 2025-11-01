@@ -40,7 +40,6 @@ class Model(
         mixed_precision: whether to use mixed precision computing.
     """
 
-    _default_checkpoint = checkpoints.LocalCheckpoint()
     _name = repr_utils.DefaultName()
 
     def __init__(  # type: ignore
@@ -48,7 +47,7 @@ class Model(
         module: p.ModuleProtocol[_Input_contra, _Output_co],
         name: str = '',
         device: torch.device | None = None,
-        checkpoint: p.CheckpointProtocol = _default_checkpoint,
+        checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
     ) -> None:
         """Constructor.
@@ -67,10 +66,14 @@ class Model(
         self._name = name
         self.epoch: int = 0
         self.device = self._default_device() if device is None else device
+        if checkpoint is None:
+            checkpoint = checkpoints.LocalCheckpoint()
+
         self.checkpoint: p.CheckpointProtocol = checkpoint
-        self.checkpoint.register_model(self)
+        self.checkpoint.bind_model(self)
         self.mixed_precision = mixed_precision
-        register.register_model(self)
+        self._registered: bool = False
+        self.register()
         return
 
     def __call__(self, inputs: _Input_contra) -> _Output_co:
@@ -79,6 +82,15 @@ class Model(
             device_type=self.device.type, enabled=self.mixed_precision
         ):
             return self.module(inputs)
+
+    def __del__(self):
+        """Unregister from the registry when deleted/garbage-collected."""
+        try:
+            self.unregister()
+        except AttributeError:  # may happen during instantiation
+            pass
+
+        return
 
     @property
     def device(self) -> torch.device:
@@ -104,9 +116,23 @@ class Model(
         """Load the weights and epoch of the model."""
         self.checkpoint.load(epoch=epoch)
 
+    def register(self) -> None:
+        """Register to the registry."""
+        register.register_model(self)
+        self._registered = True
+        return
+
     def save_state(self) -> None:
         """Save the weights and epoch of the model."""
         self.checkpoint.save()
+
+    def unregister(self) -> None:
+        """Unregister from the registry."""
+        if self._registered:
+            register.unregister_model(self)
+
+        self._registered = False
+        return
 
     def update_parameters(self) -> None:
         """Update the parameters of the model."""
@@ -222,7 +248,7 @@ class ModelOptimizer:
             learning_scheme.gradient_op
         )
         self._checkpoint: p.CheckpointProtocol = self._model.checkpoint
-        self._checkpoint.register_optimizer(self._optimizer)
+        self._checkpoint.bind_optimizer(self._optimizer)
         self._scaler: grad_scaler.GradScaler = grad_scaler.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,

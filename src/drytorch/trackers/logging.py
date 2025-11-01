@@ -152,7 +152,7 @@ class BuiltinLogger(track.Tracker):
         msg = '. '.join(
             [
                 'Training %(model_name)s terminated at epoch %(epoch)d',
-                'Reason: %(reason)s.',
+                'Reason: %(reason)s',
             ]
         )
         log_args = {
