@@ -8,7 +8,7 @@
 ## Don't Repeat Yourself:
 - Functionalities for a wide range of machine-learning applications.
 - Modularity to build project-specific classes and data types.
-- Decoupling external trackers and loggers from the training cycle. 
+- Decoupling external trackers and loggers from the training cycle.
 - Experiment scopes to encourage best practice and avoid data leakage.
 
 ### Functionalities:
@@ -34,4 +34,3 @@
 - Training and evaluating within an experiment scope.
 - Discourage dependencies between experiments.
 - Prevent accidentally mixing experiments by passing wrong configuration files.
-
