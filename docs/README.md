@@ -4,33 +4,44 @@
 [![codecov](https://codecov.io/github/nverchev/drytorch/graph/badge.svg?token=CZND67KAW1)](https://codecov.io/github/nverchev/drytorch)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![basedpyright - checked](https://img.shields.io/badge/basedpyright-checked-ffc000)](https://docs.basedpyright.com)
+# DRYTorch
+A lean, minimal framework for machine-learning experiments. It enforces best practices and maximizes code reusability via a modular, decoupled design.
 
-## Don't Repeat Yourself:
-- Functionalities for a wide range of machine-learning applications.
-- Modularity to build project-specific classes and data types.
-- Decoupling external trackers and loggers from the training cycle.
-- Experiment scopes to encourage best practice and avoid data leakage.
+## 🌟 Features at a Glance
 
-### Functionalities:
-- Adaptive data loading.
-- Metrics with automatic formatting.
-- Composable schedulers classes.
-- Learning schemes with structured learning rates.
-- Automatic metadata extraction.
-- Training cycle with hooks.
-- Simplified checkpointing.
+* **DRY Training Cycle:** Minimal boilerplate for a wide range of ML applications. Includes a hook-based training cycle, adaptive data loading, and simplified checkpointing.
+* **Protocol-Driven Modularity:** Components communicate via defined protocols and abstract classes, ensuring type safety and flexibility for custom classes.
+* **Decoupled Tracking:** An event system notifies optional external libraries (Hydra, W&B, TensorBoard, etc.). Trackers do not impact the core experiment.
+* **Enforced Best Practices:** All logic runs within an **experimental scope** to discourage dependencies, prevent data leakage, and ensure correct configuration.
 
-### Modularity:
-- Classes communicate through protocols expressing necessary conditions.
-- Classes are built from abstract classes providing an initial implementation.
-- Type safety and hints for user data classes thanks to generic annotations.
+## 🏗️ Library Organization
 
-### Decoupling:
-- Event system sends notifications to optional external libraries.
-- Already implemented trackers (hydra, wandb, tensorboard, ...).
-- Only required dependency: PyTorch and NumPy.
+The library uses a microkernel (plugin) architecture to separate concerns.
 
-### Design:
-- Training and evaluating within an experiment scope.
-- Discourage dependencies between experiments.
-- Prevent accidentally mixing experiments by passing wrong configuration files.
+1.  **Core (`core`):** The library kernel. Contains the **Event System**, **Protocols** for component communication, and internal safety **Checks**.
+2.  **Standard Library (`lib`):** Reusable implementations and abstract classes of the protocols.
+3.  **Trackers (`tracker`):** Optional tracker plugins that integrate via the event system.
+4.  **Contributions (`contrib`):** Dedicated space for community-driven extensions.
+
+## 🛠️ Installation
+
+**Requirements**
+The library only requires recent versions of **PyTorch** and **NumPy**. Tracker dependencies are optional.
+
+**Installation**
+
+Using pip:
+```bash
+pip install drytorch
+```
+
+Using uv
+```bash
+uv add drytorch
+```
+
+## 🚀 Usage
+
+Dive into the full, runnable examples:
+
+➡️ **[Full Getting Started Notebook](https://github.com/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb)**
