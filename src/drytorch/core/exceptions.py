@@ -23,7 +23,7 @@ class DryTorchError(Exception):
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Automatically prefix subclass names with [drytorch]."""
-        cls.__name__ = '[drytorch] ' + cls.__name__
+        cls.__name__: str = '[drytorch] ' + cls.__name__
         super().__init_subclass__(**kwargs)
         return
 

@@ -79,7 +79,7 @@ class SchedulerProtocol(Protocol):
 class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
     """Protocol for a PyTorch module with type annotations."""
 
-    def forward(self, inputs: _Input_contra) -> _Output_co:
+    def forward(self, inputs: _Input_contra, /) -> _Output_co:
         """Forward run of the network."""
 
 
@@ -167,7 +167,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     mixed_precision: bool
 
     @abc.abstractmethod
-    def __call__(self, inputs: _Input_contra) -> _Output_co:
+    def __call__(self, /, inputs: _Input_contra) -> _Output_co:
         """Call the module forward method."""
 
     @property
