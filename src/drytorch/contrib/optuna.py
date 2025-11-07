@@ -86,7 +86,9 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         return
 
 
-def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
+def suggest_overrides(
+    tune_cfg: DictConfig, trial: optuna.Trial, use_full_name: bool = False
+) -> list[str]:
     """Suggest values for a trial from structured configurations.
 
     This function helps integrate optuna into hydra by specifying trial
@@ -127,45 +129,53 @@ def suggest_overrides(tune_cfg: DictConfig, trial: optuna.Trial) -> list[str]:
     >>>    dict_cfg = hydra.compose(config_name='config', overrides=overrides)
     ```
 
-    Here, "your_hydra_config" is the name of the overall configuration and must
-    include the configuration parameters whose value will be overridden.
+    Here, "your_hydra_config" is the name of the configuration file that
+    includes the configuration parameters to override.
 
     Args:
         tune_cfg: a structure specifying how to sample new parameter values.
         trial: the optuna trial related to the sampled parameters.
+        use_full_name: use the fully qualified setting name. Default to a
+            human-readable name.
 
     Returns:
         A list of strings for hydra configuration overrides.
     """
     all_overrides: list[str] = [*tune_cfg.overrides]
-    for attr_name, param in tune_cfg.tune.params.items():
-        if param.suggest == 'suggest_list':
+    for setting_name, param_value in tune_cfg.tune.params.items():
+        if use_full_name:
+            param_name = setting_name
+        else:
+            *_, param_name = setting_name.rsplit('.', maxsplit=1)
+            param_name = param_name.replace('_', ' ').capitalize()
+
+        if param_value.suggest == 'suggest_list':
             new_value = []
             for i in range(
                 trial.suggest_int(
-                    name='_'.join([attr_name, 'len']),
-                    low=param.settings.min_length,
-                    high=param.settings.max_length,
+                    name=f'{param_name}_len',
+                    low=param_value.settings.min_length,
+                    high=param_value.settings.max_length,
                 )
             ):
                 try:
-                    bound_suggest = getattr(trial, param.settings.suggest)
+                    bound_suggest = getattr(trial, param_value.settings.suggest)
                 except AttributeError as ae:
                     msg = f'Invalid Optuna suggest configuration: {ae}.'
                     raise exceptions.DryTorchError(msg) from ae
                 new_value.append(
                     bound_suggest(
-                        '_'.join([attr_name, str(i)]), **param.settings.settings
+                        f'{param_name}_{i}', **param_value.settings.settings
                     )
                 )
         else:
             try:
-                bound_suggest = getattr(trial, param.suggest)
+                bound_suggest = getattr(trial, param_value.suggest)
             except AttributeError as ae:
                 msg = f'Invalid Optuna suggest configuration: {ae}.'
                 raise exceptions.DryTorchError(msg) from ae
-            new_value = bound_suggest(attr_name, **param.settings)
-        all_overrides.append(f'{attr_name}={new_value}')
+            new_value = bound_suggest(setting_name, **param_value.settings)
+        all_overrides.append(f'{setting_name}={new_value}')
 
     return all_overrides
 
