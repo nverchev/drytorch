@@ -9,3 +9,5 @@ __pycache__/
 *.coverage
 **htmlcov/
 **./drytorch
+**./experiments
+docs/tutorials/experiments/*wiw
