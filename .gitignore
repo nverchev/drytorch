@@ -7,7 +7,6 @@ __pycache__/
 *.lock
 *.ipynb_checkpoints
 *.coverage
-**htmlcov/
-**./drytorch
-**./experiments
-docs/tutorials/experiments/*wiw
+**/htmlcov/
+**/.drytorch/
+**/experiments/

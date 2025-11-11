@@ -36,6 +36,9 @@ jobs:
     - name: Install the project
       run: uv sync --all-extras --dev
 
+    - name: Install Linters and Type Checkers
+      run: uv pip install ruff basedpyright
+
     - name: Ruff Lint
       run: uv run ruff check --diff .
 
@@ -52,5 +55,5 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
       uses: codecov/codecov-action@v5
       with:
-        file: ./coverage.xml
+        files: ./coverage.xml
         fail_ci_if_error: false
