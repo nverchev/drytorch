@@ -1,4 +1,4 @@
-![drytorch_logo.png](resources/drytorch_logo.png)
+G![drytorch_logo.png](resources/drytorch_logo.png)
 [![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](LICENSE)
 [![CI Status](https://github.com/nverchev/drytorch/actions/workflows/ci.yaml/badge.svg)](https://github.com/nverchev/drytorch/actions/workflows/CI.yaml)
 [![codecov](https://codecov.io/github/nverchev/drytorch/graph/badge.svg?token=CZND67KAW1)](https://codecov.io/github/nverchev/drytorch)
@@ -12,7 +12,7 @@ A lean, minimal framework for machine-learning experiments. It enforces best pra
 * **DRY Training Cycle:** Minimal boilerplate for a wide range of ML applications. Includes a hook-based training cycle, adaptive data loading, and simplified checkpointing.
 * **Protocol-Driven Modularity:** Components communicate via defined protocols and abstract classes, ensuring type safety and flexibility for custom classes.
 * **Decoupled Tracking:** An event system notifies optional external libraries (Hydra, W&B, TensorBoard, etc.). Trackers do not impact the core experiment.
-* **Enforced Best Practices:** All logic runs within an **`Experiment` scope** to discourage dependencies, prevent data leakage, and ensure correct configuration.
+* **Enforced Best Practices:** All logic runs within an **experimental scope** to discourage dependencies, prevent data leakage, and ensure correct configuration.
 
 ## 🛠️ Installation
 
@@ -38,6 +38,8 @@ The library uses a microkernel (plugin) architecture to separate concerns.
 2.  **Standard Library (`lib`):** Reusable implementations and abstract classes of the protocols.
 3.  **Trackers (`tracker`):** Optional tracker plugins that integrate via the event system.
 4.  **Contributions (`contrib`):** Dedicated space for community-driven extensions.
+5. **Utilities (`utils`):**
+Functions and classes independent to the framework.
 
 ## 🚀 Usage
 
