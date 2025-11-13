@@ -129,7 +129,7 @@ class TensorBoard(base_classes.Dumper):
             raise exceptions.TrackerError(self, msg)
 
         try:
-            subprocess.Popen(
+            subprocess.Popen(  # noqa: S603
                 [  # noqa: S603
                     tensorboard_executable_path,
                     'serve',
