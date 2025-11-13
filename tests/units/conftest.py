@@ -35,7 +35,7 @@ def mock_scheduler(mocker) -> p.SchedulerProtocol:
 
 
 @pytest.fixture
-def mock_learning_scheme(mocker, mock_scheduler) -> p.LearningProtocol:
+def mock_learning_schema(mocker, mock_scheduler) -> p.LearningProtocol:
     """Fixture for a mock learning scheme."""
     mock = mocker.create_autospec(spec=p.LearningProtocol, instance=True)
     mock.base_lr = 0.001

@@ -715,7 +715,7 @@ class ChangeSchedulerOnPlateauCallback(
             return
 
         scheduler = self.get_scheduler(
-            epoch, instance.learning_scheme.scheduler
+            epoch, instance.learning_schema.scheduler
         )
         instance.update_learning_rate(base_lr=None, scheduler=scheduler)
         self._cooldown_counter = self.cooldown  # start the cooldown period

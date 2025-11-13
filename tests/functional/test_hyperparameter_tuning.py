@@ -29,7 +29,7 @@ def benchmark_values() -> MutableMapping[int, float | None]:
 
 
 def test_automatic_names(
-    standard_learning_scheme, square_loss_calc, linear_model, identity_loader
+    standard_learning_schema, square_loss_calc, linear_model, identity_loader
 ) -> None:
     """Test the creation of models in a loop with automatic names."""
     results = dict[str, float]()
@@ -39,15 +39,15 @@ def test_automatic_names(
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
         linear_model_copy = Model(module)
-        new_learning_scheme = dataclasses.replace(
-            standard_learning_scheme, base_lr=lr
+        new_learning_schema = dataclasses.replace(
+            standard_learning_schema, base_lr=lr
         )
 
         trainer = Trainer(
             linear_model_copy,
             name='MyTrainer',
             loader=training_loder,
-            learning_scheme=new_learning_scheme,
+            learning_schema=new_learning_schema,
             loss=square_loss_calc,
         )
         trainer.add_validation(val_loader)
@@ -63,7 +63,7 @@ def test_automatic_names(
 
 def test_iterative_pruning(
     benchmark_values,
-    standard_learning_scheme,
+    standard_learning_schema,
     linear_model,
     square_loss_calc,
     identity_loader,
@@ -74,14 +74,14 @@ def test_iterative_pruning(
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
         linear_model_copy = Model(linear_model.module)
-        new_learning_scheme = dataclasses.replace(
-            standard_learning_scheme, base_lr=lr
+        new_learning_schema = dataclasses.replace(
+            standard_learning_schema, base_lr=lr
         )
         trainer = Trainer(
             model=linear_model_copy,
             name='MyTrainer',
             loader=training_loder,
-            learning_scheme=new_learning_scheme,
+            learning_schema=new_learning_schema,
             loss=square_loss_calc,
         )
         trainer.add_validation(val_loader)

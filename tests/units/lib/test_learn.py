@@ -8,7 +8,7 @@ import pytest
 
 from drytorch.core import protocols as p
 from drytorch.lib import schedulers
-from drytorch.lib.learn import LearningScheme
+from drytorch.lib.learn import LearningSchema
 
 
 @pytest.fixture
@@ -25,11 +25,11 @@ class TestLearningScheme:
 
     def test_is_dataclass(self):
         """Test if LearningScheme is a dataclass."""
-        assert dataclasses.is_dataclass(LearningScheme)
+        assert dataclasses.is_dataclass(LearningSchema)
 
     def test_fields(self):
         """Test the fields of the LearningScheme dataclass."""
-        fields = dataclasses.fields(LearningScheme)
+        fields = dataclasses.fields(LearningSchema)
         assert len(fields) == 5
         field_names = [f.name for f in fields]
         assert 'optimizer_cls' in field_names
@@ -40,20 +40,20 @@ class TestLearningScheme:
 
     def test_default_values(self):
         """Test default values of a LearningScheme instance."""
-        scheme = LearningScheme(optimizer_cls=torch.optim.Adam, base_lr=1e-3)
+        scheme = LearningSchema(optimizer_cls=torch.optim.Adam, base_lr=1e-3)
         assert isinstance(scheme.scheduler, schedulers.ConstantScheduler)
         assert scheme.optimizer_defaults == {}
         assert scheme.gradient_op is None
 
     def test_adam(self, mock_scheduler):
         """Test the adam constructor method."""
-        scheme = LearningScheme.adam()
+        scheme = LearningSchema.adam()
         assert scheme.optimizer_cls == torch.optim.Adam
         assert scheme.base_lr == 1e-3
         assert scheme.optimizer_defaults == {'betas': (0.9, 0.999)}
         assert isinstance(scheme.scheduler, schedulers.ConstantScheduler)
 
-        scheme = LearningScheme.adam(
+        scheme = LearningSchema.adam(
             base_lr=1e-2,
             betas=(0.8, 0.9),
             scheduler=mock_scheduler,
@@ -64,7 +64,7 @@ class TestLearningScheme:
 
     def test_adam_w(self, mock_scheduler):
         """Test the adam_w constructor method."""
-        scheme = LearningScheme.adam_w()
+        scheme = LearningSchema.adam_w()
         assert scheme.optimizer_cls == torch.optim.AdamW
         assert scheme.base_lr == 1e-3
         assert scheme.optimizer_defaults == {
@@ -73,7 +73,7 @@ class TestLearningScheme:
         }
         assert isinstance(scheme.scheduler, schedulers.ConstantScheduler)
 
-        scheme = LearningScheme.adam_w(
+        scheme = LearningSchema.adam_w(
             base_lr=1e-2,
             betas=(0.8, 0.9),
             weight_decay=1e-3,
@@ -88,7 +88,7 @@ class TestLearningScheme:
 
     def test_sgd(self, mock_scheduler):
         """Test the sgd constructor method."""
-        scheme = LearningScheme.sgd()
+        scheme = LearningSchema.sgd()
         assert scheme.optimizer_cls == torch.optim.SGD
         assert scheme.base_lr == 0.01
         assert scheme.optimizer_defaults == {
@@ -99,7 +99,7 @@ class TestLearningScheme:
         }
         assert isinstance(scheme.scheduler, schedulers.ConstantScheduler)
 
-        scheme = LearningScheme.sgd(
+        scheme = LearningSchema.sgd(
             base_lr=0.1,
             momentum=0.9,
             weight_decay=1e-4,
@@ -118,7 +118,7 @@ class TestLearningScheme:
 
     def test_r_adam(self, mock_scheduler):
         """Test the r_adam constructor method."""
-        scheme = LearningScheme.r_adam()
+        scheme = LearningSchema.r_adam()
         assert scheme.optimizer_cls == torch.optim.RAdam
         assert scheme.base_lr == 1e-3
         assert scheme.optimizer_defaults == {
@@ -128,7 +128,7 @@ class TestLearningScheme:
         }
         assert isinstance(scheme.scheduler, schedulers.ConstantScheduler)
 
-        scheme = LearningScheme.r_adam(
+        scheme = LearningSchema.r_adam(
             base_lr=1e-2,
             betas=(0.8, 0.9),
             weight_decay=1e-4,

@@ -18,12 +18,12 @@ def start_experiment(run) -> Generator[None, None, None]:
     return
 
 
-def test_repr_trainer(identity_trainer, mocker):
+def test_repr_trainer(identity_trainer, mocker) -> None:
     """Test Trainer, Model, DataLoader, and objective basic repr."""
     expected = {
         'class': 'Trainer',
-        'learning_scheme': {
-            'class': 'LearningScheme',
+        'learning_schema': {
+            'class': 'LearningSchema',
             'base_lr': 0.1,
             'optimizer_cls': 'Adam',
             'optimizer_defaults': {'betas': (0.9, 0.999)},
@@ -57,7 +57,7 @@ def test_repr_trainer(identity_trainer, mocker):
     assert recursive_repr(identity_trainer) == expected
 
 
-def test_hook_repr():
+def test_hook_repr() -> None:
     """Test the representation of a hook registry."""
     registry = HookRegistry()
     registry.register(EarlyStoppingCallback(filter_fn=get_trailing_mean(9)))
@@ -84,7 +84,7 @@ def test_hook_repr():
     assert recursive_repr(registry) == expected
 
 
-def test_gradient_op_repr():
+def test_gradient_op_repr() -> None:
     """Test the representation of a gradient op."""
     expected = {
         'class': 'HistClipper',
@@ -101,7 +101,7 @@ def test_gradient_op_repr():
     assert recursive_repr(HistClipper()) == expected
 
 
-def test_scheduler_repr():
+def test_scheduler_repr() -> None:
     """Test the representation of a scheduler."""
     expected = {
         'class': 'WarmupScheduler',

@@ -69,12 +69,12 @@ class TestModelOptimizer:
 
     @pytest.fixture()
     def model_optimizer(
-        self, complex_model, mock_learning_scheme
+        self, complex_model, mock_learning_schema
     ) -> ModelOptimizer:
         """Set up a test instance."""
         return ModelOptimizer(
             model=complex_model,
-            learning_scheme=mock_learning_scheme,
+            learning_schema=mock_learning_schema,
         )
 
     def test_update_learning_rate_global(self, model_optimizer) -> None:

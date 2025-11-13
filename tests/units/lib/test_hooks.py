@@ -486,8 +486,8 @@ class TestReduceLROnPlateau:
     ) -> None:
         """Test LR reduction and cooldown enforcement."""
         scheduler = schedulers.ConstantScheduler()
-        mock_trainer.learning_scheme = mocker.Mock
-        mock_trainer.learning_scheme.scheduler = scheduler
+        mock_trainer.learning_schema = mocker.Mock
+        mock_trainer.learning_schema.scheduler = scheduler
 
         for _ in range(callback.monitor.metric_tracker.patience + 1):
             callback(mock_trainer)
@@ -513,8 +513,8 @@ class TestRestartScheduleOnPlateau:
     ) -> None:
         """Test learning schedule restart after plateau."""
         scheduler = schedulers.ConstantScheduler()
-        mock_trainer.learning_scheme = mocker.Mock
-        mock_trainer.learning_scheme.scheduler = scheduler
+        mock_trainer.learning_schema = mocker.Mock
+        mock_trainer.learning_schema.scheduler = scheduler
 
         for _ in range(callback.monitor.metric_tracker.patience + 2):
             callback(mock_trainer)

@@ -40,7 +40,7 @@ class Trainer(
         *,
         loader: p.LoaderProtocol[tuple[_Input, _Target]],
         loss: p.LossProtocol[_Output, _Target],
-        learning_scheme: p.LearningProtocol,
+        learning_schema: p.LearningProtocol,
     ) -> None:
         """Constructor.
 
@@ -50,13 +50,13 @@ class Trainer(
                 Defaults to class name plus eventual counter.
             loader: provides inputs and targets in batches.
             loss: processes the model outputs and targets.
-            learning_scheme: contains optimizer settings and scheduling.
+            learning_schema: contains optimizer settings and scheduling.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
-        self.learning_scheme = learning_scheme
+        self.learning_schema = learning_schema
         self.validation: p.MonitorProtocol | None = None
         self._model_optimizer: Final = models.ModelOptimizer(
-            model, learning_scheme
+            model, learning_schema
         )
         self.pre_epoch_hooks: Final = hooks.HookRegistry[
             Trainer[_Input, _Target, _Output]
