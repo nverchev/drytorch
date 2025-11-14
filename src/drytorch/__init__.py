@@ -30,7 +30,7 @@ from drytorch.core.track import (
     remove_all_default_trackers,
 )
 from drytorch.lib.evaluations import Diagnostic, Test, Validation
-from drytorch.lib.learn import LearningScheme
+from drytorch.lib.learn import LearningSchema
 from drytorch.lib.load import DataLoader
 from drytorch.lib.models import Model
 from drytorch.lib.objectives import Loss, Metric
@@ -43,7 +43,7 @@ __all__ = [
     'DataLoader',
     'Diagnostic',
     'Experiment',
-    'LearningScheme',
+    'LearningSchema',
     'Loss',
     'Metric',
     'Model',

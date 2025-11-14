@@ -232,7 +232,7 @@ class TrainerProtocol(
     """
 
     model: ModelProtocol[_Input, _Output]
-    learning_scheme: LearningProtocol
+    learning_schema: LearningProtocol
     validation: MonitorProtocol | None
     objective: LossProtocol[_Output, _Target]
 

@@ -226,26 +226,26 @@ class ModelOptimizer:
     def __init__(
         self,
         model: p.ModelProtocol[_Input_contra, _Output_co],
-        learning_scheme: p.LearningProtocol,
+        learning_schema: p.LearningProtocol,
     ) -> None:
         """Constructor.
 
         Args:
             model: the model to be optimized.
-            learning_scheme: the learning scheme for the optimizer.
+            learning_schema: the learning scheme for the optimizer.
         """
         self._model: Final = model
         self._module: Final = model.module
         self._lr: float | dict[str, float] = {}
         self._params_lr: list[_OptParams] = []
-        self.base_lr = learning_scheme.base_lr
-        self._scheduler = learning_scheme.scheduler
-        self._optimizer: torch.optim.Optimizer = learning_scheme.optimizer_cls(
+        self.base_lr = learning_schema.base_lr
+        self._scheduler = learning_schema.scheduler
+        self._optimizer: torch.optim.Optimizer = learning_schema.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
-            **learning_scheme.optimizer_defaults,
+            **learning_schema.optimizer_defaults,
         )
         self._gradient_op: p.GradientOpProtocol | None = (
-            learning_scheme.gradient_op
+            learning_schema.gradient_op
         )
         self._checkpoint: p.CheckpointProtocol = self._model.checkpoint
         self._checkpoint.bind_optimizer(self._optimizer)

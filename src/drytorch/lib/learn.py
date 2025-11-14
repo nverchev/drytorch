@@ -16,7 +16,7 @@ _default_scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
 
 
 @dataclasses.dataclass(frozen=True)
-class LearningScheme(p.LearningProtocol):
+class LearningSchema(p.LearningProtocol):
     """Class with specifications for the learning algorithm.
 
     Attributes:
@@ -39,7 +39,7 @@ class LearningScheme(p.LearningProtocol):
         base_lr: float = 1e-3,
         betas: tuple[float, float] = (0.9, 0.999),
         scheduler: p.SchedulerProtocol = _default_scheduler,
-    ) -> LearningScheme:
+    ) -> LearningSchema:
         """Convenience method for the Adam optimizer.
 
         Args:
@@ -61,7 +61,7 @@ class LearningScheme(p.LearningProtocol):
         betas: tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 1e-2,
         scheduler: p.SchedulerProtocol = _default_scheduler,
-    ) -> LearningScheme:
+    ) -> LearningSchema:
         """Convenience method for the AdamW optimizer.
 
         Args:
@@ -86,7 +86,7 @@ class LearningScheme(p.LearningProtocol):
         dampening: float = 0.0,
         nesterov: bool = False,
         scheduler: p.SchedulerProtocol = _default_scheduler,
-    ) -> LearningScheme:
+    ) -> LearningSchema:
         """Convenience method for the SGD optimizer.
 
         Args:
@@ -116,7 +116,7 @@ class LearningScheme(p.LearningProtocol):
         betas: tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 0.0,
         scheduler: p.SchedulerProtocol = _default_scheduler,
-    ) -> LearningScheme:
+    ) -> LearningSchema:
         """Convenience method for the RAdam optimizer.
 
         Args:

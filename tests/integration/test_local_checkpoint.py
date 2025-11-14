@@ -45,9 +45,9 @@ def test_state_save_and_load(linear_model):
         assert param == old_param
 
 
-def test_checkpoint_save_and_load(linear_model, standard_learning_scheme):
+def test_checkpoint_save_and_load(linear_model, standard_learning_schema):
     """Test saving and loading the model's and the optimizer's states."""
-    model_optimizer = ModelOptimizer(linear_model, standard_learning_scheme)
+    model_optimizer = ModelOptimizer(linear_model, standard_learning_schema)
 
     param_list = [param.clone() for param in linear_model.module.parameters()]
     optimizer = model_optimizer._optimizer

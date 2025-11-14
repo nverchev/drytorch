@@ -50,12 +50,12 @@ class TestTrainer:
 
     @pytest.fixture()
     def trainer(
-        self, mock_model, mock_learning_scheme, mock_loss, mock_loader
+        self, mock_model, mock_learning_schema, mock_loss, mock_loader
     ) -> Trainer:
         """Set up a Trainer instance with mock components."""
         return Trainer(
             mock_model,
-            learning_scheme=mock_learning_scheme,
+            learning_schema=mock_learning_schema,
             loss=mock_loss,
             loader=mock_loader,
             name='TestTrainer',

@@ -11,7 +11,7 @@ import drytorch
 from drytorch import (
     DataLoader,
     Experiment,
-    LearningScheme,
+    LearningSchema,
     Loss,
     Metric,
     Model,
@@ -81,15 +81,15 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
 
 
 @pytest.fixture
-def standard_learning_scheme() -> LearningScheme:
+def standard_learning_schema() -> LearningSchema:
     """Instantiate a standard learning scheme."""
-    return LearningScheme.adam(base_lr=0.1)
+    return LearningSchema.adam(base_lr=0.1)
 
 
 @pytest.fixture
 def identity_trainer(
     linear_model,
-    standard_learning_scheme: LearningScheme,
+    standard_learning_schema: LearningSchema,
     square_loss_calc: Loss[TorchData, torch.Tensor],
     identity_loader: DataLoader[tuple[TorchTuple, torch.Tensor]],
 ) -> Trainer[TorchTuple, torch.Tensor, TorchData]:
@@ -98,7 +98,7 @@ def identity_trainer(
         linear_model,
         name='MyTrainer',
         loader=identity_loader,
-        learning_scheme=standard_learning_scheme,
+        learning_schema=standard_learning_schema,
         loss=square_loss_calc,
     )
     return trainer
