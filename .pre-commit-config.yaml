@@ -25,3 +25,8 @@ repos:
       - id: jupytext
         args: [--sync]
         additional_dependencies: [jupytext]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
