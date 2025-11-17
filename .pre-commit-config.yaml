@@ -18,3 +18,10 @@ repos:
     hooks:
         - id: basedpyright
           exclude: ^tests/
+
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.18.1
+    hooks:
+      - id: jupytext
+        args: [--sync]
+        additional_dependencies: [jupytext]
