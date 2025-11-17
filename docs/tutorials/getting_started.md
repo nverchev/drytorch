@@ -185,7 +185,7 @@ import pathlib
 
 settings = AllSettings()
 if epochs := int(os.getenv('EPOCHS')):
-    settings.train = epochs  # override settings with environment variables
+    settings.train.n_epochs = epochs  # override with environment variables
 
 experiment = UpsamplingExperiment(
     settings, name='Getting Started', par_dir=pathlib.Path('experiments')
