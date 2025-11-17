@@ -45,4 +45,4 @@ Functions and classes independent to the framework.
 
 Dive into the full, runnable examples:
 
-➡️ **[Full Getting Started Notebook](https://github.com/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb)**
+➡️ **[Full Getting Started Notebook](https://github.com/nverchev/drytorch/blob/main/docs/tutorials/getting_started.md)**

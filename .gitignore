@@ -5,6 +5,7 @@ __pycache__/
 *$py.class
 *.hypothesis/
 *.lock
+*.ipynb
 *.ipynb_checkpoints
 *.coverage
 **/htmlcov/
