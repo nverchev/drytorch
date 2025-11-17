@@ -14,7 +14,7 @@ kernelspec:
 
 # Getting Started with DRYTorch
 
-This notebook demonstrates a simple application of the DRYTorch library for organizing machine learning experiments.
+This notebook demonstrates how to use the DRYTorch library for organizing machine learning experiments.
 
 ## Deep Prior Upsampling
 
