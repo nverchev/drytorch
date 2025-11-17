@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "drytorch"
-version = "0.1.0b2"
+version = "0.1.0b3"
 authors = [{ name = "Nicolas Vercheval", email = "nicolas.vercheval@ugent.be" }]
 description = "This package helps train, document and evaluate a Pytorch model."
 keywords = ["pytorch", "logger"]
