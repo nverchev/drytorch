@@ -65,6 +65,7 @@ dev = [
     "hypothesis >= 0.1.0",
     "notebook",
     "pre-commit>=4.3.0",
+    "jupytext>=1.18.1",
 ]
 
 type = [
