@@ -123,6 +123,7 @@ For improved type checking and auto-completion, it is recommended to subclass th
 
 ```{code-cell} ipython3
 import dataclasses as dataclasses
+import os
 
 from drytorch import Experiment
 
@@ -183,6 +184,9 @@ import pathlib
 
 
 settings = AllSettings()
+if epochs := int(os.getenv('EPOCHS')):
+    settings.train = epochs  # override settings with environment variables
+
 experiment = UpsamplingExperiment(
     settings, name='Getting Started', par_dir=pathlib.Path('experiments')
 )

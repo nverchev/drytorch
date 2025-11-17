@@ -58,6 +58,8 @@ jobs:
     - name: Test notebooks execute
       if: matrix.os == 'ubuntu-latest'
       run: uv run pytest --nbmake docs/
+      env:
+        EPOCHS: 1
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
