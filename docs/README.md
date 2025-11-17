@@ -1,4 +1,4 @@
-G![drytorch_logo.png](resources/drytorch_logo.png)
+![drytorch_logo.png](resources/drytorch_logo.png)
 [![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](LICENSE)
 [![CI Status](https://github.com/nverchev/drytorch/actions/workflows/ci.yaml/badge.svg)](https://github.com/nverchev/drytorch/actions/workflows/CI.yaml)
 [![codecov](https://codecov.io/github/nverchev/drytorch/graph/badge.svg?token=CZND67KAW1)](https://codecov.io/github/nverchev/drytorch)
