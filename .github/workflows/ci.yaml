@@ -49,7 +49,7 @@ jobs:
       run: uv run basedpyright
 
     - name: Run tests
-      run: uv run pytest --cov --cov-report=xml --cov-report=term-missing --nbmake **/*.ipynb
+      run: uv run pytest --cov --cov-report=xml --cov-report=term-missing
 
     - name: Install support for testing notebooks
       if: matrix.os == 'ubuntu-latest'
