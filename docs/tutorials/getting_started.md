@@ -153,10 +153,10 @@ class TrainingSettings:
     """
 
     lr: float = 0.001
-    n_epochs: int = 30
+    n_epochs: int = int(os.getenv('EPOCHS', '30'))
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class AllSettings:
     """General settings for the current experiment.
 
@@ -184,8 +184,6 @@ import pathlib
 
 
 settings = AllSettings()
-if epochs := int(os.getenv('EPOCHS')):
-    settings.train.n_epochs = epochs  # override with environment variables
 
 experiment = UpsamplingExperiment(
     settings, name='Getting Started', par_dir=pathlib.Path('experiments')
