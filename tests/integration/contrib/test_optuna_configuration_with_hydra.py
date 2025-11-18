@@ -80,7 +80,7 @@ class TestSuggestOverridesWithHydra:
         overrides = suggest_overrides(tune_cfg, trial)
 
         assert len(overrides) == 3
-        assert overrides[0] in {'type=cnn', 'model.type=mlp'}
+        assert overrides[0] in ('model.type=mlp', 'model.type=cnn')
         assert overrides[1].startswith('batch_size=')
         assert overrides[2].startswith('dropouts=')
 

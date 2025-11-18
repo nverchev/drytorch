@@ -174,7 +174,13 @@ def suggest_overrides(
             except AttributeError as ae:
                 msg = f'Invalid Optuna suggest configuration: {ae}.'
                 raise exceptions.DryTorchError(msg) from ae
-            new_value = bound_suggest(setting_name, **param_value.settings)
+            if use_full_name:
+                param_name = setting_name
+            else:
+                *_, param_name = setting_name.rsplit('.', maxsplit=1)
+                param_name = param_name.replace('_', ' ').capitalize()
+
+            new_value = bound_suggest(param_name, **param_value.settings)
         all_overrides.append(f'{setting_name}={new_value}')
 
     return all_overrides
