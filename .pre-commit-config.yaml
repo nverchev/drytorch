@@ -18,3 +18,15 @@ repos:
     hooks:
         - id: basedpyright
           exclude: ^tests/
+
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.18.1
+    hooks:
+      - id: jupytext
+        args: [--sync]
+        additional_dependencies: [jupytext]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout

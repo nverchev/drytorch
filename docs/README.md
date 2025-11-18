@@ -1,4 +1,7 @@
-G![drytorch_logo.png](resources/drytorch_logo.png)
+![drytorch_logo.png](resources/drytorch_logo.png)
+[![PyPI version](https://img.shields.io/pypi/v/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
+[![Total Downloads](https://img.shields.io/pypi/dm/drytorch?label=downloads&style=flat)](https://pypi.org/project/drytorch/)
+[![Python](https://img.shields.io/pypi/pyversions/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
 [![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](LICENSE)
 [![CI Status](https://github.com/nverchev/drytorch/actions/workflows/ci.yaml/badge.svg)](https://github.com/nverchev/drytorch/actions/workflows/CI.yaml)
 [![codecov](https://codecov.io/github/nverchev/drytorch/graph/badge.svg?token=CZND67KAW1)](https://codecov.io/github/nverchev/drytorch)
@@ -45,4 +48,11 @@ Functions and classes independent to the framework.
 
 Dive into the full, runnable examples:
 
-➡️ **[Full Getting Started Notebook](https://github.com/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb)**
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <p style="margin: 0;">
+        ➡️ <strong><a href="https://github.com/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb">Getting Started Notebook</a></strong>
+    </p>
+    <a target="_blank" href="https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb">
+        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
+    </a>
+</div>

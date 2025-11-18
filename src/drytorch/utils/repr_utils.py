@@ -90,61 +90,6 @@ class DefaultName:
         return
 
 
-try:
-    import pandas as pd
-
-except (ImportError, ModuleNotFoundError):
-    pass
-
-else:
-
-    class PandasPrintOptions:
-        """Context manager to temporarily set Pandas display options.
-
-        Args:
-            precision: number of digits of precision for floating point output.
-            max_rows: maximum number of rows to display.
-            max_columns: maximum number of columns to display.
-        """
-
-        def __init__(
-            self, precision: int = 3, max_rows: int = 10, max_columns: int = 10
-        ) -> None:
-            """Constructor.
-
-            Args:
-                precision: see Pandas docs.
-                max_rows: see Pandas docs.
-                max_columns: see Pandas docs.
-            """
-            self._options: dict[str, int] = {
-                'display.precision': precision,
-                'display.max_rows': max_rows,
-                'display.max_columns': max_columns,
-            }
-            self._original_options: dict[str, Any] = {}
-
-        def __enter__(self) -> None:
-            """Temporarily modify settings."""
-            self._original_options.update(
-                {key: pd.get_option(key) for key in self._options}
-            )
-            for key, value in self._options.items():
-                pd.set_option(key, value)
-
-        def __exit__(
-            self,
-            exc_type: None = None,
-            exc_val: None = None,
-            exc_tb: None = None,
-        ) -> None:
-            """Restore original settings."""
-            for key, value in self._original_options.items():
-                pd.set_option(key, value)
-
-    from pandas.core.generic import NDFrame
-
-
 class LiteralStr(str):
     """YAML will attempt to use the pipe style for this class."""
 
@@ -259,14 +204,6 @@ def _(obj: torch.Tensor, *, depth: int = 10) -> LiteralStr:
 
 
 @recursive_repr.register
-def _(obj: NDFrame, *, depth: int = 10) -> LiteralStr:
-    # only called when Pandas is imported
-    _not_used = depth
-    with PandasPrintOptions(max_rows=MAX_REPR_SIZE, max_columns=MAX_REPR_SIZE):
-        return LiteralStr(obj)
-
-
-@recursive_repr.register
 def _(obj: ndarray, *, depth: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
     with np.printoptions(
@@ -375,3 +312,67 @@ def _should_skip_attribute(key: str, value: Any, parent_obj: object) -> bool:
             return True
 
     return False
+
+
+try:
+    import pandas as pd
+
+except (ImportError, ModuleNotFoundError):
+    pass
+
+else:
+
+    class PandasPrintOptions:
+        """Context manager to temporarily set Pandas display options.
+
+        Args:
+            precision: number of digits of precision for floating point output.
+            max_rows: maximum number of rows to display.
+            max_columns: maximum number of columns to display.
+        """
+
+        def __init__(
+            self, precision: int = 3, max_rows: int = 10, max_columns: int = 10
+        ) -> None:
+            """Constructor.
+
+            Args:
+                precision: see Pandas docs.
+                max_rows: see Pandas docs.
+                max_columns: see Pandas docs.
+            """
+            self._options: dict[str, int] = {
+                'display.precision': precision,
+                'display.max_rows': max_rows,
+                'display.max_columns': max_columns,
+            }
+            self._original_options: dict[str, Any] = {}
+
+        def __enter__(self) -> None:
+            """Temporarily modify settings."""
+            self._original_options.update(
+                {key: pd.get_option(key) for key in self._options}
+            )
+            for key, value in self._options.items():
+                pd.set_option(key, value)
+
+        def __exit__(
+            self,
+            exc_type: None = None,
+            exc_val: None = None,
+            exc_tb: None = None,
+        ) -> None:
+            """Restore original settings."""
+            for key, value in self._original_options.items():
+                pd.set_option(key, value)
+
+    from pandas.core.generic import NDFrame
+
+    @recursive_repr.register
+    def _(obj: NDFrame, *, depth: int = 10) -> LiteralStr:
+        # only called when Pandas is imported
+        _not_used = depth
+        with PandasPrintOptions(
+            max_rows=MAX_REPR_SIZE, max_columns=MAX_REPR_SIZE
+        ):
+            return LiteralStr(obj)
