@@ -6,3 +6,5 @@
 
 ### Changed
 - README.md location
+- repr_utils also provides array shape info
+- support for readable parameter names for optuna

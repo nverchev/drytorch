@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "drytorch"
-version = "0.1.0b4"
+version = "0.1.0b5"
 authors = [{ name = "Nicolas Vercheval", email = "nicolas.vercheval@ugent.be" }]
 description = "This package helps train, document and evaluate a Pytorch model."
 keywords = ["pytorch", "logger"]
-readme = "docs/README.md"
+readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 classifiers = [
