@@ -28,7 +28,7 @@ DRYTorch’s only mandatory dependencies are `numpy` and `torch`. For enhanced f
 
 The cell below assume you use uv as a package manager. If you prefer to use pip, run this instead:
 
-```python
+```ipython
 import sys
 
 
@@ -40,6 +40,10 @@ import sys
 ```
 
 ```{code-cell} ipython3
+---
+jupyter:
+  is_executing: true
+---
 ! uv pip install "torch>=2.5.1"
 ! uv pip install "numpy>=1.26.0"
 ! uv pip install "PyYAML>=6.0"
@@ -49,7 +53,7 @@ import sys
 
 ### Download the data
 
-Download the image data from the GitHub reposory.
+Download the image data from the GitHub repository.
 
 ```{code-cell} ipython3
 import urllib.request
@@ -64,7 +68,7 @@ url = 'https://raw.githubusercontent.com/nverchev/drytorch/main/docs/tutorials/d
 with urllib.request.urlopen(url) as response:  # noqa: S310
     data_bytes = response.read()
 
-flower_np = np.load(BytesIO(data_bytes), allow_pickle=False)
+flower_np = np.load(BytesIO(data_bytes))
 ```
 
 ### Preprocess the image
@@ -109,7 +113,8 @@ baseline_reconstruction = interpolate(
 ).squeeze()
 ```
 
-Let's visualized the image we want to reproduce and the baseline reconstruction.
+Let us visualized the image we want to reproduce and the baseline
+reconstruction.
 
 ```{code-cell} ipython3
 from IPython.display import HTML
@@ -169,11 +174,11 @@ from drytorch import Experiment
 
 
 @dataclasses.dataclass(frozen=True)
-class ArchitercturalSettings:
+class ArchitecturalSettings:
     """Architectural settings for a Resnet with three stages.
 
     Attributes:
-        layer_normalization: whether to use layer normalization.
+        norm_flag: whether to use layer normalization.
         n_blocks_per_stage: number of convolutional blocks in the three stages.
         max_width: number of channels of the middle stage (half in the others).
     """
@@ -201,11 +206,11 @@ class AllSettings:
     """General settings for the current experiment.
 
     Attributes:
-        n_epochs: number of training epochs.
-        batch_size: how many samples in each mini-batch
+        architecture: number of training epochs.
+        train: how many samples in each mini-batch
     """
 
-    architecture = ArchitercturalSettings()
+    architecture = ArchitecturalSettings()
     train = TrainingSettings()
 
 
@@ -265,7 +270,8 @@ The DRYTorch philosophy prioritizes maximum flexibility, allowing you to write c
 
 ### Define Data Structures
 
-Following its phylosophy, DRYTorch supports structured inputs and outputs for your model, as well as targets for your loss. This is particularly helpful for unstructured data of different inputs (e.g. modalities) or targets.
+Following its philosophy, DRYTorch supports structured inputs and outputs for
+ your model, as well as targets for your loss. This is particularly helpful for unstructured data of different inputs (e.g. modalities) or targets.
 
 The structure for inputs and targets must be compatible with the default PyTorch `collate_fn`. This means it can be a `torch.Tensor`, a list of tensors, or a namedtuple of tensors. Outputs can have an arbitrary type.
 
@@ -359,7 +365,7 @@ class TrainingDataset(data.Dataset[tuple[Inputs, TrainingTargets]]):
     """This dataset trains the network to reconstruct the image.
 
     Attributes:
-        image_downsampled: the image to upsample.
+        downsampled_image: the image to upsample.
     """
 
     def __init__(self, downsampled_image: torch.Tensor) -> None:
