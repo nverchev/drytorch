@@ -7,7 +7,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.18.1
 kernelspec:
-  display_name: .venv
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -40,10 +40,6 @@ import sys
 ```
 
 ```{code-cell} ipython3
----
-jupyter:
-  is_executing: true
----
 ! uv pip install "torch>=2.5.1"
 ! uv pip install "numpy>=1.26.0"
 ! uv pip install "PyYAML>=6.0"
@@ -240,10 +236,7 @@ Trackers are responsible for logging and plotting but have no impact on the expe
 Here, we want to save the training and test results in `.csv` files, so we add the `CSVDumper` to the default ones.
 
 ```{code-cell} ipython3
-from drytorch.trackers.csv import CSVDumper
-
-
-experiment.trackers.register(CSVDumper())
+from drytorch.trackers.tensorboard import TensorBoard
 ```
 
 ### Create the run and start the experiment
@@ -604,7 +597,7 @@ trainer.train(cfg_train.n_epochs)
 ```
 
 ### Test the model
-We evaluate the model using the PSNR metric. The score should be slightly higher than the baseline (greater than 26.00).
+We evaluate the model using the PSNR metric. The score should be slightly higher than the baseline (about 26.00).
 
 ```{code-cell} ipython3
 from drytorch import Metric, Test
@@ -617,7 +610,14 @@ test(store_outputs=True)
 ```
 
 ### Qualitative results.
-We get the stored output from the test class and
+We get the stored output with the deep prior reconstruction from the previous
+ test and visualize it side by side the original image and the baseline reconstruction.
+
+Visually, the deep prior image should be able to recover some of the high frequency details.
+
+```{code-cell} ipython3
+
+```
 
 ```{code-cell} ipython3
 reconstructed = test.outputs_list[0].flower_reconstructed.squeeze()
@@ -630,7 +630,8 @@ display_tensor_images(
 )
 ```
 
-## Documentation
+## End the experiment
+### Documentation
 Documentation is stored both on disk and through the selected trackers.
 
 - Basic run information is saved in the `.drytorch` folder.
@@ -638,3 +639,12 @@ Documentation is stored both on disk and through the selected trackers.
   Model, Trainer, and Test classes, documenting their attributes recursively.
 - The `csv` folder stores a dump of all metrics produced by the Trainer and
   Test classes.
+
+### Stopping the run
+To rerun this notebook again and start a new run, you must first stop the
+current one (this happens automatically if you use run as a context manager).
+Stopping the run also takes care of cleaning up resources.
+
+```{code-cell} ipython3
+run.stop()
+```
