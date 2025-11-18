@@ -20,6 +20,7 @@ import os
 import sys
 import warnings
 
+from importlib.metadata import version
 from typing import Literal, TypeGuard
 
 from drytorch.core.exceptions import FailedOptionalImportWarning
@@ -38,6 +39,8 @@ from drytorch.lib.train import Trainer
 from drytorch.trackers import logging as builtin_logging
 from drytorch.trackers.logging import INFO_LEVELS
 
+
+__version__ = version('drytorch')
 
 __all__ = [
     'DataLoader',
