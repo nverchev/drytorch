@@ -616,10 +616,6 @@ We get the stored output with the deep prior reconstruction from the previous
 Visually, the deep prior image should be able to recover some of the high frequency details.
 
 ```{code-cell} ipython3
-
-```
-
-```{code-cell} ipython3
 reconstructed = test.outputs_list[0].flower_reconstructed.squeeze()
 display_tensor_images(
     {
