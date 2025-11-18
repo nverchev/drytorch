@@ -24,7 +24,44 @@ The approach is as follows: We train the network to minimize the difference betw
 
 
 ### Requirements
-For this tutorial, there are no required optional dependencies.
+DRYTorch’s only mandatory dependencies are `numpy` and `torch`. For enhanced functionality and a smoother experience, it is recommended to install `PyYAML` and `tqdm`. The library requires Python 3.11 or newer. This tutorial does not rely on any additional optional dependencies.
+
+The cell below assume you use uv as a package manager. If you prefer to use pip, run this instead:
+
+```python
+import sys
+
+
+!{sys.executable} -m pip install "torch>=2.5.1"
+!{sys.executable} -m pip install "numpy>=1.26.0"
+!{sys.executable} -m pip install "PyYAML>=6.0"
+!{sys.executable} -m pip install "tqdm>=4.50.0"
+!{sys.executable} -m pip install drytorch
+```
+
+```{code-cell} ipython3
+! uv pip install "torch>=2.5.1"
+! uv pip install "numpy>=1.26.0"
+! uv pip install "PyYAML>=6.0"
+! uv pip install "tqdm>=4.50.0"
+! uv pip install drytorch
+```
+
+### Download the data
+
+Download the image data from the GitHub reposory.
+
+```{code-cell} ipython3
+import urllib.request
+
+import numpy as np
+
+
+url = 'https://raw.githubusercontent.com/nverchev/drytorch/main/docs/data/flower.npy'
+
+with urllib.request.urlopen(url) as response:  # noqa: S310
+    flower_np = np.load(response, allow_pickle=False)
+```
 
 ### Preprocess the image
 The target image has a resolution of 128 x 128. We downsample it to 64 x 64 using bilinear interpolation, and use it again to upsample back to the original resolution to create a baseline.
@@ -57,7 +94,6 @@ def interpolate(image_torch: torch.Tensor, target_size: int) -> torch.Tensor:
     )
 
 
-flower_np = np.load(file='flower.npy')
 flower_torch = torch.from_numpy(flower_np).permute(2, 0, 1).float()
 flower_torch /= 255
 flower_torch = interpolate(flower_torch.unsqueeze(0), TARGET_SIZE).squeeze()
