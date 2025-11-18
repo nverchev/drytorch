@@ -128,12 +128,12 @@ dict_data = [
     ({1: 1, 2: 2, 3: 3}, 3, {'1': 1, '2': 2, '3': 3}),
     ({1: 1, 2: 2, 3: 3}, 2, {'1': 1, '2': 2, '...': Omitted(1)}),
 ]
-
 # External data using numpy arrays, torch tensors, and pandas DataFrames
+size_str = LiteralStr('Array of size (3,)\n')
 numpy_and_torch_data = [
     (np.float32(1), 0, 1.0),
-    (np.array([1, 2, 3]), 2, LiteralStr('[1 ... 3]')),
-    (torch.FloatTensor([1, 2, 3]), 2, LiteralStr('[1. ... 3.]')),
+    (np.array([1, 2, 3]), 2, size_str + LiteralStr('[1 ... 3]')),
+    (torch.FloatTensor([1, 2, 3]), 2, size_str + LiteralStr('[1. ... 3.]')),
 ]
 
 class_data = [(_SimpleClass(), 2, '_SimpleClass')]

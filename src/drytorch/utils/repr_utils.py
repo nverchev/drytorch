@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeAlias
 import numpy as np
 import torch
 
+from typing_extensions import override
+
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -92,6 +94,11 @@ class DefaultName:
 
 class LiteralStr(str):
     """YAML will attempt to use the pipe style for this class."""
+
+    @override
+    def __add__(self, other: str | LiteralStr) -> LiteralStr:
+        out = super().__add__(other)
+        return LiteralStr(out)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -206,6 +213,7 @@ def _(obj: torch.Tensor, *, depth: int = 10) -> LiteralStr:
 @recursive_repr.register
 def _(obj: ndarray, *, depth: int = 10) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
+    size_str = f'Array of size {obj.shape}\n'
     with np.printoptions(
         precision=3,
         suppress=True,
@@ -213,7 +221,7 @@ def _(obj: ndarray, *, depth: int = 10) -> LiteralStr:
         edgeitems=MAX_REPR_SIZE // (size_factor * 2),
     ):
         _not_used = depth
-        return LiteralStr(obj)
+        return LiteralStr(size_str) + LiteralStr(obj)
 
 
 @recursive_repr.register(type)
