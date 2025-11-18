@@ -1,4 +1,4 @@
-![drytorch_logo.png](resources/drytorch_logo.png)
+![drytorch_logo.png](docs/resources/drytorch_logo.png)
 [![PyPI version](https://img.shields.io/pypi/v/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
 [![Total Downloads](https://img.shields.io/pypi/dm/drytorch?label=downloads&style=flat)](https://pypi.org/project/drytorch/)
 [![Python](https://img.shields.io/pypi/pyversions/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
@@ -8,16 +8,20 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![basedpyright - checked](https://img.shields.io/badge/basedpyright-checked-ffc000)](https://docs.basedpyright.com)
 # DRYTorch
-A lean, minimal framework for machine-learning experiments. It enforces best practices and maximizes code reusability via a modular, decoupled design.
 
-## 🌟 Features at a Glance
+## 💡 Design Philosophy
+By adhering to the Don't Repeat Yourself (DRY) principle, this library makes your machine-learning projects easier to replicate, document, and reuse.
 
-* **DRY Training Cycle:** Minimal boilerplate for a wide range of ML applications. Includes a hook-based training cycle, adaptive data loading, and simplified checkpointing.
-* **Protocol-Driven Modularity:** Components communicate via defined protocols and abstract classes, ensuring type safety and flexibility for custom classes.
-* **Decoupled Tracking:** An event system notifies optional external libraries (Hydra, W&B, TensorBoard, etc.). Trackers do not impact the core experiment.
-* **Enforced Best Practices:** All logic runs within an **experimental scope** to discourage dependencies, prevent data leakage, and ensure correct configuration.
+## ✨ Features at a Glance
+* **Experimental Scope:**  All logic runs within a controlled scope, preventing unintended dependencies, data leakage, and misconfiguration.
+* **Modularity:** Components communicate via defined protocols, providing type safety and flexibility for custom implementations.
+* **Decoupled Tracking:** Logging, plotting, and metadata are handled by an event system that separates execution from tracking.
+* **Lean Dependencies:** Minimal core requirements while supporting optional external libraries (Hydra, W&B, TensorBoard, etc.).
+* **Self-Documentation:** Metadata is automatically extracted in a standardized and robust manner.
+* **Ready-to-Use Implementations:** Advanced functionalities with minimal boilerplate, suitable for a wide range of ML applications.
 
-## 🛠️ Installation
+
+## 📦 Installation
 
 **Requirements**
 The library only requires recent versions of **PyTorch** and **NumPy**. Tracker dependencies are optional.
@@ -33,7 +37,7 @@ Using uv
 uv add drytorch
 ```
 
-## 🏗️ Library Organization
+## 🗂️ Library Organization
 
 The library uses a microkernel (plugin) architecture to separate concerns.
 
@@ -44,7 +48,7 @@ The library uses a microkernel (plugin) architecture to separate concerns.
 5. **Utilities (`utils`):**
 Functions and classes independent to the framework.
 
-## 🚀 Usage
+## 📙 Notebook Tutorials
 
 Dive into the full, runnable examples:
 
@@ -56,3 +60,5 @@ Dive into the full, runnable examples:
         <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
     </a>
 </div>
+
+## 📝 **[Changelog](CHANGELOG.md)**
