@@ -54,13 +54,17 @@ Download the image data from the GitHub reposory.
 ```{code-cell} ipython3
 import urllib.request
 
+from io import BytesIO
+
 import numpy as np
 
 
-url = 'https://raw.githubusercontent.com/nverchev/drytorch/main/docs/data/flower.npy'
+url = 'https://raw.githubusercontent.com/nverchev/drytorch/main/docs/tutorials/data/flower.npy'
 
 with urllib.request.urlopen(url) as response:  # noqa: S310
-    flower_np = np.load(response, allow_pickle=False)
+    data_bytes = response.read()
+
+flower_np = np.load(BytesIO(data_bytes), allow_pickle=False)
 ```
 
 ### Preprocess the image
