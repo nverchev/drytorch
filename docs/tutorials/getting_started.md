@@ -236,7 +236,7 @@ Trackers are responsible for logging and plotting but have no impact on the expe
 Here, we want to save the training and test results in `.csv` files, so we add the `CSVDumper` to the default ones.
 
 ```{code-cell} ipython3
-from drytorch.trackers.tensorboard import TensorBoard
+
 ```
 
 ### Create the run and start the experiment
