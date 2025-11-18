@@ -153,7 +153,7 @@ def suggest_overrides(
             new_value = []
             for i in range(
                 trial.suggest_int(
-                    name=f'{param_name}_len',
+                    name=f'Num. {param_name}',
                     low=param_value.settings.min_length,
                     high=param_value.settings.max_length,
                 )
@@ -165,7 +165,7 @@ def suggest_overrides(
                     raise exceptions.DryTorchError(msg) from ae
                 new_value.append(
                     bound_suggest(
-                        f'{param_name}_{i}', **param_value.settings.settings
+                        f'{param_name} {i}', **param_value.settings.settings
                     )
                 )
         else:

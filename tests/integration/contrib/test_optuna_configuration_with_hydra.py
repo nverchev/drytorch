@@ -92,6 +92,10 @@ class TestSuggestOverridesWithHydra:
         for dropout in dropout_values:
             assert 0.0 <= float(dropout) <= 0.5
 
+        # check parameter names for the trial
+        expected = {'Type', 'Batch size', 'Num. Dropouts', 'Dropouts 0'}
+        assert expected.issubset(trial.params)
+
     def test_hydra_accepts_overrides(
         self, trial, tune_cfg, config_name
     ) -> None:
