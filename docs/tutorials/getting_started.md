@@ -7,7 +7,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.18.1
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: .venv
   language: python
   name: python3
 ---
@@ -26,7 +26,7 @@ The approach is as follows: We train the network to minimize the difference betw
 ### Requirements
 DRYTorch’s only mandatory dependencies are `numpy` and `torch`. For enhanced functionality and a smoother experience, it is recommended to install `PyYAML` and `tqdm`. The library requires Python 3.11 or newer. This tutorial does not rely on any additional optional dependencies.
 
-The cell below assume you use uv as a package manager. If you prefer to use pip, run this instead:
+The cell below assumes you use uv as a package manager. If you prefer to use pip, run this instead:
 
 ```ipython
 import sys
@@ -109,7 +109,7 @@ baseline_reconstruction = interpolate(
 ).squeeze()
 ```
 
-Let us visualized the image we want to reproduce and the baseline
+Let us visualize the image we want to reproduce and the baseline
 reconstruction.
 
 ```{code-cell} ipython3
@@ -151,13 +151,14 @@ display_tensor_images(
 ```
 
 ## Set up the experiment
-In DRYTorch, an experiment is a reproducible execution entirely defined by its configuration file. A run is a session that you can later resume. Multiple runs of the same experiment are for reproducibility and debugging.
 
+In DRYTorch, an experiment is a reproducible execution entirely defined by its configuration file. A run is a session that you can later resume. Multiple runs of the same experiment are intended for reproducibility and debugging.
 
 ### Define the Specification
+
 DRYTorch supports scope-dependent configuration, meaning the experiment configuration is globally available during the experimental run. This design avoids the need to explicitly pass the configuration as a parameter and ensures it is reliably aligned with the current experiment.
 
-For improved type checking and auto-completion, it is recommended to subclass the base experiment class, explicitly integrating your specific configuration structure.
+For improved type checking and auto-completion, it is recommended to subclass the base experiment class and explicitly integrate your specific configuration structure.
 
 
 *Tip: use Pydantic dataclasses to validate your settings.*
@@ -218,7 +219,7 @@ class UpsamplingExperiment(Experiment[AllSettings]):
 
 ### Create an experiment
 
-Together with the configuration, you can assign a name and a directory to the experiment which will determine where the checkpoints, the metadata and the logs will be located.
+Together with the configuration, you can assign a name and a directory to the experiment, which will determine where the checkpoints, the metadata, and the logs will be located.
 
 ```{code-cell} ipython3
 import pathlib
@@ -232,11 +233,16 @@ experiment = UpsamplingExperiment(
 ```
 
 ### Select the trackers
-Trackers are responsible for logging and plotting but have no impact on the experiment's computation. By default, DRYTorch provides trackers for logging, displaying a progress bar, and storing metadata.
+
+Trackers are responsible for logging and plotting, but have no impact on the experiment's computation. By default, DRYTorch provides trackers for logging, displaying a progress bar, and storing metadata.
+
 Here, we want to save the training and test results in `.csv` files, so we add the `CSVDumper` to the default ones.
 
 ```{code-cell} ipython3
+from drytorch.trackers.csv import CSVDumper
 
+
+experiment.trackers.register(CSVDumper())
 ```
 
 ### Create the run and start the experiment
@@ -250,7 +256,7 @@ with experiment.create_run():
 
 ```
 
-However, in notebooks starting the run procedurally is more practical.
+However, in notebooks, starting the run procedurally is more practical.
 
 ```{code-cell} ipython3
 run = experiment.create_run()
@@ -313,7 +319,9 @@ class Outputs:
 ```
 
 ### Create the Datasets
-The test and training dataset consist of a single image. In the test dataset, the image is the one we want to reconstruct, while in the training dataset the image is the downsampled version.
+The test and training datasets consist of a single image. In the test dataset, the image is the one we want to reconstruct, while in the training dataset, the image is its downsampled version.
+To better illustrate training results and the functioning of DRYTorch, we define a training epoch as a fixed number of iterations over the given image.
+
 
 DRYTorch expects an (annotated) instance of `torch.utils.data.Dataset`.
 
@@ -506,7 +514,7 @@ network = DeepPriorNet()
 
 ### Define the loss and metric functions
 
-In this experiment we are only going to use the Mean Square Error (MSE) for training and the Peak Signal-to-Noise Ratio (PSNR) for evaluating the super-resolution image. The bilinear interpolation baseline has a PSNR of 25.90.
+In this experiment, we will use the Mean Squared Error (MSE) for training and the Peak Signal-to-Noise Ratio (PSNR) for evaluating the super-resolution image. The bilinear interpolation baseline has a PSNR of 25.90.
 
 DRYTorch expects loss and metric functions that take outputs and targets as arguments.
 
@@ -543,7 +551,7 @@ psnr(baseline_reconstruction, flower_torch).item()
 
 
 DRYTorch provides default implementations for the core components of a
-typical ML workflow. Below we briefly summarize the main functionalities:
+typical ML workflow. Below, we briefly summarize the main functionalities:
 
 - **DataLoader:**
   A data loader with “smart loading” behavior that adapts automatically when
@@ -609,11 +617,10 @@ test = Test(model, loader=test_loader, metric=metric)
 test(store_outputs=True)
 ```
 
-### Qualitative results.
-We get the stored output with the deep prior reconstruction from the previous
- test and visualize it side by side the original image and the baseline reconstruction.
+### Qualitative results
+We get the stored output with the deep prior reconstruction from the previous test and visualize it side by side with the original image and the baseline reconstruction.
 
-Visually, the deep prior image should be able to recover some of the high frequency details.
+Visually, the deep prior image should be able to recover some of the high-frequency details.
 
 ```{code-cell} ipython3
 reconstructed = test.outputs_list[0].flower_reconstructed.squeeze()
@@ -632,12 +639,12 @@ Documentation is stored both on disk and through the selected trackers.
 
 - Basic run information is saved in the `.drytorch` folder.
 - The `metadata` folder contains a readable representation extracted from the
-  Model, Trainer, and Test classes, documenting their attributes recursively.
+  Model, Trainer, and Test classes, documenting their attributes recursively (only if you have PyAML installed).
 - The `csv` folder stores a dump of all metrics produced by the Trainer and
   Test classes.
 
 ### Stopping the run
-To rerun this notebook again and start a new run, you must first stop the
+To rerun this notebook a second time and start a new run, you must first stop the
 current one (this happens automatically if you use run as a context manager).
 Stopping the run also takes care of cleaning up resources.
 
