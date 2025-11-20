@@ -39,8 +39,9 @@ def from_torchmetrics(
             return self.metric(outputs, targets)
 
         def compute(self) -> dict[str, _Tensor]:
-            dict_output = dict[str, _Tensor]()
-            metric_list = list[type(self.metric.metric_b)]()
+            dict_output = dict[str, _Tensor](
+                {'Combined Loss': self.metric.compute()}
+            )
             metric_list = list[type(self.metric.metric_b)]()
             metric_list.append(self.metric)
             while metric_list:

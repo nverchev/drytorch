@@ -29,7 +29,9 @@ DRYTorch allows, and often **implements** by default, using losses as metrics.
 
 DRYTorch defines an `ObjectiveProtocol`, used by classes that implement the validation and testing of a model, and a `LossProtocol`, used for its training.
 
-+++
+```{code-cell} ipython3
+! uv pip install drytorch
+```
 
 ## Compatibility with Existing Libraries
 
@@ -61,6 +63,9 @@ from torcheval import metrics as eval_metrics
 from drytorch.core import protocols as p
 
 
+tensor_a = torch.ones(1, 1, dtype=torch.float)
+tensor_b = 3 * torch.ones(1, 1, dtype=torch.float)
+
 torch_metric = torchmetrics.MeanSquaredError()
 eval_metric = eval_metrics.MeanSquaredError()
 
@@ -71,6 +76,12 @@ def supported_for_validation(
     """Test metric follows the Objective protocol."""
     return isinstance(metric, p.ObjectiveProtocol)
 
+
+torch_metric.update(tensor_a, tensor_b)
+eval_metric.update(tensor_a, tensor_b)
+
+if not torch_metric.compute() == eval_metric.compute():
+    raise
 
 supported_for_validation(eval_metric) and supported_for_validation(torch_metric)
 ```
@@ -90,10 +101,13 @@ supported_for_training(torch_metric)
 from drytorch.contrib.torchmetrics import from_torchmetrics
 
 
-new_metric = torch_metric + torch_metric
+new_metric = 1 + torch_metric
 
 
 imported_metric = from_torchmetrics(new_metric)
+
+imported_metric.update(tensor_a, tensor_b)
+imported_metric.compute()
 ```
 
 ## DRYTorch implementation
@@ -114,12 +128,15 @@ from drytorch.lib.objectives import Metric
 
 def mae_loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     """Returns batched Meas Absolute Error (MAE) values."""
-    return torch.abs(outputs - targets).flatten().mean(1)
+    return torch.abs(outputs - targets).flatten(1).mean(1)
 
 
 mse_metric = Metric(mse_loss_fn, name='MSE', higher_is_better=False)
 mae_metric = Metric(mae_loss_fn, 'MAE', higher_is_better=False)
 metric_collection = mse_metric | mae_metric
+
+metric_collection.update(tensor_a, tensor_b)
+metric_collection.compute()
 ```
 
 ### Define a Custom Metric class
@@ -141,12 +158,14 @@ class MyMetrics(Objective[torch.Tensor, torch.Tensor]):
     ) -> dict[str, torch.Tensor]:
         diff = outputs - targets
         return {
-            'MSE': torch.pow(diff, 2).flatten().mean(1),
-            'MAE': torch.abs(diff).flatten().mean(1),
+            'MSE': torch.pow(diff, 2).flatten(1).mean(1),
+            'MAE': torch.abs(diff).flatten(1).mean(1),
         }
 
 
 my_metrics = MyMetrics()
+my_metrics.update(tensor_a, tensor_b)
+my_metrics.compute()
 ```
 
 ## LossBase, Loss and CompositionalLoss
@@ -167,14 +186,14 @@ from torch.nn.functional import mse_loss as mse_loss_fn  # returns scalar value
 from drytorch.lib.objectives import Loss
 
 
-def mae_loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    """Returns batched Meas Absolute Error (MAE) values."""
-    return torch.abs(outputs - targets).flatten().mean(1)
-
-
 mse_loss = Loss(mse_loss_fn, name='MSE')
 mae_loss = Loss(mae_loss_fn, 'MAE')
 composed_loss = mse_loss**2 + 0.5 * mae_loss
 
+composed_loss.update(tensor_a, tensor_b)
+composed_loss.compute()
+```
+
+```{code-cell} ipython3
 composed_loss.formula
 ```
