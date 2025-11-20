@@ -172,8 +172,8 @@ def mae_loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     return torch.abs(outputs - targets).flatten().mean(1)
 
 
-mse_loss = Loss(mse_loss_fn, name='MSE', higher_is_better=False)
-mae_loss = Loss(mae_loss_fn, 'MAE', higher_is_better=False)
+mse_loss = Loss(mse_loss_fn, name='MSE')
+mae_loss = Loss(mae_loss_fn, 'MAE')
 composed_loss = mse_loss**2 + 0.5 * mae_loss
 
 composed_loss.formula
