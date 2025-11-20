@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
+from torchmetrics import metric
+
 from drytorch.core import protocols as p
 
 
@@ -38,6 +40,7 @@ def from_torchmetrics(
 
         def compute(self) -> dict[str, _Tensor]:
             dict_output = dict[str, _Tensor]()
+            metric_list = list[type(self.metric.metric_b)]()
             metric_list = list[type(self.metric.metric_b)]()
             metric_list.append(self.metric)
             while metric_list:
