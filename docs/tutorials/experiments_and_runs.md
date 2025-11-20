@@ -25,6 +25,10 @@ In the DRYTorch framework, an experiment is a fully reproducible execution of co
 To define an experiment, you should subclass or annotate DRYTorch's Experiment class, specifying the required configuration type. The Experiment class needs a unique name for each instance and also accepts optional tags and a designated output directory for the run, which other framework components will utilize.
 
 ```{code-cell} ipython3
+! uv pip install drytorch
+```
+
+```{code-cell} ipython3
 import dataclasses
 
 from drytorch import Experiment as GenericExperiment
