@@ -8,7 +8,7 @@ import sys
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-import tqdm
+import tqdm.auto as tqdm
 
 from typing_extensions import override
 

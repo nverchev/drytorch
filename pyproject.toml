@@ -59,6 +59,8 @@ support = [
     "torcheval",
     "pandas == 2.3.0",
     "optuna >= 4.0.0",
+    "notebook",
+    "ipywidgets",
 ]
 
 dev = [
@@ -66,7 +68,6 @@ dev = [
     "pytest-mock >= 3.4.0",
     "pytest-cov>=2.12.1",
     "hypothesis >= 0.1.0",
-    "notebook",
     "pre-commit>=4.3.0",
     "jupytext>=1.18.1",
 ]
