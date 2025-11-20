@@ -24,7 +24,7 @@ class LearningSchema(p.LearningProtocol):
         base_lr: initial learning rates for named parameters or global value.
         optimizer_defaults: optional arguments for the optimizer.
         scheduler: modifies the learning rate given the current epoch.
-        gradient_op: modifies parameters' gradients in-place after backwards.
+        gradient_op: modifies parameters' after backward propagation.
     """
 
     optimizer_cls: type[torch.optim.Optimizer]
@@ -46,6 +46,7 @@ class LearningSchema(p.LearningProtocol):
             base_lr: initial learning rate.
             betas: coefficients used for computing running averages.
             scheduler: modifies the learning rate given the current epoch.
+            gradient_op: modifies parameters' after backward propagation.
         """
         return cls(
             optimizer_cls=torch.optim.Adam,
@@ -61,6 +62,7 @@ class LearningSchema(p.LearningProtocol):
         betas: tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 1e-2,
         scheduler: p.SchedulerProtocol = _default_scheduler,
+        gradient_op: p.GradientOpProtocol | None = None,
     ) -> LearningSchema:
         """Convenience method for the AdamW optimizer.
 
@@ -69,12 +71,14 @@ class LearningSchema(p.LearningProtocol):
             betas: coefficients used for computing running averages.
             weight_decay: weight decay (L2 penalty).
             scheduler: modifies the learning rate given the current epoch.
+            gradient_op: modifies parameters' after backward propagation.
         """
         return cls(
             optimizer_cls=torch.optim.AdamW,
             base_lr=base_lr,
             scheduler=scheduler,
             optimizer_defaults={'betas': betas, 'weight_decay': weight_decay},
+            gradient_op=gradient_op,
         )
 
     @classmethod
@@ -86,6 +90,7 @@ class LearningSchema(p.LearningProtocol):
         dampening: float = 0.0,
         nesterov: bool = False,
         scheduler: p.SchedulerProtocol = _default_scheduler,
+        gradient_op: p.GradientOpProtocol | None = None,
     ) -> LearningSchema:
         """Convenience method for the SGD optimizer.
 
@@ -96,6 +101,7 @@ class LearningSchema(p.LearningProtocol):
             weight_decay: weight decay (L2 penalty).
             nesterov: enables Nesterov momentum.
             scheduler: modifies the learning rate given the current epoch.
+            gradient_op: modifies parameters' after backward propagation.
         """
         return cls(
             optimizer_cls=torch.optim.SGD,
@@ -107,6 +113,7 @@ class LearningSchema(p.LearningProtocol):
                 'dampening': dampening,
                 'nesterov': nesterov,
             },
+            gradient_op=gradient_op,
         )
 
     @classmethod
@@ -116,6 +123,7 @@ class LearningSchema(p.LearningProtocol):
         betas: tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 0.0,
         scheduler: p.SchedulerProtocol = _default_scheduler,
+        gradient_op: p.GradientOpProtocol | None = None,
     ) -> LearningSchema:
         """Convenience method for the RAdam optimizer.
 
@@ -124,6 +132,7 @@ class LearningSchema(p.LearningProtocol):
             betas: coefficients used for computing running averages.
             weight_decay: weight decay (L2 penalty).
             scheduler: modifies the learning rate given the current epoch.
+            gradient_op: modifies parameters' after backward propagation.
         """
         wd_flag = bool(weight_decay)
         return cls(
@@ -135,4 +144,5 @@ class LearningSchema(p.LearningProtocol):
                 'weight_decay': weight_decay,
                 'decoupled_weight_decay': wd_flag,
             },
+            gradient_op=gradient_op,
         )

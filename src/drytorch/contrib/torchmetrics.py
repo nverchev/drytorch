@@ -2,58 +2,31 @@
 
 from __future__ import annotations
 
-import abc
-
-from collections.abc import Mapping
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any
 
 import torch
 
+from torchmetrics import metric
+
 from drytorch.core import protocols as p
+
+
+if TYPE_CHECKING:
+    from torchmetrics import metric
 
 
 _Tensor = torch.Tensor
 
 
-@runtime_checkable
-class TorchMetricCompositionalMetricProtocol(Protocol):
-    """Protocol for a compositional metric from torchmetrics.
-
-    Attributes:
-        metric_a: first metric.
-        metric_b: second metric.
-    """
-
-    metric_a: p.ObjectiveProtocol[_Tensor, _Tensor] | float | None
-    metric_b: p.ObjectiveProtocol[_Tensor, _Tensor] | float | None
-
-    def update(self, outputs: _Tensor, targets: _Tensor) -> Any:
-        """See torchmetrics documentation."""
-
-    def reset(self) -> Any:
-        """See torchmetrics documentation."""
-
-    def compute(self) -> Mapping[str, _Tensor] | _Tensor | None:
-        """See torchmetrics documentation."""
-
-    @abc.abstractmethod
-    def forward(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
-        """See torchmetrics documentation."""
-
-    @abc.abstractmethod
-    def __call__(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
-        """See torchmetrics documentation."""
-
-
 def from_torchmetrics(
-    metric: TorchMetricCompositionalMetricProtocol,
+    metric: metric.CompositionalMetric,
 ) -> p.LossProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a CompositionalMetric for integration."""
 
     class _TorchMetricCompositionalMetric(p.LossProtocol[_Tensor, _Tensor]):
         name = 'Loss'
 
-        def __init__(self, _metric: TorchMetricCompositionalMetricProtocol):
+        def __init__(self, _metric: metric.CompositionalMetric) -> None:
             self.metric = _metric
 
         def update(self, outputs: _Tensor, targets: _Tensor) -> Any:
@@ -67,15 +40,17 @@ def from_torchmetrics(
 
         def compute(self) -> dict[str, _Tensor]:
             dict_output = dict[str, _Tensor]()
-            metric_list = list[
-                p.ObjectiveProtocol[_Tensor, _Tensor] | float | None
-            ]()
+            metric_list = list[type(self.metric.metric_b)]()
+            metric_list = list[type(self.metric.metric_b)]()
             metric_list.append(self.metric)
             while metric_list:
                 metric_ = metric_list.pop()
                 if isinstance(metric_, self.metric.__class__):
                     metric_list.extend([metric_.metric_b, metric_.metric_a])
-                elif isinstance(metric_, float | int) or metric_ is None:
+                elif (
+                    isinstance(metric_, float | int | _Tensor)
+                    or metric_ is None
+                ):
                     continue
                 else:
                     if isinstance(value := metric_.compute(), _Tensor):

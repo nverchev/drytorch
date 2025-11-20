@@ -6,13 +6,17 @@ import torch
 
 import pytest
 
-from drytorch.contrib.torchmetrics import from_torchmetrics
+from drytorch.contrib.torchmetrics import _Tensor, from_torchmetrics
+from drytorch.core.protocols import LossProtocol
 
 
 if TYPE_CHECKING:
     import torchmetrics
+
+    from torchmetrics import metric
 else:
     torchmetrics = pytest.importorskip('torchmetrics')
+    metric = pytest.importorskip('torchmetrics.metric')
 
 
 class TestFromTorchMetrics:
@@ -29,12 +33,12 @@ class TestFromTorchMetrics:
         return torchmetrics.MeanSquaredError()
 
     @pytest.fixture
-    def additive_metric(self, metric_a, metric_b):
+    def additive_metric(self, metric_a, metric_b) -> metric.CompositionalMetric:
         """Fixture for additive metric."""
         return 2 * metric_a + metric_b
 
     @pytest.fixture
-    def metric(self, additive_metric):
+    def metric(self, additive_metric) -> LossProtocol[_Tensor, _Tensor]:
         """Fixture for wrapped metric."""
         return from_torchmetrics(additive_metric)
 
