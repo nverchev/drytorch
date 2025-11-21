@@ -147,7 +147,7 @@ class LearningProtocol(Protocol):
     base_lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
-    gradient_op: GradientOpProtocol | None
+    gradient_op: GradientOpProtocol
 
 
 @runtime_checkable

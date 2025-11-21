@@ -7,7 +7,7 @@ import torch
 import pytest
 
 from drytorch.core import protocols as p
-from drytorch.lib import schedulers
+from drytorch.lib import gradient_ops, schedulers
 from drytorch.lib.learn import LearningSchema
 
 
@@ -43,7 +43,7 @@ class TestLearningScheme:
         scheme = LearningSchema(optimizer_cls=torch.optim.Adam, base_lr=1e-3)
         assert isinstance(scheme.scheduler, schedulers.ConstantScheduler)
         assert scheme.optimizer_defaults == {}
-        assert scheme.gradient_op is None
+        assert isinstance(scheme.gradient_op, gradient_ops.NoOp)
 
     def test_adam(self, mock_scheduler):
         """Test the adam constructor method."""

@@ -24,6 +24,14 @@ def _validate_threshold(threshold: float) -> None:
         raise ValueError('Gradient threshold must be positive.')
 
 
+class NoOp(GradientOpProtocol):
+    """Placeholder performing no gradient action."""
+
+    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+        """No operation is performed."""
+        return
+
+
 class GradParamNormalizer(p.GradientOpProtocol):
     """Strategy that normalizes each parameter's gradient to unit norm."""
 

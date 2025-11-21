@@ -244,9 +244,7 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_schema.optimizer_defaults,
         )
-        self._gradient_op: p.GradientOpProtocol | None = (
-            learning_schema.gradient_op
-        )
+        self._gradient_op: p.GradientOpProtocol = learning_schema.gradient_op
         self._checkpoint: p.CheckpointProtocol = self._model.checkpoint
         self._checkpoint.bind_optimizer(self._optimizer)
         self._scaler: grad_scaler.GradScaler = grad_scaler.GradScaler(
@@ -343,8 +341,7 @@ class ModelOptimizer:
             loss_value: the output tensor for the loss.
         """
         self._scaler.scale(loss_value).backward()
-        if self._gradient_op is not None:
-            self._gradient_op(self._model.module.parameters())
+        self._gradient_op(self._model.module.parameters())
         self._scaler.step(self._optimizer)
         self._scaler.update()
         self._optimizer.zero_grad()
