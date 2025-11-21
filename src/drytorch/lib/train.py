@@ -27,9 +27,10 @@ class Trainer(
     """Implement the standard Pytorch training loop.
 
     Attributes:
-        model: the model containing the weights to evaluate.
+        model: the model to train.
         loader: provides inputs and targets in batches.
-        learning_scheme: contains optimizer settings and scheduling.
+        objective: determines the optimization's criterion.
+        learning_schema: contains optimizer settings and scheduling.
         validation: class that validates the model,
     """
 
@@ -49,7 +50,7 @@ class Trainer(
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
             loader: provides inputs and targets in batches.
-            loss: processes the model outputs and targets.
+            loss: determines the optimization's criterion.
             learning_schema: contains optimizer settings and scheduling.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
