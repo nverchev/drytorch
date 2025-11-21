@@ -19,7 +19,7 @@ _Tensor = torch.Tensor
 
 
 def from_torchmetrics(
-    metric: metric.CompositionalMetric,
+    torch_metric: metric.CompositionalMetric,
 ) -> p.LossProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a CompositionalMetric for integration."""
 
@@ -41,7 +41,6 @@ def from_torchmetrics(
         def compute(self) -> dict[str, _Tensor]:
             dict_output = dict[str, _Tensor]()
             metric_list = list[type(self.metric.metric_b)]()
-            metric_list = list[type(self.metric.metric_b)]()
             metric_list.append(self.metric)
             while metric_list:
                 metric_ = metric_list.pop()
@@ -58,4 +57,4 @@ def from_torchmetrics(
 
             return dict_output
 
-    return _TorchMetricCompositionalMetric(metric)
+    return _TorchMetricCompositionalMetric(torch_metric)
