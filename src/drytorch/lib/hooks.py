@@ -383,7 +383,9 @@ class MetricExtractor:
         if self.optional_monitor is None:
             if instance.validation is None:
                 return instance
+
             return instance.validation
+
         return self.optional_monitor
 
     @staticmethod
@@ -392,12 +394,14 @@ class MetricExtractor:
     ) -> str:
         if isinstance(metric, str):
             return metric
-        elif name := getattr(metric, 'name', False):
+
+        if name := getattr(metric, 'name', False):
             return str(name)
-        elif name := getattr(metric, '_get_name', False):
+
+        if name := getattr(metric, '_get_name', False):
             return str(name)
-        else:
-            return metric.__class__.__name__
+
+        return metric.__class__.__name__
 
     @staticmethod
     def _get_metric_best_is(
@@ -408,8 +412,8 @@ class MetricExtractor:
         higher_is_better = getattr(metric, 'higher_is_better', None)
         if higher_is_better is None:
             return None
-        else:
-            return 'higher' if higher_is_better else 'lower'
+
+        return 'higher' if higher_is_better else 'lower'
 
 
 class MetricMonitor(Generic[_Output_contra, _Target_contra]):
@@ -636,6 +640,7 @@ class PruneCallback(Generic[_Output_contra, _Target_contra]):
         epoch = instance.model.epoch
         if epoch not in self.thresholds:
             return
+
         threshold = self.thresholds[epoch]
         value = self.monitor.filtered_value
         if threshold is None or not self.monitor.is_better(value, threshold):
