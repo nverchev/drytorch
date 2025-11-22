@@ -32,18 +32,10 @@ The cell below assumes you use uv as a package manager. If you prefer to use pip
 import sys
 
 
-!{sys.executable} -m pip install "torch>=2.5.1"
-!{sys.executable} -m pip install "numpy>=1.26.0"
-!{sys.executable} -m pip install "PyYAML>=6.0"
-!{sys.executable} -m pip install "tqdm>=4.50.0"
 !{sys.executable} -m pip install drytorch
 ```
 
 ```{code-cell} ipython3
-! uv pip install "torch>=2.5.1"
-! uv pip install "numpy>=1.26.0"
-! uv pip install "PyYAML>=6.0"
-! uv pip install "tqdm>=4.50.0"
 ! uv pip install drytorch
 ```
 
