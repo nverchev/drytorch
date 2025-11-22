@@ -19,9 +19,21 @@ class TestRunRegistry:
     def sample_runs(self) -> list[RunMetadata]:
         """Set up sample run metadata."""
         return [
-            RunMetadata(id='run1', status='completed', timestamp='1245'),
-            RunMetadata(id='run2', status='failed', timestamp='1246'),
-            RunMetadata(id='run3', status='running', timestamp='1247'),
+            RunMetadata(
+                id='run1', status='completed', timestamp='1245', commit=None
+            ),
+            RunMetadata(
+                id='run2',
+                status='failed',
+                timestamp='1246',
+                commit='example_commit',
+            ),
+            RunMetadata(
+                id='run3',
+                status='running',
+                timestamp='1247',
+                commit='example_commit',
+            ),
         ]
 
     def test_init_creates_parent_directory(self, tmp_path) -> None:
@@ -48,12 +60,15 @@ class TestRunRegistry:
         assert loaded_runs[0].id == 'run1'
         assert loaded_runs[0].status == 'completed'
         assert loaded_runs[0].timestamp == '1245'
+        assert loaded_runs[0].commit is None
         assert loaded_runs[1].id == 'run2'
         assert loaded_runs[1].status == 'failed'
         assert loaded_runs[1].timestamp == '1246'
+        assert loaded_runs[1].commit == 'example_commit'
         assert loaded_runs[2].id == 'run3'
         assert loaded_runs[2].status == 'running'
         assert loaded_runs[2].timestamp == '1247'
+        assert loaded_runs[2].commit == 'example_commit'
 
     def test_load_all_nonexistent_file(self, tmp_path) -> None:
         """Test loading from a non-existent file returns an empty list."""
@@ -78,16 +93,12 @@ class TestRunRegistry:
         loaded_runs = registry.load_all()
         assert loaded_runs == []
 
-    def test_roundtrip_data_integrity(self, registry) -> None:
+    def test_roundtrip_data_integrity(self, registry, sample_runs) -> None:
         """Test that data maintains integrity through save/load cycles."""
-        original_runs = [
-            RunMetadata(id='test-run-1', status='created', timestamp='1245'),
-            RunMetadata(id='test-run-2', status='completed', timestamp='1245'),
-        ]
-        registry.save_all(original_runs)
+        registry.save_all(sample_runs)
         loaded_runs = registry.load_all()
-        assert len(loaded_runs) == len(original_runs)
-        for original, loaded in zip(original_runs, loaded_runs, strict=False):
+        assert len(loaded_runs) == len(sample_runs)
+        for original, loaded in zip(sample_runs, loaded_runs, strict=False):
             assert original.id == loaded.id
             assert original.status == loaded.status
             assert original.timestamp == loaded.timestamp
