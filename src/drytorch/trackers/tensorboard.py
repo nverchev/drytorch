@@ -5,6 +5,7 @@ import pathlib
 import shutil
 import socket
 import subprocess
+import time
 import warnings
 import webbrowser
 
@@ -68,12 +69,14 @@ class TensorBoard(base_classes.Dumper):
         """The active SummaryWriter instance."""
         if self._writer is None:
             raise exceptions.AccessOutsideScopeError()
+
         return self._writer
 
     @override
     def clean_up(self) -> None:
         if self._writer is not None:
             self.writer.close()
+
         self._writer = None
         return
 
@@ -117,6 +120,16 @@ class TensorBoard(base_classes.Dumper):
 
     def _start_tensorboard(self, logdir: pathlib.Path) -> None:
         """Start a TensorBoard server and open it in the default browser."""
+        if self._is_notebook():
+            self._display_with_tensorboard_api(logdir)
+
+        if self._open_browser:
+            self._start_tensorboard_server(logdir)
+
+        return
+
+    def _start_tensorboard_server(self, logdir: pathlib.Path) -> None:
+        """Start a TensorBoard server process."""
         instance_port = self.base_port + self._instance_number
         port = self._find_free_port(start=instance_port)
         self._port = port
@@ -145,15 +158,62 @@ class TensorBoard(base_classes.Dumper):
             msg = 'TensorBoard failed to start'
             raise exceptions.TrackerError(self, msg) from cpe
 
+        self._wait_for_server(port, timeout=10)
+
         if self._open_browser:
-            try:
-                webbrowser.open(f'http://localhost:{port}')
-            except webbrowser.Error as we:
-                msg = f'Failed to open web browser: {we}'
-                warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
-            except OSError as ose:
-                msg = f'OS-level error while opening browser: {ose}'
-                warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+            self._open_in_browser(port)
+
+    def _display_with_tensorboard_api(self, logdir: pathlib.Path) -> None:
+        """Display TensorBoard using its native notebook API."""
+        from tensorboard import notebook as tb_notebook
+
+        tb_notebook.start(f'--logdir {logdir}')
+        return
+
+    def _open_tensorboard(self, port: int) -> None:
+        """Open TensorBoard in browser or display inline in notebooks."""
+        self._open_in_browser(port)
+
+    @staticmethod
+    def _is_notebook() -> bool:
+        """Detect a Jupyter notebook or similar environment."""
+        try:
+            from IPython.core.getipython import get_ipython
+        except ImportError:
+            return False
+        else:
+            shell = get_ipython().__class__.__name__
+            if shell == 'ZMQInteractiveShell':
+                return True  # Jupyter notebook or qtconsole
+
+            if 'colab' in str(get_ipython().__class__):
+                return True
+
+        return False
+
+    def _display_in_notebook(self, port: int) -> None:
+        """Display TensorBoard inline in a Jupyter notebook."""
+        try:
+            from IPython.display import IFrame, display
+        except ImportError:
+            msg = 'IPython not available. Opening in browser instead.'
+            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+            self._open_in_browser(port)
+        else:
+            url = f'http://localhost:{port}'
+            display(IFrame(src=url, width='100%', height=600))
+
+    @staticmethod
+    def _open_in_browser(port: int) -> None:
+        """Open TensorBoard in the default web browser."""
+        try:
+            webbrowser.open(f'http://localhost:{port}')
+        except webbrowser.Error as we:
+            msg = f'Failed to open web browser: {we}'
+            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+        except OSError as ose:
+            msg = f'OS-level error while opening browser: {ose}'
+            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
 
     @staticmethod
     def _find_free_port(start: int = 6006, max_tries: int = 100) -> int:
@@ -161,6 +221,7 @@ class TensorBoard(base_classes.Dumper):
         for port in range(start, start + max_tries):
             if TensorBoard._port_available(port):
                 return port
+
         msg = f'No free ports available after {max_tries} tries.'
         raise exceptions.TrackerError(TensorBoard, msg)
 
@@ -169,3 +230,21 @@ class TensorBoard(base_classes.Dumper):
         """Check if the given port is available."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             return sock.connect_ex(('localhost', port)) != 0
+
+    @staticmethod
+    def _wait_for_server(port: int, timeout: int = 10) -> None:
+        """Wait for TensorBoard server to start responding."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(1)
+                    if sock.connect_ex(('localhost', port)) == 0:
+                        time.sleep(1)
+                        return
+            except OSError:
+                pass
+            time.sleep(0.5)
+
+        msg = f'TensorBoard server did not start within {timeout} seconds'
+        warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
