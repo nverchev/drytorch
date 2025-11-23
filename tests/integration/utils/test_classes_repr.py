@@ -24,6 +24,7 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
         'class': 'Trainer',
         'learning_schema': {
             'class': 'LearningSchema',
+            'gradient_op': 'NoOp',
             'base_lr': 0.1,
             'optimizer_cls': 'Adam',
             'optimizer_defaults': {'betas': (0.9, 0.999)},

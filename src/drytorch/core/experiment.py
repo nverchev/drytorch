@@ -6,6 +6,8 @@ import dataclasses
 import gc
 import json
 import pathlib
+import shutil
+import subprocess
 import warnings
 import weakref
 
@@ -40,6 +42,7 @@ class RunMetadata:
     id: str
     status: RunStatus
     timestamp: str
+    commit: str | None
 
 
 class RunRegistry:
@@ -240,6 +243,7 @@ class Experiment(Generic[_T_co]):
             id=run.id,
             status='created',
             timestamp=run.created_at_str,
+            commit=self._get_last_commit_hash(),
         )
         runs_data.append(run_data)
         if record:
@@ -289,6 +293,24 @@ class Experiment(Generic[_T_co]):
         """Clear the active experiment."""
         Experiment.__current = None
         return
+
+    @staticmethod
+    def _get_last_commit_hash() -> str | None:
+        """Get last commit hash if available otherwise None."""
+        git = shutil.which('git')
+        if git is None:
+            return None
+
+        try:
+            result = subprocess.run(
+                [git, 'rev-parse', 'HEAD'],  # noqa: S603
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError:
+            return None
 
 
 class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
@@ -366,15 +388,19 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         elif self.status == 'created':
             warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
             return
-        elif self.status == 'completed':
+
+        if self.status == 'completed':
             warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
             return
+
         if self.record:
             self._update_registry()
+
         self._cleanup_resources(self.experiment)
         if self._finalizer is not None:
             self._finalizer.detach()
             self._finalizer = None
+
         return
 
     def start(self: Self) -> None:
@@ -382,12 +408,14 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         if self.status == 'running':
             warnings.warn(exceptions.RunAlreadyRunningWarning(), stacklevel=1)
             return
+
         self._finalizer = weakref.finalize(
             self, self._cleanup_resources, self._experiment
         )
         self.status = 'running'
         if self.record:
             self._update_registry()
+
         self._experiment._active_run = self
         Experiment.set_current(self._experiment)
         log_events.Event.set_auto_publish(self._experiment.trackers.publish)
@@ -416,11 +444,11 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
                     id=self.id,
                     status=self.status,
                     timestamp=self.created_at_str,
+                    commit=None,
                 )
             )
 
         self.experiment._registry.save_all(run_data)
-
         return
 
     @staticmethod

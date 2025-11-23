@@ -147,7 +147,7 @@ class LearningProtocol(Protocol):
     base_lr: float | dict[str, float]
     scheduler: SchedulerProtocol
     optimizer_defaults: dict[str, Any]
-    gradient_op: GradientOpProtocol | None
+    gradient_op: GradientOpProtocol
 
 
 @runtime_checkable
@@ -229,12 +229,15 @@ class TrainerProtocol(
 
     Attributes:
         model: the model to train.
+        learning_schema: contains optimizer settings and scheduling.
+        objective: determines the optimization's criterion.
+        validation: class that validates the model,
     """
 
     model: ModelProtocol[_Input, _Output]
     learning_schema: LearningProtocol
-    validation: MonitorProtocol | None
     objective: LossProtocol[_Output, _Target]
+    validation: MonitorProtocol | None
 
     @property
     def terminated(self) -> bool:

@@ -9,10 +9,11 @@ from typing import Any
 import torch
 
 from drytorch.core import protocols as p
-from drytorch.lib import schedulers
+from drytorch.lib import gradient_ops, schedulers
 
 
 _default_scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
+_default_grad_op: p.GradientOpProtocol = gradient_ops.NoOp()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -31,7 +32,7 @@ class LearningSchema(p.LearningProtocol):
     base_lr: float | dict[str, float]
     scheduler: p.SchedulerProtocol = _default_scheduler
     optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
-    gradient_op: p.GradientOpProtocol | None = None
+    gradient_op: p.GradientOpProtocol = _default_grad_op
 
     @classmethod
     def adam(
@@ -39,6 +40,7 @@ class LearningSchema(p.LearningProtocol):
         base_lr: float = 1e-3,
         betas: tuple[float, float] = (0.9, 0.999),
         scheduler: p.SchedulerProtocol = _default_scheduler,
+        gradient_op: p.GradientOpProtocol = _default_grad_op,
     ) -> LearningSchema:
         """Convenience method for the Adam optimizer.
 
@@ -53,6 +55,7 @@ class LearningSchema(p.LearningProtocol):
             base_lr=base_lr,
             scheduler=scheduler,
             optimizer_defaults={'betas': betas},
+            gradient_op=gradient_op,
         )
 
     @classmethod
@@ -62,7 +65,7 @@ class LearningSchema(p.LearningProtocol):
         betas: tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 1e-2,
         scheduler: p.SchedulerProtocol = _default_scheduler,
-        gradient_op: p.GradientOpProtocol | None = None,
+        gradient_op: p.GradientOpProtocol = _default_grad_op,
     ) -> LearningSchema:
         """Convenience method for the AdamW optimizer.
 
@@ -90,7 +93,7 @@ class LearningSchema(p.LearningProtocol):
         dampening: float = 0.0,
         nesterov: bool = False,
         scheduler: p.SchedulerProtocol = _default_scheduler,
-        gradient_op: p.GradientOpProtocol | None = None,
+        gradient_op: p.GradientOpProtocol = _default_grad_op,
     ) -> LearningSchema:
         """Convenience method for the SGD optimizer.
 
@@ -123,7 +126,7 @@ class LearningSchema(p.LearningProtocol):
         betas: tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 0.0,
         scheduler: p.SchedulerProtocol = _default_scheduler,
-        gradient_op: p.GradientOpProtocol | None = None,
+        gradient_op: p.GradientOpProtocol = _default_grad_op,
     ) -> LearningSchema:
         """Convenience method for the RAdam optimizer.
 
