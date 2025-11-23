@@ -66,6 +66,7 @@ class TestFromTorchMetrics:
 
         # update modifies the state of the input metric
         expected = {
+            'Combined Loss': 2 * metric_a.compute() + metric_b.compute(),
             metric_a.__class__.__name__: metric_a.compute(),
             metric_b.__class__.__name__: metric_b.compute(),
         }
