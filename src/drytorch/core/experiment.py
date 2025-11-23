@@ -385,12 +385,12 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         """Stop the experiment scope."""
         if self.status == 'running':  # failed is left as is
             self.status = 'completed'
-        elif self.status == 'created':
-            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
+        elif self.status == 'completed':
+            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
             return
 
-        if self.status == 'completed':
-            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
+        if self.status == 'created':
+            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
             return
 
         if self.record:
