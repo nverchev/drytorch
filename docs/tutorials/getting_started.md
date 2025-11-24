@@ -205,7 +205,6 @@ class AllSettings:
 
 class UpsamplingExperiment(Experiment[AllSettings]):
     """Class for upsampling experiments."""
-
     pass
 ```
 
