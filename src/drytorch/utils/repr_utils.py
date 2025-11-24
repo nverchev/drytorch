@@ -113,7 +113,7 @@ class Omitted:
 
 
 @functools.singledispatch
-def recursive_repr(obj: object, *, depth: int = MAX_DEPTH) -> Any:
+def recursive_repr(obj: object, *, depth: int | None = None) -> Any:
     """Create a hierarchical representation of an object.
 
     It recursively represents each attribute of the object or the contained
@@ -129,6 +129,9 @@ def recursive_repr(obj: object, *, depth: int = MAX_DEPTH) -> Any:
     Returns:
         A readable representation of the object
     """
+    if depth is None:  # assume actor is dispatched here
+        depth = MAX_DEPTH
+
     class_name = obj.__class__.__name__
     if depth == 0:
         return repr(obj) if _has_own_repr(obj) else class_name
