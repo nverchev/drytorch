@@ -65,12 +65,11 @@ from drytorch.core import protocols as p
 
 tensor_a = torch.ones(1, 1, dtype=torch.float)
 tensor_b = 3 * torch.ones(1, 1, dtype=torch.float)
-
 torch_metric = torchmetrics.MeanSquaredError()
 eval_metric = eval_metrics.MeanSquaredError()
 
 
-def supported_for_validation(
+def is_valid_objective(
     metric: p.ObjectiveProtocol[torch.Tensor, torch.Tensor],
 ) -> bool:
     """Test metric follows the Objective protocol."""
@@ -80,21 +79,25 @@ def supported_for_validation(
 torch_metric.update(tensor_a, tensor_b)
 eval_metric.update(tensor_a, tensor_b)
 
-if not torch_metric.compute() == eval_metric.compute():
-    raise
+if not torch.isclose(torch_metric.compute(), eval_metric.compute()):
+    raise AssertionError('Metrics values should match.')
 
-supported_for_validation(eval_metric) and supported_for_validation(torch_metric)
+if not (
+        is_valid_objective(eval_metric) and is_valid_objective(torch_metric)
+):
+    raise AssertionError('These objects should follow the ObjectiveProtocol.')
 ```
 
 ```{code-cell} ipython3
-def supported_for_training(
+def is_valid_loss(
     metric: p.LossProtocol[torch.Tensor, torch.Tensor],
 ) -> bool:
     """Test metric follows the Loss protocol."""
     return isinstance(metric, p.LossProtocol)
 
 
-supported_for_training(torch_metric)
+if not is_valid_loss(torch_metric):
+    raise AssertionError('This object should also follow the LossProtocol.')
 ```
 
 ```{code-cell} ipython3
@@ -102,12 +105,13 @@ from drytorch.contrib.torchmetrics import from_torchmetrics
 
 
 new_metric = 1 + torch_metric
-
-
 imported_metric = from_torchmetrics(new_metric)
-
 imported_metric.update(tensor_a, tensor_b)
-imported_metric.compute()
+expected_metrics_from_torchmetrics = {
+    'Combined Loss': torch.tensor(5.), 'MeanSquaredError': torch.tensor(4.)
+}
+if not imported_metric.compute() == expected_metrics_from_torchmetrics:
+    raise AssertionError('Metrics values should be as expected.')
 ```
 
 ## DRYTorch implementation
@@ -134,9 +138,11 @@ def mae_loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
 mse_metric = Metric(mse_loss_fn, name='MSE', higher_is_better=False)
 mae_metric = Metric(mae_loss_fn, 'MAE', higher_is_better=False)
 metric_collection = mse_metric | mae_metric
-
 metric_collection.update(tensor_a, tensor_b)
 metric_collection.compute()
+expected_metric_collection = {'MSE': torch.tensor(4.), 'MAE': torch.tensor(2.)}
+if not metric_collection.compute() == expected_metric_collection:
+    raise AssertionError('Metrics values should be as expected.')
 ```
 
 ### Define a Custom Metric class
@@ -166,6 +172,8 @@ class MyMetrics(Objective[torch.Tensor, torch.Tensor]):
 my_metrics = MyMetrics()
 my_metrics.update(tensor_a, tensor_b)
 my_metrics.compute()
+if not my_metrics.compute() == expected_metric_collection:
+    raise AssertionError('Metrics values should be as before.')
 ```
 
 ## LossBase, Loss and CompositionalLoss
@@ -188,12 +196,18 @@ from drytorch.lib.objectives import Loss
 
 mse_loss = Loss(mse_loss_fn, name='MSE')
 mae_loss = Loss(mae_loss_fn, 'MAE')
-composed_loss = mse_loss**2 + 0.5 * mae_loss
-
+composed_loss = mse_loss ** 2 + 0.5 * mae_loss
 composed_loss.update(tensor_a, tensor_b)
-composed_loss.compute()
+expected_metrics_from_loss = {
+    'Combined Loss': torch.tensor(17.),
+    'MSE': torch.tensor(4.),
+    'MAE': torch.tensor(2.)
+}
+if not composed_loss.compute() == expected_metrics_from_loss:
+    raise AssertionError('Metrics values should be as expected.')
 ```
 
 ```{code-cell} ipython3
-composed_loss.formula
+if composed_loss.formula != '[MSE]^2 + 0.5 x [MAE]':
+    raise AssertionError('Formula mismatch.')
 ```

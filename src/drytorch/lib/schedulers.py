@@ -32,6 +32,7 @@ class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
         """
         if base_lr < 0 or epoch < 0:
             raise ValueError('Base learning rate and epoch must be positive.')
+
         return self._compute(base_lr, epoch)
 
     def bind(
