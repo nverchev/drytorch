@@ -535,7 +535,10 @@ def downsampled_mse(outputs: Outputs, targets: TrainingTargets) -> torch.Tensor:
     )
 
 
-psnr(baseline_reconstruction, flower_torch).item()
+baseline_psnr = psnr(baseline_reconstruction, flower_torch).item()
+
+if not np.isclose(baseline_psnr, 25.90, atol=1e-2):
+    raise AssertionError('Baseline should value should be about 25.90.')
 ```
 
 ## Library implementations
@@ -595,9 +598,6 @@ trainer = Trainer(
 trainer.train(cfg_train.n_epochs)
 ```
 
-### Test the model
-We evaluate the model using the PSNR metric. The score should be slightly higher than the baseline (about 26.00).
-
 ```{code-cell} ipython3
 from drytorch import Metric, Test
 
@@ -606,9 +606,12 @@ test_loader = DataLoader(test_dataset, batch_size=1)
 metric = Metric(target_psnr, 'PSNR Target', False)
 test = Test(model, loader=test_loader, metric=metric)
 test(store_outputs=True)
+
+if test.computed_metrics['PSNR Target'] < baseline_psnr:
+    raise AssertionError('DeepPrior failed to beat the baseline.')
 ```
 
-### Qualitative results
+ test.computed_metrics['PSNR Target'] ### Qualitative results
 We get the stored output with the deep prior reconstruction from the previous test and visualize it side by side with the original image and the baseline reconstruction.
 
 Visually, the deep prior image should be able to recover some of the high-frequency details.
