@@ -53,6 +53,7 @@ __all__ = [
     'Test',
     'Trainer',
     'Validation',
+    'extend_default_trackers',
     'init_trackers',
 ]
 
