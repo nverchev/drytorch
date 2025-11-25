@@ -168,6 +168,7 @@ class Tracker(metaclass=abc.ABCMeta):
         """
         if cls._current is None:
             raise exceptions.TrackerNotActiveError(cls.__name__)
+
         return cls._current
 
     @classmethod
