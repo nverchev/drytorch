@@ -261,10 +261,12 @@ class MetadataVisualizer(Tracker):
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
        pprint.pp(event.architecture_repr)
+       return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.ActorRegistrationEvent) -> None:
         pprint.pp(event.metadata)
+        return super().notify(event)
 
 third_experiment = MyExperiment(
     my_config,
