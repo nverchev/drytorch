@@ -260,7 +260,7 @@ class MetadataVisualizer(Tracker):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
-       pprint.pp(event.architecure_repr)
+       pprint.pp(event.architecture_repr)
 
     @notify.register
     def _(self, event: log_events.ActorRegistrationEvent) -> None:

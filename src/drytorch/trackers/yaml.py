@@ -64,7 +64,7 @@ class YamlDumper(base_classes.Dumper):
         run_dir = self._get_run_dir()
         name_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
         file = self._file_path(run_dir, name_with_ts, 'architecture')
-        self._dump(event.architecure_repr, file)
+        self._dump(event.architecture_repr, file)
         return super().notify(event)
 
     @notify.register

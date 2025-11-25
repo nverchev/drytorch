@@ -51,7 +51,7 @@ def model_registration_event(
     return log_events.ModelRegistrationEvent(
         model_name=example_model_name,
         model_ts=example_model_ts,
-        architecure_repr=example_architecure_repr,
+        architecture_repr=example_architecure_repr,
     )
 
 

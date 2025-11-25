@@ -58,7 +58,7 @@ def model_registration_mock_event(
     mock = mocker.create_autospec(log_events.ModelRegistrationEvent)
     mock.model_name = example_model_name
     mock.model_ts = example_model_ts
-    mock.architecure_repr = example_architecure_repr
+    mock.architecture_repr = example_architecure_repr
     return mock
 
 
