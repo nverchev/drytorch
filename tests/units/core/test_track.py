@@ -141,7 +141,7 @@ class TestEventDispatcher:
     def dispatcher(self, tracker) -> EventDispatcher:
         """Set up a test instance."""
         dispatcher = EventDispatcher('TestExperiment')
-        dispatcher.register(tracker)
+        dispatcher.subscribe(tracker)
         return dispatcher
 
     def test_register_tracker(self, tracker, dispatcher):
@@ -151,7 +151,7 @@ class TestEventDispatcher:
     def test_register_duplicate_tracker_raises_error(self, dispatcher):
         """Test that registering a duplicate tracker raises an error."""
         with pytest.raises(exceptions.TrackerAlreadyRegisteredError):
-            dispatcher.register(_SimpleTracker())
+            dispatcher.subscribe(_SimpleTracker())
 
     def test_remove_named_tracker(self, tracker, dispatcher):
         """Test that a registered tracker can be removed by its name."""

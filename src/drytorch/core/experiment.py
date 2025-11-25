@@ -138,7 +138,7 @@ class Experiment(Generic[_T_co]):
         self.par_dir: Path = pathlib.Path(par_dir)
         self.tags: list[str] = tags or []
         self.trackers: Final = track.EventDispatcher(self.name)
-        self.trackers.register(**track.DEFAULT_TRACKERS)
+        self.trackers.subscribe(**track.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
         self._registry: RunRegistry = RunRegistry(run_file)
         self._active_run: Run[_T_co] | None = None
@@ -170,7 +170,7 @@ class Experiment(Generic[_T_co]):
         Args:
             run_id: identifier of the run; defaults to timestamp.
             resume: resume the selected run if run_id is set, else the last run.
-            record: register the run in the registry.
+            record: record the run in the registry.
 
         Returns:
             Run: The created run object.
@@ -336,7 +336,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             experiment: the experiment this run belongs to.
             run_id: identifier of the run.
             resumed: whether the run was resumed.
-            record: register the run in the registry.
+            record: record the run in the registry.
         """
         super().__init__()
         self._experiment: Final[Experiment[_T_co]] = experiment

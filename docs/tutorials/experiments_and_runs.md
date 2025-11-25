@@ -273,7 +273,7 @@ third_experiment = MyExperiment(
     tags=[],
 )
 
-third_experiment.trackers.register(MetadataVisualizer())
+third_experiment.trackers.subscribe(MetadataVisualizer())
 ```
 
 #### Model metadata

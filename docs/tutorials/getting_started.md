@@ -233,7 +233,7 @@ Here, we want to save the training and test results in `.csv` files, so we add t
 from drytorch.trackers.csv import CSVDumper
 
 
-experiment.trackers.register(CSVDumper())
+experiment.trackers.subscribe(CSVDumper())
 ```
 
 ### Create the run and start the experiment

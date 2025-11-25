@@ -224,8 +224,8 @@ class EventDispatcher:
 
         return
 
-    def _register_tracker(self, name: str, tracker: Tracker) -> None:
-        """Register a tracker to the experiment.
+    def _subscribe_tracker(self, name: str, tracker: Tracker) -> None:
+        """Subscribe a tracker to the dispatcher.
 
         Args:
             name: the name associated with the tracker.
@@ -240,27 +240,27 @@ class EventDispatcher:
         self.named_trackers[name] = tracker
         return
 
-    def register(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
-        """Register trackers from am iterable to the experiment.
+    def subscribe(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
+        """Subscribe trackers to the dispatcher.
 
         Args:
             trackers: trackers to register with their class names.
-            named_trackers: tracker to register with custom names.
+            named_trackers: trackers to register with custom names.
 
         Raises:
             TrackerAlreadyRegisteredError: if a tracker is already registered.
         """
         for tracker in trackers:
             name = tracker.__class__.__name__
-            self._register_tracker(name, tracker)
+            self._subscribe_tracker(name, tracker)
 
         for name, tracker in named_trackers.items():
-            self._register_tracker(name, tracker)
+            self._subscribe_tracker(name, tracker)
 
         return
 
     def remove(self, tracker_name: str) -> None:
-        """Remove a tracker by name from the experiment.
+        """Remove a tracker by name from the dispatcher.
 
         Args:
             tracker_name: name of the tracker to remove.
@@ -275,7 +275,7 @@ class EventDispatcher:
         return
 
     def remove_all(self) -> None:
-        """Remove all trackers from the experiment."""
+        """Remove all trackers from the dispatcher."""
         for tracker_name in list(self.named_trackers):
             self.remove(tracker_name)
 
