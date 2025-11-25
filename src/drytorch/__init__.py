@@ -5,10 +5,10 @@ work well together. The mode can be set as an environmental variable
 DRYTORCH_INIT_MODE before loading the package or explicitly reset after.
 
 Available modes:
-    1) standard: if present, relies on tqdm to print the metrics on stderr.
-    2) hydra: logs metrics to stdout to accommodate default hydra settings.
-    3) tuning: most output gets overwritten and metadata is not extracted.
-    4) none: skip initialization.
+    1) standard: log to stderr, preferring tqdm over the built-in logger.
+    2) hydra: log to stdout and accommodate default Hydra settings.
+    3) tuning: reduce output and avoid dumping metadata.
+    4) none: no tracker is added to the default ones.
 
 Attributes:
     INIT_MODE: the mode the trackers will be initialized with at the start.
@@ -65,9 +65,9 @@ def init_trackers(mode: _InitMode = 'standard') -> None:
     """Initialize trackers used by default during the experiment.
 
     Three initializations are available:
-        1) standard: if present, relies on tqdm to print the metrics on stderr.
-        2) hydra: logs metrics to stdout to accommodate default hydra settings.
-        3) tuning: most output gets overwritten and metadata is not extracted.
+        1) standard: log to stderr, preferring tqdm over the built-in logger.
+        2) hydra: log to stdout and accommodate default Hydra settings.
+        3) tuning: reduce output and avoid dumping metadata.
 
     Args:
         mode: one of the suggested initialization modes.
