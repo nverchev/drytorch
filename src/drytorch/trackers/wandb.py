@@ -10,7 +10,6 @@ import wandb
 
 from typing_extensions import override
 from wandb.sdk import wandb_run, wandb_settings
-from wandb.sdk.wandb_settings import Settings
 
 from drytorch.core import exceptions, log_events
 from drytorch.trackers.base_classes import Dumper
@@ -38,7 +37,7 @@ class Wandb(Dumper):
             settings: settings object from wandb containing all init arguments.
         """
         super().__init__(par_dir)
-        self._settings: Settings = settings
+        self._settings: wandb_settings.Settings = settings
         self._run: wandb_run.Run | None = None
         self._defined_metrics: set[str] = set()
         return
