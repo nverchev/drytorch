@@ -251,10 +251,11 @@ class ProgressFormatter(DryTorchFormatter):
     def _info_fmt(level_no: int) -> str:
         if level_no == INFO_LEVELS.epoch:
             return '%(message)s ...\r'
-        elif level_no == INFO_LEVELS.model_state:
+
+        if level_no == INFO_LEVELS.model_state:
             return '%(message)s\r'
-        else:
-            return DryTorchFormatter._info_fmt(level_no)
+
+        return DryTorchFormatter._info_fmt(level_no)
 
 
 def disable_default_handler() -> None:
@@ -320,7 +321,6 @@ def set_formatter(style: Literal['drytorch', 'progress']) -> None:
                 handler.formatter = ProgressFormatter()
             elif style == 'drytorch':
                 handler.formatter = DryTorchFormatter()
-
             else:
                 raise ValueError('Invalid formatter style.')
 

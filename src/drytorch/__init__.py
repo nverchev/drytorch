@@ -115,8 +115,9 @@ def _add_tqdm(tracker_list: list[Tracker], mode: _InitMode) -> None:
             raise ValueError('Mode {mode} not available.')
 
         tracker_list.append(tqdm_logger)
-        builtin_logging.set_verbosity(verbosity)
-        return
+
+    builtin_logging.set_verbosity(verbosity)
+    return
 
 
 def _add_yaml(tracker_list: list[Tracker]) -> None:
