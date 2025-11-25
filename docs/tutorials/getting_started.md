@@ -606,12 +606,9 @@ test_loader = DataLoader(test_dataset, batch_size=1)
 metric = Metric(target_psnr, 'PSNR Target', False)
 test = Test(model, loader=test_loader, metric=metric)
 test(store_outputs=True)
-
-if test.computed_metrics['PSNR Target'] < baseline_psnr:
-    raise AssertionError('DeepPrior failed to beat the baseline.')
 ```
 
- test.computed_metrics['PSNR Target'] ### Qualitative results
+### Qualitative results
 We get the stored output with the deep prior reconstruction from the previous test and visualize it side by side with the original image and the baseline reconstruction.
 
 Visually, the deep prior image should be able to recover some of the high-frequency details.

@@ -205,13 +205,7 @@ class MyDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         """Initialize some dummy attributes."""
         super().__init__()
         self.empty_container = []
-        self.array = torch.ones(3, 3)
-        self.long_string =  9 * '9'
-
-    @property
-    def two(self) -> int:
-        """TA dummy property evaluating to two."""
-        return 1 + 1
+        self.none= None
 
     def __len__(self) -> int:
         """Size of the dataset."""
@@ -252,11 +246,12 @@ To better visualize it, we create an ad-hoc tracker for this tutorial.
 import functools
 import pprint
 
-from drytorch.core.track import Tracker
 from drytorch.core import log_events
+from drytorch.core.track import Tracker
 
 
 class MetadataVisualizer(Tracker):
+    """Tracker that prints the metadata on the console."""
 
     @functools.singledispatchmethod
     @override
@@ -265,11 +260,11 @@ class MetadataVisualizer(Tracker):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
-       pprint.pprint(event.architecure_repr)
+       pprint.pp(event.architecure_repr)
 
     @notify.register
     def _(self, event: log_events.ActorRegistrationEvent) -> None:
-        pprint.pprint(event.metadata)
+        pprint.pp(event.metadata)
 
 third_experiment = MyExperiment(
     my_config,
@@ -288,10 +283,6 @@ representation of the wrapped `nn.Module`.
 ```{code-cell} ipython3
 with third_experiment.create_run():  # correctly resuming run
     third_model = Model(nn.Linear(1, 1))
-
-    # loader = DataLoader(one_dataset, batch_size=1)
-    # model_caller = ModelRunner(second_model, loader=loader)
-    # model_caller()
 ```
 
 #### Actor Metadata
