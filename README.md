@@ -1,4 +1,4 @@
-![drytorch_logo.png](docs/resources/drytorch_logo.png)
+![drytorch_logo.png](https://raw.githubusercontent.com/nverchev/drytorch/main/docs/resources/drytorch_logo.png)
 [![PyPI version](https://img.shields.io/pypi/v/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
 [![Total Downloads](https://img.shields.io/pypi/dm/drytorch?label=downloads&style=flat)](https://pypi.org/project/drytorch/)
 [![Python](https://img.shields.io/pypi/pyversions/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
