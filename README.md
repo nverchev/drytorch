@@ -75,4 +75,13 @@ Dive into the full, runnable examples:
         <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
     </a>
 </div>
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <p style="margin: 0;">
+        ➡️ <strong><a href="https://github.com/nverchev/drytorch/blob/main/docs/tutorials/trackers.ipynb">Trackers</a></strong>
+    </p>
+    <a target="_blank" href="https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/trackers.ipynb">
+        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
+    </a>
+</div>
+
 ## 📝 **[Changelog](CHANGELOG.md)**
