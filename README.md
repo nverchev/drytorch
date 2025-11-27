@@ -26,13 +26,12 @@ By adhering to the Don't Repeat Yourself (DRY) principle, this library makes you
 **Requirements**
 The library only requires recent versions of **PyTorch** and **NumPy**. Tracker dependencies are optional.
 
-**Installation**
-Using pip:
+**Commands**
+
 ```bash
 pip install drytorch
 ```
-
-Using uv
+or:
 ```bash
 uv add drytorch
 ```
@@ -76,5 +75,4 @@ Dive into the full, runnable examples:
         <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
     </a>
 </div>
-
 ## 📝 **[Changelog](CHANGELOG.md)**
