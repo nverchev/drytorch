@@ -23,10 +23,17 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.6
     hooks:
-      - id: ruff
-        args: [ --fix, --exit-non-zero-on-fix ]
       - id: ruff-format
-        args: [ --config=./ruff.toml ]
+      - id: ruff-check
+        args: [ --fix, --exit-non-zero-on-fix ]
+
+  - repo: https://github.com/mwouts/jupytext  # ensure they are still in sync
+    rev: v1.18.1
+    hooks:
+      - id: jupytext
+        args: [ --sync ]
+        additional_dependencies: [ jupytext ]
+        files: '\.ipynb$'
 
   - repo: https://github.com/DetachHead/basedpyright-prek-mirror
     rev: 1.32.1
