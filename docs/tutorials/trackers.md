@@ -59,12 +59,17 @@ from drytorch import Experiment, init_trackers
 
 init_trackers(mode='tuning')
 
-with Experiment(None, name='TuningExperiment', par_dir='experiments').create_run():
+tuning_experiment = Experiment(
+    None, name='TuningExperiment', par_dir='experiments'
+)
+with tuning_experiment.create_run():
     pass  # no logging output
 
 init_trackers()
-
-with Experiment(None, name='StandardExperiment', par_dir='experiments').create_run():
+standard_experiment = Experiment(
+    None, name='StandardExperiment', par_dir='experiments'
+)
+with standard_experiment.create_run():
     pass  # log experiment's name
 ```
 
@@ -117,9 +122,9 @@ Trackers are designed to not be passed directly to the implementation of the exp
 To allow more flexibility, DRYTorch allows you to call the subscribed tracker from everywhere during the experimental run using the tracker class  `get_current` method.
 
 ```{code-cell} ipython2
-csv_dumper_experiment =  Experiment(None,
-                                    name='ExperimentWithCSVDumper',
-                                    par_dir='experiments')
+csv_dumper_experiment = Experiment(
+    None, name='ExperimentWithCSVDumper', par_dir='experiments'
+)
 with csv_dumper_experiment.create_run():
     if CSVDumper.get_current() is not csv_dumper:
         raise AssertionError('Trackers should coincide.')
