@@ -59,12 +59,12 @@ from drytorch import Experiment, init_trackers
 
 init_trackers(mode='tuning')
 
-with Experiment(None, name="TuningExperiment").create_run():
+with Experiment(None, name='TuningExperiment').create_run():
     pass  # no logging output
 
 init_trackers()
 
-with Experiment(None, name="StandardExperiment").create_run():
+with Experiment(None, name='StandardExperiment').create_run():
     pass  # log experiment's name
 ```
 
@@ -117,9 +117,9 @@ Trackers are designed to not be passed directly to the implementation of the exp
 To allow more flexibility, DRYTorch allows you to call the subscribed tracker from everywhere during the experimental run using the tracker class  `get_current` method.
 
 ```{code-cell} ipython2
-with Experiment(None, name="ExperimentWithCSVDumper").create_run():
+with Experiment(None, name='ExperimentWithCSVDumper').create_run():
     if CSVDumper.get_current() is not csv_dumper:
-        raise AssertionError("Trackers should coincide.")
+        raise AssertionError('Trackers should coincide.')
 ```
 
 ## Write a Custom Tracker
@@ -216,8 +216,8 @@ class MetadataVisualizer(Tracker):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
-       pprint.pp(event.architecture_repr)
-       return super().notify(event)
+        pprint.pp(event.architecture_repr)
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.ActorRegistrationEvent) -> None:

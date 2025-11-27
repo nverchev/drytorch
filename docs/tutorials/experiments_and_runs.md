@@ -38,6 +38,7 @@ from drytorch import Experiment as GenericExperiment
 @dataclasses.dataclass(frozen=True)
 class SimpleConfig:
     """A simple configuration."""
+
     batch_size: int
 
 
@@ -205,7 +206,7 @@ class MyDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         """Initialize some dummy attributes."""
         super().__init__()
         self.empty_container = []
-        self.none= None
+        self.none = None
 
     def __len__(self) -> int:
         """Size of the dataset."""
@@ -214,6 +215,7 @@ class MyDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     @override
     def __getitem__(self, index) -> tuple[torch.Tensor, torch.Tensor]:
         return torch.ones(1), torch.ones(1)
+
 
 one_dataset: Dataset[tuple[torch.Tensor, torch.Tensor]] = MyDataset()
 
@@ -260,13 +262,14 @@ class MetadataVisualizer(Tracker):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
-       pprint.pp(event.architecture_repr)
-       return super().notify(event)
+        pprint.pp(event.architecture_repr)
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.ActorRegistrationEvent) -> None:
         pprint.pp(event.metadata)
         return super().notify(event)
+
 
 third_experiment = MyExperiment(
     my_config,

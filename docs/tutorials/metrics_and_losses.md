@@ -82,9 +82,7 @@ eval_metric.update(tensor_a, tensor_b)
 if not torch.isclose(torch_metric.compute(), eval_metric.compute()):
     raise AssertionError('Metrics values should match.')
 
-if not (
-        is_valid_objective(eval_metric) and is_valid_objective(torch_metric)
-):
+if not (is_valid_objective(eval_metric) and is_valid_objective(torch_metric)):
     raise AssertionError('These objects should follow the ObjectiveProtocol.')
 ```
 
@@ -108,7 +106,8 @@ new_metric = 1 + torch_metric
 imported_metric = from_torchmetrics(new_metric)
 imported_metric.update(tensor_a, tensor_b)
 expected_metrics_from_torchmetrics = {
-    'Combined Loss': torch.tensor(5.), 'MeanSquaredError': torch.tensor(4.)
+    'Combined Loss': torch.tensor(5.0),
+    'MeanSquaredError': torch.tensor(4.0),
 }
 if not imported_metric.compute() == expected_metrics_from_torchmetrics:
     raise AssertionError('Metrics values should be as expected.')
@@ -140,7 +139,10 @@ mae_metric = Metric(mae_loss_fn, 'MAE', higher_is_better=False)
 metric_collection = mse_metric | mae_metric
 metric_collection.update(tensor_a, tensor_b)
 metric_collection.compute()
-expected_metric_collection = {'MSE': torch.tensor(4.), 'MAE': torch.tensor(2.)}
+expected_metric_collection = {
+    'MSE': torch.tensor(4.0),
+    'MAE': torch.tensor(2.0),
+}
 if not metric_collection.compute() == expected_metric_collection:
     raise AssertionError('Metrics values should be as expected.')
 ```
@@ -196,12 +198,12 @@ from drytorch.lib.objectives import Loss
 
 mse_loss = Loss(mse_loss_fn, name='MSE')
 mae_loss = Loss(mae_loss_fn, 'MAE')
-composed_loss = mse_loss ** 2 + 0.5 * mae_loss
+composed_loss = mse_loss**2 + 0.5 * mae_loss
 composed_loss.update(tensor_a, tensor_b)
 expected_metrics_from_loss = {
-    'Combined Loss': torch.tensor(17.),
-    'MSE': torch.tensor(4.),
-    'MAE': torch.tensor(2.)
+    'Combined Loss': torch.tensor(17.0),
+    'MSE': torch.tensor(4.0),
+    'MAE': torch.tensor(2.0),
 }
 if not composed_loss.compute() == expected_metrics_from_loss:
     raise AssertionError('Metrics values should be as expected.')
