@@ -56,6 +56,7 @@ You can change the mode by assigning a mode to a `DRYTORCH_INIT_MODE` environmen
 ```{code-cell} ipython2
 from drytorch import Experiment, init_trackers
 
+
 init_trackers(mode='tuning')
 
 with Experiment(None, name="TuningExperiment").create_run():
@@ -101,9 +102,11 @@ my_experiment.trackers.subscribe(my_tracker)
 Otherwise, use `drytorch.extend_default_trackers` to add a tracker to every experiment by default.
 
 ```{code-cell} ipython2
+import pathlib
+
 from drytorch import extend_default_trackers
 from drytorch.trackers.csv import CSVDumper
-import pathlib
+
 
 csv_dumper = CSVDumper(par_dir=pathlib.Path('experiments', 'my_directory'))
 extend_default_trackers([csv_dumper])
@@ -196,6 +199,7 @@ calls the `super().notify` method, which is also always recommended.
 ```{code-cell} ipython2
 import functools
 import pprint
+
 from typing_extensions import override
 
 from drytorch.core import log_events
