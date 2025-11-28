@@ -23,9 +23,7 @@ __all__ = [
 ]
 
 
-_Data_co = TypeVar(
-    '_Data_co', bound=tuple[p.InputType, p.TargetType], covariant=True
-)
+Data = TypeVar('Data', bound=tuple[p.InputType, p.TargetType], covariant=True)
 
 _T = TypeVar('_T')
 
@@ -122,7 +120,7 @@ class Permutation(Sequence[int]):
         return f'Permutation(size={self.size}, seed={self.seed})'
 
 
-class DataLoader(p.LoaderProtocol[_Data_co]):
+class DataLoader(p.LoaderProtocol[Data]):
     """A data-loader class with runtime settings.
 
     This class wraps PyTorch's DataLoader with additional functionalities.
@@ -135,7 +133,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
 
     def __init__(
         self,
-        dataset: data.Dataset[_Data_co],
+        dataset: data.Dataset[Data],
         batch_size: int,
         pin_memory: bool | None = None,
     ) -> None:
@@ -154,7 +152,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         self._pin_memory: bool = cuda_flag if pin_memory is None else pin_memory
 
     @override
-    def __iter__(self) -> Iterator[_Data_co]:
+    def __iter__(self) -> Iterator[Data]:
         return self.get_loader().__iter__()
 
     @override
@@ -165,14 +163,14 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
 
         return self.dataset_len // batch_size
 
-    def get_dataset(self) -> data.Dataset[_Data_co]:
+    def get_dataset(self) -> data.Dataset[Data]:
         """Returns the dataset."""
         return self.dataset
 
     def get_loader(
         self,
         inference: bool | None = None,
-    ) -> data.DataLoader[_Data_co]:
+    ) -> data.DataLoader[Data]:
         """Create a DataLoader instance with runtime settings.
 
         Args:
@@ -201,7 +199,7 @@ class DataLoader(p.LoaderProtocol[_Data_co]):
         split: float = 0.2,
         shuffle: bool = True,
         seed: int = 42,
-    ) -> tuple[DataLoader[_Data_co], DataLoader[_Data_co]]:
+    ) -> tuple[DataLoader[Data], DataLoader[Data]]:
         """Split the loader into two.
 
         Args:
@@ -290,11 +288,11 @@ def num_batches(dataset_len: int, batch_size: int) -> int:
 
 
 def take_from_dataset(
-    dataset: data.Dataset[_Data_co],
+    dataset: data.Dataset[Data],
     num_samples: int = 1,
     preserve_order: bool = True,
     device: torch.device = _default_device,
-) -> _Data_co:
+) -> Data:
     """Sample a batch of elements from a dataset and transfers them to a device.
 
     Arguments:

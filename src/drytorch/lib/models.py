@@ -23,12 +23,10 @@ __all__ = [
 ]
 
 
-_Input_contra = TypeVar('_Input_contra', bound=p.InputType, contravariant=True)
-
-_Output_co = TypeVar('_Output_co', bound=p.OutputType, covariant=True)
-
-_Tensor = torch.Tensor
-_ParamList = tuple[_Tensor, ...] | list[_Tensor]
+Input = TypeVar('Input', bound=p.InputType, contravariant=True)
+Output = TypeVar('Output', bound=p.OutputType, covariant=True)
+Tensor = torch.Tensor
+ParamList = tuple[Tensor, ...] | list[Tensor]
 
 
 class _OptParams(TypedDict):
@@ -36,9 +34,7 @@ class _OptParams(TypedDict):
     lr: float
 
 
-class Model(
-    repr_utils.CreatedAtMixin, p.ModelProtocol[_Input_contra, _Output_co]
-):
+class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     """Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
@@ -51,7 +47,7 @@ class Model(
 
     def __init__(  # type: ignore
         self,
-        module: p.ModuleProtocol[_Input_contra, _Output_co],
+        module: p.ModuleProtocol[Input, Output],
         name: str = '',
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
@@ -83,7 +79,7 @@ class Model(
         self.register()
         return
 
-    def __call__(self, inputs: _Input_contra) -> _Output_co:
+    def __call__(self, inputs: Input) -> Output:
         """Execute forward pass."""
         with torch.autocast(
             device_type=self.device.type, enabled=self.mixed_precision
@@ -155,7 +151,7 @@ class Model(
 
     @staticmethod
     def _validate_module(
-        torch_model: p.ModuleProtocol[_Input_contra, _Output_co],
+        torch_model: p.ModuleProtocol[Input, Output],
     ) -> torch.nn.Module:
         if not isinstance(torch_model, torch.nn.Module):
             raise TypeError('torch_module must be a torch.nn.Module subclass')
@@ -163,7 +159,7 @@ class Model(
         return torch_model
 
 
-class ModelAverage(Model[_Input_contra, _Output_co]):
+class ModelAverage(Model[Input, Output]):
     """Bundle a torch.nn.Module and a torch.optim.swa_utils.AveragedModel.
 
     Use the averaged model when in inference mode.
@@ -177,15 +173,14 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
 
     def __init__(
         self,
-        torch_module: p.ModuleProtocol[_Input_contra, _Output_co],
+        torch_module: p.ModuleProtocol[Input, Output],
         /,
         name: str = '',
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol = _default_checkpoint,
         mixed_precision: bool = False,
-        avg_fn: Callable[[_Tensor, _Tensor, _Tensor | int], _Tensor]
-        | None = None,
-        multi_avg_fn: Callable[[_ParamList, _ParamList, _Tensor | int], None]
+        avg_fn: Callable[[Tensor, Tensor, Tensor | int], Tensor] | None = None,
+        multi_avg_fn: Callable[[ParamList, ParamList, Tensor | int], None]
         | None = None,
         use_buffers: bool = False,
     ) -> None:
@@ -211,7 +206,7 @@ class ModelAverage(Model[_Input_contra, _Output_co]):
         )
         return
 
-    def __call__(self, inputs: _Input_contra) -> _Output_co:
+    def __call__(self, inputs: Input) -> Output:
         """Execute the forward pass."""
         if torch.inference_mode():
             return self.averaged_module(inputs)  # no mixed precision here
@@ -232,7 +227,7 @@ class ModelOptimizer:
 
     def __init__(
         self,
-        model: p.ModelProtocol[_Input_contra, _Output_co],
+        model: p.ModelProtocol[Input, Output],
         learning_schema: p.LearningProtocol,
     ) -> None:
         """Constructor.
@@ -341,7 +336,7 @@ class ModelOptimizer:
 
         return
 
-    def optimize(self, loss_value: _Tensor):
+    def optimize(self, loss_value: Tensor):
         """Optimize the model backpropagating the loss value.
 
         Args:

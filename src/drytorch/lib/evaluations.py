@@ -19,9 +19,9 @@ __all__ = [
 ]
 
 
-_Input = TypeVar('_Input', bound=p.InputType)
-_Target = TypeVar('_Target', bound=p.TargetType)
-_Output = TypeVar('_Output', bound=p.OutputType)
+Input = TypeVar('Input', bound=p.InputType)
+Target = TypeVar('Target', bound=p.TargetType)
+Output = TypeVar('Output', bound=p.OutputType)
 
 
 class _RunnerLike(Protocol):
@@ -46,7 +46,7 @@ class EvaluationMixin:
 
 class Diagnostic(
     EvaluationMixin,
-    runners.ModelRunnerWithLogs[_Input, _Target, _Output, Any],
+    runners.ModelRunnerWithLogs[Input, Target, Output, Any],
 ):
     """Evaluate the model on inference mode without logging the metrics.
 
@@ -60,7 +60,7 @@ class Diagnostic(
 
 class Validation(
     EvaluationMixin,
-    runners.ModelRunnerWithLogs[_Input, _Target, _Output, Any],
+    runners.ModelRunnerWithLogs[Input, Target, Output, Any],
 ):
     """Evaluate model on inference mode.
 
@@ -75,11 +75,11 @@ class Validation(
 
     def __init__(
         self,
-        model: p.ModelProtocol[_Input, _Output],
+        model: p.ModelProtocol[Input, Output],
         name: str = '',
         *,
-        loader: p.LoaderProtocol[tuple[_Input, _Target]],
-        metric: p.ObjectiveProtocol[_Output, _Target],
+        loader: p.LoaderProtocol[tuple[Input, Target]],
+        metric: p.ObjectiveProtocol[Output, Target],
     ) -> None:
         """Constructor.
 
@@ -95,7 +95,7 @@ class Validation(
         return
 
 
-class Test(Validation[_Input, _Target, _Output]):
+class Test(Validation[Input, Target, Output]):
     """Evaluate model performance on a test dataset.
 
     Attributes:

@@ -24,16 +24,16 @@ __all__ = [
 ]
 
 
-_Input = TypeVar('_Input', bound=p.InputType)
-_Target = TypeVar('_Target', bound=p.TargetType)
-_Output = TypeVar('_Output', bound=p.OutputType)
+Input = TypeVar('Input', bound=p.InputType)
+Target = TypeVar('Target', bound=p.TargetType)
+Output = TypeVar('Output', bound=p.OutputType)
 _Objective_co = TypeVar(
     '_Objective_co', bound=p.LossProtocol[Any, Any], covariant=True
 )
 
 
 class ModelCaller(
-    repr_utils.CreatedAtMixin, Generic[_Input, _Output], metaclass=abc.ABCMeta
+    repr_utils.CreatedAtMixin, Generic[Input, Output], metaclass=abc.ABCMeta
 ):
     """Base class that calls a model.
 
@@ -44,7 +44,7 @@ class ModelCaller(
     _name = repr_utils.DefaultName()
 
     def __init__(
-        self, model: p.ModelProtocol[_Input, _Output], name: str = ''
+        self, model: p.ModelProtocol[Input, Output], name: str = ''
     ) -> None:
         """Constructor.
 
@@ -74,9 +74,7 @@ class ModelCaller(
         return f'{self.name}({self.model.name})'
 
 
-class ModelRunner(
-    ModelCaller[_Input, _Output], Generic[_Input, _Target, _Output]
-):
+class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
     """Run a model on a dataset.
 
     Attributes:
@@ -89,10 +87,10 @@ class ModelRunner(
 
     def __init__(
         self,
-        model: p.ModelProtocol[_Input, _Output],
+        model: p.ModelProtocol[Input, Output],
         name: str = '',
         *,
-        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        loader: p.LoaderProtocol[tuple[Input, Target]],
     ) -> None:
         """Constructor.
 
@@ -106,7 +104,7 @@ class ModelRunner(
         super().__init__(model, name)
         self.model = model
         self.loader = loader
-        self.outputs_list: Final = list[_Output]()
+        self.outputs_list: Final = list[Output]()
         return
 
     def __call__(self, store_outputs: bool = False) -> None:
@@ -124,20 +122,20 @@ class ModelRunner(
         """Subclasses can override this to report computed metrics."""
         return {}
 
-    def _get_batches(self) -> Iterator[tuple[_Input, _Target]]:
+    def _get_batches(self) -> Iterator[tuple[Input, Target]]:
         return (
             apply_ops.apply_to(batch, self.model.device)
             for batch in self.loader
         )
 
-    def _run_backward(self, outputs: _Output, targets: _Target) -> None:
+    def _run_backward(self, outputs: Output, targets: Target) -> None:
         _not_used = outputs, targets
         return
 
     def _run_batch(
         self,
-        batch: tuple[_Input, _Target],
-    ) -> _Output:
+        batch: tuple[Input, Target],
+    ) -> Output:
         inputs, targets = batch
         outputs = self._run_forward(inputs)
         self._run_backward(outputs, targets)
@@ -155,10 +153,10 @@ class ModelRunner(
             if store_outputs:
                 self._store(outputs)
 
-    def _run_forward(self, inputs: _Input) -> _Output:
+    def _run_forward(self, inputs: Input) -> Output:
         return self.model(inputs)
 
-    def _store(self, outputs: _Output) -> None:
+    def _store(self, outputs: Output) -> None:
         try:
             outputs = apply_ops.apply_cpu_detach(outputs)
         except (
@@ -173,9 +171,9 @@ class ModelRunner(
 
 
 class ModelRunnerWithObjective(
-    ModelRunner[_Input, _Target, _Output],
+    ModelRunner[Input, Target, Output],
     p.MonitorProtocol,
-    Generic[_Input, _Target, _Output, _Objective_co],
+    Generic[Input, Target, Output, _Objective_co],
 ):
     """Run a model on a dataset, calculating the value of an objective function.
 
@@ -188,10 +186,10 @@ class ModelRunnerWithObjective(
 
     def __init__(
         self,
-        model: p.ModelProtocol[_Input, _Output],
+        model: p.ModelProtocol[Input, Output],
         name: str = '',
         *,
-        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        loader: p.LoaderProtocol[tuple[Input, Target]],
         objective: _Objective_co,
     ) -> None:
         """Constructor.
@@ -221,14 +219,14 @@ class ModelRunnerWithObjective(
         return
 
     @override
-    def _run_backward(self, outputs: _Output, targets: _Target) -> None:
+    def _run_backward(self, outputs: Output, targets: Target) -> None:
         self.objective.update(outputs, targets)
         super()._run_backward(outputs, targets)
         return
 
 
 class ModelRunnerWithLogs(
-    ModelRunnerWithObjective[_Input, _Target, _Output, _Objective_co]
+    ModelRunnerWithObjective[Input, Target, Output, _Objective_co]
 ):
     """Run a model on a dataset and log the value of an objective function.
 

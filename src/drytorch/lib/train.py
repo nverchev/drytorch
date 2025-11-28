@@ -18,16 +18,16 @@ __all__ = [
 ]
 
 
-_Input = TypeVar('_Input', bound=p.InputType)
-_Target = TypeVar('_Target', bound=p.TargetType)
-_Output = TypeVar('_Output', bound=p.OutputType)
+Input = TypeVar('Input', bound=p.InputType)
+Target = TypeVar('Target', bound=p.TargetType)
+Output = TypeVar('Output', bound=p.OutputType)
 
 
 class Trainer(
     runners.ModelRunnerWithLogs[
-        _Input, _Target, _Output, p.LossProtocol[_Output, _Target]
+        Input, Target, Output, p.LossProtocol[Output, Target]
     ],
-    p.TrainerProtocol[_Input, _Target, _Output],
+    p.TrainerProtocol[Input, Target, Output],
 ):
     """Implement the standard Pytorch training loop.
 
@@ -41,11 +41,11 @@ class Trainer(
 
     def __init__(
         self,
-        model: p.ModelProtocol[_Input, _Output],
+        model: p.ModelProtocol[Input, Output],
         name: str = '',
         *,
-        loader: p.LoaderProtocol[tuple[_Input, _Target]],
-        loss: p.LossProtocol[_Output, _Target],
+        loader: p.LoaderProtocol[tuple[Input, Target]],
+        loss: p.LossProtocol[Output, Target],
         learning_schema: p.LearningProtocol,
     ) -> None:
         """Constructor.
@@ -65,10 +65,10 @@ class Trainer(
             model, learning_schema
         )
         self.pre_epoch_hooks: Final = hooks.HookRegistry[
-            Trainer[_Input, _Target, _Output]
+            Trainer[Input, Target, Output]
         ]()
         self.post_epoch_hooks: Final = hooks.HookRegistry[
-            Trainer[_Input, _Target, _Output]
+            Trainer[Input, Target, Output]
         ]()
         self._terminated = False
         return
@@ -100,7 +100,7 @@ class Trainer(
         return
 
     def add_validation(
-        self, val_loader: p.LoaderProtocol[tuple[_Input, _Target]]
+        self, val_loader: p.LoaderProtocol[tuple[Input, Target]]
     ) -> None:
         """Add a loader for validation with the same metrics as for training.
 
@@ -221,7 +221,7 @@ class Trainer(
         self._model_optimizer.update_learning_rate(base_lr, scheduler)
 
     @override
-    def _run_backward(self, outputs: _Output, targets: _Target) -> None:
+    def _run_backward(self, outputs: Output, targets: Target) -> None:
         # replace super call
         loss_value = self.objective.forward(outputs, targets)
         try:
