@@ -103,23 +103,23 @@ def suggest_overrides(
 
     The configuration file (loadable with hydra) should follow this structure:
     ```{code-block} yaml
-    >>>tune:
-    >>>  params:
-    >>>    param_name:
-    >>>      suggest: "suggest_float"  # or other optuna suggest method
-    >>>      settings:
-    >>>        low: 0.0
-    >>>        high: 1.0
-    >>>    list_param:
-    >>>      suggest: "suggest_list"
-    >>>      settings:
-    >>>        min_length: 1
-    >>>        max_length: 5
-    >>>        suggest: "suggest_float"  # method for sampling list elements
-    >>>        settings:
-    >>>          low: 0.0
-    >>>          high: 1.0
-    >>>overrides: []  # additional static overrides
+    tune:
+      params:
+        param_name:
+          suggest: "suggest_float"  # or other optuna suggest method
+          settings:
+            low: 0.0
+            high: 1.0
+        list_param:
+          suggest: "suggest_list"
+          settings:
+            min_length: 1
+            max_length: 5
+            suggest: "suggest_float"  # method for sampling list elements
+            settings:
+              low: 0.0
+              high: 1.0
+    overrides: []  # additional static overrides
     ```
 
     For 'suggest_list' configurations, the settings must specify:
@@ -129,11 +129,11 @@ def suggest_overrides(
     The resulting values can be used with hydra.initialize and hydra.compose.
     Example usage:
     ```{code-block} python
-    >>>import hydra
-    >>>
-    >>>with hydra.initialize(version_base=None, config_path='path/to/config'):
-    >>>    overrides = suggest_overrides(tune_cfg, trial)
-    >>>    dict_cfg = hydra.compose(config_name='config', overrides=overrides)
+    import hydra
+
+    with hydra.initialize(version_base=None, config_path='path/to/config'):
+        overrides = suggest_overrides(tune_cfg, trial)
+        dict_cfg = hydra.compose(config_name='config', overrides=overrides)
     ```
 
     Here, "your_hydra_config" is the name of the configuration file that
