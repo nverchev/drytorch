@@ -28,14 +28,7 @@ The approach is as follows: We train the network to minimize the difference betw
 ### Requirements
 DRYTorch’s only mandatory dependencies are `numpy` and `torch`. For enhanced functionality and a smoother experience, it is recommended to install `PyYAML` and `tqdm`. The library requires Python 3.11 or newer. This tutorial does not rely on any additional optional dependencies.
 
-The cell below assumes you use uv as a package manager. If you prefer to use pip, run this instead:
-
-```ipython
-import sys
-
-
-!{sys.executable} -m pip install drytorch
-```
+The cell below uses uv as package manager.
 
 ```{code-cell} ipython3
 ! uv pip install drytorch
