@@ -14,6 +14,8 @@ kernelspec:
 
 # Metrics and Losses
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/metrics_and_losses.ipynb)
+
 DRYTorch helps you **standardize and document** your model's metrics and loss.
 
 ### Terminology

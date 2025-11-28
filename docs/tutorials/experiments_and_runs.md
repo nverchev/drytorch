@@ -14,6 +14,8 @@ kernelspec:
 
 # Experiments and Runs
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/experiments_and_runs.ipynb)
+
 ## Defining an Experiment
 
 In the DRYTorch framework, an experiment is a fully reproducible execution of code defined entirely by a configuration file. For example, this design implies that:

@@ -14,6 +14,8 @@ kernelspec:
 
 # Getting Started with DRYTorch
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb)
+
 This notebook demonstrates how to use the DRYTorch library for organizing machine learning experiments.
 
 ## Deep Prior Upsampling

@@ -13,6 +13,8 @@ kernelspec:
 ---
 
 # Trackers
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/trackers.ipynb)
 DRYTorch's philosophy of replicability and reusability is embodied in its **tracker system**. Trackers allow you to:
 
 * Reproduce someone else's machine learning workflow while keeping logs in your preferred format.
