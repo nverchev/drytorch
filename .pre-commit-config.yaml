@@ -11,7 +11,7 @@ repos:
       - id: jupytext
         args: [ --sync ]
         additional_dependencies: [ jupytext ]
-        files: '\.ipynb, md:myst$'
+        files: '\.(ipynb|md)$'
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
