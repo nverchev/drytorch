@@ -1,4 +1,4 @@
-![drytorch_logo.png](https://raw.githubusercontent.com/nverchev/drytorch/main/docs/resources/drytorch_logo.png)
+![drytorch_logo.png](https://raw.githubusercontent.com/nverchev/drytorch/main/docs/_static/drytorch_logo.png)
 [![PyPI version](https://img.shields.io/pypi/v/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
 [![Total Downloads](https://img.shields.io/pypi/dm/drytorch?label=downloads&style=flat)](https://pypi.org/project/drytorch/)
 [![Python](https://img.shields.io/pypi/pyversions/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
@@ -7,6 +7,7 @@
 [![codecov](https://codecov.io/github/nverchev/drytorch/graph/badge.svg?token=CZND67KAW1)](https://codecov.io/github/nverchev/drytorch)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![basedpyright - checked](https://img.shields.io/badge/basedpyright-checked-ffc000)](https://docs.basedpyright.com)
+[![Documentation Status](https://readthedocs.org/projects/drytorch/badge/?version=latest)](https://drytorch.readthedocs.io/en/latest/?badge=latest)
 # DRYTorch
 
 ## 💡 Design Philosophy
@@ -37,51 +38,22 @@ uv add drytorch
 ```
 
 ## 🗂️ Library Organization
+Folders are organized as follows:
 
-The library uses a microkernel (plugin) architecture to separate concerns.
+- **Core (`core`):** The library kernel. Contains the **Event System**, **Protocols** for component communication, and internal safety **Checks**.
+- **Standard Library (`lib`):** Reusable implementations and abstract classes of the protocols.
+- **Trackers (`tracker`):** Optional tracker plugins that integrate via the event system.
+- **Contributions (`contrib`):** Dedicated space for community-driven extensions.
+- **Utilities (`utils`):** Functions and classes independent to the framework.
 
-1.  **Core (`core`):** The library kernel. Contains the **Event System**, **Protocols** for component communication, and internal safety **Checks**.
-2.  **Standard Library (`lib`):** Reusable implementations and abstract classes of the protocols.
-3.  **Trackers (`tracker`):** Optional tracker plugins that integrate via the event system.
-4.  **Contributions (`contrib`):** Dedicated space for community-driven extensions.
-5. **Utilities (`utils`):**
-Functions and classes independent to the framework.
+## 📚 Documentation
 
-## 📙 Notebook Tutorials
+**[Read the full documentation on Read the Docs →](https://drytorch.readthedocs.io/)**
 
-Dive into the full, runnable examples:
+The documentation includes:
+- **[Tutorials](https://drytorch.readthedocs.io/en/latest/tutorials.html)** - Complete walkthrough
+- **[API Reference](https://drytorch.readthedocs.io/en/latest/api.html)** - Detailed API documentation
+- **[Architecture Overview](https://drytorch.readthedocs.io/en/latest/architecture.html)** - Design principles and structure
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
-    <p style="margin: 0;">
-        ➡️ <strong><a href="https://github.com/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb">Getting Started Notebook</a></strong>
-    </p>
-    <a target="_blank" href="https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/getting_started.ipynb">
-        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
-    </a>
-</div>
-<div style="display: flex; justify-content: space-between; align-items: center;">
-    <p style="margin: 0;">
-        ➡️ <strong><a href="https://github.com/nverchev/drytorch/blob/main/docs/tutorials/metrics_and_losses.ipynb">Metrics and Losses Notebook</a></strong>
-    </p>
-    <a target="_blank" href="https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/metrics_and_losses.ipynb">
-        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
-    </a>
-</div>
-<div style="display: flex; justify-content: space-between; align-items: center;">
-    <p style="margin: 0;">
-        ➡️ <strong><a href="https://github.com/nverchev/drytorch/blob/main/docs/tutorials/experiments_and_runs.ipynb">Experiments and Runs Notebook</a></strong>
-    </p>
-    <a target="_blank" href="https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/experiments_and_runs.ipynb">
-        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
-    </a>
-</div>
-<div style="display: flex; justify-content: space-between; align-items: center;">
-    <p style="margin: 0;">
-        ➡️ <strong><a href="https://github.com/nverchev/drytorch/blob/main/docs/tutorials/trackers.ipynb">Trackers</a></strong>
-    </p>
-    <a target="_blank" href="https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/trackers.ipynb">
-        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;"/>
-    </a>
-</div>
 
 ## 📝 **[Changelog](CHANGELOG.md)**
