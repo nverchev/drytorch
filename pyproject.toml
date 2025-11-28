@@ -38,13 +38,13 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [project.optional-dependencies]
-recommended_trackers = [
+recommended = [
     "PyYAML >= 6.0",
     "tqdm >= 4.50.0",
 ]
 
 all_trackers = [
-    "drytorch[recommended_trackers]",
+    "drytorch[recommended]",
     "hydra-core >= 1.3.0",
     "matplotlib >= 3.3.0",
     "plotly >= 4.10.0",
