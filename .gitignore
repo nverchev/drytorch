@@ -11,3 +11,4 @@ __pycache__/
 **/.drytorch/
 **/experiments/
 docs/_build/
+docs/_autosummary/
