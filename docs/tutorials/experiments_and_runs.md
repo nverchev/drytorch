@@ -57,7 +57,7 @@ first_experiment = MyExperiment(
 )
 ```
 
-# Starting a Run
+## Starting a Run
 In the DRYTorch framework, a run is a single execution instance of an experiment's code.
 Multiple runs of the same experiment are used to replicate and validate results, often using different seeds for the pseudo number generator.
 There can only be an active run at once.
