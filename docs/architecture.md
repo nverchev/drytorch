@@ -1,13 +1,6 @@
-# Protocol Architecture Summary
+# Protocols
 
-The following diagram maps the dependencies and relations between the core interfaces.
-
-### Requirements
-To see the diagram, make sure your
-Markdown renderer supports Mermaid.
-
-## Notation
-This diagram utilizes UML-style notation:
+The following diagram maps the dependencies between the core interfaces using UML-style notation:
 
 - **Refinement (<|–):** Indicates one protocol extends or refines another (e.g.,
   an inheritance relationship).
