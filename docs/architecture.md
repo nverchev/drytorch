@@ -1,4 +1,16 @@
-# Protocol Design
+# Types and Protocols
+
+## Core Types
+Throughout drytorch, generic variables must satisfy these constraints:
+
+- `Input` and `Target`: `torch.Tensor` | `MutableSequence[torch.Tensor]` | `NamedTuple`
+- `Output`: no constraints
+- `Data`: 2-tuple where both elements follow `Input`/`Target` constraints
+
+**Note**: The notation for the generic variables has been simplified to ignore
+subtype relationships.
+
+## Diagram
 
 The following diagram maps the dependencies between the core interfaces using UML-style notation:
 
@@ -8,9 +20,6 @@ The following diagram maps the dependencies between the core interfaces using UM
 - **Structural Association (–>):** Represents a structural requirement and is often implemented using Dependency Injection.
 
 - **Dependency (..>):** Represents a logical dependency that is not enforced by the protocol but often necessary for its implementation.
-
-Note: The notation for the generic variables has been simplified to ignore
-subtype relationships.
 
 ```mermaid
 
