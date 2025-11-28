@@ -60,12 +60,6 @@ class DryTorchError(Exception):
         """
         super().__init__(self.msg.format(*args))
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Automatically prefix subclass names with [drytorch]."""
-        cls.__name__: str = '[drytorch] ' + cls.__name__
-        super().__init_subclass__(**kwargs)
-        return
-
 
 class DryTorchWarning(UserWarning):
     """Base warning class for all drytorch package warnings."""
@@ -79,12 +73,6 @@ class DryTorchWarning(UserWarning):
             *args: arguments to be formatted into the message template.
         """
         super().__init__(self.msg.format(*args))
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Automatically prefix subclass names with [drytorch]."""
-        cls.__name__ = '[drytorch] ' + cls.__name__
-        super().__init_subclass__(**kwargs)
-        return
 
 
 class TrackerError(DryTorchError):
