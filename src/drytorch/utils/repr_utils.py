@@ -26,6 +26,14 @@ import torch
 from typing_extensions import override
 
 
+__all__ = [
+    'INCLUDE_PROPERTIES',
+    'MAX_DEPTH',
+    'MAX_REPR_SIZE',
+    'recursive_repr',
+]
+
+
 if TYPE_CHECKING:
     import numpy.typing as npt
 

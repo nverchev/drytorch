@@ -12,6 +12,11 @@ from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
+__all__ = [
+    'CSVDumper',
+]
+
+
 class DryTorchDialect(csv.Dialect):
     """Dialect similar to excel that converts numbers to floats."""
 

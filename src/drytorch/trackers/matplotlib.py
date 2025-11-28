@@ -13,6 +13,11 @@ from typing_extensions import override
 from drytorch.trackers import base_classes
 
 
+__all__ = [
+    'MatPlotter',
+]
+
+
 Plot: TypeAlias = tuple[figure.Figure, axes.Axes]
 
 

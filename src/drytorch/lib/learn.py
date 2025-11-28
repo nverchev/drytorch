@@ -12,6 +12,11 @@ from drytorch.core import protocols as p
 from drytorch.lib import gradient_ops, schedulers
 
 
+__all__ = [
+    'LearningSchema',
+]
+
+
 _default_scheduler: p.SchedulerProtocol = schedulers.ConstantScheduler()
 _default_grad_op: p.GradientOpProtocol = gradient_ops.NoOp()
 

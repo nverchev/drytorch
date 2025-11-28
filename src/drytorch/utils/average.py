@@ -15,6 +15,12 @@ import torch
 from typing_extensions import override
 
 
+__all__ = [
+    'get_moving_average',
+    'get_trailing_mean',
+]
+
+
 _T = TypeVar('_T', torch.Tensor, float)
 
 

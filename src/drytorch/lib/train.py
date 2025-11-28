@@ -13,6 +13,11 @@ from drytorch.core import protocols as p
 from drytorch.lib import evaluations, hooks, models, runners
 
 
+__all__ = [
+    'Trainer',
+]
+
+
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)

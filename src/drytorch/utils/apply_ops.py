@@ -10,6 +10,13 @@ import torch
 from drytorch.core import exceptions
 
 
+__all__ = [
+    'apply',
+    'apply_cpu_detach',
+    'apply_to',
+]
+
+
 _T = TypeVar('_T')
 _C = TypeVar('_C')
 

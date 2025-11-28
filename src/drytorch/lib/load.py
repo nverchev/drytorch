@@ -17,6 +17,12 @@ from drytorch.core import protocols as p
 from drytorch.utils import apply_ops
 
 
+__all__ = [
+    'DataLoader',
+    'take_from_dataset',
+]
+
+
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[p.InputType, p.TargetType], covariant=True
 )

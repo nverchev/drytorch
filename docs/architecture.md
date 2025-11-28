@@ -1,4 +1,4 @@
-# Protocols
+# Protocol Design
 
 The following diagram maps the dependencies between the core interfaces using UML-style notation:
 

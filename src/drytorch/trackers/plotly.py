@@ -7,6 +7,11 @@ from typing_extensions import override
 from drytorch.trackers import base_classes
 
 
+__all__ = [
+    'PlotlyPlotter',
+]
+
+
 class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
     """Tracker that creates new plots each call (no update) using plotly."""
 

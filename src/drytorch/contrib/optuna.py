@@ -12,6 +12,13 @@ from drytorch.core import protocols as p
 from drytorch.lib import hooks
 
 
+__all__ = [
+    'TrialCallback',
+    'get_final_value',
+    'suggest_overrides',
+]
+
+
 _Target_contra = TypeVar(
     '_Target_contra', bound=p.TargetType, contravariant=True
 )

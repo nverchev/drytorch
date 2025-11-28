@@ -55,6 +55,7 @@ __all__ = [
     'Validation',
     'extend_default_trackers',
     'init_trackers',
+    'remove_all_default_trackers',
 ]
 
 _InitMode = Literal['standard', 'hydra', 'tuning']

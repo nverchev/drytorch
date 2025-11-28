@@ -12,6 +12,27 @@ from typing import Any, ClassVar
 from drytorch.core import exceptions
 
 
+__all__ = [
+    'ActorRegistrationEvent',
+    'EndEpochEvent',
+    'EndTestEvent',
+    'EndTrainingEvent',
+    'Event',
+    'IterateBatchEvent',
+    'LearningRateEvent',
+    'LoadModelEvent',
+    'MetricEvent',
+    'ModelRegistrationEvent',
+    'SaveModelEvent',
+    'StartEpochEvent',
+    'StartExperimentEvent',
+    'StartTestEvent',
+    'StartTrainingEvent',
+    'StopExperimentEvent',
+    'TerminatedTrainingEvent',
+]
+
+
 @dataclasses.dataclass(frozen=True)
 class Event:
     """Class for logging events."""

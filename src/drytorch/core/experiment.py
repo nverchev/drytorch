@@ -30,6 +30,12 @@ from drytorch.core import exceptions, log_events, track
 from drytorch.utils import repr_utils
 
 
+__all__ = [
+    'Experiment',
+    'Run',
+]
+
+
 _T_co = TypeVar('_T_co', covariant=True)
 
 RunStatus = Literal['created', 'running', 'completed', 'failed']

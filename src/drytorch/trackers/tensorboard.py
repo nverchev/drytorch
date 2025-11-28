@@ -18,6 +18,11 @@ from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
+__all__ = [
+    'TensorBoard',
+]
+
+
 if find_spec('tensorboard') is None:
     _MSG = 'TensorBoard is not installed. Run `pip install tensorboard`.'
     raise ImportError(_MSG)

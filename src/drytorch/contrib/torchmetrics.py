@@ -11,6 +11,11 @@ from torchmetrics import metric
 from drytorch.core import protocols as p
 
 
+__all__ = [
+    'from_torchmetrics',
+]
+
+
 if TYPE_CHECKING:
     from torchmetrics import metric
 

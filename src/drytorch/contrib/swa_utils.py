@@ -8,6 +8,11 @@ from drytorch.core import protocols as p
 from drytorch.lib import runners
 
 
+__all__ = [
+    'ModelMomentaUpdater',
+]
+
+
 _Input = TypeVar('_Input', bound=p.InputType)
 _Target = TypeVar('_Target', bound=p.TargetType)
 _Output = TypeVar('_Output', bound=p.OutputType)

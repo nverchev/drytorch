@@ -14,6 +14,16 @@ from drytorch.core import exceptions, experiment
 from drytorch.core import protocols as p
 
 
+__all__ = [
+    'ALL_ACTORS',
+    'ALL_MODULES',
+    'register_actor',
+    'register_model',
+    'unregister_actor',
+    'unregister_model',
+]
+
+
 ALL_MODULES: Final = dict[int, experiment.Run[Any]]()
 ALL_ACTORS: Final = dict[int, set[int]]()
 

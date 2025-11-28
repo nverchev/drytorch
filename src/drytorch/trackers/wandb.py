@@ -16,6 +16,11 @@ from drytorch.trackers.base_classes import Dumper
 from drytorch.utils import repr_utils
 
 
+__all__ = [
+    'Wandb',
+]
+
+
 class Wandb(Dumper):
     """Tracker that wraps a run for the wandb library."""
 

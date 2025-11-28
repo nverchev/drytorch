@@ -15,6 +15,12 @@ from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
 
 
+__all__ = [
+    'VisdomOpts',
+    'VisdomPlotter',
+]
+
+
 class VisdomOpts(TypedDict, total=False):
     """Annotations for optional settings in visdom.
 

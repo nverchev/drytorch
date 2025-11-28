@@ -17,6 +17,12 @@ from drytorch.core import exceptions, experiment, log_events
 from drytorch.core import protocols as p
 
 
+__all__ = [
+    'AbstractCheckpoint',
+    'LocalCheckpoint',
+]
+
+
 SAFE_GLOBALS: list[Any] = [
     np.bool_,
     np.int8,
