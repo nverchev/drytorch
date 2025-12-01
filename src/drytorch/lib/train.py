@@ -88,6 +88,7 @@ class Trainer(
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
+
         self.model.module.train()
         self.model.increment_epoch()
         self._model_optimizer.update_learning_rate()
@@ -127,6 +128,7 @@ class Trainer(
                 Defaults to the last saved epoch.
         """
         self._model_optimizer.load(epoch=epoch)
+        return
 
     @override
     def save_checkpoint(self) -> None:
@@ -172,6 +174,7 @@ class Trainer(
             )
             if self.terminated:
                 break
+
         log_events.EndTrainingEvent(self.name)
         return
 
@@ -185,6 +188,7 @@ class Trainer(
         remaining_epochs = epoch - self.model.epoch
         if remaining_epochs > 0:
             self.train(remaining_epochs)
+
         if remaining_epochs < 0:
             warnings.warn(
                 exceptions.PastEpochWarning(epoch, self.model.epoch),
@@ -217,8 +221,8 @@ class Trainer(
             base_lr=base_lr,
             scheduler_name=scheduler_name,
         )
-
         self._model_optimizer.update_learning_rate(base_lr, scheduler)
+        return
 
     @override
     def _run_backward(self, outputs: Output, targets: Target) -> None:
@@ -233,3 +237,4 @@ class Trainer(
             raise re
         self._model_optimizer.optimize(loss_value)
         self.model.update_parameters()
+        return
