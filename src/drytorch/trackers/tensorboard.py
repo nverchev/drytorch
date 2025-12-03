@@ -5,12 +5,10 @@ import pathlib
 import shutil
 import socket
 import subprocess
-import time
-import warnings
-import webbrowser
 
 from importlib.util import find_spec
 
+from tensorboard import notebook as tb_notebook
 from torch.utils import tensorboard
 from typing_extensions import override
 
@@ -45,7 +43,6 @@ class TensorBoard(base_classes.Dumper):
         self,
         par_dir: pathlib.Path | None = None,
         start_server: bool = True,
-        open_browser: bool = False,
         max_queue_size: int = 10,
         flush_secs: int = 120,
     ) -> None:
@@ -55,7 +52,6 @@ class TensorBoard(base_classes.Dumper):
             par_dir: the parent directory for the tracker data. Default uses
                 the same of the current experiment.
             start_server: if True, start a local TensorBoard server.
-            open_browser: if True, open TensorBoard in the browser.
             max_queue_size: see tensorboard.SummaryWriter docs.
             flush_secs: tensorboard.SummaryWriter docs.
         """
@@ -65,9 +61,9 @@ class TensorBoard(base_classes.Dumper):
         self.__class__.instance_count += 1
         self._instance_number = self.__class__.instance_count
         self._start_server = start_server
-        self._open_browser = open_browser
         self._max_queue_size = max_queue_size
         self._flush_secs = flush_secs
+        return
 
     @property
     def writer(self) -> tensorboard.SummaryWriter:
@@ -94,7 +90,6 @@ class TensorBoard(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
         run_dir = self._get_run_dir()
-
         if self._start_server:
             self._start_tensorboard(self.par_dir / self.folder_name)
 
@@ -103,7 +98,6 @@ class TensorBoard(base_classes.Dumper):
             max_queue=self._max_queue_size,
             flush_secs=self._flush_secs,
         )
-
         for i, tag in enumerate(event.tags):
             self.writer.add_text('tag ' + str(i), tag)
 
@@ -119,18 +113,16 @@ class TensorBoard(base_classes.Dumper):
         for name, value in event.metrics.items():
             full_name = f'{event.model_name}/{event.source_name}-{name}'
             self.writer.add_scalar(full_name, value, global_step=event.epoch)
-        self.writer.flush()
 
+        self.writer.flush()
         return super().notify(event)
 
     def _start_tensorboard(self, logdir: pathlib.Path) -> None:
         """Start a TensorBoard server and open it in the default browser."""
         if self._is_notebook():
-            self._display_with_tensorboard_api(logdir)
-
-        if self._open_browser:
+            tb_notebook.start(f'--logdir {logdir}')
+        else:
             self._start_tensorboard_server(logdir)
-
         return
 
     def _start_tensorboard_server(self, logdir: pathlib.Path) -> None:
@@ -163,21 +155,7 @@ class TensorBoard(base_classes.Dumper):
             msg = 'TensorBoard failed to start'
             raise exceptions.TrackerError(self, msg) from cpe
 
-        self._wait_for_server(port, timeout=10)
-
-        if self._open_browser:
-            self._open_in_browser(port)
-
-    def _display_with_tensorboard_api(self, logdir: pathlib.Path) -> None:
-        """Display TensorBoard using its native notebook API."""
-        from tensorboard import notebook as tb_notebook
-
-        tb_notebook.start(f'--logdir {logdir}')
         return
-
-    def _open_tensorboard(self, port: int) -> None:
-        """Open TensorBoard in browser or display inline in notebooks."""
-        self._open_in_browser(port)
 
     @staticmethod
     def _is_notebook() -> bool:
@@ -196,30 +174,6 @@ class TensorBoard(base_classes.Dumper):
 
         return False
 
-    def _display_in_notebook(self, port: int) -> None:
-        """Display TensorBoard inline in a Jupyter notebook."""
-        try:
-            from IPython.display import IFrame, display
-        except ImportError:
-            msg = 'IPython not available. Opening in browser instead.'
-            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
-            self._open_in_browser(port)
-        else:
-            url = f'http://localhost:{port}'
-            display(IFrame(src=url, width='100%', height=600))
-
-    @staticmethod
-    def _open_in_browser(port: int) -> None:
-        """Open TensorBoard in the default web browser."""
-        try:
-            webbrowser.open(f'http://localhost:{port}')
-        except webbrowser.Error as we:
-            msg = f'Failed to open web browser: {we}'
-            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
-        except OSError as ose:
-            msg = f'OS-level error while opening browser: {ose}'
-            warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
-
     @staticmethod
     def _find_free_port(start: int = 6006, max_tries: int = 100) -> int:
         """Find a free port starting from the given one."""
@@ -235,21 +189,3 @@ class TensorBoard(base_classes.Dumper):
         """Check if the given port is available."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             return sock.connect_ex(('localhost', port)) != 0
-
-    @staticmethod
-    def _wait_for_server(port: int, timeout: int = 10) -> None:
-        """Wait for TensorBoard server to start responding."""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                    sock.settimeout(1)
-                    if sock.connect_ex(('localhost', port)) == 0:
-                        time.sleep(1)
-                        return
-            except OSError:
-                pass
-            time.sleep(0.5)
-
-        msg = f'TensorBoard server did not start within {timeout} seconds'
-        warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
