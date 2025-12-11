@@ -37,7 +37,9 @@ __all__ = [
     'RecursionWarning',
     'ResultNotAvailableError',
     'RunAlreadyCompletedWarning',
+    'RunAlreadyRecordedError',
     'RunAlreadyRunningWarning',
+    'RunNotRecordedError',
     'RunNotStartedWarning',
     'TerminatedTrainingWarning',
     'TrackerAlreadyRegisteredError',
@@ -476,10 +478,21 @@ class RecursionWarning(DryTorchWarning):
     msg = 'Impossible to extract metadata because there are recursive objects.'
 
 
-class RunNotStartedWarning(DryTorchWarning):
-    """Warning raised when a run is stopped before being started."""
+class RunAlreadyRecordedError(DryTorchError):
+    """Error raised when attempting to record a run multiple times."""
 
-    msg = """Attempted to stop a Run instance that is not active."""
+    msg = 'Run {} already recorded in experiment {}. Use resume=True to resume.'
+
+    def __init__(self, run_id: str, exp_name: str) -> None:
+        """Constructor.
+
+        Args:
+            run_id: the id of the run that is already recorded.
+            exp_name: the name of the experiment where to record the run.
+        """
+        self.run_id: Final = run_id
+        self.exp_name: Final = exp_name
+        super().__init__(run_id, exp_name)
 
 
 class RunAlreadyCompletedWarning(DryTorchWarning):
@@ -492,6 +505,27 @@ class RunAlreadyRunningWarning(DryTorchWarning):
     """Warning raised when a run is started when already running."""
 
     msg = """Attempted to start a Run instance that is already running."""
+
+
+class RunNotStartedWarning(DryTorchWarning):
+    """Warning raised when a run is stopped before being started."""
+
+    msg = """Attempted to stop a Run instance that is not active."""
+
+
+class RunNotRecordedError(DryTorchError):
+    """Raised when attempting to update a run that is not registered."""
+
+    msg = 'Run with id {} is not recorded.'
+
+    def __init__(self, run_id: str) -> None:
+        """Constructor.
+
+        Args:
+            run_id: the id of the run that is not registered.
+        """
+        self.run_id: Final = run_id
+        super().__init__(run_id)
 
 
 class TerminatedTrainingWarning(DryTorchWarning):

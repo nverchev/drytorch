@@ -1,4 +1,13 @@
-## [0.1.0b6] - 2025-11-25
+## [0.1.0rc2] - 2025-12-11
+
+### Changed
+- support for multiprocessing for Experiment class
+- Simplified TensorBoard tracker.
+
+### Added
+- test for multiprocessing
+
+## [0.1.0rc1] - 2025-11-25
 
 ### [BREAKING CHANGES]
 - renamed EventDispatcher.register -> EventDispatcher.subscribe

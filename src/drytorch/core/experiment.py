@@ -5,14 +5,14 @@ from __future__ import annotations
 import dataclasses
 import gc
 import json
+import multiprocessing
 import pathlib
 import shutil
 import subprocess
+import types
 import warnings
 import weakref
 
-from pathlib import Path
-from types import TracebackType
 from typing import (
     Any,
     ClassVar,
@@ -22,7 +22,8 @@ from typing import (
     Self,
     TypeVar,
 )
-from weakref import finalize
+
+import filelock
 
 from typing_extensions import override
 
@@ -37,7 +38,6 @@ __all__ = [
 
 
 _T_co = TypeVar('_T_co', covariant=True)
-
 RunStatus = Literal['created', 'running', 'completed', 'failed']
 
 
@@ -64,18 +64,13 @@ class RunRegistry:
         Args:
             path: path to the JSON file.
         """
-        self.file_path: Path = path
+        self.file_path: pathlib.Path = path
+        self.lock_path: pathlib.Path = path.with_suffix('.json.lock')
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.file_path.exists():
-            self.save_all([])
-
         return
 
     def load_all(self) -> list[RunMetadata]:
         """Loads all run metadata from a JSON file."""
-        if not self.file_path.exists():
-            return []
-
         try:
             with self.file_path.open() as f:
                 data = json.load(f)
@@ -88,13 +83,42 @@ class RunRegistry:
 
         return run_data
 
-    def save_all(self, runs: list[RunMetadata]) -> None:
-        """Saves all run metadata to a JSON file."""
-        run_data = []
-        for run in runs:
-            run_data.append(dataclasses.asdict(run))
+    def register_new_run(self, run_metadata: RunMetadata) -> None:
+        """Register a new run, ensuring a unique ID.
 
-        self.file_path.write_text(json.dumps(run_data, indent=2))
+        Args:
+            run_metadata: the metadata for the run (id will be updated).
+        """
+        with filelock.FileLock(self.lock_path):
+            run_data = self.load_all()
+            run_data.append(run_metadata)
+
+            # Convert to dicts for JSON serialization
+            serialized_data = [dataclasses.asdict(r) for r in run_data]
+            self.file_path.write_text(json.dumps(serialized_data, indent=2))
+
+        return
+
+    def update_run_status(self, run_id: str, status: RunStatus) -> None:
+        """Update the status of a run.
+
+        Args:
+            run_id: the id of the run to update.
+            status: the new status.
+        """
+        with filelock.FileLock(self.lock_path):
+            run_data = self.load_all()
+            for run in run_data:
+                if run.id == run_id:
+                    run.status = status
+                    break
+            else:
+                raise exceptions.RunNotRecordedError(run_id)
+
+            # Convert to dicts for JSON serialization
+            serialized_data = [dataclasses.asdict(r) for r in run_data]
+            self.file_path.write_text(json.dumps(serialized_data, indent=2))
+        return
 
 
 class Experiment(Generic[_T_co]):
@@ -141,7 +165,7 @@ class Experiment(Generic[_T_co]):
         _validate_chars(name)
         self.__config: Final[_T_co] = config
         self._name = name
-        self.par_dir: Path = pathlib.Path(par_dir)
+        self.par_dir: pathlib.Path = pathlib.Path(par_dir)
         self.tags: list[str] = tags or []
         self.trackers: Final = track.EventDispatcher(self.name)
         self.trackers.subscribe(**track.DEFAULT_TRACKERS)
@@ -188,7 +212,10 @@ class Experiment(Generic[_T_co]):
         if resume:
             return self._handle_resume_logic(run_id, runs_data, record)
         else:
-            return self._create_new_run(run_id, runs_data, record)
+            if runs_data and run_id in [r.id for r in runs_data]:
+                raise exceptions.RunAlreadyRecordedError(run_id, self.name)
+
+            return self._create_new_run(run_id, record)
 
     def _handle_resume_logic(
         self, run_id: str | None, runs_data: list[RunMetadata], record: bool
@@ -203,7 +230,7 @@ class Experiment(Generic[_T_co]):
 
         if not runs_data:
             warnings.warn(exceptions.NoPreviousRunsWarning(), stacklevel=2)
-            return self._create_new_run(run_id, runs_data, record)
+            return self._create_new_run(run_id, record)
 
         if run_id is None:
             run_id = runs_data[-1].id
@@ -213,7 +240,7 @@ class Experiment(Generic[_T_co]):
                 warnings.warn(
                     exceptions.NotExistingRunWarning(run_id), stacklevel=1
                 )
-                return self._create_new_run(run_id, runs_data, record)
+                return self._create_new_run(run_id, record)
 
             if len(matching_runs) > 1:
                 msg = f'Multiple runs with id {run_id} found in the registry.'
@@ -240,7 +267,6 @@ class Experiment(Generic[_T_co]):
     def _create_new_run(
         self,
         run_id: str | None,
-        runs_data: list[RunMetadata],
         record: bool,
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
@@ -251,9 +277,8 @@ class Experiment(Generic[_T_co]):
             timestamp=run.created_at_str,
             commit=self._get_last_commit_hash(),
         )
-        runs_data.append(run_data)
         if record:
-            self._registry.save_all(runs_data)
+            self._registry.register_new_run(run_data)
 
         return run
 
@@ -302,7 +327,7 @@ class Experiment(Generic[_T_co]):
 
     @staticmethod
     def _get_last_commit_hash() -> str | None:
-        """Get last commit hash if available otherwise None."""
+        """Get the last commit hash if available otherwise None."""
         git = shutil.which('git')
         if git is None:
             return None
@@ -346,12 +371,12 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         """
         super().__init__()
         self._experiment: Final[Experiment[_T_co]] = experiment
-        self._id: Final = run_id or self.created_at_str
+        self._id: Final = self._get_run_id(run_id)
         self.resumed: bool = resumed
         self.record: bool = record
         self.status: RunStatus = 'created'
         self.metadata_manager: Final = track.MetadataManager()
-        self._finalizer: finalize[..., Self] | None = None
+        self._finalizer: weakref.finalize[..., Self] | None = None
         if not self.resumed:
             experiment.previous_runs.append(self)
 
@@ -374,7 +399,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        exc_tb: types.TracebackType | None,
     ) -> None:
         """Exit the experiment scope."""
         if exc_type is not None:
@@ -436,25 +461,17 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         )
         return
 
+    def _get_run_id(self, run_id: str | None) -> str:
+        """Generate a run ID, appending PID if in a worker process."""
+        final_id = run_id or self.created_at_str
+        if multiprocessing.current_process().name != 'MainProcess':
+            final_id = f'{final_id}_{multiprocessing.current_process().pid}'
+
+        return final_id
+
     def _update_registry(self) -> None:
         """Update the run status in the experiment's registry."""
-        run_data = self.experiment._registry.load_all()
-
-        for run_metadata in run_data:
-            if run_metadata.id == self.id:
-                run_metadata.status = self.status
-                break
-        else:
-            run_data.append(
-                RunMetadata(
-                    id=self.id,
-                    status=self.status,
-                    timestamp=self.created_at_str,
-                    commit=None,
-                )
-            )
-
-        self.experiment._registry.save_all(run_data)
+        self.experiment._registry.update_run_status(self.id, self.status)
         return
 
     @staticmethod

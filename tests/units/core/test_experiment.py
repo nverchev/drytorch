@@ -36,26 +36,21 @@ class TestRunRegistry:
             ),
         ]
 
-    def test_init_creates_parent_directory(self, tmp_path) -> None:
+    def test_init_creates_parent_directory(self, registry) -> None:
         """Test it creates parent directories if they don't exist."""
-        nested_path = tmp_path / 'nested' / 'deep' / 'runs.json'
-        _ = RunRegistry(nested_path)
-        assert nested_path.parent.exists()
-        assert nested_path.exists()
+        assert registry.file_path.parent.exists()
+        assert not registry.file_path.exists()
 
-    def test_init_creates_empty_json_file(self, tmp_path) -> None:
-        """Test it creates an empty JSON file on initialization."""
-        json_file = tmp_path / 'runs.json'
-        run_io = RunRegistry(json_file)
-        assert json_file.exists()
-        data = run_io.load_all()
-        assert data == []
+    def test_load_all_nonexistent_file(self, registry) -> None:
+        """Test loading from a non-existent file returns an empty list."""
+        assert registry.load_all() == []
 
-    def test_save_and_load_all(self, registry, sample_runs) -> None:
-        """Test saving and loading run metadata."""
-        registry.save_all(sample_runs)
+    def test_register_and_load_all(self, registry, sample_runs) -> None:
+        """Test registering and loading run metadata."""
+        for run in sample_runs:
+            registry.register_new_run(run)
+
         loaded_runs = registry.load_all()
-
         assert len(loaded_runs) == 3
         assert loaded_runs[0].id == 'run1'
         assert loaded_runs[0].status == 'completed'
@@ -70,32 +65,19 @@ class TestRunRegistry:
         assert loaded_runs[2].timestamp == '1247'
         assert loaded_runs[2].commit == 'example_commit'
 
-    def test_load_all_nonexistent_file(self, tmp_path) -> None:
-        """Test loading from a non-existent file returns an empty list."""
-        json_file = tmp_path / 'nonexistent.json'
-        run_io = RunRegistry.__new__(RunRegistry)
-        run_io.file_path = json_file
-        result = run_io.load_all()
-        assert result == []
-
     def test_load_all_corrupted_json(self, tmp_path) -> None:
         """Test loading from a corrupted JSON file returns an empty list."""
         json_file = tmp_path / 'corrupted.json'
         json_file.write_text('{ invalid json }')
-        run_io = RunRegistry.__new__(RunRegistry)
-        run_io.file_path = json_file
+        run_io = RunRegistry(json_file)
         result = run_io.load_all()
         assert result == []
 
-    def test_save_all_empty_list(self, registry) -> None:
-        """Test saving an empty list."""
-        registry.save_all([])
-        loaded_runs = registry.load_all()
-        assert loaded_runs == []
-
     def test_roundtrip_data_integrity(self, registry, sample_runs) -> None:
         """Test that data maintains integrity through save/load cycles."""
-        registry.save_all(sample_runs)
+        for run in sample_runs:
+            registry.register_new_run(run)
+
         loaded_runs = registry.load_all()
         assert len(loaded_runs) == len(sample_runs)
         for original, loaded in zip(sample_runs, loaded_runs, strict=False):
@@ -143,6 +125,12 @@ class TestExperiment:
         assert run.id == 'custom-id'
         assert not run.resumed
 
+    def test_create_run_collision_error(self, experiment) -> None:
+        """Test that creating a run with an existing ID raises an error."""
+        experiment.create_run(run_id='collision-run')
+        with pytest.raises(exceptions.RunAlreadyRecordedError):
+            experiment.create_run(run_id='collision-run', resume=False)
+
     def test_create_run_resume_no_previous_runs_error(self, experiment) -> None:
         """Test that resuming with no previous runs raises an error."""
         with pytest.warns(exceptions.NoPreviousRunsWarning):
@@ -178,14 +166,17 @@ class TestRun:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up mocks for event logging."""
-        self.mock_start_exp = mocker.patch.object(
+        self.patch_start = mocker.patch.object(
             log_events, 'StartExperimentEvent'
         )
-        self.mock_stop_exp = mocker.patch.object(
-            log_events, 'StopExperimentEvent'
+        self.patch_stop = mocker.patch.object(log_events, 'StopExperimentEvent')
+        self.patch_load = mocker.patch.object(RunRegistry, 'load_all')
+        self.patch_register = mocker.patch.object(
+            RunRegistry, 'register_new_run'
         )
-        self.mock_load = mocker.patch.object(RunRegistry, 'load_all')
-        self.mock_save = mocker.patch.object(RunRegistry, 'save_all')
+        self.patch_update = mocker.patch.object(
+            RunRegistry, 'update_run_status'
+        )
         return
 
     @pytest.fixture()
@@ -207,14 +198,14 @@ class TestRun:
         self, run, experiment, config, tmp_path
     ) -> None:
         """Test starting and stopping a run using the context manager."""
-        self.mock_start_exp.reset_mock()
+        self.patch_start.reset_mock()
         run.start()
         assert run.status == 'running'
         assert Experiment.get_current() is experiment
         assert Experiment.get_current().par_dir == tmp_path
         assert Experiment.get_config() is config
         assert experiment._active_run is run
-        self.mock_start_exp.assert_called_once()
+        self.patch_start.assert_called_once()
 
         run.stop()
         assert run.status == 'completed'
@@ -313,63 +304,30 @@ class TestRun:
 
     def test_cleanup_resources_static_method(self, experiment, mocker) -> None:
         """Test the _cleanup_resources static method directly."""
-        self.mock_stop_exp.reset_mock()
+        self.patch_stop.reset_mock()
         mock_set_auto_publish = mocker.patch.object(
             log_events.Event, 'set_auto_publish'
         )
         mock_clear_current = mocker.patch.object(Experiment, '_clear_current')
         experiment._active_run = mocker.Mock()
-
         Run._cleanup_resources(experiment)
 
         assert experiment._active_run is None
-        self.mock_stop_exp.assert_called_once_with(experiment.name)
+        self.patch_stop.assert_called_once_with(experiment.name)
         mock_set_auto_publish.assert_called_once_with(None)
         mock_clear_current.assert_called_once()
 
-    def test_update_registry_creates_new_entry(self, run, mocker) -> None:
-        """Test that _update_registry creates a new entry for a new run."""
-        self.mock_load.return_value = []
-        self.mock_load.reset_mock()
-        self.mock_save.reset_mock()
-        run._update_registry()
-        self.mock_load.assert_called_once()
-        self.mock_save.assert_called_once()
-
-    def test_update_registry_updates_existing_entry(self, run, mocker) -> None:
+    def test_update_registry_updates_existing_entry(self, run) -> None:
         """Test that _update_registry updates an existing run entry."""
-        existing_run_data = mocker.Mock()
-        existing_run_data.id = run.id
-        existing_run_data.status = 'running'
-        other_run_data = mocker.Mock()
-        other_run_data.id = 'other-run'
-        other_run_data.status = 'failed'
-        self.mock_load.return_value = [existing_run_data, other_run_data]
-        self.mock_load.reset_mock()
-        self.mock_save.reset_mock()
-        run._update_registry()
-        self.mock_load.assert_called_once()
-        self.mock_save.assert_called_once()
+        self.patch_update.reset_mock()
         run.status = 'completed'
-        self.mock_load.reset_mock()
-        self.mock_save.reset_mock()
         run._update_registry()
-        self.mock_load.assert_called_once()
-        self.mock_save.assert_called_once()
-        assert existing_run_data.status == 'completed'
-        assert other_run_data.status == 'failed'  # unchanged
-        saved_data = self.mock_save.call_args[0][0]
-        assert len(saved_data) == 2
-        assert existing_run_data in saved_data
-        assert other_run_data in saved_data
+        self.patch_update.assert_called_once_with(run.id, 'completed')
 
-    def test_update_registry_called_on_start_and_stop(
-        self, run, mocker
-    ) -> None:
+    def test_update_registry_called_on_start_and_stop(self, run) -> None:
         """Test _update_registry is called when starting and stopping runs."""
-        mock_update = mocker.patch.object(run, '_update_registry')
         run.start()
-        mock_update.assert_called()
-        mock_update.reset_mock()
+        self.patch_update.assert_called()
+        self.patch_update.reset_mock()
         run.stop()
-        mock_update.assert_called()
+        self.patch_update.assert_called()
