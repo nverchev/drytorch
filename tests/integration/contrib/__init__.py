@@ -1,1 +1,1 @@
-"""Integration tests for contrib."""
+"""Integration tests for contrib modules."""
