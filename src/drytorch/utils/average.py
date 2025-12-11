@@ -16,6 +16,8 @@ from typing_extensions import override
 
 
 __all__ = [
+    'DistributedTorchAverager',
+    'TorchAverager',
     'get_moving_average',
     'get_trailing_mean',
 ]
@@ -182,6 +184,38 @@ class TorchAverager(AbstractAverager[torch.Tensor]):
     @override
     def _count(value: torch.Tensor) -> int:
         return value.numel()
+
+
+class DistributedTorchAverager(TorchAverager):
+    """Subclass of TorchAverager that synchronizes across processes."""
+
+    @staticmethod
+    @override
+    def _aggregate(value: torch.Tensor) -> torch.Tensor:
+        """Return the sum of the values, synchronized across processes."""
+        aggregated = value.sum()
+        if (
+            torch.distributed.is_available()
+            and torch.distributed.is_initialized()
+        ):
+            torch.distributed.all_reduce(
+                aggregated, op=torch.distributed.ReduceOp.SUM
+            )
+        return aggregated
+
+    @staticmethod
+    @override
+    def _count(value: torch.Tensor) -> int:
+        """Return the count of the values, synchronized across processes."""
+        count = torch.tensor(value.numel(), device=value.device)
+        if (
+            torch.distributed.is_available()
+            and torch.distributed.is_initialized()
+        ):
+            torch.distributed.all_reduce(
+                count, op=torch.distributed.ReduceOp.SUM
+            )
+        return int(count.item())
 
 
 def get_moving_average(

@@ -9,6 +9,7 @@ import pytest
 from drytorch.utils.average import (
     AbstractAverager,
     Averager,
+    DistributedTorchAverager,
     TorchAverager,
     get_moving_average,
     get_trailing_mean,
@@ -98,6 +99,56 @@ class TestTorchAverager:
         """Test that reduce returns an empty dict after clearing."""
         torch_averager.clear()
         assert torch_averager.reduce() == {}
+
+
+class TestDistributedTorchAverager:
+    """Tests for DistributedTorchAverager."""
+
+    @pytest.fixture
+    def dist_averager(self) -> DistributedTorchAverager:
+        """Fixture to create a DistributedTorchAverager instance."""
+        return DistributedTorchAverager()
+
+    def test_aggregate_sync(
+        self,
+        dist_averager,
+        mocker,
+    ) -> None:
+        """Test _aggregate synchronizes across processes."""
+        tensor = torch.tensor([1.0, 2.0])
+        mocker.patch('torch.distributed.is_available', return_value=True)
+        mocker.patch('torch.distributed.is_initialized', return_value=True)
+        mock_all_reduce = mocker.patch('torch.distributed.all_reduce')
+        result = dist_averager._aggregate(tensor)
+        mock_all_reduce.assert_called_once()
+        assert result == 3.0
+
+    def test_count_sync(
+        self,
+        dist_averager: DistributedTorchAverager,
+        mocker,
+    ) -> None:
+        """Test _count synchronizes across processes."""
+        tensor = torch.tensor([1.0, 2.0])
+        mocker.patch('torch.distributed.is_available', return_value=True)
+        mocker.patch('torch.distributed.is_initialized', return_value=True)
+        mock_all_reduce = mocker.patch('torch.distributed.all_reduce')
+        result = dist_averager._count(tensor)
+        mock_all_reduce.assert_called_once()
+        assert result == 2
+
+    def test_no_dist_behavior(
+        self,
+        dist_averager: DistributedTorchAverager,
+        mocker,
+    ) -> None:
+        """Test behavior when distributed is not available."""
+        tensor = torch.tensor([1.0, 2.0])
+        mocker.patch('torch.distributed.is_available', return_value=False)
+        agg_result = dist_averager._aggregate(tensor)
+        count_result = dist_averager._count(tensor)
+        assert agg_result == 3.0
+        assert count_result == 2
 
 
 def test_trailing_mean_full_window():
