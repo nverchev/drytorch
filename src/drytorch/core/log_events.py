@@ -9,6 +9,8 @@ import pathlib
 from collections.abc import Callable, Mapping
 from typing import Any, ClassVar
 
+from torch import distributed as dist
+
 from drytorch.core import exceptions
 
 
@@ -49,7 +51,11 @@ class Event:
     @staticmethod
     def set_auto_publish(func: Callable[[Event], None] | None) -> None:
         """Specify how to notify subscribers upon creation."""
-        Event._auto_publish = func
+        if dist.is_available() and dist.is_initialized():
+            if dist.get_rank():
+                Event._auto_publish = lambda _: None
+            else:
+                Event._auto_publish = func
         return
 
 
