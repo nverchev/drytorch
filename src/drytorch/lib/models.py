@@ -7,7 +7,7 @@ from typing import Any, Final, TypedDict, TypeVar, cast
 
 import torch
 
-from torch.amp import grad_scaler
+from torch import amp
 from typing_extensions import override
 
 from drytorch.core import exceptions, register
@@ -147,7 +147,8 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     @staticmethod
     def _default_device() -> torch.device:
-        return torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        device_or_none = torch.accelerator.current_accelerator()
+        return torch.device('cpu') if device_or_none is None else device_or_none
 
     @staticmethod
     def _validate_module(
@@ -249,7 +250,7 @@ class ModelOptimizer:
         self._gradient_op: p.GradientOpProtocol = learning_schema.gradient_op
         self._checkpoint: p.CheckpointProtocol = self._model.checkpoint
         self._checkpoint.bind_optimizer(self._optimizer)
-        self._scaler: grad_scaler.GradScaler = grad_scaler.GradScaler(
+        self._scaler: amp.grad_scaler.GradScaler = amp.grad_scaler.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,
         )
