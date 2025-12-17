@@ -23,7 +23,6 @@ from typing_extensions import override
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.utils import average
-from drytorch.utils.average import TorchAverager
 
 
 __all__ = [
@@ -47,7 +46,8 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
 
     def __init__(self) -> None:
         """Initializes the Objective with a dictionary of metric functions."""
-        self._aggregator: TorchAverager = average.TorchAverager()
+        self._aggregator = average.TorchAverager()
+        return
 
     @override
     def compute(self: Self) -> dict[str, Tensor]:
@@ -80,9 +80,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
             A dictionary of the calculated metric values for the current update.
         """
         results = self.calculate(outputs, targets)
-        self._aggregator += {
-            key: value.detach() for key, value in results.items()
-        }
+        self._aggregator += results
         return results
 
     @override
@@ -113,6 +111,11 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
             other: metric to be merged with.
         """
         self._aggregator += other._aggregator
+        return
+
+    def sync(self: Self) -> None:
+        """Synchronize metric states across processes."""
+        self._aggregator.all_reduce()
         return
 
     def __deepcopy__(self, memo: dict[int, Any]) -> Self:
@@ -790,10 +793,10 @@ def dict_apply(
     }
 
 
-def repr_metrics(
+def compute_metrics(
     calculator: p.ObjectiveProtocol[Any, Any],
 ) -> Mapping[str, float]:
-    """Represent the metrics as a mapping of named values.
+    """Compute and represent the metrics as a mapping of named values.
 
     Args:
         calculator: An ObjectiveProtocol instance from which to compute metrics.
