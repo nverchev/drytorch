@@ -11,6 +11,7 @@ from typing import Any, Final
 import numpy as np
 import torch
 
+from torch import distributed as dist
 from typing_extensions import override
 
 from drytorch.core import exceptions, experiment, log_events
@@ -147,19 +148,24 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
             location=self._get_location(),
             epoch=self.model.epoch,
         )
+        self._load()
+        return
 
-    def remove_model(self):
+    def remove_model(self) -> None:
         """Remove registered model."""
         self._model = None
         self._optimizer = None
+        return
 
-    def bind_model(self, model: p.ModelProtocol[Any, Any]):
+    def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
         """Bind the model to manage."""
         self._model = model
+        return
 
-    def bind_optimizer(self, optimizer: torch.optim.Optimizer):
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""
         self._optimizer = optimizer
+        return
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
@@ -169,9 +175,17 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
             location=self._get_location(),
             epoch=self.model.epoch,
         )
+        if dist.is_available and dist.is_initialized() and dist.get_rank():
+            return
+
+        self._save()
+        return
 
     def _get_definition(self) -> str:
         return 'state' if self.optimizer is None else 'checkpoint'
+
+    @abc.abstractmethod
+    def _load(self) -> None: ...
 
     @abc.abstractmethod
     def _get_last_saved_epoch(self) -> int: ...
@@ -179,9 +193,13 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     @abc.abstractmethod
     def _get_location(self) -> str: ...
 
+    @abc.abstractmethod
+    def _save(self) -> None: ...
+
     def _update_epoch(self, epoch: int):
         if epoch < -1:
             raise ValueError('Epoch must be larger than -1.')
+
         epoch = epoch if epoch >= 0 else self._get_last_saved_epoch()
         self.model.epoch = epoch
 
@@ -205,8 +223,7 @@ class LocalCheckpoint(AbstractCheckpoint):
         return CheckpointPathManager(self.model, self._par_dir)
 
     @override
-    def load(self, epoch: int = -1) -> None:
-        super().load(epoch)
+    def _load(self, epoch: int = -1) -> None:
         if not self.paths.model_dir.exists():
             raise exceptions.ModelNotFoundError(self.paths.run_dir)
 
@@ -237,8 +254,7 @@ class LocalCheckpoint(AbstractCheckpoint):
         return
 
     @override
-    def save(self) -> None:
-        super().save()
+    def _save(self) -> None:
         self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
         torch.save(self.model.module.state_dict(), self.paths.model_state_path)
         if self.optimizer is not None:
