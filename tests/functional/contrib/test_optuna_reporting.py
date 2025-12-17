@@ -39,6 +39,7 @@ class TestTrialCallbackAsk:
         identity_trainer.objective.update(
             TorchData(torch.ones(2)), torch.zeros(2)
         )
+        identity_trainer._compute_metrics()
         trial_callback(identity_trainer)
         # here you can tell a result with trial.study.tell(trial, {your_result})
         assert trial_callback.reported == {3: 1}
@@ -61,6 +62,7 @@ class TestTrialCallbackObjective:
             identity_trainer.objective.update(
                 TorchData(torch.ones(2)), torch.zeros(2)
             )
+            identity_trainer._compute_metrics()
             trial_callback = TrialCallback(trial=trial, best_is='lower')
             trial_callback(identity_trainer)
             return get_final_value(trial)

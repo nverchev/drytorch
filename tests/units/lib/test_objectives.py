@@ -14,8 +14,8 @@ from drytorch.lib.objectives import (
     Metric,
     MetricCollection,
     MetricTracker,
+    compute_metrics,
     dict_apply,
-    repr_metrics,
 )
 
 
@@ -375,7 +375,7 @@ def test_repr_metrics(mocker, compute_return, class_name, expected):
         mock_calculator.__class__.__name__ = class_name
 
     # Call the function and assert the result
-    result = repr_metrics(mock_calculator)
+    result = compute_metrics(mock_calculator)
     assert result == expected
 
 

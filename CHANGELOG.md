@@ -1,11 +1,13 @@
 ## [0.1.0rc2] - 2025-12-11
 
 ### Changed
-- support for multiprocessing for Experiment class
 - Simplified TensorBoard tracker.
 
 ### Added
-- test for multiprocessing
+- support for multiprocessing for Experiment class
+- support for metrics syncing in distributed settings
+- support for distributed samplers
+- from_torcheval added to allow syncing of torcheval metrics
 
 ## [0.1.0rc1] - 2025-11-25
 

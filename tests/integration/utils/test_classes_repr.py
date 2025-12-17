@@ -35,6 +35,11 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
             'batch_size': 4,
             'dataset': {'class': 'IdentityDataset', 'len_epoch': 64},
             'dataset_len': 64,
+            'sampler': {
+                'class': 'RandomSampler',
+                'data_source': 'range(0, 64)',
+                'replacement': False,
+            },
         },
         'model': {
             'class': 'Model',

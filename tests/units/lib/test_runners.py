@@ -88,7 +88,8 @@ class TestModelRunner:
             'drytorch.core.log_events.IterateBatchEvent'
         )
         self.mock_repr_metrics = mocker.patch(
-            'drytorch.lib.objectives.repr_metrics', return_value={'loss': 0.1}
+            'drytorch.lib.objectives.compute_metrics',
+            return_value={'loss': 0.1},
         )
         return
 
@@ -207,13 +208,23 @@ class TestModelRunnerWithObjective:
     @pytest.fixture(autouse=True)
     def setup(self, mocker, mock_loss) -> None:
         """Set up the tests."""
+
+        def _mock_init(instance, *_, **__):
+            instance._is_distributed = True
+            return
+
         self.mock_target = mocker.Mock()
         self.mock_output = mocker.Mock()
-        mocker.patch('drytorch.lib.runners.ModelRunner.__init__')
+        mocker.patch(
+            'drytorch.lib.runners.ModelRunner.__init__', new=_mock_init
+        )
         mocker.patch('drytorch.lib.runners.ModelRunner._run_epoch')
         mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
+        mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
+
         self.mock_repr_metrics = mocker.patch(
-            'drytorch.lib.objectives.repr_metrics', return_value={'loss': 0.1}
+            'drytorch.lib.objectives.compute_metrics',
+            return_value={'loss': 0.1},
         )
         self.mock_deepcopy = mocker.patch(
             'copy.deepcopy', return_value=mock_loss
@@ -259,8 +270,7 @@ class TestModelRunnerWithLogs:
         mocker.patch('drytorch.lib.runners.ModelRunnerWithObjective._run_epoch')
         mocker.patch.object(
             ModelRunnerWithObjective,
-            'computed_metrics',
-            new_callable=mocker.PropertyMock,
+            '_compute_metrics',
             return_value=example_named_metrics,
         )
         self.mock_log_events_metrics = mocker.patch(
