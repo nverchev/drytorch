@@ -45,13 +45,21 @@ class TestAggregator:
         assert aggregator != different_aggregator
 
     def test_reduce(self, aggregator: AbstractAverager[float]) -> None:
-        """Test reduce calculates averages for all metrics."""
+        """Test all_reduce calculates averages for all metrics."""
         expected_reduced = {
             'metric1': 2.0,
             'metric2': 4.0,
         }
         assert aggregator.reduce() == expected_reduced
         assert aggregator._cached_reduce
+
+    def test_all_reduce(self, aggregator: AbstractAverager[float]) -> None:
+        """Test all_reduce re_calculates averages for all metrics."""
+        aggregator.reduce()
+        aggregator.aggregate['metric1'] = 4.0
+        aggregator.aggregate['metric2'] = 6.0
+        expected_reduced = {'metric1': 4.0, 'metric2': 6.0}
+        assert aggregator.all_reduce() == expected_reduced
 
     def test_cached_reduce(self, aggregator: AbstractAverager[float]) -> None:
         """Test cached_reduce stores result."""
@@ -98,6 +106,10 @@ class TestTorchAverager:
         """Test that reduce returns an empty dict after clearing."""
         torch_averager.clear()
         assert torch_averager.reduce() == {}
+
+    def test_all_reduce(self, torch_averager: TorchAverager) -> None:
+        """Test all_reduce defaults to reduce in no distributed setting."""
+        assert torch_averager.all_reduce() == torch_averager.reduce()
 
 
 def test_trailing_mean_full_window():
