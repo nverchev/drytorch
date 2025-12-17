@@ -12,16 +12,15 @@ from typing import Any, Final, Generic, Self, TypeVar
 
 import torch
 
+from torch import distributed as dist
 from typing_extensions import override
 
 
 __all__ = [
-    'DistributedTorchAverager',
     'TorchAverager',
     'get_moving_average',
     'get_trailing_mean',
 ]
-
 
 _T = TypeVar('_T', torch.Tensor, float)
 
@@ -145,6 +144,14 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
 
         return self._cached_reduce
 
+    def all_reduce(self) -> dict[str, _T]:
+        """Synchronize the averaged values across processes."""
+        return self.reduce()
+
+    @staticmethod
+    def _reduce(aggregated: _T, count: int) -> _T:
+        return aggregated / count
+
     @staticmethod
     @abc.abstractmethod
     def _aggregate(value: _T) -> _T: ...
@@ -152,10 +159,6 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
     @staticmethod
     @abc.abstractmethod
     def _count(value: _T) -> int: ...
-
-    @staticmethod
-    def _reduce(aggregated: _T, count: int) -> _T:
-        return aggregated / count
 
 
 class Averager(AbstractAverager[float]):
@@ -178,44 +181,33 @@ class TorchAverager(AbstractAverager[torch.Tensor]):
     @staticmethod
     @override
     def _aggregate(value: torch.Tensor) -> torch.Tensor:
-        return value.sum()
+        return value.detach().sum()
 
     @staticmethod
     @override
     def _count(value: torch.Tensor) -> int:
         return value.numel()
 
-
-class DistributedTorchAverager(TorchAverager):
-    """Subclass of TorchAverager that synchronizes across processes."""
-
-    @staticmethod
     @override
-    def _aggregate(value: torch.Tensor) -> torch.Tensor:
-        """Return the sum of the values, synchronized across processes."""
-        aggregated = value.sum()
-        if (
-            torch.distributed.is_available()
-            and torch.distributed.is_initialized()
-        ):
-            torch.distributed.all_reduce(
-                aggregated, op=torch.distributed.ReduceOp.SUM
-            )
-        return aggregated
+    def all_reduce(self) -> dict[str, torch.Tensor]:
+        """Synchronize the values across processes."""
+        if not (dist.is_available() and torch.distributed.is_initialized()):
+            return self.reduce()
 
-    @staticmethod
-    @override
-    def _count(value: torch.Tensor) -> int:
-        """Return the count of the values, synchronized across processes."""
-        count = torch.tensor(value.numel(), device=value.device)
-        if (
-            torch.distributed.is_available()
-            and torch.distributed.is_initialized()
-        ):
+        self._cached_reduce.clear()
+        for key, value in self.aggregate.items():
             torch.distributed.all_reduce(
-                count, op=torch.distributed.ReduceOp.SUM
+                value, op=torch.distributed.ReduceOp.SUM
             )
-        return int(count.item())
+            count_tensor = torch.tensor(
+                self.counts[key], device=value.device, dtype=torch.long
+            )
+            torch.distributed.all_reduce(
+                count_tensor, op=torch.distributed.ReduceOp.SUM
+            )
+            self.counts[key] = int(count_tensor.item())
+
+        return self.reduce()
 
 
 def get_moving_average(
