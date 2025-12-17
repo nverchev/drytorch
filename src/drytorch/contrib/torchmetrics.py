@@ -15,10 +15,8 @@ __all__ = [
     'from_torchmetrics',
 ]
 
-
 if TYPE_CHECKING:
     from torchmetrics import metric
-
 
 _Tensor = torch.Tensor
 
@@ -34,16 +32,8 @@ def from_torchmetrics(
         def __init__(self, _metric: metric.CompositionalMetric) -> None:
             self.metric = _metric
 
-        def update(self, outputs: _Tensor, targets: _Tensor) -> Any:
-            self.metric.update(outputs, targets)
-
-        def reset(self) -> Any:
-            self.metric.reset()
-
-        def forward(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
-            return self.metric(outputs, targets)
-
         def compute(self) -> dict[str, _Tensor]:
+            """Output a dictionary of metric values for each component."""
             dict_output = dict[str, _Tensor](
                 {'Combined Loss': self.metric.compute()}
             )
@@ -63,5 +53,14 @@ def from_torchmetrics(
                         dict_output[metric_.__class__.__name__] = value
 
             return dict_output
+
+        def forward(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
+            return self.metric(outputs, targets)
+
+        def reset(self) -> Any:
+            self.metric.reset()
+
+        def update(self, outputs: _Tensor, targets: _Tensor) -> Any:
+            self.metric.update(outputs, targets)
 
     return _TorchMetricCompositionalMetric(torch_metric)
