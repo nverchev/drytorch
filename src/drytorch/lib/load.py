@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from typing import Any, Final, TypeVar, overload
 
 import numpy as np
 import torch
 
 from numpy import random
+from torch import distributed as dist
 from torch.utils import data
 from typing_extensions import override
 
@@ -22,11 +23,9 @@ __all__ = [
     'take_from_dataset',
 ]
 
-
 Data = TypeVar('Data', bound=tuple[p.InputType, p.TargetType], covariant=True)
 
 _T = TypeVar('_T')
-
 
 _default_device = torch.device('cpu')
 
@@ -129,6 +128,7 @@ class DataLoader(p.LoaderProtocol[Data]):
         batch_size: number of samples per batch.
         dataset: the dataset to load data from.
         dataset_len: length of the dataset.
+        sampler: the sampling strategy for the dataset.
     """
 
     def __init__(
@@ -136,6 +136,8 @@ class DataLoader(p.LoaderProtocol[Data]):
         dataset: data.Dataset[Data],
         batch_size: int,
         pin_memory: bool | None = None,
+        sampler: data.Sampler | Iterable[Any] | None = None,
+        num_workers: int = 0,
     ) -> None:
         """Constructor.
 
@@ -143,13 +145,21 @@ class DataLoader(p.LoaderProtocol[Data]):
             dataset: the dataset to load data from.
             batch_size: number of samples per batch.
             pin_memory: pin memory for faster GPU training. Defaults to true
-                when GPU is available.
+                when hardware acceleration is available.
+            sampler: defines the strategy to draw samples from the dataset.
+            num_workers: number of subprocesses for data loading.
+
         """
         self.batch_size: int | None = batch_size
         self.dataset: Final = dataset
         self.dataset_len: int = validate_dataset_length(dataset)
-        cuda_flag = torch.cuda.is_available()
-        self._pin_memory: bool = cuda_flag if pin_memory is None else pin_memory
+        acc_flag = torch.accelerator.is_available()
+        self._pin_memory: bool = acc_flag if pin_memory is None else pin_memory
+        self._num_workers: int = num_workers
+        self._distributed = dist.is_available() and dist.is_initialized()
+        self._user_sampler: data.Sampler | Iterable | None = sampler
+        self.sampler: data.Sampler | Iterable = self._init_sampler(sampler)
+        return
 
     @override
     def __iter__(self) -> Iterator[Data]:
@@ -183,14 +193,26 @@ class DataLoader(p.LoaderProtocol[Data]):
         if inference is None:
             inference = torch.is_inference_mode_enabled()
 
+        if self._user_sampler is None:
+            if isinstance(self.sampler, data.DistributedSampler):
+                self.sampler.shuffle = not inference
+            elif inference:
+                if not isinstance(self.sampler, data.SequentialSampler):
+                    self.sampler = data.SequentialSampler(
+                        range(self.dataset_len)
+                    )
+            else:
+                if not isinstance(self.sampler, data.RandomSampler):
+                    self.sampler = data.RandomSampler(range(self.dataset_len))
+
         drop_last: bool = not inference
-        shuffle: bool = not inference
         loader = data.DataLoader(
             self.dataset,
             batch_size=self.batch_size,
             drop_last=drop_last,
-            shuffle=shuffle,
+            sampler=self.sampler,
             pin_memory=self._pin_memory,
+            num_workers=self._num_workers,
         )
         return loader
 
@@ -235,6 +257,18 @@ class DataLoader(p.LoaderProtocol[Data]):
         first_loader = DataLoader(first_dataset, batch_size)
         second_loader = DataLoader(second_dataset, batch_size)
         return first_loader, second_loader
+
+    def _init_sampler(
+        self, sampler: data.Sampler | Iterable | None
+    ) -> data.Sampler | Iterable:
+        """Set the initial sampler for the loader."""
+        if sampler is None:
+            if self._distributed:
+                return data.DistributedSampler(self.dataset)
+
+            return data.RandomSampler(range(self.dataset_len))
+
+        return sampler
 
 
 def _validate_batch_size(batch_size: int | None) -> int:

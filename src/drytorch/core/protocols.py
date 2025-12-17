@@ -69,7 +69,7 @@ class LoaderProtocol(Protocol[_Data_co]):
     """
 
     batch_size: int | None
-    sampler: torch.utils.data.Sampler[Any] | None
+    sampler: torch.utils.data.Sampler[Any] | Iterable[Any]
 
     def get_dataset(self) -> data.Dataset[_Data_co]:
         """Returns the dataset."""

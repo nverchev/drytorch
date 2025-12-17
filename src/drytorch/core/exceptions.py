@@ -32,6 +32,7 @@ __all__ = [
     'NoActiveExperimentError',
     'NoPreviousRunsWarning',
     'NotExistingRunWarning',
+    'ObjectiveSyncWarning',
     'OptimizerNotLoadedWarning',
     'PastEpochWarning',
     'RecursionWarning',
@@ -417,6 +418,22 @@ class FailedOptionalImportWarning(DryTorchWarning):
         """
         self.package_name: Final = package_name
         super().__init__(package_name)
+
+
+class ObjectiveSyncWarning(DryTorchWarning):
+    """Warning for metric synchronization configuration issues."""
+
+    msg = 'Objective synchronization encountered issue: {}. Recommend to: {} .'
+
+    def __init__(self, issue: str, recommend: str) -> None:
+        """Constructor.
+
+        Args:
+            issue: the issue that was encountered with the objective.
+            recommend: the recommended action to fix the issue.
+        """
+        self.issue: Final = issue
+        super().__init__(issue)
 
 
 class NoPreviousRunsWarning(DryTorchWarning):
