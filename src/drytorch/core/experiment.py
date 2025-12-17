@@ -25,6 +25,7 @@ from typing import (
 
 import filelock
 
+from torch import distributed as dist
 from typing_extensions import override
 
 from drytorch.core import exceptions, log_events, track
@@ -35,7 +36,6 @@ __all__ = [
     'Experiment',
     'Run',
 ]
-
 
 _T_co = TypeVar('_T_co', covariant=True)
 RunStatus = Literal['created', 'running', 'completed', 'failed']
@@ -277,7 +277,7 @@ class Experiment(Generic[_T_co]):
             timestamp=run.created_at_str,
             commit=self._get_last_commit_hash(),
         )
-        if record:
+        if run.record:
             self._registry.register_new_run(run_data)
 
         return run
@@ -371,9 +371,11 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         """
         super().__init__()
         self._experiment: Final[Experiment[_T_co]] = experiment
+        self._distributed = dist.is_available() and dist.is_initialized()
+        self._is_secondary_process = self._distributed and dist.get_rank()
         self._id: Final = self._get_run_id(run_id)
         self.resumed: bool = resumed
-        self.record: bool = record
+        self.record: bool = record and not self._is_secondary_process
         self.status: RunStatus = 'created'
         self.metadata_manager: Final = track.MetadataManager()
         self._finalizer: weakref.finalize[..., Self] | None = None
@@ -449,7 +451,11 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         self._experiment._active_run = self
         Experiment.set_current(self._experiment)
-        log_events.Event.set_auto_publish(self._experiment.trackers.publish)
+        if self._is_secondary_process:  # no tracking in secondary processes
+            log_events.Event.set_auto_publish(lambda _: None)
+        else:
+            log_events.Event.set_auto_publish(self._experiment.trackers.publish)
+
         log_events.StartExperimentEvent(
             self._experiment.config,
             self._experiment.name,
@@ -464,8 +470,9 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     def _get_run_id(self, run_id: str | None) -> str:
         """Generate a run ID, appending PID if in a worker process."""
         final_id = run_id or self.created_at_str
-        if multiprocessing.current_process().name != 'MainProcess':
-            final_id = f'{final_id}_{multiprocessing.current_process().pid}'
+        if not self._distributed:  # keep the same ID for distributed runs
+            if multiprocessing.current_process().name != 'MainProcess':
+                final_id = f'{final_id}_{multiprocessing.current_process().pid}'
 
         return final_id
 
