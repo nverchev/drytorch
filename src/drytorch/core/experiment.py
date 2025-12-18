@@ -287,6 +287,7 @@ class Experiment(Generic[_T_co]):
         """Get the current run."""
         if self._active_run is None:
             raise exceptions.NoActiveExperimentError(self.name)
+
         return self._active_run
 
     @run.setter
@@ -339,9 +340,10 @@ class Experiment(Generic[_T_co]):
                 text=True,
                 check=True,
             )
-            return result.stdout.strip()
         except subprocess.CalledProcessError:
             return None
+
+        return result.stdout.strip()
 
 
 class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
