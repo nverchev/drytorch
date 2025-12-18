@@ -373,8 +373,8 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         """
         super().__init__()
         self._experiment: Final[Experiment[_T_co]] = experiment
-        self._distributed = dist.is_available() and dist.is_initialized()
-        self._is_secondary_process = self._distributed and dist.get_rank()
+        self._is_distributed = dist.is_available() and dist.is_initialized()
+        self._is_secondary_process = self._is_distributed and dist.get_rank()
         self._id: Final = self._get_run_id(run_id)
         self.resumed: bool = resumed
         self.record: bool = record and not self._is_secondary_process
@@ -383,6 +383,14 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self._finalizer: weakref.finalize[..., Self] | None = None
         if not self.resumed:
             experiment.previous_runs.append(self)
+
+        if self._is_distributed:
+            feature = 'Data-distributed support'
+            warnings.warn(
+                exceptions.ExperimentalFeatureWarning(feature), stacklevel=2
+            )
+
+        return
 
     @property
     def experiment(self) -> Experiment[_T_co]:
@@ -472,7 +480,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     def _get_run_id(self, run_id: str | None) -> str:
         """Generate a run ID, appending PID if in a worker process."""
         final_id = run_id or self.created_at_str
-        if not self._distributed:  # keep the same ID for distributed runs
+        if not self._is_distributed:  # keep the same ID for distributed runs
             if multiprocessing.current_process().name != 'MainProcess':
                 final_id = f'{final_id}_{multiprocessing.current_process().pid}'
 

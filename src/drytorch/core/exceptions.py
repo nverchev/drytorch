@@ -18,6 +18,7 @@ __all__ = [
     'DryTorchError',
     'DryTorchWarning',
     'EpochNotFoundError',
+    'ExperimentalFeatureWarning',
     'FailedOptionalImportWarning',
     'FuncNotApplicableError',
     'LossNotScalarError',
@@ -405,6 +406,21 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         super().__init__(calculator.__class__.__name__)
 
 
+class ExperimentalFeatureWarning(DryTorchWarning):
+    """Warning raised when an experimental feature is used."""
+
+    msg = '{} is an experimental feature and may change in the future.'
+
+    def __init__(self, feature: str) -> None:
+        """Constructor.
+
+        Args:
+            feature: the experimental feature that was used.
+        """
+        self.feature: Final = feature
+        super().__init__(feature.__class__.__name__)
+
+
 class FailedOptionalImportWarning(DryTorchWarning):
     """Warning raised when an optional dependency fails to import."""
 
@@ -418,22 +434,6 @@ class FailedOptionalImportWarning(DryTorchWarning):
         """
         self.package_name: Final = package_name
         super().__init__(package_name)
-
-
-class ObjectiveSyncWarning(DryTorchWarning):
-    """Warning for metric synchronization configuration issues."""
-
-    msg = 'Objective synchronization encountered issue: {}. Recommend to: {} .'
-
-    def __init__(self, issue: str, recommend: str) -> None:
-        """Constructor.
-
-        Args:
-            issue: the issue that was encountered with the objective.
-            recommend: the recommended action to fix the issue.
-        """
-        self.issue: Final = issue
-        super().__init__(issue)
 
 
 class NoPreviousRunsWarning(DryTorchWarning):
@@ -455,6 +455,22 @@ class NotExistingRunWarning(DryTorchWarning):
         """
         self.run_id: Final = run_id
         super().__init__(run_id)
+
+
+class ObjectiveSyncWarning(DryTorchWarning):
+    """Warning for metric synchronization configuration issues."""
+
+    msg = 'Objective synchronization encountered issue: {}. Recommend to: {} .'
+
+    def __init__(self, issue: str, recommend: str) -> None:
+        """Constructor.
+
+        Args:
+            issue: the issue that was encountered with the objective.
+            recommend: the recommended action to fix the issue.
+        """
+        self.issue: Final = issue
+        super().__init__(issue)
 
 
 class OptimizerNotLoadedWarning(DryTorchWarning):
