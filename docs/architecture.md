@@ -27,6 +27,7 @@ classDiagram
 direction TB
     class LoaderProtocol["LoaderProtocol[(Input, Target)]"] {
 	    batch_size : int | None
+        sampler: torch.utils.data.Sampler | Iterable
 	    +get_dataset() Data
 	    +__iter__() Iterator[(Input, Target) ]
 	    +__len__() int
