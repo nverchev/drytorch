@@ -6,8 +6,8 @@ import torch
 
 import pytest
 
-from drytorch.contrib.torchmetrics import _Tensor, from_torchmetrics
-from drytorch.core.protocols import LossProtocol
+from drytorch.contrib.torchmetrics import from_torchmetrics
+from drytorch.core import protocols as p
 
 
 if TYPE_CHECKING:
@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 else:
     torchmetrics = pytest.importorskip('torchmetrics')
     metric = pytest.importorskip('torchmetrics.metric')
+
+_Tensor = torch.Tensor
 
 
 class TestFromTorchMetrics:
@@ -38,7 +40,7 @@ class TestFromTorchMetrics:
         return 2 * metric_a + metric_b
 
     @pytest.fixture
-    def metric(self, additive_metric) -> LossProtocol[_Tensor, _Tensor]:
+    def metric(self, additive_metric) -> p.LossProtocol[_Tensor, _Tensor]:
         """Fixture for wrapped metric."""
         return from_torchmetrics(additive_metric)
 
@@ -51,6 +53,11 @@ class TestFromTorchMetrics:
     def mock_targets(self) -> torch.Tensor:
         """Fixture for mock targets."""
         return torch.tensor([1, 0])
+
+    def test_init(self, metric) -> None:
+        """Test it correctly updates and computes metrics as dictionaries."""
+        assert not metric.metric.dist_sync_on_step
+        assert not metric.metric.sync_on_compute
 
     def test_update_and_compute(
         self,

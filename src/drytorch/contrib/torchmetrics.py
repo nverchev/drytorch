@@ -31,6 +31,9 @@ def from_torchmetrics(
 
         def __init__(self, _metric: metric.CompositionalMetric) -> None:
             self.metric = _metric
+            self.metric.sync_on_compute = False
+            self.metric.dist_sync_on_step = False
+            return
 
         def compute(self) -> dict[str, _Tensor]:
             """Output a dictionary of metric values for each component."""
