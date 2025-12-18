@@ -25,12 +25,8 @@ def from_torcheval(
             self.metric = _metric
             return
 
-        def compute(self) -> dict[str, _Tensor]:
-            output = self.metric.compute()
-            if isinstance(output, dict):
-                return output
-
-            return {self.metric.__name__: output}
+        def compute(self) -> _Tensor | dict[str, _Tensor]:
+            return self.metric.compute()
 
         def reset(self) -> None:
             self.metric.reset()
