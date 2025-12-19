@@ -215,3 +215,22 @@ if not composed_loss.compute() == expected_metrics_from_loss:
 if composed_loss.formula != '[MSE]^2 + 0.5 x [MAE]':
     raise AssertionError('Formula mismatch.')
 ```
+
+### Data Distributed Parallelism
+DRYTorch `Objective` classes are compatible with PyTorch's Data Distributed Parallelism (DDP) module. Synchronization is handled by the library classes.
+
+To use `torchmetrics` and `torcheval` metrics with DDP, we recommend using the `from_torchmetrics` and `from_torcheval` utility functions.
+
+In particular, `from_torchmetrics` deactivates automatic synchronization and
+`from_torcheval` adds a `sync` method that calls `torcheval.metrics.toolkit.sync_and_compute` to synchronize the metrics across all processes.
+
+The following code snippet shows the latter call, which will raise a warning as the current process is not in a DDP scenario.
+
+```{code-cell} ipython3
+from drytorch.contrib.torcheval import from_torcheval
+
+
+eval_metric_with_sync = from_torcheval(eval_metric)
+
+eval_metric_with_sync.sync()
+```
