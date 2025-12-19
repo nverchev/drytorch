@@ -418,7 +418,7 @@ class ExperimentalFeatureWarning(DryTorchWarning):
             feature: the experimental feature that was used.
         """
         self.feature: Final = feature
-        super().__init__(feature.__class__.__name__)
+        super().__init__(feature)
 
 
 class FailedOptionalImportWarning(DryTorchWarning):
