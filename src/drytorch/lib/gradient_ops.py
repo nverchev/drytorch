@@ -63,6 +63,8 @@ class GradParamNormalizer(p.GradientOpProtocol):
             if norm:
                 param.grad = grad / norm
 
+        return
+
 
 class GradZScoreNormalizer(p.GradientOpProtocol):
     """Gradient normalizing strategy using Z-score normalization."""
@@ -82,6 +84,8 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
             if grad is None:
                 continue
             param.grad = (grad - grad.mean()) / (grad.std() + self._eps)
+
+        return
 
 
 class ClipOperation(p.GradientOpProtocol, abc.ABC):
@@ -108,10 +112,12 @@ class GradNormClipper(ClipOperation):
         super().__init__()
         _validate_threshold(threshold)
         self.threshold: float = threshold
+        return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Clip gradients by norm in-place."""
         torch.nn.utils.clip_grad_norm_(params, max_norm=self.threshold)
+        return
 
 
 class GradValueClipper(ClipOperation):
@@ -130,10 +136,12 @@ class GradValueClipper(ClipOperation):
         super().__init__()
         _validate_threshold(threshold)
         self.threshold: float = threshold
+        return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Clip gradients by value in-place."""
         torch.nn.utils.clip_grad_value_(params, clip_value=self.threshold)
+        return
 
 
 def reciprocal_clipping(zt: float, z_thresh: float) -> float:
