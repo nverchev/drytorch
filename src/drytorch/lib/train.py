@@ -59,7 +59,7 @@ class Trainer(
             learning_schema: contains optimizer settings and scheduling.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
-        self.learning_schema = learning_schema
+        self.learning_schema: Final = learning_schema
         self.validation: p.MonitorProtocol | None = None
         self._model_optimizer: Final = models.ModelOptimizer(
             model, learning_schema
