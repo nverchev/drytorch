@@ -497,6 +497,7 @@ class DeepPriorNet(nn.Module):
 
 
 network = DeepPriorNet()
+network.compile()
 ```
 
 ### Define the loss and metric functions
