@@ -94,19 +94,37 @@ class TestPermutation:
         assert list(perm1) == list(perm2)
 
 
-# Test class for DataLoader
 class TestDataLoader:
     """Test DataLoader class functionality."""
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def dataset(self, simple_seq) -> data.Dataset:
         """Set up a simple dataset for testing."""
         return SimpleDataset(simple_seq)
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
+    def custom_sampler(self) -> data.Sampler:
+        """Provide a custom sampler for testing."""
+        return data.SequentialSampler(range(1))
+
+    @pytest.fixture
     def loader(self, dataset) -> DataLoader:
-        """Provide a simple dataset for testing."""
-        return DataLoader(dataset, batch_size=3)
+        """Provide a DataLoader for testing."""
+        return DataLoader(dataset, batch_size=3, num_workers=2)
+
+    @pytest.fixture(autouse=True)
+    def loader_with_sampler(self, dataset, custom_sampler) -> DataLoader:
+        """Provide a DataLoader for testing with a custom sampler."""
+        return DataLoader(dataset, batch_size=3, sampler=custom_sampler)
+
+    def test_dataloader_sampler_initialized(self, loader) -> None:
+        """Test that the sampler is always initialized."""
+        assert loader.sampler is not None
+
+    def test_dataloader_pin_memory_default(self, loader) -> None:
+        """Test pin_memory defaults based on accelerator availability."""
+        expected = torch.accelerator.is_available()
+        assert loader._pin_memory == expected
 
     def test_dataloader_length(self, loader) -> None:
         """Test DataLoader correctly calculates the number of batches."""
@@ -114,12 +132,40 @@ class TestDataLoader:
         with torch.inference_mode():
             assert len(loader) == 4
 
+    def test_dataloader_custom_sampler_preserved(
+        self, loader_with_sampler, custom_sampler
+    ) -> None:
+        """Test that a custom sampler is preserved."""
+        train_loader = loader_with_sampler.get_loader(inference=False)
+        eval_loader = loader_with_sampler.get_loader(inference=True)
+        assert train_loader.sampler is custom_sampler
+        assert eval_loader.sampler is custom_sampler
+
+    def test_sampler_switches_with_inference_mode(self, loader) -> None:
+        """Test switch between Random and Sequential based on inference mode."""
+        train_loader = loader.get_loader(inference=False)
+        eval_loader = loader.get_loader(inference=True)
+
+        assert isinstance(train_loader.sampler, data.RandomSampler)
+        assert isinstance(eval_loader.sampler, data.SequentialSampler)
+
     def test_dataloader_iteration(self, simple_seq, loader) -> None:
         """Test iteration over batches in the DataLoader."""
         with torch.inference_mode():
             batches = list(iter(loader))
-            # the last batch has 1 item
             assert batches[-1][0] == simple_seq[-1][0]
+
+    def test_dataloader_num_workers(self, loader) -> None:
+        """Test num_workers parameter is properly set."""
+        assert loader.get_loader().num_workers == 2
+
+    def test_dataloader_drop_last_behavior(self, loader) -> None:
+        """Test drop_last changes based on inference mode."""
+        train_loader = loader.get_loader(inference=False)
+        eval_loader = loader.get_loader(inference=True)
+
+        assert train_loader.drop_last is True
+        assert eval_loader.drop_last is False
 
     @pytest.mark.parametrize('shuffle', (True, False))
     def test_dataloader_split(self, loader, shuffle: bool) -> None:

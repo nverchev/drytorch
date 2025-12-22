@@ -1,6 +1,8 @@
 """Configuration module with objects from the package."""
 
 from tests.functional.conftest import (
+    DistributedWorker,
+    RunningWorker,
     identity_dataset,
     identity_loader,
     identity_trainer,
@@ -21,4 +23,8 @@ _fixtures = (
     standard_learning_schema,
     identity_trainer,
     run,
+)
+_parallel_testing = (
+    RunningWorker,
+    DistributedWorker,
 )

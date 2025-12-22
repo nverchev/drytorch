@@ -1,74 +1,88 @@
 """Integration tests for experiment multiprocessing safety."""
 
 import multiprocessing
-import pathlib
 
-import pytest
+from ..conftest import RunningWorker
 
 from drytorch.core.experiment import Experiment, RunStatus
-
-
-def _create_run_worker(args):
-    """Worker function to create a run (module-level for pickling)."""
-    tmp_path, base_id, exp_name = args
-    exp_p = Experiment(config={}, name=exp_name, par_dir=tmp_path)
-    run = exp_p.create_run(run_id=base_id)
-    return run.id
-
-
-def _update_status_worker(args):
-    """Worker function to update the run status (module-level for pickling)."""
-    tmp_path, exp_name, run_id, status = args
-    exp_p = Experiment(config={}, name=exp_name, par_dir=tmp_path)
-    run = exp_p.create_run(run_id=run_id)
-    run.status = status
-    run._update_registry()
-    return None
 
 
 class TestExperimentMultiprocessing:
     """Test multiprocessing safety for Experiment and RunRegistry."""
 
-    @pytest.fixture(autouse=True)
-    def par_dir(self, tmp_path) -> pathlib.Path:
-        """Set up a temporary directory for parallel runs."""
-        return pathlib.Path(tmp_path)
-
-    def test_multiprocessing_ids(self, par_dir) -> None:
+    def test_multiprocessing_ids(self, tmp_path, example_run_id) -> None:
         """Test parallel creation results in unique IDs due to PID suffix."""
-        base_id = 'parallel_run'
-        exp_name = 'parallel_exp'
         num_processes = 4
-        args = [(par_dir, base_id, exp_name) for _ in range(num_processes)]
+
         with multiprocessing.Pool(processes=num_processes) as pool:
-            results = pool.map(_create_run_worker, args)
+            worker = RunningWorker(
+                self._get_run_id, par_dir=tmp_path, run_id=example_run_id
+            )
+            results = pool.starmap(worker, [() for _ in range(num_processes)])
+
+        exp = Experiment(config=None, name=worker.name, par_dir=tmp_path)
+        runs = exp._registry.load_all()
+        registry_ids = {r.id for r in runs}
 
         assert len(set(results)) == num_processes
         for res in results:
-            assert res.startswith(f'{base_id}_')
+            assert res.startswith(f'{example_run_id}_')
 
-        exp = Experiment(config={}, name=exp_name, par_dir=par_dir)
-        runs = exp._registry.load_all()
-        registry_ids = {r.id for r in runs}
         assert registry_ids == set(results)
 
-    def test_status_update_race(self, par_dir) -> None:
+    def test_status_update_race(self, tmp_path, example_run_id) -> None:
         """Test that concurrent status updates do not corrupt the file."""
-        exp_name = 'status_exp'
-        run_id = 'status_run'
         status_list: list[RunStatus] = [
             'running',
             'completed',
             'failed',
             'running',
         ]
-        args = [(par_dir, exp_name, run_id, status) for status in status_list]
-        with multiprocessing.Pool(processes=4) as pool:
-            pool.map(_update_status_worker, args)
+        worker = RunningWorker(
+            self._update_status, par_dir=tmp_path, run_id=example_run_id
+        )
+        with multiprocessing.Pool(processes=len(status_list)) as pool:
+            pool.map(worker, status_list)
 
-        exp = Experiment(config={}, name=exp_name, par_dir=par_dir)
+        exp = Experiment(config={}, name=worker.name, par_dir=tmp_path)
         runs = exp._registry.load_all()
 
         assert len(runs) == len(status_list)
         for run in runs:
             assert run.status in status_list
+
+    def test_tracking_in_secondary_process(
+        self, tmp_path, example_run_id
+    ) -> None:
+        """Test that tracking is only active when the rank is one."""
+        status_list: list[RunStatus] = [
+            'running',
+            'completed',
+            'failed',
+            'running',
+        ]
+        worker = RunningWorker(
+            self._update_status, par_dir=tmp_path, run_id=example_run_id
+        )
+        with multiprocessing.Pool(processes=len(status_list)) as pool:
+            pool.map(worker, status_list)
+
+        exp = Experiment(config={}, name=worker.name, par_dir=tmp_path)
+        runs = exp._registry.load_all()
+
+        assert len(runs) == len(status_list)
+        for run in runs:
+            assert run.status in status_list
+
+    @staticmethod
+    def _get_run_id():
+        """Worker function to create a run (module-level for pickling)."""
+        return Experiment.get_current().run.id
+
+    @staticmethod
+    def _update_status(status: RunStatus):
+        """Update the run status (module-level for pickling)."""
+        run = Experiment.get_current().run
+        run.status = status
+        run._update_registry()
+        return None
