@@ -173,14 +173,16 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         pbar = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), num_samples
         )
-        for i, batch in enumerate(self._get_batches()):
+        for batch in self._get_batches():
             outputs = self._run_batch(batch)
-            if self._is_distributed and i == len(self.loader) - 1:
-                self._sync()
-
             pbar.update(self._compute_metrics(), n_processes)
             if store_outputs:
                 self._store(outputs)
+
+        if self._is_distributed:
+            self._sync()
+            pbar.update(self._compute_metrics(), 0)  # trigger sync
+
         return
 
     def _run_forward(self, inputs: Input) -> Output:
