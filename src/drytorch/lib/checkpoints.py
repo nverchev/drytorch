@@ -141,6 +141,9 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     def load(self, epoch: int = -1) -> None:
         """Load the model and optimizer state dictionaries."""
+        if dist.is_available and dist.is_initialized():
+            dist.barrier()
+
         self._update_epoch(epoch)
         log_events.LoadModelEvent(
             model_name=self.model.name,
