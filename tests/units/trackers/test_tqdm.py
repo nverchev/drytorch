@@ -39,7 +39,7 @@ class TestEpochBar:
 
     def test_single_update(self, bar, example_named_metrics) -> None:
         """Test a single update of the progress bar."""
-        bar.update(example_named_metrics)
+        bar.update(example_named_metrics, 1)
         bar.pbar.refresh()
         output = self.stream.getvalue()
         for metric_name, value in example_named_metrics.items():
@@ -48,10 +48,16 @@ class TestEpochBar:
 
         assert bar._epoch_seen == bar._batch_size
 
+    def test_update_multiple_batches(self, bar, example_named_metrics) -> None:
+        """Test multiple processes update of the progress bar."""
+        bar.update(example_named_metrics, 3)
+        bar.pbar.refresh()
+        assert bar._epoch_seen == bar._batch_size * 3
+
     def test_complete_epoch(self, bar, example_named_metrics) -> None:
         """Test progress bar behavior when the epoch completes."""
         for _ in range(bar._num_iter):
-            bar.update(example_named_metrics)
+            bar.update(example_named_metrics, 1)
 
         assert bar._epoch_seen == bar._num_samples
         assert bar.pbar.disable
@@ -122,7 +128,7 @@ class TestTqdmLogger:
         """Test handling of the IterateBatch event."""
         tracker.notify(iterate_batch_mock_event)
         assert len(iterate_batch_mock_event.push_updates) == 1
-        iterate_batch_mock_event.push_updates[0]({'loss': 0.5})
+        iterate_batch_mock_event.push_updates[0]({'loss': 0.5}, 1)
         output = self.stream.getvalue()
         assert iterate_batch_mock_event.source_name in output
 

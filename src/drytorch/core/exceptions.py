@@ -26,6 +26,7 @@ __all__ = [
     'MissingParamError',
     'ModelNotFoundError',
     'ModuleAlreadyRegisteredError',
+    'ModuleNotDistributedWarning',
     'ModuleNotRegisteredError',
     'NameAlreadyRegisteredError',
     'NamedTupleOnlyError',
@@ -434,6 +435,12 @@ class FailedOptionalImportWarning(DryTorchWarning):
         """
         self.package_name: Final = package_name
         super().__init__(package_name)
+
+
+class ModuleNotDistributedWarning(DryTorchWarning):
+    """Warning raised when a model is not distributed."""
+
+    msg = 'Distributed wrapper not detected: model weights may diverge.'
 
 
 class NoPreviousRunsWarning(DryTorchWarning):

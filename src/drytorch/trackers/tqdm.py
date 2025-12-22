@@ -77,11 +77,12 @@ class EpochBar:
         self._epoch_seen = 0
         return
 
-    def update(self, metrics: Mapping[str, Any]) -> None:
+    def update(self, metrics: Mapping[str, Any], n_processes: int) -> None:
         """Update the bar and displays last batch metrics values.
 
         Args:
             metrics: the values from the last batch by metric name.
+            n_processes: the number of processes used for data loading.
         """
         monitor_seen: dict[str, int | str]
         last_epoch = self.pbar.n == self._num_iter - 1
@@ -89,7 +90,7 @@ class EpochBar:
             if last_epoch:
                 self._epoch_seen = self._num_samples
             else:
-                self._epoch_seen += self._batch_size
+                self._epoch_seen += self._batch_size * n_processes
             monitor_seen = {self.seen_str: self._epoch_seen}
         else:
             monitor_seen = {self.seen_str: '?'}
@@ -100,7 +101,7 @@ class EpochBar:
         }
         monitor_dict = monitor_seen | monitor_metric
         self.pbar.set_postfix(monitor_dict, refresh=False)
-        self.pbar.update()
+        self.pbar.update(n_processes)
         if last_epoch:
             self.pbar.close()
 

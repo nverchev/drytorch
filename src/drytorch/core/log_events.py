@@ -128,18 +128,19 @@ class IterateBatchEvent(Event):
     batch_size: int | None
     num_iter: int
     dataset_size: int
-    push_updates: list[Callable[[Mapping[str, Any]], None]] = dataclasses.field(
-        default_factory=list
+    push_updates: list[Callable[[Mapping[str, Any], int], None]] = (
+        dataclasses.field(default_factory=list)
     )
 
-    def update(self, metrics: Mapping[str, Any]) -> None:
+    def update(self, metrics: Mapping[str, Any], n_processes: int = 1) -> None:
         """Push the updated metrics to the loggers.
 
         Args:
             metrics: calculated values by metric name.
+            n_processes: number of processes used for data loading.
         """
         for update in self.push_updates:
-            update(metrics)
+            update(metrics, n_processes)
         return
 
 

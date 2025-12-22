@@ -161,18 +161,26 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         return outputs
 
     def _run_epoch(self, store_outputs: bool):
+        if self._is_distributed:
+            if not hasattr(self.model.module, 'module'):
+                warnings.warn(
+                    exceptions.ModuleNotDistributedWarning(), stacklevel=2
+                )
+
         self.outputs_list.clear()
         num_samples = load.validate_dataset_length(self.loader.get_dataset())
+        n_processes = dist.get_world_size() if self._is_distributed else 1
         pbar = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), num_samples
         )
-        for batch in self._get_batches():
+        for i, batch in enumerate(self._get_batches()):
             outputs = self._run_batch(batch)
-            pbar.update(self._compute_metrics())
+            if self._is_distributed and i == len(self.loader) - 1:
+                self._sync()
+
+            pbar.update(self._compute_metrics(), n_processes)
             if store_outputs:
                 self._store(outputs)
-
-        self._sync()
         return
 
     def _run_forward(self, inputs: Input) -> Output:
@@ -269,16 +277,15 @@ class ModelRunnerWithObjective(
 
     @override
     def _sync(self) -> None:
-        if self._is_distributed:
-            if isinstance(self.objective, SupportsSync):
-                self.objective.sync()
-            else:
-                issue = 'metrics not synchronized (averaged) across processes'
-                recommend = "override Runner's `_sync` method"
-                warnings.warn(
-                    exceptions.ObjectiveSyncWarning(issue, recommend),
-                    stacklevel=2,
-                )
+        if isinstance(self.objective, SupportsSync):
+            self.objective.sync()
+        else:
+            issue = 'metrics not synchronized (averaged) across processes'
+            recommend = "override Runner's `_sync` method"
+            warnings.warn(
+                exceptions.ObjectiveSyncWarning(issue, recommend),
+                stacklevel=2,
+            )
 
 
 class ModelRunnerWithLogs(
