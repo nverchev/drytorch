@@ -12,7 +12,7 @@ import pytest
 from drytorch.utils.average import TorchAverager
 
 
-@pytest.mark.skipif(sys.platform == 'win32', reason='ddp issues with windows')
+@pytest.mark.skipif(sys.platform != 'linux', reason='ddp only works on linux')
 @pytest.mark.skipif(not dist.is_available(), reason='Distributed not available')
 class TestDistributedTorchAverager:
     """Tests for DistributedTorchAverager."""
