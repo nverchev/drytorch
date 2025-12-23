@@ -1,6 +1,5 @@
 """Configuration module with objects from the package."""
 
-import os
 import pathlib
 import socket
 import uuid
@@ -172,12 +171,10 @@ class DistributedWorker(Generic[P, T]):
         return [p.exitcode for p in processes], dict(return_dict)
 
     def _setup_distributed(self, rank: int) -> None:
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = self.port
         dist.init_process_group(
             backend='gloo',
             rank=rank,
-            init_method='tcp://127.0.0.1:29500',
+            init_method=f'tcp://127.0.0.1:{self.port}',
             world_size=self.world_size,
         )
         return
