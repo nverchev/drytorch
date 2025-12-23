@@ -8,6 +8,7 @@
 - support for metrics syncing in distributed settings
 - support for distributed samplers
 - from_torcheval added to allow syncing of torcheval metrics
+- support for Python 3.14
 
 ## [0.1.0rc1] - 2025-11-25
 

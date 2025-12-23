@@ -18,7 +18,8 @@ jobs:
             python-version: "3.12"
           - os: windows-latest
             python-version: "3.13"
-
+          - os: ubuntu-latest
+            python-version: "3.14"
 
     steps:
     - name: Checkout code
@@ -56,13 +57,13 @@ jobs:
       run: uv pip install nbmake
 
     - name: Test notebooks execute
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       run: uv run pytest --nbmake docs/
       env:
         EPOCHS: 1
 
     - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
       uses: codecov/codecov-action@v5
       with:
         files: ./coverage.xml
