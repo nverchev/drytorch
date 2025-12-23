@@ -3,6 +3,7 @@
 import os
 import pathlib
 import socket
+import uuid
 import warnings
 
 from collections.abc import Callable, Generator
@@ -202,13 +203,15 @@ class RunningWorker(Generic[P, T]):
         worker: Callable[P, T],
         par_dir: pathlib.Path,
         run_id: str,
-        name: str = 'TestSubProcessExperiment',
+        name: str | None = None,
         should_remove_default_tracking: bool = True,
     ) -> None:
         """Constructor."""
         self.worker = worker
         self.par_dir = par_dir
         self.run_id = run_id
+        if name is None:  # avoid conflicts between parallel tests
+            name = f'TestSubProcessExperiment_{uuid.uuid4()}'
         self.name = name
         self.should_remove_default_tracking = should_remove_default_tracking
         return
