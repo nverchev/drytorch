@@ -1,7 +1,9 @@
 """Configuration module with objects from the package."""
 
+import os
 import pathlib
 import socket
+import sys
 import uuid
 import warnings
 
@@ -171,6 +173,10 @@ class DistributedWorker(Generic[P, T]):
         return [p.exitcode for p in processes], dict(return_dict)
 
     def _setup_distributed(self, rank: int) -> None:
+        if sys.platform == 'win32':
+            os.environ.setdefault('GLOO_SOCKET_IFNAME', '127.0.0.1')
+            os.environ.setdefault('MASTER_ADDR', '127.0.0.1')
+
         dist.init_process_group(
             backend='gloo',
             rank=rank,
