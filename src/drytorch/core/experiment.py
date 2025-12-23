@@ -439,11 +439,11 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         if self.record:
             self._update_registry()
 
-        self._cleanup_resources(self.experiment)
         if self._finalizer is not None:
             self._finalizer.detach()
             self._finalizer = None
 
+        self._cleanup_resources(self.experiment)
         return
 
     def start(self: Self) -> None:
