@@ -1,5 +1,7 @@
 """DDP functional tests for Trainer on CPU."""
 
+import sys
+
 import torch
 
 from ...simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
@@ -112,6 +114,7 @@ def save_and_load() -> list[nn.Parameter]:
     return list(trainer.model.module.parameters())
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='ddp issues with windows')
 @pytest.mark.parametrize('world_size', [WORLD_SIZE])
 def test_ddp_warning(example_run_id, tmp_path, world_size) -> None:
     """Test that missing ddp in module triggers warning."""
@@ -124,6 +127,7 @@ def test_ddp_warning(example_run_id, tmp_path, world_size) -> None:
     assert all(exit_code == 0 for exit_code in exit_codes)
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='ddp issues with windows')
 @pytest.mark.parametrize('world_size', [WORLD_SIZE])
 def test_ddp_synchronization(example_run_id, tmp_path, world_size) -> None:
     """Test that gradients are synchronized across ranks."""
@@ -146,6 +150,7 @@ def test_ddp_synchronization(example_run_id, tmp_path, world_size) -> None:
             assert torch.allclose(grad0, grad_rank)
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='ddp issues with windows')
 @pytest.mark.parametrize('world_size', [WORLD_SIZE])
 def test_metrics_are_averaged(example_run_id, tmp_path, world_size) -> None:
     """Test that metrics are averaged across ranks."""
@@ -160,6 +165,7 @@ def test_metrics_are_averaged(example_run_id, tmp_path, world_size) -> None:
         assert return_dict[rank] == return_dict[rank]
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='ddp issues with windows')
 @pytest.mark.parametrize('world_size', [WORLD_SIZE])
 def test_checkpointing(example_run_id, tmp_path, world_size) -> None:
     """Test checkpointing."""

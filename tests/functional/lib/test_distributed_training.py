@@ -1,5 +1,7 @@
 """DDP functional tests for Trainer on CPU."""
 
+import sys
+
 import torch
 
 from ...simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
@@ -54,6 +56,7 @@ def assert_convergence() -> None:
     assert final_loss[metric_name] < initial_loss[metric_name]
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='ddp issues with windows')
 @pytest.mark.parametrize('world_size', [WORLD_SIZE])
 def test_ddp_convergence(example_run_id, tmp_path, world_size) -> None:
     """Test convergence of DDP training."""

@@ -1,5 +1,7 @@
 """Tests for DistributedTorchAverager."""
 
+import sys
+
 import torch
 import torch.distributed as dist
 
@@ -10,6 +12,7 @@ import pytest
 from drytorch.utils.average import TorchAverager
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='ddp issues with windows')
 @pytest.mark.skipif(not dist.is_available(), reason='Distributed not available')
 class TestDistributedTorchAverager:
     """Tests for DistributedTorchAverager."""
