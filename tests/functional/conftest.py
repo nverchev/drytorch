@@ -3,7 +3,6 @@
 import os
 import pathlib
 import socket
-import sys
 import uuid
 import warnings
 
@@ -175,12 +174,10 @@ class DistributedWorker(Generic[P, T]):
     def _setup_distributed(self, rank: int) -> None:
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = self.port
-        if sys.platform == 'win32':
-            os.environ.setdefault('GLOO_SOCKET_IFNAME', 'lo')
-
         dist.init_process_group(
             backend='gloo',
             rank=rank,
+            init_method='tcp://127.0.0.1:29500',
             world_size=self.world_size,
         )
         return
