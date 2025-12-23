@@ -24,6 +24,7 @@ dependencies = [
     "filelock>=3.12.0",
     "numpy>=1.26.0",
     "torch>=2.7.0",
+    "typing_extensions>=4.4.0",
 ]
 
 [tool.uv.sources]
@@ -49,7 +50,9 @@ recommended = [
 all_trackers = [
     "drytorch[recommended]",
     "hydra-core >= 1.3.0",
+    "ipython >= 8.12.0",
     "matplotlib >= 3.3.0",
+    "omegaconf >= 2.3.0",
     "plotly >= 4.10.0",
     "sqlalchemy >= 2.0.12",
     "tensorboard >= 2.17.0",
