@@ -33,7 +33,6 @@ __all__ = [
     'recursive_repr',
 ]
 
-
 if TYPE_CHECKING:
     import numpy.typing as npt
 
@@ -96,6 +95,7 @@ class DefaultName:
         count_iter = self._prefixes.setdefault(value, itertools.count())
         if count_value := next(count_iter):
             value = f'{value}_{count_value}'
+
         instance.__name = value
         return
 
@@ -183,6 +183,7 @@ def _(obj: numbers.Number, *, depth: int = 10) -> numbers.Number:
             obj = item_method()
         except (TypeError, NotImplementedError):
             pass
+
     _not_used = depth
     return obj
 
@@ -325,10 +326,11 @@ def _should_skip_attribute(key: str, value: Any, parent_obj: object) -> bool:
 
     if hasattr(value, '__len__'):
         try:
-            if len(value) == 0:
-                return True
+            len_value = len(value)
         except (TypeError, NotImplementedError):
-            return True
+            ...
+        else:
+            return len_value == 0
 
     return False
 
@@ -340,6 +342,7 @@ except (ImportError, ModuleNotFoundError):
     pass
 
 else:
+    from pandas.core.generic import NDFrame
 
     class PandasPrintOptions:
         """Context manager to temporarily set Pandas display options.
@@ -366,6 +369,7 @@ else:
                 'display.max_columns': max_columns,
             }
             self._original_options: dict[str, Any] = {}
+            return
 
         def __enter__(self) -> None:
             """Temporarily modify settings."""
@@ -374,6 +378,8 @@ else:
             )
             for key, value in self._options.items():
                 pd.set_option(key, value)
+
+            return
 
         def __exit__(
             self,
@@ -385,7 +391,7 @@ else:
             for key, value in self._original_options.items():
                 pd.set_option(key, value)
 
-    from pandas.core.generic import NDFrame
+            return
 
     @recursive_repr.register
     def _(obj: NDFrame, *, depth: int = 10) -> LiteralStr:
