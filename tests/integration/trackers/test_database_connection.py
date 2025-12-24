@@ -1,5 +1,7 @@
 """Tests for SQLConnection focusing on error conditions and edge cases."""
 
+from collections.abc import Generator
+
 import pytest
 
 
@@ -15,6 +17,13 @@ from sqlalchemy import exc as sqlalchemy_exc
 
 from drytorch.core import log_events
 from drytorch.trackers.sqlalchemy import Experiment, Source, SQLConnection
+
+
+@pytest.fixture(autouse=True, scope='module')
+def start_experiment(run) -> Generator[None, None, None]:
+    """Create an experimental scope for the tests."""
+    yield
+    return
 
 
 @pytest.fixture
@@ -62,9 +71,13 @@ class TestSQLConnection:
     """Tests for the SQLConnection class."""
 
     @pytest.fixture
-    def memory_engine(self) -> sqlalchemy.Engine:
+    def memory_engine(self) -> Generator[sqlalchemy.Engine, None, None]:
         """Return memory engine."""
-        return sqlalchemy.create_engine('sqlite:///:memory:')
+        engine = sqlalchemy.create_engine('sqlite:///:memory:')
+        yield engine
+
+        engine.dispose()
+        return
 
     def test_database_connection_failure(self) -> None:
         """Test behavior when the database connection fails."""
@@ -100,6 +113,9 @@ class TestSQLConnection:
         thread2.start()
         thread1.join()
         thread2.join()
+        tracker1.clean_up()
+        tracker2.clean_up()
+        engine.dispose()
         assert len(succeeded) == 2
 
     def test_session_rollback_on_error(
