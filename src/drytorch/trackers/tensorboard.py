@@ -57,6 +57,7 @@ class TensorBoard(base_classes.Dumper):
         """
         super().__init__(par_dir)
         self._writer: tensorboard.SummaryWriter | None = None
+        self._process: subprocess.Popen | None = None
         self._port: int | None = None
         self.__class__.instance_count += 1
         self._instance_number = self.__class__.instance_count
@@ -78,8 +79,13 @@ class TensorBoard(base_classes.Dumper):
         if self._writer is not None:
             self.writer.close()
 
+        if self._process is not None:
+            self._process.terminate()
+            self._process.wait()
+            self._process = None
+
         self._writer = None
-        return
+        return super().clean_up()
 
     @functools.singledispatchmethod
     @override
@@ -139,7 +145,7 @@ class TensorBoard(base_classes.Dumper):
             raise exceptions.TrackerError(self, msg)
 
         try:
-            subprocess.Popen(  # noqa: S603
+            self._process = subprocess.Popen(  # noqa: S603
                 [  # noqa: S603
                     tensorboard_executable_path,
                     'serve',
