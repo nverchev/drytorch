@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     ndarray: TypeAlias = npt.NDArray[Any]
 
 else:
-    from numpy.core.records import ndarray
+    from numpy import ndarray
 
     GenericList = list
     GenericDict = dict
