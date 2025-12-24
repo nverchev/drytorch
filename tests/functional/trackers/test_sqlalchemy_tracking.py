@@ -27,16 +27,23 @@ class TestSQLConnectionFullCycle:
     """Complete SQLConnection session and tests it afterward."""
 
     @pytest.fixture
-    def tracker(self) -> SQLConnection:
+    def tracker(self, tmp_path) -> Generator[SQLConnection, None, None]:
         """Set up the instance."""
-        engine = sqlalchemy.create_engine('sqlite:///:memory:')
-        return SQLConnection(engine=engine)
+        db_file = tmp_path / 'metrics.db'
+        url = f'sqlite:///{db_file.as_posix()}'
+        engine = sqlalchemy.create_engine(url)
+        tracker = SQLConnection(engine=engine)
+        yield tracker
+
+        engine.dispose()
+        return
 
     @pytest.fixture(autouse=True)
     def full_cycle(self, tracker, event_workflow) -> None:
         """Run an example session."""
         for event in event_workflow:
             tracker.notify(event)
+
         return
 
     @pytest.fixture

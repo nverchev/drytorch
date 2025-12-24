@@ -27,7 +27,7 @@ class TestSQLConnection:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Setup test environment."""
-        self.mock_engine = 'mock_engine'
+        self.mock_engine = mocker.Mock()
         self.mock_context = mocker.Mock()
         self.mock_session = mocker.MagicMock()
         self.mock_session.__enter__.return_value = self.mock_context
@@ -61,9 +61,13 @@ class TestSQLConnection:
         return
 
     @pytest.fixture
-    def tracker(self) -> SQLConnection:
+    def tracker(self) -> Generator[SQLConnection, None, None]:
         """Set up the instance."""
-        return SQLConnection()
+        tracker = SQLConnection()
+        yield tracker
+
+        tracker.clean_up()
+        return
 
     @pytest.fixture
     def tracker_started(
@@ -82,6 +86,8 @@ class TestSQLConnection:
     def test_cleanup(self, tracker_started):
         """Test correct cleaning up."""
         tracker_started.clean_up()
+
+        assert self.mock_engine.dispose.call_count == 1
         assert tracker_started._run is None
         assert tracker_started._sources == {}
 
