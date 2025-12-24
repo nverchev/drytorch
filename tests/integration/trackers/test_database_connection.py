@@ -1,5 +1,7 @@
 """Tests for SQLConnection focusing on error conditions and edge cases."""
 
+import gc
+
 from collections.abc import Generator
 
 import pytest
@@ -78,6 +80,7 @@ class TestSQLConnection:
         yield tracker
 
         tracker.clean_up()
+        gc.collect()
         engine.dispose()
         return
 
@@ -94,7 +97,10 @@ class TestSQLConnection:
     def test_concurrent_database_access(self, tmp_path, event_workflow) -> None:
         """Test two tracker instances accessing a database concurrently."""
         database = tmp_path / 'test_db.db'
-        engine = sqlalchemy.create_engine(f'sqlite:///{database}')
+        database = tmp_path / 'test_db.db'
+        engine = sqlalchemy.create_engine(
+            f'sqlite:///{database}', poolclass=sqlalchemy.pool.NullPool
+        )
         tracker1 = SQLConnection(engine=engine)
         tracker2 = SQLConnection(engine=engine)
         succeeded = list[SQLConnection]()
@@ -117,6 +123,7 @@ class TestSQLConnection:
         thread2.join()
         tracker1.clean_up()
         tracker2.clean_up()
+        gc.collect()
         engine.dispose()
         assert len(succeeded) == 2
 
@@ -149,3 +156,5 @@ class TestSQLConnection:
             # the second source should have been rolled back
             assert len(experiments) == 1
             assert len(sources) == 1
+
+        gc.collect()
