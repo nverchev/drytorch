@@ -55,7 +55,7 @@ flower_np = np.load(BytesIO(data_bytes))
 ```
 
 ### Preprocess the image
-The target image has a resolution of 128 x 128. We downsample it to 64 x 64 using bilinear interpolation, and use it again to upsample back to the original resolution to create a baseline.
+The target image has a resolution of 128 x 128. We downsample it to 64 x 64 using bilinear interpolation and use it again to upsample back to the original resolution to create a baseline.
 
 ```{code-cell} ipython3
 import numpy as np
@@ -108,7 +108,7 @@ def display_tensor_images(named_images: dict[str, torch.Tensor]) -> None:
     """Display a PyTorch image tensor.
 
     Args:
-        named_images: list of tensors of dimensions (channels, height, width).
+        named_images: list of tensors with dimensions (channels, height, width).
     """
     title_html = ''
 
@@ -162,7 +162,7 @@ class ArchitecturalSettings:
     """Architectural settings for a Resnet with three stages.
 
     Attributes:
-        norm_flag: whether to use layer normalization.
+        norm_flag: whether to use instance normalization.
         n_blocks_per_stage: number of convolutional blocks in the three stages.
         max_width: number of channels of the middle stage (half in the others).
     """
@@ -221,7 +221,7 @@ experiment = UpsamplingExperiment(
 
 ### Select the trackers
 
-Trackers are responsible for logging and plotting, but have no impact on the experiment's computation. By default, DRYTorch provides trackers for logging, displaying a progress bar, and storing metadata.
+Trackers are responsible for logging and plotting but have no impact on the experiment's computation. By default, DRYTorch provides trackers for logging, displaying a progress bar, and storing metadata.
 
 Here, we want to save the training and test results in `.csv` files, so we add the `CSVDumper` to the default ones.
 
@@ -257,7 +257,8 @@ The DRYTorch philosophy prioritizes maximum flexibility, allowing you to write c
 ### Define Data Structures
 
 Following its philosophy, DRYTorch supports structured inputs and outputs for
- your model, as well as targets for your loss. This is particularly helpful for unstructured data of different inputs (e.g. modalities) or targets.
+ your model, as well as targets for your loss. This is particularly helpful
+ for unstructured data of different inputs (e.g., modalities) or targets.
 
 The structure for inputs and targets must be compatible with the default PyTorch `collate_fn`. This means it can be a `torch.Tensor`, a list of tensors, or a namedtuple of tensors. Outputs can have an arbitrary type.
 
@@ -366,7 +367,7 @@ class TrainingDataset(data.Dataset[tuple[Inputs, TrainingTargets]]):
         self.downsampled_image = downsampled_image
 
     def __len__(self) -> int:
-        """Number of iteration per epoch."""
+        """Number of iterations per epoch."""
         return 32
 
     def __getitem__(self, _) -> tuple[Inputs, TrainingTargets]:
@@ -408,8 +409,6 @@ class ResNetBlock(nn.Module):
             nn.Conv2d(
                 in_channels, out_channels, kernel_size=3, padding=1, bias=False
             ),
-            # FIX: LayerNorm needs the feature map shape if used on 2D data
-            # Here, we keep it as Identity if norm_flag is false
             nn.LayerNorm(out_channels) if norm_flag else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.Conv2d(
@@ -419,7 +418,7 @@ class ResNetBlock(nn.Module):
                 padding=1,
                 bias=False,
             ),
-            nn.LayerNorm(out_channels) if norm_flag else nn.Identity(),
+            nn.InstanceNorm2d(out_channels) if norm_flag else nn.Identity(),
         )
 
         self.shortcut = nn.Sequential()
@@ -507,7 +506,7 @@ DRYTorch expects loss and metric functions that take outputs and targets as argu
 
 ```{code-cell} ipython3
 def psnr(recon: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Compute Peak Signal-to-Noise Ratio between two images in [0, 1] range."""
+    """Compute Peak Signal-to-Noise Ratio between two images ([0, 1] range)."""
     mse = nn.functional.mse_loss(recon, target)
 
     if mse == 0:
@@ -638,3 +637,77 @@ Stopping the run also takes care of cleaning up resources.
 ```{code-cell} ipython3
 run.stop()
 ```
+
+# Data Distributed Training
+
+DRYTorch supports data-distributed training for linux operative systems. Since
+hardware settings
+vary
+according to the user access to processing power, DRYTorch does not provide
+a default setting for data-distributed training. Instead, it is up to the user
+to define the data-parallelism strategy.
+See [the official tutorial](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html)
+for more details.
+
+
+
+## Define train worker:
+
+We use the same objects that we used for the single process training.
+
+When running distributed code, DRYTorch's `Loader` will use the `torch.utils
+.data.distributed.DistributedSampler` sampler by default, DRYTorch `Model`
+will wrap the module within `torch.nn.parallel.DistributedDataParallel` by
+default, and synchronization will be handled by the `Trainer` and `Objective` classes.
+
+ To see how to extend distributed support to metrics from `torchmetrics` and
+ `torcheval`, see the `metrics_and_losses` tutorial.
+
+```python
+
+def train_and_eval() -> None:
+    """Train the model in distributed mode."""
+    ddp_cfg_train = UpsamplingExperiment.get_config().train
+    ddp_training_dataset = TrainingDataset(flower_torch_downsampled)
+    ddp_train_loader = DataLoader(ddp_training_dataset, batch_size=1)
+    ddp_test_dataset = TestDataset(flower_torch)
+    ddp_network = DeepPriorNet()
+    ddp_model = Model(ddp_network, name='DeepPriorNet')
+    ddp_learning_schema = LearningSchema.adam(ddp_cfg_train.lr)
+    ddp_loss = Loss(downsampled_mse, 'MSE downsampled')
+    ddp_trainer = Trainer(
+        ddp_model,
+        loader=ddp_train_loader,
+        loss=ddp_loss,
+        learning_schema=ddp_learning_schema,
+    )
+    ddp_trainer.train(ddp_cfg_train.n_epochs)
+    ddp_test_loader = DataLoader(ddp_test_dataset, batch_size=1)
+    ddp_metric = Metric(target_psnr, 'PSNR Target', False)
+    ddp_test = Test(ddp_model, loader=ddp_test_loader, metric=ddp_metric)
+    ddp_test(store_outputs=True)
+    return
+
+
+def worker(rank: int, world_size: int) -> None:
+    """Wrapper for distributed training.
+
+    Args:
+        rank: rank of the current process.
+        world_size: total number of processes.
+    """
+    setup(rank=rank, world_size=world_size)
+    ddp_experiment = UpsamplingExperiment(
+        settings,
+        name='Data Distributed Training',
+        par_dir=pathlib.Path('experiments'),
+    )
+    ddp_experiment.trackers.subscribe(CSVDumper())
+    try:
+        with ddp_experiment.create_run():
+            train_and_eval()
+    finally:
+        cleanup()
+```
+
+Note that the previous code will not work in a notebook environment.
