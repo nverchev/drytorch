@@ -7,7 +7,7 @@ from collections.abc import Generator
 import pytest
 
 
-# TODO: remove this when hydra supports Python 3.14
+# TODO: remove this when hydra adds support to Python 3.14
 if sys.version_info >= (3, 14):
     msg = 'Skipping hydra tests on Python 3.14 (not yet supported)'
     pytest.skip(msg, allow_module_level=True)

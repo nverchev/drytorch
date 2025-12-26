@@ -8,7 +8,7 @@ from collections.abc import Generator
 import pytest
 
 
-# TODO: remove this when wandb supports Python 3.14
+# TODO: remove this when wandb adds support to Python 3.14
 if sys.version_info >= (3, 14):
     msg = 'Skipping wandb tests on Python 3.14 (not yet supported)'
     pytest.skip(msg, allow_module_level=True)

@@ -1,12 +1,19 @@
 """Tests for the "hydra" module."""
 
 import importlib.util
+import sys
 
 import pytest
 
 
+# TODO: remove this when hydra adds support to Python 3.14
+if sys.version_info >= (3, 14):
+    msg = 'Skipping hydra tests on Python 3.14 (not yet supported)'
+    pytest.skip(msg, allow_module_level=True)
+
 if not importlib.util.find_spec('hydra'):
     pytest.skip('hydra not available', allow_module_level=True)
+
 from drytorch.core import exceptions
 from drytorch.trackers.hydra import HydraLink
 
