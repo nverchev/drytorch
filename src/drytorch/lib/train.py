@@ -231,10 +231,13 @@ class Trainer(
         try:
             if torch.isinf(loss_value) or torch.isnan(loss_value):
                 raise exceptions.ConvergenceError(loss_value.item())
+
         except RuntimeError as re:
             if loss_value.numel() != 1:
                 raise exceptions.LossNotScalarError(loss_value.shape) from re
+
             raise re
+
         self._model_optimizer.optimize(loss_value)
         self.model.update_parameters()
         return

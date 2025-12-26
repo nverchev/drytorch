@@ -6,7 +6,6 @@ import torch
 
 from ...simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 from ..conftest import DistributedWorker, RunningWorker
-from torch import nn
 
 import pytest
 
@@ -30,8 +29,7 @@ def mse(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
 def setup_training() -> Trainer[TorchTuple, torch.Tensor, TorchData]:
     """Setup DDP training."""
     network = Linear(1, 1)
-    ddp_network = nn.parallel.DistributedDataParallel(network)
-    model = Model(ddp_network, name='linear')
+    model = Model(network, name='linear')
     dataset = IdentityDataset(80)
     loader = DataLoader(dataset=dataset, batch_size=4)
     loss = Loss(mse, name='MSE')

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import sys
+
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any, Final, TypedDict, TypeVar, cast
 
 import torch
 
 from torch import amp
+from torch import distributed as dist
 from typing_extensions import override
 
 from drytorch.core import exceptions, register
@@ -52,6 +55,8 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
+        should_compile: bool = True,
+        distributed: bool = True,
     ) -> None:
         """Constructor.
 
@@ -62,19 +67,23 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
-                Defaults to False.
+            should_compile: whether to compile the module.
+            distributed: use distributed mode when available.
         """
         super().__init__()
-        self.module = self._validate_module(module)
+        self._device = self._default_device() if device is None else device
+        self._should_compile = should_compile
+        self._distributed = distributed
+        self.mixed_precision = mixed_precision
+        torch_module = self._validate_module(module)
+        self.module = self.prepare_module(torch_module)
         self._name = name
         self.epoch: int = 0
-        self.device = self._default_device() if device is None else device
         if checkpoint is None:
             checkpoint = checkpoints.LocalCheckpoint()
 
         self.checkpoint: p.CheckpointProtocol = checkpoint
         self.checkpoint.bind_model(self)
-        self.mixed_precision = mixed_precision
         self._registered: bool = False
         self.register()
         return
@@ -100,16 +109,24 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         """The device where the weights are stored."""
         return self._device
 
-    @device.setter
-    def device(self, device: torch.device) -> None:
-        self._device = device
-        self.module.to(device)
-        return
-
     @property
     def name(self) -> str:
         """The name of the model."""
         return self._name
+
+    def prepare_module(self, module: torch.nn.Module) -> torch.nn.Module:
+        """Compile and distribute the module."""
+        module = module.to(self._default_device())
+
+        # TODO: remove flag when torch.compile is supported on Python 3.14
+        if self._should_compile and sys.version_info < (3, 14):
+            torch.compile(module)
+
+        if dist.is_available and dist.is_initialized() and self._distributed:
+            batch_module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
+            module = torch.nn.parallel.DistributedDataParallel(batch_module)
+
+        return module
 
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
@@ -140,10 +157,6 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def update_parameters(self) -> None:
         """Update the parameters of the model."""
         return
-
-    def to(self, device: torch.device) -> None:
-        """Forward the homonymous method."""
-        self.device = device
 
     @staticmethod
     def _default_device() -> torch.device:

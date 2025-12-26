@@ -48,8 +48,7 @@ class GradRecord(p.GradientOpProtocol):
 def setup_training() -> Trainer[TorchTuple, torch.Tensor, TorchData]:
     """Setup DDP training."""
     network = Linear(1, 1)
-    ddp_network = nn.parallel.DistributedDataParallel(network)
-    model = Model(ddp_network, name='linear')
+    model = Model(network, name='linear')
     dataset = IdentityDataset(80)
     loader = DataLoader(dataset=dataset, batch_size=4)
     loss = Loss(mse, name='MSE')
@@ -67,7 +66,7 @@ def setup_training_with_no_ddp_module() -> Trainer[
     TorchTuple, torch.Tensor, TorchData
 ]:
     """Setup DDP training without DDP module."""
-    model = Model(Linear(1, 1), name='linear')
+    model = Model(Linear(1, 1), name='linear', distributed=False)
     dataset = IdentityDataset(80)
     loader = DataLoader(dataset=dataset, batch_size=4)
     loss = Loss(mse, name='MSE')
