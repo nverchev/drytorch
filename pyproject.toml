@@ -67,6 +67,7 @@ support = [
     "optuna >= 4.0.0",
     "notebook",
     "ipywidgets",
+    "pillow>=10.0.1",
 ]
 
 dev = [
