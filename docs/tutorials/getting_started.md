@@ -61,8 +61,6 @@ The target image has a resolution of 128 x 128. We downsample it to 64 x 64 usin
 import numpy as np
 import torch
 
-from PIL import Image as Image
-
 
 TARGET_SIZE = 128
 DOWNSAMPLED_SIZE = 64
@@ -102,6 +100,7 @@ reconstruction.
 ```{code-cell} ipython3
 from IPython.display import HTML
 from IPython.display import display as ip_display
+from PIL import Image as Image
 
 
 def display_tensor_images(named_images: dict[str, torch.Tensor]) -> None:
