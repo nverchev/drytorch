@@ -9,7 +9,7 @@ from drytorch.lib import runners
 
 
 __all__ = [
-    'ModelMomentaUpdater',
+    'BatchNormUpdater',
 ]
 
 
@@ -20,7 +20,7 @@ Output = TypeVar('Output', bound=p.OutputType)
 AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
 
 
-class ModelMomentaUpdater(runners.ModelRunner[Input, Target, Output]):
+class BatchNormUpdater(runners.ModelRunner[Input, Target, Output]):
     """Update the momenta in the batch normalization layers."""
 
     def __call__(self, store_outputs: bool = False) -> None:
