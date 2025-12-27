@@ -13,19 +13,18 @@ __all__ = [
 ]
 
 
-_Input = TypeVar('_Input', bound=p.InputType)
-_Target = TypeVar('_Target', bound=p.TargetType)
-_Output = TypeVar('_Output', bound=p.OutputType)
+Input = TypeVar('Input', bound=p.InputType)
+Target = TypeVar('Target', bound=p.TargetType)
+Output = TypeVar('Output', bound=p.OutputType)
 
 AbstractBatchNorm = torch.nn.modules.batchnorm._BatchNorm
 
 
-class ModelMomentaUpdater(runners.ModelCaller[_Input, _Output]):
+class ModelMomentaUpdater(runners.ModelRunner[Input, Target, Output]):
     """Update the momenta in the batch normalization layers."""
 
-    def __call__(self) -> None:
+    def __call__(self, store_outputs: bool = False) -> None:
         """Single pass on the dataset."""
-        super().__call__()
         momenta = dict[AbstractBatchNorm, float | None]()
         for module in self.model.module.modules():
             if isinstance(module, AbstractBatchNorm):
@@ -35,10 +34,12 @@ class ModelMomentaUpdater(runners.ModelCaller[_Input, _Output]):
         if not momenta:
             return
 
-        was_training = self.model.module.training
-        self.model.module.train()
         for module in momenta.keys():
             module.momentum = None
+
+        was_training = self.model.module.training
+        self.model.module.train()
+        super().__call__(store_outputs)
 
         for bn_module in momenta:
             bn_module.momentum = momenta[bn_module]
