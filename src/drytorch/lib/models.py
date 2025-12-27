@@ -56,24 +56,27 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
         should_compile: bool = True,
-        distributed: bool = True,
+        should_distribute: bool = True,
     ) -> None:
         """Constructor.
+
+        Option should_distribute assumes that there is a single accelerator for
+        each process and that the device for the process is already set.
 
         Args:
             module: Pytorch module with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
-                Default uses cuda when available, cpu otherwise.
+                Default uses the accelerator if available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
-            should_compile: whether to compile the module.
-            distributed: use distributed mode when available.
+            should_compile: compile the module at instantiation (Python < 3.14).
+            should_distribute: wrap the module for data-distributed settings.
         """
         super().__init__()
         self._device = self._default_device() if device is None else device
         self._should_compile = should_compile
-        self._distributed = distributed
+        self._should_dist = should_distribute
         self.mixed_precision = mixed_precision
         torch_module = self._validate_module(module)
         self.module = self.prepare_module(torch_module)
@@ -122,7 +125,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         if self._should_compile and sys.version_info < (3, 14):
             torch.compile(module)
 
-        if dist.is_available and dist.is_initialized() and self._distributed:
+        if dist.is_available and dist.is_initialized() and self._should_dist:
             batch_module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
             module = torch.nn.parallel.DistributedDataParallel(batch_module)
 

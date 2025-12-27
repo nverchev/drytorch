@@ -66,7 +66,7 @@ def setup_training_with_no_ddp_module() -> Trainer[
     TorchTuple, torch.Tensor, TorchData
 ]:
     """Setup DDP training without DDP module."""
-    model = Model(Linear(1, 1), name='linear', distributed=False)
+    model = Model(Linear(1, 1), name='linear', should_distribute=False)
     dataset = IdentityDataset(80)
     loader = DataLoader(dataset=dataset, batch_size=4)
     loss = Loss(mse, name='MSE')

@@ -640,15 +640,19 @@ run.stop()
 # Data Distributed Training
 
 DRYTorch supports data-distributed training for linux operative systems. Since
-hardware settings
-vary
-according to the user access to processing power, DRYTorch does not provide
-a default setting for data-distributed training. Instead, it is up to the user
-to define the data-parallelism strategy.
+hardware settings vary according to the user access to processing power,
+DRYTorch does not provide a default setting for data-distributed training.
+Instead, it is up to the user to define the data-parallelism strategy.
+The user needs to set up the distributed training environment and indicate
+explicitly set the device for each process. For more advanced distributed
+training strategies (model sharding, data parallelism + data-distributed
+parallelism, etc.), it is recommended to subclass DRYTorch's `Model` and
+`LocalCheckpoint` classes.
+
 See [the official tutorial](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html)
 for more details.
 
-
+Logging and checkpointing will be exclusively handled by the process of rank 0.
 
 ## Define train worker:
 
