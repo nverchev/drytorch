@@ -1,9 +1,14 @@
 """Module containing functions for nested containers."""
 
 import copy
+import dataclasses
 
 from collections.abc import Callable, MutableMapping, MutableSequence
-from typing import Any, TypeVar, overload
+from typing import TYPE_CHECKING, Any, TypeVar, overload
+
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 import torch
 
@@ -16,9 +21,13 @@ __all__ = [
     'apply_to',
 ]
 
-
 _T = TypeVar('_T')
 _C = TypeVar('_C')
+
+if TYPE_CHECKING:
+    _D = TypeVar('_D', bound=DataclassInstance)
+else:
+    _D = TypeVar('_D')
 
 
 @overload
@@ -94,6 +103,23 @@ def recursive_apply(
     )
 
 
+def _dataclass_apply(
+    obj: _D, expected_type: type[_T], func: Callable[[_T], _T]
+) -> _D:
+    """Apply func recursively to all fields of a dataclass."""
+    values: dict[str, Any] = {}
+    for f in dataclasses.fields(obj):
+        if not f.init:
+            continue
+
+        value = getattr(obj, f.name)
+        values[f.name] = recursive_apply(
+            value, expected_type=expected_type, func=func
+        )
+
+    return dataclasses.replace(obj, **values)
+
+
 def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     """Extend recursive_apply supports.
 
@@ -108,6 +134,12 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     Returns:
         The container or class with the modified objects.
     """
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        try:
+            return _dataclass_apply(obj, expected_type, func)
+        except TypeError:
+            pass
+
     dict_attr: dict[str, Any] = {}
     if hasattr(obj, '__dict__'):
         dict_attr.update(obj.__dict__)
@@ -129,8 +161,8 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
             )
 
         return obj_copy
-    else:
-        return recursive_apply(obj, expected_type=expected_type, func=func)
+
+    return recursive_apply(obj, expected_type=expected_type, func=func)
 
 
 def apply_to(obj: _C, device: torch.device) -> _C:
