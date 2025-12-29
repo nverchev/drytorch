@@ -174,10 +174,6 @@ class Experiment(Generic[_T_co]):
         self._active_run: Run[_T_co] | None = None
         self.previous_runs: list[Run[_T_co]] = []
 
-    @override
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(name={self.name})'
-
     @property
     def name(self) -> str:
         """The name of the experiment."""
@@ -345,6 +341,10 @@ class Experiment(Generic[_T_co]):
 
         return result.stdout.strip()
 
+    @override
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(name={self.name})'
+
 
 class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     """Execution lifecycle for a single run of an Experiment.
@@ -500,6 +500,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         Experiment._clear_current()
         gc.collect()
         return
+
+    @override
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(id={self.id}, status={self.status})'
 
 
 def _validate_chars(name: str) -> None:

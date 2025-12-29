@@ -1,9 +1,15 @@
 """Test for the "experiment" module."""
 
+from collections.abc import Generator
+
 import pytest
 
 from drytorch.core import exceptions, log_events
 from drytorch.core.experiment import Experiment, Run, RunMetadata, RunRegistry
+
+
+class _ExperimentSubclass(Experiment):
+    pass
 
 
 class TestRunRegistry:
@@ -85,6 +91,11 @@ class TestRunRegistry:
             assert original.status == loaded.status
             assert original.timestamp == loaded.timestamp
 
+    def test_update_status_nonexistent_run(self, registry) -> None:
+        """Test error when updating a well-formatted run not in the registry."""
+        with pytest.raises(exceptions.RunNotRecordedError):
+            registry.update_run_status('nonexistent', 'completed')
+
 
 class TestExperiment:
     """Test the Experiment class."""
@@ -106,58 +117,127 @@ class TestExperiment:
         """Set up an experiment."""
         return Experiment(config, name='Experiment', par_dir=tmp_path)
 
-    def test_no_active_experiment_error(self, experiment) -> None:
-        """Test that an error is raised when no experiment is active."""
-        with pytest.raises(exceptions.NoActiveExperimentError):
-            Experiment.get_current()
-
-    def test_create_run_new(self, experiment) -> None:
-        """Test creating a new run."""
-        run = experiment.create_run()
-        assert isinstance(run, Run)
-        assert run.experiment is experiment
-        assert run.status == 'created'
-        assert not run.resumed
-
-    def test_create_run_with_custom_id(self, experiment) -> None:
-        """Test creating a new run with a custom ID."""
-        run = experiment.create_run(run_id='custom-id')
-        assert run.id == 'custom-id'
-        assert not run.resumed
-
-    def test_create_run_collision_error(self, experiment) -> None:
-        """Test that creating a run with an existing ID raises an error."""
-        experiment.create_run(run_id='collision-run')
-        with pytest.raises(exceptions.RunAlreadyRecordedError):
-            experiment.create_run(run_id='collision-run', resume=False)
-
-    def test_create_run_resume_no_previous_runs_error(self, experiment) -> None:
-        """Test that resuming with no previous runs raises an error."""
-        with pytest.warns(exceptions.NoPreviousRunsWarning):
-            experiment.create_run(resume=True)
-
-    def test_create_run_resume_nonexistent_run_id_error(
+    @pytest.fixture()
+    def started_experiment(
         self, experiment
-    ) -> None:
-        """Test that resuming with a nonexistent run ID raises an error."""
-        experiment.create_run(run_id='other-run')
-        with pytest.warns(exceptions.NotExistingRunWarning):
-            experiment.create_run(run_id='nonexistent-run', resume=True)
+    ) -> Generator[Experiment, None, None]:
+        """Set up an experiment."""
+        orig = Experiment._Experiment__current
+        Experiment.__Experiment__current = experiment
+        yield experiment
 
-    def test_run_property_no_active_run_error(self, experiment) -> None:
-        """Test accessing run property with no active run raises an error."""
-        with pytest.raises(exceptions.NoActiveExperimentError):
-            _ = experiment.run
+        Experiment.__Experiment__current = orig
+        return
+
+    @pytest.fixture
+    def run1_id(self) -> str:
+        """Set up a run ID fixture."""
+        return 'first_run'
+
+    @pytest.fixture
+    def run2_id(self) -> str:
+        """Set up a run ID fixture."""
+        return 'second_run'
+
+    @pytest.fixture
+    def run1(self, experiment, run1_id) -> Run:
+        """Set up a run fixture."""
+        return experiment.create_run(run_id=run1_id)
+
+    @pytest.fixture
+    def run2(self, experiment, run2_id) -> Run:
+        """Set up a second run fixture."""
+        return experiment.create_run(run_id=run2_id)
 
     def test_validate_chars_invalid_name_error(self, config, tmp_path) -> None:
         """Test invalid characters in the experiment name raise an error."""
         with pytest.raises(ValueError, match='Name contains invalid character'):
             Experiment(config, name='Invalid*Name', par_dir=tmp_path)
 
+    def test_no_active_experiment_error(self, experiment) -> None:
+        """Test that an error is raised when no experiment is active."""
+        with pytest.raises(exceptions.NoActiveExperimentError):
+            Experiment.get_current()
+
+    def test_get_current_type_error(self, started_experiment) -> None:
+        """Test specific error if current experiment is wrong type."""
+        with pytest.raises(exceptions.NoActiveExperimentError):
+            _ExperimentSubclass.get_current()
+
+    def test_run_property_no_active_run_error(self, experiment) -> None:
+        """Test accessing run property with no active run raises an error."""
+        with pytest.raises(exceptions.NoActiveExperimentError):
+            _ = experiment.run
+
+    def test_create_run_resume_no_previous_runs_error(self, experiment) -> None:
+        """Test that resuming with no previous runs raises an error."""
+        with pytest.warns(exceptions.NoPreviousRunsWarning):
+            experiment.create_run(resume=True)
+
+    def test_create_run_new(self, experiment, run1, run1_id) -> None:
+        """Test creating a new run."""
+        assert isinstance(run1, Run)
+        assert run1.id == run1_id
+        assert run1.experiment is experiment
+        assert run1.status == 'created'
+        assert not run1.resumed
+
+    def test_create_run_collision_error(
+        self, experiment, run1, run1_id
+    ) -> None:
+        """Test that creating a run with an existing ID raises an error."""
+        with pytest.raises(exceptions.RunAlreadyRecordedError):
+            experiment.create_run(run_id=run1_id, resume=False)
+
+    def test_create_run_resume_nonexistent_run_id_error(
+        self,
+        experiment,
+        run1,
+    ) -> None:
+        """Test that resuming with a nonexistent run ID raises an error."""
+        with pytest.warns(exceptions.NotExistingRunWarning):
+            experiment.create_run(run_id='nonexistent-run', resume=True)
+
     def test_validate_chars_invalid_run_id_error(self, experiment) -> None:
         """Test that invalid characters in run ID raise an error."""
         with pytest.raises(ValueError, match='Name contains invalid character'):
             experiment.create_run(run_id='invalid|id', resume=False)
+
+    def test_create_run_resume_from_previous_last(
+        self, experiment, run1, run1_id
+    ) -> None:
+        """Resume the last run from memory."""
+        run_resumed = experiment.create_run(resume=True)
+
+        assert run_resumed.id == run1_id
+        assert run_resumed.resumed
+
+    def test_create_run_resume_specific_from_previous(
+        self, experiment, run1, run2, run1_id
+    ) -> None:
+        """Resume specific run from memory."""
+        r_resumed = experiment.create_run(run_id=run1_id, resume=True)
+
+        assert r_resumed.id == run1_id
+        assert r_resumed.resumed
+
+    def test_resume_duplicate_in_memory_raises(
+        self, experiment, run1, run1_id
+    ) -> None:
+        """Error if duplicate run IDs in memory."""
+        experiment.previous_runs.append(run1)  # create a duplicate
+
+        with pytest.raises(RuntimeError, match='Multiple runs'):
+            experiment.create_run(run_id=run1_id, resume=True)
+
+    def test_active_run_setter(self, experiment, run1) -> None:
+        """Test setting active run manually."""
+        experiment.run = run1
+        assert experiment.run is run1
+
+    def test_experiment_repr(self, experiment) -> None:
+        """Test representation."""
+        assert str(experiment) == f'Experiment(name={experiment.name})'
 
 
 class TestRun:
@@ -200,6 +280,7 @@ class TestRun:
         """Test starting and stopping a run using the context manager."""
         self.patch_start.reset_mock()
         run.start()
+
         assert run.status == 'running'
         assert Experiment.get_current() is experiment
         assert Experiment.get_current().par_dir == tmp_path
@@ -217,6 +298,7 @@ class TestRun:
         experiment.previous_runs.clear()
         run1 = experiment.create_run(run_id='run1', resume=False)
         run2 = experiment.create_run(run_id='run2', resume=False)
+
         assert len(experiment.previous_runs) == 2
         assert experiment.previous_runs == [run1, run2]
 
@@ -331,3 +413,8 @@ class TestRun:
         self.patch_update.reset_mock()
         run.stop()
         self.patch_update.assert_called()
+
+    def test_run_repr(self, experiment) -> None:
+        """Test representation."""
+        run = experiment.create_run(run_id='fixed_id', resume=False)
+        assert repr(run) == 'Run(id=fixed_id, status=created)'
