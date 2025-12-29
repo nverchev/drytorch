@@ -55,6 +55,27 @@ class TestCsvDumper:
         )
         assert csv_path.exists()
 
+    def test_resume_with_header_mismatch(
+        self,
+        tracker_started_with_resume,
+        epoch_metrics_mock_event,
+        example_named_metrics,
+    ) -> None:
+        """Test a TrackerError is raised if headers do not match on resume."""
+        run_dir = tracker_started_with_resume._get_run_dir()
+        csv_path = tracker_started_with_resume._file_path(
+            run_dir,
+            epoch_metrics_mock_event.model_name,
+            epoch_metrics_mock_event.source_name,
+        )
+
+        with csv_path.open('w') as f:
+            f.write('"Model","Source","Epoch","DifferentMetric"\n')
+            f.write('"model","source",1,0.1\n')
+
+        with pytest.raises(TrackerError, match='headers'):
+            tracker_started_with_resume.notify(epoch_metrics_mock_event)
+
     def test_read_csv(
         self, tracker_started, epoch_metrics_mock_event, example_named_metrics
     ) -> None:
@@ -77,7 +98,9 @@ class TestCsvDumper:
         """Test _load_metrics gets the correct epochs."""
         model_name = epoch_metrics_mock_event.model_name
         source_name = epoch_metrics_mock_event.source_name
+
         tracker.notify(epoch_metrics_mock_event)
+
         assert source_name in tracker._load_metrics(model_name)
         assert source_name in tracker_started_with_resume._load_metrics(
             model_name

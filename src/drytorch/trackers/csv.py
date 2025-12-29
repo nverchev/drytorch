@@ -128,8 +128,6 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             named_metric_values = dict[str, list[float]]()
             epoch_column = self._base_headers.index('Epoch')
             for row in reader:
-                if not row:  # Skip empty rows
-                    continue
                 epoch = int(row[epoch_column])
                 if epochs and epochs[-1] >= epoch:  # only load the last run
                     epochs.clear()
