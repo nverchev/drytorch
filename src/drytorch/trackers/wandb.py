@@ -21,6 +21,12 @@ __all__ = [
 ]
 
 
+class WandbWarning(exceptions.DryTorchWarning):
+    """Warning class for wandb."""
+
+    msg = 'Wandb: {}'
+
+
 class Wandb(Dumper):
     """Tracker that wraps a run for the wandb library."""
 
@@ -82,8 +88,8 @@ class Wandb(Dumper):
             try:
                 run_id = runs[0].id
             except (IndexError, ValueError):
-                msg = 'Wandb: No previous runs. Starting a new one.'
-                warnings.warn(msg, exceptions.DryTorchWarning, stacklevel=2)
+                msg = 'No previous runs. Starting a new one.'
+                warnings.warn(WandbWarning(msg), stacklevel=2)
 
         if self._settings.run_id:
             run_id = self._settings.run_id

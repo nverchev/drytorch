@@ -18,7 +18,7 @@ if not importlib.util.find_spec('wandb'):
     pytest.skip('wandb not available', allow_module_level=True)
 
 from drytorch.core import exceptions
-from drytorch.trackers.wandb import Wandb
+from drytorch.trackers.wandb import Wandb, WandbWarning
 
 
 class TestWandb:
@@ -29,6 +29,7 @@ class TestWandb:
         """Set up the test environment."""
         self.init_mock = mocker.patch('wandb.init')
         self.finish_mock = mocker.patch('wandb.finish')
+        self.mock_api = mocker.patch('wandb.Api')
         return
 
     @pytest.fixture
@@ -105,3 +106,74 @@ class TestWandb:
         """Test Metrics notification outside scope."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
             tracker.notify(epoch_metrics_mock_event)
+
+    def test_notify_start_resume_success(
+        self,
+        mocker,
+        tracker,
+        start_experiment_mock_event,
+        example_exp_name,
+    ) -> None:
+        """Test resuming an existing run."""
+        start_experiment_mock_event.resumed = True
+        mock_run = mocker.Mock()
+        mock_run.id = 'existing_run_id'
+        self.mock_api.return_value.runs.return_value = [mock_run]
+
+        tracker.notify(start_experiment_mock_event)
+
+        self.init_mock.assert_called_once()
+        assert self.init_mock.call_args[1]['id'] == 'existing_run_id'
+        assert self.init_mock.call_args[1]['resume'] == 'allow'
+
+    def test_notify_start_resume_no_run(
+        self,
+        tracker,
+        start_experiment_mock_event,
+    ) -> None:
+        """Test resuming when no previous run exists."""
+        start_experiment_mock_event.resumed = True
+        self.mock_api.return_value.runs.return_value = []
+
+        with pytest.warns(WandbWarning, match='No previous runs'):
+            tracker.notify(start_experiment_mock_event)
+
+        self.init_mock.assert_called_once()
+        created_id = self.init_mock.call_args[1]['id']
+
+        assert created_id != ''
+        assert self.init_mock.call_args[1]['resume'] == 'allow'
+
+    def test_notify_start_explicit_id(
+        self,
+        mocker,
+        example_exp_name,
+        start_experiment_mock_event,
+    ) -> None:
+        """Test that settings.run_id takes precedence."""
+        settings = mocker.Mock()
+        settings.run_id = 'explicit_id'
+        settings.project = None
+        settings.run_group = None
+        settings.entity = None
+
+        tracker = Wandb(settings=settings)
+        tracker.notify(start_experiment_mock_event)
+
+        self.init_mock.assert_called_once()
+        assert self.init_mock.call_args[1]['id'] == 'explicit_id'
+
+    def test_define_metric_called_once(
+        self,
+        tracker_started,
+        epoch_metrics_mock_event,
+    ) -> None:
+        """Test define_metric is not called repeatedly for the same metric."""
+        tracker_started.notify(epoch_metrics_mock_event)
+        define_metric_mock = tracker_started.run.define_metric
+        call_count_after_first = define_metric_mock.call_count
+
+        tracker_started.notify(epoch_metrics_mock_event)
+
+        assert define_metric_mock.call_count > 0
+        assert define_metric_mock.call_count == call_count_after_first
