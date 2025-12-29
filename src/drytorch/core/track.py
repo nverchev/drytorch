@@ -158,6 +158,7 @@ class Tracker(metaclass=abc.ABCMeta):
     def _(self, event: log_events.StopExperimentEvent) -> None:
         _not_used = event
         self._reset_current()
+        self.clean_up()
         return
 
     def clean_up(self) -> None:

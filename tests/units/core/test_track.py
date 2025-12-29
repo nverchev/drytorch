@@ -21,6 +21,12 @@ def remove_trackers() -> None:
     return
 
 
+class _SimpleActor:
+    """Simple actor for testing."""
+
+    name: str = 'mock obj'
+
+
 @dataclasses.dataclass(frozen=True)
 class _SimpleEvent(log_events.Event):
     """Simple Event subclass for testing."""
@@ -31,21 +37,6 @@ class _UndefinedEvent(log_events.Event):
     """Event subclass that the tracker does not handle."""
 
 
-class _SimpleActor:
-    """Simple actor for testing."""
-
-    name: str = 'mock obj'
-
-
-class TestEvent:
-    """Tests for Event."""
-
-    def test_no_auto_publish(self):
-        """Test the error raises correctly when instantiating the class."""
-        with pytest.raises(exceptions.AccessOutsideScopeError):
-            _SimpleEvent()
-
-
 class _SimpleTracker(Tracker):
     """Simple tracker that saves the last event."""
 
@@ -53,18 +44,30 @@ class _SimpleTracker(Tracker):
 
     @functools.singledispatchmethod
     def notify(self, event: log_events.Event) -> None:
-        pass
+        return super().notify(event)
 
     @notify.register
     def _(self, event: _SimpleEvent) -> None:
         self.last_event = event
+        super().notify(event)
 
     @notify.register
     def _(self, event: _UndefinedEvent) -> None:
         raise NotImplementedError('`notify` is not implemented.')
 
 
-# Test class for MetadataManager
+class _ExitTracker(Tracker):
+    """Tracker that raises SystemExit on event."""
+
+    @functools.singledispatchmethod
+    def notify(self, event: log_events.Event) -> None:
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: _SimpleEvent) -> None:
+        raise SystemExit()
+
+
 class TestMetadataManager:
     """Test MetadataManager functionality."""
 
@@ -129,6 +132,42 @@ class TestMetadataManager:
             _ = manager.extract_metadata(mock_obj)
 
 
+class TestTracker:
+    """Tests for abstract Tracker methods."""
+
+    @pytest.fixture
+    def tracker(self) -> Tracker:
+        """Set up a test instance."""
+        return _SimpleTracker()
+
+    def test_get_current_not_registered(self, tracker) -> None:
+        """Error when getting current tracker if none active."""
+        with pytest.raises(exceptions.TrackerNotActiveError):
+            tracker.get_current()
+
+    def test_get_current(self, tracker, mocker) -> None:
+        """Test that get_current returns the active tracker."""
+        start_exp = mocker.create_autospec(log_events.StartExperimentEvent)
+        tracker.notify(start_exp)
+        assert tracker.get_current() is tracker
+
+    def test_get_current_after_stop(self, tracker, mocker) -> None:
+        """Test that get_current returns None after stop."""
+        start_exp = mocker.create_autospec(log_events.StartExperimentEvent)
+        tracker.notify(start_exp)
+        stop_exp = mocker.create_autospec(log_events.StopExperimentEvent)
+        tracker.notify(stop_exp)
+        with pytest.raises(exceptions.TrackerNotActiveError):
+            tracker.get_current()
+
+    def test_clean_up_after_stop(self, tracker, mocker) -> None:
+        """Test that clean_up removes the tracker from the active trackers."""
+        clean_up = mocker.patch.object(tracker, 'clean_up')
+        stop_exp = mocker.create_autospec(log_events.StopExperimentEvent)
+        tracker.notify(stop_exp)
+        clean_up.assert_called_once()
+
+
 class TestEventDispatcher:
     """Test the event dispatcher."""
 
@@ -136,6 +175,11 @@ class TestEventDispatcher:
     def tracker(self) -> _SimpleTracker:
         """Set up a test instance."""
         return _SimpleTracker()
+
+    @pytest.fixture()
+    def exit_tracker(self) -> Tracker:
+        """Set up a test instance."""
+        return _ExitTracker()
 
     @pytest.fixture()
     def dispatcher(self, tracker) -> EventDispatcher:
@@ -168,10 +212,33 @@ class TestEventDispatcher:
         """Test publishing an event notifies registered trackers."""
         _SimpleEvent.set_auto_publish(dispatcher.publish)
         simple_event = _SimpleEvent()
+
         assert tracker.last_event is simple_event
 
     def test_handle_tracker_exceptions(self, dispatcher):
         """Test handling of tracker exceptions."""
         _UndefinedEvent.set_auto_publish(dispatcher.publish)
+
         with pytest.warns(exceptions.TrackerExceptionWarning):
             _UndefinedEvent()
+
+    def test_publish_propagates_system_exit(self, dispatcher, exit_tracker):
+        """Test KeyboardInterrupt and SystemExit are not swallowed."""
+        dispatcher.subscribe(exit_tracker)
+        _SimpleEvent.set_auto_publish(dispatcher.publish)
+
+        with pytest.raises(SystemExit):
+            _SimpleEvent()
+
+    def test_subscribe_named(self, dispatcher) -> None:
+        """Test subscribing with specific names."""
+        tracker = _SimpleTracker()
+        dispatcher.subscribe(custom_name=tracker)
+
+        assert 'custom_name' in dispatcher.named_trackers
+        assert dispatcher.named_trackers['custom_name'] is tracker
+
+    def test_remove_all(self, dispatcher) -> None:
+        """Test removing all trackers."""
+        dispatcher.remove_all()
+        assert not dispatcher.named_trackers
