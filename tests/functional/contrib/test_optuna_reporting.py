@@ -2,10 +2,16 @@
 
 from collections.abc import Generator
 
-import optuna
 import torch
 
 import pytest
+
+
+try:
+    import optuna
+except ImportError:
+    pytest.skip('optuna not available', allow_module_level=True)
+    raise
 
 from drytorch.contrib.optuna import TrialCallback, get_final_value
 from drytorch.core.experiment import Run

@@ -18,13 +18,18 @@ __all__ = [
     'suggest_overrides',
 ]
 
-
 _Target_contra = TypeVar(
     '_Target_contra', bound=p.TargetType, contravariant=True
 )
 _Output_contra = TypeVar(
     '_Output_contra', bound=p.OutputType, contravariant=True
 )
+
+
+class OptunaError(exceptions.DryTorchError):
+    """Base class for Optuna errors."""
+
+    msg = 'Optuna: {}'
 
 
 class TrialCallback(Generic[_Output_contra, _Target_contra]):
@@ -170,8 +175,8 @@ def suggest_overrides(
                 try:
                     bound_suggest = getattr(trial, param_value.settings.suggest)
                 except AttributeError as ae:
-                    msg = f'Invalid Optuna suggest configuration: {ae}.'
-                    raise exceptions.DryTorchError(msg) from ae
+                    msg = f'Invalid suggest configuration: {ae}.'
+                    raise OptunaError(msg) from ae
                 new_value.append(
                     bound_suggest(
                         f'{param_name} {i}', **param_value.settings.settings
@@ -181,8 +186,9 @@ def suggest_overrides(
             try:
                 bound_suggest = getattr(trial, param_value.suggest)
             except AttributeError as ae:
-                msg = f'Invalid Optuna suggest configuration: {ae}.'
-                raise exceptions.DryTorchError(msg) from ae
+                msg = f'Invalid suggest configuration: {ae}.'
+                raise OptunaError(msg) from ae
+
             if use_full_name:
                 param_name = setting_name
             else:
@@ -223,13 +229,14 @@ def get_final_value(
     current_study = trial.study
     if filter_fn is None:
         filter_fn = min if current_study.direction.name == 'MINIMIZE' else max
+
     frozen_trial = current_study.trials[-1]  # current trial as a FrozenTrial
     if frozen_trial.number != trial.number:
-        msg = 'Trial number mismatch.'
-        raise exceptions.DryTorchError(msg)
+        raise OptunaError('trial number mismatch.')
+
     reported_values = list(frozen_trial.intermediate_values.values())
     if not reported_values:
-        msg = 'Optuna Trial has no reported values. Did you use study.optimize?'
-        raise exceptions.DryTorchError(msg)
+        msg = 'trial has no reported values. Did you use study.optimize?'
+        raise OptunaError(msg)
 
     return filter_fn(reported_values)

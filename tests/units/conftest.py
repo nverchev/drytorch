@@ -12,10 +12,12 @@ experiment_current_original = Experiment.get_current
 
 
 @pytest.fixture
-def mock_model(mocker) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
+def mock_model(
+    mocker, example_epoch
+) -> p.ModelProtocol[torch.Tensor, torch.Tensor]:
     """Fixture for a mock model."""
     mock = mocker.create_autospec(p.ModelProtocol, instance=True)
-    mock.epoch = 0
+    mock.epoch = example_epoch
     mock.name = 'mock_model'
     mock.module = torch.nn.Linear(1, 1)
     mock.device = torch.device('cpu')
@@ -105,9 +107,8 @@ def mock_trainer(
 ) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
-    mock.mock_bn_model = mock_model
+    mock.model = mock_model
     mock.name = 'mock_trainer'
-    mock.mock_bn_model.epoch = 3
     mock.objective = mock_loss
     mock.validation = mock_validation
     mock.terminated = False
