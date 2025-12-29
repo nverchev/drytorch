@@ -126,7 +126,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     @override
     def clean_up(self) -> None:
         self._viz = None
-        return
+        return super().clean_up()
 
     @functools.singledispatchmethod
     @override
@@ -149,11 +149,6 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         else:
             self.viz.close(env=env)  # close all the windows
 
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        self.clean_up()
         return super().notify(event)
 
     @override

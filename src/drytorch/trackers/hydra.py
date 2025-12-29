@@ -65,7 +65,8 @@ class HydraLink(base_classes.Dumper):
                 shutil.copytree(self.hydra_dir, run_dir)
         except exceptions.AccessOutsideScopeError:
             pass
-        return
+
+        return super().clean_up()
 
     @functools.singledispatchmethod
     @override
@@ -81,8 +82,3 @@ class HydraLink(base_classes.Dumper):
         link.parent.mkdir(exist_ok=True, parents=True)
         link.symlink_to(self.hydra_dir, target_is_directory=True)
         return
-
-    @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        self.clean_up()
-        return super().notify(event)

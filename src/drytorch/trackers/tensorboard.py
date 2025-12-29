@@ -110,11 +110,6 @@ class TensorBoard(base_classes.Dumper):
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        self.clean_up()
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
         for name, value in event.metrics.items():
             full_name = f'{event.model_name}/{event.source_name}-{name}'

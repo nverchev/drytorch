@@ -263,11 +263,6 @@ class SQLConnection(base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        self.clean_up()
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.ActorRegistrationEvent) -> None:
         with self.session_factory() as session:
             run = session.merge(self.run)
