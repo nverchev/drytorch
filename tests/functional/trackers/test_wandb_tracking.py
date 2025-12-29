@@ -35,6 +35,8 @@ class TestWandbFullCycle:
         for event in event_workflow:
             tracker.notify(event)
 
+        return
+
     @pytest.fixture
     def resumed_tracker(
         self,
