@@ -222,8 +222,8 @@ def get_moving_average(
         The moving average function.
 
     Raises:
-        ValueError if the decay is not between 0 and 1.
-        ValueError if the mass_coverage is not between 1 - decay and 1.
+        ValueError: if the decay is not between 0 and 1.
+        ValueError: if the mass_coverage is not between 1 - decay and 1.
     """
     if not 0 < decay < 1:
         raise ValueError('decay must be between 0 and 1.')

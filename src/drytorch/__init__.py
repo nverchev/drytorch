@@ -12,7 +12,7 @@ Available modes:
 
 Attributes:
     INIT_MODE: the mode the trackers will be initialized with at the start.
-        If DRYTORCH_INIT_MODE is not present it defaults to standard.
+        If DRYTORCH_INIT_MODE is not present, it defaults to "standard".
 """
 
 import logging

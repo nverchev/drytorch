@@ -91,9 +91,10 @@ class PolynomialScheduler(AbstractScheduler):
     """Polynomial learning rate scheduler: f(x) = C0 + C1(1 - x/C2)^C3.
 
     C0, C1, C2, C3 are defined so that:
-        f(x) = base_value when epoch = 0,
-        f(x) = min value when epoch is C2 = number of decay steps and,
-        f(x) is a polynomial of degree C3.
+    - f(x) = base_value when epoch = 0,
+    - f(x) = min value when epoch is C2 = number of decay steps and,
+    - f(x) is a polynomial of degree C3.
+
     After the number of decay steps, returns min value.
 
     Attributes:
@@ -131,9 +132,10 @@ class ExponentialScheduler(AbstractScheduler):
     """Schedule exponential decay: f(x) = C0 + C1(C2^x).
 
     C0, C1 and C2 are defined so that:
-        f(x) = base_value when epoch = 0,
-        f(x) = min value when the epoch goes to infinite and,
-        f(x) is an exponential function with decay factor C2.
+    - f(x) = base_value when epoch = 0,
+    - f(x) = min value when the epoch goes to infinite and,
+    - f(x) is an exponential function with decay factor C2.
+
     After the number of decay steps, returns min value.
 
     Attributes:
@@ -163,8 +165,9 @@ class CosineScheduler(AbstractScheduler):
     """Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
 
     C0, C1 and C2 are defined so that:
-        f(x) = base_value when epoch = 0 and,
-        f(x) = min value when epoch is C2 = number of decay steps.
+    - f(x) = base_value when epoch = 0 and,
+    - f(x) = min value when epoch is C2 = number of decay steps.
+
     After the number of decay steps, returns min value.
 
     Attributes:

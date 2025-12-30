@@ -1,5 +1,3 @@
-DRYTorch's documentation
-====================================
 .. include:: ./README_RTD.md
    :parser: myst_parser.sphinx_
 
