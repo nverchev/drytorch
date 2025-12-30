@@ -18,6 +18,9 @@ kernelspec:
 
 DRYTorch helps you **standardize and document** your model's metrics and loss.
 
+## Design
+The modular design extends to metrics and losses. DRYTorch provides a common interface for both, allowing you to easily switch between different libraries.
+
 ### Terminology
 
 An **objective** is a criterion for model performance evaluation. We distinguish between two types:

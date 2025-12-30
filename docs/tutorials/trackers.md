@@ -15,14 +15,18 @@ kernelspec:
 # Trackers
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/trackers.ipynb)
+DRYTorch uses a subscription-based event system for logging and
+visualization, delegating implementation to external libraries via **trackers**.
+
+This tutorial explains how trackers work and how to write your own.
+
+## Design Principles
 DRYTorch's philosophy of replicability and reusability is embodied in its **tracker system**. Trackers allow you to:
 
 * Reproduce someone else's machine learning workflow while keeping logs in your preferred format.
 * Reuse custom trackers across multiple projects with minimal code changes.
 * Log, plot, and structure information without affecting the experiment logic.
 * Ensure your experiment's completion even in case of a failure.
-
-This tutorial explains how trackers work and how to write your own.
 
 ### Terminology
 A **tracker** is an object responsible for **logging and plotting**. It:

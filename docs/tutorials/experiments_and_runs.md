@@ -283,7 +283,7 @@ third_experiment = MyExperiment(
 third_experiment.trackers.subscribe(MetadataVisualizer())
 ```
 
-#### Model metadata
+### Model metadata
 The readable representation of a Model is simply the native
 representation of the wrapped `nn.Module`.
 
@@ -292,7 +292,7 @@ with third_experiment.create_run():  # correctly resuming run
     third_model = Model(nn.Linear(1, 1))
 ```
 
-#### Actor Metadata
+### Actor Metadata
 The readable representation of an actor not only documents the actor object, but all the public attributes recursively.
 
 Private attributes, that is, attributes that start with an underscore, are ignored and so are attributes that have not been initialized (evaluating to None, or an empty container).
