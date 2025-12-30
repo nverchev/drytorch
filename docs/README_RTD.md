@@ -1,6 +1,7 @@
+# DRYTorch's Documentation
 [![PyPI version](https://img.shields.io/pypi/v/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
 [![Python](https://img.shields.io/pypi/pyversions/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
-[![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](https://github.com/nverchev/drytorch/blob/master/LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-nverchev%2Fdrytorch-blue?logo=github)](https://github.com/nverchev/drytorch)
 
 ## 💡 Design Philosophy
