@@ -105,6 +105,7 @@ class TestExperiment:
         """Set up the tests."""
         mocker.patch.object(log_events, 'StartExperimentEvent')
         mocker.patch.object(log_events, 'StopExperimentEvent')
+        Experiment.previous_runs.clear()
         return
 
     @pytest.fixture()
@@ -319,7 +320,7 @@ class TestRun:
         assert run.status == 'failed'
 
     def test_run_direct_constructor(self, experiment) -> None:
-        """Test creating a Run directly with the constructor."""
+        """Test creating a Run directly with the Initialize."""
         run = Run(experiment, run_id='direct-run')
         assert run.id == 'direct-run'
         assert run.experiment is experiment
