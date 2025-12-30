@@ -10,11 +10,12 @@ Attributes:
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import logging
 import sys
 
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal
 
 from typing_extensions import override
 
@@ -43,8 +44,9 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger('drytorch')
 
 
-class InfoLevels(NamedTuple):
-    """NamedTuple that defines different levels of information for logging.
+@dataclasses.dataclass()
+class InfoLevels:
+    """Dataclass that defines different levels of information for logging.
 
     Attributes:
         internal: level for internal logging messages.
@@ -367,7 +369,7 @@ INFO_LEVELS = InfoLevels(
     training=28,
     test=29,
 )
-for name, level in INFO_LEVELS._asdict().items():
+for name, level in dataclasses.asdict(INFO_LEVELS).items():
     logging.addLevelName(level, name.center(10))
 
 enable_default_handler()
