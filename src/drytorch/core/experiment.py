@@ -130,21 +130,24 @@ class Experiment(Generic[_T_co]):
     Finally, it allows global access to a configuration file with the correct
     type annotations.
 
-    Class Variables:
-        runs: a list of all previous runs created by this class.
-        folder_name: name of the hidden folder storing experiment metadata.
-        run_file: filename storing the registry of run IDs for this experiment.
+
 
     Attributes:
+        folder_name: name of the hidden folder storing experiment metadata.
+        run_file: filename storing the registry of run IDs for this experiment.
+        previous_runs: a list of all previous runs created by this class.
         par_dir: parent directory for experiment data.
         tags: descriptors for the experiment.
         trackers: dispatcher for publishing events.
     """
 
-    _name = repr_utils.DefaultName()
-    __current: ClassVar[Experiment[Any] | None] = None
     folder_name: ClassVar[str] = '.drytorch'
     run_file: ClassVar[str] = 'runs.json'
+    previous_runs: ClassVar[list[Run]] = []
+    _name = repr_utils.DefaultName()
+    __current: ClassVar[Experiment[Any] | None] = None
+
+    par_dir: pathlib.Path
 
     def __init__(
         self,
@@ -165,14 +168,14 @@ class Experiment(Generic[_T_co]):
         _validate_chars(name)
         self.__config: Final[_T_co] = config
         self._name = name
-        self.par_dir: pathlib.Path = pathlib.Path(par_dir)
+        self.par_dir = pathlib.Path(par_dir)
         self.tags: list[str] = tags or []
         self.trackers: Final = track.EventDispatcher(self.name)
         self.trackers.subscribe(**track.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
         self._registry: RunRegistry = RunRegistry(run_file)
         self._active_run: Run[_T_co] | None = None
-        self.previous_runs: list[Run[_T_co]] = []
+        return
 
     @property
     def name(self) -> str:
