@@ -29,7 +29,7 @@ _Output_contra = TypeVar(
 class OptunaError(exceptions.DryTorchError):
     """Base class for Optuna errors."""
 
-    msg = 'Optuna: {}'
+    _template = 'Optuna: {}'
 
 
 class TrialCallback(Generic[_Output_contra, _Target_contra]):

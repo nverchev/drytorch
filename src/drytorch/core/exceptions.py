@@ -3,7 +3,7 @@
 import pathlib
 import traceback
 
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 import torch
 
@@ -55,7 +55,7 @@ __all__ = [
 class DryTorchError(Exception):
     """Base exception class for all drytorch package exceptions."""
 
-    msg: str = ''
+    _template: ClassVar[str] = ''
 
     def __init__(self, *args: Any) -> None:
         """Constructor.
@@ -63,13 +63,13 @@ class DryTorchError(Exception):
         Args:
             *args: arguments to be formatted into the message template.
         """
-        super().__init__(self.msg.format(*args))
+        super().__init__(self._template.format(*args))
 
 
 class DryTorchWarning(UserWarning):
     """Base warning class for all drytorch package warnings."""
 
-    msg: str = ''
+    _template: ClassVar[str] = ''
 
     def __init__(self, *args: Any) -> None:
         """Constructor.
@@ -77,13 +77,13 @@ class DryTorchWarning(UserWarning):
         Args:
             *args: arguments to be formatted into the message template.
         """
-        super().__init__(self.msg.format(*args))
+        super().__init__(self._template.format(*args))
 
 
 class TrackerError(DryTorchError):
     """Exception raised by tracker objects during experiment tracking."""
 
-    msg = '[{}] {}'
+    _template = '[{}] {}'
 
     def __init__(self, tracker: Any, tracker_msg: str) -> None:
         """Constructor.
@@ -99,19 +99,19 @@ class TrackerError(DryTorchError):
 class AccessOutsideScopeError(DryTorchError):
     """Raised when an operation is attempted outside an experiment scope."""
 
-    msg = 'Operation only allowed within an experiment scope.'
+    _template = 'Operation only allowed within an experiment scope.'
 
 
 class CheckpointNotInitializedError(DryTorchError):
     """Raised when attempting to use a checkpoint without a registered model."""
 
-    msg = 'The checkpoint did not register any model.'
+    _template = 'The checkpoint did not register any model.'
 
 
 class ConvergenceError(DryTorchError):
     """Raised when a module fails to converge during training."""
 
-    msg = 'The module did not converge (criterion is {}).'
+    _template = 'The module did not converge (criterion is {}).'
 
     def __init__(self, criterion: float) -> None:
         """Constructor.
@@ -126,13 +126,13 @@ class ConvergenceError(DryTorchError):
 class DatasetHasNoLengthError(DryTorchError):
     """Raised when a dataset does not implement the __len__ method."""
 
-    msg = 'Dataset does not implement __len__ method.'
+    _template = 'Dataset does not implement __len__ method.'
 
 
 class EpochNotFoundError(DryTorchError):
     """Raised when no saved model is found in the checkpoint directory."""
 
-    msg = 'No checkpoints for epoch {} found in {}.'
+    _template = 'No checkpoints for epoch {} found in {}.'
 
     def __init__(self, epoch: int, checkpoint_directory: pathlib.Path) -> None:
         """Constructor.
@@ -148,7 +148,7 @@ class EpochNotFoundError(DryTorchError):
 class FuncNotApplicableError(DryTorchError):
     """Raised when a function cannot be applied to a specific type."""
 
-    msg = 'Cannot apply function {} on type {}.'
+    _template = 'Cannot apply function {} on type {}.'
 
     def __init__(self, func_name: str, type_name: str) -> None:
         """Constructor.
@@ -165,7 +165,7 @@ class FuncNotApplicableError(DryTorchError):
 class LossNotScalarError(DryTorchError):
     """Raised when a loss value is not a scalar tensor."""
 
-    msg = 'Loss must be a scalar but got Tensor of shape {}.'
+    _template = 'Loss must be a scalar but got Tensor of shape {}.'
 
     def __init__(self, size: torch.Size) -> None:
         """Constructor.
@@ -180,7 +180,7 @@ class LossNotScalarError(DryTorchError):
 class MetricNotFoundError(DryTorchError):
     """Raised when a requested metric is not found in the specified source."""
 
-    msg = 'No metric {}found in {}.'
+    _template = 'No metric {}found in {}.'
 
     def __init__(self, source_name: str, metric_name: str) -> None:
         """Constructor.
@@ -197,7 +197,7 @@ class MetricNotFoundError(DryTorchError):
 class MissingParamError(DryTorchError):
     """Raised when parameter groups are missing required parameters."""
 
-    msg = 'Parameter groups in input learning rate miss parameters {}.'
+    _template = 'Parameter groups in input learning rate miss parameters {}.'
 
     def __init__(
         self, module_names: list[str], lr_param_groups: list[str]
@@ -217,7 +217,9 @@ class MissingParamError(DryTorchError):
 class ModuleAlreadyRegisteredError(DryTorchError):
     """Raised when trying to access a model that has already been registered."""
 
-    msg = 'Module from model {} is already registered in experiment {} run {}.'
+    _template = (
+        'Module from model {} is already registered in experiment {} run {}.'
+    )
 
     def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
         """Constructor.
@@ -236,7 +238,9 @@ class ModuleAlreadyRegisteredError(DryTorchError):
 class ModuleNotRegisteredError(DryTorchError):
     """Raised an actor tries to access a module that hasn't been registered."""
 
-    msg = 'Module from model {} is not registered in the current run {} - {}.'
+    _template = (
+        'Module from model {} is not registered in the current run {} - {}.'
+    )
 
     def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
         """Constructor.
@@ -255,7 +259,7 @@ class ModuleNotRegisteredError(DryTorchError):
 class ModelNotFoundError(DryTorchError):
     """Raised when no saved model is found in the checkpoint directory."""
 
-    msg = 'No saved module found in {}.'
+    _template = 'No saved module found in {}.'
 
     def __init__(self, checkpoint_directory: pathlib.Path) -> None:
         """Constructor.
@@ -270,7 +274,7 @@ class ModelNotFoundError(DryTorchError):
 class NameAlreadyRegisteredError(DryTorchError):
     """Raised when attempting to register a name already in use."""
 
-    msg = 'Name {} has already been registered in the current run.'
+    _template = 'Name {} has already been registered in the current run.'
 
     def __init__(self, name: str) -> None:
         """Constructor.
@@ -284,7 +288,9 @@ class NameAlreadyRegisteredError(DryTorchError):
 class NamedTupleOnlyError(DryTorchError):
     """Raised when operations require a named tuple and not a subclass."""
 
-    msg = 'The only accepted subtypes of tuple are namedtuple classes. Got {}.'
+    _template = (
+        'The only accepted subtypes of tuple are namedtuple classes. Got {}.'
+    )
 
     def __init__(self, tuple_type: str) -> None:
         """Constructor.
@@ -299,7 +305,7 @@ class NamedTupleOnlyError(DryTorchError):
 class NestedScopeError(DryTorchError):
     """Raised when attempting to nest an experiment scope within another one."""
 
-    msg = 'Cannot start Experiment {} within Experiment {} scope.'
+    _template = 'Cannot start Experiment {} within Experiment {} scope.'
 
     def __init__(self, current_exp_name: str, new_exp_name: str) -> None:
         """Constructor.
@@ -316,7 +322,7 @@ class NestedScopeError(DryTorchError):
 class NoActiveExperimentError(DryTorchError):
     """Raised when no experiment is currently active."""
 
-    msg = 'No experiment {}has been started.'
+    _template = 'No experiment {}has been started.'
 
     def __init__(
         self,
@@ -343,13 +349,15 @@ class NoActiveExperimentError(DryTorchError):
 class ResultNotAvailableError(DryTorchError):
     """Raised when trying to access a result before the hook has been called."""
 
-    msg = 'The result will be available only after the hook has been called.'
+    _template = (
+        'The result will be available only after the hook has been called.'
+    )
 
 
 class TrackerAlreadyRegisteredError(DryTorchError):
     """Raised when attempting to register an already registered tracker."""
 
-    msg = 'Tracker {} already registered in experiment {}.'
+    _template = 'Tracker {} already registered in experiment {}.'
 
     def __init__(self, tracker_name: str, exp_name: str) -> None:
         """Constructor.
@@ -365,7 +373,7 @@ class TrackerAlreadyRegisteredError(DryTorchError):
 class TrackerNotActiveError(DryTorchError):
     """Raised when trying to access a tracker that is not registered."""
 
-    msg = 'Tracker {} not registered in any active experiment.'
+    _template = 'Tracker {} not registered in any active experiment.'
 
     def __init__(self, tracker_name: str) -> None:
         """Constructor.
@@ -380,7 +388,7 @@ class TrackerNotActiveError(DryTorchError):
 class CannotStoreOutputWarning(DryTorchWarning):
     """Warning raised when output cannot be stored due to an error."""
 
-    msg = 'Impossible to store output because the following error.\n{}'
+    _template = 'Impossible to store output because the following error.\n{}'
 
     def __init__(self, error: BaseException) -> None:
         """Constructor.
@@ -395,7 +403,7 @@ class CannotStoreOutputWarning(DryTorchWarning):
 class ComputedBeforeUpdatedWarning(DryTorchWarning):
     """Warning raised when compute method is called before updating."""
 
-    msg = 'The ``compute`` method of {} was called before its updating.'
+    _template = 'The ``compute`` method of {} was called before its updating.'
 
     def __init__(self, calculator: Any) -> None:
         """Constructor.
@@ -410,7 +418,7 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
 class ExperimentalFeatureWarning(DryTorchWarning):
     """Warning raised when an experimental feature is used."""
 
-    msg = '{} is an experimental feature and may change in the future.'
+    _template = '{} is an experimental feature and may change in the future.'
 
     def __init__(self, feature: str) -> None:
         """Constructor.
@@ -425,7 +433,9 @@ class ExperimentalFeatureWarning(DryTorchWarning):
 class FailedOptionalImportWarning(DryTorchWarning):
     """Warning raised when an optional dependency fails to import."""
 
-    msg = 'Failed to import optional dependency {}. Install for better support.'
+    _template = (
+        'Failed to import optional dependency {}. Install for better support.'
+    )
 
     def __init__(self, package_name: str) -> None:
         """Constructor.
@@ -440,19 +450,19 @@ class FailedOptionalImportWarning(DryTorchWarning):
 class ModuleNotDistributedWarning(DryTorchWarning):
     """Warning raised when a model is not distributed."""
 
-    msg = 'Distributed wrapper not detected: model weights may diverge.'
+    _template = 'Distributed wrapper not detected: model weights may diverge.'
 
 
 class NoPreviousRunsWarning(DryTorchWarning):
     """Attempted to resume the last run, but none were found."""
 
-    msg = 'No previous runs found. Starting a new one.'
+    _template = 'No previous runs found. Starting a new one.'
 
 
 class NotExistingRunWarning(DryTorchWarning):
     """Attempted to resume a not existing run."""
 
-    msg = 'Run with id {} not found. Starting a new one.'
+    _template = 'Run with id {} not found. Starting a new one.'
 
     def __init__(self, run_id: str) -> None:
         """Constructor.
@@ -467,7 +477,9 @@ class NotExistingRunWarning(DryTorchWarning):
 class ObjectiveSyncWarning(DryTorchWarning):
     """Warning for metric synchronization configuration issues."""
 
-    msg = 'Objective synchronization encountered issue: {}. Recommend to: {} .'
+    _template = (
+        'Objective synchronization encountered issue: {}. Recommend to: {} .'
+    )
 
     def __init__(self, issue: str, recommend: str) -> None:
         """Constructor.
@@ -477,13 +489,14 @@ class ObjectiveSyncWarning(DryTorchWarning):
             recommend: the recommended action to fix the issue.
         """
         self.issue: Final = issue
-        super().__init__(issue)
+        self.recommend: Final = recommend
+        super().__init__(issue, recommend)
 
 
 class OptimizerNotLoadedWarning(DryTorchWarning):
     """Warning raised when the optimizer has not been correctly loaded."""
 
-    msg = 'The optimizer has not been correctly loaded:\n{}'
+    _template = 'The optimizer has not been correctly loaded:\n{}'
 
     def __init__(self, error: BaseException) -> None:
         """Constructor.
@@ -498,7 +511,7 @@ class OptimizerNotLoadedWarning(DryTorchWarning):
 class PastEpochWarning(DryTorchWarning):
     """Warning raised when training is requested for a past epoch."""
 
-    msg = 'Training until epoch {} stopped: current epoch is already {}.'
+    _template = 'Training until epoch {} stopped: current epoch is already {}.'
 
     def __init__(self, selected_epoch: int, current_epoch: int) -> None:
         """Constructor.
@@ -515,13 +528,17 @@ class PastEpochWarning(DryTorchWarning):
 class RecursionWarning(DryTorchWarning):
     """Warning raised when recursive objects obstruct metadata extraction."""
 
-    msg = 'Impossible to extract metadata because there are recursive objects.'
+    _template = (
+        'Impossible to extract metadata because there are recursive objects.'
+    )
 
 
 class RunAlreadyRecordedError(DryTorchError):
     """Error raised when attempting to record a run multiple times."""
 
-    msg = 'Run {} already recorded in experiment {}. Use resume=True to resume.'
+    _template = (
+        'Run {} already recorded in experiment {}. Use resume=True to resume.'
+    )
 
     def __init__(self, run_id: str, exp_name: str) -> None:
         """Constructor.
@@ -538,25 +555,27 @@ class RunAlreadyRecordedError(DryTorchError):
 class RunAlreadyCompletedWarning(DryTorchWarning):
     """Warning raised when a run is stopped after completion."""
 
-    msg = """Attempted to stop a Run instance that is already completed."""
+    _template = (
+        """Attempted to stop a Run instance that is already completed."""
+    )
 
 
 class RunAlreadyRunningWarning(DryTorchWarning):
     """Warning raised when a run is started when already running."""
 
-    msg = """Attempted to start a Run instance that is already running."""
+    _template = """Attempted to start a Run instance that is already running."""
 
 
 class RunNotStartedWarning(DryTorchWarning):
     """Warning raised when a run is stopped before being started."""
 
-    msg = """Attempted to stop a Run instance that is not active."""
+    _template = """Attempted to stop a Run instance that is not active."""
 
 
 class RunNotRecordedError(DryTorchError):
     """Raised when attempting to update a run that is not registered."""
 
-    msg = 'Run with id {} is not recorded.'
+    _template = 'Run with id {} is not recorded.'
 
     def __init__(self, run_id: str) -> None:
         """Constructor.
@@ -571,13 +590,15 @@ class RunNotRecordedError(DryTorchError):
 class TerminatedTrainingWarning(DryTorchWarning):
     """Warning raised when training is attempted after termination."""
 
-    msg = 'Attempted to train module after termination.'
+    _template = 'Attempted to train module after termination.'
 
 
 class TrackerExceptionWarning(DryTorchWarning):
     """Warning raised when a tracker encounters an error and is skipped."""
 
-    msg = 'Tracker {} encountered the following error and was skipped:\n{}'
+    _template = (
+        'Tracker {} encountered the following error and was skipped:\n{}'
+    )
 
     def __init__(self, subscriber_name: str, error: BaseException) -> None:
         """Constructor.

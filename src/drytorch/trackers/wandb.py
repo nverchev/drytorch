@@ -24,7 +24,7 @@ __all__ = [
 class WandbWarning(exceptions.DryTorchWarning):
     """Warning class for wandb."""
 
-    msg = 'Wandb: {}'
+    _template = 'Wandb: {}'
 
 
 class Wandb(Dumper):
