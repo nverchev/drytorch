@@ -369,7 +369,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
     _experiment: Experiment[_T_co]
     _is_distributed: bool
-    _is_zero_rank: bool
+    _is_main_process: bool
     _id: str
     resumed: bool
     record: bool
@@ -395,10 +395,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         super().__init__()
         self._experiment: Final = experiment
         self._is_distributed = dist.is_available() and dist.is_initialized()
-        self._is_zero_rank = self._is_distributed and dist.get_rank() > 0
+        self._is_main_process = not self._is_distributed or dist.get_rank() > 0
         self._id: Final = self._get_run_id(run_id)
         self.resumed = resumed
-        self.record = record and self._is_zero_rank
+        self.record = record and self._is_main_process
         self.status = 'created'
         self.metadata_manager: Final = track.MetadataManager()
         self._finalizer = None
@@ -482,7 +482,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         self._experiment._active_run = self
         Experiment.set_current(self._experiment)
-        if self._is_zero_rank:
+        if self._is_main_process:
             log_events.Event.set_auto_publish(self._experiment.trackers.publish)
         else:  # no tracking in secondary processes
             log_events.Event.set_auto_publish(lambda _: None)
