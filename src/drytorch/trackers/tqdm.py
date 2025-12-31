@@ -39,7 +39,7 @@ class EpochBar:
     """
 
     fmt: ClassVar[str] = (
-        '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
+        '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}\r'
     )
     seen_str: ClassVar[str] = 'Samples'
     color: ClassVar[str] = 'green'
@@ -58,6 +58,7 @@ class EpochBar:
         leave: bool,
         file: SupportsWrite[str],
         desc: str,
+        position: int = 0,
     ) -> None:
         """Initialize.
 
@@ -68,6 +69,7 @@ class EpochBar:
             leave: whether to leave the bar in after the epoch.
             file: the stream where to flush the bar.
             desc: description to contextualize the bar.
+            position: position of the bar in the progress bar group.
         """
         self._batch_size = batch_size
         self._num_samples = num_samples
@@ -79,6 +81,7 @@ class EpochBar:
             desc=desc,
             bar_format=self.fmt,
             colour=self.color,
+            position=position,
         )
         self._epoch_seen = 0
         return
@@ -91,12 +94,13 @@ class EpochBar:
             n_processes: the number of processes used for data loading.
         """
         monitor_seen: dict[str, int | str]
-        last_epoch = self.pbar.n == self._num_iter - 1
+        last_epoch = self.pbar.n >= self._num_iter - n_processes
         if self._batch_size is not None:
             if last_epoch:
                 self._epoch_seen = self._num_samples
             else:
                 self._epoch_seen += self._batch_size * n_processes
+
             monitor_seen = {self.seen_str: self._epoch_seen}
         else:
             monitor_seen = {self.seen_str: '?'}
@@ -108,9 +112,6 @@ class EpochBar:
         monitor_dict = monitor_seen | monitor_metric
         self.pbar.set_postfix(monitor_dict, refresh=False)
         self.pbar.update(n_processes)
-        if last_epoch:
-            self.pbar.close()
-
         return
 
 
@@ -156,7 +157,6 @@ class TrainingBar:
             end_epoch,
             desc=f'{self.desc}:',
             leave=leave,
-            position=0,
             file=file,
             bar_format=self.fmt,
             colour=self.color,
@@ -232,6 +232,7 @@ class TqdmLogger(track.Tracker):
             leave=leave,
             file=self._file,
             desc=desc,
+            position=0 if self._training_bar is None else 1,
         )
         event.push_updates.append(self._epoch_bar.update)
         return super().notify(event)
@@ -261,24 +262,28 @@ class TqdmLogger(track.Tracker):
 
     @notify.register
     def _(self, event: log_events.TerminatedTrainingEvent) -> None:
-        self.clean_up()
+        self._clean_training_bar()
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndTrainingEvent) -> None:
-        self.clean_up()
+        self._clean_training_bar()
         return super().notify(event)
 
     def _clean_training_bar(self) -> None:
         if self._training_bar is not None:
-            self._training_bar.pbar.close()
+            if not self._training_bar.pbar.disable:
+                self._training_bar.pbar.close()
+
             self._training_bar = None
 
         return
 
     def _clean_epoch_bar(self) -> None:
         if self._epoch_bar is not None:
-            self._epoch_bar.pbar.close()
+            if not self._epoch_bar.pbar.disable:
+                self._epoch_bar.pbar.close()
+
             self._epoch_bar = None
 
         return
