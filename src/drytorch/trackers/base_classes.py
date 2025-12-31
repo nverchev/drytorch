@@ -45,7 +45,7 @@ class Dumper(track.Tracker):
     _run_id: str | None
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             par_dir: the parent directory for the tracker data. Default uses
@@ -163,7 +163,7 @@ class MemoryMetrics(track.Tracker):
     model_dict: dict[str, SourcedMetrics]
 
     def __init__(self, metric_loader: MetricLoader | None = None) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             metric_loader: object to load the metrics.
@@ -227,7 +227,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         start: int = 1,
         metric_loader: MetricLoader | None = None,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model_names: the names of the models to plot. Defaults to all.

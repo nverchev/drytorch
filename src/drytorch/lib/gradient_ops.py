@@ -72,7 +72,7 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
     _eps: float
 
     def __init__(self, eps: float = 1e-8) -> None:  # type: ignore
-        """Constructor.
+        """Initialize.
 
         Args:
             eps: Small constant for numerical stability.
@@ -108,7 +108,7 @@ class GradNormClipper(ClipOperation):
     threshold: float
 
     def __init__(self, threshold: float = 1) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             threshold: Maximum norm value of the clipped gradients.
@@ -134,7 +134,7 @@ class GradValueClipper(ClipOperation):
     threshold: float
 
     def __init__(self, threshold: float = 1) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             threshold: Maximum absolute value of the clipped gradients.
@@ -266,7 +266,7 @@ class EMACriterion(ClippingCriterion):
         r_thresh: float = 1.05,
         clipping_function: ClipFunction = max_clipping,
     ):
-        """Constructor.
+        """Initialize.
 
         Args:
             alpha: exponential moving average decay factor.
@@ -339,7 +339,7 @@ class ZStatCriterion(ClippingCriterion):
         clipping_function: ClipFunction = reciprocal_clipping,
         eps: float = 1e-06,
     ):
-        """Constructor.
+        """Initialize.
 
         Args:
             alpha: exponential moving average decay factor (0 < alpha < 1).
@@ -399,7 +399,7 @@ class ZStatCriterion(ClippingCriterion):
 
 
 class StatsCollector:
-    """Constructor.
+    """Initialize.
 
     Attributes:
             max_samples: the number of collected samples for completion.
@@ -487,7 +487,7 @@ class HistClipper(ClipOperation):
         warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
         n_warmup_steps: int = 20,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             criterion: the clipping criterion to determine when and how to clip.
@@ -568,7 +568,7 @@ class ParamHistClipper(ClipOperation):
         warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
         n_warmup_steps: int = 20,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             criterion: the clipping criterion to determine when and how to clip.

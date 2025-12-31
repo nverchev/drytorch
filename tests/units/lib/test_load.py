@@ -23,7 +23,7 @@ class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """Simple dataset for testing purposes."""
 
     def __init__(self, dataset: Sequence[tuple[int, int]]):
-        """Constructor."""
+        """Initialize."""
         self.data = dataset
 
     @override

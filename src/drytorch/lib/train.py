@@ -48,7 +48,7 @@ class Trainer(
         loss: p.LossProtocol[Output, Target],
         learning_schema: p.LearningProtocol,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model: the model containing the weights to evaluate.

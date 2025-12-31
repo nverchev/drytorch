@@ -68,7 +68,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         should_compile: bool = True,
         should_distribute: bool = True,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Option should_distribute assumes that there is a single accelerator for
         each process and that the device for the process is already set.
@@ -214,7 +214,7 @@ class ModelAverage(Model[Input, Output]):
         | None = None,
         use_buffers: bool = False,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             torch_module: Pytorch module with type annotations.
@@ -273,7 +273,7 @@ class ModelOptimizer:
         model: p.ModelProtocol[Input, Output],
         learning_schema: p.LearningProtocol,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model: the model to be optimized.

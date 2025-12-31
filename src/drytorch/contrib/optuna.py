@@ -56,7 +56,7 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             trial: Optuna trial

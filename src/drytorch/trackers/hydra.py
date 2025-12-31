@@ -39,7 +39,7 @@ class HydraLink(base_classes.Dumper):
     def __init__(
         self, par_dir: pathlib.Path | None = None, copy_hydra: bool = True
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             par_dir: the parent directory for the tracker data. Default uses

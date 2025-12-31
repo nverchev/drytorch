@@ -99,7 +99,7 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         metric_loader: base_classes.MetricLoader | None = None,
         start: int = 1,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             server: the address of the server.

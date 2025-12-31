@@ -216,7 +216,7 @@ class SQLConnection(base_classes.MetricLoader):
         self,
         engine: sqlalchemy.Engine | None = None,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             engine: the engine for the session. Default uses default_url.

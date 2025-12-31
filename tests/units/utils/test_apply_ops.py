@@ -79,7 +79,7 @@ class DataClassWithInit(_BaseTestClass):
     """Test dataclass with an init=False field."""
 
     def __init__(self, t1: torch.Tensor, t2: torch.Tensor):
-        """Constructor."""
+        """Initialize."""
         self.t1 = t1
         self.t2 = t2
 

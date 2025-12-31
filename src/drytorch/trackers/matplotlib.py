@@ -34,7 +34,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
         metric_loader: base_classes.MetricLoader | None = None,
         start: int = 1,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model_names: the names of the models to plot. Defaults to all.

@@ -45,7 +45,7 @@ class YamlDumper(base_classes.Dumper):
     folder_name = 'metadata'
 
     def __init__(self, par_dir: pathlib.Path | None = None):
-        """Constructor.
+        """Initialize.
 
         Args:
             par_dir: directory where to dump metadata. Defaults to the current

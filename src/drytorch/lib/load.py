@@ -44,7 +44,7 @@ class Sliced(Sequence[_T]):
     _sliced: Sequence[_T]
 
     def __init__(self, seq: Sequence[_T], slice_: slice) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             seq: the sequence to keep reference to.
@@ -98,7 +98,7 @@ class Permutation(Sequence[int]):
     _new_indices: list[int]
 
     def __init__(self, size: int, seed: int | None):
-        """Constructor.
+        """Initialize.
 
         Args:
             size: the length of the permutation.
@@ -157,7 +157,7 @@ class DataLoader(p.LoaderProtocol[Data]):
         sampler: data.Sampler | Iterable[Any] | None = None,
         num_workers: int = 0,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             dataset: the dataset to load data from.

@@ -66,7 +66,7 @@ class ModelCaller(
     def __init__(
         self, model: p.ModelProtocol[Input, Output], name: str = ''
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model: the wrapped model.
@@ -117,7 +117,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         *,
         loader: p.LoaderProtocol[tuple[Input, Target]],
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model: the model to run.
@@ -246,7 +246,7 @@ class ModelRunnerWithObjective(
         loader: p.LoaderProtocol[tuple[Input, Target]],
         objective: _Objective_co,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model: the model containing the weights to evaluate.

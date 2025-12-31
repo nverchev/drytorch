@@ -53,7 +53,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         par_dir: pathlib.Path | None = None,
         dialect: csv.Dialect = _default_dialect,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             par_dir: the parent directory for the tracker data. Default uses

@@ -42,7 +42,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
     _cached_reduce: dict[str, _T]
 
     def __init__(self, **kwargs: _T):
-        """Constructor.
+        """Initialize.
 
         Args:
             kwargs: named values to average.

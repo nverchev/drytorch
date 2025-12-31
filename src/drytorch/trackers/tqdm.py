@@ -59,7 +59,7 @@ class EpochBar:
         file: SupportsWrite[str],
         desc: str,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             batch_size: how many samples are in one batch.
@@ -143,7 +143,7 @@ class TrainingBar:
         file: SupportsWrite[str],
         leave: bool,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             start_epoch: the epoch from which the bar should start.
@@ -191,7 +191,7 @@ class TqdmLogger(track.Tracker):
         enable_training_bar: bool = False,
         file: SupportsWrite[str] = sys.stderr,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             leave: whether to leave the epoch bar after completion.

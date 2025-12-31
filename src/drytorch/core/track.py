@@ -42,7 +42,7 @@ class MetadataManager:
     metadata_dict: dict[str, Any]
 
     def __init__(self) -> None:
-        """Constructor."""
+        """Initialize."""
         super().__init__()
         self.metadata_dict: Final = dict[str, Any]()
 
@@ -207,7 +207,7 @@ class EventDispatcher:
     named_trackers: dict[str, Tracker]
 
     def __init__(self, exp_name) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             exp_name: name of the current experiment.

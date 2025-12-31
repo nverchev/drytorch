@@ -54,7 +54,7 @@ class TensorBoard(base_classes.Dumper):
         max_queue_size: int = 10,
         flush_secs: int = 120,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             par_dir: the parent directory for the tracker data. Default uses

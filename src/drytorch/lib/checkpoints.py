@@ -69,7 +69,7 @@ class CheckpointPathManager:
         model: p.ModelProtocol[Any, Any],
         run_dir: pathlib.Path | None = None,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model: the model whose paths are to be managed.
@@ -128,7 +128,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     _optimizer: torch.optim.Optimizer | None
 
     def __init__(self) -> None:
-        """Constructor."""
+        """Initialize."""
         self._model = None
         self._optimizer = None
 
@@ -216,7 +216,7 @@ class LocalCheckpoint(AbstractCheckpoint):
     """Manage locally saving and loading the model state and optimizer."""
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             par_dir: parent directory for experiment data.

@@ -150,7 +150,7 @@ class MetricCollection(Objective[Output, Target]):
         self,
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             **named_fn: dictionary of named functions to calculate.
@@ -209,7 +209,7 @@ class Metric(MetricCollection[Output, Target]):
         name: str,
         higher_is_better: bool | None = None,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             fn: the callable that computes the metric value.
@@ -250,7 +250,7 @@ class LossBase(
         formula: str = '',
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             criterion: logic extracting a loss value from computed value.
@@ -567,7 +567,7 @@ class CompositionalLoss(
         formula: str = '',
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             criterion: function extracting a loss value from metric functions.
@@ -623,7 +623,7 @@ class CompositionalLoss(
 
 
 class Loss(CompositionalLoss[Output, Target]):
-    """Subclass for simple losses with a convenient Constructor."""
+    """Subclass for simple losses with a convenient constructor."""
 
     def __init__(
         self,
@@ -632,7 +632,7 @@ class Loss(CompositionalLoss[Output, Target]):
         name: str,
         higher_is_better: bool = False,
     ):
-        """Constructor.
+        """Initialize.
 
         Args:
             fn: the callable to calculate the loss.
@@ -684,7 +684,7 @@ class MetricTracker(Generic[Output, Target]):
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
         filter_fn: Callable[[Sequence[float]], float] = operator.itemgetter(-1),
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             metric_name: name of the metric to track.

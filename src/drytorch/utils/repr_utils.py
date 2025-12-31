@@ -69,7 +69,7 @@ class CreatedAtMixin:
     _created_at: datetime.datetime
 
     def __init__(self, *args, **kwargs) -> None:
-        """Constructor."""
+        """Initialize."""
         self._created_at = datetime.datetime.now()
         super().__init__(*args, **kwargs)
 
@@ -94,7 +94,7 @@ class DefaultName:
     _prefixes: dict[str, count[int]]
 
     def __init__(self) -> None:
-        """Constructor."""
+        """Initialize."""
         self._prefixes = {}
 
     def __get__(self, instance: Any, objtype: type | None = None) -> str:
@@ -371,7 +371,7 @@ else:
         def __init__(
             self, precision: int = 3, max_rows: int = 10, max_columns: int = 10
         ) -> None:
-            """Constructor.
+            """Initialize.
 
             Args:
                 precision: see Pandas docs.

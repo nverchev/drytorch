@@ -81,7 +81,7 @@ class Validation(
         loader: p.LoaderProtocol[tuple[Input, Target]],
         metric: p.ObjectiveProtocol[Output, Target],
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model: the model containing the weights to evaluate.

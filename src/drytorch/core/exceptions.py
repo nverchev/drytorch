@@ -58,7 +58,7 @@ class DryTorchError(Exception):
     _template: ClassVar[str] = ''
 
     def __init__(self, *args: Any) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             *args: arguments to be formatted into the message template.
@@ -72,7 +72,7 @@ class DryTorchWarning(UserWarning):
     _template: ClassVar[str] = ''
 
     def __init__(self, *args: Any) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             *args: arguments to be formatted into the message template.
@@ -86,7 +86,7 @@ class TrackerError(DryTorchError):
     _template = '[{}] {}'
 
     def __init__(self, tracker: Any, tracker_msg: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             tracker: the tracker object that encountered the error.
@@ -114,7 +114,7 @@ class ConvergenceError(DryTorchError):
     _template = 'The module did not converge (criterion is {}).'
 
     def __init__(self, criterion: float) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             criterion: the convergence criterion that was not met.
@@ -135,7 +135,7 @@ class EpochNotFoundError(DryTorchError):
     _template = 'No checkpoints for epoch {} found in {}.'
 
     def __init__(self, epoch: int, checkpoint_directory: pathlib.Path) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             epoch: the epoch that was not found.
@@ -151,7 +151,7 @@ class FuncNotApplicableError(DryTorchError):
     _template = 'Cannot apply function {} on type {}.'
 
     def __init__(self, func_name: str, type_name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             func_name: the name of the function that cannot be applied.
@@ -168,7 +168,7 @@ class LossNotScalarError(DryTorchError):
     _template = 'Loss must be a scalar but got Tensor of shape {}.'
 
     def __init__(self, size: torch.Size) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             size: the actual size of the non-scalar loss tensor.
@@ -183,7 +183,7 @@ class MetricNotFoundError(DryTorchError):
     _template = 'No metric {}found in {}.'
 
     def __init__(self, source_name: str, metric_name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             source_name: the name of the source where the metric was not found.
@@ -202,7 +202,7 @@ class MissingParamError(DryTorchError):
     def __init__(
         self, module_names: list[str], lr_param_groups: list[str]
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             module_names: list of module names that should have parameters.
@@ -222,7 +222,7 @@ class ModuleAlreadyRegisteredError(DryTorchError):
     )
 
     def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model_name: the name of the model that was not registered.
@@ -243,7 +243,7 @@ class ModuleNotRegisteredError(DryTorchError):
     )
 
     def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             model_name: the name of the model that was not registered.
@@ -262,7 +262,7 @@ class ModelNotFoundError(DryTorchError):
     _template = 'No saved module found in {}.'
 
     def __init__(self, checkpoint_directory: pathlib.Path) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             checkpoint_directory: the directory path where no model was found.
@@ -277,7 +277,7 @@ class NameAlreadyRegisteredError(DryTorchError):
     _template = 'Name {} has already been registered in the current run.'
 
     def __init__(self, name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             name: the name that is already registered.
@@ -293,7 +293,7 @@ class NamedTupleOnlyError(DryTorchError):
     )
 
     def __init__(self, tuple_type: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             tuple_type: the actual type of the tuple that was provided.
@@ -308,7 +308,7 @@ class NestedScopeError(DryTorchError):
     _template = 'Cannot start Experiment {} within Experiment {} scope.'
 
     def __init__(self, current_exp_name: str, new_exp_name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             current_exp_name: the name of the currently active experiment.
@@ -329,7 +329,7 @@ class NoActiveExperimentError(DryTorchError):
         experiment_name: str | None = None,
         experiment_class: type | None = None,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             experiment_name: specifies experiment's name.
@@ -360,7 +360,7 @@ class TrackerAlreadyRegisteredError(DryTorchError):
     _template = 'Tracker {} already registered in experiment {}.'
 
     def __init__(self, tracker_name: str, exp_name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             tracker_name: the name of the tracker that is already registered.
@@ -376,7 +376,7 @@ class TrackerNotActiveError(DryTorchError):
     _template = 'Tracker {} not registered in any active experiment.'
 
     def __init__(self, tracker_name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             tracker_name: the name of the tracker that is not registered.
@@ -391,7 +391,7 @@ class CannotStoreOutputWarning(DryTorchWarning):
     _template = 'Impossible to store output because the following error.\n{}'
 
     def __init__(self, error: BaseException) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             error: the error that prevented output storage.
@@ -406,7 +406,7 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
     _template = 'The ``compute`` method of {} was called before its updating.'
 
     def __init__(self, calculator: Any) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             calculator: the calculator object that was computed before updating.
@@ -421,7 +421,7 @@ class ExperimentalFeatureWarning(DryTorchWarning):
     _template = '{} is an experimental feature and may change in the future.'
 
     def __init__(self, feature: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             feature: the experimental feature that was used.
@@ -438,7 +438,7 @@ class FailedOptionalImportWarning(DryTorchWarning):
     )
 
     def __init__(self, package_name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             package_name: the name of the package that failed to import.
@@ -465,7 +465,7 @@ class NotExistingRunWarning(DryTorchWarning):
     _template = 'Run with id {} not found. Starting a new one.'
 
     def __init__(self, run_id: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             run_id: the id of the run that was not found.
@@ -482,7 +482,7 @@ class ObjectiveSyncWarning(DryTorchWarning):
     )
 
     def __init__(self, issue: str, recommend: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             issue: the issue that was encountered with the objective.
@@ -499,7 +499,7 @@ class OptimizerNotLoadedWarning(DryTorchWarning):
     _template = 'The optimizer has not been correctly loaded:\n{}'
 
     def __init__(self, error: BaseException) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             error: the error that occurred while loading the optimizer.
@@ -514,7 +514,7 @@ class PastEpochWarning(DryTorchWarning):
     _template = 'Training until epoch {} stopped: current epoch is already {}.'
 
     def __init__(self, selected_epoch: int, current_epoch: int) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             selected_epoch: the epoch that training was requested until.
@@ -541,7 +541,7 @@ class RunAlreadyRecordedError(DryTorchError):
     )
 
     def __init__(self, run_id: str, exp_name: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             run_id: the id of the run that is already recorded.

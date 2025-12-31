@@ -28,7 +28,7 @@ class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
     """Simple dataset class to learn the identity function."""
 
     def __init__(self, len_epoch=64):
-        """Constructor.
+        """Initialize.
 
         Args:
             len_epoch: how many samples to generate each epoch.
@@ -54,7 +54,7 @@ class Linear(torch.nn.Module):
     """
 
     def __init__(self, in_features: int, out_features: int):
-        """Constructor.
+        """Initialize.
 
         Args:
             in_features: input dimension.
@@ -64,7 +64,7 @@ class Linear(torch.nn.Module):
         self.linear = torch.nn.Linear(in_features, out_features)
 
     def forward(self, inputs: TorchTuple) -> TorchData:
-        """Constructor.
+        """Initialize.
 
         Args:
             inputs: structured input

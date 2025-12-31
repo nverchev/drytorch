@@ -44,7 +44,7 @@ class Wandb(Dumper):
         par_dir: pathlib.Path | None = None,
         settings: wandb_settings.Settings = _default_settings,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             par_dir: the parent directory for the tracker data. Default uses

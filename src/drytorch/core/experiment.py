@@ -62,7 +62,7 @@ class RunRegistry:
     lock_path: pathlib.Path
 
     def __init__(self, path: pathlib.Path):
-        """Constructor.
+        """Initialize.
 
         Args:
             path: path to the JSON file.
@@ -165,7 +165,7 @@ class Experiment(Generic[_T_co]):
         par_dir: str | pathlib.Path = pathlib.Path(),
         tags: list[str] | None = None,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             config: Configuration for the experiment.
@@ -384,7 +384,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         resumed: bool = False,
         record: bool = True,
     ) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             experiment: the experiment this run belongs to.

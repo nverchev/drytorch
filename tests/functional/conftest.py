@@ -135,7 +135,7 @@ class DistributedWorker(Generic[P, T]):
     """Callable wrapper to distribute a worker across multiple processes."""
 
     def __init__(self, worker: Callable[P, T], world_size: int) -> None:
-        """Constructor."""
+        """Initialize."""
         self.worker = worker
         self.world_size = world_size
         self.port = self._get_free_port()
@@ -204,7 +204,7 @@ class RunningWorker(Generic[P, T]):
         name: str | None = None,
         should_remove_default_tracking: bool = True,
     ) -> None:
-        """Constructor."""
+        """Initialize."""
         self.worker = worker
         self.par_dir = par_dir
         self.run_id = run_id
