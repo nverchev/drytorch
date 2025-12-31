@@ -1,5 +1,6 @@
 """Tests the events' log filter for all the logging levels."""
 
+import dataclasses
 import logging
 import pathlib
 
@@ -96,7 +97,7 @@ def event_workflow(
     return event_tuple
 
 
-@pytest.mark.parametrize('info_level', list(INFO_LEVELS))
+@pytest.mark.parametrize('info_level', dataclasses.astuple(INFO_LEVELS))
 def test_all_events(setup, event_workflow, string_stream, info_level):
     """Test unformatted logs for every level."""
     set_verbosity(info_level)
