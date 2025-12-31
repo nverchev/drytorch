@@ -59,7 +59,7 @@ myst_enable_extensions = [
     'deflist',
 ]
 myst_fence_as_directive = ['mermaid']
-nb_execution_mode = 'off'
+nb_execution_mode = 'auto'
 
 # General configuration
 templates_path = ['_templates']

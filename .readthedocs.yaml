@@ -14,8 +14,7 @@ build:
     # Install the project with docs dependencies
     - uv pip install --system ".[docs]"
     # Build the docs
-    - sphinx-build docs $READTHEDOCS_OUTPUT/html
-
+    - export COLUMNS=80 && export TQDM_NCOLS=80 && uv run sphinx-build docs $READTHEDOCS_OUTPUT/html
 sphinx:
   configuration: docs/conf.py
   fail_on_warning: false
