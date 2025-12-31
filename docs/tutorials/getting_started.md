@@ -210,6 +210,10 @@ Together with the configuration, you can assign a name and a directory to the ex
 ```{code-cell} ipython3
 import pathlib
 
+import drytorch
+
+
+drytorch.init_trackers(mode='minimal')  # remove to see training progress
 
 settings = AllSettings()
 
@@ -583,6 +587,7 @@ from drytorch import DataLoader, LearningSchema, Loss, Model, Trainer
 
 cfg_train = UpsamplingExperiment.get_config().train
 train_loader = DataLoader(training_dataset, batch_size=1)
+
 model = Model(network, name='DeepPriorNet')
 learning_schema = LearningSchema.adam(cfg_train.lr)
 loss = Loss(downsampled_mse, 'MSE')

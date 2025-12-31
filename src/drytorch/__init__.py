@@ -7,7 +7,7 @@ DRYTORCH_INIT_MODE before loading the package or explicitly reset after.
 Available modes:
     1) standard: log to stderr, preferring tqdm over the built-in logger.
     2) hydra: log to stdout and accommodate default Hydra settings.
-    3) tuning: reduce output and avoid dumping metadata.
+    3) minimal: reduce output and avoid dumping metadata.
     4) none: no tracker is added to the default ones.
 
 Attributes:
@@ -58,7 +58,7 @@ __all__ = [
     'remove_all_default_trackers',
 ]
 
-_InitMode = Literal['standard', 'hydra', 'tuning']
+_InitMode = Literal['standard', 'hydra', 'minimal']
 
 logger = logging.getLogger('drytorch')
 
@@ -69,7 +69,7 @@ def init_trackers(mode: _InitMode = 'standard') -> None:
     Three initializations are available:
         1) standard: log to stderr, preferring tqdm over the built-in logger.
         2) hydra: log to stdout and accommodate default Hydra settings.
-        3) tuning: reduce output and avoid dumping metadata.
+        3) minimal: reduce output and avoid dumping metadata.
 
     Args:
         mode: one of the suggested initialization modes.
@@ -85,7 +85,7 @@ def init_trackers(mode: _InitMode = 'standard') -> None:
 
     tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
     _add_tqdm(tracker_list, mode=mode)
-    if mode != 'tuning':
+    if mode != 'minimal':
         _add_yaml(tracker_list)
 
     extend_default_trackers(tracker_list)
@@ -99,7 +99,7 @@ def _add_tqdm(tracker_list: list[Tracker], mode: _InitMode) -> None:
         from drytorch.trackers import tqdm
     except (ImportError, ModuleNotFoundError):
         warnings.warn(FailedOptionalImportWarning('tqdm'), stacklevel=2)
-        if mode == 'tuning':
+        if mode == 'minimal':
             verbosity = builtin_logging.INFO_LEVELS.epoch
             builtin_logging.set_formatter('progress')
     else:
@@ -107,7 +107,7 @@ def _add_tqdm(tracker_list: list[Tracker], mode: _InitMode) -> None:
             # metrics logs redundant because already visible in the progress bar
             verbosity = builtin_logging.INFO_LEVELS.epoch
             tqdm_logger = tqdm.TqdmLogger()
-        elif mode == 'tuning':
+        elif mode == 'minimal':
             # double bar replaces most logs.
             verbosity = builtin_logging.INFO_LEVELS.training
             tqdm_logger = tqdm.TqdmLogger(enable_training_bar=True)
@@ -134,8 +134,8 @@ def _add_yaml(tracker_list: list[Tracker]) -> None:
 
 def _check_mode_is_valid(
     mode: str,
-) -> TypeGuard[Literal['standard', 'hydra', 'tuning']]:
-    return mode in ('standard', 'hydra', 'tuning')
+) -> TypeGuard[Literal['standard', 'hydra', 'minimal']]:
+    return mode in ('standard', 'hydra', 'minimal')
 
 
 INIT_MODE = os.getenv('DRYTORCH_INIT_MODE', 'standard')

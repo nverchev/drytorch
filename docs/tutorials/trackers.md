@@ -54,7 +54,7 @@ for the default trackers.
 Available initialization modes:
 - **standard**: log to stderr, preferring `tqdm` over the built-in logger.
 - **hydra**: log to stdout and accommodate default Hydra settings.
-- **tuning**: reduce output and avoid dumping metadata.
+- **minimal**: reduce output and avoid dumping metadata.
 - **none**: no default trackers.
 
 You can change the mode by assigning a mode to a `DRYTORCH_INIT_MODE` environment variable or reinitializing the trackers with `init_trackers`.
@@ -63,7 +63,7 @@ You can change the mode by assigning a mode to a `DRYTORCH_INIT_MODE` environmen
 from drytorch import Experiment, init_trackers
 
 
-init_trackers(mode='tuning')
+init_trackers(mode='minimal')
 
 tuning_experiment = Experiment(
     None, name='TuningExperiment', par_dir='experiments'
