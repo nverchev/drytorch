@@ -216,11 +216,11 @@ class Experiment(Generic[_T_co]):
         runs_data = self._registry.load_all()
         if resume:
             return self._handle_resume_logic(run_id, runs_data, record)
-        else:
-            if runs_data and run_id in [r.id for r in runs_data]:
-                raise exceptions.RunAlreadyRecordedError(run_id, self.name)
 
-            return self._create_new_run(run_id, record)
+        if runs_data and run_id in [r.id for r in runs_data]:
+            raise exceptions.RunAlreadyRecordedError(run_id, self.name)
+
+        return self._create_new_run(run_id, record)
 
     def _handle_resume_logic(
         self, run_id: str | None, runs_data: list[RunMetadata], record: bool
@@ -393,7 +393,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         super().__init__()
         self._experiment: Final = experiment
         self._is_distributed = dist.is_available() and dist.is_initialized()
-        self._is_main_process = not self._is_distributed or dist.get_rank() > 0
+        self._is_main_process = not self._is_distributed or dist.get_rank() == 0
         self._id: Final = self._get_run_id(run_id)
         self.resumed = resumed
         self.record = record and self._is_main_process
