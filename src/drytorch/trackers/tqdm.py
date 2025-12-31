@@ -39,7 +39,7 @@ class EpochBar:
     """
 
     fmt: ClassVar[str] = (
-        '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}\r'
+        '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
     )
     seen_str: ClassVar[str] = 'Samples'
     color: ClassVar[str] = 'green'
@@ -74,6 +74,7 @@ class EpochBar:
         self._batch_size = batch_size
         self._num_samples = num_samples
         self._num_iter = num_iter
+        is_tqdm_notebook = tqdm.tqdm.__mro__[1].__module__.endswith('notebook')
         self.pbar = tqdm.tqdm(
             total=num_iter,
             leave=leave,
@@ -82,6 +83,7 @@ class EpochBar:
             bar_format=self.fmt,
             colour=self.color,
             position=position,
+            disable=not leave and is_tqdm_notebook,
         )
         self._epoch_seen = 0
         return
