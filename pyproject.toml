@@ -65,9 +65,6 @@ support = [
     "torcheval",
     "pandas == 2.3.0",
     "optuna >= 4.0.0",
-    "notebook",
-    "ipywidgets",
-    "pillow>=10.0.1",
 ]
 
 dev = [
@@ -84,6 +81,9 @@ docs = [
     "sphinx-rtd-theme",
     "myst-nb",
     "sphinxcontrib-mermaid",
+    "notebook",
+    "ipywidgets",
+    "pillow>=10.0.1",
 ]
 
 type = [
