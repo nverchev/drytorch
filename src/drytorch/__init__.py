@@ -87,6 +87,7 @@ def init_trackers(mode: _InitMode = 'standard') -> None:
     _add_tqdm(tracker_list, mode=mode)
     if mode != 'tuning':
         _add_yaml(tracker_list)
+
     extend_default_trackers(tracker_list)
     return
 
