@@ -32,12 +32,14 @@ class HydraLink(base_classes.Dumper):
     """
 
     folder_name: ClassVar[str] = 'hydra'
-
     hydra_dir: pathlib.Path
     _copy_hydra: bool
 
     def __init__(
-        self, par_dir: pathlib.Path | None = None, copy_hydra: bool = True
+        self,
+        par_dir: pathlib.Path | None = None,
+        copy_hydra: bool = True,
+        hydra_dir: pathlib.Path | None = None,
     ) -> None:
         """Initialize.
 
@@ -46,12 +48,16 @@ class HydraLink(base_classes.Dumper):
                 the same of the current experiment.
             copy_hydra: if True, copy the hydra folder content at the end of the
                 experiment's scope, replacing the link folder.
+            hydra_dir: the directory where hydra saves the run.
         """
         super().__init__(par_dir)
-        # get hydra configuration
-        hydra_config = hydra.core.hydra_config.HydraConfig.get()
-        str_dir = hydra_config.runtime.output_dir
-        self.hydra_dir = pathlib.Path(str_dir)
+        if hydra_dir is None:
+            # get hydra configuration
+            hydra_config = hydra.core.hydra_config.HydraConfig.get()
+            str_dir = hydra_config.runtime.output_dir
+            self.hydra_dir = pathlib.Path(str_dir)
+        else:
+            self.hydra_dir = hydra_dir
         if not self.hydra_dir.exists():
             raise exceptions.TrackerError(self, 'Hydra has not started.')
 
