@@ -67,11 +67,11 @@ You initiate a run instance using the `Experiment.create_run` method. This insta
 The run's ID is a timestamp by default, but you can specify a unique, descriptive name.
 You can resume a run by specifying its name in `create_run`. If a name is not provided, DRYTorch attempts to resume the last recorded run.
 
-Note: DRYTorch maintains a run registry on the local disk to track and manage  all run IDs and states. It also attempts to record the last commit hash  when git is available.
+Note: DRYTorch maintains a run registry on the local disk to track and manage all run IDs and states. It also attempts to record the last commit hash when git is available.
 
 ```{code-cell} ipython3
 def implement_experiment() -> None:
-    """Here should the code for the experiment."""
+    """Here should be the code for the experiment."""
 
 
 with first_experiment.create_run() as run:
@@ -93,7 +93,7 @@ For convenience, especially in interactive environments like notebooks, you
 can directly start and stop a run, avoiding the context manager.
 
 Alternatively, you can use the `Run.start` and `Run.stop` methods directly.
-To do this, use the `Run.start` and  method and ensure you explicitly call `Run.stop` when finished.
+To do this, use the `Run.start` and method and ensure you explicitly call `Run.stop` when finished.
 
 It is recommended to stop the run explicitly, otherwise DRYTorch will attempt to
 clean up the metadata and exit gracefully when the Python session terminates.
@@ -241,10 +241,10 @@ with second_experiment.create_run():  # new run
 
 ## Metadata Extraction
 
-DRYTorch automatically documents the models and actors during registration  by extracting a readable representation at runtime.
+DRYTorch automatically documents the models and actors during registration by extracting a readable representation at runtime.
 The metadata is then handled by the tracker. By default, when PyAML 6.0 or later is installed, metadata is dumped in YAML format.
 
-To better visualize it, we create an ad-hoc tracker for this tutorial.
+To better visualize it, we create an adhoc tracker for this tutorial.
 
 ```{code-cell} ipython3
 import functools
@@ -293,9 +293,9 @@ with third_experiment.create_run():  # correctly resuming run
 ```
 
 ### Actor Metadata
-The readable representation of an actor not only documents the actor object, but all the public attributes recursively.
+The readable representation of an actor not only documents the actor object but all the public attributes recursively.
 
-Private attributes, that is, attributes that start with an underscore, are ignored and so are attributes that have not been initialized (evaluating to None, or an empty container).
+Private attributes, that is, attributes that start with an underscore, are ignored, and so are attributes that have not been initialized (evaluating to None, or an empty container).
 
 ```{code-cell} ipython3
 with third_experiment.create_run(resume=True):  # correctly resuming run

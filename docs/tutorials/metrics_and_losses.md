@@ -28,7 +28,7 @@ An **objective** is a criterion for model performance evaluation. We distinguish
 * **Metric:** Assesses model performance as a proxy for the overall goal.
 * **Loss:** Optimizes the model parameters to improve metric assessments.
 
-DRYTorch allows, and often **implements** by default, using losses as metrics.
+DRYTorch allows using losses as metrics, but not vice versa.
 
 ### Protocols
 
@@ -126,7 +126,9 @@ These callables must accept model outputs and targets as arguments and return a 
 
 
 ### The Metric and MetricCollection classes
-The `Metric` class is to define a single metric. You can document it by giving it an explicit name and specify whether it is better when higher or lower. You can also concatenate different Metric instances with compatible signatures into a `MetricCollection` instance, or creating one directly from a dictionary of named metric functions.
+The `Metric` class is to define a single metric. You can document it by
+giving it an explicit name and specifies whether it is better when higher or
+lower. You can also concatenate different Metric instances with compatible signatures into a `MetricCollection` instance, or creating one directly from a dictionary of named metric functions.
 
 ```{code-cell} ipython3
 from torch.nn.functional import mse_loss as mse_loss_fn  # returns scalar value

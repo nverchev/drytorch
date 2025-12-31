@@ -131,13 +131,15 @@ To allow more flexibility, DRYTorch allows you to call the subscribed tracker fr
 csv_dumper_experiment = Experiment(
     None, name='ExperimentWithCSVDumper', par_dir='experiments'
 )
+
 with csv_dumper_experiment.create_run():
     if CSVDumper.get_current() is not csv_dumper:
         raise AssertionError('Trackers should coincide.')
 ```
 
 ## Write a Custom Tracker
-To write a custom tracker it is important to first know the Event System that calls it.
+To write a custom tracker, it is important to first know the Event System
+that calls it.
 
 ### Event System
 
