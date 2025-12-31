@@ -133,8 +133,6 @@ class Experiment(Generic[_T_co]):
     Finally, it allows global access to a configuration file with the correct
     type annotations.
 
-
-
     Attributes:
         folder_name: name of the hidden folder storing experiment metadata.
         run_file: filename storing the registry of run IDs for this experiment.
