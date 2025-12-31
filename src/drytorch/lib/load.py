@@ -145,7 +145,7 @@ class DataLoader(p.LoaderProtocol[Data]):
     dataset_len: int
     sampler: data.Sampler | Iterable
     _pin_memory: bool
-    _num_workers: int
+    _n_workers: int
     _distributed: bool
     _user_sampler: data.Sampler | Iterable | None
 
@@ -155,7 +155,7 @@ class DataLoader(p.LoaderProtocol[Data]):
         batch_size: int,
         pin_memory: bool | None = None,
         sampler: data.Sampler | Iterable[Any] | None = None,
-        num_workers: int = 0,
+        n_workers: int = 0,
     ) -> None:
         """Initialize.
 
@@ -165,7 +165,7 @@ class DataLoader(p.LoaderProtocol[Data]):
             pin_memory: pin memory for faster GPU training. Defaults to true
                 when hardware acceleration is available.
             sampler: defines the strategy to draw samples from the dataset.
-            num_workers: number of subprocesses for data loading.
+            n_workers: number of subprocesses for data loading.
 
         """
         self.batch_size: Final = batch_size
@@ -173,7 +173,7 @@ class DataLoader(p.LoaderProtocol[Data]):
         self.dataset_len: Final = validate_dataset_length(dataset)
         acc_flag = torch.accelerator.is_available()
         self._pin_memory = acc_flag if pin_memory is None else pin_memory
-        self._num_workers = num_workers
+        self._n_workers = n_workers
         self._distributed = dist.is_available() and dist.is_initialized()
         self._user_sampler = sampler
         self.sampler = self._init_sampler(sampler)
@@ -187,7 +187,7 @@ class DataLoader(p.LoaderProtocol[Data]):
     def __len__(self) -> int:
         batch_size = _validate_batch_size(self.batch_size)
         if torch.is_inference_mode_enabled():  # drop_last is true
-            return num_batches(self.dataset_len, batch_size)
+            return get_n_batches(self.dataset_len, batch_size)
 
         return self.dataset_len // batch_size
 
@@ -230,7 +230,7 @@ class DataLoader(p.LoaderProtocol[Data]):
             drop_last=drop_last,
             sampler=self.sampler,
             pin_memory=self._pin_memory,
-            num_workers=self._num_workers,
+            num_workers=self._n_workers,
         )
         return loader
 
@@ -325,7 +325,7 @@ def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
     raise exceptions.DatasetHasNoLengthError()
 
 
-def num_batches(dataset_len: int, batch_size: int) -> int:
+def get_n_batches(dataset_len: int, batch_size: int) -> int:
     """Calculate the number of batches in a dataset.
 
     Args:
@@ -335,13 +335,13 @@ def num_batches(dataset_len: int, batch_size: int) -> int:
     Returns:
         Total number of batches, including partial batches.
     """
-    num_full_batches, last_batch_size = divmod(dataset_len, batch_size)
-    return num_full_batches + bool(last_batch_size)
+    n_full_batches, last_batch_size = divmod(dataset_len, batch_size)
+    return n_full_batches + bool(last_batch_size)
 
 
 def take_from_dataset(
     dataset: data.Dataset[Data],
-    num_samples: int = 1,
+    n_samples: int = 1,
     preserve_order: bool = True,
     device: torch.device = _default_device,
 ) -> Data:
@@ -349,7 +349,7 @@ def take_from_dataset(
 
     Arguments:
         dataset: the dataset where to sample from.
-        num_samples: the number of samples to take.
+        n_samples: the number of samples to take.
         preserve_order: take samples in order or randomly otherwise.
         device: device where to store the sample.
 
@@ -357,6 +357,6 @@ def take_from_dataset(
         The desired number of samples in a batch.
     """
     loader = data.DataLoader(
-        dataset, batch_size=num_samples, shuffle=not preserve_order
+        dataset, batch_size=n_samples, shuffle=not preserve_order
     )
     return next(apply_ops.apply_to(batch, device) for batch in loader)

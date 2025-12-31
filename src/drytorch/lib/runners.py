@@ -186,10 +186,10 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 )
 
         self.outputs_list.clear()
-        num_samples = load.validate_dataset_length(self.loader.get_dataset())
+        n_samples = load.validate_dataset_length(self.loader.get_dataset())
         n_processes = dist.get_world_size() if self._is_distributed else 1
         pbar = log_events.IterateBatchEvent(
-            self.name, self.loader.batch_size, len(self.loader), num_samples
+            self.name, self.loader.batch_size, len(self.loader), n_samples
         )
         for batch in self._get_batches():
             outputs = self._run_batch(batch)

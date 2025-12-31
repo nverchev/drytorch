@@ -142,7 +142,7 @@ def iterate_batch_event(example_source_name) -> log_events.IterateBatchEvent:
     """Provides an IterateBatch event instance."""
     return log_events.IterateBatchEvent(
         source_name=example_source_name,
-        num_iter=5,
+        n_iter=5,
         batch_size=32,
         dataset_size=1600,
         push_updates=[],

@@ -45,15 +45,15 @@ class EpochBar:
 
     pbar: tqdm.tqdm
     _batch_size: int | None
-    _num_samples: int
-    _num_iter: int
+    _n_samples: int
+    _n_iter: int
     _epoch_seen: int
 
     def __init__(
         self,
         batch_size: int | None,
-        num_iter: int,
-        num_samples: int,
+        n_iter: int,
+        n_samples: int,
         leave: bool,
         file: SupportsWrite[str],
         desc: str,
@@ -63,19 +63,19 @@ class EpochBar:
 
         Args:
             batch_size: how many samples are in one batch.
-            num_iter: the number of expected iterations.
-            num_samples: the total number of samples.
+            n_iter: the number of expected iterations.
+            n_samples: the total number of samples.
             leave: whether to leave the bar in after the epoch.
             file: the stream where to flush the bar.
             desc: description to contextualize the bar.
             position: position of the bar in the progress bar group.
         """
         self._batch_size = batch_size
-        self._num_samples = num_samples
-        self._num_iter = num_iter
+        self._n_samples = n_samples
+        self._n_iter = n_iter
         is_tqdm_notebook = tqdm.tqdm.__mro__[1].__module__.endswith('notebook')
         self.pbar = tqdm.tqdm(
-            total=num_iter,
+            total=n_iter,
             leave=leave,
             file=file,
             desc=desc,
@@ -95,10 +95,10 @@ class EpochBar:
             n_processes: the number of processes used for data loading.
         """
         monitor_seen: dict[str, int | str]
-        last_epoch = self.pbar.n >= self._num_iter - n_processes
+        last_epoch = self.pbar.n >= self._n_iter - n_processes
         if self._batch_size is not None:
             if last_epoch:
-                self._epoch_seen = self._num_samples
+                self._epoch_seen = self._n_samples
             else:
                 self._epoch_seen += self._batch_size * n_processes
 
@@ -228,7 +228,7 @@ class TqdmLogger(track.Tracker):
         leave = self._leave and self._training_bar is None
         self._epoch_bar = EpochBar(
             event.batch_size,
-            event.num_iter,
+            event.n_iter,
             event.dataset_size,
             leave=leave,
             file=self._file,

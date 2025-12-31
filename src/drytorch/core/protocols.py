@@ -263,11 +263,11 @@ class TrainerProtocol(
     def terminated(self) -> bool:
         """If true, this trainer should not be used for training anymore."""
 
-    def train(self, num_epochs: int) -> None:
+    def train(self, n_epochs: int) -> None:
         """Train the module for the specified number of epochs.
 
         Args:
-            num_epochs: the number of epochs for which train the module.
+            n_epochs: the number of epochs for which train the module.
         """
 
     def terminate_training(self, reason: str) -> None:

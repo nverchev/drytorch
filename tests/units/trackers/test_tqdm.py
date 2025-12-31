@@ -24,9 +24,9 @@ class TestEpochBar:
     def bar(self) -> EpochBar:
         """Set up the instance."""
         bar = EpochBar(
-            num_iter=10,
+            n_iter=10,
             batch_size=32,
-            num_samples=312,
+            n_samples=312,
             leave=False,
             file=self.stream,
             desc='Training',
@@ -56,10 +56,10 @@ class TestEpochBar:
 
     def test_complete_epoch(self, bar, example_named_metrics) -> None:
         """Test progress bar behavior when the epoch completes."""
-        for _ in range(bar._num_iter):
+        for _ in range(bar._n_iter):
             bar.update(example_named_metrics, 1)
 
-        assert bar._epoch_seen == bar._num_samples
+        assert bar._epoch_seen == bar._n_samples
 
 
 class TestTrainingBar:

@@ -146,18 +146,18 @@ class Trainer(
         return
 
     @override
-    def train(self, num_epochs: int) -> None:
+    def train(self, n_epochs: int) -> None:
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
-        final_epoch = self.model.epoch + num_epochs
+        final_epoch = self.model.epoch + n_epochs
         log_events.StartTrainingEvent(
             source_name=self.name,
             model_name=self.model.name,
             start_epoch=self.model.epoch,
             end_epoch=final_epoch,
         )
-        for _ in range(num_epochs):
+        for _ in range(n_epochs):
             log_events.StartEpochEvent(
                 source_name=self.name,
                 model_name=self.model.name,

@@ -57,7 +57,7 @@ class VisdomOpts(TypedDict, total=False):
     ymax: float
 
     # Colors & Style
-    linecolor: npt.NDArray[Any]  # shape: (num_lines, 3) RGB
+    linecolor: npt.NDArray[Any]  # shape: (n_lines, 3) RGB
     colormap: str  # matplotlib-style colormap name (for some plots)
 
     # Legend

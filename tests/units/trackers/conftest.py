@@ -155,7 +155,7 @@ def iterate_batch_mock_event(
     """Mock IterateBatch event instance."""
     mock = mocker.create_autospec(log_events.IterateBatchEvent)
     mock.source_name = example_source_name
-    mock.num_iter = 5
+    mock.n_iter = 5
     mock.batch_size = 32
     mock.dataset_size = 1600
     mock.push_updates = []

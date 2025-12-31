@@ -250,8 +250,8 @@ class RestartScheduler(AbstractScheduler):
     @override
     def _compute(self, start_value: float, epoch: int) -> float:
         if epoch >= self.restart_interval:
-            num_restart, restarted_epoch = divmod(epoch, self.restart_interval)
-            if self.max_restart is None or num_restart <= self.max_restart:
+            n_restart, restarted_epoch = divmod(epoch, self.restart_interval)
+            if self.max_restart is None or n_restart <= self.max_restart:
                 if restarted_epoch:
                     start_value *= self.restart_fraction
                     epoch = restarted_epoch

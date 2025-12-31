@@ -14,7 +14,7 @@ from drytorch.lib.load import (
     DataLoader,
     Permutation,
     Sliced,
-    num_batches,
+    get_n_batches,
     validate_dataset_length,
 )
 
@@ -110,7 +110,7 @@ class TestDataLoader:
     @pytest.fixture
     def loader(self, dataset) -> DataLoader:
         """Provide a DataLoader for testing."""
-        return DataLoader(dataset, batch_size=3, num_workers=2)
+        return DataLoader(dataset, batch_size=3, n_workers=2)
 
     @pytest.fixture(autouse=True)
     def loader_with_sampler(self, dataset, custom_sampler) -> DataLoader:
@@ -155,8 +155,8 @@ class TestDataLoader:
             batches = list(iter(loader))
             assert batches[-1][0] == simple_seq[-1][0]
 
-    def test_dataloader_num_workers(self, loader) -> None:
-        """Test num_workers parameter is properly set."""
+    def test_dataloader_n_workers(self, loader) -> None:
+        """Test n_workers parameter is properly set."""
         assert loader.get_loader().num_workers == 2
 
     def test_dataloader_drop_last_behavior(self, loader) -> None:
@@ -188,8 +188,8 @@ def test_check_dataset_length_fail() -> None:
         validate_dataset_length(dataset)
 
 
-def test_num_batches() -> None:
-    """Test num_batches calculates batch count correctly."""
-    assert num_batches(10, 3) == 4
-    assert num_batches(10, 5) == 2
-    assert num_batches(0, 3) == 0
+def test_get_n_batches() -> None:
+    """Test n_batches calculates batch count correctly."""
+    assert get_n_batches(10, 3) == 4
+    assert get_n_batches(10, 5) == 2
+    assert get_n_batches(0, 3) == 0
