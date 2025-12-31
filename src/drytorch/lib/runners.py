@@ -109,6 +109,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
     outputs_list: list[Output]
     _cached_metrics: Mapping[str, float]
     _is_distributed: bool
+    _world_size: int
+    _max_stored_process: int
 
     def __init__(
         self,
@@ -131,6 +133,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         self.outputs_list: Final = list[Output]()
         self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
+        self._world_size = dist.get_world_size() if self._is_distributed else 1
+        self._max_stored_process = self.max_stored_output // self._world_size
         return
 
     def __call__(self, store_outputs: bool = False) -> None:
@@ -196,6 +200,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         if self._is_distributed:
             self._sync()
             pbar.update(self._compute_metrics(), 0)  # trigger sync
+            self._gather_stored_outputs()
 
         return
 
@@ -213,13 +218,39 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 exceptions.CannotStoreOutputWarning(err), stacklevel=3
             )
         else:
-            self.outputs_list.append(outputs)
+            if len(self.outputs_list) < self._max_stored_process:
+                self.outputs_list.append(outputs)
 
         return
 
     def _sync(self) -> None:
         """Synchronize objective across processes."""
         return None
+
+    def _gather_stored_outputs(self) -> None:
+        """Gather outputs from all processes to rank 0."""
+        if not self.outputs_list:
+            return
+
+        rank = dist.get_rank()
+        try:
+            if rank == 0:
+                dist_outputs: list[list[Output]] = [[]] * self._world_size
+                dist.gather_object(self.outputs_list, dist_outputs, dst=0)
+                self.outputs_list.clear()
+                for process_outputs in dist_outputs:
+                    if process_outputs:
+                        self.outputs_list.extend(process_outputs)
+            else:
+                dist.gather_object(self.outputs_list, None, dst=0)
+                self.outputs_list.clear()
+
+        except Exception as err:
+            warnings.warn(
+                exceptions.DistributedStorageWarning(err), stacklevel=2
+            )
+
+        return
 
 
 class ModelRunnerWithObjective(

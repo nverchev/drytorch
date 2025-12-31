@@ -15,6 +15,7 @@ __all__ = [
     'ComputedBeforeUpdatedWarning',
     'ConvergenceError',
     'DatasetHasNoLengthError',
+    'DistributedStorageWarning',
     'DryTorchError',
     'DryTorchWarning',
     'EpochNotFoundError',
@@ -413,6 +414,21 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         """
         self.calculator: Final = calculator
         super().__init__(calculator.__class__.__name__)
+
+
+class DistributedStorageWarning(DryTorchWarning):
+    """Warning raised when the distributed storage is not synchronized."""
+
+    _template = 'The storage of the distributed model is not synchronized:\n{}.'
+
+    def __init__(self, error: BaseException) -> None:
+        """Initialize.
+
+        Args:
+            error: the error that occurred while synchronizing the storage.
+        """
+        self.error: Final = error
+        super().__init__(str(error))
 
 
 class ExperimentalFeatureWarning(DryTorchWarning):

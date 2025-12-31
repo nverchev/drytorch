@@ -89,6 +89,20 @@ def assert_ddp_warning_is_raised() -> None:
     return
 
 
+def gather_ddp_outputs() -> list[TorchData]:
+    """Worker function to test distributed output gathering."""
+    trainer = setup_training()
+
+    # different outputs for each rank
+    rank = torch.distributed.get_rank()
+    dummy_output = 2 * [TorchData(torch.tensor([rank]))]
+    trainer.outputs_list.extend(dummy_output)
+
+    trainer._gather_stored_outputs()
+
+    return trainer.outputs_list
+
+
 def get_trained_metric() -> float:
     """Get the final loss value."""
     trainer = setup_training()
@@ -180,3 +194,31 @@ def test_checkpointing(example_run_id, tmp_path, world_size) -> None:
             return_dict[0][0], return_dict[rank][0], strict=True
         ):
             assert torch.allclose(param0, param_rank)
+
+
+@pytest.mark.skipif(sys.platform != 'linux', reason='ddp only works on linux')
+@pytest.mark.parametrize('world_size', [WORLD_SIZE])
+def test_distributed_gather_outputs(
+    example_run_id, tmp_path, world_size
+) -> None:
+    """Test that outputs from all ranks are gathered to rank 0."""
+    running_worker = RunningWorker(
+        gather_ddp_outputs, par_dir=tmp_path, run_id=example_run_id
+    )
+    worker = DistributedWorker(running_worker, world_size=world_size)
+    exit_codes, return_dict = worker.process()
+
+    assert all(exit_code == 0 for exit_code in exit_codes)
+
+    # rank 0 should have gathered outputs from all ranks (size = world_size)
+    rank_0_outputs = return_dict[0]
+    assert len(rank_0_outputs) == 2 * world_size
+
+    # verify content: should contain 0s from rank 0 and 1s from rank 1
+    gathered_values = [t.output.item() for t in rank_0_outputs]
+    for r in range(world_size):
+        assert r in gathered_values
+
+    # other ranks should have cleared their lists
+    for rank in range(1, world_size):
+        assert len(return_dict[rank]) == 0
