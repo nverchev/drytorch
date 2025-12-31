@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 else:
     _D = TypeVar('_D')
 
+_MISSING = object()
+
 
 @overload
 def recursive_apply(
@@ -109,13 +111,14 @@ def _dataclass_apply(
     """Apply func recursively to all fields of a dataclass."""
     values: dict[str, Any] = {}
     for f in dataclasses.fields(obj):
-        if not f.init:
+        value = getattr(obj, f.name, _MISSING)
+        if value is _MISSING:
             continue
 
-        value = getattr(obj, f.name)
-        values[f.name] = recursive_apply(
-            value, expected_type=expected_type, func=func
-        )
+        if f.init:
+            values[f.name] = recursive_apply(
+                value, expected_type=expected_type, func=func
+            )
 
     return dataclasses.replace(obj, **values)
 
@@ -137,7 +140,7 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
         try:
             return _dataclass_apply(obj, expected_type, func)
-        except TypeError:
+        except (TypeError, AttributeError):
             pass
 
     dict_attr: dict[str, Any] = {}
