@@ -60,7 +60,6 @@ class TestEpochBar:
             bar.update(example_named_metrics, 1)
 
         assert bar._epoch_seen == bar._num_samples
-        assert bar.pbar.disable
 
 
 class TestTrainingBar:

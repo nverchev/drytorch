@@ -28,9 +28,7 @@ expected_out = (
     '                                     \x1b[A\r'
     'Epoch: 5 / 8: 100%|\x1b[34m##########\x1b[0m| 3/3\n'
     '\r'
-    '    test_source:   0%|\x1b[32m          \x1b[0m| 0/5\x1b[A\n'
-    '\r'
-    '                                     \x1b[A\r'
+    '    test_source:   0%|\x1b[32m          \x1b[0m| 0/5\x1b[A\r'
     'Epoch: 5 / 8: 100%|\x1b[34m##########\x1b[0m| 3/3'
 )
 

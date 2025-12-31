@@ -21,7 +21,6 @@ __all__ = [
     'TrainingBar',
 ]
 
-
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
@@ -259,6 +258,11 @@ class TqdmLogger(track.Tracker):
 
     @notify.register
     def _(self, event: log_events.EndEpochEvent) -> None:
+        self._clean_epoch_bar()
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.EndTestEvent) -> None:
         self._clean_epoch_bar()
         return super().notify(event)
 
