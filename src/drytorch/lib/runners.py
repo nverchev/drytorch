@@ -6,7 +6,15 @@ import sys
 import warnings
 
 from collections.abc import Iterator, Mapping
-from typing import Any, Final, Generic, Protocol, TypeVar, runtime_checkable
+from typing import (
+    Any,
+    ClassVar,
+    Final,
+    Generic,
+    Protocol,
+    TypeVar,
+    runtime_checkable,
+)
 
 from torch import distributed as dist
 from torch.utils import data
@@ -53,6 +61,8 @@ class ModelCaller(
 
     _name = repr_utils.DefaultName()
 
+    model: p.ModelProtocol[Input, Output]
+
     def __init__(
         self, model: p.ModelProtocol[Input, Output], name: str = ''
     ) -> None:
@@ -64,7 +74,7 @@ class ModelCaller(
                 Defaults to class name plus eventual counter.
         """
         super().__init__()
-        self.model = model
+        self.model: Final = model
         self._name = name
         return
 
@@ -93,7 +103,12 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         outputs_list: list of optionally stored outputs.
     """
 
-    max_stored_output: int = sys.maxsize
+    max_stored_output: ClassVar[int] = sys.maxsize
+
+    loader: p.LoaderProtocol[tuple[Input, Target]]
+    outputs_list: list[Output]
+    _cached_metrics: Mapping[str, float]
+    _is_distributed: bool
 
     def __init__(
         self,
@@ -112,10 +127,9 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
         """
         super().__init__(model, name)
-        self.model = model
-        self.loader = loader
+        self.loader: Final = loader
         self.outputs_list: Final = list[Output]()
-        self._cached_metrics: Mapping[str, float] = {}
+        self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
         return
 
@@ -222,6 +236,8 @@ class ModelRunnerWithObjective(
         outputs_list: list of optionally stored outputs.
     """
 
+    objective: _Objective_co
+
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
@@ -241,7 +257,7 @@ class ModelRunnerWithObjective(
 
         """
         super().__init__(model, loader=loader, name=name)
-        self.objective = copy.deepcopy(objective)
+        self.objective: Final = copy.deepcopy(objective)
         if self._is_distributed:
             if getattr(self.objective, 'sync_on_compute', False):
                 issue = 'sync_on_compute=True will cause overhead'

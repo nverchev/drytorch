@@ -48,9 +48,11 @@ class HookRegistry(Generic[_T_contra]):
         hooks: a list of registered hooks.
     """
 
+    hooks: list[Callable[[_T_contra], None]]
+
     def __init__(self) -> None:
         """Constructor."""
-        self.hooks: list[Callable[[_T_contra], None]] = []
+        self.hooks = []
 
     def execute(self, input_object: _T_contra) -> None:
         """Execute the registered hooks in order of registration.
@@ -122,7 +124,13 @@ class TrainerHook(
 
 
 class Hook(TrainerHook[Input, Target, Output]):
-    """Wrapper for callable taking a Trainer as input."""
+    """Wrapper for callable taking a Trainer as input.
+
+    Attributes:
+        wrapped: the function to be conditionally called.
+    """
+
+    wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None]
 
     def __init__(
         self,
@@ -151,7 +159,13 @@ class Hook(TrainerHook[Input, Target, Output]):
 
 
 class StaticHook(TrainerHook[Any, Any, Any]):
-    """Ignoring arguments and execute a wrapped function."""
+    """Ignoring arguments and execute a wrapped function.
+
+    Attributes:
+        wrapped: the function to be wrapped and called statically.
+    """
+
+    wrapped: Callable[[], None]
 
     def __init__(self, wrapped: Callable[[], None]):
         """Constructor.
@@ -159,7 +173,7 @@ class StaticHook(TrainerHook[Any, Any, Any]):
         Args:
             wrapped: the function to be wrapped and called statically.
         """
-        self.wrapped: Callable[[], None] = wrapped
+        self.wrapped: Final = wrapped
 
     def __call__(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
         """Execute the call.
@@ -196,7 +210,15 @@ class OptionalCallable(Hook[Input, Target, Output], metaclass=abc.ABCMeta):
 
 
 class CallEvery(OptionalCallable[Input, Target, Output]):
-    """Call a function at specified intervals."""
+    """Call a function at specified intervals.
+
+    Attributes:
+        start: the epoch to start calling the hook.
+        interval: the frequency of calling the hook.
+    """
+
+    start: int
+    interval: int
 
     def __init__(
         self,
@@ -214,8 +236,8 @@ class CallEvery(OptionalCallable[Input, Target, Output]):
             interval: the frequency of calling the hook.
             wrapped: the function to be called periodically.
         """
-        self.start: int = start
-        self.interval: int = interval
+        self.start = start
+        self.interval = interval
         super().__init__(wrapped)
         return
 
@@ -311,6 +333,10 @@ class MetricExtractor:
         optional_monitor: evaluation protocol to monitor.
     """
 
+    metric_spec: p.ObjectiveProtocol[Any, Any] | str | None
+    optional_monitor: p.MonitorProtocol | None
+    _resolved_metric_name: str | None
+
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
@@ -323,8 +349,8 @@ class MetricExtractor:
             monitor: evaluation protocol to monitor.
         """
         self.metric_spec: Final = metric
-        self.optional_monitor: p.MonitorProtocol | None = monitor
-        self._resolved_metric_name: str | None = None
+        self.optional_monitor = monitor
+        self._resolved_metric_name = None
 
     @property
     def metric_name(self) -> str | None:
@@ -417,6 +443,9 @@ class MetricMonitor(Generic[Output, Target]):
         extractor: handles metric extraction from protocols.
     """
 
+    extractor: MetricExtractor
+    metric_tracker: objectives.MetricTracker[Output, Target]
+
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
@@ -446,14 +475,12 @@ class MetricMonitor(Generic[Output, Target]):
         if isinstance(metric, str):
             initial_metric_name = metric
 
-        self.metric_tracker: objectives.MetricTracker[Output, Target] = (
-            objectives.MetricTracker(
-                metric_name=initial_metric_name,
-                min_delta=min_delta,
-                patience=patience,
-                best_is=best_is,
-                filter_fn=filter_fn,
-            )
+        self.metric_tracker = objectives.MetricTracker(
+            metric_name=initial_metric_name,
+            min_delta=min_delta,
+            patience=patience,
+            best_is=best_is,
+            filter_fn=filter_fn,
         )
 
     @property
@@ -513,6 +540,9 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         start_from_epoch: start from epoch.
     """
 
+    monitor: MetricMonitor[Output, Target]
+    start_from_epoch: int
+
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
@@ -546,7 +576,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.start_from_epoch = start_from_epoch
+        self.start_from_epoch: Final = start_from_epoch
         return
 
     def __call__(
@@ -580,6 +610,10 @@ class PruneCallback(Generic[Output, Target]):
         thresholds: dictionary mapping epochs to pruning thresholds.
     """
 
+    monitor: MetricMonitor[Output, Target]
+    thresholds: Mapping[int, float | None]
+    trial_values: dict[int, float]
+
     def __init__(
         self,
         thresholds: Mapping[int, float | None],
@@ -611,8 +645,8 @@ class PruneCallback(Generic[Output, Target]):
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.thresholds = thresholds
-        self.trial_values: dict[int, float] = {}
+        self.thresholds: Final = thresholds
+        self.trial_values = {}
         return
 
     def __call__(
@@ -649,6 +683,10 @@ class ChangeSchedulerOnPlateauCallback(
         cooldown: number of calls to skip after changing the schedule.
     """
 
+    monitor: MetricMonitor[Output, Target]
+    cooldown: int
+    _cooldown_counter: int
+
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
@@ -682,7 +720,7 @@ class ChangeSchedulerOnPlateauCallback(
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.cooldown = cooldown
+        self.cooldown: Final = cooldown
         self._cooldown_counter = 0
         return
 
@@ -735,6 +773,8 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         factor: factor by which to reduce the learning rate.
     """
 
+    factor: float
+
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
@@ -771,7 +811,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
             filter_fn=filter_fn,
             cooldown=cooldown,
         )
-        self.factor = factor
+        self.factor: Final = factor
 
     def get_scheduler(
         self, epoch: int, scheduler: p.SchedulerProtocol

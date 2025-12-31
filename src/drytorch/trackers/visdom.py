@@ -80,7 +80,13 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
     Attributes:
         server: the address for the visdom server.
         port: the port for the server.
+        opts: plot options.
     """
+
+    server: str
+    port: int
+    opts: VisdomOpts
+    _viz: visdom.Visdom | None
 
     def __init__(
         self,
@@ -111,8 +117,8 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
         )
         self.server = server
         self.port = port
-        self.opts: VisdomOpts = opts or VisdomOpts()
-        self._viz: visdom.Visdom | None = None
+        self.opts = opts or VisdomOpts()
+        self._viz = None
         return
 
     @property

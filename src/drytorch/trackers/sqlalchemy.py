@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 import functools
 
-from typing import Final, cast
+from typing import ClassVar, cast
 
 import sqlalchemy
 
@@ -197,15 +197,20 @@ class Log:
 class SQLConnection(base_classes.MetricLoader):
     """Tracker that creates a connection to a SQL database using sqlalchemy.
 
-    Class Attributes:
-        default_url: by default, it creates a local sqlite database.
-
     Attributes:
+        default_url: by default, it creates a local sqlite database.
         engine: the sqlalchemy Engine for the connection.
         session_factory: the Session class to initiate a sqlalchemy session.
     """
 
-    default_url = sqlalchemy.URL.create('sqlite', database='metrics.db')
+    default_url: ClassVar[sqlalchemy.URL] = sqlalchemy.URL.create(
+        'sqlite', database='metrics.db'
+    )
+
+    engine: sqlalchemy.Engine
+    session_factory: orm.sessionmaker[orm.Session]
+    _run: Run | None
+    _sources: dict[str, Source]
 
     def __init__(
         self,
@@ -217,13 +222,11 @@ class SQLConnection(base_classes.MetricLoader):
             engine: the engine for the session. Default uses default_url.
         """
         super().__init__()
-        self.engine: Final = engine or sqlalchemy.create_engine(
-            self.default_url
-        )
+        self.engine = engine or sqlalchemy.create_engine(self.default_url)
         reg.metadata.create_all(bind=self.engine)
-        self.session_factory: Final = orm.sessionmaker(bind=self.engine)
-        self._run: Run | None = None
-        self._sources: Final = dict[str, Source]()
+        self.session_factory = orm.sessionmaker(bind=self.engine)
+        self._run = None
+        self._sources = {}
         return
 
     @property

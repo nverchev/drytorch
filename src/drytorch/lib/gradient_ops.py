@@ -6,7 +6,7 @@ import math
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from typing import TypeAlias
+from typing import ClassVar, Final, TypeAlias
 
 import torch
 
@@ -69,13 +69,15 @@ class GradParamNormalizer(p.GradientOpProtocol):
 class GradZScoreNormalizer(p.GradientOpProtocol):
     """Gradient normalizing strategy using Z-score normalization."""
 
+    _eps: float
+
     def __init__(self, eps: float = 1e-8) -> None:  # type: ignore
         """Constructor.
 
         Args:
             eps: Small constant for numerical stability.
         """
-        self._eps: float = eps
+        self._eps = eps
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Normalize gradients using Z-score in-place."""
@@ -103,6 +105,8 @@ class GradNormClipper(ClipOperation):
         threshold: Maximum norm value of the clipped gradients.
     """
 
+    threshold: float
+
     def __init__(self, threshold: float = 1) -> None:
         """Constructor.
 
@@ -111,7 +115,7 @@ class GradNormClipper(ClipOperation):
         """
         super().__init__()
         _validate_threshold(threshold)
-        self.threshold: float = threshold
+        self.threshold = threshold
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -127,6 +131,8 @@ class GradValueClipper(ClipOperation):
             threshold: Maximum absolute value of the clipped gradients.
     """
 
+    threshold: float
+
     def __init__(self, threshold: float = 1) -> None:
         """Constructor.
 
@@ -135,7 +141,7 @@ class GradValueClipper(ClipOperation):
         """
         super().__init__()
         _validate_threshold(threshold)
-        self.threshold: float = threshold
+        self.threshold: Final = threshold
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -249,6 +255,11 @@ class EMACriterion(ClippingCriterion):
         clipping_function: function to determine clipping behavior.
     """
 
+    alpha: float
+    r_thresh: float
+    clipping_function: ClipFunction
+    _mu_t: float
+
     def __init__(
         self,
         alpha: float = 0.98,
@@ -262,10 +273,10 @@ class EMACriterion(ClippingCriterion):
             r_thresh: ratio threshold between current_norm and mean_norm.
             clipping_function: function to determine clipping behavior.
         """
-        self.alpha: float = alpha
-        self.r_thresh: float = r_thresh
-        self.clipping_function: ClipFunction = clipping_function
-        self._mu_t: float = 0.0
+        self.alpha: Final = alpha
+        self.r_thresh: Final = r_thresh
+        self.clipping_function: Final = clipping_function
+        self._mu_t = 0.0
         _validate_threshold(r_thresh)
         return
 
@@ -314,6 +325,13 @@ class ZStatCriterion(ClippingCriterion):
             clipping_function: function to determine clipping behavior.
     """
 
+    alpha: float
+    z_thresh: float
+    clipping_function: ClipFunction
+    _eps: float
+    _mu_t: float
+    _v_t: float
+
     def __init__(
         self,
         alpha: float = 0.97,
@@ -329,12 +347,12 @@ class ZStatCriterion(ClippingCriterion):
             clipping_function: function to determine clipping behavior.
             eps: small constant for numerical stability.
         """
-        self.alpha: float = alpha
-        self.z_thresh: float = z_thresh
-        self.clipping_function: ClipFunction = clipping_function
-        self._eps: float = eps
-        self._mu_t: float = 0.0
-        self._v_t: float = 1.0
+        self.alpha: Final = alpha
+        self.z_thresh: Final = z_thresh
+        self.clipping_function: Final = clipping_function
+        self._eps = eps
+        self._mu_t = 0.0
+        self._v_t = 1.0
         _validate_threshold(z_thresh)
         return
 
@@ -388,14 +406,18 @@ class StatsCollector:
             active: whether the collector is currently in use.
     """
 
+    max_samples: int
+    _data: list[float]
+    active: bool
+
     def __init__(self, max_samples: int):
         """Initialize warmup handler.
 
         Args:
             max_samples: the number of collected samples for completion.
         """
-        self.max_samples: int = max_samples
-        self._data: list[float] = []
+        self.max_samples: Final = max_samples
+        self._data = []
         self.active = True
         return
 
@@ -451,8 +473,13 @@ class HistClipper(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
 
-    _default_criterion: ZStatCriterion = ZStatCriterion()
-    _default_grad_op: GradNormClipper = GradNormClipper()
+    _default_criterion: ClassVar[ZStatCriterion] = ZStatCriterion()
+    _default_grad_op: ClassVar[GradNormClipper] = GradNormClipper()
+
+    criterion: ClippingCriterion
+    warmup_clip_strategy: GradientOpProtocol
+    n_warmup_steps: int
+    _warmup_handler: StatsCollector
 
     def __init__(
         self,
@@ -468,10 +495,10 @@ class HistClipper(ClipOperation):
             n_warmup_steps: the number of warmup steps to collect initial stats.
         """
         super().__init__()
-        self.criterion: ClippingCriterion = criterion
-        self.warmup_clip_strategy: GradientOpProtocol = warmup_clip_strategy
-        self.n_warmup_steps: int = n_warmup_steps
-        self._warmup_handler: StatsCollector = StatsCollector(n_warmup_steps)
+        self.criterion: Final = criterion
+        self.warmup_clip_strategy: Final = warmup_clip_strategy
+        self.n_warmup_steps: Final = n_warmup_steps
+        self._warmup_handler: Final = StatsCollector(n_warmup_steps)
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -526,8 +553,14 @@ class ParamHistClipper(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
 
-    _default_criterion: ZStatCriterion = ZStatCriterion()
-    _default_grad_op: GradNormClipper = GradNormClipper()
+    _default_criterion: ClassVar[ZStatCriterion] = ZStatCriterion()
+    _default_grad_op: ClassVar[GradNormClipper] = GradNormClipper()
+
+    criterion: ClippingCriterion
+    n_warmup_steps: int
+    warmup_clip_strategy: GradientOpProtocol
+    _dict_criterion: defaultdict[int, ClippingCriterion]
+    _dict_warmup_handler: defaultdict[int, StatsCollector]
 
     def __init__(
         self,
@@ -543,13 +576,11 @@ class ParamHistClipper(ClipOperation):
             n_warmup_steps: the number of warmup steps to collect initial stats.
         """
         super().__init__()
-        self.criterion: ClippingCriterion = criterion
-        self.n_warmup_steps: int = n_warmup_steps
-        self.warmup_clip_strategy: GradientOpProtocol = warmup_clip_strategy
-        self._dict_criterion: defaultdict[int, ClippingCriterion] = defaultdict(
-            lambda: copy.copy(criterion)
-        )
-        self._dict_warmup_handler = defaultdict[int, StatsCollector](
+        self.criterion: Final = criterion
+        self.n_warmup_steps: Final = n_warmup_steps
+        self.warmup_clip_strategy: Final = warmup_clip_strategy
+        self._dict_criterion = defaultdict(lambda: copy.copy(criterion))
+        self._dict_warmup_handler = defaultdict(
             lambda: StatsCollector(n_warmup_steps)
         )
         return

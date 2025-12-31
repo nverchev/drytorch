@@ -29,11 +29,20 @@ Plot = TypeVar('Plot')
 class Dumper(track.Tracker):
     """Tracker with a standard folder structure.
 
-    Class Attributes:
+    Attributes:
         folder_name: name of the folder containing the output.
+        user_par_dir: parent directory for the tracker data.
+        _par_dir: parent directory set by experiment.
+        _exp_name: experiment name set by experiment.
+        _run_id: run identifier set by experiment.
     """
 
     folder_name: ClassVar[str] = 'tracker'
+
+    user_par_dir: Path | None
+    _par_dir: pathlib.Path | None
+    _exp_name: str | None
+    _run_id: str | None
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Constructor.
@@ -43,10 +52,10 @@ class Dumper(track.Tracker):
                 the same of the current experiment.
         """
         super().__init__()
-        self.user_par_dir: Path | None = par_dir
-        self._par_dir: pathlib.Path | None = None
-        self._exp_name: str | None = None
-        self._run_id: str | None = None
+        self.user_par_dir = par_dir
+        self._par_dir = None
+        self._exp_name = None
+        self._run_id = None
         return
 
     @property
@@ -150,6 +159,9 @@ class MemoryMetrics(track.Tracker):
         model_dict: all metrics recorded in this session.
     """
 
+    _metric_loader: MetricLoader | None
+    model_dict: dict[str, SourcedMetrics]
+
     def __init__(self, metric_loader: MetricLoader | None = None) -> None:
         """Constructor.
 
@@ -191,7 +203,21 @@ class MemoryMetrics(track.Tracker):
 
 
 class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
-    """Abstract class for plotting trajectory from sources."""
+    """Abstract class for plotting trajectory from sources.
+
+    Attributes:
+        _model_names: names of the models to plot.
+        _source_names: names of the sources to plot.
+        _metric_names: names of the metrics to plot.
+        _start: epoch from which to start plotting.
+        _removed_start: flag indicating if start epochs were removed.
+    """
+
+    _model_names: Iterable[str]
+    _source_names: Iterable[str]
+    _metric_names: Iterable[str]
+    _start: int
+    _removed_start: bool
 
     def __init__(
         self,
@@ -220,7 +246,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         self._model_names: Final = model_names
         self._source_names: Final = source_names
         self._metric_names: Final = metric_names
-        self._start: int = start
+        self._start = start
         self._removed_start = False
 
     @functools.singledispatchmethod

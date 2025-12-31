@@ -18,7 +18,7 @@ import types
 
 from collections.abc import Hashable, Iterable
 from itertools import count
-from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 import numpy as np
 import torch
@@ -58,13 +58,19 @@ INCLUDE_PROPERTIES: bool = False
 
 
 class CreatedAtMixin:
-    """Mixin saving instantiation timestamp."""
+    """Mixin saving instantiation timestamp.
 
-    ts_fmt: ClassVar = '%Y-%m-%d@%Hh%Mm%Ss'
+    Attributes:
+        ts_fmt: timestamp format string.
+    """
+
+    ts_fmt: ClassVar[str] = '%Y-%m-%d@%Hh%Mm%Ss'
+
+    _created_at: datetime.datetime
 
     def __init__(self, *args, **kwargs) -> None:
         """Constructor."""
-        self._created_at: Final = datetime.datetime.now()
+        self._created_at = datetime.datetime.now()
         super().__init__(*args, **kwargs)
 
     @property
@@ -79,11 +85,17 @@ class CreatedAtMixin:
 
 
 class DefaultName:
-    """Add a counter to a prefix."""
+    """Add a counter to a prefix.
+
+    Attributes:
+        _prefixes: dictionary mapping prefixes to their counters.
+    """
+
+    _prefixes: dict[str, count[int]]
 
     def __init__(self) -> None:
         """Constructor."""
-        self._prefixes: dict[str, count[int]] = {}
+        self._prefixes = {}
 
     def __get__(self, instance: Any, objtype: type | None = None) -> str:
         """Return the default name for the instance or class."""
@@ -353,6 +365,9 @@ else:
             max_columns: maximum number of columns to display.
         """
 
+        _options: dict[str, int]
+        _original_options: dict[str, Any]
+
         def __init__(
             self, precision: int = 3, max_rows: int = 10, max_columns: int = 10
         ) -> None:
@@ -363,12 +378,12 @@ else:
                 max_rows: see Pandas docs.
                 max_columns: see Pandas docs.
             """
-            self._options: dict[str, int] = {
+            self._options = {
                 'display.precision': precision,
                 'display.max_rows': max_rows,
                 'display.max_columns': max_columns,
             }
-            self._original_options: dict[str, Any] = {}
+            self._original_options = {}
             return
 
         def __enter__(self) -> None:

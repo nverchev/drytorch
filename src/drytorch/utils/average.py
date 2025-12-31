@@ -37,18 +37,20 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
 
     __slots__: Final = ('_cached_reduce', 'aggregate', 'counts')
 
+    aggregate: dict[str, _T]
+    counts: collections.defaultdict[str, int]
+    _cached_reduce: dict[str, _T]
+
     def __init__(self, **kwargs: _T):
         """Constructor.
 
         Args:
             kwargs: named values to average.
         """
-        self.aggregate: dict[str, _T] = {}
-        self.counts: collections.defaultdict[str, int] = (
-            collections.defaultdict(int)
-        )
+        self.aggregate = {}
+        self.counts = collections.defaultdict(int)
         self.__iadd__(kwargs)
-        self._cached_reduce: dict[str, _T] = {}
+        self._cached_reduce = {}
 
     def __add__(self, other: AbstractAverager[_T] | Mapping[str, _T]) -> Self:
         """Join current data with data from another Averager.

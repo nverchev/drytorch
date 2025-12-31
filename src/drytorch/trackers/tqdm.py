@@ -6,7 +6,7 @@ import functools
 import sys
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import tqdm.auto as tqdm
 
@@ -31,18 +31,24 @@ class EpochBar:
 
     This class is also used to display metrics and progress during evaluation.
 
-    Class Attributes:
+    Attributes:
         fmt: the formatting of the bar.
         seen_str: the name for the elements of the batches.
         color: the color of the bar.
-
-    Attributes:
         pbar: the wrapped tqdm bar.
     """
 
-    fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
-    seen_str = 'Samples'
-    color = 'green'
+    fmt: ClassVar[str] = (
+        '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}{postfix}'
+    )
+    seen_str: ClassVar[str] = 'Samples'
+    color: ClassVar[str] = 'green'
+
+    pbar: tqdm.tqdm
+    _batch_size: int | None
+    _num_samples: int
+    _num_iter: int
+    _epoch_seen: int
 
     def __init__(
         self,
@@ -120,9 +126,15 @@ class TrainingBar:
         pbar: the wrapped tqdm bar.
     """
 
-    fmt = '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}'
-    desc = 'Epoch'
-    color = 'blue'
+    fmt: ClassVar[str] = (
+        '{l_bar}{bar}| {n_fmt}/{total_fmt}, {elapsed}<{remaining}'
+    )
+    desc: ClassVar[str] = 'Epoch'
+    color: ClassVar[str] = 'blue'
+
+    pbar: tqdm.tqdm
+    _start_epoch: int
+    _end_epoch: int
 
     def __init__(
         self,
@@ -167,6 +179,12 @@ class TrainingBar:
 class TqdmLogger(track.Tracker):
     """Create an epoch progress bar."""
 
+    _leave: bool
+    _file: SupportsWrite[str]
+    _enable_training_bar: bool
+    _training_bar: TrainingBar | None
+    _epoch_bar: EpochBar | None
+
     def __init__(
         self,
         leave: bool = True,
@@ -188,8 +206,8 @@ class TqdmLogger(track.Tracker):
         self._leave = leave
         self._file = file
         self._enable_training_bar = enable_training_bar
-        self._training_bar: TrainingBar | None = None
-        self._epoch_bar: EpochBar | None = None
+        self._training_bar = None
+        self._epoch_bar = None
         return
 
     @override

@@ -38,7 +38,12 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
     Attributes:
         monitor: Monitor instance
         trial: Optuna trial.
+        reported: Dictionary mapping epochs to reported values.
     """
+
+    monitor: hooks.MetricMonitor
+    trial: optuna.Trial
+    reported: dict[int, float]
 
     def __init__(
         self,
@@ -64,7 +69,7 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
             best_is: Whether higher or lower metric values are better. Default
                'auto' will determine this from the first measurements.
         """
-        self.monitor = hooks.MetricMonitor(
+        self.monitor: Final = hooks.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,

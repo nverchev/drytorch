@@ -3,7 +3,7 @@
 import math
 
 from collections.abc import Iterable
-from typing import Final, TypeAlias
+from typing import TypeAlias
 
 import matplotlib.pyplot as plt
 
@@ -23,6 +23,8 @@ Plot: TypeAlias = tuple[figure.Figure, axes.Axes]
 
 class MatPlotter(base_classes.BasePlotter[Plot]):
     """Tracker that organizes metrics as subplots using matplotlib."""
+
+    _model_figure: dict[str, tuple[figure.Figure, dict[str, axes.Axes]]]
 
     def __init__(
         self,
@@ -45,9 +47,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
         super().__init__(
             model_names, source_names, metric_names, start, metric_loader
         )
-        self._model_figure: Final = dict[
-            str, tuple[figure.Figure, dict[str, axes.Axes]]
-        ]()
+        self._model_figure = {}
         plt.ion()
         return
 

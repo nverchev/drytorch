@@ -4,6 +4,8 @@ import functools
 import pathlib
 import shutil
 
+from typing import ClassVar
+
 import hydra
 import hydra.core.hydra_config
 
@@ -25,14 +27,14 @@ TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 class HydraLink(base_classes.Dumper):
     """Link current Hydra metadata to the experiment.
 
-    Class Attributes:
-        hydra_folder: the folder where the logs are grouped.
-
     Attributes:
         hydra_dir: the directory where hydra saves the run.
     """
 
-    folder_name = 'hydra'
+    folder_name: ClassVar[str] = 'hydra'
+
+    hydra_dir: pathlib.Path
+    _copy_hydra: bool
 
     def __init__(
         self, par_dir: pathlib.Path | None = None, copy_hydra: bool = True
@@ -49,11 +51,11 @@ class HydraLink(base_classes.Dumper):
         # get hydra configuration
         hydra_config = hydra.core.hydra_config.HydraConfig.get()
         str_dir = hydra_config.runtime.output_dir
-        self.hydra_dir: pathlib.Path = pathlib.Path(str_dir)
+        self.hydra_dir = pathlib.Path(str_dir)
         if not self.hydra_dir.exists():
             raise exceptions.TrackerError(self, 'Hydra has not started.')
 
-        self._copy_hydra: bool = copy_hydra
+        self._copy_hydra = copy_hydra
         return
 
     @override

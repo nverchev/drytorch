@@ -18,14 +18,23 @@ __all__ = [
 
 
 class DryTorchDialect(csv.Dialect):
-    """Dialect similar to excel that converts numbers to floats."""
+    """Dialect similar to excel that converts numbers to floats.
 
-    delimiter = ','
-    quotechar = '"'
-    doublequote = True
-    skipinitialspace = False
-    lineterminator = '\r\n'
-    quoting = csv.QUOTE_NONNUMERIC
+    Attributes:
+        delimiter: delimiter character.
+        quotechar: quote character.
+        doublequote: whether to enable double quoting.
+        skipinitialspace: whether to skip initial whitespace.
+        lineterminator: line terminator.
+        quoting: quoting style.
+    """
+
+    delimiter: ClassVar[str] = ','
+    quotechar: ClassVar[str] = '"'
+    doublequote: ClassVar[bool] = True
+    skipinitialspace: ClassVar[bool] = False
+    lineterminator: ClassVar[str] = '\r\n'
+    quoting: ClassVar[int] = csv.QUOTE_NONNUMERIC
 
 
 class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
@@ -34,6 +43,10 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     folder_name = 'csv_metrics'
     _default_dialect: ClassVar[csv.Dialect] = DryTorchDialect()
     _base_headers: ClassVar[tuple[str, ...]] = ('Model', 'Source', 'Epoch')
+
+    _active_sources: set[str]
+    _dialect: csv.Dialect
+    _resume_run: bool
 
     def __init__(
         self,
@@ -48,8 +61,9 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             dialect: the format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
-        self._active_sources: Final = set[str]()
-        self._dialect: csv.Dialect = dialect
+        self._active_sources: Final = set()
+        self._dialect = dialect
+        self._resume_run = False
         return
 
     @functools.singledispatchmethod

@@ -58,14 +58,17 @@ class RunRegistry:
         file_path: path to the JSON file.
     """
 
+    file_path: pathlib.Path
+    lock_path: pathlib.Path
+
     def __init__(self, path: pathlib.Path):
         """Constructor.
 
         Args:
             path: path to the JSON file.
         """
-        self.file_path: pathlib.Path = path
-        self.lock_path: pathlib.Path = path.with_suffix('.json.lock')
+        self.file_path = path
+        self.lock_path = path.with_suffix('.json.lock')
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         return
 
@@ -148,6 +151,11 @@ class Experiment(Generic[_T_co]):
     __current: ClassVar[Experiment[Any] | None] = None
 
     par_dir: pathlib.Path
+    __config: _T_co
+    tags: list[str]
+    trackers: track.EventDispatcher
+    _registry: RunRegistry
+    _active_run: Run[_T_co] | None
 
     def __init__(
         self,
@@ -166,15 +174,15 @@ class Experiment(Generic[_T_co]):
             tags: Descriptors for the experiment (e.g., ``"lr=0.01"``).
         """
         _validate_chars(name)
-        self.__config: Final[_T_co] = config
+        self.__config: Final = config
         self._name = name
         self.par_dir = pathlib.Path(par_dir)
-        self.tags: list[str] = tags or []
+        self.tags = tags or []
         self.trackers: Final = track.EventDispatcher(self.name)
         self.trackers.subscribe(**track.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
-        self._registry: RunRegistry = RunRegistry(run_file)
-        self._active_run: Run[_T_co] | None = None
+        self._registry = RunRegistry(run_file)
+        self._active_run = None
         return
 
     @property
@@ -359,6 +367,16 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         record: whether to record the run in the registry.
     """
 
+    _experiment: Experiment[_T_co]
+    _is_distributed: bool
+    _is_zero_rank: bool
+    _id: str
+    resumed: bool
+    record: bool
+    status: RunStatus
+    metadata_manager: track.MetadataManager
+    _finalizer: weakref.finalize[..., Self] | None
+
     def __init__(
         self,
         experiment: Experiment[_T_co],
@@ -375,15 +393,15 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             record: record the run in the registry.
         """
         super().__init__()
-        self._experiment: Final[Experiment[_T_co]] = experiment
+        self._experiment: Final = experiment
         self._is_distributed = dist.is_available() and dist.is_initialized()
-        self._is_secondary_process = self._is_distributed and dist.get_rank()
+        self._is_zero_rank = self._is_distributed and dist.get_rank() > 0
         self._id: Final = self._get_run_id(run_id)
-        self.resumed: bool = resumed
-        self.record: bool = record and not self._is_secondary_process
-        self.status: RunStatus = 'created'
+        self.resumed = resumed
+        self.record = record and self._is_zero_rank
+        self.status = 'created'
         self.metadata_manager: Final = track.MetadataManager()
-        self._finalizer: weakref.finalize[..., Self] | None = None
+        self._finalizer = None
         if not self.resumed:
             experiment.previous_runs.append(self)
 
@@ -464,10 +482,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         self._experiment._active_run = self
         Experiment.set_current(self._experiment)
-        if self._is_secondary_process:  # no tracking in secondary processes
-            log_events.Event.set_auto_publish(lambda _: None)
-        else:
+        if self._is_zero_rank:
             log_events.Event.set_auto_publish(self._experiment.trackers.publish)
+        else:  # no tracking in secondary processes
+            log_events.Event.set_auto_publish(lambda _: None)
 
         log_events.StartExperimentEvent(
             self._experiment.config,

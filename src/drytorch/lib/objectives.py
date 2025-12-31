@@ -44,6 +44,8 @@ Tensor = torch.Tensor
 class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
     """Abstract base class for metrics or losses."""
 
+    _aggregator: average.TorchAverager
+
     def __init__(self) -> None:
         """Initializes the Objective with a dictionary of metric functions."""
         self._aggregator = average.TorchAverager()
@@ -136,7 +138,13 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
 
 
 class MetricCollection(Objective[Output, Target]):
-    """A collection of multiple metrics."""
+    """A collection of multiple metrics.
+
+    Attributes:
+        named_fn: dictionary of named functions to calculate.
+    """
+
+    named_fn: dict[str, Callable[[Output, Target], Tensor]]
 
     def __init__(
         self,
@@ -182,7 +190,17 @@ class MetricCollection(Objective[Output, Target]):
 
 
 class Metric(MetricCollection[Output, Target]):
-    """Subclass for a single metr."""
+    """Subclass for a single metr.
+
+    Attributes:
+        fun: the callable that computes the metric value.
+        name: identifier for the metric.
+        higher_is_better: True if higher values indicate better performance.
+    """
+
+    fun: Callable[[Output, Target], Tensor]
+    name: str
+    higher_is_better: bool | None
 
     def __init__(
         self,
@@ -200,9 +218,9 @@ class Metric(MetricCollection[Output, Target]):
                 False if lower values are better, None if unspecified.
         """
         super().__init__(**{name: fn})
-        self.fun = fn
-        self.name = name
-        self.higher_is_better = higher_is_better
+        self.fun: Final = fn
+        self.name: Final = name
+        self.higher_is_better: Final = higher_is_better
 
 
 class LossBase(
@@ -210,7 +228,19 @@ class LossBase(
     p.LossProtocol[Output, Target],
     metaclass=abc.ABCMeta,
 ):
-    """Collection of metrics, one of which serves as a loss."""
+    """Collection of metrics, one of which serves as a loss.
+
+    Attributes:
+        name: identifier for the loss.
+        higher_is_better: True if higher values indicate better performance.
+        formula: string representation of the loss formula.
+        criterion: logic extracting a loss value from computed value.
+    """
+
+    name: str
+    higher_is_better: bool
+    formula: str
+    criterion: Callable[[dict[str, Tensor]], Tensor]
 
     def __init__(
         self,
@@ -230,11 +260,11 @@ class LossBase(
             formula: string representation of the loss formula.
             **named_fn: dictionary of named functions to calculate.
         """
-        self.name: str = name
-        self.higher_is_better = higher_is_better
-        self.formula = formula
+        self.name: Final = name
+        self.higher_is_better: Final = higher_is_better
+        self.formula: Final = formula
         super().__init__(**named_fn)
-        self.criterion = criterion
+        self.criterion: Final = criterion
         return
 
     @override
@@ -593,7 +623,7 @@ class CompositionalLoss(
 
 
 class Loss(CompositionalLoss[Output, Target]):
-    """Subclass for simple losses with a convenient constructor."""
+    """Subclass for simple losses with a convenient Constructor."""
 
     def __init__(
         self,
@@ -637,6 +667,15 @@ class MetricTracker(Generic[Output, Target]):
         history: logs of the recorded metrics.
     """
 
+    metric_name: str | None
+    best_is: Literal['auto', 'higher', 'lower']
+    filter_fn: Callable[[Sequence[float]], float]
+    min_delta: float
+    patience: int
+    history: list[float]
+    _patience_countdown: int
+    _best_value: float | None
+
     def __init__(
         self,
         metric_name: str | None = None,
@@ -654,15 +693,15 @@ class MetricTracker(Generic[Output, Target]):
             best_is: whether higher or lower metric values are better.
             filter_fn: function to aggregate recent metric values.
         """
-        self.metric_name: str | None = metric_name
-        self.best_is: Literal['auto', 'higher', 'lower'] = best_is
+        self.metric_name = metric_name
+        self.best_is = best_is
         self.filter_fn: Final = filter_fn
-        self.min_delta: float = min_delta
+        self.min_delta: Final = min_delta
         self._validate_patience(patience)
-        self.patience: int = patience
+        self.patience: Final = patience
         self.history: Final = list[float]()
         self._patience_countdown = patience
-        self._best_value: float | None = None
+        self._best_value = None
 
     @property
     def best_value(self) -> float:

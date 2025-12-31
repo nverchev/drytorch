@@ -6,7 +6,7 @@ import pathlib
 import warnings
 
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 import numpy as np
 import torch
@@ -60,7 +60,9 @@ class CheckpointPathManager:
         folder_name: name of the folder where the checkpoints are stored.
     """
 
-    folder_name = 'checkpoints'
+    folder_name: ClassVar[str] = 'checkpoints'
+    _model: p.ModelProtocol[Any, Any]
+    _run_dir: Path | None
 
     def __init__(
         self,
@@ -74,7 +76,7 @@ class CheckpointPathManager:
             run_dir: the directory for experiment data.
         """
         self._model: Final = model
-        self._run_dir: Path | None = run_dir
+        self._run_dir = run_dir
 
     @property
     def run_dir(self) -> pathlib.Path:
@@ -122,10 +124,13 @@ class CheckpointPathManager:
 class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     """Abstract class that stores and loads weight for a ModelProtocol class."""
 
+    _model: p.ModelProtocol[Any, Any] | None
+    _optimizer: torch.optim.Optimizer | None
+
     def __init__(self) -> None:
         """Constructor."""
-        self._model: p.ModelProtocol[Any, Any] | None = None
-        self._optimizer: torch.optim.Optimizer | None = None
+        self._model = None
+        self._optimizer = None
 
     @property
     def model(self):
@@ -217,7 +222,7 @@ class LocalCheckpoint(AbstractCheckpoint):
             par_dir: parent directory for experiment data.
         """
         super().__init__()
-        self._par_dir: Path | None = par_dir
+        self._par_dir = par_dir
         return
 
     @property

@@ -35,6 +35,10 @@ class Wandb(Dumper):
     )
     folder_name = 'wandb'
 
+    _settings: wandb_settings.Settings
+    _run: wandb_run.Run | None
+    _defined_metrics: set[str]
+
     def __init__(
         self,
         par_dir: pathlib.Path | None = None,
@@ -48,9 +52,9 @@ class Wandb(Dumper):
             settings: settings object from wandb containing all init arguments.
         """
         super().__init__(par_dir)
-        self._settings: wandb_settings.Settings = settings
-        self._run: wandb_run.Run | None = None
-        self._defined_metrics: set[str] = set()
+        self._settings = settings
+        self._run = None
+        self._defined_metrics = set()
         return
 
     @property

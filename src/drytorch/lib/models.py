@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, Final, TypedDict, TypeVar, cast
+from typing import Any, ClassVar, Final, TypedDict, TypeVar, cast
 
 import torch
 
@@ -44,9 +44,19 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
         mixed_precision: whether to use mixed precision computing.
+        checkpoint: checkpoint manager.
     """
 
     _name = repr_utils.DefaultName()
+
+    module: torch.nn.Module
+    epoch: int
+    mixed_precision: bool
+    checkpoint: p.CheckpointProtocol
+    _device: torch.device
+    _should_compile: bool
+    _should_dist: bool
+    _registered: bool
 
     def __init__(  # type: ignore
         self,
@@ -77,17 +87,17 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._device = self._default_device() if device is None else device
         self._should_compile = should_compile
         self._should_dist = should_distribute
-        self.mixed_precision = mixed_precision
+        self.mixed_precision: Final = mixed_precision
         torch_module = self._validate_module(module)
-        self.module = self.prepare_module(torch_module)
+        self.module: Final = self.prepare_module(torch_module)
         self._name = name
-        self.epoch: int = 0
+        self.epoch = 0
         if checkpoint is None:
             checkpoint = checkpoints.LocalCheckpoint()
 
-        self.checkpoint: p.CheckpointProtocol = checkpoint
+        self.checkpoint = checkpoint
         self.checkpoint.bind_model(self)
-        self._registered: bool = False
+        self._registered = False
         self.register()
         return
 
@@ -182,11 +192,14 @@ class ModelAverage(Model[Input, Output]):
     Use the averaged model when in inference mode.
 
     Attributes:
-        module: Pytorch module to optimize.
-        epoch: the number of epochs the model has been trained so far.
+        averaged_module: the averaged module.
     """
 
-    _default_checkpoint = checkpoints.LocalCheckpoint()
+    _default_checkpoint: ClassVar[checkpoints.LocalCheckpoint] = (
+        checkpoints.LocalCheckpoint()
+    )
+
+    averaged_module: torch.optim.swa_utils.AveragedModel
 
     def __init__(
         self,
@@ -240,7 +253,20 @@ class ModelOptimizer:
     """Bundle the module and its optimizer.
 
     It supports different learning rates to separate parameters' groups.
+
+    Attributes:
+        base_lr: learning rate(s) for the module parameters.
     """
+
+    _model: p.ModelProtocol
+    _module: torch.nn.Module
+    _lr: float | dict[str, float]
+    _params_lr: list[_OptParams]
+    _scheduler: p.SchedulerProtocol
+    _optimizer: torch.optim.Optimizer
+    _gradient_op: p.GradientOpProtocol
+    _checkpoint: p.CheckpointProtocol
+    _scaler: amp.grad_scaler.GradScaler
 
     def __init__(
         self,
@@ -255,18 +281,18 @@ class ModelOptimizer:
         """
         self._model: Final = model
         self._module: Final = model.module
-        self._lr: float | dict[str, float] = {}
-        self._params_lr: list[_OptParams] = []
+        self._lr = {}
+        self._params_lr = []
         self.base_lr = learning_schema.base_lr
         self._scheduler = learning_schema.scheduler
-        self._optimizer: torch.optim.Optimizer = learning_schema.optimizer_cls(
+        self._optimizer = learning_schema.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_schema.optimizer_defaults,
         )
-        self._gradient_op: p.GradientOpProtocol = learning_schema.gradient_op
-        self._checkpoint: p.CheckpointProtocol = self._model.checkpoint
+        self._gradient_op = learning_schema.gradient_op
+        self._checkpoint = self._model.checkpoint
         self._checkpoint.bind_optimizer(self._optimizer)
-        self._scaler: amp.grad_scaler.GradScaler = amp.grad_scaler.GradScaler(
+        self._scaler = amp.grad_scaler.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,
         )

@@ -15,7 +15,7 @@ import functools
 import logging
 import sys
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 from typing_extensions import override
 
@@ -245,9 +245,13 @@ class DryTorchFilter(logging.Filter):
 
 
 class DryTorchFormatter(logging.Formatter):
-    """Default formatter for the drytorch logger."""
+    """Default formatter for the drytorch logger.
 
-    default_msec_format = ''
+    Attributes:
+        default_msec_format: format for milliseconds.
+    """
+
+    default_msec_format: ClassVar[str] = ''
 
     @override
     def format(self, record: logging.LogRecord) -> str:

@@ -7,6 +7,7 @@ import socket
 import subprocess
 
 from importlib.util import find_spec
+from typing import ClassVar
 
 from tensorboard import notebook as tb_notebook
 from torch.utils import tensorboard
@@ -29,15 +30,22 @@ if find_spec('tensorboard') is None:
 class TensorBoard(base_classes.Dumper):
     """Tracker that wraps the TensorBoard SummaryWriter.
 
-    Class Attributes:
-        folder_name: name of the folder containing the output.
+    Attributes:
         base_port: starting port number for TensorBoard.
         instance_count: counter for TensorBoard instances started.
     """
 
     folder_name = 'tensorboard'
-    base_port = 6006
-    instance_count = 0
+    base_port: ClassVar[int] = 6006
+    instance_count: ClassVar[int] = 0
+
+    _writer: tensorboard.SummaryWriter | None
+    _process: subprocess.Popen | None
+    _port: int | None
+    _instance_number: int
+    _start_server: bool
+    _max_queue_size: int
+    _flush_secs: int
 
     def __init__(
         self,
@@ -56,9 +64,9 @@ class TensorBoard(base_classes.Dumper):
             flush_secs: tensorboard.SummaryWriter docs.
         """
         super().__init__(par_dir)
-        self._writer: tensorboard.SummaryWriter | None = None
-        self._process: subprocess.Popen | None = None
-        self._port: int | None = None
+        self._writer = None
+        self._process = None
+        self._port = None
         self.__class__.instance_count += 1
         self._instance_number = self.__class__.instance_count
         self._start_server = start_server

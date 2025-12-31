@@ -34,9 +34,14 @@ class Sliced(Sequence[_T]):
     """Slice a sequence keeping the reference to it.
 
     Attributes:
-            seq: the sequence to keep reference to.
-            slice: the slice to use.
+        seq: the sequence to keep reference to.
+        slice: the slice to use.
     """
+
+    seq: Sequence[_T]
+    slice: slice
+    _range: range
+    _sliced: Sequence[_T]
 
     def __init__(self, seq: Sequence[_T], slice_: slice) -> None:
         """Constructor.
@@ -45,7 +50,7 @@ class Sliced(Sequence[_T]):
             seq: the sequence to keep reference to.
             slice_: the slice to use.
         """
-        self.seq: Final = seq
+        self.seq = seq
         self.slice = slice_
         # take advantage of range implementation
         self._range = range(len(self.seq))[slice_]
@@ -88,6 +93,10 @@ class Permutation(Sequence[int]):
         seed: seed for the random generator.
     """
 
+    size: int
+    seed: int
+    _new_indices: list[int]
+
     def __init__(self, size: int, seed: int | None):
         """Constructor.
 
@@ -95,10 +104,10 @@ class Permutation(Sequence[int]):
             size: the length of the permutation.
             seed: seed for the random generator.
         """
-        self.size: Final = size
-        self.seed: Final = np.random.randint(2**16) if seed is None else seed
+        self.size = size
+        self.seed = np.random.randint(2**16) if seed is None else seed
         rng = random.default_rng(self.seed)
-        self._new_indices: Final = rng.permutation(self.size).tolist()
+        self._new_indices = rng.permutation(self.size).tolist()
 
     @overload
     def __getitem__(self, idx: int) -> int: ...
@@ -131,6 +140,15 @@ class DataLoader(p.LoaderProtocol[Data]):
         sampler: the sampling strategy for the dataset.
     """
 
+    batch_size: int | None
+    dataset: data.Dataset[Data]
+    dataset_len: int
+    sampler: data.Sampler | Iterable
+    _pin_memory: bool
+    _num_workers: int
+    _distributed: bool
+    _user_sampler: data.Sampler | Iterable | None
+
     def __init__(
         self,
         dataset: data.Dataset[Data],
@@ -150,15 +168,15 @@ class DataLoader(p.LoaderProtocol[Data]):
             num_workers: number of subprocesses for data loading.
 
         """
-        self.batch_size: int | None = batch_size
+        self.batch_size: Final = batch_size
         self.dataset: Final = dataset
-        self.dataset_len: int = validate_dataset_length(dataset)
+        self.dataset_len: Final = validate_dataset_length(dataset)
         acc_flag = torch.accelerator.is_available()
-        self._pin_memory: bool = acc_flag if pin_memory is None else pin_memory
-        self._num_workers: int = num_workers
+        self._pin_memory = acc_flag if pin_memory is None else pin_memory
+        self._num_workers = num_workers
         self._distributed = dist.is_available() and dist.is_initialized()
-        self._user_sampler: data.Sampler | Iterable | None = sampler
-        self.sampler: data.Sampler | Iterable = self._init_sampler(sampler)
+        self._user_sampler = sampler
+        self.sampler = self._init_sampler(sampler)
         return
 
     @override

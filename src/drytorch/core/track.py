@@ -37,6 +37,8 @@ class MetadataManager:
         metadata_dict: set to keep track of already registered names.
     """
 
+    metadata_dict: dict[str, Any]
+
     def __init__(self) -> None:
         """Constructor."""
         super().__init__()
@@ -198,6 +200,9 @@ class EventDispatcher:
         exp_name: name of the current experiment.
         named_trackers: a dictionary of trackers, indexed by their names.
     """
+
+    exp_name: str
+    named_trackers: dict[str, Tracker]
 
     def __init__(self, exp_name) -> None:
         """Constructor.
