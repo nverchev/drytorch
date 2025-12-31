@@ -223,20 +223,27 @@ class EventDispatcher:
             event: the event to publish.
         """
         to_be_removed = list[str]()
-        for tracker in self.named_trackers.values():
+        for name, tracker in self.named_trackers.items():
             try:
                 tracker.notify(event)
             except (KeyboardInterrupt, SystemExit) as e:
                 raise e
             except Exception as err:
-                name = tracker.__class__.__name__
                 warnings.warn(
                     exceptions.TrackerExceptionWarning(name, err), stacklevel=1
                 )
-                tracker.clean_up()
                 to_be_removed.append(name)
 
         for name in to_be_removed:
+            tracker = self.named_trackers[name]
+            try:
+                tracker.clean_up()
+            except Exception as err:
+                warnings.warn(
+                    exceptions.TrackerExceptionWarning(name, err),
+                    stacklevel=1,
+                )
+
             self.remove(name)
 
         return

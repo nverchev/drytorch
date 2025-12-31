@@ -67,8 +67,14 @@ class Wandb(Dumper):
 
     @override
     def clean_up(self) -> None:
-        wandb.finish()
-        self._run = None
+        try:
+            wandb.finish()
+        except Exception as e:
+            warnings.warn(
+                WandbWarning(f'Error during cleanup: {e}'), stacklevel=1
+            )
+        finally:
+            self._run = None
         return
 
     @functools.singledispatchmethod
