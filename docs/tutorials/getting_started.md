@@ -585,7 +585,7 @@ cfg_train = UpsamplingExperiment.get_config().train
 train_loader = DataLoader(training_dataset, batch_size=1)
 model = Model(network, name='DeepPriorNet')
 learning_schema = LearningSchema.adam(cfg_train.lr)
-loss = Loss(downsampled_mse, 'MSE downsampled')
+loss = Loss(downsampled_mse, 'MSE')
 trainer = Trainer(
     model, loader=train_loader, loss=loss, learning_schema=learning_schema
 )
