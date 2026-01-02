@@ -23,7 +23,6 @@ __all__ = [
     'LocalCheckpoint',
 ]
 
-
 SAFE_GLOBALS: list[Any] = [
     np.bool_,
     np.int8,
@@ -137,6 +136,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         """The registered model to be saved and loaded."""
         if self._model is None:
             raise exceptions.CheckpointNotInitializedError()
+
         return self._model
 
     @property
@@ -147,7 +147,11 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     def load(self, epoch: int = -1) -> None:
         """Load the model and optimizer state dictionaries."""
         if dist.is_available and dist.is_initialized():
-            dist.barrier()
+            device_idx = self.model.device.index
+            if device_idx is not None:
+                dist.barrier(device_ids=[device_idx])
+            else:
+                dist.barrier()
 
         self._update_epoch(epoch)
         log_events.LoadModelEvent(
@@ -156,7 +160,8 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
             location=self._get_location(),
             epoch=self.model.epoch,
         )
-        self._load()
+        module = self._get_unwrapped_module()
+        self._load(module)
         return
 
     def remove_model(self) -> None:
@@ -186,14 +191,12 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         if dist.is_available and dist.is_initialized() and dist.get_rank():
             return
 
-        self._save()
+        module = self._get_unwrapped_module()
+        self._save(module)
         return
 
     def _get_definition(self) -> str:
         return 'state' if self.optimizer is None else 'checkpoint'
-
-    @abc.abstractmethod
-    def _load(self) -> None: ...
 
     @abc.abstractmethod
     def _get_last_saved_epoch(self) -> int: ...
@@ -201,8 +204,21 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     @abc.abstractmethod
     def _get_location(self) -> str: ...
 
+    def _get_unwrapped_module(self) -> torch.nn.Module:
+        module = self.model.module
+        if isinstance(
+            module,
+            (torch.nn.DataParallel, torch.nn.parallel.DistributedDataParallel),
+        ):
+            module = module.module
+
+        return module
+
     @abc.abstractmethod
-    def _save(self) -> None: ...
+    def _load(self, module: torch.nn.Module) -> None: ...
+
+    @abc.abstractmethod
+    def _save(self, module: torch.nn.Module) -> None: ...
 
     def _update_epoch(self, epoch: int):
         if epoch < -1:
@@ -231,14 +247,14 @@ class LocalCheckpoint(AbstractCheckpoint):
         return CheckpointPathManager(self.model, self._par_dir)
 
     @override
-    def _load(self, epoch: int = -1) -> None:
+    def _load(self, module: torch.nn.Module, epoch: int = -1) -> None:
         if not self.paths.model_dir.exists():
             raise exceptions.ModelNotFoundError(self.paths.run_dir)
 
         if not self.paths.epoch_dir.exists():
             raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)
 
-        self.model.module.load_state_dict(
+        module.load_state_dict(
             torch.load(
                 self.paths.model_state_path,
                 map_location=self.model.device,
@@ -262,9 +278,9 @@ class LocalCheckpoint(AbstractCheckpoint):
         return
 
     @override
-    def _save(self) -> None:
+    def _save(self, module: torch.nn.Module) -> None:
         self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
-        torch.save(self.model.module.state_dict(), self.paths.model_state_path)
+        torch.save(module.state_dict(), self.paths.model_state_path)
         if self.optimizer is not None:
             torch.save(
                 self.optimizer.state_dict(), self.paths.optimizer_state_path
