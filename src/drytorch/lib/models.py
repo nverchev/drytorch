@@ -129,7 +129,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     def prepare_module(self, module: torch.nn.Module) -> torch.nn.Module:
         """Compile and distribute the module."""
-        module = module.to(self._default_device())
+        module = module.to(self._device)
 
         # TODO: remove flag when torch.compile is supported on Python 3.14
         if self._should_compile and sys.version_info < (3, 14):
