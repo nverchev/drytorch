@@ -832,6 +832,28 @@ def dict_apply(
     }
 
 
+def check_device(
+    calculator: p.ObjectiveProtocol[Any, Any], device: torch.device
+) -> None:
+    """Check the metrics returned by the calculator are on the given device.
+
+    Args:
+        calculator: An ObjectiveProtocol instance to check.
+        device: The device to check against.
+    """
+    metrics = calculator.compute()
+    if isinstance(metrics, Mapping):
+        for name, value in metrics.items():
+            if value.device.type != device.type:
+                raise exceptions.DeviceMismatchError(name, value.device, device)
+
+    elif isinstance(metrics, Tensor) and metrics.device.type != device.type:
+        name = calculator.__class__.__name__
+        raise exceptions.DeviceMismatchError(name, metrics.device, device)
+
+    return
+
+
 def compute_metrics(
     calculator: p.ObjectiveProtocol[Any, Any],
 ) -> Mapping[str, float]:
@@ -843,11 +865,11 @@ def compute_metrics(
     Returns:
         A mapping of metric names to their float values.
     """
-    metrics = calculator.compute()
-    if isinstance(metrics, Mapping):
-        return {name: value.item() for name, value in metrics.items()}
+    computed_metrics = calculator.compute()
+    if isinstance(computed_metrics, Mapping):
+        return {name: value.item() for name, value in computed_metrics.items()}
 
-    if isinstance(metrics, Tensor):
-        return {calculator.__class__.__name__: metrics.item()}
+    if isinstance(computed_metrics, Tensor):
+        return {calculator.__class__.__name__: computed_metrics.item()}
 
-    return {}
+    raise exceptions.ComputedMetricsTypeError(type(computed_metrics))

@@ -13,8 +13,10 @@ __all__ = [
     'CannotStoreOutputWarning',
     'CheckpointNotInitializedError',
     'ComputedBeforeUpdatedWarning',
+    'ComputedMetricsTypeError',
     'ConvergenceError',
     'DatasetHasNoLengthError',
+    'DeviceMismatchError',
     'DistributedStorageWarning',
     'DryTorchError',
     'DryTorchWarning',
@@ -25,6 +27,7 @@ __all__ = [
     'LossNotScalarError',
     'MetricNotFoundError',
     'MissingParamError',
+    'ModelDeviceMismatchError',
     'ModelNotFoundError',
     'ModuleAlreadyRegisteredError',
     'ModuleNotDistributedWarning',
@@ -109,6 +112,23 @@ class CheckpointNotInitializedError(DryTorchError):
     _template = 'The checkpoint did not register any model.'
 
 
+class ComputedMetricsTypeError(DryTorchError):
+    """Raised when computed metrics have an unexpected type."""
+
+    _template = (
+        'Expected computed metrics as a Mapping[str, Tensor] or Tensor. Got {}.'
+    )
+
+    def __init__(self, computed_metrics_type: type) -> None:
+        """Initialize.
+
+        Args:
+            computed_metrics_type: the actual type of the computed metrics.
+        """
+        self.computed_metrics_type: Final = computed_metrics_type
+        super().__init__(computed_metrics_type.__name__)
+
+
 class ConvergenceError(DryTorchError):
     """Raised when a module fails to converge during training."""
 
@@ -128,6 +148,30 @@ class DatasetHasNoLengthError(DryTorchError):
     """Raised when a dataset does not implement the __len__ method."""
 
     _template = 'Dataset does not implement __len__ method.'
+
+
+class DeviceMismatchError(DryTorchError):
+    """Raised when the metrics device does not match the expected device."""
+
+    _template = 'Metric {} is stored on {} but expected on {}.'
+
+    def __init__(
+        self,
+        metric_name: str,
+        metric_device: torch.device,
+        target_device: torch.device,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            metric_name: the name of the metric.
+            metric_device: the device of the output tensor.
+            target_device: the device of the model.
+        """
+        self.metric_name: Final = metric_name
+        self.metric_device: Final = metric_device
+        self.target_device: Final = target_device
+        super().__init__(metric_name, metric_device, target_device)
 
 
 class EpochNotFoundError(DryTorchError):
@@ -255,6 +299,14 @@ class ModuleNotRegisteredError(DryTorchError):
         self.exp_name: Final = exp_name
         self.run_id: Final = run_id
         super().__init__(model_name, exp_name, run_id)
+
+
+class ModelDeviceMismatchError(DryTorchError):
+    """Raised when the metrics device does not match the model device."""
+
+    _template = (
+        "In multiprocessing, parameters' and outputs' device type must match."
+    )
 
 
 class ModelNotFoundError(DryTorchError):

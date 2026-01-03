@@ -193,7 +193,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         )
         for batch in self._get_batches():
             outputs = self._run_batch(batch)
-            pbar.update(self._compute_metrics(), n_processes)
+            metrics = self._compute_metrics()
+            pbar.update(metrics, n_processes)
             if store_outputs:
                 self._store(outputs)
 
@@ -268,6 +269,7 @@ class ModelRunnerWithObjective(
     """
 
     objective: _Objective_co
+    _checked_metric_device: bool
 
     def __init__(
         self,
@@ -306,9 +308,18 @@ class ModelRunnerWithObjective(
                 )
 
         self.objective.reset()
+        self._checked_metric_device = False
         return
 
     def _compute_metrics(self) -> Mapping[str, float]:
+        if self._is_distributed and not self._checked_metric_device:
+            try:
+                objectives.check_device(self.objective, self.model.device)
+            except exceptions.DeviceMismatchError as err:
+                raise exceptions.ModelDeviceMismatchError() from err
+
+            self._checked_metric_device = True
+
         self._cached_metrics = objectives.compute_metrics(self.objective)
         return self._cached_metrics
 

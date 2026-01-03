@@ -14,6 +14,7 @@ from drytorch.lib.objectives import (
     Metric,
     MetricCollection,
     MetricTracker,
+    check_device,
     compute_metrics,
     dict_apply,
 )
@@ -342,6 +343,30 @@ def test_dict_apply(mocker) -> None:
     mock_fun2.assert_called_once_with(mock_outputs, mock_targets)
 
 
+def test_check_device_passes(mocker):
+    """Test that check_device passes when metrics are on the correct device."""
+    device = torch.device('cpu')
+    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
+    mock_calculator.compute.return_value = {
+        'loss': torch.tensor([0.5], device=device),
+        'accuracy': torch.tensor([0.95], device=device),
+    }
+
+    check_device(mock_calculator, device)  # Should not raise
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA not available')
+def test_check_device_fails(mocker):
+    """Test check_device raises errors when metrics are on the wrong device."""
+    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
+    mock_calculator.compute.return_value = {
+        'loss': torch.tensor([0.5], device='cuda'),
+    }
+
+    with pytest.raises(exceptions.DeviceMismatchError):
+        check_device(mock_calculator, torch.device('cpu'))
+
+
 @pytest.mark.parametrize(
     'compute_return, class_name, expected',
     [
@@ -357,17 +382,10 @@ def test_dict_apply(mocker) -> None:
             'metric_1',
             {'metric_1': 0.5},
         ),
-        # Case 3: None
-        (
-            None,
-            None,
-            {},
-        ),
     ],
 )
 def test_repr_metrics(mocker, compute_return, class_name, expected):
     """Test the repr_metrics function with various compute return values."""
-    # Mock the calculator
     mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
     mock_calculator.compute.return_value = compute_return
 
@@ -377,6 +395,14 @@ def test_repr_metrics(mocker, compute_return, class_name, expected):
     # Call the function and assert the result
     result = compute_metrics(mock_calculator)
     assert result == expected
+
+
+def test_repr_metrics_fail(mocker):
+    """Test the repr_metrics function fails with no return."""
+    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
+
+    with pytest.raises(exceptions.ComputedMetricsTypeError):
+        _ = compute_metrics(mock_calculator)
 
 
 class TestMetricTracker:
