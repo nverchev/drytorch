@@ -136,8 +136,10 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
             torch.compile(module)
 
         if dist.is_available and dist.is_initialized() and self._should_dist:
-            batch_module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
-            module = torch.nn.parallel.DistributedDataParallel(batch_module)
+            if self._device.type == 'cuda':
+                module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
+
+            module = torch.nn.parallel.DistributedDataParallel(module)
 
         return module
 
