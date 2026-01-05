@@ -181,7 +181,8 @@ class DataLoader(p.LoaderProtocol[Data]):
 
     @override
     def __iter__(self) -> Iterator[Data]:
-        return self.get_loader().__iter__()
+        inference = torch.is_inference_mode_enabled()
+        return self.get_loader(inference).__iter__()
 
     @override
     def __len__(self) -> int:
@@ -208,12 +209,11 @@ class DataLoader(p.LoaderProtocol[Data]):
         Returns:
             A configured PyTorch DataLoader instance.
         """
-        if inference is None:
-            inference = torch.is_inference_mode_enabled()
-
+        drop_last: bool = not inference
         if self._user_sampler is None:
             if isinstance(self.sampler, data.DistributedSampler):
                 self.sampler.shuffle = not inference
+                self.sampler.drop_last = drop_last
             elif inference:
                 if not isinstance(self.sampler, data.SequentialSampler):
                     self.sampler = data.SequentialSampler(
@@ -223,7 +223,6 @@ class DataLoader(p.LoaderProtocol[Data]):
                 if not isinstance(self.sampler, data.RandomSampler):
                     self.sampler = data.RandomSampler(range(self.dataset_len))
 
-        drop_last: bool = not inference
         loader = data.DataLoader(
             self.dataset,
             batch_size=self.batch_size,
