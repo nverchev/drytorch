@@ -78,58 +78,67 @@ def init_trackers(mode: _InitMode = 'standard') -> None:
         ValueError if mode is not available.
     """
     remove_all_default_trackers()
+    tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
+    is_tqdm_installed = _add_tqdm(tracker_list, mode=mode)
     if mode == 'hydra':
         # hydra logs to stdout by default
         builtin_logging.enable_default_handler(sys.stdout)
         builtin_logging.enable_propagation()
-
-    tracker_list: list[Tracker] = [builtin_logging.BuiltinLogger()]
-    _add_tqdm(tracker_list, mode=mode)
-    if mode != 'minimal':
         _add_yaml(tracker_list)
+        verbosity = builtin_logging.INFO_LEVELS.metrics
 
-    extend_default_trackers(tracker_list)
-    return
-
-
-def _add_tqdm(tracker_list: list[Tracker], mode: _InitMode) -> None:
-    verbosity = builtin_logging.INFO_LEVELS.metrics
-
-    try:
-        from drytorch.trackers import tqdm
-    except (ImportError, ModuleNotFoundError):
-        warnings.warn(FailedOptionalImportWarning('tqdm'), stacklevel=2)
-        if mode == 'minimal':
+    elif mode == 'minimal':
+        if is_tqdm_installed:
+            verbosity = builtin_logging.INFO_LEVELS.training
+        else:
             verbosity = builtin_logging.INFO_LEVELS.epoch
             builtin_logging.set_formatter('progress')
-    else:
-        if mode == 'standard':
-            # metrics logs redundant because already visible in the progress bar
+
+    elif mode == 'standard':
+        _add_yaml(tracker_list)
+        if is_tqdm_installed:
             verbosity = builtin_logging.INFO_LEVELS.epoch
-            tqdm_logger = tqdm.TqdmLogger()
-        elif mode == 'minimal':
-            # double bar replaces most logs.
-            verbosity = builtin_logging.INFO_LEVELS.training
-            tqdm_logger = tqdm.TqdmLogger(enable_training_bar=True)
-        elif mode == 'hydra':
-            # progress bar disappears leaving only log metrics.
-            tqdm_logger = tqdm.TqdmLogger(leave=False)
         else:
-            raise ValueError('Mode {mode} not available.')
+            verbosity = builtin_logging.INFO_LEVELS.metrics
 
-        tracker_list.append(tqdm_logger)
+    else:
+        raise ValueError('Mode {mode} not available.')
 
+    extend_default_trackers(tracker_list)
     builtin_logging.set_verbosity(verbosity)
     return
 
 
-def _add_yaml(tracker_list: list[Tracker]) -> None:
+def _add_tqdm(tracker_list: list[Tracker], mode: _InitMode) -> bool:
+    try:
+        from drytorch.trackers import tqdm
+    except (ImportError, ModuleNotFoundError):
+        warnings.warn(FailedOptionalImportWarning('tqdm'), stacklevel=2)
+        return False
+
+    if mode == 'hydra':
+        # progress bar disappears leaving only log metrics.
+        tqdm_logger = tqdm.TqdmLogger(leave=False)
+    elif mode == 'minimal':
+        # double bar replaces most logs.
+        tqdm_logger = tqdm.TqdmLogger(enable_training_bar=True)
+    else:
+        # console metrics from the progress bar
+        tqdm_logger = tqdm.TqdmLogger()
+
+    tracker_list.append(tqdm_logger)
+    return True
+
+
+def _add_yaml(tracker_list: list[Tracker]) -> bool:
     try:
         from drytorch.trackers import yaml
     except (ImportError, ModuleNotFoundError):
         warnings.warn(FailedOptionalImportWarning('yaml'), stacklevel=2)
-    else:
-        tracker_list.append(yaml.YamlDumper())
+        return False
+
+    tracker_list.append(yaml.YamlDumper())
+    return True
 
 
 def _check_mode_is_valid(
