@@ -16,6 +16,8 @@ from typing import (
     runtime_checkable,
 )
 
+import torch
+
 from torch import distributed as dist
 from torch.utils import data
 from typing_extensions import override
@@ -152,6 +154,18 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         """Retrieve cached metrics."""
         return self._cached_metrics
 
+    def _check_divisibility(self, n_samples: int) -> None:
+        if torch.is_inference_mode_enabled() and self._is_distributed:
+            if n_samples % self._world_size:
+                warnings.warn(
+                    exceptions.DistributedDatasetNotDivisibleWarning(
+                        n_samples, self._world_size
+                    ),
+                    stacklevel=2,
+                )
+
+        return
+
     def _compute_metrics(self) -> Mapping[str, float]:
         return {}
 
@@ -187,6 +201,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
         self.outputs_list.clear()
         n_samples = load.validate_dataset_length(self.loader.get_dataset())
+        self._check_divisibility(n_samples)
         n_processes = dist.get_world_size() if self._is_distributed else 1
         pbar = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), n_samples
@@ -239,9 +254,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 dist_outputs: list[list[Output]] = [[]] * self._world_size
                 dist.gather_object(self.outputs_list, dist_outputs, dst=0)
                 self.outputs_list.clear()
-                for process_outputs in dist_outputs:
-                    if process_outputs:
-                        self.outputs_list.extend(process_outputs)
+                for gathered_tuple in zip(*dist_outputs, strict=True):
+                    self.outputs_list.extend(gathered_tuple)
             else:
                 dist.gather_object(self.outputs_list, None, dst=0)
                 self.outputs_list.clear()

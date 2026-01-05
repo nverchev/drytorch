@@ -17,6 +17,7 @@ __all__ = [
     'ConvergenceError',
     'DatasetHasNoLengthError',
     'DeviceMismatchError',
+    'DistributedDatasetNotDivisibleWarning',
     'DistributedStorageWarning',
     'DryTorchError',
     'DryTorchWarning',
@@ -466,6 +467,26 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         """
         self.calculator: Final = calculator
         super().__init__(calculator.__class__.__name__)
+
+
+class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
+    """Warning raised when the dataset cannot be equally distributed."""
+
+    _template = (
+        'The dataset size: {} is not divisible by the number of processes: {}.'
+        'Some samples will be evaluated twice, and metrics may not be reliable.'
+    )
+
+    def __init__(self, dataset_size: int, n_processes: int) -> None:
+        """Initialize.
+
+        Args:
+            dataset_size: the size of the dataset.
+            n_processes: the number of processes used in distributed processing.
+        """
+        self.dataset_size: Final = dataset_size
+        self.num_processes: Final = n_processes
+        super().__init__(dataset_size, n_processes)
 
 
 class DistributedStorageWarning(DryTorchWarning):
