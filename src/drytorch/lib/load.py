@@ -176,7 +176,7 @@ class DataLoader(p.LoaderProtocol[Data]):
         self._n_workers = n_workers
         self._distributed = dist.is_available() and dist.is_initialized()
         self._user_sampler = sampler
-        self.sampler = self._init_sampler(sampler)
+        self.sampler = self._init_sampler() if sampler is None else sampler
         return
 
     @override
@@ -209,25 +209,26 @@ class DataLoader(p.LoaderProtocol[Data]):
         Returns:
             A configured PyTorch DataLoader instance.
         """
-        drop_last: bool = not inference
         if self._user_sampler is None:
-            if isinstance(self.sampler, data.DistributedSampler):
-                self.sampler.shuffle = not inference
-                self.sampler.drop_last = drop_last
-            elif inference:
-                if not isinstance(self.sampler, data.SequentialSampler):
-                    self.sampler = data.SequentialSampler(
-                        range(self.dataset_len)
+            if inference:
+                if isinstance(self.sampler, data.DistributedSampler):
+                    sampler = data.DistributedSampler(
+                        self.dataset, shuffle=False, drop_last=False
                     )
+                else:
+                    sampler = data.SequentialSampler(range(self.dataset_len))
+
             else:
-                if not isinstance(self.sampler, data.RandomSampler):
-                    self.sampler = data.RandomSampler(range(self.dataset_len))
+                sampler = self.sampler
+
+        else:
+            sampler = self._user_sampler
 
         loader = data.DataLoader(
             self.dataset,
             batch_size=self.batch_size,
-            drop_last=drop_last,
-            sampler=self.sampler,
+            drop_last=not inference,
+            sampler=sampler,
             pin_memory=self._pin_memory,
             num_workers=self._n_workers,
         )
@@ -275,17 +276,12 @@ class DataLoader(p.LoaderProtocol[Data]):
         second_loader = DataLoader(second_dataset, batch_size)
         return first_loader, second_loader
 
-    def _init_sampler(
-        self, sampler: data.Sampler | Iterable | None
-    ) -> data.Sampler | Iterable:
+    def _init_sampler(self) -> data.Sampler | Iterable:
         """Set the initial sampler for the loader."""
-        if sampler is None:
-            if self._distributed:
-                return data.DistributedSampler(self.dataset)
+        if self._distributed:
+            return data.DistributedSampler(self.dataset, drop_last=True)
 
-            return data.RandomSampler(range(self.dataset_len))
-
-        return sampler
+        return data.RandomSampler(range(self.dataset_len))
 
 
 def _validate_batch_size(batch_size: int | None) -> int:
