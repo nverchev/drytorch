@@ -198,7 +198,7 @@ class DataLoader(p.LoaderProtocol[Data]):
 
     def get_loader(
         self,
-        inference: bool | None = None,
+        inference: bool,
     ) -> data.DataLoader[Data]:
         """Create a DataLoader instance with runtime settings.
 
