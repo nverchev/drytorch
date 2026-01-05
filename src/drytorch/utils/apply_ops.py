@@ -178,9 +178,10 @@ def apply_to(obj: _C, device: torch.device) -> _C:
     Returns:
         the same container with the tensor on the target device.
     """
+    non_blocking = device != torch.device('cpu')
 
     def _to_device(tensor: torch.Tensor) -> torch.Tensor:
-        return tensor.to(device)
+        return tensor.to(device, non_blocking=non_blocking)
 
     return apply(obj, expected_type=torch.Tensor, func=_to_device)
 
