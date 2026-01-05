@@ -210,13 +210,8 @@ Together with the configuration, you can assign a name and a directory to the ex
 ```{code-cell} ipython3
 import pathlib
 
-import drytorch
-
-
-drytorch.init_trackers(mode='minimal')  # remove to see training progress
 
 settings = AllSettings()
-
 experiment = UpsamplingExperiment(
     settings, name='Getting Started', par_dir=pathlib.Path('experiments')
 )
