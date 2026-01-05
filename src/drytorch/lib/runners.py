@@ -159,7 +159,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
             if n_samples % self._world_size:
                 warnings.warn(
                     exceptions.DistributedDatasetNotDivisibleWarning(
-                        n_samples, self._world_size
+                        self.name, n_samples, self._world_size
                     ),
                     stacklevel=2,
                 )

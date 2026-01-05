@@ -473,20 +473,23 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
     """Warning raised when the dataset cannot be equally distributed."""
 
     _template = (
-        'The dataset size: {} is not divisible by the number of processes: {}.'
+        '{} has encountered the following issue with distributed evaluation: \n'
+        'The dataset size: {} is not divisible by the number of processes: {}. '
         'Some samples will be evaluated twice, and metrics may not be reliable.'
     )
 
-    def __init__(self, dataset_size: int, n_processes: int) -> None:
+    def __init__(self, name: str, len_dataset: int, n_processes: int) -> None:
         """Initialize.
 
         Args:
-            dataset_size: the size of the dataset.
+            name: the name of the actor experiencing the issue.
+            len_dataset: the size of the dataset.
             n_processes: the number of processes used in distributed processing.
         """
-        self.dataset_size: Final = dataset_size
+        self.actor: Final = name
+        self.dataset_size: Final = len_dataset
         self.num_processes: Final = n_processes
-        super().__init__(dataset_size, n_processes)
+        super().__init__(name, len_dataset, n_processes)
 
 
 class DistributedStorageWarning(DryTorchWarning):
