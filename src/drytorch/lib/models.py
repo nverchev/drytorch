@@ -25,7 +25,6 @@ __all__ = [
     'ModelOptimizer',
 ]
 
-
 Input = TypeVar('Input', bound=p.InputType, contravariant=True)
 Output = TypeVar('Output', bound=p.OutputType, covariant=True)
 Tensor = torch.Tensor
@@ -139,7 +138,12 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
             if self._device.type == 'cuda':
                 module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
 
-            module = torch.nn.parallel.DistributedDataParallel(module)
+            if self.device.index is not None:
+                module = torch.nn.parallel.DistributedDataParallel(
+                    module, device_ids=[self.device.index]
+                )
+            else:
+                module = torch.nn.parallel.DistributedDataParallel(module)
 
         return module
 
