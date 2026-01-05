@@ -211,9 +211,11 @@ class DataLoader(p.LoaderProtocol[Data]):
         if inference is None:
             inference = torch.is_inference_mode_enabled()
 
+        drop_last: bool = not inference
         if self._user_sampler is None:
             if isinstance(self.sampler, data.DistributedSampler):
                 self.sampler.shuffle = not inference
+                self.sampler.drop_last = drop_last
             elif inference:
                 if not isinstance(self.sampler, data.SequentialSampler):
                     self.sampler = data.SequentialSampler(
@@ -223,11 +225,9 @@ class DataLoader(p.LoaderProtocol[Data]):
                 if not isinstance(self.sampler, data.RandomSampler):
                     self.sampler = data.RandomSampler(range(self.dataset_len))
 
-        drop_last: bool = not inference
         loader = data.DataLoader(
             self.dataset,
             batch_size=self.batch_size,
-            drop_last=drop_last,
             sampler=self.sampler,
             pin_memory=self._pin_memory,
             num_workers=self._n_workers,
