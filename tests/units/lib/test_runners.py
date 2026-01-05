@@ -221,7 +221,6 @@ class TestModelRunnerWithObjective:
         mocker.patch('drytorch.lib.runners.ModelRunner._run_epoch')
         mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
         mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
-
         self.mock_repr_metrics = mocker.patch(
             'drytorch.lib.objectives.compute_metrics',
             return_value={'loss': 0.1},

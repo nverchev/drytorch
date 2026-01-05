@@ -332,8 +332,15 @@ def get_n_batches(dataset_len: int, batch_size: int, n_processes: int) -> int:
     Returns:
         Total number of batches, including partial batches.
     """
-    n_full_batches, last_batch_size = divmod(dataset_len, batch_size)
-    return n_full_batches + (n_processes if last_batch_size else 0)
+    n_batches, remainder = divmod(dataset_len, batch_size)
+    if remainder:
+        n_batches += 1
+
+    n_rounds, remainder = divmod(n_batches, n_processes)
+    if remainder:
+        n_rounds += 1
+
+    return n_rounds * n_processes
 
 
 def take_from_dataset(

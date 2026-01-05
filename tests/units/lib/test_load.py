@@ -157,7 +157,7 @@ class TestDataLoader:
 
     def test_dataloader_n_workers(self, loader) -> None:
         """Test n_workers parameter is properly set."""
-        assert loader.get_loader().num_workers == 2
+        assert loader.get_loader(True).num_workers == 2
 
     def test_dataloader_drop_last_behavior(self, loader) -> None:
         """Test drop_last changes based on inference mode."""
@@ -190,6 +190,7 @@ def test_check_dataset_length_fail() -> None:
 
 def test_get_n_batches() -> None:
     """Test n_batches calculates batch count correctly."""
-    assert get_n_batches(10, 3) == 4
-    assert get_n_batches(10, 5) == 2
-    assert get_n_batches(0, 3) == 0
+    assert get_n_batches(10, 3, 3) == 6
+    assert get_n_batches(10, 3, 2) == 4
+    assert get_n_batches(10, 5, 2) == 2
+    assert get_n_batches(0, 3, 1) == 0
