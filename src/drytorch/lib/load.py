@@ -188,7 +188,8 @@ class DataLoader(p.LoaderProtocol[Data]):
     def __len__(self) -> int:
         batch_size = _validate_batch_size(self.batch_size)
         if torch.is_inference_mode_enabled():  # drop_last is true
-            return get_n_batches(self.dataset_len, batch_size)
+            n_processes = dist.get_world_size() if self._distributed else 1
+            return get_n_batches(self.dataset_len, batch_size, n_processes)
 
         return self.dataset_len // batch_size
 
@@ -320,18 +321,19 @@ def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
     raise exceptions.DatasetHasNoLengthError()
 
 
-def get_n_batches(dataset_len: int, batch_size: int) -> int:
+def get_n_batches(dataset_len: int, batch_size: int, n_processes: int) -> int:
     """Calculate the number of batches in a dataset.
 
     Args:
         dataset_len: length of the dataset.
         batch_size: size of each batch.
+        n_processes: number of processes used for data loading.
 
     Returns:
         Total number of batches, including partial batches.
     """
     n_full_batches, last_batch_size = divmod(dataset_len, batch_size)
-    return n_full_batches + bool(last_batch_size)
+    return n_full_batches + (n_processes if last_batch_size else 0)
 
 
 def take_from_dataset(
