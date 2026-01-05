@@ -314,7 +314,11 @@ class ModelOptimizer:
 
     @property
     def base_lr(self) -> float | dict[str, float]:
-        """Learning rate(s) for the module parameters."""
+        """Learning rate(s) for the module parameters.
+
+        Raises:
+            MissingParamError: if parameters are missing from the dictionary.
+        """
         return self._lr
 
     @base_lr.setter

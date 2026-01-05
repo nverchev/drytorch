@@ -231,7 +231,11 @@ class SQLConnection(base_classes.MetricLoader):
 
     @property
     def run(self) -> Run:
-        """The current run."""
+        """The current run.
+
+        Raises:
+            AccessOutsideScopeError: if there is no active run.
+        """
         if self._run is None:
             raise exceptions.AccessOutsideScopeError()
 
@@ -283,6 +287,11 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
+        """Process metric events.
+
+        Raises:
+            TrackerError: if the source has not been registered.
+        """
         with self.session_factory() as session:
             if event.source_name not in self._sources:
                 msg = f'Source {event.source_name} has not been registered.'

@@ -177,7 +177,7 @@ class Tracker(metaclass=abc.ABCMeta):
             The instance of the tracker registered to the current experiment.
 
         Raises:
-            TrackerNotRegisteredError: if the tracker is not registered.
+            TrackerNotActiveError: if the tracker is not registered.
         """
         if cls._current is None:
             raise exceptions.TrackerNotActiveError(cls.__name__)
@@ -221,6 +221,10 @@ class EventDispatcher:
 
         Args:
             event: the event to publish.
+
+        Raises:
+            KeyboardInterrupt: if a tracker raises KeyboardInterrupt.
+            SystemExit: if a tracker raises SystemExit.
         """
         to_be_removed = list[str]()
         for name, tracker in self.named_trackers.items():
@@ -290,7 +294,8 @@ class EventDispatcher:
             tracker_name: name of the tracker to remove.
 
         Raises:
-            TrackerNotRegisteredError: if the tracker is not registered.
+        Raises:
+            TrackerNotActiveError: if the tracker is not registered.
         """
         try:
             self.named_trackers.pop(tracker_name)

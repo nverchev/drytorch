@@ -208,7 +208,10 @@ class Experiment(Generic[_T_co]):
             record: record the run in the registry.
 
         Returns:
-            Run: The created run object.
+            The created run object.
+
+        Raises:
+            RunAlreadyRecordedError: if creating a new run with an existing id.
         """
         if run_id is not None:
             _validate_chars(run_id)
@@ -289,7 +292,11 @@ class Experiment(Generic[_T_co]):
 
     @property
     def run(self) -> Run[_T_co]:
-        """Get the current run."""
+        """Get the current run.
+
+        Raises:
+            NoActiveExperimentError: if no run is currently active.
+        """
         if self._active_run is None:
             raise exceptions.NoActiveExperimentError(self.name)
 
@@ -307,7 +314,11 @@ class Experiment(Generic[_T_co]):
 
     @classmethod
     def get_current(cls) -> Self:
-        """Return the currently active experiment."""
+        """Return the currently active experiment.
+
+        Raises:
+            NoActiveExperimentError: if no experiment is currently active.
+        """
         if Experiment.__current is None:
             raise exceptions.NoActiveExperimentError()
 
@@ -318,7 +329,11 @@ class Experiment(Generic[_T_co]):
 
     @staticmethod
     def set_current(experiment: Experiment[_T_co]) -> None:
-        """Set an experiment as active."""
+        """Set an experiment as active.
+
+        Raises:
+            NestedScopeError: if there is an already active run.
+        """
         if (old_exp := Experiment.__current) is not None:
             raise exceptions.NestedScopeError(old_exp.name, experiment.name)
 

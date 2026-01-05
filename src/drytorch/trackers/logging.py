@@ -336,7 +336,11 @@ def enable_propagation(deduplicate_stream: bool = True) -> None:
 
 
 def set_formatter(style: Literal['drytorch', 'progress']) -> None:
-    """Set the formatter for the stream handler of the drytorch logger."""
+    """Set the formatter for the stream handler of the drytorch logger.
+
+    Raises:
+        ValueError: if the style is not 'drytorch' or 'progress'.
+    """
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
             if style == 'progress':

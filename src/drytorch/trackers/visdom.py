@@ -123,7 +123,11 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
 
     @property
     def viz(self) -> visdom.Visdom:
-        """The active Visdom instance."""
+        """The active Visdom instance.
+
+        Raises:
+            AccessOutsideScopeError: if no run has been started yet.
+        """
         if self._viz is None:
             raise exceptions.AccessOutsideScopeError()
 
@@ -141,6 +145,11 @@ class VisdomPlotter(base_classes.BasePlotter[str]):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        """Start the experiment and connect to the server.
+
+        Raises:
+            TrackerError: if the server is not available.
+        """
         env = event.exp_name + '_' + event.run_id
         try:
             self._viz = visdom.Visdom(

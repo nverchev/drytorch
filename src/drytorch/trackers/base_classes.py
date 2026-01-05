@@ -60,7 +60,11 @@ class Dumper(track.Tracker):
 
     @property
     def par_dir(self) -> pathlib.Path:
-        """Return the parent directory for the experiments."""
+        """Return the parent directory for the experiments.
+
+        Raises:
+            AccessOutsideScopeError: when the default folder is not available.
+        """
         if self.user_par_dir is None:
             if self._par_dir is None:
                 raise exceptions.AccessOutsideScopeError()
@@ -72,7 +76,11 @@ class Dumper(track.Tracker):
 
     @property
     def run_id(self) -> str:
-        """Return the identifier for the experiment run."""
+        """Return the identifier for the experiment run.
+
+        Raises:
+            AccessOutsideScopeError: when the id of the run is not available.
+        """
         if self._run_id is None:
             raise exceptions.AccessOutsideScopeError()
 
@@ -80,7 +88,11 @@ class Dumper(track.Tracker):
 
     @property
     def exp_name(self) -> str:
-        """Return the name of the experiment."""
+        """Return the name of the experiment.
+
+        Raises:
+            AccessOutsideScopeError: when the name id not available.
+        """
         if self._exp_name is None:
             raise exceptions.AccessOutsideScopeError()
 
@@ -137,6 +149,9 @@ class MetricLoader(track.Tracker, abc.ABC):
 
         Returns:
             The current epochs and named metric values by the source.
+
+        Raises:
+            ValueError: if max_epoch is less than -1.
         """
         if max_epoch == 0:
             return {}
@@ -287,6 +302,10 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
 
         Returns:
             References to the plot objects or windows depending on the backend.
+
+        Raises:
+            ValueError: if start_epoch is less than 1.
+            ValueError: if the model is not found.
         """
         if start_epoch < 1:
             raise ValueError('Start epoch must be positive.')

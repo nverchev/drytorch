@@ -76,7 +76,11 @@ class TensorBoard(base_classes.Dumper):
 
     @property
     def writer(self) -> tensorboard.SummaryWriter:
-        """The active SummaryWriter instance."""
+        """The active SummaryWriter instance.
+
+        Raises:
+            AccessOutsideScopeError: if no run has been started yet.
+        """
         if self._writer is None:
             raise exceptions.AccessOutsideScopeError()
 

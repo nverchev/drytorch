@@ -133,7 +133,11 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     @property
     def model(self):
-        """The registered model to be saved and loaded."""
+        """The registered model to be saved and loaded.
+
+        Raises:
+            CheckpointNotInitializedError: if no model has been bound.
+        """
         if self._model is None:
             raise exceptions.CheckpointNotInitializedError()
 

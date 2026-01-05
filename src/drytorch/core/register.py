@@ -33,6 +33,9 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
 
     Args:
         model: the model to register.
+
+    Raises:
+        ModuleAlreadyRegisteredError: if the module is already registered.
     """
     run: experiment.Run[Any] = experiment.Experiment.get_current().run
     id_module = id(model.module)
@@ -52,6 +55,10 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
     Args:
         actor: the object to document.
         model: the model that the object acts on.
+
+    Raises:
+        ModuleNotRegisteredError: if the module is not registered in the
+            current experiment run.
     """
     run: experiment.Run[Any] = experiment.Experiment.get_current().run
     id_module = id(model.module)

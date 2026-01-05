@@ -49,6 +49,9 @@ class HydraLink(base_classes.Dumper):
             copy_hydra: if True, copy the hydra folder content at the end of the
                 experiment's scope, replacing the link folder.
             hydra_dir: the directory where hydra saves the run.
+
+        Raises:
+            TrackerError: if hydra has not started (hydra_dir does not exist).
         """
         super().__init__(par_dir)
         if hydra_dir is None:

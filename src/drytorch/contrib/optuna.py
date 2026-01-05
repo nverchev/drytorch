@@ -13,6 +13,7 @@ from drytorch.lib import hooks
 
 
 __all__ = [
+    'OptunaError',
     'TrialCallback',
     'get_final_value',
     'suggest_overrides',
@@ -88,6 +89,9 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
 
         Args:
             instance: Trainer instance to evaluate.
+
+        Raises:
+            optuna.TrialPruned: if the trial should be pruned.
         """
         self.monitor.record_metric_value(instance)
         epoch = instance.model.epoch
@@ -159,6 +163,9 @@ def suggest_overrides(
 
     Returns:
         A list of strings for hydra configuration overrides.
+
+    Raises:
+        OptunaError: if the suggest configuration is invalid.
     """
     all_overrides: list[str] = [*tune_cfg.overrides]
     for setting_name, param_value in tune_cfg.tune.params.items():
@@ -228,7 +235,7 @@ def get_final_value(
         The aggregated final value for the trial.
 
     Raises:
-        DryTorchException: if the trial has no reported values, or if there's
+        OptunaError: if the trial has no reported values, or if there's
             a trial number mismatch.
     """
     current_study = trial.study

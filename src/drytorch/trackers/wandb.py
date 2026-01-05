@@ -18,6 +18,7 @@ from drytorch.utils import repr_utils
 
 __all__ = [
     'Wandb',
+    'WandbWarning',
 ]
 
 
@@ -59,7 +60,11 @@ class Wandb(Dumper):
 
     @property
     def run(self) -> wandb_run.Run:
-        """Active wandb run instance."""
+        """Active wandb run instance.
+
+        Raises:
+            AccessOutsideScopeError: if no run has been started yet.
+        """
         if self._run is None:
             raise exceptions.AccessOutsideScopeError()
 
@@ -127,6 +132,11 @@ class Wandb(Dumper):
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
+        """Process metric events.
+
+        Raises:
+            AccessOutsideScopeError: if called outside an active run scope.
+        """
         if self.run is None:
             raise exceptions.AccessOutsideScopeError()
 
