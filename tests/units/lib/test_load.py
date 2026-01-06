@@ -190,7 +190,13 @@ def test_check_dataset_length_fail() -> None:
 
 def test_get_n_batches() -> None:
     """Test n_batches calculates batch count correctly."""
-    assert get_n_batches(10, 3, 3) == 6
-    assert get_n_batches(10, 3, 2) == 4
-    assert get_n_batches(10, 5, 2) == 2
-    assert get_n_batches(0, 3, 1) == 0
+    assert get_n_batches(10, 3, 3, False) == 6
+    assert get_n_batches(10, 3, 2, False) == 4
+    assert get_n_batches(11, 5, 2, False) == 4
+    assert get_n_batches(10, 5, 2, False) == 2
+    assert get_n_batches(0, 3, 1, False) == 0
+    assert get_n_batches(10, 3, 3, True) == 3
+    assert get_n_batches(11, 5, 2, True) == 2
+    assert get_n_batches(10, 3, 2, True) == 2
+    assert get_n_batches(10, 5, 2, True) == 2
+    assert get_n_batches(0, 3, 1, True) == 0

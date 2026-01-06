@@ -186,12 +186,11 @@ class DataLoader(p.LoaderProtocol[Data]):
 
     @override
     def __len__(self) -> int:
+        dataset_len = self.dataset_len
         batch_size = _validate_batch_size(self.batch_size)
-        if torch.is_inference_mode_enabled():  # drop_last is true
-            n_processes = dist.get_world_size() if self._distributed else 1
-            return get_n_batches(self.dataset_len, batch_size, n_processes)
-
-        return self.dataset_len // batch_size
+        drop_last = torch.is_inference_mode_enabled()
+        n_processes = dist.get_world_size() if self._distributed else 1
+        return get_n_batches(dataset_len, batch_size, n_processes, drop_last)
 
     def get_dataset(self) -> data.Dataset[Data]:
         """Returns the dataset."""
@@ -321,23 +320,26 @@ def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
     raise exceptions.DatasetHasNoLengthError()
 
 
-def get_n_batches(dataset_len: int, batch_size: int, n_processes: int) -> int:
+def get_n_batches(
+    dataset_len: int, batch_size: int, n_processes: int, drop_last: bool
+) -> int:
     """Calculate the number of batches in a dataset.
 
     Args:
         dataset_len: length of the dataset.
         batch_size: size of each batch.
         n_processes: number of processes used for data loading.
+        drop_last: whether to drop the last batch if incomplete.
 
     Returns:
         Total number of batches, including partial batches.
     """
     n_batches, remainder = divmod(dataset_len, batch_size)
-    if remainder:
+    if remainder and not drop_last:
         n_batches += 1
 
     n_rounds, remainder = divmod(n_batches, n_processes)
-    if remainder:
+    if remainder and not drop_last:
         n_rounds += 1
 
     return n_rounds * n_processes
