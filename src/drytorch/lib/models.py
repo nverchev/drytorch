@@ -259,9 +259,6 @@ class ModelOptimizer:
     """Bundle the module and its optimizer.
 
     It supports different learning rates to separate parameters' groups.
-
-    Attributes:
-        base_lr: learning rate(s) for the module parameters.
     """
 
     _model: p.ModelProtocol
