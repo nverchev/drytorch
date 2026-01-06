@@ -28,6 +28,8 @@ To define an experiment, subclass the DRYTorch's `Experiment` class specifying t
 The `Experiment` class needs a name unique for each instance and accepts tags and a directory for logging as optional arguments, which is communicated to trackers.
 
 ```{code-cell} ipython3
+:tags: [no-execute]
+
 ! uv pip install drytorch
 ```
 

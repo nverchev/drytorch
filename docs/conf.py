@@ -61,6 +61,7 @@ myst_enable_extensions = [
 myst_fence_as_directive = ['mermaid']
 nb_execution_mode = 'cache'
 nb_execution_cache_path = '_build/.jupyter_cache'
+nb_execution_excludetags = {'no-execute'}
 
 # General configuration
 templates_path = ['_templates']
