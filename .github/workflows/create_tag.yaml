@@ -25,24 +25,6 @@ jobs:
       run: |
         VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb')).get('project', {}).get('version', ''))")
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "📦 Version: $VERSION"
-
-    - name: Build documentation cache
-      env:
-        DRYTORCH_INIT_MODE: 'minimal'
-      run: |
-        cd docs
-        rm -rf _build
-        rm -rf _autosummary
-        uv run sphinx-build -b html . _build/html
-
-    - name: Commit cache
-      run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-        git add docs/_build/.jupyter_cache/
-        git commit -m "docs: build jupyter cache for Version ${{ steps.get_version.outputs.version }}"
-        git push
 
     - name: Create tag
       run: |
