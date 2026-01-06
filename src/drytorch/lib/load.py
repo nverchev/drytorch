@@ -188,7 +188,7 @@ class DataLoader(p.LoaderProtocol[Data]):
     def __len__(self) -> int:
         dataset_len = self.dataset_len
         batch_size = _validate_batch_size(self.batch_size)
-        drop_last = torch.is_inference_mode_enabled()
+        drop_last = not torch.is_inference_mode_enabled()
         n_processes = dist.get_world_size() if self._distributed else 1
         return get_n_batches(dataset_len, batch_size, n_processes, drop_last)
 
