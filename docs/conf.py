@@ -65,6 +65,7 @@ myst_fence_as_directive = ['mermaid']
 # Notebook execution configuration
 nb_execution_mode = 'cache'
 nb_execution_cache_path = os.path.join(CONF_DIR, 'jupyter_cache')
+nb_execution_timeout = 600
 
 # General configuration
 templates_path = ['_templates']
