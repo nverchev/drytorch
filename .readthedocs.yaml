@@ -9,7 +9,6 @@ build:
   commands:
     - pip install uv
     - uv pip install --system ".[docs]"
-    - export DRYTORCH_INIT_MODE="minimal"
     - uv run sphinx-build docs $READTHEDOCS_OUTPUT/html
 
 sphinx:
