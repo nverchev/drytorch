@@ -36,6 +36,8 @@ A **tracker** is an object responsible for **logging and plotting**. It:
 * Does **not** alter the behavior of other trackers. Trackers are completely independent.
 
 ```{code-cell} ipython2
+:tags: [skip-execution]
+
 ! uv pip install drytorch
 ```
 

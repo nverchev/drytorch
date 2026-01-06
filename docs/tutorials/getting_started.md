@@ -31,6 +31,8 @@ DRYTorch’s only mandatory dependencies are `numpy` and `torch`. For enhanced f
 The cell below uses [`uv`](https://docs.astral.sh/uv/) as package manager.
 
 ```{code-cell} ipython3
+:tags: [skip-execution]
+
 ! uv pip install drytorch
 ```
 

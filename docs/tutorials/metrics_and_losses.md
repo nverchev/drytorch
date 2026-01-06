@@ -35,6 +35,8 @@ DRYTorch allows using losses as metrics, but not vice versa.
 DRYTorch defines an `ObjectiveProtocol`, used by classes that implement the validation and testing of a model, and a `LossProtocol`, used for its training.
 
 ```{code-cell} ipython3
+:tags: [skip-execution]
+
 ! uv pip install drytorch
 ```
 
