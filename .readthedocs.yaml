@@ -7,10 +7,7 @@ build:
   tools:
     python: "3.12"
   commands:
-    - pip install uv
-    - uv pip install --system ".[docs]"
-    - uv run sphinx-build docs $READTHEDOCS_OUTPUT/html
-
-sphinx:
-  configuration: docs/conf.py
-  fail_on_warning: false
+      - curl -LsSf https://astral.sh/uv/install.sh | sh
+      - . $HOME/.cargo/env
+      - uv sync --all-extras
+      - uv run sphinx-build -b html docs $READTHEDOCS_OUTPUT/html
