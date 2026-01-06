@@ -641,29 +641,24 @@ run.stop()
 
 # Data Distributed Training
 
-DRYTorch supports data-distributed training for linux operative systems. Since
-hardware settings vary according to the user access to processing power,
-DRYTorch does not provide a default setting for data-distributed training.
-Instead, it is up to the user to define the data-parallelism strategy.
+DRYTorch supports data-distributed processing. DRYTorch does not provide a
+default setting for data-distributed training but lets the user define the
+data-parallelism strategy.
+
 The user needs to set up the distributed training environment and indicate
-explicitly set the device for each process. For more advanced distributed
-training strategies (model sharding, data parallelism + data-distributed
-parallelism, etc.), it is recommended to subclass DRYTorch's `Model` and
-`LocalCheckpoint` classes.
+explicitly set the device for each process. DRYTorch library implementation
+will do the rest (distributed loading, consistent checkpointing,
+parallelized model, synchronized metrics, and deduplicated logging).
 
-See [the official tutorial](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html)
-for more details.
-
-Logging and checkpointing will be exclusively handled by the process of rank 0.
+For more advanced distributed training strategies (model sharding,
+data parallelism + data-distributed parallelism, etc.), it is recommended
+to subclass DRYTorch's `Model` and `LocalCheckpoint` classes.
 
 ## Define train worker:
+The pipeline for distributed training is the same as before.
 
-We use the same objects that we used for the single process training.
-
-When running distributed code, DRYTorch's `Loader` will use the `torch.utils
-.data.distributed.DistributedSampler` sampler by default, DRYTorch `Model`
-will wrap the module within `torch.nn.parallel.DistributedDataParallel` by
-default, and synchronization will be handled by the `Trainer` and `Objective` classes.
+To set up and clean up the distributed environment, see the [official tutorial]
+(https://pytorch.org/tutorials/intermediate/ddp_tutorial.html).
 
  To see how to extend distributed support to metrics from `torchmetrics` and
  `torcheval`, see the `metrics_and_losses` tutorial.
