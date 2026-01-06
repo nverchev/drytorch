@@ -11,5 +11,4 @@ __pycache__/
 **/.drytorch/
 **/experiments/
 docs/_autosummary/
-docs/_build/*
-!docs/_build/.jupyter_cache/
+docs/_build/

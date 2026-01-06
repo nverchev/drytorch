@@ -9,4 +9,4 @@ build:
   commands:
       - pip install uv
       - uv sync --all-extras
-      - uv run sphinx-build -b html docs $READTHEDOCS_OUTPUT/html
+      - DRYTORCH_INIT_MODE='minimal' uv run sphinx-build -b html docs $READTHEDOCS_OUTPUT/html
