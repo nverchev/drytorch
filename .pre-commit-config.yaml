@@ -34,6 +34,7 @@ repos:
         args: [ --sync ]
         additional_dependencies: [ jupytext ]
         files: '\.ipynb$'
+        exclude: '^docs/_build/'
 
   - repo: https://github.com/DetachHead/basedpyright-prek-mirror
     rev: 1.32.1
