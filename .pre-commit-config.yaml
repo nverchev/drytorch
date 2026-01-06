@@ -1,9 +1,12 @@
+exclude: '^docs/_build/'
 repos:
 
   - repo: https://github.com/kynan/nbstripout
     rev: 0.8.1
     hooks:
       - id: nbstripout
+        exclude: '^docs/_build/'
+
 
   - repo: https://github.com/mwouts/jupytext
     rev: v1.18.1
@@ -12,6 +15,7 @@ repos:
         args: [ --sync ]
         additional_dependencies: [ jupytext ]
         files: '\.ipynb$'
+
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

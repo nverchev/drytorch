@@ -1,0 +1,32 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Install uv and set the Python version
+      uses: astral-sh/setup-uv@v6
+      with:
+        python-version: "3.12"
+        enable-cache: true
+
+    - name: Install dependencies
+      run: uv sync --all-extras
+
+    - name: Read version using uv
+      id: get_version
+      run: |
+        VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb')).get('project', {}).get('version', ''))")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create tag
+      run: |
+        git tag v${{ steps.get_version.outputs.version }} -m "Version ${{ steps.get_version.outputs.version }}"
+        git push origin v${{ steps.get_version.outputs.version }}

@@ -5,14 +5,17 @@ import sys
 import tomllib
 
 
-sys.path.insert(0, os.path.abspath('../src'))
-with open('../pyproject.toml', 'rb') as f:
+# Get the absolute path of the directory containing this file (docs/)
+CONF_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# Correctly point to src relative to this file
+sys.path.insert(0, os.path.join(os.path.dirname(CONF_DIR), 'src'))
+
+with open(os.path.join(os.path.dirname(CONF_DIR), 'pyproject.toml'), 'rb') as f:
     pyproject = tomllib.load(f)
     project = pyproject['project']['name']
     release = pyproject['project']['version']
     author = pyproject['project']['authors'][0]['name']
-
-templates_path = ['_templates']
 
 # Extensions
 extensions = [
@@ -51,7 +54,6 @@ napoleon_include_special_with_doc = True
 napoleon_use_param = True
 napoleon_use_rtype = True
 
-
 # MyST configuration
 myst_enable_extensions = [
     'colon_fence',
@@ -59,7 +61,11 @@ myst_enable_extensions = [
     'deflist',
 ]
 myst_fence_as_directive = ['mermaid']
-nb_execution_mode = 'auto'
+
+# Notebook execution configuration
+nb_execution_mode = 'cache'
+nb_execution_cache_path = os.path.join(CONF_DIR, 'jupyter_cache')
+nb_execution_timeout = 600
 
 # General configuration
 templates_path = ['_templates']

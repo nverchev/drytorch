@@ -10,6 +10,5 @@ __pycache__/
 **/htmlcov/
 **/.drytorch/
 **/experiments/
-docs/_build/
 docs/_autosummary/
-docs/jupyter_execute/
+docs/_build/
