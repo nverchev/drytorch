@@ -1,7 +1,16 @@
+## [0.1.0rc3] - 2026-01-07
+
+### Changed
+- Corrected error when calculating the actual number of batches for ddp.
+- Improved documentation and sphinx build configuration.
+- New release pipeline.
+
+
 ## [0.1.0rc2] - 2025-12-11
 
 ### Changed
-- Simplified TensorBoard tracker.
+- simplified TensorBoard tracker.
+- checkpointing automatically wraps/unwraps parallelized modules.
 
 ### Added
 - support for multiprocessing for Experiment class
@@ -12,6 +21,7 @@
 - added optional compile and distributed functionalities to the Model class
 - extended test coverage
 
+
 ## [0.1.0rc1] - 2025-11-25
 
 ### [BREAKING CHANGES]
@@ -20,6 +30,7 @@
 
 ### Changed
 - now possible to change the maximum depth of the automatic documentation
+
 
 ## [0.1.0b5] - 2025-11-23
 
