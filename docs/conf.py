@@ -114,9 +114,9 @@ def customize_signature(
 ) -> tuple[str | None, str | None]:
     """Simplify Wandb default setting representation."""
     if signature is not None and name == 'drytorch.trackers.wandb.Wandb':
-        pattern = 'Settings'
+        pattern = ' Settings'
         index = signature.find(pattern)
-        signature = signature[:index] + 'wandb.sdk.wandb_settings.Settings())'
+        signature = signature[:index] + ' wandb.sdk.wandb_settings.Settings())'
 
     return signature, return_annotation
 
