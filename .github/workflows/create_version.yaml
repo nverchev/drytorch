@@ -1,0 +1,84 @@
+name: Create Version
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Ensure main branch
+        run: |
+          BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          if [ "$BRANCH" != "main" ]; then
+            echo "This workflow can only run on main (current: $BRANCH)"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read and convert version (PEP 440 → SemVer)
+        id: version
+        run: |
+          python - <<'PY'
+          import re, tomllib
+
+          with open("pyproject.toml", "rb") as f:
+              raw = tomllib.load(f)["project"]["version"]
+
+          pep440 = re.compile(
+              r"^(?P<base>\d+\.\d+\.\d+)"
+              r"(?:(?P<pre>a|b|rc)(?P<pre_n>\d+))?"
+              r"(?:(?:\.post)(?P<post_n>\d+))?$"
+          )
+
+          m = pep440.fullmatch(raw)
+          if not m:
+              raise SystemExit(f"Unsupported PEP 440 version: {raw}")
+
+          base = m["base"]
+          semver = base
+
+          if m["pre"]:
+              label = {"a": "alpha", "b": "beta", "rc": "rc"}[m["pre"]]
+              semver += f"-{label}.{m['pre_n']}"
+
+          if m["post_n"]:
+              semver += f"+post.{m['post_n']}"
+
+          print(f"raw={raw}")
+          print(f"semver={semver}")
+          PY
+
+      - name: Fetch and prune tags
+        run: git fetch --tags --prune
+
+      - name: Check version monotonicity
+        run: |
+          NEW="${{ steps.version.outputs.semver }}"
+          LATEST=$(git tag --list 'v*' | sed 's/^v//' | sort -V | tail -n1)
+
+          if [ -n "$LATEST" ] && \
+             [ "$(printf '%s\n' "$LATEST" "$NEW" | sort -V | tail -n1)" != "$NEW" ]; then
+            echo "Version $NEW is not greater than existing $LATEST"
+            exit 1
+          fi
+
+      - name: Fail if tag already exists
+        run: |
+          VERSION="${{ steps.version.outputs.semver }}"
+          if git ls-remote --tags origin "v$VERSION" | grep -q .; then
+            echo "Tag v$VERSION already exists"
+            exit 1
+          fi
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ steps.version.outputs.semver }}"
+          git tag "v$VERSION" -m "Version $VERSION"
+          git push origin "v$VERSION"
