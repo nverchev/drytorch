@@ -12,3 +12,4 @@ __pycache__/
 **/experiments/
 docs/_autosummary/
 docs/_build/
+docs/jupyter_cache
