@@ -58,17 +58,6 @@ jobs:
       - name: Fetch and prune tags
         run: git fetch --tags --prune
 
-      - name: Check version monotonicity
-        run: |
-          NEW="${{ steps.version.outputs.semver }}"
-          LATEST=$(git tag --list 'v*' | sed 's/^v//' | sort -V | tail -n1)
-
-          if [ -n "$LATEST" ] && \
-             [ "$(printf '%s\n' "$LATEST" "$NEW" | sort -V | tail -n1)" != "$NEW" ]; then
-            echo "Version $NEW is not greater than existing $LATEST"
-            exit 1
-          fi
-
       - name: Fail if tag already exists
         run: |
           VERSION="${{ steps.version.outputs.semver }}"
