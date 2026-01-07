@@ -239,8 +239,14 @@ class BuiltinLogger(track.Tracker):
 class DryTorchFilter(logging.Filter):
     """Filter that excludes logs from 'drytorch'."""
 
+    def __init__(self) -> None:
+        """Initialize."""
+        super().__init__()
+        return
+
     @override
     def filter(self, record: logging.LogRecord) -> bool:
+        """Filter logs propagated by the library logger."""
         return 'drytorch' not in record.name
 
 
@@ -253,8 +259,14 @@ class DryTorchFormatter(logging.Formatter):
 
     default_msec_format: ClassVar[str] = ''
 
+    def __init__(self) -> None:
+        """Initialize."""
+        super().__init__()
+        return
+
     @override
     def format(self, record: logging.LogRecord) -> str:
+        """Format the log record."""
         self._style._fmt = self._info_fmt(record.levelno)
         return super().format(record)
 

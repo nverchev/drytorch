@@ -4,6 +4,11 @@ import os
 import sys
 import tomllib
 
+from typing import Any
+
+from sphinx.application import Sphinx
+from sphinx.ext.autodoc import Options
+
 
 # Get the absolute path of the directory containing this file (docs/)
 CONF_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -36,11 +41,11 @@ autodoc_member_order = 'bysource'
 autodoc_default_options = {
     'members': True,
     'special-members': '__call__',
-    'inherited-members': True,
     'show-inheritance': True,
+    'private-members': False,
 }
 
-autodoc_typehints = 'description'
+autodoc_typehints = 'both'
 autodoc_typehints_description_target = 'all'
 autodoc_typehints_format = 'short'
 
@@ -75,6 +80,7 @@ exclude_patterns = [
     '.DS_Store',
     'tutorials/*.ipynb',
     'jupyter_execute',
+    'jupyter_cache',
 ]
 
 # HTML output configuration
@@ -92,4 +98,29 @@ intersphinx_mapping = {
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'matplotlib': ('https://matplotlib.org/stable/', None),
     'optuna': ('https://optuna.readthedocs.io/en/stable/', None),
+    'sqlalchemy': ('https://docs.sqlalchemy.org/en/20/', None),
+    'plotly': ('https://plotly.com/python-api-reference/', None),
 }
+
+
+def customize_signature(
+    app: Sphinx,
+    what: str,
+    name: str,
+    obj: Any,
+    options: Options,
+    signature: str | None,
+    return_annotation: str | None,
+) -> tuple[str | None, str | None]:
+    """Simplify Wandb default setting representation."""
+    if signature is not None and name == 'drytorch.trackers.wandb.Wandb':
+        pattern = 'Settings'
+        index = signature.find(pattern)
+        signature = signature[:index] + 'wandb.sdk.wandb_settings.Settings())'
+
+    return signature, return_annotation
+
+
+def setup(app: Sphinx) -> None:
+    """Custom setup function."""
+    app.connect('autodoc-process-signature', customize_signature)
