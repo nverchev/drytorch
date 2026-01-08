@@ -42,7 +42,6 @@ class EpochBar:
     )
     seen_str: ClassVar[str] = 'Samples'
     color: ClassVar[str] = 'green'
-
     pbar: tqdm.tqdm
     _batch_size: int | None
     _n_samples: int
@@ -95,13 +94,8 @@ class EpochBar:
             n_processes: the number of processes used for data loading.
         """
         monitor_seen: dict[str, int | str]
-        last_epoch = self.pbar.n >= self._n_iter - n_processes
         if self._batch_size is not None:
-            if last_epoch:
-                self._epoch_seen = self._n_samples
-            else:
-                self._epoch_seen += self._batch_size * n_processes
-
+            self._epoch_seen += self._batch_size * n_processes
             monitor_seen = {self.seen_str: self._epoch_seen}
         else:
             monitor_seen = {self.seen_str: '?'}
@@ -113,6 +107,10 @@ class EpochBar:
         monitor_dict = monitor_seen | monitor_metric
         self.pbar.set_postfix(monitor_dict, refresh=False)
         self.pbar.update(n_processes)
+        last_epoch = self.pbar.n >= self._n_iter - n_processes
+        if last_epoch:
+            self.pbar.close()
+
         return
 
 
@@ -151,7 +149,7 @@ class TrainingBar:
             start_epoch: the epoch from which the bar should start.
             end_epoch: the epoch where the bar should end.
             file: the stream where to flush the bar.
-            leave: If True, leave bar once the iterations have completed.
+            leave: If True, leave the bar once the iterations have completed.
         """
         self.pbar = tqdm.trange(
             start_epoch,
@@ -200,8 +198,8 @@ class TqdmLogger(track.Tracker):
             file: the stream where to flush the bar.
 
         Note:
-            enable the training bar only if two progress bars are supported,
-            and there is no other logger or printer streaming there.
+            Enable the training bar only if two progress bars are supported,
+            and there is no other logger or printer streaming.
         """
         super().__init__()
         self._leave = leave
