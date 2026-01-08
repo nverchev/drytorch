@@ -179,8 +179,12 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     @staticmethod
     def _default_device() -> torch.device:
-        device_or_none = torch.accelerator.current_accelerator()
-        return torch.device('cpu') if device_or_none is None else device_or_none
+        device = torch.accelerator.current_accelerator()
+        if device is not None:
+            index = torch.accelerator.current_device_index()
+            return torch.device(device.type, index)
+
+        return torch.device('cpu')
 
     @staticmethod
     def _validate_module(
