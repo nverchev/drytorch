@@ -1,3 +1,8 @@
+## [Unreleased] - 2026-01-07
+- Get model's device index from global settings
+- Explicitly closing pbar after the last epoch
+
+
 ## [0.1.0rc3] - 2026-01-07
 
 ### Changed
