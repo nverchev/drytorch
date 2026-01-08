@@ -94,8 +94,12 @@ class EpochBar:
             n_processes: the number of processes used for data loading.
         """
         monitor_seen: dict[str, int | str]
+        last_epoch = self.pbar.n >= self._n_iter - n_processes
         if self._batch_size is not None:
             self._epoch_seen += self._batch_size * n_processes
+            if last_epoch:
+                self._epoch_seen = min(self._epoch_seen, self._n_samples)
+
             monitor_seen = {self.seen_str: self._epoch_seen}
         else:
             monitor_seen = {self.seen_str: '?'}
@@ -107,7 +111,6 @@ class EpochBar:
         monitor_dict = monitor_seen | monitor_metric
         self.pbar.set_postfix(monitor_dict, refresh=False)
         self.pbar.update(n_processes)
-        last_epoch = self.pbar.n >= self._n_iter - n_processes
         if last_epoch:
             self.pbar.close()
 

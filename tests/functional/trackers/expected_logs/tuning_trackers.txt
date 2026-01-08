@@ -3,4 +3,4 @@
 Epoch: 7 / 8: 100%|##########| 3/3
 [2024-01-01 12:00:00] - Training ended.
 [2024-01-01 12:00:00] - Testing test_model started.
-    test_source: 100%|##########| 5/5, Samples=1600, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
+    test_source: 100%|##########| 5/5, Samples=160, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
