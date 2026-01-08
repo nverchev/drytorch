@@ -192,10 +192,6 @@ class DataLoader(p.LoaderProtocol[Data]):
         n_processes = dist.get_world_size() if self._distributed else 1
         return get_n_batches(dataset_len, batch_size, n_processes, drop_last)
 
-    def get_dataset(self) -> data.Dataset[Data]:
-        """Returns the dataset."""
-        return self.dataset
-
     def get_loader(
         self,
         inference: bool,

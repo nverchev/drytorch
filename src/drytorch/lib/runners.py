@@ -200,7 +200,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 )
 
         self.outputs_list.clear()
-        n_samples = load.validate_dataset_length(self.loader.get_dataset())
+        n_samples = load.validate_dataset_length(self.loader.dataset)
         self._check_divisibility(n_samples)
         n_processes = dist.get_world_size() if self._is_distributed else 1
         pbar = log_events.IterateBatchEvent(

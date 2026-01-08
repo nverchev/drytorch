@@ -1,6 +1,9 @@
 ## [Unreleased] - 2026-01-07
+
+### Changed
 - Get model's device index from global settings
 - Explicitly closing pbar after the last epoch
+- Removed redundant get_dataset method
 
 
 ## [0.1.0rc3] - 2026-01-07

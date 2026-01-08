@@ -68,11 +68,9 @@ class LoaderProtocol(Protocol[_Data_co]):
         batch_size: the batch size.
     """
 
+    dataset: data.Dataset[_Data_co]
     batch_size: int | None
     sampler: torch.utils.data.Sampler[Any] | Iterable[Any]
-
-    def get_dataset(self) -> data.Dataset[_Data_co]:
-        """Returns the dataset."""
 
     def __iter__(self) -> Iterator[_Data_co]:
         """Return an iterator over the dataset in batches."""
