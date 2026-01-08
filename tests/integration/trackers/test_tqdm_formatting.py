@@ -14,7 +14,7 @@ except ImportError:
     raise
 
 
-expected_out = (
+EXPECTED_OUT = (
     'Epoch::   0%|\x1b[34m          \x1b[0m| 0/3\r'
     'Epoch: 5 / 8:  33%|\x1b[34m###3      \x1b[0m| 1/3\n'
     '\r'
@@ -28,7 +28,9 @@ expected_out = (
     '                                     \x1b[A\r'
     'Epoch: 5 / 8: 100%|\x1b[34m##########\x1b[0m| 3/3\n'
     '\r'
-    '    test_source:   0%|\x1b[32m          \x1b[0m| 0/5\x1b[A\r'
+    '    test_source:   0%|\x1b[32m          \x1b[0m| 0/5\x1b[A\n'
+    '\r'
+    '                                     \x1b[A\r'
     'Epoch: 5 / 8: 100%|\x1b[34m##########\x1b[0m| 3/3'
 )
 
@@ -91,7 +93,7 @@ class TestTqdmLoggerFullCycle:
         _notify_workflow(event_workflow, trackers, example_named_metrics)
 
         actual_output = string_stream.getvalue().strip()
-        assert actual_output == expected_out
+        assert actual_output == EXPECTED_OUT
 
 
 def _notify_workflow(
