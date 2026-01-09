@@ -101,7 +101,9 @@ class Trainer(
         return
 
     def add_validation(
-        self, val_loader: p.LoaderProtocol[tuple[Input, Target]]
+        self,
+        val_loader: p.LoaderProtocol[tuple[Input, Target]],
+        interval: int = 1,
     ) -> None:
         """Add a loader for validation with the same metrics as for training.
 
@@ -110,11 +112,21 @@ class Trainer(
 
         Args:
             val_loader: the loader for validation.
+            interval: the frequency of validation.
+
+        Raises:
+            ValueError: if the interval is not strictly positive.
         """
         validation = evaluations.Validation(
             self.model, loader=val_loader, metric=self.objective
         )
         val_hook = hooks.StaticHook(validation)
+        if interval < 1:
+            raise ValueError(f'Interval must larger than 0. Got {interval}.')
+
+        if interval > 1:
+            val_hook.bind(hooks.call_every(interval))
+
         self.post_epoch_hooks.register(val_hook)
         self.validation = validation
         return

@@ -5,6 +5,9 @@
 - Explicitly closing pbar after the last epoch
 - Removed redundant get_dataset method
 
+### Added
+- Added an interval parameter to Trainer add_validation
+
 
 ## [0.1.0rc3] - 2026-01-07
 

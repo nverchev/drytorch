@@ -70,6 +70,47 @@ class TestTrainer:
         with pytest.raises(exceptions.LossNotScalarError):
             trainer.train(1)
 
+    def test_add_validation(self, mocker, trainer, mock_validation) -> None:
+        """Test that validation is added correctly with interval handling."""
+        # Arrange
+        val_loader = mocker.Mock()
+        mock_hook = mocker.Mock()
+        mock_every = mocker.Mock()
+        mocker.patch(
+            'drytorch.lib.evaluations.Validation',
+            return_value=mock_validation,
+        )
+        mocker.patch(
+            'drytorch.lib.hooks.StaticHook',
+            return_value=mock_hook,
+        )
+        call_every = mocker.patch(
+            'drytorch.lib.hooks.call_every',
+            return_value=mock_every,
+        )
+        register = mocker.patch('drytorch.lib.hooks.HookRegistry.register')
+        interval = 3
+
+        trainer.add_validation(val_loader, interval=interval)
+
+        call_every.assert_called_once_with(interval)
+        mock_hook.bind.assert_called_once_with(mock_every)
+        register.assert_called_once_with(mock_hook)
+        assert trainer.validation is mock_validation
+
+    @pytest.mark.parametrize('interval', [0, -1])
+    def test_add_validation_raises_for_non_positive_interval(
+        self,
+        mocker,
+        trainer,
+        interval,
+    ) -> None:
+        """Test that validation raises an error for non-positive intervals."""
+        val_loader = mocker.Mock()
+
+        with pytest.raises(ValueError):
+            trainer.add_validation(val_loader, interval=interval)
+
     def test_terminate_training(self, trainer) -> None:
         """Test that terminated correctly stop training."""
         trainer.terminate_training(reason='This is a test.')
