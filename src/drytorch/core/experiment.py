@@ -69,11 +69,13 @@ class RunRegistry:
         """
         self.file_path = path
         self.lock_path = path.with_suffix('.json.lock')
-        self.file_path.parent.mkdir(parents=True, exist_ok=True)
         return
 
     def load_all(self) -> list[RunMetadata]:
         """Loads all run metadata from a JSON file."""
+        if not self.file_path.exists():
+            return []
+
         try:
             with self.file_path.open() as f:
                 data = json.load(f)
@@ -92,6 +94,7 @@ class RunRegistry:
         Args:
             run_metadata: the metadata for the run (id will be updated).
         """
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
         with filelock.FileLock(self.lock_path):
             run_data = self.load_all()
             run_data.append(run_metadata)
