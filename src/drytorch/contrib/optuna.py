@@ -242,8 +242,10 @@ def get_final_value(
     if filter_fn is None:
         filter_fn = min if current_study.direction.name == 'MINIMIZE' else max
 
-    frozen_trial = current_study.trials[-1]  # current trial as a FrozenTrial
-    if frozen_trial.number != trial.number:
+    for frozen_trial in reversed(current_study.trials):
+        if frozen_trial.number == trial.number:
+            break
+    else:
         raise OptunaError('trial number mismatch.')
 
     reported_values = list(frozen_trial.intermediate_values.values())
