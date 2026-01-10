@@ -1,21 +1,24 @@
-## [Unreleased] - 2026-01-07
-
-### Changed
-- Get model's device index from global settings
-- Explicitly closing pbar after the last epoch
-- Removed redundant get_dataset method
+## [Unreleased] -
 
 ### Added
 - Added an interval parameter to Trainer add_validation
 
+### Changed
+- Get model's device index from global settings
+- Removed redundant get_dataset method
+
+### Fixed
+- optuna get_best_trial_value works also with parallelization
+- Explicitly closing pbar after the last epoch
 
 ## [0.1.0rc3] - 2026-01-07
 
 ### Changed
-- Corrected error when calculating the actual number of batches for ddp.
-- Improved documentation and sphinx build configuration.
-- New release pipeline.
+- improved documentation and sphinx build configuration.
+- new release pipeline.
 
+### Fixed
+- corrected an error when calculating the actual number of batches for ddp.
 
 ## [0.1.0rc2] - 2025-12-11
 
@@ -50,7 +53,7 @@
 - extended README.md
 - support for notebooks when using TensorBoard
 - support for readable parameter names for optuna
-- add last git commit hash when available to run metadata
+- added last git commit hash when available to run metadata
 - architecture.md
 
 ### Changed
