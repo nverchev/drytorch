@@ -132,7 +132,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         cls = self.__class__
         result = cls.__new__(cls)
         for k, v in self.__dict__.items():
-            result.__dict__[k] = copy.deepcopy(v, memo)
+            setattr(result, k, copy.deepcopy(v, memo))
 
         return result
 

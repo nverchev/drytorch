@@ -84,7 +84,7 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         result.counts = copy.copy(self.counts)
         result._cached_reduce = {}
         for k, v in self.__dict__.items():
-            result.__dict__[k] = copy.deepcopy(v, memo)
+            setattr(result, k, copy.deepcopy(v, memo))
 
         return result
 
