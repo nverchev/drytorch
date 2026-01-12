@@ -56,4 +56,4 @@ The documentation includes:
 - **[Architecture Overview](https://drytorch.readthedocs.io/en/latest/architecture.html)** - Design principles and structure
 
 
-## 📝 **[Changelog](CHANGELOG.md)**
+## 📝 **[Changelog](https://github.com/nverchev/drytorch/blob/master/)**
