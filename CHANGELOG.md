@@ -1,4 +1,4 @@
-## [Unreleased] -
+## [0.1.0rc4] - 2026-01-12
 
 ### Added
 - added an interval parameter to Trainer add_validation
