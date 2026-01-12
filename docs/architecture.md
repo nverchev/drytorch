@@ -27,69 +27,75 @@ classDiagram
 direction TB
     class LoaderProtocol["LoaderProtocol[(Input, Target)]"] {
 	    batch_size : int | None
-        sampler: torch.utils.data.Sampler | Iterable
-	    +get_dataset() Data
-	    +__iter__() Iterator[(Input, Target) ]
-	    +__len__() int
-    }
-
-    class SchedulerProtocol {
-	    +__call__(base_lr, epoch) float
-    }
-
-    class GradientOpProtocol {
-	    +__call__(params: Iterable[Parameter])
+        sampler : torch.utils.data.Sampler | Iterable
+        dataset : torch.utils.data.Dataset
+	    +__iter__() : Iterator[(Input, Target)]
+	    +__len__() : int
     }
 
     class ModuleProtocol["ModuleProtocol[Input, Output]"] {
-	    +forward(inputs: Input) Output
+	    +forward(inputs: Input) : Output
     }
 
-    class ObjectiveProtocol["ObjectiveProtocol[Output, Target]"] {
-	    +update(outputs: Output, targets: Target)
-	    +compute() Mapping | Tensor | None
-	    +reset()
-    }
-
-    class LossProtocol["LossProtocol[Output, Target]"] {
-	    +forward(outputs: Output, targets: Target) Tensor
-    }
-
-    class LearningProtocol {
-	    optimizer_cls : type[Optimizer]
-	    base_lr : float | dict
-	    scheduler : SchedulerProtocol
-	    gradient_op : GradientOpProtocol
+    class ModelProtocol["ModelProtocol[Input, Output]"] {
+	    module : torch.nn.Module
+	    epoch : int
+	    checkpoint : CheckpointProtocol
+	    mixed_precision : bool
+	    +name : srt
+	    +__call__(inputs: Input) : Output
+	    +increment_epoch()
+	    +update_parameters()
     }
 
     class CheckpointProtocol {
-	    +bind_model(model: ModelProtocol[Any, Any])
+	    +bind_model(model: ModelProtocol)
 	    +bind_optimizer(optimizer: Optimizer)
 	    +save()
 	    +load(epoch: int)
     }
 
-    class ModelProtocol["ModelProtocol[Input, Output]"] {
-	    module : ModuleProtocol
-	    epoch : int
-	    checkpoint : CheckpointProtocol
-	    mixed_precision : bool
-	    +__call__(inputs: Input) Output
-	    +increment_epoch()
+    class SchedulerProtocol {
+	    +__call__(base_lr, epoch) : float
+    }
+
+    class GradientOpProtocol {
+	    +__call__(params: Iterable[torch.nn.Parameter])
+    }
+
+    class LearningProtocol {
+	    optimizer_cls : type[torch.optim.Optimizer]
+	    base_lr : float | dict[str, float]
+	    scheduler : SchedulerProtocol
+	    optimizer_defaults : dict[str, Any]
+	    gradient_op : GradientOpProtocol
+    }
+
+    class ObjectiveProtocol["ObjectiveProtocol[Output, Target]"] {
+	    +update(outputs: Output, targets: Target)
+	    +compute() Mapping[str, torch.Tensor] | torch.Tensor | None
+	    +reset()
+    }
+
+    class LossProtocol["LossProtocol[Output, Target]"] {
+	    +forward(outputs: Output, targets: Target) : torch.Tensor
     }
 
     class MonitorProtocol {
-	    model : ModelProtocol[Any, Any]
+	    model : ModelProtocol
 	    +name : str
 	    +computed_metrics : Mapping[str, float]
     }
 
     class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {
-	    model: ModelProtocol[Input, Output]
-	    learning_schema: LearningProtocol
-	    objective: LossProtocol[Output, Target]
-	    validation: MonitorProtocol | None
+	    model : ModelProtocol[Input, Output]
+	    learning_schema : LearningProtocol
+	    objective : LossProtocol[Output, Target]
+	    validation : MonitorProtocol | None
+	    +save_checkpoint()
+	    +load_checkpoint(epoch: int)
 	    +terminated : bool
+	    +terminate_training(reason: str)
 	    +train(num_epochs: int)
 	    +update_learning_rate(base_lr, scheduler)
     }

@@ -66,10 +66,12 @@ class LoaderProtocol(Protocol[_Data_co]):
 
     Attributes:
         batch_size: the batch size.
+        dataset: the dataset to load.
+        sampler: the sampler used to select the samples.
     """
 
-    dataset: data.Dataset[Any]
     batch_size: int | None
+    dataset: data.Dataset[Any]
     sampler: torch.utils.data.Sampler[Any] | Iterable[Any]
 
     def __iter__(self) -> Iterator[_Data_co]:
@@ -77,6 +79,65 @@ class LoaderProtocol(Protocol[_Data_co]):
 
     def __len__(self) -> int:
         """Return the number of batches in the dataset."""
+
+
+class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
+    """Protocol for a PyTorch module with type annotations."""
+
+    def forward(self, inputs: _Input_contra, /) -> _Output_co:
+        """Forward run of the network."""
+
+
+@runtime_checkable
+class ModelProtocol(Protocol[_Input_contra, _Output_co]):
+    """Protocol for a wrapper around a torch module.
+
+    Attributes:
+        module: Pytorch module to optimize.
+        epoch: the number of epochs the model has been trained so far.
+        checkpoint: the object responsible for saving and loading the model.
+        mixed_precision: whether to use mixed precision computing.
+    """
+
+    module: torch.nn.Module
+    epoch: int
+    checkpoint: CheckpointProtocol
+    mixed_precision: bool
+
+    @abc.abstractmethod
+    def __call__(self, /, inputs: _Input_contra) -> _Output_co:
+        """Call the module forward method."""
+
+    @property
+    def device(self) -> torch.device:
+        """The device where the weights are stored."""
+
+    @property
+    def name(self) -> str:
+        """The name of the model."""
+
+    @abc.abstractmethod
+    def increment_epoch(self) -> None:
+        """Increment the epoch by 1."""
+
+    def update_parameters(self) -> None:
+        """Update the parameters of the model."""
+
+
+class CheckpointProtocol(Protocol):
+    """Protocol that stores and loads weight for a ModelProtocol class."""
+
+    def bind_model(self, model: ModelProtocol[Any, Any]) -> None:
+        """Bind the model to manage."""
+
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        """Bind the optimizer connected to the model."""
+
+    def save(self) -> None:
+        """Save the model and optimizer state dictionaries."""
+
+    def load(self, epoch: int = -1) -> None:
+        """Load the model and optimizer state dictionaries."""
 
 
 class SchedulerProtocol(Protocol):
@@ -94,11 +155,29 @@ class SchedulerProtocol(Protocol):
         """
 
 
-class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
-    """Protocol for a PyTorch module with type annotations."""
+class GradientOpProtocol(Protocol):
+    """Abstract base class for gradient operations."""
 
-    def forward(self, inputs: _Input_contra, /) -> _Output_co:
-        """Forward run of the network."""
+    @abc.abstractmethod
+    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+        """Apply the gradient operation to the given parameters."""
+
+
+class LearningProtocol(Protocol):
+    """Protocol with specifications for the learning algorithm.
+
+    Attributes:
+        optimizer_cls: the optimizer class to bind to the module.
+        base_lr: initial learning rates for named parameters or global value.
+        optimizer_defaults: optional arguments for the optimizer.
+        scheduler: modifies the learning rate given the current epoch.
+    """
+
+    optimizer_cls: type[torch.optim.Optimizer]
+    base_lr: float | dict[str, float]
+    scheduler: SchedulerProtocol
+    optimizer_defaults: dict[str, Any]
+    gradient_op: GradientOpProtocol
 
 
 @runtime_checkable
@@ -141,83 +220,6 @@ class LossProtocol(ObjectiveProtocol[_Output_contra, _Target_contra], Protocol):
         Returns:
             The computed loss.
         """
-
-
-class GradientOpProtocol(Protocol):
-    """Abstract base class for gradient operations."""
-
-    @abc.abstractmethod
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
-        """Apply the gradient operation to the given parameters."""
-
-
-class LearningProtocol(Protocol):
-    """Protocol with specifications for the learning algorithm.
-
-    Attributes:
-        optimizer_cls: the optimizer class to bind to the module.
-        base_lr: initial learning rates for named parameters or global value.
-        optimizer_defaults: optional arguments for the optimizer.
-        scheduler: modifies the learning rate given the current epoch.
-    """
-
-    optimizer_cls: type[torch.optim.Optimizer]
-    base_lr: float | dict[str, float]
-    scheduler: SchedulerProtocol
-    optimizer_defaults: dict[str, Any]
-    gradient_op: GradientOpProtocol
-
-
-@runtime_checkable
-class ModelProtocol(Protocol[_Input_contra, _Output_co]):
-    """Protocol for a wrapper around a torch module.
-
-    Attributes:
-        module: Pytorch module to optimize.
-        epoch: the number of epochs the model has been trained so far.
-        checkpoint: the object responsible for saving and loading the model.
-        mixed_precision: whether to use mixed precision computing.
-    """
-
-    module: torch.nn.Module
-    epoch: int
-    checkpoint: CheckpointProtocol
-    mixed_precision: bool
-
-    @abc.abstractmethod
-    def __call__(self, /, inputs: _Input_contra) -> _Output_co:
-        """Call the module forward method."""
-
-    @property
-    def device(self) -> torch.device:
-        """The device where the weights are stored."""
-
-    @property
-    def name(self) -> str:
-        """The name of the model."""
-
-    @abc.abstractmethod
-    def increment_epoch(self):
-        """Increment the epoch by 1."""
-
-    def update_parameters(self) -> None:
-        """Update the parameters of the model."""
-
-
-class CheckpointProtocol(Protocol):
-    """Protocol that stores and loads weight for a ModelProtocol class."""
-
-    def bind_model(self, model: ModelProtocol[Any, Any]):
-        """Bind the model to manage."""
-
-    def bind_optimizer(self, optimizer: torch.optim.Optimizer):
-        """Bind the optimizer connected to the model."""
-
-    def save(self) -> None:
-        """Save the model and optimizer state dictionaries."""
-
-    def load(self, epoch: int = -1) -> None:
-        """Load the model and optimizer state dictionaries."""
 
 
 class MonitorProtocol(Protocol):
