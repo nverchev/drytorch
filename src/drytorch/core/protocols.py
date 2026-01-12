@@ -68,7 +68,7 @@ class LoaderProtocol(Protocol[_Data_co]):
         batch_size: the batch size.
     """
 
-    dataset: data.Dataset[_Data_co]
+    dataset: data.Dataset[Any]
     batch_size: int | None
     sampler: torch.utils.data.Sampler[Any] | Iterable[Any]
 
