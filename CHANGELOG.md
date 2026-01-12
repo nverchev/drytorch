@@ -1,15 +1,15 @@
 ## [Unreleased] -
 
 ### Added
-- Added an interval parameter to Trainer add_validation
+- added an interval parameter to Trainer add_validation
 
 ### Changed
-- Get model's device index from global settings
-- Removed redundant get_dataset method
+- get model's device index from global settings
+- removed redundant get_dataset method
 
 ### Fixed
 - optuna get_best_trial_value works also with parallelization
-- Explicitly closing pbar after the last epoch
+- explicitly closing pbar after the last epoch
 
 ## [0.1.0rc3] - 2026-01-07
 
