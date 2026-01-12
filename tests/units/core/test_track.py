@@ -142,7 +142,7 @@ class TestTracker:
 
     def test_get_current_not_registered(self, tracker) -> None:
         """Error when getting current tracker if none active."""
-        with pytest.raises(exceptions.TrackerNotActiveError):
+        with pytest.raises(exceptions.TrackerNotUsedError):
             tracker.get_current()
 
     def test_get_current(self, tracker, mocker) -> None:
@@ -157,7 +157,7 @@ class TestTracker:
         tracker.notify(start_exp)
         stop_exp = mocker.create_autospec(log_events.StopExperimentEvent)
         tracker.notify(stop_exp)
-        with pytest.raises(exceptions.TrackerNotActiveError):
+        with pytest.raises(exceptions.TrackerNotUsedError):
             tracker.get_current()
 
     def test_clean_up_after_stop(self, tracker, mocker) -> None:
@@ -205,7 +205,7 @@ class TestEventDispatcher:
 
     def test_remove_nonexistent_tracker_raises_error(self, dispatcher):
         """Test that removing a non-existent tracker raises an error."""
-        with pytest.raises(exceptions.TrackerNotActiveError):
+        with pytest.raises(exceptions.TrackerNotUsedError):
             dispatcher.remove('NonexistentTracker')
 
     def test_publish_event_calls_tracker_notify(self, tracker, dispatcher):

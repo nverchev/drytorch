@@ -53,7 +53,7 @@ __all__ = [
     'TrackerAlreadyRegisteredError',
     'TrackerError',
     'TrackerExceptionWarning',
-    'TrackerNotActiveError',
+    'TrackerNotUsedError',
 ]
 
 
@@ -424,10 +424,10 @@ class TrackerAlreadyRegisteredError(DryTorchError):
         super().__init__(tracker_name, exp_name)
 
 
-class TrackerNotActiveError(DryTorchError):
+class TrackerNotUsedError(DryTorchError):
     """Raised when trying to access a tracker that is not registered."""
 
-    _template = 'Tracker {} not registered in any active experiment.'
+    _template = 'Tracker {} has not been used in the active experiment'
 
     def __init__(self, tracker_name: str) -> None:
         """Initialize.

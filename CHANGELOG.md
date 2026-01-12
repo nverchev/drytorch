@@ -1,3 +1,9 @@
+## [Unreleased] -
+
+### [BREAKING CHANGES]
+- renamed TrackerNotActiveError -> TrackerNotUsedError
+
+
 ## [0.1.0rc4] - 2026-01-12
 
 ### Added
