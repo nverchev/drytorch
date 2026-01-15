@@ -231,7 +231,8 @@ class EventDispatcher:
         for name, tracker in self.named_trackers.items():
             try:
                 tracker.notify(event)
-            except (KeyboardInterrupt, SystemExit):
+            except (KeyboardInterrupt, SystemExit) as se:
+                sys_err = se
                 to_be_removed = list(self.named_trackers)
                 break
 
