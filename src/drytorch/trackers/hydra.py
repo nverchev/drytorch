@@ -61,6 +61,7 @@ class HydraLink(base_classes.Dumper):
             self.hydra_dir = pathlib.Path(str_dir)
         else:
             self.hydra_dir = hydra_dir
+
         if not self.hydra_dir.exists():
             raise exceptions.TrackerError(self, 'Hydra has not started.')
 
@@ -74,6 +75,7 @@ class HydraLink(base_classes.Dumper):
             if self._copy_hydra and run_dir.is_symlink():
                 run_dir.unlink()
                 shutil.copytree(self.hydra_dir, run_dir)
+
         except exceptions.AccessOutsideScopeError:
             pass
 

@@ -98,6 +98,12 @@ class Dumper(track.Tracker):
 
         return self._exp_name
 
+    def clean_up(self) -> None:
+        """Remove experimental data from the tracker."""
+        self._par_dir = None
+        self._exp_name = None
+        self._run_id = None
+
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -113,9 +119,6 @@ class Dumper(track.Tracker):
 
     @notify.register
     def _(self, event: log_events.StopExperimentEvent) -> None:
-        self._par_dir = None
-        self._exp_name = None
-        self._run_id = None
         return super().notify(event)
 
     def _get_exp_dir(self) -> pathlib.Path:

@@ -48,14 +48,16 @@ class TestHydraLink:
     ):
         """Test cleanup does not copy the hydra folder."""
         tracker_no_copy.notify(start_experiment_mock_event)
+        link = tracker_no_copy._get_run_dir()
         tracker_no_copy.clean_up()
-        assert tracker_no_copy._get_run_dir().is_symlink()
+        assert link.is_symlink()
 
     def test_cleanup_with_copy(self, tracker, start_experiment_mock_event):
         """Test cleanup copies hydra folder."""
         tracker.notify(start_experiment_mock_event)
+        link = tracker._get_run_dir()
         tracker.clean_up()
-        assert tracker._get_run_dir().is_dir()
+        assert link.is_dir()
 
     def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
         """Test initialization with a valid Hydra configuration."""
