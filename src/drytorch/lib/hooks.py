@@ -537,7 +537,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
 
     Attributes:
         monitor: monitor instance.
-        start_from_epoch: start from epoch.
+        start_from_epoch: epoch to start monitoring from.
     """
 
     monitor: MetricMonitor[Output, Target]
@@ -597,7 +597,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
 
         best_result = self.monitor.best_value
         metric_name = self.monitor.metric_name
-        msg = f'Training stopped with best result={best_result} {metric_name}.'
+        msg = f'Training stopped with best result={best_result} {metric_name}'
         instance.terminate_training(msg)
         return
 
@@ -667,7 +667,7 @@ class PruneCallback(Generic[Output, Target]):
         if threshold is None or not self.monitor.is_better(value, threshold):
             self.trial_values[epoch] = value
             metric_name = self.monitor.metric_name
-            msg = f'Training stopped at {threshold=} {metric_name}.'
+            msg = f'Training stopped at {threshold=} {metric_name}'
             instance.terminate_training(msg)
 
         return

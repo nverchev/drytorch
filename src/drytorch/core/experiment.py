@@ -480,7 +480,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             self._finalizer.detach()
             self._finalizer = None
 
-        self._cleanup_resources(self.experiment)
+        self._stop_experiment(self.experiment, self._id)
         return
 
     def start(self: Self) -> None:
@@ -490,7 +490,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             return
 
         self._finalizer = weakref.finalize(
-            self, self._cleanup_resources, self._experiment
+            self, self._stop_experiment, self._experiment, self._id
         )
         self.status = 'running'
         if self.record:
@@ -529,11 +529,11 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _cleanup_resources(experiment: Experiment[_T_co]) -> None:
+    def _stop_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
         """Cleanup without holding reference to a Run instance."""
-        experiment._active_run = None
-        log_events.StopExperimentEvent(experiment.name)
+        log_events.StopExperimentEvent(experiment.name, run_id)
         log_events.Event.set_auto_publish(None)
+        experiment._active_run = None
         Experiment._clear_current()
         gc.collect()
         return

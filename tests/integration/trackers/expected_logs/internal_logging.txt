@@ -1,15 +1,15 @@
-Running experiment: test_exp.
-Model test_model has been registered.
-Loading test_model checkpoint at epoch 5.
-Training test_model started.
-Source test_source test_model has been registered.
+Experiment: test_exp - Starting run: 2025-08-01@12h54m21s
+Model test_model has been registered
+Loading test_model checkpoint at epoch 5
+Training test_model started
+Source test_source test_model has been registered
 ====> Epoch 5/8:
     test_source:    Test Loss=4.560000e-01  Accuracy=8.920000e-01   Precision=8.780000e-01
-Epoch completed.
-Updated test_model optimizer at epoch 5. New learning rate: 0.0001. New scheduler: CosineAnnealingLR.
-Training test_model terminated at epoch 5. Reason: test event.
-Training ended.
-Testing test_model started.
-Test executed without errors.
-Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_5.pt.
-Experiment: test_exp stopped.
+Epoch completed
+Updated test_model optimizer at epoch 5. New learning rate: 0.0001. New scheduler: CosineAnnealingLR
+Training test_model terminated at epoch 5. Reason: test event
+Training ended
+Testing test_model started
+Test executed without errors
+Saving test_model checkpoint in: /path/to/checkpoints/model_epoch_5.pt
+Experiment: test_exp - Stopping run: 2025-08-01@12h54m21s

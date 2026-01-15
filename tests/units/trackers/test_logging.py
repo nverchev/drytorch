@@ -99,7 +99,7 @@ class TestBuiltinLogger:
         """Tests handling of StartTraining event."""
         start_training_mock_event.model_name = 'my_model'
         tracker.notify(start_training_mock_event)
-        expected = 'Training my_model started.'
+        expected = 'Training my_model started'
         assert expected in self.stream.getvalue()
 
     def test_end_training_event(
@@ -109,7 +109,7 @@ class TestBuiltinLogger:
     ) -> None:
         """Test handling of EndTraining event."""
         tracker.notify(end_training_mock_event)
-        assert 'Training ended.' in self.stream.getvalue()
+        assert 'Training ended' in self.stream.getvalue()
 
     def test_start_epoch_event_with_final_epoch(
         self,
@@ -142,7 +142,7 @@ class TestBuiltinLogger:
         save_model_mock_event.definition = 'weights'
         save_model_mock_event.location = 'folder'
         tracker.notify(save_model_mock_event)
-        expected = 'Saving my_model weights in: folder.'
+        expected = 'Saving my_model weights in: folder'
         assert expected in self.stream.getvalue()
 
     def test_load_model_event(
@@ -156,14 +156,14 @@ class TestBuiltinLogger:
         load_model_mock_event.location = 'folder'
         load_model_mock_event.epoch = 3
         tracker.notify(load_model_mock_event)
-        expected = 'Loading my_model weights at epoch 3.'
+        expected = 'Loading my_model weights at epoch 3'
         assert expected in self.stream.getvalue()
 
     def test_test_event(self, tracker, start_test_mock_event) -> None:
         """Test handling of Test event."""
         start_test_mock_event.model_name = 'my_model'
         tracker.notify(start_test_mock_event)
-        assert 'Testing my_model started.' in self.stream.getvalue()
+        assert 'Testing my_model started' in self.stream.getvalue()
 
     def test_final_metrics_event(
         self,
@@ -205,19 +205,23 @@ class TestBuiltinLogger:
         update_learning_rate_mock_event.scheduler_name = None
         update_learning_rate_mock_event.base_lr = None
         tracker.notify(update_learning_rate_mock_event)
-        output = self.stream.getvalue()
-        expected = 'Updated my_model optimizer at epoch 10.'
-        assert expected in output
+        output_optimizer = self.stream.getvalue()
+        update_message = 'Updated my_model optimizer at epoch 10'
         update_learning_rate_mock_event.base_lr = 0.001
         tracker.notify(update_learning_rate_mock_event)
-        output = self.stream.getvalue()
-        expected += ' New learning rate: 0.001.'
-        assert expected in output
+        output_learning = self.stream.getvalue()
         update_learning_rate_mock_event.scheduler_name = 'my_scheduler'
+        update_learning_rate_mock_event.base_lr = None
         tracker.notify(update_learning_rate_mock_event)
-        output = self.stream.getvalue()
-        expected += ' New scheduler: my_scheduler.'
-        assert expected in output
+        output_scheduler = self.stream.getvalue()
+
+        expected_optimizer = update_message + '\n'
+        expected_learning = update_message + '. New learning rate: 0.001\n'
+        expected_scheduler = update_message + '. New scheduler: my_scheduler\n'
+
+        assert output_optimizer == expected_optimizer
+        assert output_learning == output_optimizer + expected_learning
+        assert output_scheduler == output_learning + expected_scheduler
 
 
 class TestDryTorchFilter:

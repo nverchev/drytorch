@@ -1,0 +1,6 @@
+[2024-01-01 12:00:00] - Experiment: test_exp - Starting run: 2025-08-01@12h54m21s
+[2024-01-01 12:00:00] - Training test_model started
+[2024-01-01 12:00:00] - Training test_model terminated at epoch 7. Reason: test event
+[2024-01-01 12:00:00] - Training ended
+[2024-01-01 12:00:00] - Testing test_model started
+[2024-01-01 12:00:00] - Experiment: test_exp - Stopping run: 2025-08-01@12h54m21s

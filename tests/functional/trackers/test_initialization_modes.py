@@ -71,6 +71,7 @@ def test_standard_mode(example_named_metrics, event_workflow, string_stream):
     expected_path = expected_path_folder / 'standard_trackers.txt'
     with expected_path.open() as file:
         expected = file.read().strip()
+
     assert _get_cleaned_value(string_stream) == expected
 
 
@@ -85,6 +86,7 @@ def test_standard_mode_no_tqdm(
     expected_path = expected_path_folder / 'standard_trackers_no_tqdm.txt'
     with expected_path.open() as file:
         expected = file.read().strip()
+
     assert _get_cleaned_value(string_stream) == expected
 
 
@@ -96,42 +98,44 @@ def test_hydra_mode(example_named_metrics, event_workflow, string_stream):
     trackers.append(TqdmLogger(file=string_stream, leave=False))
     _notify_workflow(event_workflow, trackers, example_named_metrics)
     # some output is overwritten
-    assert '\r' in string_stream.getvalue()
     expected_path = expected_path_folder / 'standard_trackers_no_tqdm.txt'
     with expected_path.open() as file:
         expected = file.read().strip()
+
+    assert '\r' in string_stream.getvalue()
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_tuning_mode(example_named_metrics, event_workflow, string_stream):
-    """Test tuning mode on a typical workflow."""
+def test_minimal_mode(example_named_metrics, event_workflow, string_stream):
+    """Test minimal mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.training)
     trackers = list[track.Tracker]()
     trackers.append(BuiltinLogger())
     trackers.append(TqdmLogger(enable_training_bar=True, file=string_stream))
     _notify_workflow(event_workflow, trackers, example_named_metrics)
-    expected_path = expected_path_folder / 'tuning_trackers.txt'
-    # some output is overwritten
-    assert '\r' in string_stream.getvalue()
+    expected_path = expected_path_folder / 'minimal_trackers.txt'
     with expected_path.open() as file:
         expected = file.read().strip()
+
+    assert '\r' in string_stream.getvalue()  # some output is overwritten
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_tuning_mode_no_tqdm(
+def test_minimal_mode_no_tqdm(
     example_named_metrics, event_workflow, string_stream
 ):
-    """Test tuning mode on typical workflow when tqdm is not available."""
+    """Test minimal mode on a typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.epoch)
     set_formatter('progress')
     trackers = list[track.Tracker]()
     trackers.append(BuiltinLogger())
     _notify_workflow(event_workflow, trackers, example_named_metrics)
-    # some output is overwritten
-    assert '\r' in string_stream.getvalue()
-    expected_path = expected_path_folder / 'tuning_trackers_no_tqdm.txt'
+    expected_path = expected_path_folder / 'minimal_trackers_no_tqdm.txt'
     with expected_path.open() as file:
         expected = file.read().strip()
+
+    # some output is overwritten
+    assert '\r' in string_stream.getvalue()  # some output is overwritten
     assert _get_cleaned_value(string_stream) == expected
 
 

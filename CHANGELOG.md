@@ -3,6 +3,8 @@
 ### [BREAKING CHANGES]
 - renamed TrackerNotActiveError -> TrackerNotUsedError
 
+### Changed
+- more informative and clean logging output and naming for optuna
 
 ## [0.1.0rc4] - 2026-01-12
 

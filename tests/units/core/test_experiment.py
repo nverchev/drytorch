@@ -385,7 +385,9 @@ class TestRun:
         run.stop()
         assert run.status == 'failed'
 
-    def test_cleanup_resources_static_method(self, experiment, mocker) -> None:
+    def test_stop_experiment_static_method(
+        self, experiment, run, mocker
+    ) -> None:
         """Test the _cleanup_resources static method directly."""
         self.patch_stop.reset_mock()
         mock_set_auto_publish = mocker.patch.object(
@@ -393,10 +395,10 @@ class TestRun:
         )
         mock_clear_current = mocker.patch.object(Experiment, '_clear_current')
         experiment._active_run = mocker.Mock()
-        Run._cleanup_resources(experiment)
+        Run._stop_experiment(experiment, run.id)
 
         assert experiment._active_run is None
-        self.patch_stop.assert_called_once_with(experiment.name)
+        self.patch_stop.assert_called_once_with(experiment.name, run.id)
         mock_set_auto_publish.assert_called_once_with(None)
         mock_clear_current.assert_called_once()
 

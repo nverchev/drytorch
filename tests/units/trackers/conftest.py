@@ -42,11 +42,12 @@ def start_experiment_mock_event(
 
 @pytest.fixture
 def stop_experiment_mock_event(
-    mocker, example_exp_name
+    mocker, example_exp_name, example_run_id
 ) -> log_events.StopExperimentEvent:
     """Mock StopExperiment event instance."""
     mock = mocker.create_autospec(log_events.StopExperimentEvent)
     mock.exp_name = example_exp_name
+    mock.run_id = example_run_id
     return mock
 
 

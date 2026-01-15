@@ -38,9 +38,13 @@ def start_experiment_event(
 
 
 @pytest.fixture
-def stop_experiment_event(example_exp_name) -> log_events.StopExperimentEvent:
+def stop_experiment_event(
+    example_exp_name, example_run_id
+) -> log_events.StopExperimentEvent:
     """Provides a StopExperiment event instance."""
-    return log_events.StopExperimentEvent(exp_name=example_exp_name)
+    return log_events.StopExperimentEvent(
+        exp_name=example_exp_name, run_id=example_run_id
+    )
 
 
 @pytest.fixture
@@ -160,7 +164,7 @@ def terminated_training_event(
         model_name=example_model_name,
         source_name=example_source_name,
         epoch=example_epoch,
-        reason='test event.',
+        reason='test event',
     )
 
 

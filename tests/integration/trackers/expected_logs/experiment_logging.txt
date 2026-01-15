@@ -1,5 +1,6 @@
-Running experiment: test_exp.
-Training test_model started.
-Training test_model terminated at epoch 5. Reason: test event.
-Training ended.
-Testing test_model started.
+Experiment: test_exp - Starting run: 2025-08-01@12h54m21s
+Training test_model started
+Training test_model terminated at epoch 5. Reason: test event
+Training ended
+Testing test_model started
+Experiment: test_exp - Stopping run: 2025-08-01@12h54m21s

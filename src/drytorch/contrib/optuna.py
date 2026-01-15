@@ -165,14 +165,17 @@ def suggest_overrides(
         A list of strings for hydra configuration overrides.
 
     Raises:
-        OptunaError: if the suggest configuration is invalid.
+        OptunaError: if the suggested configuration is invalid.
     """
     all_overrides: list[str] = [*tune_cfg.overrides]
     for setting_name, param_value in tune_cfg.tune.params.items():
         if use_full_name:
             param_name = setting_name
         else:
-            *_, param_name = setting_name.rsplit('.', maxsplit=1)
+            *prefix_parts, param_name = setting_name.rsplit('.', maxsplit=2)
+            if param_name.isdigit() and prefix_parts:
+                param_name = f'{prefix_parts[-1]}.{param_name}'
+
             param_name = param_name.replace('_', ' ').capitalize()
 
         if param_value.suggest == 'suggest_list':

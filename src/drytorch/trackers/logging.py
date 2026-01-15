@@ -79,14 +79,14 @@ class BuiltinLogger(track.Tracker):
     def _(self, event: log_events.StartTrainingEvent) -> None:
         logger.log(
             INFO_LEVELS.training,
-            'Training %(model_name)s started.',
+            'Training %(model_name)s started',
             {'model_name': event.model_name},
         )
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndTrainingEvent) -> None:
-        logger.log(INFO_LEVELS.training, 'Training ended.')
+        logger.log(INFO_LEVELS.training, 'Training ended')
         return super().notify(event)
 
     @notify.register
@@ -110,14 +110,14 @@ class BuiltinLogger(track.Tracker):
 
     @notify.register
     def _(self, event: log_events.EndEpochEvent) -> None:
-        logger.log(INFO_LEVELS.internal, 'Epoch completed.')
+        logger.log(INFO_LEVELS.internal, 'Epoch completed')
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.SaveModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,
-            'Saving %(name)s %(definition)s in: %(location)s.',
+            'Saving %(name)s %(definition)s in: %(location)s',
             {
                 'name': event.model_name,
                 'definition': event.definition,
@@ -130,7 +130,7 @@ class BuiltinLogger(track.Tracker):
     def _(self, event: log_events.LoadModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,
-            'Loading %(name)s %(definition)s at epoch %(epoch)d.',
+            'Loading %(name)s %(definition)s at epoch %(epoch)d',
             {
                 'name': event.model_name,
                 'definition': event.definition,
@@ -155,14 +155,14 @@ class BuiltinLogger(track.Tracker):
     def _(self, event: log_events.StartTestEvent) -> None:
         logger.log(
             INFO_LEVELS.test,
-            'Testing %(model_name)s started.',
+            'Testing %(model_name)s started',
             {'model_name': event.model_name},
         )
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.EndTestEvent) -> None:
-        logger.log(INFO_LEVELS.internal, 'Test executed without errors.')
+        logger.log(INFO_LEVELS.internal, 'Test executed without errors')
         return super().notify(event)
 
     @notify.register
@@ -183,18 +183,17 @@ class BuiltinLogger(track.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
-        msg = 'Running experiment: %(name)s'
-        args = {'name': event.exp_name}
-        logger.log(INFO_LEVELS.experiment, msg + '.', args)
+        verb = 'Resuming' if event.resumed else 'Starting'
+        msg = 'Experiment: %(name)s - %(verb)s run: %(id)s'
+        args = {'name': event.exp_name, 'verb': verb, 'id': event.run_id}
+        logger.log(INFO_LEVELS.experiment, msg, args)
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.StopExperimentEvent) -> None:
-        logger.log(
-            INFO_LEVELS.internal,
-            'Experiment: %(name)s stopped.',
-            {'name': event.exp_name},
-        )
+        msg = 'Experiment: %(name)s - Stopping run: %(id)s'
+        args = {'name': event.exp_name, 'id': event.run_id}
+        logger.log(INFO_LEVELS.experiment, msg, args)
         return super().notify(event)
 
     @notify.register
@@ -208,7 +207,7 @@ class BuiltinLogger(track.Tracker):
         if event.scheduler_name is not None:
             message_parts.append('New scheduler: %(scheduler_name)s')
 
-        msg = '. '.join(message_parts) + '.'
+        msg = '. '.join(message_parts)
 
         log_args = {
             'model_name': event.model_name,
@@ -221,13 +220,13 @@ class BuiltinLogger(track.Tracker):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
-        msg = 'Model %(model_name)s has been registered.'
+        msg = 'Model %(model_name)s has been registered'
         logger.log(INFO_LEVELS.internal, msg, {'model_name': event.model_name})
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.ActorRegistrationEvent) -> None:
-        msg = 'Source %(source_name)s %(model_name)s has been registered.'
+        msg = 'Source %(source_name)s %(model_name)s has been registered'
         args = {
             'model_name': event.model_name,
             'source_name': event.actor_name,

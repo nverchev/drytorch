@@ -305,9 +305,11 @@ class StopExperimentEvent(Event):
 
     Attributes:
         exp_name: the name of the experiment.
+        run_id: identifier of the run.
     """
 
     exp_name: str
+    run_id: str
 
 
 @dataclasses.dataclass(frozen=True)
