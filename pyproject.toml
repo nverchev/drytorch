@@ -129,4 +129,6 @@ plugins = ["sqlalchemy.ext.mypy.plugin"]
 [tool.basedpyright]
 include = ["src"]
 typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
 failOnWarnings = false
