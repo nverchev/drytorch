@@ -33,6 +33,7 @@ __all__ = [
     'MetricCollection',
     'MetricTracker',
     'Objective',
+    'compute_metrics',
 ]
 
 

@@ -24,6 +24,7 @@ __all__ = [
     'OptionalCallable',
     'PruneCallback',
     'ReduceLROnPlateau',
+    'StaticHook',
     'TrainerHook',
     'call_every',
     'saving_hook',
