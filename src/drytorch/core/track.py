@@ -226,15 +226,12 @@ class EventDispatcher:
             KeyboardInterrupt: if a tracker raises KeyboardInterrupt.
             SystemExit: if a tracker raises SystemExit.
         """
-        sys_err: KeyboardInterrupt | SystemExit | None = None
         to_be_removed = list[str]()
         for name, tracker in self.named_trackers.items():
             try:
                 tracker.notify(event)
             except (KeyboardInterrupt, SystemExit) as se:
-                sys_err = se
-                to_be_removed = list(self.named_trackers)
-                break
+                raise se
 
             except Exception as err:
                 warnings.warn(
@@ -252,9 +249,6 @@ class EventDispatcher:
                     stacklevel=1,
                 )
             self.remove(name)
-
-        if sys_err is not None:
-            raise sys_err
 
         return
 
