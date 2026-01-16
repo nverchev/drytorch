@@ -51,9 +51,9 @@ Folders are organized as follows:
 **[Read the full documentation on Read the Docs →](https://drytorch.readthedocs.io/)**
 
 The documentation includes:
-- **[Tutorials](https://drytorch.readthedocs.io/en/latest/tutorials.html)** - Complete walkthrough
-- **[API Reference](https://drytorch.readthedocs.io/en/latest/api.html)** - Detailed API documentation
-- **[Architecture Overview](https://drytorch.readthedocs.io/en/latest/architecture.html)** - Design principles and structure
+- **[Tutorials](https://drytorch.readthedocs.io/latest/tutorials.html)** - Complete walkthrough
+- **[API Reference](https://drytorch.readthedocs.io/latest/api.html)** - Detailed API documentation
+- **[Architecture Overview](https://drytorch.readthedocs.io/latest/architecture.html)** - Design principles and structure
 
 
-## 📝 **[Changelog](https://github.com/nverchev/drytorch/blob/master/)**
+## 📝 **[Changelog](https://github.com/nverchev/drytorch/blob/main/CHANGELOG.md)**
