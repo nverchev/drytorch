@@ -182,9 +182,7 @@ class TestSuggestOverrides:
 
         overrides = dry_optuna.suggest_overrides(nested_list_config, mock_trial)
 
-        mock_trial.suggest_int.assert_any_call(
-            name='Num. Layers', low=1, high=3
-        )
+        mock_trial.suggest_int.assert_any_call(name='Layers #', low=1, high=3)
         mock_trial.suggest_int.assert_any_call('Layers 0', low=10, high=20)
         mock_trial.suggest_int.assert_any_call('Layers 1', low=10, high=20)
 

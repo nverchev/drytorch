@@ -93,7 +93,7 @@ class TestSuggestOverridesWithHydra:
             assert 0.0 <= float(dropout) <= 0.5
 
         # check parameter names for the trial
-        expected = {'Type', 'Batch size', 'Num. Dropouts', 'Dropouts 0'}
+        expected = {'Type', 'Batch Size', 'Dropouts #', 'Dropouts 0'}
         assert expected.issubset(trial.params)
 
     def test_hydra_accepts_overrides(
