@@ -25,14 +25,8 @@ By adhering to the Don't Repeat Yourself (DRY) principle, this library makes you
 ## 📦 Installation
 
 **Requirements**
-The library only requires recent versions of **PyTorch** and **NumPy**. Tracker dependencies are optional.
-
-**Commands**
-
-```bash
-pip install drytorch
-```
-or:
+The library only requires recent versions of **PyTorch** and **NumPy**.
+**PyYAML** and **tqdm** are recommended for better tracking.
 ```bash
 uv add drytorch
 ```
@@ -40,7 +34,7 @@ uv add drytorch
 ## 🗂️ Library Organization
 Folders are organized as follows:
 
-- **Core (`core`):** The library kernel. Contains the **Event System**, **Protocols** for component communication, and internal safety **Checks**.
+- **Core (`core`):** The library kernel. Contains internal routines and the interfaces for defining custom components.
 - **Standard Library (`lib`):** Reusable implementations and abstract classes of the protocols.
 - **Trackers (`tracker`):** Optional tracker plugins that integrate via the event system.
 - **Contributions (`contrib`):** Dedicated space for community-driven extensions.

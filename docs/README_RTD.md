@@ -19,14 +19,8 @@ By adhering to the Don't Repeat Yourself (DRY) principle, this library makes you
 ## 📦 Installation
 
 **Requirements**
-The library only requires recent versions of **PyTorch** and **NumPy**. Tracker dependencies are optional.
-
-**Commands**
-
-```bash
-pip install drytorch
-```
-or:
+The library only requires recent versions of **PyTorch** and **NumPy**.
+**PyYAML** and **tqdm** are recommended for better tracking.
 ```bash
 uv add drytorch
 ```
