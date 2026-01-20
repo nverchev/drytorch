@@ -1,5 +1,7 @@
 """Support for optuna."""
 
+import string
+
 from collections.abc import Callable, Sequence
 from typing import Any, Final, Generic, Literal, TypeVar
 
@@ -174,15 +176,15 @@ def suggest_overrides(
         else:
             *prefix_parts, param_name = setting_name.rsplit('.', maxsplit=2)
             if param_name.isdigit() and prefix_parts:
-                param_name = f'{prefix_parts[-1]}.{param_name}'
+                param_name = f'{prefix_parts[-1]} {param_name}'
 
-            param_name = param_name.replace('_', ' ').capitalize()
+            param_name = string.capwords(param_name.replace('_', ' '))
 
         if param_value.suggest == 'suggest_list':
             new_value = []
             for i in range(
                 trial.suggest_int(
-                    name=f'Num. {param_name}',
+                    name=f'{param_name} #',
                     low=param_value.settings.min_length,
                     high=param_value.settings.max_length,
                 )
@@ -203,12 +205,6 @@ def suggest_overrides(
             except AttributeError as ae:
                 msg = f'Invalid suggest configuration: {ae}.'
                 raise OptunaError(msg) from ae
-
-            if use_full_name:
-                param_name = setting_name
-            else:
-                *_, param_name = setting_name.rsplit('.', maxsplit=1)
-                param_name = param_name.replace('_', ' ').capitalize()
 
             new_value = bound_suggest(param_name, **param_value.settings)
         all_overrides.append(f'{setting_name}={new_value}')
