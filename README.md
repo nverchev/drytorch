@@ -21,7 +21,6 @@ By adhering to the Don't Repeat Yourself (DRY) principle, this library makes you
 * **Self-Documentation:** Metadata is automatically extracted in a standardized and robust manner.
 * **Ready-to-Use Implementations:** Advanced functionalities with minimal boilerplate, suitable for a wide range of ML applications.
 
-
 ## 📦 Installation
 
 **Requirements**
