@@ -170,13 +170,13 @@ class Trainer(
             end_epoch=final_epoch,
         )
         for _ in range(n_epochs):
+            self.pre_epoch_hooks.execute(self)
             log_events.StartEpochEvent(
                 source_name=self.name,
                 model_name=self.model.name,
                 epoch=self.model.epoch + 1,
                 end_epoch=final_epoch,
             )
-            self.pre_epoch_hooks.execute(self)
             self()
             self.post_epoch_hooks.execute(self)
             log_events.EndEpochEvent(
