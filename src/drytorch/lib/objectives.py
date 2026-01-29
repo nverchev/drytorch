@@ -158,6 +158,7 @@ class MetricCollection(Objective[Output, Target]):
         """
         super().__init__()
         self.named_fn: Final = named_fn
+        return
 
     @override
     def calculate(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
@@ -222,6 +223,7 @@ class Metric(MetricCollection[Output, Target]):
         self.fun: Final = fn
         self.name: Final = name
         self.higher_is_better: Final = higher_is_better
+        return
 
 
 class LossBase(
@@ -703,6 +705,7 @@ class MetricTracker(Generic[Output, Target]):
         self.history: Final = list[float]()
         self._patience_countdown = patience
         self._best_value = None
+        return
 
     @property
     def best_value(self) -> float:
@@ -726,6 +729,7 @@ class MetricTracker(Generic[Output, Target]):
     def best_value(self, value: float) -> None:
         """Set the best result value."""
         self._best_value = value
+        return
 
     @property
     def filtered_value(self) -> float:
@@ -746,6 +750,7 @@ class MetricTracker(Generic[Output, Target]):
             value: the metric value to add.
         """
         self.history.append(value)
+        return
 
     def is_better(self, value: float, reference: float) -> bool:
         """Determine if the value is better than a reference value.
@@ -773,8 +778,8 @@ class MetricTracker(Generic[Output, Target]):
 
         if self.best_is == 'lower':
             return reference - self.min_delta > value
-        else:
-            return reference + self.min_delta < value
+
+        return reference + self.min_delta < value
 
     def is_improving(self) -> bool:
         """Determine if the model performance is improving.
@@ -806,11 +811,14 @@ class MetricTracker(Generic[Output, Target]):
     def reset_patience(self) -> None:
         """Reset patience countdown to the maximum."""
         self._patience_countdown = self.patience
+        return
 
     @staticmethod
     def _validate_patience(patience: int) -> None:
         if patience < 0:
             raise ValueError('Patience must be a non-negative integer.')
+
+        return
 
 
 def dict_apply(
