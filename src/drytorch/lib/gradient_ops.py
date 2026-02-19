@@ -53,15 +53,17 @@ class NoOp(GradientOpProtocol):
 class GradParamNormalizer(p.GradientOpProtocol):
     """Strategy that normalizes each parameter's gradient to unit norm."""
 
+    _eps = 1e-8
+
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Normalize gradients to unit norm in-place."""
         for param in params:
             grad = param.grad
             if grad is None:
                 continue
+
             norm = grad.norm(2)
-            if norm:
-                param.grad = grad / norm
+            grad.div_(norm + self._eps)
 
         return
 
@@ -69,15 +71,7 @@ class GradParamNormalizer(p.GradientOpProtocol):
 class GradZScoreNormalizer(p.GradientOpProtocol):
     """Gradient normalizing strategy using Z-score normalization."""
 
-    _eps: float
-
-    def __init__(self, eps: float = 1e-8) -> None:  # type: ignore
-        """Initialize.
-
-        Args:
-            eps: Small constant for numerical stability.
-        """
-        self._eps = eps
+    _eps = 1e-8
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Normalize gradients using Z-score in-place."""
@@ -85,9 +79,11 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
             grad = param.grad
             if grad is None:
                 continue
-            param.grad = (grad - grad.mean()) / (grad.std() + self._eps)
 
-        return
+            mean = grad.mean()
+            std = grad.std(unbiased=False)
+
+            grad.sub_(mean).div_(std + self._eps)
 
 
 class ClipOperation(p.GradientOpProtocol, abc.ABC):
@@ -331,13 +327,13 @@ class ZStatCriterion(ClippingCriterion):
     _eps: float
     _mu_t: float
     _v_t: float
+    _eps = 1e-8
 
     def __init__(
         self,
         alpha: float = 0.97,
         z_thresh: float = 2.5,
         clipping_function: ClipFunction = reciprocal_clipping,
-        eps: float = 1e-06,
     ):
         """Initialize.
 
@@ -345,12 +341,10 @@ class ZStatCriterion(ClippingCriterion):
             alpha: exponential moving average decay factor (0 < alpha < 1).
             z_thresh: threshold for the Z-score.
             clipping_function: function to determine clipping behavior.
-            eps: small constant for numerical stability.
         """
         self.alpha: Final = alpha
         self.z_thresh: Final = z_thresh
         self.clipping_function: Final = clipping_function
-        self._eps = eps
         self._mu_t = 0.0
         self._v_t = 1.0
         _validate_threshold(z_thresh)
@@ -389,6 +383,7 @@ class ZStatCriterion(ClippingCriterion):
         self._mu_t = mean
         if variance > 0:
             self._v_t = variance
+
         return
 
     @override
@@ -430,6 +425,7 @@ class StatsCollector:
         """Calculate mean of collected warmup samples."""
         if not self._data:
             return 0.0
+
         return sum(self._data) / len(self._data)
 
     @property
@@ -447,12 +443,14 @@ class StatsCollector:
         completed = len(self) >= self.max_samples
         if completed:
             self.active = False
+
         return completed
 
     def append(self, value: float) -> None:
         """Add a new datum to the collection."""
         if len(self) < self.max_samples:
             self._data.append(value)
+
         return
 
     def reset(self) -> None:
@@ -598,6 +596,7 @@ class ParamHistClipper(ClipOperation):
             grad = param.grad
             if grad is None:
                 continue
+
             grad_norm: float = grad.norm(2, dtype=float).item()
             param_id = id(param)
             warmup_handler = self._dict_warmup_handler[param_id]
@@ -611,9 +610,10 @@ class ParamHistClipper(ClipOperation):
                     criterion.set_statistics(
                         warmup_handler.mean, warmup_handler.variance
                     )
+
             if criterion.should_clip(grad_norm):
-                clip_value = self.criterion.get_clip_value(grad_norm)
-                torch.nn.utils.clip_grad_norm_(param, clip_value)
+                clip_value = criterion.get_clip_value(grad_norm)
+                torch.nn.utils.clip_grad_norm_([param], clip_value)
 
             criterion.update(grad_norm)
         return
