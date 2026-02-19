@@ -36,7 +36,10 @@ class TestPathManager:
     def test_paths(self, manager):
         """Test that the paths have the correct name."""
         epoch_dir = manager.epoch_dir
-        paths = [manager.model_state_path, manager.optimizer_state_path]
+        paths = [
+            manager.get_model_state_path('model'),
+            manager.get_optimizer_state_path(),
+        ]
         expected_paths = [
             epoch_dir / 'model_state.pt',
             epoch_dir / 'optimizer_state.pt',
@@ -122,3 +125,37 @@ class TestLocalCheckpoint:
         checkpoint.bind_optimizer(optimizer)
         with pytest.warns(exceptions.OptimizerNotLoadedWarning):
             checkpoint.load()
+
+    def test_save_multiple_modules(self, checkpoint, mock_model) -> None:
+        """Test it saves multiple modules."""
+        epoch_dir = checkpoint.paths.epoch_dir
+        aux_module = torch.nn.Linear(10, 5)
+        checkpoint.bind_model(mock_model)
+        checkpoint.bind_module('aux', aux_module)
+
+        checkpoint.save()
+
+        assert (epoch_dir / 'model_state.pt').exists()
+        assert (epoch_dir / 'aux_state.pt').exists()
+        assert (epoch_dir / 'optimizer_state.pt').exists()
+
+    def test_load_multiple_modules(self, checkpoint, mock_model) -> None:
+        """Test it loads multiple modules correctly."""
+        aux_module = torch.nn.Linear(10, 5)
+        checkpoint.bind_model(mock_model)
+        checkpoint.bind_module('aux', aux_module)
+
+        checkpoint.save()
+        for p in mock_model.module.parameters():
+            p.data.zero_()
+
+        for p in aux_module.parameters():
+            p.data.zero_()
+
+        checkpoint.load()
+
+        for p in mock_model.module.parameters():
+            assert not torch.allclose(p.data, torch.zeros_like(p))
+
+        for p in aux_module.parameters():
+            assert not torch.allclose(p.data, torch.zeros_like(p))

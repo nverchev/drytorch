@@ -107,17 +107,13 @@ class CheckpointPathManager:
         epoch_directory = self.model_dir / f'epoch_{self._model.epoch}'
         return epoch_directory
 
-    @property
-    def model_state_path(self) -> pathlib.Path:
-        """Name of the file with the state."""
-        epoch_directory = self.epoch_dir
-        return epoch_directory / 'model_state.pt'
+    def get_model_state_path(self, module_name: str) -> pathlib.Path:
+        """Get the name of the file with the model state."""
+        return self.epoch_dir / f'{module_name}_state.pt'
 
-    @property
-    def optimizer_state_path(self) -> pathlib.Path:
-        """Name of the file with the optimizer state."""
-        epoch_directory = self.epoch_dir
-        return epoch_directory / 'optimizer_state.pt'
+    def get_optimizer_state_path(self) -> pathlib.Path:
+        """Get the name of the file with the optimizer state."""
+        return self.epoch_dir / 'optimizer_state.pt'
 
 
 class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
@@ -125,11 +121,14 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     _model: p.ModelProtocol[Any, Any] | None
     _optimizer: torch.optim.Optimizer | None
+    _modules: dict[str, Any]
 
     def __init__(self) -> None:
         """Initialize."""
         self._model = None
         self._optimizer = None
+        self._modules = {}
+        return
 
     @property
     def model(self):
@@ -149,7 +148,15 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         return self._optimizer
 
     def load(self, epoch: int = -1) -> None:
-        """Load the model and optimizer state dictionaries."""
+        """Load the model and optimizer state dictionaries.
+
+        Args:
+            epoch: epoch to load.
+
+        Raises:
+            ModelNotFoundError: if the model location does not exist.
+            EpochNotFoundError: if the epoch location does not exist.
+        """
         if dist.is_available and dist.is_initialized():
             device_idx = self.model.device.index
             if device_idx is not None:
@@ -158,26 +165,35 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
                 dist.barrier()
 
         self._update_epoch(epoch)
+        self._check_location(epoch)
         log_events.LoadModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
             location=self._get_location(),
             epoch=self.model.epoch,
         )
-        module = self._get_unwrapped_module()
-        self._load(module)
+        for name, module in self._modules.items():
+            self._load_module(name, module, epoch)
+
+        self._load_optimizer(epoch)
         return
 
     def remove_model(self) -> None:
         """Remove registered model."""
         self._model = None
         self._optimizer = None
+        self._modules.clear()
         return
 
     def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
         """Bind the model to manage."""
         self._model = model
+        self.bind_module('model', self._get_unwrapped_module())
         return
+
+    def bind_module(self, name: str, module: torch.nn.Module) -> None:
+        """Bind a module connected to the model."""
+        self._modules[name] = module
 
     def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""
@@ -195,9 +211,14 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         if dist.is_available and dist.is_initialized() and dist.get_rank():
             return
 
-        module = self._get_unwrapped_module()
-        self._save(module)
+        for name, module in self._modules.items():
+            self._save_module(name, module)
+
+        self._save_optimizer()
         return
+
+    @abc.abstractmethod
+    def _check_location(self, epoch: int) -> None: ...
 
     def _get_definition(self) -> str:
         return 'state' if self.optimizer is None else 'checkpoint'
@@ -219,10 +240,18 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
         return module
 
     @abc.abstractmethod
-    def _load(self, module: torch.nn.Module) -> None: ...
+    def _load_module(
+        self, name: str, module: torch.nn.Module, epoch: int
+    ) -> None: ...
 
     @abc.abstractmethod
-    def _save(self, module: torch.nn.Module) -> None: ...
+    def _load_optimizer(self, epoch: int) -> None: ...
+
+    @abc.abstractmethod
+    def _save_module(self, name: str, module: torch.nn.Module) -> None: ...
+
+    @abc.abstractmethod
+    def _save_optimizer(self) -> None: ...
 
     def _update_epoch(self, epoch: int):
         if epoch < -1:
@@ -251,25 +280,45 @@ class LocalCheckpoint(AbstractCheckpoint):
         return CheckpointPathManager(self.model, self._par_dir)
 
     @override
-    def _load(self, module: torch.nn.Module, epoch: int = -1) -> None:
+    def save(self) -> None:
+        self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
+        super().save()
+        return
+
+    @override
+    def _check_location(self, epoch: int) -> None:
         if not self.paths.model_dir.exists():
             raise exceptions.ModelNotFoundError(self.paths.run_dir)
 
         if not self.paths.epoch_dir.exists():
             raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)
 
-        module.load_state_dict(
-            torch.load(
-                self.paths.model_state_path,
-                map_location=self.model.device,
-                weights_only=True,
-            )
+        return
+
+    @override
+    def _load_module(
+        self, name: str, module: torch.nn.Module, epoch: int = -1
+    ) -> None:
+        state_dict = torch.load(
+            self.paths.get_model_state_path(name),
+            map_location=self.model.device,
+            weights_only=True,
         )
+        module.load_state_dict(state_dict)
+        return
+
+    @override
+    def _load_optimizer(self, epoch: int = -1) -> None:
+        if not self.paths.model_dir.exists():
+            raise exceptions.ModelNotFoundError(self.paths.run_dir)
+
+        if not self.paths.epoch_dir.exists():
+            raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)
         if self.optimizer is not None:
             try:
                 self.optimizer.load_state_dict(
                     torch.load(
-                        self.paths.optimizer_state_path,
+                        self.paths.get_optimizer_state_path(),
                         map_location=self.model.device,
                         weights_only=True,
                     ),
@@ -278,18 +327,20 @@ class LocalCheckpoint(AbstractCheckpoint):
                 warnings.warn(
                     exceptions.OptimizerNotLoadedWarning(ve), stacklevel=1
                 )
-
         return
 
     @override
-    def _save(self, module: torch.nn.Module) -> None:
-        self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
-        torch.save(module.state_dict(), self.paths.model_state_path)
+    def _save_module(self, name: str, module: torch.nn.Module) -> None:
+        torch.save(module.state_dict(), self.paths.get_model_state_path(name))
+        return
+
+    @override
+    def _save_optimizer(self) -> None:
         if self.optimizer is not None:
             torch.save(
-                self.optimizer.state_dict(), self.paths.optimizer_state_path
+                self.optimizer.state_dict(),
+                self.paths.get_optimizer_state_path(),
             )
-
         return
 
     def _get_last_saved_epoch(self) -> int:
