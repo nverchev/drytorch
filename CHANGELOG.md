@@ -3,6 +3,9 @@
 ### Changed
 - checkpoint can now bind with multiple modules
 
+### Added
+- EMA and SWA models
+
 ## [0.1.0rc5] - 2026-01-20
 
 ### [BREAKING CHANGES]

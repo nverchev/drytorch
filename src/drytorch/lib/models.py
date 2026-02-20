@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import abc
 import sys
 
 from collections.abc import Callable, Iterable, Iterator
@@ -20,15 +21,18 @@ from drytorch.utils import repr_utils
 
 
 __all__ = [
+    'AveragedModel',
+    'EMAModel',
     'Model',
-    'ModelAverage',
     'ModelOptimizer',
+    'SWAModel',
 ]
 
 Input = TypeVar('Input', bound=p.InputType, contravariant=True)
 Output = TypeVar('Output', bound=p.OutputType, covariant=True)
 Tensor = torch.Tensor
-ParamList = tuple[Tensor, ...] | list[Tensor]
+_ParamList = tuple[Tensor, ...] | list[Tensor]
+_MultiAvgFn = Callable[[_ParamList, _ParamList, Tensor | int], None]
 
 
 class _OptParams(TypedDict):
@@ -40,7 +44,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     """Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
-        module: Pytorch module to optimize.
+        exec_module: Pytorch module used for execution.
         epoch: the number of epochs the model has been trained so far.
         mixed_precision: whether to use mixed precision computing.
         checkpoint: checkpoint manager.
@@ -48,7 +52,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     _name = repr_utils.DefaultName()
 
-    module: torch.nn.Module
+    exec_module: torch.nn.Module
     epoch: int
     mixed_precision: bool
     checkpoint: p.CheckpointProtocol
@@ -88,7 +92,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._should_dist = should_distribute
         self.mixed_precision: Final = mixed_precision
         torch_module = self._validate_module(module)
-        self.module: Final = self.prepare_module(torch_module)
+        self.exec_module: Final = self.prepare_module(torch_module)
         self._name = name
         self.epoch = 0
         if checkpoint is None:
@@ -105,7 +109,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         with torch.autocast(
             device_type=self.device.type, enabled=self.mixed_precision
         ):
-            return self.module(inputs)
+            return self.exec_module(inputs)
 
     def __del__(self):
         """Unregister from the registry when deleted/garbage-collected."""
@@ -122,6 +126,11 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         return self._device
 
     @property
+    def module(self) -> torch.nn.Module:
+        """The module wrapped by the class."""
+        return self._unwrap_module()
+
+    @property
     def name(self) -> str:
         """The name of the model."""
         return self._name
@@ -134,7 +143,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         if self._should_compile and sys.version_info < (3, 14):
             torch.compile(module)
 
-        if dist.is_available and dist.is_initialized() and self._should_dist:
+        if dist.is_available() and dist.is_initialized() and self._should_dist:
             if self._device.type == 'cuda':
                 module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
 
@@ -173,8 +182,23 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._registered = False
         return
 
-    def update_parameters(self) -> None:
-        """Update the parameters of the model."""
+    def _unwrap_module(self) -> torch.nn.Module:
+        """Return the module without wrapping."""
+        wrapper_types = (
+            torch.nn.DataParallel,
+            torch.nn.parallel.DistributedDataParallel,
+        )
+        if isinstance(self.exec_module, wrapper_types):
+            return self.exec_module.module
+
+        return self.exec_module
+
+    def post_batch_update(self) -> None:
+        """Update the model after processing a batch of data."""
+        return
+
+    def post_epoch_update(self) -> None:
+        """Update the model after processing an epoch of data."""
         return
 
     @staticmethod
@@ -196,7 +220,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         return torch_model
 
 
-class ModelAverage(Model[Input, Output]):
+class AveragedModel(Model[Input, Output], abc.ABC):
     """Bundle a torch.nn.Module and a torch.optim.swa_utils.AveragedModel.
 
     Use the averaged model when in inference mode.
@@ -205,10 +229,7 @@ class ModelAverage(Model[Input, Output]):
         averaged_module: the averaged module.
     """
 
-    _default_checkpoint: ClassVar[checkpoints.LocalCheckpoint] = (
-        checkpoints.LocalCheckpoint()
-    )
-
+    average_name: ClassVar[str] = 'averaged_model'
     averaged_module: torch.optim.swa_utils.AveragedModel
 
     def __init__(
@@ -217,12 +238,8 @@ class ModelAverage(Model[Input, Output]):
         /,
         name: str = '',
         device: torch.device | None = None,
-        checkpoint: p.CheckpointProtocol = _default_checkpoint,
+        checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
-        avg_fn: Callable[[Tensor, Tensor, Tensor | int], Tensor] | None = None,
-        multi_avg_fn: Callable[[ParamList, ParamList, Tensor | int], None]
-        | None = None,
-        use_buffers: bool = False,
     ) -> None:
         """Initialize.
 
@@ -234,28 +251,148 @@ class ModelAverage(Model[Input, Output]):
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to False.
-            avg_fn: see docs at torch.optim.swa_utils.AveragedModel.
-            multi_avg_fn: see docs at torch.optim.swa_utils.AveragedModel.
-            use_buffers: see docs at torch.optim.swa_utils.AveragedModel.
         """
         super().__init__(
             torch_module, name, device, checkpoint, mixed_precision
         )
-        self.averaged_module = torch.optim.swa_utils.AveragedModel(
-            self.module, self.device, avg_fn, multi_avg_fn, use_buffers
+        self.averaged_module = self._create_averaged_module()
+        self.checkpoint.bind_module(self.average_name, self.averaged_module)
+        return
+
+    def __call__(self, inputs: Input) -> Output:
+        """Execute the forward pass."""
+        if torch.is_inference_mode_enabled():
+            return self.averaged_module(inputs)  # no mixed precision here
+
+        return super().__call__(inputs)
+
+    def _create_averaged_module(self) -> torch.optim.swa_utils.AveragedModel:
+        averaged_module = torch.optim.swa_utils.AveragedModel(
+            self.module, self.device, multi_avg_fn=self._get_multi_avg_fn()
+        )
+        averaged_module.eval()
+        for param in averaged_module.parameters():
+            param.requires_grad_(False)
+
+        return averaged_module
+
+    @abc.abstractmethod
+    def _get_multi_avg_fn(self) -> _MultiAvgFn | None: ...
+
+    def _update_parameters(self) -> None:
+        self.averaged_module.update_parameters(self._unwrap_module())
+        return
+
+
+class SWAModel(AveragedModel[Input, Output]):
+    """Bundle a torch.nn.Module and a torch.optim.swa_utils.AveragedModel.
+
+    Use the averaged model when in inference mode.
+
+    Attributes:
+        averaged_module: the averaged module.
+        start_epoch: the epoch at which to start averaging.
+    """
+
+    average_name = 'swa_model'
+    averaged_module: torch.optim.swa_utils.AveragedModel
+
+    def __init__(
+        self,
+        torch_module: p.ModuleProtocol[Input, Output],
+        /,
+        start_epoch: int,
+        name: str = '',
+        device: torch.device | None = None,
+        checkpoint: p.CheckpointProtocol | None = None,
+        mixed_precision: bool = False,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            torch_module: Pytorch module with type annotations.
+            start_epoch: the epoch at which to start averaging.
+            name: the name of the model. Default uses the class name.
+            device: the device where to store the weights of the module.
+                Default uses cuda when available, cpu otherwise.
+            checkpoint: class that saves the state and optionally the optimizer.
+            mixed_precision: whether to use mixed precision computing.
+                Defaults to False.
+        """
+        self.start_epoch: Final = start_epoch
+        super().__init__(
+            torch_module, name, device, checkpoint, mixed_precision
         )
         return
 
     def __call__(self, inputs: Input) -> Output:
         """Execute the forward pass."""
-        if torch.inference_mode():
+        if torch.is_inference_mode_enabled() and self.epoch >= self.start_epoch:
             return self.averaged_module(inputs)  # no mixed precision here
-        return super().__call__(inputs)
+
+        return super(AveragedModel, self).__call__(inputs)
 
     @override
-    def update_parameters(self) -> None:
-        """Update the parameters of the model."""
-        self.averaged_module.update_parameters(self.module)
+    def post_epoch_update(self) -> None:
+        if self.epoch >= self.start_epoch:
+            self._update_parameters()
+
+        return
+
+    @override
+    def _get_multi_avg_fn(self) -> None:
+        return None
+
+
+class EMAModel(AveragedModel[Input, Output]):
+    """Bundle a torch.nn.Module and a torch.optim.swa_utils.AveragedModel.
+
+    Use the averaged model when in inference mode.
+
+    Attributes:
+        averaged_module: the averaged module.
+        decay: the exponential decay rate for the moving average.
+    """
+
+    average_name = 'ema_model'
+    averaged_module: torch.optim.swa_utils.AveragedModel
+    decay: float
+
+    def __init__(
+        self,
+        torch_module: p.ModuleProtocol[Input, Output],
+        /,
+        name: str = '',
+        device: torch.device | None = None,
+        checkpoint: p.CheckpointProtocol | None = None,
+        mixed_precision: bool = False,
+        decay: float = 0.999,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            torch_module: Pytorch module with type annotations.
+            name: the name of the model. Default uses the class name.
+            device: the device where to store the weights of the module.
+                Default uses cuda when available, cpu otherwise.
+            checkpoint: class that saves the state and optionally the optimizer.
+            mixed_precision: whether to use mixed precision computing.
+                Defaults to False.
+            decay: the exponential decay rate for the moving average.
+        """
+        self.decay: Final = decay
+        super().__init__(
+            torch_module, name, device, checkpoint, mixed_precision
+        )
+        return
+
+    @override
+    def _get_multi_avg_fn(self) -> _MultiAvgFn:
+        return torch.optim.swa_utils.get_ema_multi_avg_fn(decay=self.decay)
+
+    @override
+    def post_batch_update(self) -> None:
+        self._update_parameters()
         return
 
 
@@ -303,6 +440,7 @@ class ModelOptimizer:
             model.device.type,
             enabled=model.mixed_precision,
         )
+        return
 
     @override
     def __repr__(self) -> str:
@@ -360,6 +498,7 @@ class ModelOptimizer:
     def load(self, epoch: int = -1) -> None:
         """Load model and optimizer state from a checkpoint."""
         self._checkpoint.load(epoch=epoch)
+        return
 
     def update_learning_rate(
         self,
@@ -396,15 +535,18 @@ class ModelOptimizer:
         Args:
             loss_value: the output tensor for the loss.
         """
+        self._optimizer.zero_grad()
         self._scaler.scale(loss_value).backward()
+        self._scaler.unscale_(self._optimizer)
         self._gradient_op(self._model.module.parameters())
         self._scaler.step(self._optimizer)
         self._scaler.update()
-        self._optimizer.zero_grad()
+        return
 
     def save(self) -> None:
         """Save model and optimizer state in a checkpoint."""
         self._checkpoint.save()
+        return
 
     def _params_lr_contains_all_params(self) -> bool:
         total_params_lr = sum(

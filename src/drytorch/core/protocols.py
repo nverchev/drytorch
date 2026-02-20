@@ -38,7 +38,6 @@ __all__ = [
     'TrainerProtocol',
 ]
 
-
 # pyright: reportReturnType=false
 
 _T = TypeVar('_T')
@@ -93,13 +92,11 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     """Protocol for a wrapper around a torch module.
 
     Attributes:
-        module: Pytorch module to optimize.
         epoch: the number of epochs the model has been trained so far.
         checkpoint: the object responsible for saving and loading the model.
         mixed_precision: whether to use mixed precision computing.
     """
 
-    module: torch.nn.Module
     epoch: int
     checkpoint: CheckpointProtocol
     mixed_precision: bool
@@ -113,6 +110,10 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         """The device where the weights are stored."""
 
     @property
+    def module(self) -> torch.nn.Module:
+        """The module wrapped by the class."""
+
+    @property
     def name(self) -> str:
         """The name of the model."""
 
@@ -120,8 +121,13 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
 
-    def update_parameters(self) -> None:
-        """Update the parameters of the model."""
+    def post_batch_update(self) -> None:
+        """Update the model after processing a batch of data."""
+        return
+
+    def post_epoch_update(self) -> None:
+        """Update the model after processing an epoch of data."""
+        return
 
 
 class CheckpointProtocol(Protocol):
@@ -129,6 +135,9 @@ class CheckpointProtocol(Protocol):
 
     def bind_model(self, model: ModelProtocol[Any, Any]) -> None:
         """Bind the model to manage."""
+
+    def bind_module(self, name: str, module: torch.nn.Module) -> None:
+        """Bind a module connected to the model."""
 
     def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""

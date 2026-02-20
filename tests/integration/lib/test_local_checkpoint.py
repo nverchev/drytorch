@@ -2,10 +2,12 @@
 
 from collections.abc import Generator
 
+import torch
+
 import pytest
 
 from drytorch.core.experiment import Run
-from drytorch.lib.models import ModelOptimizer
+from drytorch.lib.models import ModelOptimizer, SWAModel
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -43,6 +45,47 @@ def test_state_save_and_load(linear_model):
         linear_model.module.parameters(), param_list, strict=False
     ):
         assert param == old_param
+
+
+def test_separate_module_state_save_and_load(run):
+    """Test saving and loading SWAModel state."""
+    model = SWAModel(torch.nn.Linear(1, 1), start_epoch=0)
+
+    # update average once so it differs
+    for p in model.module.parameters():
+        p.data.zero_()
+
+    model.update_parameters()
+
+    base_params = [p.clone() for p in model.module.parameters()]
+    avg_params = [p.clone() for p in model.averaged_module.parameters()]
+
+    model.save_state()
+
+    # Modify both base and averaged weights
+    for p in model.module.parameters():
+        p.data.fill_(1)
+
+    for p in model.averaged_module.parameters():
+        p.data.fill_(2)
+
+    model.increment_epoch()
+    incremented_epoch = model.epoch
+
+    model.load_state()
+
+    # Epoch restored
+    assert model.epoch < incremented_epoch
+
+    # Base restored
+    for p, old in zip(model.module.parameters(), base_params, strict=False):
+        assert p == old
+
+    # Averaged restored
+    for p, old in zip(
+        model.averaged_module.parameters(), avg_params, strict=False
+    ):
+        assert p == old
 
 
 def test_checkpoint_save_and_load(linear_model, standard_learning_schema):
