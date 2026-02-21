@@ -35,7 +35,7 @@ from drytorch.lib.learn import LearningSchema
 from drytorch.lib.load import DataLoader
 from drytorch.lib.models import Model
 from drytorch.lib.objectives import Loss, Metric
-from drytorch.lib.train import Trainer
+from drytorch.lib.training import Trainer
 from drytorch.trackers import logging as builtin_logging
 from drytorch.trackers.logging import INFO_LEVELS
 
