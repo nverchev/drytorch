@@ -87,7 +87,7 @@ class TestGradZScoreNormalizer:
         assert not tensor_zero_grad.grad.any()
 
         mean = tensor_random_grad.grad.mean().item()
-        var = tensor_random_grad.grad.var().item()
+        var = tensor_random_grad.grad.var(unbiased=True).item()
         assert mean == pytest.approx(0.0, abs=1e-6)
         assert var == pytest.approx(1.0, abs=1e-6)
 
@@ -234,7 +234,7 @@ class TestZStatCriterion:
     @pytest.fixture
     def zstat_criterion(self) -> ZStatCriterion:
         """Fixture for a ZStatCriterion instance."""
-        return ZStatCriterion(alpha=0.9, z_thresh=2.0, eps=1e-6)
+        return ZStatCriterion(alpha=0.9, z_thresh=2.0)
 
     def test_init(self, zstat_criterion: ZStatCriterion) -> None:
         """Test initialization of ZStatCriterion."""

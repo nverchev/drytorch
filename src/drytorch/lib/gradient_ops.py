@@ -81,7 +81,7 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
                 continue
 
             mean = grad.mean()
-            std = grad.std(unbiased=False)
+            std = grad.std(unbiased=True)
 
             grad.sub_(mean).div_(std + self._eps)
 
