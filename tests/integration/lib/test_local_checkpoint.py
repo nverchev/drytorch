@@ -1,4 +1,4 @@
-"""Tests LocalCheckpoint integration with the Model and ModelOptimizer class."""
+"""Tests LocalCheckpoint integration with the Model subclasses."""
 
 from collections.abc import Generator
 
@@ -7,7 +7,7 @@ import torch
 import pytest
 
 from drytorch.core.experiment import Run
-from drytorch.lib.models import ModelOptimizer, SWAModel
+from drytorch.lib.models import SWAModel
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -55,14 +55,14 @@ def test_separate_module_state_save_and_load(run):
     for p in model.module.parameters():
         p.data.zero_()
 
-    model.update_parameters()
+    model.post_batch_update()
 
     base_params = [p.clone() for p in model.module.parameters()]
     avg_params = [p.clone() for p in model.averaged_module.parameters()]
 
     model.save_state()
 
-    # Modify both base and averaged weights
+    # modify both base and averaged weights
     for p in model.module.parameters():
         p.data.fill_(1)
 
@@ -74,29 +74,28 @@ def test_separate_module_state_save_and_load(run):
 
     model.load_state()
 
-    # Epoch restored
+    # epoch restored
     assert model.epoch < incremented_epoch
 
-    # Base restored
+    # base restored
     for p, old in zip(model.module.parameters(), base_params, strict=False):
         assert p == old
 
-    # Averaged restored
+    # averaged restored
     for p, old in zip(
         model.averaged_module.parameters(), avg_params, strict=False
     ):
         assert p == old
 
 
-def test_checkpoint_save_and_load(linear_model, standard_learning_schema):
+def test_optimizer_save_and_load(linear_model, standard_learning_schema):
     """Test saving and loading the model's and the optimizer's states."""
-    model_optimizer = ModelOptimizer(linear_model, standard_learning_schema)
-
+    optimizer = torch.optim.SGD(linear_model.module.parameters(), lr=0.1)
+    linear_model.checkpoint.bind_optimizer(optimizer)
     param_list = [param.clone() for param in linear_model.module.parameters()]
-    optimizer = model_optimizer._optimizer
     optim_groups = optimizer.param_groups[0].copy()
 
-    model_optimizer.save()
+    linear_model.checkpoint.save()
 
     # change param values
     for param in linear_model.module.parameters():
@@ -116,7 +115,7 @@ def test_checkpoint_save_and_load(linear_model, standard_learning_schema):
         assert param != old_param
     assert optimizer.param_groups[0]['lr'] != optim_groups['lr']
 
-    model_optimizer.load()
+    linear_model.checkpoint.load()
 
     # check original params and epoch
     assert linear_model.epoch < incremented_epoch
@@ -124,4 +123,5 @@ def test_checkpoint_save_and_load(linear_model, standard_learning_schema):
         linear_model.module.parameters(), param_list, strict=False
     ):
         assert param == old_param
+
     assert optimizer.param_groups[0]['lr'] == optim_groups['lr']

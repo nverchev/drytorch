@@ -29,6 +29,7 @@ from drytorch import (
 )
 from drytorch.core.exceptions import ExperimentalFeatureWarning
 from drytorch.core.experiment import Run
+from drytorch.lib.models import EMAModel, SWAModel
 from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 
 
@@ -40,6 +41,18 @@ P = ParamSpec('P')
 def linear_model() -> Model[TorchTuple, TorchData]:
     """Instantiate a simple model."""
     return Model(Linear(1, 1), name='linear')
+
+
+@pytest.fixture
+def swa_model() -> SWAModel[TorchTuple, TorchData]:
+    """Instantiate a simple model."""
+    return SWAModel(Linear(1, 1), name='swa_linear', start_epoch=6)
+
+
+@pytest.fixture
+def ema_model() -> EMAModel[TorchTuple, TorchData]:
+    """Instantiate a simple model."""
+    return EMAModel(Linear(1, 1), name='ema_linear', decay=0.3)
 
 
 @pytest.fixture
@@ -111,6 +124,42 @@ def identity_trainer(
     """Instantiate a trainer for the linear model using the identity dataset."""
     trainer = Trainer(
         linear_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
+    )
+    return trainer
+
+
+@pytest.fixture
+def identity_trainer_with_ema(
+    ema_model,
+    standard_learning_schema: LearningSchema,
+    square_loss_calc: Loss[TorchData, torch.Tensor],
+    identity_loader: DataLoader[tuple[TorchTuple, torch.Tensor]],
+) -> Trainer[TorchTuple, torch.Tensor, TorchData]:
+    """Instantiate a trainer for a ema model using the identity dataset."""
+    trainer = Trainer(
+        ema_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
+    )
+    return trainer
+
+
+@pytest.fixture
+def identity_trainer_with_swa(
+    swa_model,
+    standard_learning_schema: LearningSchema,
+    square_loss_calc: Loss[TorchData, torch.Tensor],
+    identity_loader: DataLoader[tuple[TorchTuple, torch.Tensor]],
+) -> Trainer[TorchTuple, torch.Tensor, TorchData]:
+    """Instantiate a trainer for a swa model using the identity dataset."""
+    trainer = Trainer(
+        swa_model,
         name='MyTrainer',
         loader=identity_loader,
         learning_schema=standard_learning_schema,

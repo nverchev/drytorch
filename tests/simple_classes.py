@@ -62,6 +62,8 @@ class Linear(torch.nn.Module):
         """
         super().__init__()
         self.linear = torch.nn.Linear(in_features, out_features)
+        self.linear.weight.data.zero_()
+        return
 
     def forward(self, inputs: TorchTuple) -> TorchData:
         """Initialize.
@@ -73,3 +75,20 @@ class Linear(torch.nn.Module):
             structured output.
         """
         return TorchData(self.linear(inputs.input))
+
+
+class MLP(torch.nn.Module):
+    """Example of a multi-layer perceptron."""
+
+    def __init__(self):
+        """Initialize layers."""
+        super().__init__()
+        self.linear = torch.nn.Linear(1, 2)
+        self.relu = torch.nn.ReLU()
+        self.linear2 = torch.nn.Sequential(
+            torch.nn.Linear(2, 1), torch.nn.Identity()
+        )
+
+    def forward(self, inputs: TorchTuple) -> TorchData:
+        """Standard forward pass."""
+        return TorchData(self.linear2(self.relu(self.linear(inputs.input))))

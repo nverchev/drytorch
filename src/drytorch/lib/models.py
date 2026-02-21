@@ -5,17 +5,16 @@ from __future__ import annotations
 import abc
 import sys
 
-from collections.abc import Callable, Iterable, Iterator
-from typing import Any, ClassVar, Final, TypedDict, TypeVar, cast
+from collections.abc import Callable
+from typing import ClassVar, Final, TypeVar
 
 import torch
 
-from torch import amp
 from torch import distributed as dist
 from typing_extensions import override
 
-from drytorch.core import exceptions, register
 from drytorch.core import protocols as p
+from drytorch.core import register
 from drytorch.lib import checkpoints
 from drytorch.utils import repr_utils
 
@@ -24,7 +23,6 @@ __all__ = [
     'AveragedModel',
     'EMAModel',
     'Model',
-    'ModelOptimizer',
     'SWAModel',
 ]
 
@@ -33,11 +31,6 @@ Output = TypeVar('Output', bound=p.OutputType, covariant=True)
 Tensor = torch.Tensor
 _ParamList = tuple[Tensor, ...] | list[Tensor]
 _MultiAvgFn = Callable[[_ParamList, _ParamList, Tensor | int], None]
-
-
-class _OptParams(TypedDict):
-    params: Iterator[torch.nn.Parameter]
-    lr: float
 
 
 class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
@@ -394,168 +387,3 @@ class EMAModel(AveragedModel[Input, Output]):
     def post_batch_update(self) -> None:
         self._update_parameters()
         return
-
-
-class ModelOptimizer:
-    """Bundle the module and its optimizer.
-
-    It supports different learning rates to separate parameters' groups.
-    """
-
-    _model: p.ModelProtocol
-    _module: torch.nn.Module
-    _lr: float | dict[str, float]
-    _params_lr: list[_OptParams]
-    _scheduler: p.SchedulerProtocol
-    _optimizer: torch.optim.Optimizer
-    _gradient_op: p.GradientOpProtocol
-    _checkpoint: p.CheckpointProtocol
-    _scaler: amp.grad_scaler.GradScaler
-
-    def __init__(
-        self,
-        model: p.ModelProtocol[Input, Output],
-        learning_schema: p.LearningProtocol,
-    ) -> None:
-        """Initialize.
-
-        Args:
-            model: the model to be optimized.
-            learning_schema: the learning scheme for the optimizer.
-        """
-        self._model: Final = model
-        self._module: Final = model.module
-        self._lr = {}
-        self._params_lr = []
-        self.base_lr = learning_schema.base_lr
-        self._scheduler = learning_schema.scheduler
-        self._optimizer = learning_schema.optimizer_cls(
-            params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
-            **learning_schema.optimizer_defaults,
-        )
-        self._gradient_op = learning_schema.gradient_op
-        self._checkpoint = self._model.checkpoint
-        self._checkpoint.bind_optimizer(self._optimizer)
-        self._scaler = amp.grad_scaler.GradScaler(
-            model.device.type,
-            enabled=model.mixed_precision,
-        )
-        return
-
-    @override
-    def __repr__(self) -> str:
-        desc = '{}(module={}, optimizer={})'
-        return desc.format(
-            self.__class__.__name__,
-            self._model.name,
-            self._optimizer.__class__.__name__,
-        )
-
-    @property
-    def base_lr(self) -> float | dict[str, float]:
-        """Learning rate(s) for the module parameters.
-
-        Raises:
-            MissingParamError: if parameters are missing from the dictionary.
-        """
-        return self._lr
-
-    @base_lr.setter
-    def base_lr(self, lr: float | dict[str, float]) -> None:
-        self._lr = lr
-        if isinstance(lr, float | int):
-            self._params_lr = [
-                {'params': self._module.parameters(), 'lr': lr},
-            ]
-        else:
-            self._params_lr = [
-                {'params': getattr(self._module, k).parameters(), 'lr': v}
-                for k, v in lr.items()
-            ]
-            if not self._params_lr_contains_all_params():
-                module_names: list[str] = [
-                    named_elem[0] for named_elem in self._module.named_modules()
-                ]
-                raise exceptions.MissingParamError(module_names, list(lr))
-
-        return
-
-    def get_opt_params(self) -> list[_OptParams]:
-        """Actual learning rates for each parameter updated according."""
-        return [
-            _OptParams(params=g['params'], lr=self.get_scheduled_lr(g['lr']))
-            for g in self._params_lr
-        ]
-
-    def get_scheduled_lr(self, lr: float) -> float:
-        """Update the base learning rate according to the scheduler.
-
-        Args:
-            lr: base learning rate.
-        """
-        return self._scheduler(lr, self._model.epoch)
-
-    def load(self, epoch: int = -1) -> None:
-        """Load model and optimizer state from a checkpoint."""
-        self._checkpoint.load(epoch=epoch)
-        return
-
-    def update_learning_rate(
-        self,
-        base_lr: float | dict[str, float] | None = None,
-        scheduler: p.SchedulerProtocol | None = None,
-    ) -> None:
-        """Recalculate the learning rates for the current epoch.
-
-        It updates the learning rates for each parameter's group in the
-        optimizer based on input learning rate(s) and scheduler.
-
-        Args:
-            base_lr: initial learning rates for named parameters or global
-                value. Default keeps the original learning rates.
-            scheduler: scheduler for the learning rates. Default keeps the
-                original scheduler.
-        """
-        if scheduler is not None:
-            self._scheduler = scheduler
-
-        if base_lr is not None:
-            self.base_lr = base_lr
-
-        for g, up_g in zip(
-            self._optimizer.param_groups, self.get_opt_params(), strict=False
-        ):
-            g['lr'] = up_g['lr']
-
-        return
-
-    def optimize(self, loss_value: Tensor):
-        """Optimize the model backpropagating the loss value.
-
-        Args:
-            loss_value: the output tensor for the loss.
-        """
-        self._optimizer.zero_grad()
-        self._scaler.scale(loss_value).backward()
-        self._scaler.unscale_(self._optimizer)
-        self._gradient_op(self._model.module.parameters())
-        self._scaler.step(self._optimizer)
-        self._scaler.update()
-        return
-
-    def save(self) -> None:
-        """Save model and optimizer state in a checkpoint."""
-        self._checkpoint.save()
-        return
-
-    def _params_lr_contains_all_params(self) -> bool:
-        total_params_lr = sum(
-            count_params(elem['params']) for elem in self._params_lr
-        )
-        total_params_model = count_params(self._module.parameters())
-        return total_params_lr == total_params_model
-
-
-def count_params(params: Iterator[Any]) -> int:
-    """Count the number of parameters."""
-    return sum(1 for _ in params)

@@ -188,7 +188,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
         """Bind the model to manage."""
         self._model = model
-        self.bind_module('model', self._get_unwrapped_module())
+        self.bind_module('model', model.module)
         return
 
     def bind_module(self, name: str, module: torch.nn.Module) -> None:
@@ -228,16 +228,6 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     @abc.abstractmethod
     def _get_location(self) -> str: ...
-
-    def _get_unwrapped_module(self) -> torch.nn.Module:
-        module = self.model.module
-        if isinstance(
-            module,
-            (torch.nn.DataParallel, torch.nn.parallel.DistributedDataParallel),
-        ):
-            module = module.module
-
-        return module
 
     @abc.abstractmethod
     def _load_module(

@@ -1,8 +1,6 @@
-"""Functional tests for the Trainer class and some hooks."""
+"""Functional tests for training hooks."""
 
 from collections.abc import Generator
-
-import torch
 
 import pytest
 
@@ -15,13 +13,6 @@ def autorun_experiment(run) -> Generator[Run, None, None]:
     """Create an experimental scope for the tests."""
     yield run
     return
-
-
-def test_convergence(identity_trainer) -> None:
-    """Test trainer convergence to 1."""
-    identity_trainer.train(10)
-    linear_weight = next(identity_trainer.model.module.parameters())
-    assert torch.isclose(linear_weight, torch.tensor(1.0), atol=0.1)
 
 
 def test_early_stopping(square_loss_calc, identity_trainer) -> None:

@@ -1,11 +1,14 @@
-"""Tests for the "train" module."""
+"""Tests for the "training" module."""
 
 import torch
+
+from ...simple_classes import MLP
 
 import pytest
 
 from drytorch import Trainer
 from drytorch.core import exceptions
+from drytorch.lib.training import ModelOptimizer
 
 
 @pytest.fixture(autouse=True)
@@ -16,6 +19,44 @@ def setup_module(session_mocker) -> None:
     return
 
 
+class TestModelOptimizer:
+    """Tests for ModelOptimizer."""
+
+    @pytest.fixture()
+    def model_optimizer(
+        self, mock_model, mock_learning_schema
+    ) -> ModelOptimizer:
+        """Set up a test instance."""
+        mock_model.module = MLP()
+        return ModelOptimizer(
+            model=mock_model,
+            learning_schema=mock_learning_schema,
+        )
+
+    def test_update_learning_rate_global(self, model_optimizer) -> None:
+        """Test it correctly updates global learning rate."""
+        model_optimizer.update_learning_rate(base_lr=0.02)
+
+        for param_group in model_optimizer._optimizer.param_groups:
+            assert param_group['lr'] == 0.02
+
+    def test_update_learning_rate_param(self, model_optimizer) -> None:
+        """Test it correctly updates parameter-specific learning rates."""
+        dict_lr: dict[str, float] = {'linear': 0.01, 'linear2': 0.001}
+        model_optimizer.update_learning_rate(base_lr=dict_lr)
+
+        param_groups = model_optimizer._optimizer.param_groups
+        for param_group, lr in zip(
+            param_groups, dict_lr.values(), strict=False
+        ):
+            assert param_group['lr'] == lr
+
+    def test_missing_param_error(self, model_optimizer) -> None:
+        """Test that MissingParamError is raised when params are missing."""
+        with pytest.raises(exceptions.MissingParamError):
+            model_optimizer.base_lr = {'linear': 0.1}
+
+
 class TestTrainer:
     """Tests for Trainer."""
 
@@ -23,7 +64,7 @@ class TestTrainer:
     def setup(self, mocker):
         """Set up the test class."""
         self.model_optimizer = mocker.patch(
-            'drytorch.lib.models.ModelOptimizer'
+            'drytorch.lib.training.ModelOptimizer'
         )
         self.start_training_event = mocker.patch(
             'drytorch.core.log_events.StartTrainingEvent'
