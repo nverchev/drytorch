@@ -20,9 +20,10 @@ import torch
 
 from typing_extensions import override
 
+import drytorch.lib.aggregators
+
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.utils import average
 
 
 __all__ = [
@@ -45,11 +46,9 @@ Tensor = torch.Tensor
 class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
     """Abstract base class for metrics or losses."""
 
-    _aggregator: average.TorchAverager
-
     def __init__(self) -> None:
-        """Initializes the Objective with a dictionary of metric functions."""
-        self._aggregator = average.TorchAverager()
+        """Initialize."""
+        self._aggregator = self._get_aggregator()
         return
 
     @override
@@ -136,6 +135,10 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
             setattr(result, k, copy.deepcopy(v, memo))
 
         return result
+
+    @classmethod
+    def _get_aggregator(cls) -> drytorch.lib.aggregators.TorchAverager:
+        return drytorch.lib.aggregators.TorchAverager()
 
 
 class MetricCollection(Objective[Output, Target]):

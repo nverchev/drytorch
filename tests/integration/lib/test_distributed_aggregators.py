@@ -9,7 +9,7 @@ from ..conftest import DistributedWorker
 
 import pytest
 
-from drytorch.utils.average import TorchAverager
+from drytorch.lib.aggregators import TorchAverager
 
 
 @pytest.mark.skipif(sys.platform != 'linux', reason='ddp only works on linux')

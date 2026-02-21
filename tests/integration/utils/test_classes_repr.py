@@ -7,7 +7,7 @@ import pytest
 from drytorch.lib.gradient_ops import HistClipper
 from drytorch.lib.hooks import EarlyStoppingCallback, HookRegistry
 from drytorch.lib.schedulers import ExponentialScheduler, WarmupScheduler
-from drytorch.utils.average import get_trailing_mean
+from drytorch.utils.averages import get_trailing_mean
 from drytorch.utils.repr_utils import recursive_repr
 
 
@@ -45,8 +45,8 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
             'class': 'Model',
             'checkpoint': 'LocalCheckpoint',
             'epoch': 0,
+            'exec_module': {'class': 'Linear', 'training': True},
             'mixed_precision': False,
-            'module': {'class': 'Linear', 'training': True},
         },
         'objective': {
             'class': 'Loss',
