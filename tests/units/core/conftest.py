@@ -5,7 +5,7 @@ import pathlib
 import pytest
 
 from drytorch import Experiment
-from drytorch.core.experiment import Run
+from drytorch.core.experimenting import Run
 
 
 @pytest.fixture(scope='module')

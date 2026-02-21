@@ -28,7 +28,7 @@ import filelock
 from torch import distributed as dist
 from typing_extensions import override
 
-from drytorch.core import exceptions, log_events, track
+from drytorch.core import exceptions, log_events, tracking
 from drytorch.utils import repr_utils
 
 
@@ -154,7 +154,7 @@ class Experiment(Generic[_T_co]):
     par_dir: pathlib.Path
     __config: _T_co
     tags: list[str]
-    trackers: track.EventDispatcher
+    trackers: tracking.EventDispatcher
     _registry: RunRegistry
     _active_run: Run[_T_co] | None
 
@@ -179,8 +179,8 @@ class Experiment(Generic[_T_co]):
         self._name = name
         self.par_dir = pathlib.Path(par_dir)
         self.tags = tags or []
-        self.trackers: Final = track.EventDispatcher(self.name)
-        self.trackers.subscribe(**track.DEFAULT_TRACKERS)
+        self.trackers: Final = tracking.EventDispatcher(self.name)
+        self.trackers.subscribe(**tracking.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
         self._registry = RunRegistry(run_file)
         self._active_run = None
@@ -390,7 +390,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     resumed: bool
     record: bool
     status: RunStatus
-    metadata_manager: track.MetadataManager
+    metadata_manager: tracking.MetadataManager
     _finalizer: weakref.finalize[..., Self] | None
 
     def __init__(
@@ -416,7 +416,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self.resumed = resumed
         self.record = record and self._is_main_process
         self.status = 'created'
-        self.metadata_manager: Final = track.MetadataManager()
+        self.metadata_manager: Final = tracking.MetadataManager()
         self._finalizer = None
         if not self.resumed:
             experiment.previous_runs.append(self)

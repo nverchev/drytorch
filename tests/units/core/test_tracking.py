@@ -1,4 +1,4 @@
-"""Tests for the "track" module."""
+"""Tests for the "tracking" module."""
 
 import dataclasses
 import functools
@@ -6,7 +6,7 @@ import functools
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.track import (
+from drytorch.core.tracking import (
     EventDispatcher,
     MetadataManager,
     Tracker,

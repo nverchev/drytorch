@@ -9,7 +9,7 @@ from drytorch.lib.evaluations import Test as _Test
 @pytest.fixture(autouse=True)
 def setup_module(session_mocker) -> None:
     """Fixture for a mock experiment."""
-    session_mocker.patch('drytorch.core.register.register_actor')
+    session_mocker.patch('drytorch.core.registering.register_actor')
     return
 
 

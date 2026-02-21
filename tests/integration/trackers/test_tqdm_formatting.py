@@ -4,7 +4,7 @@ from collections.abc import Generator, Sequence
 
 import pytest
 
-from drytorch.core import log_events, track
+from drytorch.core import log_events, tracking
 
 
 try:
@@ -98,7 +98,7 @@ class TestTqdmLoggerFullCycle:
 
 def _notify_workflow(
     event_workflow: tuple[log_events.Event, ...],
-    trackers: Sequence[track.Tracker],
+    trackers: Sequence[tracking.Tracker],
     example_named_metrics: dict[str, float],
 ) -> None:
     for event in event_workflow:

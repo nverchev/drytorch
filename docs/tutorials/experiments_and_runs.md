@@ -147,7 +147,7 @@ To use the same module, you must first `unregister` it.
 from torch import nn
 
 from drytorch import Model
-from drytorch.core import exceptions
+from drytorch.core import exceptions, registering
 
 
 second_experiment = MyExperiment(
@@ -179,11 +179,8 @@ with second_experiment.create_run():
 ```
 
 ```{code-cell} ipython3
-from drytorch.core import register
-
-
 with second_experiment.create_run():
-    register.unregister_model(first_model)
+    registering.unregister_model(first_model)
     second_model = Model(first_model.module)
 ```
 
@@ -199,7 +196,7 @@ import torch
 from torch.utils.data import Dataset
 from typing_extensions import override
 
-from drytorch.lib.load import DataLoader
+from drytorch.lib.loading import DataLoader
 from drytorch.lib.runners import ModelRunner
 
 
@@ -253,7 +250,7 @@ import functools
 import pprint
 
 from drytorch.core import log_events
-from drytorch.core.track import Tracker
+from drytorch.core.tracking import Tracker
 
 
 class MetadataVisualizer(Tracker):

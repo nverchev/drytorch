@@ -221,7 +221,7 @@ import pprint
 from typing_extensions import override
 
 from drytorch.core import log_events
-from drytorch.core.track import Tracker
+from drytorch.core.tracking import Tracker
 
 
 class MetadataVisualizer(Tracker):

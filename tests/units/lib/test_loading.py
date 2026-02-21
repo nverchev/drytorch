@@ -1,4 +1,4 @@
-"""Tests for the "load" module."""
+"""Tests for the "loading" module."""
 
 from collections.abc import Sequence
 
@@ -10,7 +10,7 @@ from typing_extensions import override
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.lib.load import (
+from drytorch.lib.loading import (
     DataLoader,
     Permutation,
     Sliced,

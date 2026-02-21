@@ -24,15 +24,15 @@ from importlib.metadata import version
 from typing import Literal, TypeGuard
 
 from drytorch.core.exceptions import FailedOptionalImportWarning
-from drytorch.core.experiment import Experiment
-from drytorch.core.track import (
+from drytorch.core.experimenting import Experiment
+from drytorch.core.tracking import (
     Tracker,
     extend_default_trackers,
     remove_all_default_trackers,
 )
 from drytorch.lib.evaluations import Diagnostic, Test, Validation
-from drytorch.lib.learn import LearningSchema
-from drytorch.lib.load import DataLoader
+from drytorch.lib.learning import LearningSchema
+from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
 from drytorch.lib.objectives import Loss, Metric
 from drytorch.lib.training import Trainer

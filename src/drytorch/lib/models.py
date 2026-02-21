@@ -14,7 +14,7 @@ from torch import distributed as dist
 from typing_extensions import override
 
 from drytorch.core import protocols as p
-from drytorch.core import register
+from drytorch.core import registering
 from drytorch.lib import checkpoints
 from drytorch.utils import repr_utils
 
@@ -159,7 +159,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     def register(self) -> None:
         """Register to the registry."""
-        register.register_model(self)
+        registering.register_model(self)
         self._registered = True
         return
 
@@ -170,7 +170,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def unregister(self) -> None:
         """Unregister from the registry."""
         if self._registered:
-            register.unregister_model(self)
+            registering.unregister_model(self)
 
         self._registered = False
         return

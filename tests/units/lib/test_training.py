@@ -15,7 +15,7 @@ from drytorch.lib.training import ModelOptimizer
 def setup_module(session_mocker) -> None:
     """Fixture for a mock experiment."""
     # Patch at the point where register_source is called
-    session_mocker.patch('drytorch.core.register.register_actor')
+    session_mocker.patch('drytorch.core.registering.register_actor')
     return
 
 
@@ -177,7 +177,7 @@ class TestTrainer:
     def test_hook_execution_order(self, mocker, trainer) -> None:
         """Test that hooks are executed in the correct order."""
         # Mock the hooks to track their order of execution
-        mocker.patch('drytorch.lib.runners.register.register_actor')
+        mocker.patch('drytorch.lib.runners.registering.register_actor')
         pre_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         post_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         trainer.pre_epoch_hooks.register_all(pre_hook_list)

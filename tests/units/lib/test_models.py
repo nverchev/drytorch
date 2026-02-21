@@ -13,7 +13,7 @@ from drytorch.lib.models import EMAModel, SWAModel
 @pytest.fixture(autouse=True, scope='module')
 def setup_module(session_mocker) -> None:
     """Fixture for a mock experiment."""
-    session_mocker.patch('drytorch.core.register.register_model')
+    session_mocker.patch('drytorch.core.registering.register_model')
     return
 
 

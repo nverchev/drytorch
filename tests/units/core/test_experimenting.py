@@ -1,11 +1,16 @@
-"""Test for the "experiment" module."""
+"""Test for the "experimenting" module."""
 
 from collections.abc import Generator
 
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.experiment import Experiment, Run, RunMetadata, RunRegistry
+from drytorch.core.experimenting import (
+    Experiment,
+    Run,
+    RunMetadata,
+    RunRegistry,
+)
 
 
 class _ExperimentSubclass(Experiment):

@@ -22,9 +22,9 @@ from torch import distributed as dist
 from torch.utils import data
 from typing_extensions import override
 
-from drytorch.core import exceptions, log_events, register
+from drytorch.core import exceptions, log_events, registering
 from drytorch.core import protocols as p
-from drytorch.lib import load, objectives
+from drytorch.lib import loading, objectives
 from drytorch.utils import apply_ops, repr_utils
 
 
@@ -88,7 +88,7 @@ class ModelCaller(
     @abc.abstractmethod
     def __call__(self) -> None:
         """Document itself when the model is first called."""
-        register.register_actor(self, self.model)
+        registering.register_actor(self, self.model)
         return
 
     @override
@@ -200,7 +200,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 )
 
         self.outputs_list.clear()
-        n_samples = load.validate_dataset_length(self.loader.dataset)
+        n_samples = loading.validate_dataset_length(self.loader.dataset)
         self._check_divisibility(n_samples)
         n_processes = dist.get_world_size() if self._is_distributed else 1
         pbar = log_events.IterateBatchEvent(

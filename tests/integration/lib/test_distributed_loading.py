@@ -12,7 +12,7 @@ from typing_extensions import override
 
 import pytest
 
-from drytorch.lib.load import DataLoader
+from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
 from drytorch.lib.runners import ModelRunner
 

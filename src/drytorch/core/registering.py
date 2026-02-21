@@ -10,7 +10,7 @@ Attributes:
 
 from typing import Any, Final
 
-from drytorch.core import exceptions, experiment
+from drytorch.core import exceptions, experimenting
 from drytorch.core import protocols as p
 
 
@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-ALL_MODULES: Final = dict[int, experiment.Run[Any]]()
+ALL_MODULES: Final = dict[int, experimenting.Run[Any]]()
 ALL_ACTORS: Final = dict[int, set[int]]()
 
 
@@ -37,7 +37,7 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
     Raises:
         ModuleAlreadyRegisteredError: if the module is already registered.
     """
-    run: experiment.Run[Any] = experiment.Experiment.get_current().run
+    run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     id_module = id(model.module)
     if id_module in ALL_MODULES:
         raise exceptions.ModuleAlreadyRegisteredError(
@@ -60,7 +60,7 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
     """
-    run: experiment.Run[Any] = experiment.Experiment.get_current().run
+    run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     id_module = id(model.module)
     if id_module not in ALL_MODULES or ALL_MODULES[id_module] is not run:
         raise exceptions.ModuleNotRegisteredError(
@@ -89,7 +89,7 @@ def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
         del ALL_ACTORS[id_module]
 
     try:
-        run: experiment.Run[Any] = experiment.Experiment.get_current().run
+        run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     except exceptions.NoActiveExperimentError:
         pass
     else:
@@ -104,7 +104,7 @@ def unregister_actor(actor: Any) -> None:
     Args:
         actor: the object to document.
     """
-    run: experiment.Run[Any] = experiment.Experiment.get_current().run
+    run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     run.metadata_manager.unregister_actor(actor)
     for actor_set in ALL_ACTORS.values():
         if id(actor) in actor_set:

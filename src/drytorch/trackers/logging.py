@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 
 from typing_extensions import override
 
-from drytorch.core import log_events, track
+from drytorch.core import log_events, tracking
 
 
 __all__ = [
@@ -67,7 +67,7 @@ class InfoLevels:
     test: int
 
 
-class BuiltinLogger(track.Tracker):
+class BuiltinLogger(tracking.Tracker):
     """Tracker that streams logging messages through the built-in logger."""
 
     @functools.singledispatchmethod

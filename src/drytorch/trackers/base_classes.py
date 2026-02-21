@@ -13,7 +13,7 @@ import numpy.typing as npt
 
 from typing_extensions import override
 
-from drytorch.core import exceptions, log_events, track
+from drytorch.core import exceptions, log_events, tracking
 
 
 HistoryMetric: TypeAlias = tuple[list[int], list[float]]
@@ -26,7 +26,7 @@ SourcedArray: TypeAlias = dict[str, NpArray]
 Plot = TypeVar('Plot')
 
 
-class Dumper(track.Tracker):
+class Dumper(tracking.Tracker):
     """Tracker with a standard folder structure.
 
     Attributes:
@@ -138,7 +138,7 @@ class Dumper(track.Tracker):
         return run_dir
 
 
-class MetricLoader(track.Tracker, abc.ABC):
+class MetricLoader(tracking.Tracker, abc.ABC):
     """Interface for trackers that load metrics."""
 
     def load_metrics(
@@ -170,7 +170,7 @@ class MetricLoader(track.Tracker, abc.ABC):
     ) -> SourcedMetrics: ...
 
 
-class MemoryMetrics(track.Tracker):
+class MemoryMetrics(tracking.Tracker):
     """Keep all metrics in memory.
 
     Attributes:

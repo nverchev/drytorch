@@ -6,7 +6,7 @@ import torch
 
 import pytest
 
-from drytorch.core.experiment import Run
+from drytorch.core.experimenting import Run
 
 
 @pytest.fixture(autouse=True, scope='module')

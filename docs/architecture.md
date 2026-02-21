@@ -45,11 +45,13 @@ direction TB
         +name: str
         +__call__(inputs: Input) Output
         +increment_epoch()
-        +update_parameters()
+        +post_batch_update()
+        +post_epoch_update()
     }
 
     class CheckpointProtocol {
         +bind_model(model: ModelProtocol)
+        +bind_module(module: torch.nn.Module)
         +bind_optimizer(optimizer: Optimizer)
         +save()
         +load(epoch: int)

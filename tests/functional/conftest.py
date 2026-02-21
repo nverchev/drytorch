@@ -28,7 +28,7 @@ from drytorch import (
     Trainer,
 )
 from drytorch.core.exceptions import ExperimentalFeatureWarning
-from drytorch.core.experiment import Run
+from drytorch.core.experimenting import Run
 from drytorch.lib.models import EMAModel, SWAModel
 from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 

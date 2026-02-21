@@ -8,7 +8,7 @@ import torch
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.experiment import Experiment
+from drytorch.core.experimenting import Experiment
 from drytorch.lib import checkpoints
 
 

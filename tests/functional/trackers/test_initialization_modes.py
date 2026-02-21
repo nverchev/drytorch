@@ -11,7 +11,7 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch.core import log_events, track
+from drytorch.core import log_events, tracking
 from drytorch.trackers.logging import (
     INFO_LEVELS,
     BuiltinLogger,
@@ -64,7 +64,7 @@ def setup(
 def test_standard_mode(example_named_metrics, event_workflow, string_stream):
     """Test standard mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.epoch)
-    trackers = list[track.Tracker]()
+    trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
     trackers.append(TqdmLogger(file=string_stream))
     _notify_workflow(event_workflow, trackers, example_named_metrics)
@@ -80,7 +80,7 @@ def test_standard_mode_no_tqdm(
 ):
     """Test standard mode on a typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.metrics)
-    trackers = list[track.Tracker]()
+    trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
     _notify_workflow(event_workflow, trackers, example_named_metrics)
     expected_path = expected_path_folder / 'standard_trackers_no_tqdm.txt'
@@ -93,7 +93,7 @@ def test_standard_mode_no_tqdm(
 def test_hydra_mode(example_named_metrics, event_workflow, string_stream):
     """Test hydra mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.metrics)
-    trackers = list[track.Tracker]()
+    trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
     trackers.append(TqdmLogger(file=string_stream, leave=False))
     _notify_workflow(event_workflow, trackers, example_named_metrics)
@@ -109,7 +109,7 @@ def test_hydra_mode(example_named_metrics, event_workflow, string_stream):
 def test_minimal_mode(example_named_metrics, event_workflow, string_stream):
     """Test minimal mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.training)
-    trackers = list[track.Tracker]()
+    trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
     trackers.append(TqdmLogger(enable_training_bar=True, file=string_stream))
     _notify_workflow(event_workflow, trackers, example_named_metrics)
@@ -127,7 +127,7 @@ def test_minimal_mode_no_tqdm(
     """Test minimal mode on a typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.epoch)
     set_formatter('progress')
-    trackers = list[track.Tracker]()
+    trackers = list[tracking.Tracker]()
     trackers.append(BuiltinLogger())
     _notify_workflow(event_workflow, trackers, example_named_metrics)
     expected_path = expected_path_folder / 'minimal_trackers_no_tqdm.txt'
@@ -141,7 +141,7 @@ def test_minimal_mode_no_tqdm(
 
 def _notify_workflow(
     event_workflow: tuple[log_events.Event, ...],
-    trackers: list[track.Tracker],
+    trackers: list[tracking.Tracker],
     example_named_metrics: dict[str, float],
 ) -> None:
     for event in event_workflow:

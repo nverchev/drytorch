@@ -4,7 +4,7 @@ import multiprocessing
 
 from ..conftest import RunningWorker
 
-from drytorch.core.experiment import Experiment, RunStatus
+from drytorch.core.experimenting import Experiment, RunStatus
 
 
 class TestExperimentMultiprocessing:

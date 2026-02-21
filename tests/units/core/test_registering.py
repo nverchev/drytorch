@@ -1,9 +1,9 @@
-"""Tests for the "register" module."""
+"""Tests for the "registering" module."""
 
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.core.register import (
+from drytorch.core.registering import (
     ALL_ACTORS,
     ALL_MODULES,
     register_actor,
