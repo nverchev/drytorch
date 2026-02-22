@@ -1,10 +1,20 @@
 ## [0.1.0rc6] -
 
-### Changed
-- checkpoint can now bind with multiple modules
-
 ### Added
 - EMA and SWA models
+- AbstractAggregator allows for other aggregation of metrics than mean
+
+
+### Changed
+- checkpoint can now bind with multiple modules
+- refactor: module names strictly adhering to:
+  1) -ing form for modules containing base logic
+  2) plural for modules containing a class and its subclasses
+  3) name of the external dependency for binder modules
+
+### [BREAKING CHANGES]
+- deleted contrib/swa_utils.py
+
 
 ## [0.1.0rc5] - 2026-01-20
 

@@ -18,34 +18,32 @@ from typing_extensions import override
 _T = TypeVar('_T', torch.Tensor, float)
 
 
-class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
-    """Average tensor values from dict-like objects.
-
-    It registers sample size to calculate the precise sample average.
+class AbstractAggregator(Generic[_T], metaclass=abc.ABCMeta):
+    """Aggregate values from dict-like objects.
 
     Attributes:
-        aggregate: a dictionary with the aggregated values.
-        counts: a dictionary with the count of the total elements.
+        partials: dictionary of aggregated values.
+        counts: dictionary of counts for each aggregated quantity.
     """
 
-    __slots__: Final = ('_cached_reduce', 'aggregate', 'counts')
+    __slots__: Final = ('_cached_reduce', 'counts', 'partials')
 
-    aggregate: dict[str, _T]
+    partials: dict[str, _T]
     counts: collections.defaultdict[str, int]
     _cached_reduce: dict[str, _T]
 
-    def __init__(self, **kwargs: _T):
+    def __init__(self, **kwargs: _T) -> None:
         """Initialize.
 
         Args:
             kwargs: named values to average.
         """
-        self.aggregate = {}
+        self.partials = {}
         self.counts = collections.defaultdict(int)
         self.__iadd__(kwargs)
         self._cached_reduce = {}
 
-    def __add__(self, other: AbstractAverager[_T] | Mapping[str, _T]) -> Self:
+    def __add__(self, other: AbstractAggregator[_T] | Mapping[str, _T]) -> Self:
         """Join current data with data from another Averager.
 
         Args:
@@ -60,55 +58,57 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
 
     def __bool__(self) -> bool:
         """Return True if data is present."""
-        return bool(self.aggregate)
+        return bool(self.partials)
 
     def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
         """Deep copy magic method.
 
         Args:
-            memo: Dictionary of already copied objects.
+            memo: Dictionary of copied objects.
 
         Returns:
             A deep copy of the object.
         """
         cls = self.__class__
         result = cls.__new__(cls)
-        result.aggregate = copy.deepcopy(self.aggregate)
+        result.partials = copy.deepcopy(self.partials)
         result.counts = copy.copy(self.counts)
         result._cached_reduce = {}
         for k, v in self.__dict__.items():
             setattr(result, k, copy.deepcopy(v, memo))
-
         return result
 
     @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
-        return self.aggregate == other.aggregate and self.counts == other.counts
 
-    def __iadd__(self, other: AbstractAverager[_T] | Mapping[str, _T]) -> Self:
+        return self.partials == other.partials and self.counts == other.counts
+
+    def __iadd__(
+        self, other: AbstractAggregator[_T] | Mapping[str, _T]
+    ) -> Self:
         """Merge current data with data from another Averager.
 
         Args:
             other: the other Averager.
         """
-        if isinstance(other, AbstractAverager):
-            other_aggregate = other.aggregate
+        if isinstance(other, AbstractAggregator):
+            other_sums = other.partials
             other_counts = other.counts
         else:
-            other_aggregate = {}
+            other_sums = {}
             other_counts = collections.defaultdict[str, int]()
             for key, value in other.items():
-                other_aggregate[key] = self._aggregate(value)
+                other_sums[key] = self._aggregate(value)
                 other_counts[key] = self._count(value)
 
-        if self.aggregate:  # fail if new elements are added after the start
-            for key, value in other_aggregate.items():
-                self.aggregate[key] += value
+        if self.partials:
+            for key, value in other_sums.items():
+                self.partials[key] += value
                 self.counts[key] += other_counts[key]
         else:
-            self.aggregate.update(other_aggregate)
+            self.partials.update(other_sums)
             self.counts.update(other_counts)
 
         self._cached_reduce = {}
@@ -119,46 +119,56 @@ class AbstractAverager(Generic[_T], metaclass=abc.ABCMeta):
         return self.__class__.__name__ + f'(counts={self.counts})'
 
     def clear(self) -> None:
-        """Clear data contained in the class."""
+        """Clear all accumulated data."""
         self._cached_reduce.clear()
-        self.aggregate.clear()
+        self.partials.clear()
         self.counts.clear()
-        return
 
     def keys(self) -> KeysView[str]:
-        """Calculate the count of a value."""
-        return self.aggregate.keys()
+        """Names of the aggregated quantities."""
+        return self.partials.keys()
 
     def reduce(self) -> dict[str, _T]:
-        """Return the averaged values."""
+        """Return the reduced values."""
         if not self._cached_reduce:
             self._cached_reduce = {
                 key: self._reduce(value, self.counts[key])
-                for key, value in self.aggregate.items()
+                for key, value in self.partials.items()
             }
-
         return self._cached_reduce
 
     def all_reduce(self) -> dict[str, _T]:
-        """Synchronize the averaged values across processes."""
-        self._cached_reduce.clear()  # make sure to recalculate all the values
+        """Synchronize accumulators across processes, then reduce."""
+        self._cached_reduce.clear()
         return self.reduce()
 
     @staticmethod
-    def _reduce(aggregated: _T, count: int) -> _T:
-        return aggregated / count
+    @abc.abstractmethod
+    def _aggregate(value: _T) -> _T:
+        """Convert a raw input value into its initial accumulator form."""
 
     @staticmethod
     @abc.abstractmethod
-    def _aggregate(value: _T) -> _T: ...
+    def _count(value: _T) -> int:
+        """Extracts the number of elements represented in value."""
 
     @staticmethod
     @abc.abstractmethod
-    def _count(value: _T) -> int: ...
+    def _reduce(accumulated: _T, count: int) -> _T:
+        """Produce the final result from the accumulator and element count."""
+
+
+class AbstractAverager(AbstractAggregator[_T], abc.ABC):
+    """Use mean as the reduction function."""
+
+    @staticmethod
+    @override
+    def _reduce(accumulated: _T, count: int) -> _T:
+        return accumulated / count
 
 
 class Averager(AbstractAverager[float]):
-    """Subclass of Aggregator with an implementation for float values."""
+    """Averager for plain Python floats."""
 
     @staticmethod
     @override
@@ -172,7 +182,7 @@ class Averager(AbstractAverager[float]):
 
 
 class TorchAverager(AbstractAverager[torch.Tensor]):
-    """Subclass of Aggregator with an implementation for torch.Tensor."""
+    """Averager for ``torch.Tensor`` with optional distributed support."""
 
     @staticmethod
     @override
@@ -187,17 +197,13 @@ class TorchAverager(AbstractAverager[torch.Tensor]):
     @override
     def all_reduce(self) -> dict[str, torch.Tensor]:
         """Synchronize the values across processes."""
-        if dist.is_available() and torch.distributed.is_initialized():
-            for key, value in self.aggregate.items():
-                torch.distributed.all_reduce(
-                    value, op=torch.distributed.ReduceOp.SUM
-                )
+        if dist.is_available() and dist.is_initialized():
+            for key, value in self.partials.items():
+                dist.all_reduce(value, op=dist.ReduceOp.SUM)
                 count_tensor = torch.tensor(
                     self.counts[key], device=value.device, dtype=torch.long
                 )
-                torch.distributed.all_reduce(
-                    count_tensor, op=torch.distributed.ReduceOp.SUM
-                )
+                dist.all_reduce(count_tensor, op=dist.ReduceOp.SUM)
                 self.counts[key] = int(count_tensor.item())
 
         return super().all_reduce()

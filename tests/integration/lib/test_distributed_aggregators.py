@@ -64,7 +64,7 @@ class TestDistributedTorchAverager:
         averager += {'my_metric': tensor}
         reduced = averager.all_reduce()
         return {
-            'aggregate': averager.aggregate['my_metric'].item(),
+            'aggregate': averager.partials['my_metric'].item(),
             'count': averager.counts['my_metric'],
             'average': reduced['my_metric'].item(),
         }

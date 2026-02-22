@@ -17,15 +17,15 @@ class TestAggregator:
 
     def test_init(self, aggregator: AbstractAverager[float]) -> None:
         """Test adding multiple values and checking aggregation."""
-        assert aggregator.aggregate['metric1'] == 2.0
+        assert aggregator.partials['metric1'] == 2.0
         assert aggregator.counts['metric1'] == 1
-        assert aggregator.aggregate['metric2'] == 4.0
+        assert aggregator.partials['metric2'] == 4.0
         assert aggregator.counts['metric2'] == 1
 
     def test_clear(self, aggregator: AbstractAverager[float]) -> None:
         """Test clearing the aggregator."""
         aggregator.clear()
-        assert not aggregator.aggregate
+        assert not aggregator.partials
         assert not aggregator.counts
         assert not aggregator._cached_reduce
 
@@ -48,8 +48,8 @@ class TestAggregator:
     def test_all_reduce(self, aggregator: AbstractAverager[float]) -> None:
         """Test all_reduce re_calculates averages for all metrics."""
         aggregator.reduce()
-        aggregator.aggregate['metric1'] = 4.0
-        aggregator.aggregate['metric2'] = 6.0
+        aggregator.partials['metric1'] = 4.0
+        aggregator.partials['metric2'] = 6.0
         expected_reduced = {'metric1': 4.0, 'metric2': 6.0}
         assert aggregator.all_reduce() == expected_reduced
 
@@ -84,7 +84,7 @@ class TestTorchAverager:
 
     def test_init(self, torch_averager: TorchAverager) -> None:
         """Test TorchAverager handles batched tensors correctly."""
-        assert torch_averager.aggregate['metric'] == self.tensor.sum().item()
+        assert torch_averager.partials['metric'] == self.tensor.sum().item()
         assert torch_averager.counts['metric'] == self.tensor.numel()
 
     def test_reduce_with_tensors(self, torch_averager: TorchAverager) -> None:
