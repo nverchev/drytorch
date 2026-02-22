@@ -261,7 +261,10 @@ class AveragedModel(Model[Input, Output], abc.ABC):
 
     def _create_averaged_module(self) -> torch.optim.swa_utils.AveragedModel:
         averaged_module = torch.optim.swa_utils.AveragedModel(
-            self.module, self.device, multi_avg_fn=self._get_multi_avg_fn()
+            self.module,
+            self.device,
+            multi_avg_fn=self._get_multi_avg_fn(),
+            use_buffers=True,
         )
         averaged_module.eval()
         for param in averaged_module.parameters():
