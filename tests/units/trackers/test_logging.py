@@ -33,6 +33,9 @@ def stream_handler(string_stream) -> logging.StreamHandler:
 def logger(stream_handler) -> logging.Logger:
     """Fixture for the library logger."""
     logger = logging.getLogger('drytorch')
+    for handler in logger.handlers:
+        handler.close()
+
     logger.handlers.clear()
     logger.addHandler(stream_handler)
     return logger
@@ -42,6 +45,9 @@ def logger(stream_handler) -> logging.Logger:
 def root_logger(string_stream) -> logging.Logger:
     """Fixture for the library logger."""
     root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        handler.close()
+
     root_logger.handlers.clear()
     root_logger.addHandler(logging.StreamHandler(string_stream))
     return root_logger
@@ -80,6 +86,9 @@ class TestBuiltinLogger:
         logger.addHandler(stream_handler)
         logger.setLevel(INFO_LEVELS.internal)
         yield
+
+        for handler in logger.handlers:
+            handler.close()
 
         logger.handlers.clear()
         logger.handlers.extend(original_handlers)
