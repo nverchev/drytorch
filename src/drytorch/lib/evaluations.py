@@ -1,6 +1,6 @@
 """Module containing classes for the evaluation of a model."""
 
-from typing import Any, Protocol, TypeVar
+from typing import Any, TypeVar
 
 import torch
 
@@ -24,20 +24,11 @@ Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
 
 
-class _RunnerLike(Protocol):
-    model: p.ModelProtocol[Any, Any]
-
-    def __call__(self, store_outputs: bool = False) -> None: ...
-
-
-class EvaluationMixin:
+class EvaluationMixin(p.MonitorProtocol):
     """Mixin for running inference in eval mode without gradients."""
 
     @torch.inference_mode()
-    def __call__(
-        self: _RunnerLike,
-        store_outputs: bool = False,
-    ) -> None:
+    def __call__(self, store_outputs: bool = False) -> None:
         """Set the model in evaluation mode and PyTorch in inference mode."""
         self.model.module.eval()
         super().__call__(store_outputs)  # type: ignore
