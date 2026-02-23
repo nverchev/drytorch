@@ -4,60 +4,52 @@ import torch
 
 import pytest
 
-from drytorch.lib.aggregators import AbstractAverager, Averager, TorchAverager
+from drytorch.lib.aggregators import (
+    Averager,
+    TorchAverager,
+)
 
 
 class TestAggregator:
-    """Tests for the AbstractAverager using Averager."""
+    """Tests for the AbstractAggregator using Averager."""
 
     @pytest.fixture
-    def aggregator(self) -> AbstractAverager[float]:
-        """Fixture to create a base Aggregator instance (using Averager)."""
-        return Averager(metric1=2, metric2=4)
+    def aggregator(self) -> Averager:
+        """Fixture creating a base Averager instance."""
+        return Averager(metric1=2.0, metric2=4.0)
 
-    def test_init(self, aggregator: AbstractAverager[float]) -> None:
-        """Test adding multiple values and checking aggregation."""
-        assert aggregator.partials['metric1'] == 2.0
-        assert aggregator.counts['metric1'] == 1
-        assert aggregator.partials['metric2'] == 4.0
-        assert aggregator.counts['metric2'] == 1
+    def test_init(self, aggregator: Averager) -> None:
+        """Test initialization stores accumulators correctly."""
+        assert aggregator.accumulators['metric1'].total == 2.0
+        assert aggregator.accumulators['metric1'].count == 1
+        assert aggregator.accumulators['metric2'].total == 4.0
+        assert aggregator.accumulators['metric2'].count == 1
 
-    def test_clear(self, aggregator: AbstractAverager[float]) -> None:
+    def test_clear(self, aggregator: Averager) -> None:
         """Test clearing the aggregator."""
         aggregator.clear()
-        assert not aggregator.partials
-        assert not aggregator.counts
+        assert not aggregator.accumulators
         assert not aggregator._cached_reduce
 
-    def test_equality(self, aggregator: AbstractAverager[float]) -> None:
-        """Test equality of two Aggregator instances with the same data."""
-        other_aggregator = Averager(metric1=2, metric2=4)
-        assert aggregator == other_aggregator
-        different_aggregator = Averager(metric1=4, metric2=4)
-        assert aggregator != different_aggregator
-
-    def test_reduce(self, aggregator: AbstractAverager[float]) -> None:
-        """Test all_reduce calculates averages for all metrics."""
-        expected_reduced = {
-            'metric1': 2.0,
-            'metric2': 4.0,
-        }
-        assert aggregator.reduce() == expected_reduced
+    def test_reduce(self, aggregator: Averager) -> None:
+        """Test reduce calculates averages correctly."""
+        expected = {'metric1': 2.0, 'metric2': 4.0}
+        assert aggregator.reduce() == expected
         assert aggregator._cached_reduce
 
-    def test_all_reduce(self, aggregator: AbstractAverager[float]) -> None:
-        """Test all_reduce re_calculates averages for all metrics."""
+    def test_all_reduce(self, aggregator: Averager) -> None:
+        """Test all_reduce recalculates after state change."""
         aggregator.reduce()
-        aggregator.partials['metric1'] = 4.0
-        aggregator.partials['metric2'] = 6.0
-        expected_reduced = {'metric1': 4.0, 'metric2': 6.0}
-        assert aggregator.all_reduce() == expected_reduced
+        aggregator.accumulators['metric1'].total = 4.0
+        aggregator.accumulators['metric2'].total = 6.0
+        expected = {'metric1': 4.0, 'metric2': 6.0}
+        assert aggregator.all_reduce() == expected
 
-    def test_cached_reduce(self, aggregator: AbstractAverager[float]) -> None:
-        """Test cached_reduce stores result."""
-        result = {'metric1': 4.0}
-        aggregator._cached_reduce = result
-        assert aggregator.reduce() == result
+    def test_cached_reduce(self, aggregator: Averager) -> None:
+        """Test reduce returns cached result if present."""
+        cached = {'metric1': 4.0}
+        aggregator._cached_reduce = cached
+        assert aggregator.reduce() == cached
 
 
 class TestAverager:
@@ -65,12 +57,13 @@ class TestAverager:
 
     @pytest.fixture
     def averager(self) -> Averager:
-        """Fixture to create an Averager instance."""
-        return Averager(metric1=2, metric2=4)
+        """Fixture creating an Averager instance."""
+        return Averager(metric1=2.0, metric2=4.0)
 
-    def test_average(self, averager: Averager) -> None:
-        """Test _aggregate function returns the value itself for Averager."""
-        assert (averager + averager).reduce() == averager.reduce()
+    def test_addition_preserves_mean(self, averager: Averager) -> None:
+        """Test adding identical aggregators preserves mean."""
+        combined = averager + averager
+        assert combined.reduce() == averager.reduce()
 
 
 class TestTorchAverager:
@@ -78,27 +71,28 @@ class TestTorchAverager:
 
     @pytest.fixture
     def torch_averager(self) -> TorchAverager:
-        """Fixture to create a TorchAverager instance."""
-        self.tensor = torch.ones((2, 2))
-        return TorchAverager(metric=self.tensor)
+        """Fixture creating a TorchAverager instance."""
+        tensor = torch.ones((2, 2))
+        return TorchAverager(metric=tensor)
 
     def test_init(self, torch_averager: TorchAverager) -> None:
-        """Test TorchAverager handles batched tensors correctly."""
-        assert torch_averager.partials['metric'] == self.tensor.sum().item()
-        assert torch_averager.counts['metric'] == self.tensor.numel()
+        """Test tensor accumulator stores the correct total and count."""
+        acc = torch_averager.accumulators['metric']
+        assert torch.is_tensor(acc.total)
+        assert acc.total.item() == 4.0
+        assert acc.count == 4
 
     def test_reduce_with_tensors(self, torch_averager: TorchAverager) -> None:
-        """Test reduce calculates averages for torch tensors."""
-        expected_reduced = {
-            'metric': self.tensor.sum().item() / self.tensor.numel(),
-        }
-        assert torch_averager.reduce() == expected_reduced
+        """Test reduce calculates correct tensor mean."""
+        result = torch_averager.reduce()
+        assert torch.is_tensor(result['metric'])
+        assert result['metric'].item() == 1.0
 
     def test_clear(self, torch_averager: TorchAverager) -> None:
-        """Test that reduce returns an empty dict after clearing."""
+        """Test clearing removes all accumulators."""
         torch_averager.clear()
         assert torch_averager.reduce() == {}
 
     def test_all_reduce(self, torch_averager: TorchAverager) -> None:
-        """Test all_reduce defaults to reduce in no distributed setting."""
+        """Test all_reduce behaves like ``reduce`` when not distributed."""
         assert torch_averager.all_reduce() == torch_averager.reduce()

@@ -17,7 +17,6 @@ from typing_extensions import override
 
 _T = TypeVar('_T')
 _R = TypeVar('_R')
-_A = TypeVar('_A', bound='AbstractAccumulator')
 
 
 class AbstractAccumulator(Generic[_T, _R], abc.ABC):
@@ -41,16 +40,16 @@ class AbstractAccumulator(Generic[_T, _R], abc.ABC):
         """Synchronize state across distributed processes."""
 
 
-class AbstractAggregator(Generic[_A], metaclass=abc.ABCMeta):
+class AbstractAggregator(Generic[_T, _R], metaclass=abc.ABCMeta):
     """Aggregate named values using accumulator objects."""
 
     __slots__: Final = ('_cached_reduce', 'accumulators')
 
-    accumulator_cls: type[_A]
-    accumulators: dict[str, _A]
-    _cached_reduce: dict[str, object]
+    accumulator_cls: type[AbstractAccumulator[_T, _R]]
+    accumulators: dict[str, AbstractAccumulator[_T, _R]]
+    _cached_reduce: dict[str, _R]
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: _T) -> None:
         """Initialize.
 
         Args:
@@ -59,13 +58,14 @@ class AbstractAggregator(Generic[_A], metaclass=abc.ABCMeta):
         self.accumulators = {}
         self._cached_reduce = {}
         for key, value in kwargs.items():
-            self.accumulators[key] = self.accumulator_cls.from_value(value)  # type: ignore
+            self.accumulators[key] = self.accumulator_cls.from_value(value)
 
         return
 
     def __add__(
-        self, other: AbstractAggregator[_A] | Mapping[str, object]
-    ) -> AbstractAggregator[_A]:
+        self,
+        other: AbstractAggregator[_T, _R] | Mapping[str, _T],
+    ) -> AbstractAggregator[_T, _R]:
         """Return new aggregator containing merged data."""
         result = copy.deepcopy(self)
         result += other
@@ -76,8 +76,9 @@ class AbstractAggregator(Generic[_A], metaclass=abc.ABCMeta):
         return bool(self.accumulators)
 
     def __iadd__(
-        self, other: AbstractAggregator[_A] | Mapping[str, object]
-    ) -> AbstractAggregator[_A]:
+        self,
+        other: AbstractAggregator[_T, _R] | Mapping[str, _T],
+    ) -> AbstractAggregator[_T, _R]:
         """Merge another aggregator or mapping into this one."""
         if isinstance(other, Mapping):
             other = self.__class__(**other)
@@ -106,7 +107,7 @@ class AbstractAggregator(Generic[_A], metaclass=abc.ABCMeta):
         """Return stored metric names."""
         return list(self.accumulators.keys())
 
-    def reduce(self) -> dict[str, object]:
+    def reduce(self) -> dict[str, _R]:
         """Return reduced values for all metrics."""
         if not self._cached_reduce:
             self._cached_reduce = {
@@ -114,7 +115,7 @@ class AbstractAggregator(Generic[_A], metaclass=abc.ABCMeta):
             }
         return self._cached_reduce
 
-    def all_reduce(self) -> dict[str, object]:
+    def all_reduce(self) -> dict[str, _R]:
         """Synchronize accumulators across processes and reduce."""
         for acc in self.accumulators.values():
             acc.sync()
@@ -196,13 +197,13 @@ class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
             self.count = int(count_tensor.item())
 
 
-class Averager(AbstractAggregator[MeanAccumulator]):
+class Averager(AbstractAggregator[float, float]):
     """Aggregator computing mean over floats."""
 
     accumulator_cls = MeanAccumulator
 
 
-class TorchAverager(AbstractAggregator[TorchMeanAccumulator]):
+class TorchAverager(AbstractAggregator[torch.Tensor, torch.Tensor]):
     """Aggregator computing mean over tensors with distributed support."""
 
     accumulator_cls = TorchMeanAccumulator

@@ -3,6 +3,7 @@
 ### Added
 - EMA and SWA models
 - AbstractAggregator allows for other aggregation of metrics than mean
+- AbstractAccumulator and subclasses for different accumulators
 
 
 ### Changed
