@@ -33,10 +33,6 @@ direction TB
         +__len__() int
     }
 
-    class ModuleProtocol["ModuleProtocol[Input, Output]"] {
-        +forward(inputs: Input) Output
-    }
-
     class ModelProtocol["ModelProtocol[Input, Output]"] {
         module: torch.nn.Module
         epoch: int
@@ -102,18 +98,17 @@ direction TB
         +update_learning_rate(base_lr, scheduler)
     }
 
-    CheckpointProtocol <--> ModelProtocol : saves / binds with
-    ModelProtocol --> ModuleProtocol : wraps
+    CheckpointProtocol <--> ModelProtocol : binds to / save
     LearningProtocol --> GradientOpProtocol : contains
     LearningProtocol --> SchedulerProtocol : contains
-    MonitorProtocol ..> LoaderProtocol : often gets data from
+    MonitorProtocol ..> LoaderProtocol : supports
     MonitorProtocol --> ModelProtocol : evaluates
-    MonitorProtocol ..> ObjectiveProtocol : typically according to
-    TrainerProtocol --> LearningProtocol : follows
-    TrainerProtocol ..> LoaderProtocol : often gets data from
-    TrainerProtocol --> LossProtocol : optimizes
-    TrainerProtocol --> ModelProtocol : trains
-    TrainerProtocol --> MonitorProtocol : can be validated by
+    MonitorProtocol ..> ObjectiveProtocol : according to
+    TrainerProtocol --> LearningProtocol :  implements
+    TrainerProtocol ..> LoaderProtocol : supports
+    TrainerProtocol --> LossProtocol : minimizes
+    TrainerProtocol --> ModelProtocol : updates
+    TrainerProtocol --> MonitorProtocol : validated by
     MonitorProtocol <|-- TrainerProtocol : refines
     ObjectiveProtocol <|-- LossProtocol : refines
 
