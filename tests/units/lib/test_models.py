@@ -53,7 +53,7 @@ class TestSWAModel:
     @pytest.fixture
     def swa_model(self) -> SWAModel[TorchTuple, TorchData]:
         """Fixture for AveragedModel."""
-        model = SWAModel(MLP(), name='swa_model', start_epoch=2)
+        model = SWAModel(MLP().to_cpu(), name='swa_model', start_epoch=2)
         model.epoch = 2
         return model
 
