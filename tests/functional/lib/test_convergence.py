@@ -54,7 +54,7 @@ def test_ema_convergence(ema_model, identity_trainer_with_ema) -> None:
 def test_ema_slow_convergence(ema_model, identity_trainer_with_ema) -> None:
     """Test trainer convergence to 1."""
     ema_model.decay = 0.999
-    ema_model.averaged_module = ema_model._create_averaged_module()
+    ema_model.exec_averaged_module = ema_model._create_averaged_module()
 
     identity_trainer_with_ema.train(10)
     avg_weight = next(ema_model.averaged_module.parameters())

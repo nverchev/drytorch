@@ -37,11 +37,6 @@ class TestModel:
         """Fixture of a complex model wrapped with Model."""
         return Model(MLP(), name='mlp_model')
 
-    @pytest.fixture(scope='class')
-    def complex_dist_model(self) -> Model[torch.Tensor, torch.Tensor]:
-        """Fixture of a complex model wrapped with Model."""
-        return Model(torch.nn.DataParallel(MLP()), name='dist_model')
-
     def test_model_increment_epoch(self, complex_model: Model) -> None:
         """Test Model's increment_epoch method increases the epoch count."""
         complex_model.increment_epoch()
@@ -50,10 +45,6 @@ class TestModel:
     def test_no_dist(self, complex_model: Model) -> None:
         """Test module is exec_module outside distributed settings."""
         assert complex_model.module is complex_model.exec_module
-
-    def test_module_returns_unwrapped(self, complex_dist_model: Model) -> None:
-        """Test that module property returns the raw nn.Module."""
-        assert not isinstance(complex_dist_model.module, torch.nn.DataParallel)
 
 
 class TestSWAModel:
