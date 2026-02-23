@@ -31,11 +31,13 @@ class TestModel:
         self.mock_autocast.return_value.__exit__ = mocker.Mock(
             return_value=None
         )
+        return
 
     @pytest.fixture(scope='class')
     def complex_model(self) -> Model[TorchTuple, TorchData]:
         """Fixture of a complex model wrapped with Model."""
-        return Model(MLP(), name='mlp_model')
+        cpu = torch.device('cpu')
+        return Model(MLP(), name='mlp_model', device=cpu)
 
     def test_model_increment_epoch(self, complex_model: Model) -> None:
         """Test Model's increment_epoch method increases the epoch count."""
@@ -53,7 +55,8 @@ class TestSWAModel:
     @pytest.fixture
     def swa_model(self) -> SWAModel[TorchTuple, TorchData]:
         """Fixture for AveragedModel."""
-        model = SWAModel(MLP().cpu(), name='swa_model', start_epoch=2)
+        cpu = torch.device('cpu')
+        model = SWAModel(MLP(), name='swa_model', start_epoch=2, device=cpu)
         model.epoch = 2
         return model
 
@@ -139,7 +142,8 @@ class TestEMAModel:
     @pytest.fixture(scope='class')
     def ema_model(self) -> EMAModel[TorchTuple, TorchData]:
         """Fixture for the EMA model."""
-        return EMAModel(MLP(), name='ema_model', decay=0.9)
+        cpu = torch.device('cpu')
+        return EMAModel(MLP(), name='ema_model', decay=0.9, device=cpu)
 
     def test_init(self, ema_model) -> None:
         """Test class initialization."""
