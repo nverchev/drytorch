@@ -1,4 +1,4 @@
-## [0.1.0rc6] -
+## [0.1.0rc6] - 2026-02-23
 
 ### Added
 - EMA and SWA models
