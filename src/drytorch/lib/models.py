@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-import sys
 
 from collections.abc import Callable
 from typing import ClassVar, Final, Protocol, TypeVar
@@ -141,9 +140,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def prepare_module(self, module: torch.nn.Module) -> torch.nn.Module:
         """Compile and distribute the module."""
         module = module.to(self._device)
-
-        # TODO: remove flag when torch.compile is supported on Python 3.14
-        if self._should_compile and sys.version_info < (3, 14):
+        if self._should_compile:
             torch.compile(module)
 
         if dist.is_available() and dist.is_initialized() and self._should_dist:
