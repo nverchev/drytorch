@@ -1,46 +1,49 @@
 exclude: '^docs/_build/'
+
 repos:
 
   - repo: https://github.com/kynan/nbstripout
     rev: 0.8.1
     hooks:
       - id: nbstripout
-        exclude: '^docs/_build/'
-
 
   - repo: https://github.com/mwouts/jupytext
-    rev: v1.18.1
+    rev: v1.19.1
     hooks:
-      - id: jupytext
-        args: [ --sync ]
-        additional_dependencies: [ jupytext ]
+      - id: jupytext  # sync .py scripts from notebooks BEFORE formatting
+        args: [--sync]
+        additional_dependencies: [jupytext]
         files: '\.ipynb$'
 
-
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: debug-statements
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.6
+    rev: v0.15.4
     hooks:
       - id: ruff-format
       - id: ruff-check
-        args: [ --fix, --exit-non-zero-on-fix ]
+        args: [--fix, --exit-non-zero-on-fix]
 
-  - repo: https://github.com/mwouts/jupytext  # ensure they are still in sync
-    rev: v1.18.1
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.19.1
     hooks:
-      - id: jupytext
-        args: [ --sync ]
-        additional_dependencies: [ jupytext ]
+      - id: jupytext  # re-sync AFTER ruff reformats the paired .py scripts
+        args: [--sync]
+        additional_dependencies: [jupytext]
         files: '\.ipynb$'
 
-  - repo: https://github.com/DetachHead/basedpyright-prek-mirror
-    rev: 1.32.1
+  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
+    rev: 1.38.2
     hooks:
       - id: basedpyright
         exclude: ^tests/
