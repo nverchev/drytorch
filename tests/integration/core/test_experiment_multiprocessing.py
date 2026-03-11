@@ -1,9 +1,11 @@
 """Integration tests for experiment multiprocessing safety."""
 
 import multiprocessing
+import warnings
 
 from ..conftest import RunningWorker
 
+from drytorch.core.exceptions import RunAlreadyCompletedWarning
 from drytorch.core.experimenting import Experiment, RunStatus
 
 
@@ -41,8 +43,10 @@ class TestExperimentMultiprocessing:
         worker = RunningWorker(
             self._update_status, par_dir=tmp_path, run_id=example_run_id
         )
-        with multiprocessing.Pool(processes=len(status_list)) as pool:
-            pool.map(worker, status_list)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RunAlreadyCompletedWarning)
+            with multiprocessing.Pool(processes=len(status_list)) as pool:
+                pool.map(worker, status_list)
 
         exp = Experiment(config={}, name=worker.name, par_dir=tmp_path)
         runs = exp._registry.load_all()
@@ -64,8 +68,10 @@ class TestExperimentMultiprocessing:
         worker = RunningWorker(
             self._update_status, par_dir=tmp_path, run_id=example_run_id
         )
-        with multiprocessing.Pool(processes=len(status_list)) as pool:
-            pool.map(worker, status_list)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RunAlreadyCompletedWarning)
+            with multiprocessing.Pool(processes=len(status_list)) as pool:
+                pool.map(worker, status_list)
 
         exp = Experiment(config={}, name=worker.name, par_dir=tmp_path)
         runs = exp._registry.load_all()

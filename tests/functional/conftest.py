@@ -52,7 +52,7 @@ def swa_model() -> SWAModel[TorchTuple, TorchData]:
 @pytest.fixture
 def ema_model() -> EMAModel[TorchTuple, TorchData]:
     """Instantiate a simple model."""
-    return EMAModel(Linear(1, 1), name='ema_linear', decay=0.3)
+    return EMAModel(Linear(1, 1), name='ema_linear', decay=0.5)
 
 
 @pytest.fixture

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import abc
-import sys
 
 from collections.abc import Callable
-from typing import ClassVar, Final, TypeVar
+from typing import ClassVar, Final, Protocol, TypeVar
 
 import torch
 
 from torch import distributed as dist
+from torch.nn import parallel
 from typing_extensions import override
 
 from drytorch.core import protocols as p
@@ -29,8 +29,17 @@ __all__ = [
 Input = TypeVar('Input', bound=p.InputType, contravariant=True)
 Output = TypeVar('Output', bound=p.OutputType, covariant=True)
 Tensor = torch.Tensor
+
 _ParamList = tuple[Tensor, ...] | list[Tensor]
 _MultiAvgFn = Callable[[_ParamList, _ParamList, Tensor | int], None]
+
+
+class ModuleProtocol(Protocol[Input, Output]):
+    """Protocol for a PyTorch module with type annotations."""
+
+    @abc.abstractmethod
+    def forward(self, inputs: Input, /) -> Output:
+        """Forward run of the network."""
 
 
 class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
@@ -56,7 +65,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     def __init__(  # type: ignore
         self,
-        module: p.ModuleProtocol[Input, Output],
+        module: ModuleProtocol[Input, Output],
         name: str = '',
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
@@ -131,9 +140,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def prepare_module(self, module: torch.nn.Module) -> torch.nn.Module:
         """Compile and distribute the module."""
         module = module.to(self._device)
-
-        # TODO: remove flag when torch.compile is supported on Python 3.14
-        if self._should_compile and sys.version_info < (3, 14):
+        if self._should_compile:
             torch.compile(module)
 
         if dist.is_available() and dist.is_initialized() and self._should_dist:
@@ -177,11 +184,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     def _unwrap_module(self) -> torch.nn.Module:
         """Return the module without wrapping."""
-        wrapper_types = (
-            torch.nn.DataParallel,
-            torch.nn.parallel.DistributedDataParallel,
-        )
-        if isinstance(self.exec_module, wrapper_types):
+        if isinstance(self.exec_module, parallel.DistributedDataParallel):
             return self.exec_module.module
 
         return self.exec_module
@@ -205,7 +208,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     @staticmethod
     def _validate_module(
-        torch_model: p.ModuleProtocol[Input, Output],
+        torch_model: ModuleProtocol[Input, Output],
     ) -> torch.nn.Module:
         if not isinstance(torch_model, torch.nn.Module):
             raise TypeError('torch_module must be a torch.nn.Module subclass')
@@ -219,15 +222,15 @@ class AveragedModel(Model[Input, Output], abc.ABC):
     Use the averaged model when in inference mode.
 
     Attributes:
-        averaged_module: the averaged module.
+        exec_averaged_module: the averaged module.
     """
 
     average_name: ClassVar[str] = 'averaged_model'
-    averaged_module: torch.optim.swa_utils.AveragedModel
+    exec_averaged_module: torch.optim.swa_utils.AveragedModel
 
     def __init__(
         self,
-        torch_module: p.ModuleProtocol[Input, Output],
+        torch_module: ModuleProtocol[Input, Output],
         /,
         name: str = '',
         device: torch.device | None = None,
@@ -248,16 +251,24 @@ class AveragedModel(Model[Input, Output], abc.ABC):
         super().__init__(
             torch_module, name, device, checkpoint, mixed_precision
         )
-        self.averaged_module = self._create_averaged_module()
-        self.checkpoint.bind_module(self.average_name, self.averaged_module)
+        self.exec_averaged_module = self._create_averaged_module()
+        self.checkpoint.bind_module(
+            self.average_name,
+            self.exec_averaged_module,  # save wrapped module
+        )
         return
 
     def __call__(self, inputs: Input) -> Output:
         """Execute the forward pass."""
         if torch.is_inference_mode_enabled():
-            return self.averaged_module(inputs)  # no mixed precision here
+            return self.exec_averaged_module(inputs)  # no mixed precision here
 
         return super().__call__(inputs)
+
+    @property
+    def averaged_module(self) -> torch.nn.Module:
+        """The module wrapped by the class."""
+        return self._unwrap_averaged_module()
 
     def _create_averaged_module(self) -> torch.optim.swa_utils.AveragedModel:
         averaged_module = torch.optim.swa_utils.AveragedModel(
@@ -273,11 +284,15 @@ class AveragedModel(Model[Input, Output], abc.ABC):
         return averaged_module
 
     @abc.abstractmethod
-    def _get_multi_avg_fn(self) -> _MultiAvgFn | None: ...
+    def _get_multi_avg_fn(self) -> _MultiAvgFn | None:
+        """Define the averaging function for the model parameters."""
 
     def _update_parameters(self) -> None:
-        self.averaged_module.update_parameters(self._unwrap_module())
+        self.exec_averaged_module.update_parameters(self._unwrap_module())
         return
+
+    def _unwrap_averaged_module(self) -> torch.nn.Module:
+        return self.exec_averaged_module.module
 
 
 class SWAModel(AveragedModel[Input, Output]):
@@ -286,16 +301,16 @@ class SWAModel(AveragedModel[Input, Output]):
     Use the averaged model when in inference mode.
 
     Attributes:
-        averaged_module: the averaged module.
+        exec_averaged_module: the averaged module.
         start_epoch: the epoch at which to start averaging.
     """
 
     average_name = 'swa_model'
-    averaged_module: torch.optim.swa_utils.AveragedModel
+    exec_averaged_module: torch.optim.swa_utils.AveragedModel
 
     def __init__(
         self,
-        torch_module: p.ModuleProtocol[Input, Output],
+        torch_module: ModuleProtocol[Input, Output],
         /,
         start_epoch: int,
         name: str = '',
@@ -346,17 +361,17 @@ class EMAModel(AveragedModel[Input, Output]):
     Use the averaged model when in inference mode.
 
     Attributes:
-        averaged_module: the averaged module.
+        exec_averaged_module: the averaged module.
         decay: the exponential decay rate for the moving average.
     """
 
     average_name = 'ema_model'
-    averaged_module: torch.optim.swa_utils.AveragedModel
+    exec_averaged_module: torch.optim.swa_utils.AveragedModel
     decay: float
 
     def __init__(
         self,
-        torch_module: p.ModuleProtocol[Input, Output],
+        torch_module: ModuleProtocol[Input, Output],
         /,
         name: str = '',
         device: torch.device | None = None,

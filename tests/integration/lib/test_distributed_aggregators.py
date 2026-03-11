@@ -24,7 +24,7 @@ class TestDistributedTorchAverager:
 
     @pytest.fixture
     def averager(self) -> TorchAverager:
-        """Fixture to create a DistributedTorchAverager instance."""
+        """Fixture to create a TorchAverager instance."""
         return TorchAverager()
 
     def test_multiprocess_aggregate_and_count(self, world_size) -> None:
@@ -36,7 +36,7 @@ class TestDistributedTorchAverager:
         assert len(return_dict) == world_size
         assert all(exit_code == 0 for exit_code in exit_codes)
         for rank in range(world_size):
-            assert return_dict[rank]['aggregate'] == 10.0  # 3 + 7 = 10
+            assert return_dict[rank]['total'] == 10.0  # 3 + 7 = 10
             assert return_dict[rank]['count'] == 4  # 2 + 2 = 4
             assert return_dict[rank]['average'] == 2.5  # 10 / 4 = 2.5
 
@@ -59,13 +59,12 @@ class TestDistributedTorchAverager:
         rank = dist.get_rank()
         averager = TorchAverager()
         tensor = torch.tensor([1.0 + rank * 2, 2.0 + rank * 2])
-        averager._aggregate(tensor)
-        averager._count(tensor)
         averager += {'my_metric': tensor}
         reduced = averager.all_reduce()
+        accumulator = averager.accumulators['my_metric']
         return {
-            'aggregate': averager.partials['my_metric'].item(),
-            'count': averager.counts['my_metric'],
+            'total': accumulator.total.item(),
+            'count': accumulator.count,
             'average': reduced['my_metric'].item(),
         }
 

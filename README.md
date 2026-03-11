@@ -2,51 +2,59 @@
 [![PyPI version](https://img.shields.io/pypi/v/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
 [![Total Downloads](https://img.shields.io/pypi/dm/drytorch?label=downloads&style=flat)](https://pypi.org/project/drytorch/)
 [![Python](https://img.shields.io/pypi/pyversions/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
-[![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](https://github.com/nverchev/drytorch/blob/master/LICENSE)
+[![License](https://img.shields.io/pypi/l/drytorch.svg)](https://github.com/nverchev/drytorch/blob/master/LICENSE)
 [![CI Status](https://github.com/nverchev/drytorch/actions/workflows/ci.yaml/badge.svg)](https://github.com/nverchev/drytorch/actions/workflows/CI.yaml)
 [![codecov](https://codecov.io/github/nverchev/drytorch/graph/badge.svg?token=CZND67KAW1)](https://codecov.io/github/nverchev/drytorch)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![basedpyright - checked](https://img.shields.io/badge/basedpyright-checked-ffc000)](https://docs.basedpyright.com)
 [![Documentation Status](https://readthedocs.org/projects/drytorch/badge/?version=latest)](https://drytorch.readthedocs.io/en/latest/?badge=latest)
 # DRYTorch
+Reproducible machine learning experiments with PyTorch.
 
-## 💡 Design Philosophy
-By adhering to the Don't Repeat Yourself (DRY) principle, this library makes your machine-learning projects easier to replicate, document, and reuse.
+## Design
+Applies Don't Repeat Yourself principles: replicable, documented, reusable.
 
-## ✨ Features at a Glance
-* **Experimental Scope:**  All logic runs within a controlled scope, preventing unintended dependencies, data leakage, and misconfiguration.
-* **Modularity:** Components communicate via defined protocols, providing type safety and flexibility for custom implementations.
-* **Decoupled Tracking:** Logging, plotting, and metadata are handled by an event system that separates execution from tracking.
-* **Lean Dependencies:** Minimal core requirements while supporting optional external libraries (Hydra, W&B, TensorBoard, etc.).
-* **Self-Documentation:** Metadata is automatically extracted in a standardized and robust manner.
-* **Ready-to-Use Implementations:** Advanced functionalities with minimal boilerplate, suitable for a wide range of ML applications.
+* **Reproducibility:** experimental isolation to prevent unintended dependencies, data leakage, and misconfiguration.
+* **Modularity:** flexible protocols preserving type inference in custom implementations.
+* **Decoupled Tracking:** execution independent of tracking events (logging, plotting, and storing metadata).
+* **Optional Dependencies:** support for external libraries (Hydra, W&B, TensorBoard, etc.) but minimal requirements.
+* **Self-Documentation:** automatic metadata extraction and standardization.
+* **Ready-to-use:** high-level implementations for advanced applications and workflows.
 
-## 📦 Installation
+## Installation
 
-**Requirements**
-The library only requires recent versions of **PyTorch** and **NumPy**.
-**PyYAML** and **tqdm** are recommended for better tracking.
+**Requirements:**
+- The library only requires recent versions of **PyTorch** and **NumPy**.
+- **PyYAML** and **tqdm** are recommended.
+
+**pip:**
+```bash
+pip install drytorch
+```
+
+**UV:**
 ```bash
 uv add drytorch
 ```
 
-## 🗂️ Library Organization
-Folders are organized as follows:
+## Package Structure
+Modules are organized into the following subpackages:
 
-- **Core (`core`):** The library kernel. Contains internal routines and the interfaces for defining custom components.
-- **Standard Library (`lib`):** Reusable implementations and abstract classes of the protocols.
-- **Trackers (`tracker`):** Optional tracker plugins that integrate via the event system.
-- **Contributions (`contrib`):** Dedicated space for community-driven extensions.
-- **Utilities (`utils`):** Functions and classes independent to the framework.
+- **`core`:** internal routines and the interfaces for library and custom components.
+- **`lib`:** reusable implementations and abstract classes of the protocols.
+- **`tracker`:** optional tracker plugins that integrate via the event system.
+- **`contrib`:** community-driven extensions and support for external libraries.
+- **`utils`:** general utilities independent to the framework.
 
-## 📚 Documentation
+## Documentation
 
 **[Read the full documentation on Read the Docs →](https://drytorch.readthedocs.io/)**
 
 The documentation includes:
-- **[Tutorials](https://drytorch.readthedocs.io/latest/tutorials.html)** - Complete walkthrough
-- **[API Reference](https://drytorch.readthedocs.io/latest/api.html)** - Detailed API documentation
-- **[Architecture Overview](https://drytorch.readthedocs.io/latest/architecture.html)** - Design principles and structure
+- **[Tutorials](https://drytorch.readthedocs.io/latest/tutorials.html)**: walkthrough through the core features.
+- **[API Reference](https://drytorch.readthedocs.io/latest/api.html)**: detailed API documentation.
+- **[Architecture Overview](https://drytorch.readthedocs.io/latest/architecture.html)**: design structure.
 
 
-## 📝 **[Changelog](https://github.com/nverchev/drytorch/blob/main/CHANGELOG.md)**
+## See also
+- **[Changelog](https://github.com/nverchev/drytorch/blob/main/CHANGELOG.md)**

@@ -266,6 +266,7 @@ class Trainer(
     def add_validation(
         self,
         val_loader: p.LoaderProtocol[tuple[Input, Target]],
+        name: str = '',
         interval: int = 1,
     ) -> None:
         """Add a loader for validation with the same metrics as for training.
@@ -275,13 +276,14 @@ class Trainer(
 
         Args:
             val_loader: the loader for validation.
+            name: the name for the validation.
             interval: the frequency of validation.
 
         Raises:
             ValueError: if the interval is not strictly positive.
         """
         validation = evaluations.Validation(
-            self.model, loader=val_loader, metric=self.objective
+            self.model, name=name, loader=val_loader, metric=self.objective
         )
         val_hook = hooks.StaticHook(validation)
         if interval < 1:

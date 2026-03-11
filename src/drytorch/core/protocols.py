@@ -28,7 +28,6 @@ __all__ = [
     'LoaderProtocol',
     'LossProtocol',
     'ModelProtocol',
-    'ModuleProtocol',
     'MonitorProtocol',
     'ObjectiveProtocol',
     'OutputType',
@@ -80,13 +79,6 @@ class LoaderProtocol(Protocol[_Data_co]):
         """Return the number of batches in the dataset."""
 
 
-class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
-    """Protocol for a PyTorch module with type annotations."""
-
-    def forward(self, inputs: _Input_contra, /) -> _Output_co:
-        """Forward run of the network."""
-
-
 @runtime_checkable
 class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     """Protocol for a wrapper around a torch module.
@@ -121,13 +113,13 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
 
+    @abc.abstractmethod
     def post_batch_update(self) -> None:
         """Update the model after processing a batch of data."""
-        return
 
+    @abc.abstractmethod
     def post_epoch_update(self) -> None:
         """Update the model after processing an epoch of data."""
-        return
 
 
 class CheckpointProtocol(Protocol):

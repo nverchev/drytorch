@@ -63,6 +63,7 @@ class Linear(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(in_features, out_features)
         self.linear.weight.data.zero_()
+        self.linear.bias.data.zero_()
         return
 
     def forward(self, inputs: TorchTuple) -> TorchData:

@@ -1,25 +1,34 @@
 # DRYTorch's Documentation
 [![PyPI version](https://img.shields.io/pypi/v/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
 [![Python](https://img.shields.io/pypi/pyversions/drytorch.svg?style=flat)](https://pypi.org/project/drytorch/)
-[![License](https://img.shields.io/github/license/nverchev/drytorch.svg)](https://github.com/nverchev/drytorch/blob/master/LICENSE)
+[![License](https://img.shields.io/pypi/l/drytorch.svg)](https://github.com/nverchev/drytorch/blob/master/LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-nverchev%2Fdrytorch-blue?logo=github)](https://github.com/nverchev/drytorch)
 
-## 💡 Design Philosophy
-By adhering to the Don't Repeat Yourself (DRY) principle, this library makes your machine-learning projects easier to replicate, document, and reuse.
+Reproducible machine learning experiments with PyTorch.
 
-## ✨ Features at a Glance
-* **Experimental Scope:**  All logic runs within a controlled scope, preventing unintended dependencies, data leakage, and misconfiguration.
-* **Modularity:** Components communicate via defined protocols, providing type safety and flexibility for custom implementations.
-* **Decoupled Tracking:** Logging, plotting, and metadata are handled by an event system that separates execution from tracking.
-* **Lean Dependencies:** Minimal core requirements while supporting optional external libraries (Hydra, W&B, TensorBoard, etc.).
-* **Self-Documentation:** Metadata is automatically extracted in a standardized and robust manner.
-* **Ready-to-Use Implementations:** Advanced functionalities with minimal boilerplate, suitable for a wide range of ML applications.
+## Design
+Applies Don't Repeat Yourself principles: replicable, documented, reusable.
 
-## 📦 Installation
+* **Reproducibility:** experimental isolation to prevent unintended dependencies, data leakage, and misconfiguration.
+* **Modularity:** flexible protocols preserving type inference in custom implementations.
+* **Decoupled Tracking:** execution independent of tracking events (logging, plotting, and storing metadata).
+* **Optional Dependencies:** support for external libraries (Hydra, W&B, TensorBoard, etc.) but minimal requirements.
+* **Self-Documentation:** automatic metadata extraction and standardization.
+* **Ready-to-use:** high-level implementations for advanced applications and workflows.
 
-**Requirements**
-The library only requires recent versions of **PyTorch** and **NumPy**.
-**PyYAML** and **tqdm** are recommended for better tracking.
+
+## Installation
+
+**Requirements:**
+- The library only requires recent versions of **PyTorch** and **NumPy**.
+- **PyYAML** and **tqdm** are recommended.
+
+**pip:**
+```bash
+pip install drytorch
+```
+
+**UV:**
 ```bash
 uv add drytorch
 ```
