@@ -1,4 +1,12 @@
-## [0.1.0rc6] -
+
+## Future Release -
+
+### Added
+- added utils.local_ops
+- added unit tests for utils.local_ops
+
+
+## [0.1.0rc6] - 2026-03-04
 
 ### Added
 - EMA and SWA models
