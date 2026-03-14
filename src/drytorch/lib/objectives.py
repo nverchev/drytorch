@@ -20,10 +20,9 @@ import torch
 
 from typing_extensions import override
 
-import drytorch.lib.aggregators
-
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
+from drytorch.lib import aggregators
 
 
 __all__ = [
@@ -137,8 +136,8 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         return result
 
     @classmethod
-    def _get_aggregator(cls) -> drytorch.lib.aggregators.TorchAverager:
-        return drytorch.lib.aggregators.TorchAverager()
+    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Tensor, Tensor]:
+        return aggregators.TorchAverager()
 
 
 class MetricCollection(Objective[Output, Target]):
