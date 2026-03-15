@@ -7,7 +7,7 @@ import copy
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final, Generic, TypeVar
+from typing import Final, Generic, Self, TypeVar
 
 import torch
 
@@ -62,10 +62,7 @@ class AbstractAggregator(Generic[_T, _R], metaclass=abc.ABCMeta):
 
         return
 
-    def __add__(
-        self,
-        other: AbstractAggregator[_T, _R] | Mapping[str, _T],
-    ) -> AbstractAggregator[_T, _R]:
+    def __add__(self, other: Self | Mapping[str, _T]) -> Self:
         """Return new aggregator containing merged data."""
         result = copy.deepcopy(self)
         result += other
@@ -75,10 +72,7 @@ class AbstractAggregator(Generic[_T, _R], metaclass=abc.ABCMeta):
         """Return True if any values are stored."""
         return bool(self.accumulators)
 
-    def __iadd__(
-        self,
-        other: AbstractAggregator[_T, _R] | Mapping[str, _T],
-    ) -> AbstractAggregator[_T, _R]:
+    def __iadd__(self, other: Self | Mapping[str, _T]) -> Self:
         """Merge another aggregator or mapping into this one."""
         if isinstance(other, Mapping):
             other = self.__class__(**other)
@@ -142,7 +136,7 @@ class MeanAccumulator(AbstractAccumulator[float, float]):
         return cls(total=value, count=1)
 
     @override
-    def merge(self, other: MeanAccumulator) -> None:
+    def merge(self, other: Self) -> None:
         self.total += other.total
         self.count += other.count
 
@@ -176,7 +170,7 @@ class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
         )
 
     @override
-    def merge(self, other: TorchMeanAccumulator) -> None:
+    def merge(self, other: Self) -> None:
         self.total += other.total
         self.count += other.count
 
