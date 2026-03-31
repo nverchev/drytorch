@@ -6,6 +6,7 @@ import abc
 import dataclasses
 
 from collections.abc import Callable, Iterable
+from typing import TypeAlias
 
 import numpy as np
 
@@ -25,6 +26,8 @@ __all__ = [
     'restart',
     'warmup',
 ]
+
+_SchedulingLogic: TypeAlias = Callable[[float, int], float]
 
 
 class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
@@ -50,9 +53,9 @@ class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
 
     def bind(
         self,
-        f: Callable[[AbstractScheduler], AbstractScheduler],
+        f: Callable[[_SchedulingLogic], _SchedulingLogic],
         /,
-    ) -> AbstractScheduler:
+    ) -> FunctionalScheduler:
         """Allow transformation of the scheduler.
 
         Args:
@@ -61,7 +64,7 @@ class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
         Returns:
             the transformed scheduler.
         """
-        return f(self)
+        return FunctionalScheduler(f(self))
 
     @abc.abstractmethod
     def _compute(self, start_value: float, epoch: int) -> float:
@@ -76,7 +79,17 @@ class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
         """
 
 
-# Need frozen=True to have it as the default value
+@dataclasses.dataclass(frozen=True)
+class FunctionalScheduler(AbstractScheduler):
+    """Wrap functional logic into a scheduler."""
+
+    logic: _SchedulingLogic
+
+    @override
+    def _compute(self, start_value: float, epoch: int) -> float:
+        return self.logic(start_value, epoch)
+
+
 @dataclasses.dataclass(frozen=True)
 class ConstantScheduler(AbstractScheduler):
     """Constant learning rate."""
@@ -84,6 +97,72 @@ class ConstantScheduler(AbstractScheduler):
     @override
     def _compute(self, start_value: float, epoch: int) -> float:
         return start_value
+
+
+@dataclasses.dataclass(frozen=True)
+class RescaleLogic:
+    """Logic for scaling a scheduler output."""
+
+    logic: _SchedulingLogic
+    factor: float
+
+    def __post_init__(self):
+        """Input Validation."""
+        if self.factor <= 0:
+            raise ValueError('factor must be positive.')
+
+    def __call__(self, start_val: float, epoch: int) -> float:
+        return self.factor * self.logic(start_val, epoch)
+
+
+@dataclasses.dataclass(frozen=True)
+class RestartLogic:
+    """Logic for periodic restarts."""
+
+    logic: _SchedulingLogic
+    restart_interval: int
+    restart_fraction: float = 1.0
+    max_restart: int | None = None
+
+    def __post_init__(self):
+        """Input Validation."""
+        if self.restart_interval <= 0:
+            raise ValueError('restart_interval must be positive.')
+
+        if self.restart_fraction <= 0:
+            raise ValueError('restart_fraction must be positive.')
+
+        if self.max_restart is not None and self.max_restart <= 0:
+            raise ValueError('max_restart must be positive.')
+
+    def __call__(self, start_value: float, epoch: int) -> float:
+        if epoch >= self.restart_interval:
+            n_restart, restarted_epoch = divmod(epoch, self.restart_interval)
+            if self.max_restart is None or n_restart <= self.max_restart:
+                if restarted_epoch:
+                    start_value *= self.restart_fraction
+                    epoch = restarted_epoch
+                else:
+                    epoch = self.restart_interval
+        return self.logic(start_value, epoch)
+
+
+@dataclasses.dataclass(frozen=True)
+class WarmupLogic:
+    """Logic for a linear warmup phase."""
+
+    logic: _SchedulingLogic
+    warmup_steps: int
+
+    def __post_init__(self):
+        """Input Validation."""
+        if self.warmup_steps < 0:
+            raise ValueError('warmup_steps must be non-negative.')
+
+    def __call__(self, start_value: float, epoch: int) -> float:
+        if epoch < self.warmup_steps:
+            return start_value * (epoch / self.warmup_steps)
+        return self.logic(start_value, epoch - self.warmup_steps)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -197,104 +276,6 @@ class CosineScheduler(AbstractScheduler):
 
 
 @dataclasses.dataclass(frozen=True)
-class RescaleScheduler(AbstractScheduler):
-    """Scale the output of an existing scheduler.
-
-    Attributes:
-        factor: factor that rescales the value.
-        base_scheduler: the scheduler to call.
-    """
-
-    base_scheduler: p.SchedulerProtocol
-    factor: float
-
-    def __post_init__(self):
-        """Input Validation."""
-        if self.factor <= 0:
-            raise ValueError('factor must be positive.')
-
-    @override
-    def _compute(self, start_value: float, epoch: int) -> float:
-        return self.factor * self.base_scheduler(start_value, epoch)
-
-
-@dataclasses.dataclass(frozen=True)
-class RestartScheduler(AbstractScheduler):
-    """Wraps another scheduler to provide periodic restarts.
-
-    Attributes:
-        base_scheduler: the scheduler to restart.
-        restart_interval: the number of epochs between restarts.
-        restart_fraction: fraction of the base value to use as the base value
-            when restarting.
-        max_restart: Maximum number of restarts before deactivating. Default
-            never deactivates.
-    """
-
-    base_scheduler: p.SchedulerProtocol
-    restart_interval: int
-    restart_fraction: float = 1.0
-    max_restart: int | None = None
-
-    def __post_init__(self):
-        """Input Validation."""
-        if self.restart_interval <= 0:
-            raise ValueError('restart_interval must be positive.')
-
-        if self.restart_fraction <= 0:
-            raise ValueError('restart_fraction must be positive.')
-
-        if self.max_restart is not None and self.max_restart <= 0:
-            raise ValueError('max_restart must be positive.')
-
-    @override
-    def _compute(self, start_value: float, epoch: int) -> float:
-        if epoch >= self.restart_interval:
-            n_restart, restarted_epoch = divmod(epoch, self.restart_interval)
-            if self.max_restart is None or n_restart <= self.max_restart:
-                if restarted_epoch:
-                    start_value *= self.restart_fraction
-                    epoch = restarted_epoch
-                else:
-                    epoch = self.restart_interval
-
-        return self.base_scheduler(start_value, epoch)
-
-
-@dataclasses.dataclass(frozen=True)
-class WarmupScheduler(AbstractScheduler):
-    """Adds a warmup phase to any scheduler.
-
-    During warmup, the learning rate increases linearly from 0 to base_lr.
-    After warmup, delegates to the wrapped scheduler with adjusted epochs.
-
-    Attributes:
-        warmup_steps: number of steps (epochs) for the linear warmup phase.
-        base_scheduler: the base scheduler to wrap with warmup.
-    """
-
-    base_scheduler: p.SchedulerProtocol
-    warmup_steps: int = 10
-
-    def __post_init__(self):
-        """Input Validation."""
-        if self.warmup_steps < 0:
-            raise ValueError('warmup_steps must be non-negative.')
-
-    @override
-    def _compute(self, start_value: float, epoch: int) -> float:
-        if epoch < self.warmup_steps:
-            return start_value * (epoch / self.warmup_steps)
-
-        return self.base_scheduler(start_value, epoch - self.warmup_steps)
-
-    @override
-    def __repr__(self) -> str:
-        wrapped_repr = self.base_scheduler.__repr__()
-        return f'{wrapped_repr} with {self.warmup_steps} warm-up steps'
-
-
-@dataclasses.dataclass(frozen=True)
 class StepScheduler(AbstractScheduler):
     """Step-wise learning rate scheduler.
 
@@ -325,19 +306,18 @@ class StepScheduler(AbstractScheduler):
         return start_value * (self.gamma**count)
 
 
-# Decorator functions for functional composition
-def rescale(factor: float) -> Callable[[AbstractScheduler], AbstractScheduler]:
+def rescale(factor: float) -> Callable[[_SchedulingLogic], RescaleLogic]:
     """Create a scaling transformation.
 
     Args:
         factor: factor that rescales the value.
 
     Returns:
-        A decorator that wraps a scheduler with scaling.
+        A decorator that adds scaling to the scheduling logic.
     """
 
-    def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
-        return RescaleScheduler(scheduler, factor)
+    def _decorator(logic: _SchedulingLogic) -> RescaleLogic:
+        return RescaleLogic(logic, factor)
 
     return _decorator
 
@@ -345,36 +325,38 @@ def rescale(factor: float) -> Callable[[AbstractScheduler], AbstractScheduler]:
 def restart(
     restart_interval: int,
     restart_fraction: float = 1.0,
-) -> Callable[[AbstractScheduler], AbstractScheduler]:
+    max_restart: int | None = None,
+) -> Callable[[_SchedulingLogic], RestartLogic]:
     """Create a restart transformation.
 
     Args:
         restart_interval: number of epochs between restarts.
         restart_fraction: fraction to use when restarting.
+        max_restart: Maximum number of restarts before deactivating.
 
     Returns:
-        A decorator that wraps a scheduler with restarts.
+        A decorator that adds restarting to the scheduling logic.
     """
 
-    def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
-        return RestartScheduler(scheduler, restart_interval, restart_fraction)
+    def _decorator(logic: _SchedulingLogic) -> RestartLogic:
+        return RestartLogic(
+            logic, restart_interval, restart_fraction, max_restart
+        )
 
     return _decorator
 
 
-def warmup(
-    warmup_steps: int = 10,
-) -> Callable[[AbstractScheduler], AbstractScheduler]:
+def warmup(warmup_steps: int = 10) -> Callable[[_SchedulingLogic], WarmupLogic]:
     """Create a warmup transformation.
 
     Args:
         warmup_steps: number of warmup steps.
 
     Returns:
-        A decorator that wraps a scheduler with warmup.
+        A decorator that adds warmup to the scheduling logic.
     """
 
-    def _decorator(scheduler: AbstractScheduler) -> AbstractScheduler:
-        return WarmupScheduler(scheduler, warmup_steps)
+    def _decorator(logic: _SchedulingLogic) -> WarmupLogic:
+        return WarmupLogic(logic, warmup_steps)
 
     return _decorator

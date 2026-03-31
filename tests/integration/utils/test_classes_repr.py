@@ -6,7 +6,7 @@ import pytest
 
 from drytorch.lib.gradient_ops import HistClipper
 from drytorch.lib.hooks import EarlyStoppingCallback, HookRegistry
-from drytorch.lib.schedulers import ExponentialScheduler, WarmupScheduler
+from drytorch.lib.schedulers import ExponentialScheduler, warmup
 from drytorch.utils.averages import get_trailing_mean
 from drytorch.utils.repr_utils import recursive_repr
 
@@ -110,13 +110,16 @@ def test_gradient_op_repr() -> None:
 def test_scheduler_repr() -> None:
     """Test the representation of a scheduler."""
     expected = {
-        'class': 'WarmupScheduler',
-        'base_scheduler': {
-            'class': 'ExponentialScheduler',
-            'exp_decay': 0.975,
-            'min_decay': 0.0,
+        'class': 'FunctionalScheduler',
+        'logic': {
+            'class': 'WarmupLogic',
+            'logic': {
+                'class': 'ExponentialScheduler',
+                'exp_decay': 0.975,
+                'min_decay': 0.0,
+            },
+            'warmup_steps': 2,
         },
-        'warmup_steps': 2,
     }
-    scheduler = WarmupScheduler(ExponentialScheduler(), 2)
+    scheduler = ExponentialScheduler().bind(warmup(2))
     assert recursive_repr(scheduler) == expected

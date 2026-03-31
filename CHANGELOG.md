@@ -1,9 +1,15 @@
 
 ## Future Release -
 
-### Added
+### Added:
 - added utils.local_ops
 - added unit tests for utils.local_ops
+
+### Changed:
+- now schedulers and hooks implement monad logic correctly
+
+### Removed:
+- some internal classes in schedulers and hooks
 
 ## [0.1.0rc6] - 2026-02-23
 

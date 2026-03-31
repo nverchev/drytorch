@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import operator
 
 from collections.abc import Callable, Mapping, Sequence
@@ -13,6 +14,7 @@ from typing_extensions import override
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib import objectives, schedulers
+from drytorch.lib.schedulers import RestartLogic
 
 
 __all__ = [
@@ -21,7 +23,6 @@ __all__ = [
     'Hook',
     'MetricExtractor',
     'MetricMonitor',
-    'OptionalCallable',
     'PruneCallback',
     'ReduceLROnPlateau',
     'StaticHook',
@@ -105,11 +106,12 @@ class TrainerHook(
             trainer: the trainer to pass to the wrapped function.
         """
 
+    @abc.abstractmethod
     def bind(
         self,
         f: Callable[
-            [TrainerHook[Input, Target, Output]],
-            TrainerHook[Input, Target, Output],
+            [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
+            Callable[[p.TrainerProtocol[Input, Target, Output]], None],
         ],
         /,
     ) -> TrainerHook[Input, Target, Output]:
@@ -121,7 +123,6 @@ class TrainerHook(
         Returns:
             the transformed Hook.
         """
-        return f(self)
 
 
 class Hook(TrainerHook[Input, Target, Output]):
@@ -158,6 +159,25 @@ class Hook(TrainerHook[Input, Target, Output]):
         """
         self.wrapped(trainer)
 
+    @override
+    def bind(
+        self,
+        f: Callable[
+            [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
+            Callable[[p.TrainerProtocol[Input, Target, Output]], None],
+        ],
+        /,
+    ) -> Hook[Input, Target, Output]:
+        """Allow transformation of the Hook.
+
+        Args:
+            f: a function specifying the transformation.
+
+        Returns:
+            the transformed Hook.
+        """
+        return Hook(f(self.wrapped))
+
 
 class StaticHook(TrainerHook[Any, Any, Any]):
     """Ignoring arguments and execute a wrapped function.
@@ -184,112 +204,74 @@ class StaticHook(TrainerHook[Any, Any, Any]):
         """
         return self.wrapped()
 
-
-class OptionalCallable(Hook[Input, Target, Output], metaclass=abc.ABCMeta):
-    """Abstract class for callables that execute based on custom conditions."""
-
-    def __call__(
+    @override
+    def bind(
         self,
-        trainer: p.TrainerProtocol[Input, Target, Output],
-    ) -> None:
-        """Execute the call.
+        f: Callable[
+            [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
+            Callable[[p.TrainerProtocol[Input, Target, Output]], None],
+        ],
+        /,
+    ) -> Hook[Input, Target, Output]:
+        """Allow transformation of the Hook.
 
         Args:
-            trainer: the trainer to pass to the wrapped function.
+            f: a function specifying the transformation.
+
+        Returns:
+            the transformed Hook.
         """
-        if self._should_call(trainer):
-            return self.wrapped(trainer)
-
-        return None
-
-    @abc.abstractmethod
-    def _should_call(
-        self,
-        trainer: p.TrainerProtocol[Input, Target, Output],
-    ) -> bool:
-        """Determine if the callable should be executed."""
+        return Hook(f(self.__call__))
 
 
-class CallEvery(OptionalCallable[Input, Target, Output]):
-    """Call a function at specified intervals.
+@dataclasses.dataclass(frozen=True)
+class CallEvery:
+    """Metadata-aware wrapper for periodic execution.
 
     Attributes:
-        start: the epoch to start calling the hook.
-        interval: the frequency of calling the hook.
+        func: the function to be called periodically.
+        interval: the frequency of calling the function.
+        start: the epoch to start calling the function.
     """
 
-    start: int
+    func: Callable[[p.TrainerProtocol[Any, Any, Any]], None]
     interval: int
+    start: int
 
-    def __init__(
-        self,
-        wrapped: Callable[
-            [p.TrainerProtocol[Input, Target, Output]],
-            None,
-        ],
-        interval: int,
-        start: int,
-    ) -> None:
-        """Initialize.
-
-        Args:
-            start: the epoch to start calling the hook.
-            interval: the frequency of calling the hook.
-            wrapped: the function to be called periodically.
-        """
-        self.start = start
-        self.interval = interval
-        super().__init__(wrapped)
-        return
-
-    @override
-    def _should_call(
-        self,
-        trainer: p.TrainerProtocol[Input, Target, Output],
-    ) -> bool:
-        """Determine if the hook should be called based on the epoch.
-
-        Args:
-            trainer: the trainer instance containing epoch information.
-        """
+    def __call__(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
         epoch = trainer.model.epoch
         if epoch < self.start:
-            return False
+            return
 
-        return not (epoch - self.start) % self.interval or trainer.terminated
+        if not (epoch - self.start) % self.interval or trainer.terminated:
+            self.func(trainer)
+
+        return
 
 
 def call_every(
     interval: int,
     start: int = 0,
 ) -> Callable[
-    [
-        Callable[
-            [p.TrainerProtocol[Input, Target, Output]],
-            None,
-        ]
-    ],
-    CallEvery[Input, Target, Output],
+    [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
+    Callable[[p.TrainerProtocol[Input, Target, Output]], None],
 ]:
-    """Create a decorator for periodic hook execution.
+    """Create a transformer for periodic hook execution.
 
     Args:
-        start: the epoch to start calling the hook.
         interval: the frequency of calling the hook.
+        start: the epoch to start calling the hook.
 
     Returns:
-        A decorator that wraps a function in a CallEvery hook.
+        A transformer that adds periodic logic to a callable.
     """
 
-    def _decorator(
-        func: Callable[
-            [p.TrainerProtocol[Input, Target, Output]],
-            None,
-        ],
-    ) -> CallEvery[Input, Target, Output]:
-        return CallEvery(func, interval, start)
+    def _transformer(
+        func: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
+    ) -> CallEvery:
+        return CallEvery(func=func, interval=interval, start=start)
 
-    return _decorator
+    return _transformer
 
 
 @Hook
@@ -826,7 +808,9 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         Returns:
             Modified scheduler.
         """
-        return schedulers.RescaleScheduler(scheduler, self.factor)
+        return schedulers.FunctionalScheduler(
+            schedulers.RescaleLogic(scheduler, self.factor)
+        )
 
 
 class RestartScheduleOnPlateau(
@@ -851,4 +835,4 @@ class RestartScheduleOnPlateau(
         Returns:
             Modified scheduler.
         """
-        return schedulers.WarmupScheduler(scheduler, epoch)
+        return schedulers.FunctionalScheduler(RestartLogic(scheduler, epoch))

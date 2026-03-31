@@ -8,10 +8,7 @@ from drytorch.lib.schedulers import (
     CosineScheduler,
     ExponentialScheduler,
     PolynomialScheduler,
-    RescaleScheduler,
-    RestartScheduler,
     StepScheduler,
-    WarmupScheduler,
     rescale,
     restart,
     warmup,
@@ -130,191 +127,6 @@ class TestCosineScheduler:
             CosineScheduler(min_decay=-0.1)
         with pytest.raises(ValueError):
             CosineScheduler(min_decay=1.1)
-
-
-class TestScaledScheduler:
-    """Test the RescaledScheduler class."""
-
-    @pytest.fixture
-    def factor(self) -> float:
-        """Return test argument."""
-        return 0.5
-
-    @pytest.fixture
-    def base_scheduler(self) -> AbstractScheduler:
-        """Return test argument."""
-        return ConstantScheduler()
-
-    @pytest.fixture
-    def scheduler(self, factor, base_scheduler) -> AbstractScheduler:
-        """Set up the instance."""
-        return RescaleScheduler(factor=factor, base_scheduler=base_scheduler)
-
-    def test_scaled_scheduler(self, scheduler, factor, base_scheduler) -> None:
-        """Test it correctly scales the base scheduler's output."""
-        base_lr = 0.1
-        epoch = 10
-        expected_lr = factor * base_scheduler(base_lr, epoch)
-        assert scheduler(base_lr, epoch) == expected_lr
-
-    def test_invalid_params(self) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            RescaleScheduler(factor=0.0, base_scheduler=ConstantScheduler())
-        with pytest.raises(ValueError):
-            RescaleScheduler(factor=-1.0, base_scheduler=ConstantScheduler())
-
-
-class TestRestartScheduler:
-    """Test the RestartScheduler class."""
-
-    @pytest.fixture
-    def restart_interval(self) -> int:
-        """Return test argument."""
-        return 50
-
-    @pytest.fixture
-    def restart_fraction(self) -> float:
-        """Return test argument."""
-        return 0.5
-
-    @pytest.fixture
-    def max_restart(self) -> int:
-        """Return test argument."""
-        return 3
-
-    @pytest.fixture
-    def base_scheduler(self) -> AbstractScheduler:
-        """Return test argument."""
-        return CosineScheduler(decay_steps=50, min_decay=0.01)
-
-    @pytest.fixture
-    def scheduler(
-        self, base_scheduler, restart_interval, restart_fraction, max_restart
-    ) -> AbstractScheduler:
-        """Set up the instance."""
-        return RestartScheduler(
-            base_scheduler=base_scheduler,
-            restart_interval=restart_interval,
-            restart_fraction=restart_fraction,
-            max_restart=max_restart,
-        )
-
-    def test_restart_scheduler_no_restart(
-        self, scheduler, base_scheduler, restart_interval
-    ) -> None:
-        """Test RestartScheduler before the first restart."""
-        base_lr = 1.0
-        epoch = restart_interval - 10
-        assert scheduler(base_lr, epoch) == base_scheduler(base_lr, epoch)
-
-    def test_restart_scheduler_first_restart(
-        self, scheduler, base_scheduler, restart_interval, restart_fraction
-    ) -> None:
-        """Test RestartScheduler exactly at the first restart point."""
-        base_lr = 1.0
-        epoch = restart_interval + 1
-        expected = base_scheduler(base_lr * restart_fraction, 1)
-        assert scheduler(base_lr, epoch) == expected
-
-    def test_restart_scheduler_after_first_restart(
-        self, scheduler, base_scheduler, restart_interval, max_restart
-    ) -> None:
-        """Test RestartScheduler after the first restart point."""
-        base_lr = 1.0
-        epoch = (max_restart + 1) * restart_interval
-        expected = base_scheduler(base_lr, epoch)
-        assert scheduler(base_lr, epoch) == expected
-
-    def test_restart_scheduler_multiple_restarts(
-        self, scheduler, base_scheduler, restart_interval, restart_fraction
-    ) -> None:
-        """Test RestartScheduler after multiple restarts."""
-        base_lr = 1.0
-        epoch = (2 * restart_interval) + 20
-        expected_start_value = base_lr * restart_fraction
-        expected = base_scheduler(expected_start_value, 20)
-        assert scheduler(base_lr, epoch) == expected
-
-    def test_restart_after_max_restarts(
-        self, scheduler, base_scheduler, restart_interval, restart_fraction
-    ) -> None:
-        """Test RestartScheduler after multiple restarts."""
-        base_lr = 1.0
-        epoch = (2 * restart_interval) + 20
-        expected_start_value = base_lr * restart_fraction
-        expected = base_scheduler(expected_start_value, 20)
-        assert scheduler(base_lr, epoch) == expected
-
-    def test_invalid_params(self) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            RestartScheduler(ConstantScheduler(), restart_interval=0)
-        with pytest.raises(ValueError):
-            RestartScheduler(
-                ConstantScheduler(), restart_interval=10, restart_fraction=0.0
-            )
-        with pytest.raises(ValueError):
-            RestartScheduler(
-                ConstantScheduler(), restart_interval=10, restart_fraction=-0.1
-            )
-            with pytest.raises(ValueError):
-                RestartScheduler(
-                    ConstantScheduler(), restart_interval=10, max_restart=-1
-                )
-
-
-class TestWarmupScheduler:
-    """Test the WarmupScheduler class."""
-
-    @pytest.fixture
-    def warmup_steps(self) -> int:
-        """Return test argument."""
-        return 10
-
-    @pytest.fixture
-    def base_scheduler(self) -> AbstractScheduler:
-        """Return test argument."""
-        return ConstantScheduler()
-
-    @pytest.fixture
-    def scheduler(self, warmup_steps, base_scheduler) -> AbstractScheduler:
-        """Set up the instance."""
-        return WarmupScheduler(
-            warmup_steps=warmup_steps, base_scheduler=base_scheduler
-        )
-
-    def test_warmup_start(self, scheduler) -> None:
-        """Test that warmup starts at zero learning rate."""
-        base_lr = 0.1
-        assert scheduler(base_lr, 0) == 0.0
-
-    def test_warmup_middle(self, scheduler, warmup_steps) -> None:
-        """Test that warmup increases linearly."""
-        base_lr = 0.1
-        mid_warmup = warmup_steps // 2
-        expected_lr = base_lr * (mid_warmup / warmup_steps)
-        assert scheduler(base_lr, mid_warmup) == expected_lr
-
-    def test_warmup_end(self, scheduler, warmup_steps) -> None:
-        """Test that warmup reaches base_lr."""
-        base_lr = 0.1
-        end_warmup_lr = scheduler(base_lr, warmup_steps)
-        assert end_warmup_lr == base_lr
-
-    def test_post_warmup(self, scheduler, base_scheduler, warmup_steps) -> None:
-        """Test that the base scheduler behaves correctly after warmup."""
-        base_lr = 0.1
-        epochs_after_warmup = 5
-        total_epochs = warmup_steps + epochs_after_warmup
-        post_warmup_lr = scheduler(base_lr, total_epochs)
-        expected_lr = base_scheduler(base_lr, epochs_after_warmup)
-        assert post_warmup_lr == expected_lr
-
-    def test_invalid_params(self, base_scheduler) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            WarmupScheduler(base_scheduler, warmup_steps=-1)
 
 
 class TestPolynomialScheduler:
@@ -498,3 +310,74 @@ class TestBindingOperation:
         assert chained_scheduler(base_lr, 0) == 0.0
         assert chained_scheduler(base_lr, 1) == 0.25
         assert chained_scheduler(base_lr, 2) == 0.5
+
+
+class TestRescaleLogic:
+    """Test the rescales transformation via bind."""
+
+    def test_scaled_scheduler(self) -> None:
+        """Test it correctly scales the base scheduler's output."""
+        factor = 0.5
+        base_lr = 0.1
+        scheduler = ConstantScheduler().bind(rescale(factor))
+
+        assert scheduler(base_lr, 10) == factor * base_lr
+        assert scheduler.logic.factor == factor
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            ConstantScheduler().bind(rescale(0.0))
+
+
+class TestRestartLogic:
+    """Test the restart transformation via bind."""
+
+    def test_restart_scheduler(self) -> None:
+        """Test periodic restarts of the base scheduler."""
+        interval, fraction, max_r = 50, 0.5, 3
+        base_lr = 1.0
+
+        scheduler = CosineScheduler(decay_steps=50, min_decay=0.01).bind(
+            restart(
+                restart_interval=interval,
+                restart_fraction=fraction,
+                max_restart=max_r,
+            )
+        )
+
+        expected = CosineScheduler(decay_steps=50, min_decay=0.01)(
+            base_lr * fraction, 1
+        )
+        assert scheduler(base_lr, 51) == expected
+
+        assert scheduler.logic.restart_interval == interval
+        assert scheduler.logic.restart_fraction == fraction
+        assert scheduler.logic.max_restart == max_r
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            ConstantScheduler().bind(restart(restart_interval=0))
+
+
+class TestWarmupLogic:
+    """Test the warmup transformation via bind."""
+
+    def test_warmup_scheduler(self) -> None:
+        """Test linear warmup phase before the base scheduler starts."""
+        steps = 10
+        base_lr = 0.1
+
+        scheduler = ConstantScheduler().bind(warmup(warmup_steps=steps))
+
+        assert scheduler(base_lr, 0) == 0.0
+        assert scheduler(base_lr, 5) == pytest.approx(0.05)
+        assert scheduler(base_lr, 10) == base_lr
+        assert scheduler(base_lr, 15) == base_lr
+        assert scheduler.logic.warmup_steps == steps
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            ConstantScheduler().bind(warmup(warmup_steps=-1))

@@ -521,4 +521,4 @@ class TestRestartScheduleOnPlateau:
 
         mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
         args = mock_trainer.update_learning_rate.call_args  # type: ignore
-        assert isinstance(args[1]['scheduler'], schedulers.WarmupScheduler)
+        assert isinstance(args[1]['scheduler'], schedulers.FunctionalScheduler)
