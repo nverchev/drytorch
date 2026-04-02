@@ -1,5 +1,7 @@
 """Tests for the "hooks" module."""
 
+import pickle
+
 from typing import Any, Literal
 
 import pytest
@@ -25,6 +27,16 @@ from drytorch.lib.hooks import (
 
 Accuracy = 'Accuracy'
 Criterion = 'Loss'
+
+
+class _TestClass:
+    def __init__(self, text: str, number: int = 1):
+        self.text = text
+        self.number = number
+        return
+
+    def __call__(self) -> None:
+        return
 
 
 class TestHookRegistry:
@@ -70,17 +82,22 @@ def test_static_hook(mocker) -> None:
 def test_static_class(mocker, mock_trainer) -> None:
     """Test that static_hook_class creates a callable hook."""
     mock_event = mocker.MagicMock()
-
-    class _TestClass:
-        def __init__(self, text: str, number: int = 1):
-            self.text = text
-            self.number = number
-
-        def __call__(self) -> None:
-            mock_event()
-
     hook = static_hook_class(_TestClass)('test')
+    mocker.patch.object(_TestClass, '__call__', mock_event)
+
     hook(mock_trainer)
+    mock_event.assert_called_once()
+
+
+def test_static_hook_pickleable(mocker, mock_trainer) -> None:
+    """Test that static_hook_class produces pickleable hooks."""
+    mock_event = mocker.MagicMock()
+    mocker.patch.object(_TestClass, '__call__', mock_event)
+
+    original_hook = static_hook_class(_TestClass)('test', number=42)
+    reconstructed_hook = pickle.loads(pickle.dumps(original_hook))  # noqa: S301
+
+    reconstructed_hook(mock_trainer)
     mock_event.assert_called_once()
 
 
@@ -521,4 +538,4 @@ class TestRestartScheduleOnPlateau:
 
         mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
         args = mock_trainer.update_learning_rate.call_args  # type: ignore
-        assert isinstance(args[1]['scheduler'], schedulers.FunctionalScheduler)
+        assert isinstance(args[1]['scheduler'], schedulers.AbstractScheduler)

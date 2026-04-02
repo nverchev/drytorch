@@ -3,34 +3,37 @@
 from __future__ import annotations
 
 import abc
-import dataclasses
+import functools
 import operator
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Final, Generic, Literal, ParamSpec, TypeVar
+from typing import Any, Final, Generic, Literal, ParamSpec, TypeVar, cast
 
 from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib import objectives, schedulers
-from drytorch.lib.schedulers import RestartLogic
+from drytorch.lib.schedulers import RestartScheduler
 
 
 __all__ = [
+    'CallEvery',
     'ChangeSchedulerOnPlateauCallback',
     'EarlyStoppingCallback',
     'Hook',
+    'HookRegistry',
     'MetricExtractor',
     'MetricMonitor',
     'PruneCallback',
     'ReduceLROnPlateau',
+    'RestartScheduleOnPlateau',
     'StaticHook',
     'TrainerHook',
     'call_every',
     'saving_hook',
+    'static_hook_class',
 ]
-
 
 _T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
@@ -93,7 +96,15 @@ class TrainerHook(
     Generic[Input, Target, Output],
     metaclass=abc.ABCMeta,
 ):
-    """Callable supporting bind operations."""
+    """Compose control flow on side effects while keeping track of parameters.
+
+    Args:
+        parameters: metadata associated with the hook
+        base_hook_name: name of the base hook for representation
+    """
+
+    parameters: dict[str, Any]
+    base_hook_name: str
 
     @abc.abstractmethod
     def __call__(
@@ -106,15 +117,14 @@ class TrainerHook(
             trainer: the trainer to pass to the wrapped function.
         """
 
-    @abc.abstractmethod
     def bind(
         self,
         f: Callable[
             [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
-            Callable[[p.TrainerProtocol[Input, Target, Output]], None],
+            Hook,
         ],
         /,
-    ) -> TrainerHook[Input, Target, Output]:
+    ) -> Hook[Input, Target, Output]:
         """Allow transformation of the Hook.
 
         Args:
@@ -123,30 +133,41 @@ class TrainerHook(
         Returns:
             the transformed Hook.
         """
+        next_hook = f(self.__call__)
+        parameters = self.parameters | next_hook.parameters
+        return Hook(
+            wrapped=next_hook.__call__,
+            parameters=parameters,
+            base_hook_name=self.base_hook_name,
+        )
 
 
 class Hook(TrainerHook[Input, Target, Output]):
     """Wrapper for callable taking a Trainer as input.
 
     Attributes:
-        wrapped: the function to be conditionally called.
+        parameters: metadata associated with the hook.
+        base_hook_name: name of the base hook for representation.
     """
-
-    wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None]
 
     def __init__(
         self,
-        wrapped: Callable[
-            [p.TrainerProtocol[Input, Target, Output]],
-            None,
-        ],
-    ) -> None:
+        wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
+        base_hook_name: str | None = None,
+        parameters: dict[str, Any] | None = None,
+    ):
         """Initialize.
 
         Args:
             wrapped: the function to be conditionally called.
+            base_hook_name: name of the base hook for representation.
+                Defaults to the class name.
+            parameters: metadata associated with the hook.
         """
-        self.wrapped: Final = wrapped
+        self._wrapped = wrapped
+        self.parameters = parameters or {}
+        self.base_hook_name = base_hook_name or self.__class__.__name__
+        return
 
     def __call__(
         self,
@@ -157,94 +178,96 @@ class Hook(TrainerHook[Input, Target, Output]):
         Args:
             trainer: the trainer to pass to the wrapped function.
         """
-        self.wrapped(trainer)
-
-    @override
-    def bind(
-        self,
-        f: Callable[
-            [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
-            Callable[[p.TrainerProtocol[Input, Target, Output]], None],
-        ],
-        /,
-    ) -> Hook[Input, Target, Output]:
-        """Allow transformation of the Hook.
-
-        Args:
-            f: a function specifying the transformation.
-
-        Returns:
-            the transformed Hook.
-        """
-        return Hook(f(self.wrapped))
+        self._wrapped(trainer)
+        return
 
 
 class StaticHook(TrainerHook[Any, Any, Any]):
     """Ignoring arguments and execute a wrapped function.
 
     Attributes:
-        wrapped: the function to be wrapped and called statically.
+        parameters: metadata associated with the hook.
+        base_hook_name: name of the base hook for representation.
     """
 
-    wrapped: Callable[[], None]
-
-    def __init__(self, wrapped: Callable[[], None]):
+    def __init__(
+        self,
+        wrapped: Callable[[], None],
+        base_hook_name: str | None = None,
+        parameters: dict[str, Any] | None = None,
+    ):
         """Initialize.
 
         Args:
             wrapped: the function to be wrapped and called statically.
+            base_hook_name: name of the base hook for representation.
+                Defaults to the class name.
+            parameters: metadata associated with the hook.
         """
-        self.wrapped: Final = wrapped
+        self._wrapped = wrapped
+        self.parameters = parameters or {}
+        self.base_hook_name = base_hook_name or self.__class__.__name__
+        return
 
-    def __call__(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+    def __call__(
+        self,
+        trainer: p.TrainerProtocol[Input, Target, Output],
+    ) -> None:
         """Execute the call.
 
         Args:
-            trainer: not used.
+            trainer: the trainer to pass to the wrapped function.
         """
-        return self.wrapped()
-
-    @override
-    def bind(
-        self,
-        f: Callable[
-            [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
-            Callable[[p.TrainerProtocol[Input, Target, Output]], None],
-        ],
-        /,
-    ) -> Hook[Input, Target, Output]:
-        """Allow transformation of the Hook.
-
-        Args:
-            f: a function specifying the transformation.
-
-        Returns:
-            the transformed Hook.
-        """
-        return Hook(f(self.__call__))
+        self._wrapped()
+        return
 
 
-@dataclasses.dataclass(frozen=True)
-class CallEvery:
+class CallEvery(Hook[Input, Target, Output]):
     """Metadata-aware wrapper for periodic execution.
 
     Attributes:
-        func: the function to be called periodically.
-        interval: the frequency of calling the function.
-        start: the epoch to start calling the function.
+        parameters: metadata associated with the hook.
     """
 
-    func: Callable[[p.TrainerProtocol[Any, Any, Any]], None]
-    interval: int
-    start: int
+    def __init__(
+        self,
+        wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
+        parameters: dict[str, Any] | None = None,
+        interval: int = 1,
+        start: int = 0,
+    ):
+        """Initialize.
 
-    def __call__(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        Args:
+            wrapped: the function to be wrapped and called statically.
+            parameters: metadata associated with the hook.
+            interval: the frequency of calling the function.
+            start: the epoch to start calling the function.
+        """
+        super().__init__(wrapped, '', parameters)
+        if interval <= 0:
+            raise ValueError(f'interval must be positive, got {interval}')
+
+        if start < 0:
+            raise ValueError(f'start must be non-negative, got {start}')
+
+        self.start = start
+        self.interval = interval
+        self.parameters['interval'] = interval
+        self.parameters['start'] = start
+        return
+
+    def __call__(
+        self,
+        trainer: p.TrainerProtocol[Input, Target, Output],
+    ) -> None:
+        """Optionally, calling wrapped callable."""
         epoch = trainer.model.epoch
         if epoch < self.start:
             return
 
         if not (epoch - self.start) % self.interval or trainer.terminated:
-            self.func(trainer)
+            self._wrapped(trainer)
 
         return
 
@@ -254,7 +277,7 @@ def call_every(
     start: int = 0,
 ) -> Callable[
     [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
-    Callable[[p.TrainerProtocol[Input, Target, Output]], None],
+    Hook[Input, Target, Output],
 ]:
     """Create a transformer for periodic hook execution.
 
@@ -268,21 +291,10 @@ def call_every(
 
     def _transformer(
         func: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
-    ) -> CallEvery:
-        return CallEvery(func=func, interval=interval, start=start)
+    ) -> CallEvery[Input, Target, Output]:
+        return CallEvery(wrapped=func, interval=interval, start=start)
 
     return _transformer
-
-
-@Hook
-def saving_hook(trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
-    """Create a hook that saves the model's checkpoint.
-
-    Args:
-        trainer: the trainer instance.
-    """
-    trainer.save_checkpoint()
-    return
 
 
 def static_hook_class(
@@ -296,13 +308,43 @@ def static_hook_class(
     Returns:
         A class that can be instantiated in the same way to have a static hook.
     """
+    if not isinstance(cls, type):
+        raise TypeError(f'Input must be a class, got {type(cls)}')
 
+    @functools.wraps(cls, updated=())
     class _StaticHookDecorator(StaticHook):
         @override
-        def __init__(self, *args: _P.args, **kwargs: _P.kwargs):
-            super().__init__(cls(*args, **kwargs))
+        def __init__(self, *args: _P.args, **kwargs: _P.kwargs) -> None:
+            self._init_args: tuple[Any, ...] = args
+            self._init_kwargs: dict[str, Any] = dict(kwargs)
+            metadata: dict[str, Any] = dict(kwargs)
+            if args:
+                metadata['args'] = args
+
+            super().__init__(cls(*args, **kwargs), cls.__name__, metadata)
+            return
+
+        def __reduce__(
+            self,
+        ) -> tuple[
+            Callable[[type, tuple[Any, ...], dict[str, Any]], StaticHook],
+            tuple[type, tuple[Any, ...], dict[str, Any]],
+        ]:
+            bricks = (cast(type, cls), self._init_args, self._init_kwargs)
+            return _unpickle_static_hook, bricks
 
     return _StaticHookDecorator
+
+
+@Hook
+def saving_hook(trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+    """Create a hook that saves the model's checkpoint.
+
+    Args:
+        trainer: the trainer instance.
+    """
+    trainer.save_checkpoint()
+    return
 
 
 class MetricExtractor:
@@ -808,9 +850,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         Returns:
             Modified scheduler.
         """
-        return schedulers.FunctionalScheduler(
-            schedulers.RescaleLogic(scheduler, self.factor)
-        )
+        return schedulers.RescaleScheduler(scheduler, self.factor)
 
 
 class RestartScheduleOnPlateau(
@@ -835,4 +875,12 @@ class RestartScheduleOnPlateau(
         Returns:
             Modified scheduler.
         """
-        return schedulers.FunctionalScheduler(RestartLogic(scheduler, epoch))
+        return RestartScheduler(scheduler, epoch)
+
+
+def _unpickle_static_hook(
+    cls: type,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> StaticHook:
+    return static_hook_class(cls)(*args, **kwargs)

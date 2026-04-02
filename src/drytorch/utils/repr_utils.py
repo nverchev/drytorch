@@ -149,23 +149,21 @@ def recursive_repr(obj: object, *, depth: int | None = None) -> Any:
     Returns:
         A readable representation of the object
     """
-    if depth is None:  # assume actor is dispatched here
+    if depth is None:
         depth = MAX_DEPTH
 
     class_name = obj.__class__.__name__
-    if depth == 0:
-        return repr(obj) if _has_own_repr(obj) else class_name
+    if depth > 0:
+        attributes = _get_object_attributes(obj)
+        result_attrs = {}
+        for key, value in attributes.items():
+            if _should_skip_attribute(key, value, obj):
+                continue
 
-    attributes = _get_object_attributes(obj)
-    result_attrs = {}
-    for key, value in attributes.items():
-        if _should_skip_attribute(key, value, obj):
-            continue
+            result_attrs[key] = recursive_repr(value, depth=depth - 1)
 
-        result_attrs[key] = recursive_repr(value, depth=depth - 1)
-
-    if result_attrs:
-        return {'class': class_name, **dict(sorted(result_attrs.items()))}
+        if result_attrs:
+            return {'class': class_name, **dict(sorted(result_attrs.items()))}
 
     return repr(obj) if _has_own_repr(obj) else class_name
 

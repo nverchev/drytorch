@@ -322,7 +322,7 @@ class TestRescaleLogic:
         scheduler = ConstantScheduler().bind(rescale(factor))
 
         assert scheduler(base_lr, 10) == factor * base_lr
-        assert scheduler.logic.factor == factor
+        assert scheduler.parameters['factor'] == factor
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
@@ -351,9 +351,9 @@ class TestRestartLogic:
         )
         assert scheduler(base_lr, 51) == expected
 
-        assert scheduler.logic.restart_interval == interval
-        assert scheduler.logic.restart_fraction == fraction
-        assert scheduler.logic.max_restart == max_r
+        assert scheduler.parameters['restart_interval'] == interval
+        assert scheduler.parameters['restart_fraction'] == fraction
+        assert scheduler.parameters['max_restart'] == max_r
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
@@ -365,7 +365,7 @@ class TestWarmupLogic:
     """Test the warmup transformation via bind."""
 
     def test_warmup_scheduler(self) -> None:
-        """Test linear warmup phase before the base scheduler starts."""
+        """Test the linear warmup phase before the base scheduler starts."""
         steps = 10
         base_lr = 0.1
 
@@ -375,7 +375,7 @@ class TestWarmupLogic:
         assert scheduler(base_lr, 5) == pytest.approx(0.05)
         assert scheduler(base_lr, 10) == base_lr
         assert scheduler(base_lr, 15) == base_lr
-        assert scheduler.logic.warmup_steps == steps
+        assert scheduler.parameters['warmup_steps'] == steps
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""

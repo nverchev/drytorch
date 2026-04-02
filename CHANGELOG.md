@@ -4,6 +4,7 @@
 ### Added:
 - added utils.local_ops
 - added unit tests for utils.local_ops
+- classes created with static_hook_class are now pickleable
 
 ### Changed:
 - now schedulers and hooks implement monad logic correctly
