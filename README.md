@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/github/nverchev/drytorch/graph/badge.svg?token=CZND67KAW1)](https://codecov.io/github/nverchev/drytorch)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![basedpyright - checked](https://img.shields.io/badge/basedpyright-checked-ffc000)](https://docs.basedpyright.com)
-[![Documentation Status](https://readthedocs.org/projects/drytorch/badge/?version=latest)](https://drytorch.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/drytorch/badge/?version=latest)](https://drytorch.readthedocs.io/latest/?badge=latest)
 # DRYTorch
 Reproducible machine learning experiments with PyTorch.
 
