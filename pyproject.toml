@@ -21,7 +21,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "filelock>=3.12.0",
+    "filelock>=3.21.0",
     "numpy>=1.26.0",
     "torch>=2.7.0",
     "typing_extensions>=4.4.0",
@@ -86,7 +86,7 @@ docs = [
 ]
 
 type = [
-    "basedpyright>=1.31.1",
+    "basedpyright>=1.39.0",
     "pandas-stubs",
     "plotly-stubs",
     "types-tqdm",
@@ -119,15 +119,10 @@ addopts = [
 log_cli = true
 log_cli_level = "WARNING"
 
-[tool.mypy]
-mypy_path = "."
-namespace_packages = false
-files = ["src", "tests"]
-plugins = ["sqlalchemy.ext.mypy.plugin"]
-
 [tool.basedpyright]
 include = ["src"]
 typeCheckingMode = "basic"
 venvPath = "."
 venv = ".venv"
 failOnWarnings = false
+reportPrivateImportUsage = false  # suppress false positives due to torch stubs
