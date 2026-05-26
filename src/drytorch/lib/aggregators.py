@@ -24,11 +24,11 @@ class AbstractAccumulator(Generic[_T, _R], abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_value(cls, value: _T) -> AbstractAccumulator[_T, _R]:
+    def from_value(cls, value: _T) -> Self:
         """Create accumulator from raw value."""
 
     @abc.abstractmethod
-    def merge(self, other: AbstractAccumulator[_T, _R]) -> None:
+    def merge(self, other: Self) -> None:
         """Merge another accumulator into this one."""
 
     @abc.abstractmethod
