@@ -1,7 +1,11 @@
+## [0.1.0rc8] -
+
+### [BREAKING CHANGES]
+- removed LossBase.__or__ in favor of LossBase.watch with a clearer intent.
+
 
 ## [0.1.0rc7] - 2026-05-28
 
-### Added:
 - added utils.local_ops
 - added unit tests for utils.local_ops
 - classes created with static_hook_class are now pickleable

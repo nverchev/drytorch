@@ -99,6 +99,9 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         Args:
             outputs: model outputs.
             targets: ground truth.
+
+        Returns:
+            A dictionary of calculated metric values.
         """
 
     def copy(self) -> Self:
@@ -286,25 +289,15 @@ class LossBase(
         metrics = self.update(outputs, targets)
         return self.criterion(metrics).mean()
 
-    def __or__(
-        self, other: MetricCollection[Output, Target]
-    ) -> CompositionalLoss[Output, Target]:
-        """Combines a LossBase with another Objective using the OR operator.
+    def watch(self, metric: MetricCollection[Output, Target]) -> None:
+        """Include another Objective class in its metrics.
 
         Args:
-            other: the other Objective to combine with.
+            metric: the other Objective to watch.
 
-        Returns:
-            A new CompositionalLoss containing metrics from both instances.
         """
-        named_fn = self.named_fn | other.named_fn
-        return CompositionalLoss(
-            criterion=self.criterion,
-            name=self.name,
-            higher_is_better=self.higher_is_better,
-            formula=self.formula,
-            **named_fn,
-        )
+        self.named_fn.update(metric.named_fn)
+        return
 
     def _combine(
         self,

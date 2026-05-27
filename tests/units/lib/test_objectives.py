@@ -257,6 +257,12 @@ class TestLoss:
     """Tests for Loss."""
 
     @pytest.fixture(scope='class')
+    def metric(self, metric_1, metric_fun_1) -> Metric:
+        """Set up a Metric instance with a simple metric function."""
+        self.simple_fun = next(iter(metric_fun_1.values()))
+        return Metric(self.simple_fun, name=metric_1, higher_is_better=True)
+
+    @pytest.fixture(scope='class')
     def example_metric_results(self, metric_1) -> dict[str, torch.Tensor]:
         """A possible calculated value for metrics."""
         return {metric_1: torch.tensor(2.0)}
@@ -325,6 +331,11 @@ class TestLoss:
         combined_loss = loss_1**-2
         assert combined_loss.criterion(example_metric_results) == 2 ** (-2)
         assert combined_loss.formula == '(1 / [Metric_1]^2)'
+
+    def test_watch(self, loss_1, metric) -> None:
+        """Test watch includes another Objective's metrics in the output."""
+        loss_1.watch(metric)
+        assert metric.named_fn.items() <= loss_1.named_fn.items()
 
 
 def test_dict_apply(mocker) -> None:
@@ -443,7 +454,7 @@ class TestMetricTracker:
             MetricTracker(patience=-1)
 
     def test_best_result_not_available(self, tracker_auto) -> None:
-        """Test calling best result before any values are added fails."""
+        """Test calling the best result before any values are added fails."""
         with pytest.raises(exceptions.ResultNotAvailableError):
             _ = tracker_auto.best_value
 
