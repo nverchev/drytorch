@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
-from torchmetrics import metric
-
 from drytorch.core import protocols as p
 
 
@@ -27,6 +25,11 @@ def from_torchmetrics(
     """Returns a wrapper of a CompositionalMetric for integration."""
 
     class _TorchMetricCompositionalMetric(p.LossProtocol[_Tensor, _Tensor]):
+        """Wrapper of Compositional Metric reporting internal calculations.
+
+        Note that this CompositionalMetric can be used as loss.
+        """
+
         name = 'Loss'
 
         def __init__(self, _metric: metric.CompositionalMetric) -> None:
