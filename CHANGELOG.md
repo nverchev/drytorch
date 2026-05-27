@@ -1,8 +1,13 @@
 ## [0.1.0rc8] -
 
 ### [BREAKING CHANGES]
-- removed LossBase.__or__ in favor of LossBase.watch with a clearer intent.
+- removed LossBase.__or__ in favor of LossBase.watch with clearer intent.
 
+### Added
+- added LossBase.watch
+
+### Changed
+- get_aggregator in Objective is now abstract.
 
 ## [0.1.0rc7] - 2026-05-28
 

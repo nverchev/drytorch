@@ -139,8 +139,9 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         return result
 
     @classmethod
-    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Tensor, Tensor]:
-        return aggregators.TorchAverager()
+    @abc.abstractmethod
+    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Any, Any]:
+        """Returns the aggregator class."""
 
 
 class MetricCollection(Objective[Output, Target]):
@@ -194,6 +195,10 @@ class MetricCollection(Objective[Output, Target]):
         """
         named_fn = self.named_fn | other.named_fn
         return MetricCollection(**named_fn)
+
+    @classmethod
+    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Tensor, Tensor]:
+        return aggregators.TorchAverager()
 
 
 class Metric(MetricCollection[Output, Target]):
