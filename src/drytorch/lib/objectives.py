@@ -26,6 +26,7 @@ from drytorch.lib import aggregators
 
 
 __all__ = [
+    'AverageObjective',
     'CompositionalLoss',
     'JoinLossMetrics',
     'JoinMetrics',
@@ -53,7 +54,6 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         return
 
     @override
-    @abc.abstractmethod
     def compute(self: Self) -> dict[str, Tensor]:
         """Return the aggregated objective value(s).
 
@@ -63,6 +63,11 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         Returns:
             A dictionary of computed metric values.
         """
+        if not self._aggregator:
+            warnings.warn(
+                exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
+            )
+        return self._compute()
 
     @override
     def update(
@@ -135,13 +140,30 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
 
         return result
 
+    @abc.abstractmethod
+    def _compute(self: Self) -> dict[str, Tensor]:
+        """Computes the objective value(s)."""
+
     @classmethod
     @abc.abstractmethod
     def _get_aggregator(cls) -> aggregators.AbstractAggregator[Any, Any]:
         """Returns the aggregator class."""
 
 
-class MetricCollection(Objective[Output, Target]):
+class AverageObjective(Objective[Output, Target]):
+    """Class defining the default aggregation."""
+
+    @override
+    def _compute(self: Self) -> dict[str, Tensor]:
+        """Computes the objective value(s)."""
+        return self._aggregator.reduce()
+
+    @classmethod
+    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Tensor, Tensor]:
+        return aggregators.TorchAverager()
+
+
+class MetricCollection(AverageObjective[Output, Target]):
     """A collection of multiple metrics.
 
     Attributes:
@@ -162,23 +184,6 @@ class MetricCollection(Objective[Output, Target]):
         super().__init__()
         self.named_fn: Final = named_fn
         return
-
-    @override
-    def compute(self: Self) -> dict[str, Tensor]:
-        """Return the aggregated objective value(s).
-
-        Despite the name, which follows common practice, this method caches
-        previous computed values and returns them if available.
-
-        Returns:
-            A dictionary of computed metric values.
-        """
-        if not self._aggregator:
-            warnings.warn(
-                exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
-            )
-
-        return self._aggregator.reduce()
 
     @override
     def calculate(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
@@ -209,10 +214,6 @@ class MetricCollection(Objective[Output, Target]):
         """
         named_fn = self.named_fn | other.named_fn
         return MetricCollection(**named_fn)
-
-    @classmethod
-    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Tensor, Tensor]:
-        return aggregators.TorchAverager()
 
 
 class Metric(MetricCollection[Output, Target]):

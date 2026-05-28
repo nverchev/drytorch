@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.18.1
+    jupytext_version: 1.19.1
 kernelspec:
   display_name: .venv
   language: python
@@ -158,15 +158,17 @@ if not metric_collection.compute() == expected_metric_collection:
 
 ### Define a Custom Metric class
 
-You can subclass the abstract `Objective` class by overriding the `calculate` method. In this example, we slightly reduce the calculation overhead to obtain the previous metrics.
+You can subclass the abstract `AverageObjective` class by overriding the
+`calculate` method. For different aggregation strategies, subclass the `Objective` and override the `_compute` and `_get_aggregator` method.
+In this example, we slightly reduce the calculation overhead to obtain the previous metrics.
 
 ```{code-cell} ipython3
 from typing_extensions import override
 
-from drytorch.lib.objectives import Objective
+from drytorch.lib.objectives import AverageObjective
 
 
-class MyMetrics(Objective[torch.Tensor, torch.Tensor]):
+class MyMetrics(AverageObjective[torch.Tensor, torch.Tensor]):
     """Class to calculate MSE and MAE more efficiently."""
 
     @override
