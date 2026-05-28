@@ -10,6 +10,8 @@ from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib.objectives import (
     CompositionalLoss,
+    JoinLossMetrics,
+    JoinMetrics,
     Loss,
     Metric,
     MetricCollection,
@@ -257,6 +259,12 @@ class TestLoss:
     """Tests for Loss."""
 
     @pytest.fixture(scope='class')
+    def metric(self, metric_1, metric_fun_1) -> Metric:
+        """Set up a Metric instance with a simple metric function."""
+        self.simple_fun = next(iter(metric_fun_1.values()))
+        return Metric(self.simple_fun, name=metric_1, higher_is_better=True)
+
+    @pytest.fixture(scope='class')
     def example_metric_results(self, metric_1) -> dict[str, torch.Tensor]:
         """A possible calculated value for metrics."""
         return {metric_1: torch.tensor(2.0)}
@@ -326,83 +334,10 @@ class TestLoss:
         assert combined_loss.criterion(example_metric_results) == 2 ** (-2)
         assert combined_loss.formula == '(1 / [Metric_1]^2)'
 
-
-def test_dict_apply(mocker) -> None:
-    """Test it applies each function in the dict to outputs and targets."""
-    mock_fun1 = mocker.MagicMock(return_value=torch.tensor(0.5))
-    mock_fun2 = mocker.MagicMock(return_value=torch.tensor(0.8))
-    dict_fun = {'fun1': mock_fun1, 'fun2': mock_fun2}
-
-    mock_outputs = mocker.MagicMock()
-    mock_targets = mocker.MagicMock()
-
-    result = dict_apply(dict_fun, mock_outputs, mock_targets)
-
-    assert result == {'fun1': torch.tensor(0.5), 'fun2': torch.tensor(0.8)}
-    mock_fun1.assert_called_once_with(mock_outputs, mock_targets)
-    mock_fun2.assert_called_once_with(mock_outputs, mock_targets)
-
-
-def test_check_device_passes(mocker):
-    """Test that check_device passes when metrics are on the correct device."""
-    device = torch.device('cpu')
-    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
-    mock_calculator.compute.return_value = {
-        'loss': torch.tensor([0.5], device=device),
-        'accuracy': torch.tensor([0.95], device=device),
-    }
-
-    check_device(mock_calculator, device)  # Should not raise
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA not available')
-def test_check_device_fails(mocker):
-    """Test check_device raises errors when metrics are on the wrong device."""
-    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
-    mock_calculator.compute.return_value = {
-        'loss': torch.tensor([0.5], device='cuda'),
-    }
-
-    with pytest.raises(exceptions.DeviceMismatchError):
-        check_device(mock_calculator, torch.device('cpu'))
-
-
-@pytest.mark.parametrize(
-    'compute_return, class_name, expected',
-    [
-        # Case 1: Mapping of metrics
-        (
-            {'metric_1': torch.tensor(1), 'metric_2': torch.tensor(2)},
-            None,
-            {'metric_1': 1, 'metric_2': 2},
-        ),
-        # Case 2: Single tensor
-        (
-            torch.tensor(0.5),
-            'metric_1',
-            {'metric_1': 0.5},
-        ),
-    ],
-)
-def test_repr_metrics(mocker, compute_return, class_name, expected):
-    """Test the repr_metrics function with various compute return values."""
-    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
-    mock_calculator.compute.return_value = compute_return
-
-    if class_name:
-        mock_calculator.__class__.__name__ = class_name
-
-    # Call the function and assert the result
-    result = compute_metrics(mock_calculator)
-    assert result == expected
-
-
-def test_repr_metrics_fail(mocker):
-    """Test the repr_metrics function fails with no return."""
-    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
-
-    with pytest.raises(exceptions.ComputedMetricsTypeError):
-        _ = compute_metrics(mock_calculator)
+    def test_watch(self, loss_1, metric) -> None:
+        """Test watch includes another Objective's metrics in the output."""
+        loss_1.watch(metric)
+        assert metric.named_fn.items() <= loss_1.named_fn.items()
 
 
 class TestMetricTracker:
@@ -443,7 +378,7 @@ class TestMetricTracker:
             MetricTracker(patience=-1)
 
     def test_best_result_not_available(self, tracker_auto) -> None:
-        """Test calling best result before any values are added fails."""
+        """Test calling the best result before any values are added fails."""
         with pytest.raises(exceptions.ResultNotAvailableError):
             _ = tracker_auto.best_value
 
@@ -458,7 +393,7 @@ class TestMetricTracker:
         assert tracker_auto.history[1] == 2.0
 
     def test_filtered_value_default(self, tracker_auto) -> None:
-        """Test default aggregation method (last value)."""
+        """Test the default aggregation method (last value)."""
         tracker_auto.add_value(1.0)
         tracker_auto.add_value(2.0)
         tracker_auto.add_value(3.0)
@@ -571,3 +506,165 @@ class TestMetricTracker:
         """Test that single values are always considered improving."""
         tracker_higher_is_better.add_value(1.0)
         assert tracker_higher_is_better.is_improving()
+
+
+class TestJoinMetrics:
+    """Tests for JoinMetrics."""
+
+    @pytest.fixture(scope='class')
+    def joined(self, metric_fun_1, metric_fun_2) -> JoinMetrics:
+        """Set up a JoinMetrics instance from two MetricCollections."""
+        return JoinMetrics(
+            MetricCollection(**metric_fun_1),
+            MetricCollection(**metric_fun_2),
+        )
+
+    def test_update(self, metric_1, metric_2, joined) -> None:
+        """Test it returns the merged calculated values on update."""
+        result = joined.update(torch.tensor(1), torch.tensor(0))
+        expected = {metric_1: torch.tensor(1), metric_2: torch.tensor(0)}
+        assert result == expected
+
+    def test_update_compute_and_reset(self, metric_1, metric_2, joined) -> None:
+        """Test it stores, reduces, and resets metrics from both objectives."""
+        joined.reset()
+        joined.update(torch.tensor(1), torch.tensor(0))
+        joined.update(torch.tensor(3), torch.tensor(2))
+        expected_before = {metric_1: torch.tensor(2), metric_2: torch.tensor(1)}
+        computed_before = joined.compute()
+
+        joined.reset()
+        with pytest.warns(exceptions.ComputedBeforeUpdatedWarning):
+            computed_reset = joined.compute()
+
+        joined.update(torch.tensor(1), torch.tensor(0))
+        computed_after = joined.compute()
+        expected_after = {metric_1: torch.tensor(1), metric_2: torch.tensor(0)}
+        assert computed_before == expected_before
+        assert computed_reset == {}
+        assert computed_after == expected_after
+
+
+class TestJoinLossMetrics:
+    """Tests for JoinLossMetrics."""
+
+    @pytest.fixture(scope='class')
+    def loss_metric(self) -> str:
+        """Name of the loss metric."""
+        return 'Loss'
+
+    @pytest.fixture(scope='class')
+    def joined(self, loss_metric, metric_fun_2) -> JoinLossMetrics:
+        """Set up a JoinLossMetrics from a Loss and a MetricCollection."""
+        loss = Loss(lambda x, y: (x - y).abs(), name=loss_metric)
+        metric = MetricCollection(**metric_fun_2)
+        return JoinLossMetrics(loss, metric)
+
+    def test_forward(self, joined) -> None:
+        """Test it returns the loss value unchanged."""
+        outputs = torch.tensor(3.0)
+        targets = torch.tensor(1.0)
+        assert joined.forward(outputs, targets) == torch.tensor(2.0)
+
+    def test_update(self, loss_metric, metric_2, joined) -> None:
+        """Test it returns the merged calculated values on update."""
+        result = joined.update(torch.tensor(3.0), torch.tensor(1.0))
+        expected = {loss_metric: torch.tensor(2.0), metric_2: torch.tensor(1.0)}
+        assert result == expected
+
+    def test_update_compute_and_reset(
+        self, loss_metric, metric_2, joined
+    ) -> None:
+        """Test it stores, reduces, and resets metrics from both objectives."""
+        joined.reset()
+
+        joined.update(torch.tensor(3.0), torch.tensor(1.0))
+        joined.update(torch.tensor(5.0), torch.tensor(1.0))
+        expected = {loss_metric: torch.tensor(3.0), metric_2: torch.tensor(1.0)}
+        assert joined.compute() == expected
+
+        joined.reset()
+        with pytest.warns(exceptions.ComputedBeforeUpdatedWarning):
+            assert {} == joined.compute()
+
+        joined.update(torch.tensor(3.0), torch.tensor(1.0))
+        expected = {loss_metric: torch.tensor(2.0), metric_2: torch.tensor(1.0)}
+        assert joined.compute() == expected
+
+
+def test_check_device_passes(mocker):
+    """Test that check_device passes when metrics are on the correct device."""
+    device = torch.device('cpu')
+    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
+    mock_calculator.compute.return_value = {
+        'loss': torch.tensor([0.5], device=device),
+        'accuracy': torch.tensor([0.95], device=device),
+    }
+
+    check_device(mock_calculator, device)  # Should not raise
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA not available')
+def test_check_device_fails(mocker):
+    """Test check_device raises errors when metrics are on the wrong device."""
+    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
+    mock_calculator.compute.return_value = {
+        'loss': torch.tensor([0.5], device='cuda'),
+    }
+
+    with pytest.raises(exceptions.DeviceMismatchError):
+        check_device(mock_calculator, torch.device('cpu'))
+
+
+def test_dict_apply(mocker) -> None:
+    """Test it applies each function in the dict to outputs and targets."""
+    mock_fun1 = mocker.MagicMock(return_value=torch.tensor(0.5))
+    mock_fun2 = mocker.MagicMock(return_value=torch.tensor(0.8))
+    dict_fun = {'fun1': mock_fun1, 'fun2': mock_fun2}
+
+    mock_outputs = mocker.MagicMock()
+    mock_targets = mocker.MagicMock()
+
+    result = dict_apply(dict_fun, mock_outputs, mock_targets)
+
+    assert result == {'fun1': torch.tensor(0.5), 'fun2': torch.tensor(0.8)}
+    mock_fun1.assert_called_once_with(mock_outputs, mock_targets)
+    mock_fun2.assert_called_once_with(mock_outputs, mock_targets)
+
+
+@pytest.mark.parametrize(
+    'compute_return, class_name, expected',
+    [
+        # Case 1: Mapping of metrics
+        (
+            {'metric_1': torch.tensor(1), 'metric_2': torch.tensor(2)},
+            None,
+            {'metric_1': 1, 'metric_2': 2},
+        ),
+        # Case 2: Single tensor
+        (
+            torch.tensor(0.5),
+            'metric_1',
+            {'metric_1': 0.5},
+        ),
+    ],
+)
+def test_repr_metrics(mocker, compute_return, class_name, expected):
+    """Test the repr_metrics function with various compute return values."""
+    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
+    mock_calculator.compute.return_value = compute_return
+
+    if class_name:
+        mock_calculator.__class__.__name__ = class_name
+
+    # Call the function and assert the result
+    result = compute_metrics(mock_calculator)
+    assert result == expected
+
+
+def test_repr_metrics_fail(mocker):
+    """Test the repr_metrics function fails with no return."""
+    mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
+
+    with pytest.raises(exceptions.ComputedMetricsTypeError):
+        _ = compute_metrics(mock_calculator)
