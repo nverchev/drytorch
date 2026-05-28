@@ -5,6 +5,7 @@
 
 ### Added
 - added LossBase.watch
+- added JoinMetrics and JoinLossMetrics
 
 ### Changed
 - get_aggregator in Objective is now abstract.

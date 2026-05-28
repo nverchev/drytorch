@@ -27,6 +27,8 @@ from drytorch.lib import aggregators
 
 __all__ = [
     'CompositionalLoss',
+    'JoinLossMetrics',
+    'JoinMetrics',
     'Loss',
     'LossBase',
     'Metric',
@@ -51,6 +53,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         return
 
     @override
+    @abc.abstractmethod
     def compute(self: Self) -> dict[str, Tensor]:
         """Return the aggregated objective value(s).
 
@@ -60,12 +63,6 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         Returns:
             A dictionary of computed metric values.
         """
-        if not self._aggregator:
-            warnings.warn(
-                exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
-            )
-
-        return self._aggregator.reduce()
 
     @override
     def update(
@@ -165,6 +162,23 @@ class MetricCollection(Objective[Output, Target]):
         super().__init__()
         self.named_fn: Final = named_fn
         return
+
+    @override
+    def compute(self: Self) -> dict[str, Tensor]:
+        """Return the aggregated objective value(s).
+
+        Despite the name, which follows common practice, this method caches
+        previous computed values and returns them if available.
+
+        Returns:
+            A dictionary of computed metric values.
+        """
+        if not self._aggregator:
+            warnings.warn(
+                exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
+            )
+
+        return self._aggregator.reduce()
 
     @override
     def calculate(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
@@ -652,6 +666,108 @@ class Loss(CompositionalLoss[Output, Target]):
         return
 
 
+class JoinMetrics(p.ObjectiveProtocol[Output, Target]):
+    """Wrapper that joins two metrics.
+
+    Preferably, use :py:meth:`MetricCollection.__or__` when both classes are
+    :py:meth:`MetricCollection`.
+    """
+
+    def __init__(
+        self,
+        metric_a: Objective[Output, Target],
+        metric_b: Objective[Output, Target],
+        /,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            metric_a: first objective.
+            metric_b: second objective.
+        """
+        super().__init__()
+        self.metric_a = metric_a
+        self.metric_b = metric_b
+        return
+
+    @override
+    def compute(self: Self) -> dict[str, torch.Tensor]:
+        """Return the aggregated values of both metrics.
+
+        Returns:
+            A dictionary merging the computed values of both metrics.
+        """
+        return self.metric_a.compute() | self.metric_b.compute()
+
+    @override
+    def reset(self) -> None:
+        """Reset the internal state of both metrics."""
+        self.metric_a.reset()
+        self.metric_b.reset()
+        return
+
+    def sync(self: Self) -> None:
+        """Synchronize metric states across processes."""
+        self.metric_a.sync()
+        self.metric_b.sync()
+        return
+
+    @override
+    def update(
+        self: Self, outputs: Output, targets: Target
+    ) -> dict[str, torch.Tensor]:
+        """Update both metrics with new outputs and targets.
+
+        Args:
+            outputs: the model outputs.
+            targets: the ground truth targets.
+
+        Returns:
+            A dictionary merging the calculated values of both metrics.
+        """
+        metric_a_update = self.metric_a.update(outputs, targets)
+        metric_b_update = self.metric_b.update(outputs, targets)
+        return metric_a_update | metric_b_update
+
+
+class JoinLossMetrics(JoinMetrics, p.LossProtocol[Output, Target]):
+    """Loss resulting from adding an extra metric to a loss.
+
+    Preferably, use :py:meth:`LossBase.watch` when the metric is a
+    :py:meth:`MetricCollection`.
+    """
+
+    def __init__(
+        self,
+        loss: LossBase[Output, Target],
+        objective: Objective[Output, Target],
+        /,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            loss: the primary loss.
+            objective: the extra metric to track alongside the loss.
+        """
+        super().__init__(loss, objective)
+        self.loss = loss
+        self.name = self.loss.name
+        return
+
+    @override
+    def forward(self, outputs: Output, targets: Target, /) -> torch.Tensor:
+        """Compute and return the loss.
+
+        Args:
+            outputs: the model outputs.
+            targets: the ground truth targets.
+
+        Returns:
+            The computed loss.
+        """
+        return self.loss.forward(outputs, targets)
+
+
 class MetricTracker(Generic[Output, Target]):
     """Handle metric value tracking and improvement detection.
 
@@ -821,26 +937,6 @@ class MetricTracker(Generic[Output, Target]):
         return
 
 
-def dict_apply(
-    dict_fn: dict[str, Callable[[Output, Target], Tensor]],
-    outputs: Output,
-    targets: Target,
-) -> dict[str, Tensor]:
-    """Apply the given tensor callables to the provided outputs and targets.
-
-    Args:
-        dict_fn: a dictionary of named callables (outputs, targets) -> Tensor.
-        outputs: the outputs to apply the tensor callables to.
-        targets: the targets to apply the tensor callables to.
-
-    Returns:
-        A dictionary containing the resulting values.
-    """
-    return {
-        name: function(outputs, targets) for name, function in dict_fn.items()
-    }
-
-
 def check_device(
     calculator: p.ObjectiveProtocol[Any, Any], device: torch.device
 ) -> None:
@@ -882,3 +978,23 @@ def compute_metrics(
         return {calculator.__class__.__name__: computed_metrics.item()}
 
     raise exceptions.ComputedMetricsTypeError(type(computed_metrics))
+
+
+def dict_apply(
+    dict_fn: dict[str, Callable[[Output, Target], Tensor]],
+    outputs: Output,
+    targets: Target,
+) -> dict[str, Tensor]:
+    """Apply the given tensor callables to the provided outputs and targets.
+
+    Args:
+        dict_fn: a dictionary of named callables (outputs, targets) -> Tensor.
+        outputs: the outputs to apply the tensor callables to.
+        targets: the targets to apply the tensor callables to.
+
+    Returns:
+        A dictionary containing the resulting values.
+    """
+    return {
+        name: function(outputs, targets) for name, function in dict_fn.items()
+    }
