@@ -1,4 +1,4 @@
-## [0.1.0rc8] -
+## [0.1.0rc8] -29-05-2026
 
 ### [BREAKING CHANGES]
 - removed LossBase.__or__ in favor of LossBase.watch with clearer intent.
@@ -6,12 +6,16 @@
 ### Added
 - added LossBase.watch
 - added JoinMetrics and JoinLossMetrics
+- added AverageObjective
 
 ### Changed
 - get_aggregator in Objective is now abstract.
+- the Objective class does not define a default aggregator anymore.
+- MetricCollection inherits from AverageObjective.
 
 ## [0.1.0rc7] - 2026-05-28
 
+### Added
 - added utils.local_ops
 - added unit tests for utils.local_ops
 - classes created with static_hook_class are now pickleable
