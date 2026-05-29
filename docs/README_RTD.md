@@ -7,7 +7,7 @@
 Reproducible machine learning experiments with PyTorch.
 
 ## Design
-Applies Don't Repeat Yourself principles: replicable, documented, reusable.
+Don't Repeat Yourself (DRY) principles: replicable, documented, reusable.
 
 * **Reproducibility:** experimental isolation to prevent unintended dependencies, data leakage, and misconfiguration.
 * **Modularity:** flexible protocols preserving type inference in custom implementations.
