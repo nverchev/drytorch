@@ -28,7 +28,7 @@ Applies Don't Repeat Yourself principles: replicable, documented, reusable.
 pip install drytorch
 ```
 
-**UV:**
+**uv:**
 ```bash
 uv add drytorch
 ```
