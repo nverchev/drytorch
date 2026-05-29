@@ -358,7 +358,7 @@ class Experiment(Generic[_T_co]):
 
         try:
             result = subprocess.run(  # noqa: S603
-                [git, 'rev-parse', 'HEAD'],  # noqa: S603
+                [git, 'rev-parse', 'HEAD'],
                 capture_output=True,
                 text=True,
                 check=True,
