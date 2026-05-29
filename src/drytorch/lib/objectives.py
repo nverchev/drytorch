@@ -150,7 +150,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         """Returns the aggregator class."""
 
 
-class AverageObjective(Objective[Output, Target]):
+class AverageObjective(Objective[Output, Target], metaclass=abc.ABCMeta):
     """Class defining the default aggregation."""
 
     @override
