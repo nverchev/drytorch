@@ -153,7 +153,7 @@ class TensorBoard(base_classes.Dumper):
 
         try:
             self._process = subprocess.Popen(  # noqa: S603
-                [  # noqa: S603
+                [
                     tensorboard_executable_path,
                     'serve',
                     '--logdir',

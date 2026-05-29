@@ -41,9 +41,9 @@ __all__ = [
 
 _T = TypeVar('_T')
 Tensors: TypeAlias = torch.Tensor | MutableSequence[torch.Tensor]
-InputType: TypeAlias = Union[Tensors, NamedTuple]  # noqa: UP007
+InputType: TypeAlias = Union[Tensors, NamedTuple]
 OutputType: TypeAlias = Any
-TargetType: TypeAlias = Union[Tensors, NamedTuple]  # noqa: UP007
+TargetType: TypeAlias = Union[Tensors, NamedTuple]
 
 _Data_co = TypeVar(
     '_Data_co', bound=tuple[InputType, TargetType], covariant=True
