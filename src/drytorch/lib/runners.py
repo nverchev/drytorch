@@ -194,7 +194,10 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
     def _run_epoch(self, store_outputs: bool):
         if self._is_distributed:
-            if not hasattr(self.model.module, 'module'):
+            exec_module = getattr(self.model, 'exec_module', None)
+            if exec_module is not None and not isinstance(
+                exec_module, torch.nn.parallel.DistributedDataParallel
+            ):
                 warnings.warn(
                     exceptions.ModuleNotDistributedWarning(), stacklevel=2
                 )

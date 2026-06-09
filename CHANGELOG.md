@@ -1,3 +1,9 @@
+
+## [0.1.0rc9] -
+
+### Fixed
+- fixed buggy check for DistributedParallel
+
 ## [0.1.0rc8] -29-05-2026
 
 ### [BREAKING CHANGES]
