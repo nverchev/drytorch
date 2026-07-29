@@ -28,6 +28,7 @@ from drytorch.lib import aggregators
 __all__ = [
     'AverageObjective',
     'CompositionalLoss',
+    'DictLoss',
     'JoinLossMetrics',
     'JoinMetrics',
     'Loss',
@@ -167,21 +168,26 @@ class MetricCollection(AverageObjective[Output, Target]):
     """A collection of multiple metrics.
 
     Attributes:
-        named_fn: dictionary of named functions to calculate.
+        fn: functions returning multiple named metric values.
+        named_fn: dictionary of named functions returning a single value.
     """
 
+    fn: list[Callable[[Output, Target], dict[str, Tensor]]]
     named_fn: dict[str, Callable[[Output, Target], Tensor]]
 
     def __init__(
         self,
+        *fn: Callable[[Output, Target], dict[str, Tensor]],
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
         """Initialize.
 
         Args:
-            **named_fn: dictionary of named functions to calculate.
+            *fn: functions returning multiple named metric values.
+            **named_fn: dictionary of named functions returning a single value.
         """
         super().__init__()
+        self.fn = list(fn)
         self.named_fn: Final = named_fn
         return
 
@@ -196,7 +202,11 @@ class MetricCollection(AverageObjective[Output, Target]):
         Returns:
             A dictionary of calculated metric values.
         """
-        return dict_apply(self.named_fn, outputs, targets)
+        result = dict_apply(self.named_fn, outputs, targets)
+        for f in self.fn:
+            result |= f(outputs, targets)
+
+        return result
 
     def __or__(
         self, other: MetricCollection[Output, Target]
@@ -212,8 +222,9 @@ class MetricCollection(AverageObjective[Output, Target]):
         Returns:
             A new instance containing metrics from both instances.
         """
-        named_fn = self.named_fn | other.named_fn
-        return MetricCollection(**named_fn)
+        return MetricCollection(
+            *self.fn, *other.fn, **self.named_fn | other.named_fn
+        )
 
 
 class Metric(MetricCollection[Output, Target]):
@@ -276,6 +287,7 @@ class LossBase(
         name: str,
         higher_is_better: bool = False,
         formula: str = '',
+        *fn: Callable[[Output, Target], dict[str, Tensor]],
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
         """Initialize.
@@ -286,12 +298,13 @@ class LossBase(
             higher_is_better: True if higher values indicate better performance,
                 False if lower values are better.
             formula: string representation of the loss formula.
-            **named_fn: dictionary of named functions to calculate.
+            *fn: functions returning multiple named metric values.
+            **named_fn: dictionary of named functions returning a single value.
         """
         self.name: Final = name
         self.higher_is_better: Final = higher_is_better
         self.formula: Final = formula
-        super().__init__(**named_fn)
+        super().__init__(*fn, **named_fn)
         self.criterion: Final = criterion
         return
 
@@ -316,6 +329,7 @@ class LossBase(
             metric: the other Objective to watch.
 
         """
+        self.fn.extend(metric.fn)
         self.named_fn.update(metric.named_fn)
         return
 
@@ -338,6 +352,7 @@ class LossBase(
             A new CompositionalLoss representing the combined loss.
         """
         if isinstance(other, LossBase):
+            fn = self.fn + other.fn
             named_fn = self.named_fn | other.named_fn
             str_first = self.formula
             str_second = other.formula
@@ -349,6 +364,7 @@ class LossBase(
                 return operation(self.criterion(x), other.criterion(x))
 
         elif isinstance(other, float | int):
+            fn = self.fn
             named_fn = self.named_fn
             str_first = str(other)
             str_second = self.formula
@@ -366,6 +382,7 @@ class LossBase(
         formula = op_fmt.format(str_first, str_second)
 
         return CompositionalLoss(
+            *fn,
             criterion=_combined,
             higher_is_better=self.higher_is_better,
             name='Combined Loss',
@@ -380,6 +397,7 @@ class LossBase(
             A new CompositionalLoss representing the negated loss.
         """
         return CompositionalLoss(
+            *self.fn,
             criterion=lambda x: -self.criterion(x),
             higher_is_better=not self.higher_is_better,
             name='Negative ' + self.name,
@@ -526,6 +544,7 @@ class LossBase(
             formula = f'1 / {self.formula}^{-other}'
 
         return CompositionalLoss(
+            *self.fn,
             criterion=lambda x: _to_floating_point(self.criterion(x)) ** other,
             higher_is_better=higher_is_better,
             name='Loss',
@@ -578,8 +597,8 @@ class CompositionalLoss(
 
     def __init__(
         self,
+        *fn: Callable[[Output, Target], dict[str, Tensor]],
         criterion: Callable[[dict[str, Tensor]], Tensor],
-        *,
         name='Loss',
         higher_is_better: bool,
         formula: str = '',
@@ -588,19 +607,21 @@ class CompositionalLoss(
         """Initialize.
 
         Args:
+            *fn: functions returning multiple named metric values.
             criterion: function extracting a loss value from metric functions.
             name: identifier for the loss.
             higher_is_better: True if higher values indicate better performance,
                 False if lower values are better.
             formula: string representation of the loss formula.
-            named_fn: dictionary of named metric functions.
+            **named_fn: dictionary of named metric functions.
         """
         super().__init__(
             criterion,
             name,
             higher_is_better,
+            self._format_formula(formula),
+            *fn,
             **named_fn,
-            formula=self._format_formula(formula),
         )
         return
 
@@ -658,12 +679,41 @@ class Loss(CompositionalLoss[Output, Target]):
             higher_is_better: the direction for optimization.
         """
         super().__init__(
-            operator.itemgetter(name),
+            criterion=operator.itemgetter(name),
             name=name,
             higher_is_better=higher_is_better,
             formula=f'[{name}]',
             **{name: fn},
         )
+        return
+
+
+class DictLoss(CompositionalLoss[Output, Target]):
+    """Subclass for losses whose function also returns auxiliary metrics."""
+
+    def __init__(
+        self,
+        fn: Callable[[Output, Target], dict[str, Tensor]],
+        /,
+        name: str,
+        higher_is_better: bool = False,
+    ):
+        """Initialize.
+
+        Args:
+            fn: callable returning a dict of metric values; the entry keyed by
+                ``name`` is used as the loss.
+            name: key to extract as the loss and identifier for the loss.
+            higher_is_better: the direction for optimization.
+        """
+        super().__init__(
+            fn,
+            criterion=operator.itemgetter(name),
+            name=name,
+            higher_is_better=higher_is_better,
+            formula=f'[{name}]',
+        )
+        self.fun: Final = fn
         return
 
 
