@@ -1,6 +1,9 @@
 
 ## [0.1.0rc9] -
 
+### Added
+- added fn positional argument to MetricCollection and DictLoss class
+
 ### Fixed
 - fixed buggy check for DistributedParallel
 
