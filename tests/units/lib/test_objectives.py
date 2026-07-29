@@ -10,6 +10,7 @@ from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib.objectives import (
     CompositionalLoss,
+    DictLoss,
     JoinLossMetrics,
     JoinMetrics,
     Loss,
@@ -51,6 +52,22 @@ def metric_fun_2(
 ) -> dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
     """Another simple metric fun."""
     return {metric_2: lambda x, y: y}
+
+
+@pytest.fixture(scope='module')
+def extra_fn() -> Callable[
+    [torch.Tensor, torch.Tensor], dict[str, torch.Tensor]
+]:
+    """A function returning multiple named metric values."""
+    return lambda x, y: {'extra': x + y}
+
+
+@pytest.fixture(scope='module')
+def multi_fn() -> Callable[
+    [torch.Tensor, torch.Tensor], dict[str, torch.Tensor]
+]:
+    """A function returning multiple named metric values."""
+    return lambda x, y: {'primary': x, 'auxiliary': y}
 
 
 class TestMetricCollection:
@@ -117,6 +134,33 @@ class TestMetricCollection:
         }
         assert combined_metrics.compute() == expected
 
+    def test_calculate_with_fn(self, metric_1, multi_fn, metric_fun_1) -> None:
+        """Test it calculates both multi-output and named-fn metrics."""
+        mc = MetricCollection(multi_fn, **metric_fun_1)
+        result = mc.calculate(torch.tensor(1.0), torch.tensor(2.0))
+        expected = {
+            metric_1: torch.tensor(1.0),
+            'primary': torch.tensor(1.0),
+            'auxiliary': torch.tensor(2.0),
+        }
+        assert result == expected
+
+    def test_or_merges_fn(self, extra_fn, multi_fn) -> None:
+        """Test | merges multi-output functions from both collections."""
+        mc1 = MetricCollection(multi_fn)
+        mc2 = MetricCollection(extra_fn)
+        combined = mc1 | mc2
+
+        assert len(combined.fn) == 2
+
+        result = combined.calculate(torch.tensor(1.0), torch.tensor(2.0))
+        expected = {
+            'primary': torch.tensor(1.0),
+            'auxiliary': torch.tensor(2.0),
+            'extra': torch.tensor(3.0),
+        }
+        assert result == expected
+
 
 class TestMetric:
     """Tests for Metric."""
@@ -176,7 +220,7 @@ class TestCompositionalLoss:
         """Set up a base instance (as defined by the Loss subclass)."""
         # formula corresponds to what the formula components should look like
         return CompositionalLoss(
-            lambda x: x[metric_1],
+            criterion=lambda x: x[metric_1],
             formula=f'[{metric_1}]',
             higher_is_better=False,
             **metric_fun_1,
@@ -186,7 +230,7 @@ class TestCompositionalLoss:
     def loss_2(self, metric_2, metric_fun_2) -> CompositionalLoss:
         """Set up a second base instance (as defined by the Loss subclass)."""
         return CompositionalLoss(
-            lambda x: x[metric_2],
+            criterion=lambda x: x[metric_2],
             formula=f'[{metric_2}]',
             higher_is_better=False,
             **metric_fun_2,
@@ -338,6 +382,70 @@ class TestLoss:
         """Test watch includes another Objective's metrics in the output."""
         loss_1.watch(metric)
         assert metric.named_fn.items() <= loss_1.named_fn.items()
+
+    def test_watch_includes_fn(self, loss_1, multi_fn) -> None:
+        """Test watch extends multi-output functions from another collection."""
+        mc = MetricCollection(multi_fn)
+        loss_1.watch(mc)
+        assert multi_fn in loss_1.fn
+
+        result = loss_1.calculate(torch.tensor(3.0), torch.tensor(1.0))
+        assert 'primary' in result
+        assert 'auxiliary' in result
+
+
+class TestDictLoss:
+    """Tests for DictLoss."""
+
+    @pytest.fixture(scope='class')
+    def loss_name(self) -> str:
+        """Name of the loss key in the multi-output fn dict."""
+        return 'primary'
+
+    @pytest.fixture(scope='class')
+    def dict_loss(self, multi_fn, loss_name) -> DictLoss:
+        """A DictLoss wrapping the module-level multi-output fn."""
+        return DictLoss(multi_fn, name=loss_name)
+
+    def test_calculate(self, loss_name, dict_loss) -> None:
+        """Test it returns all dict metrics including the loss key."""
+        outputs = torch.tensor(3.0)
+        targets = torch.tensor(1.0)
+        result = dict_loss.calculate(outputs, targets)
+        expected = {
+            loss_name: torch.tensor(3.0),
+            'auxiliary': torch.tensor(1.0),
+        }
+        assert result == expected
+
+    def test_forward(self, dict_loss) -> None:
+        """Test it returns the loss tensor identified by name."""
+        outputs = torch.tensor(3.0)
+        targets = torch.tensor(1.0)
+        assert dict_loss.forward(outputs, targets) == torch.tensor(3.0)
+
+    def test_update_compute_and_reset(self, loss_name, dict_loss) -> None:
+        """Test it stores, reduces, and resets all metrics correctly."""
+        dict_loss.reset()
+        dict_loss.update(torch.tensor(1.0), torch.tensor(3.0))
+        dict_loss.update(torch.tensor(3.0), torch.tensor(1.0))
+        expected = {
+            loss_name: torch.tensor(2.0),
+            'auxiliary': torch.tensor(2.0),
+        }
+        assert dict_loss.compute() == expected
+
+        dict_loss.reset()
+        with pytest.warns(exceptions.ComputedBeforeUpdatedWarning):
+            assert {} == dict_loss.compute()
+
+    def test_arithmetic_propagates_fn(self, multi_fn, loss_name) -> None:
+        """Test that arithmetic operations preserve multi-output fn metrics."""
+        dl = DictLoss(multi_fn, name=loss_name)
+        scaled = 2 * dl
+        result = scaled.calculate(torch.tensor(3.0), torch.tensor(1.0))
+        assert 'auxiliary' in result
+        assert result['auxiliary'] == torch.tensor(1.0)
 
 
 class TestMetricTracker:
