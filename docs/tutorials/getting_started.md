@@ -237,7 +237,7 @@ It is recommended to create a new run or resume a previous one using the `create
 
 The Run instance works best as a context manager:
 
-```{code-cell} ipython3
+```python
 with experiment.create_run():
     execute_ml_op()
 
