@@ -50,7 +50,7 @@ import numpy as np
 
 url = 'https://raw.githubusercontent.com/nverchev/drytorch/main/docs/tutorials/data/flower.npy'
 
-with urllib.request.urlopen(url) as response:  # noqa: S310
+with urllib.request.urlopen(url) as response:
     data_bytes = response.read()
 
 flower_np = np.load(BytesIO(data_bytes))
@@ -237,7 +237,7 @@ It is recommended to create a new run or resume a previous one using the `create
 
 The Run instance works best as a context manager:
 
-```python
+```{code-cell} ipython3
 with experiment.create_run():
     execute_ml_op()
 
