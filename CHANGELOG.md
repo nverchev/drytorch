@@ -1,5 +1,5 @@
 
-## [0.1.0rc9] -
+## [0.1.0rc9] - 30-07-2026
 
 ### Added
 - added fn positional argument to MetricCollection and DictLoss class
