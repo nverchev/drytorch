@@ -207,6 +207,7 @@ the experiment stops running, provided that:
 def notify(self, event: log_events.Event) -> None:
     return super().notify(event)
 
+
 @notify.register
 def _(self, event: log_events.StopExperimentEvent) -> None:
     ...

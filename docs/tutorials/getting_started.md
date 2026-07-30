@@ -240,7 +240,6 @@ The Run instance works best as a context manager:
 ```python
 with experiment.create_run():
     execute_ml_op()
-
 ```
 
 However, in notebooks, starting the run procedurally is more practical.
@@ -664,7 +663,6 @@ To set up and clean up the distributed environment, see the [official tutorial]
  `torcheval`, see the `metrics_and_losses` tutorial.
 
 ```python
-
 def train_and_eval() -> None:
     """Train the model in distributed mode."""
     ddp_cfg_train = UpsamplingExperiment.get_config().train
