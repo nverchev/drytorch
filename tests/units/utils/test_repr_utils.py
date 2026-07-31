@@ -72,6 +72,37 @@ class _SlottedClass:
     string_value: str = 'text'
 
 
+class _SelfReferential:
+    """Class whose instance directly references itself."""
+
+    def __init__(self) -> None:
+        self.name = 'self_ref'
+        self.self_ref: _SelfReferential = self
+
+
+class _MutuallyReferential:
+    """Two classes that reference each other (indirect cycle)."""
+
+    def __init__(self, other: '_MutuallyReferential | None' = None) -> None:
+        self.name = 'mutual'
+        self.partner = other
+
+
+class _SharedChild:
+    """A plain leaf object with a couple of attributes, no cycle."""
+
+    def __init__(self) -> None:
+        self.value = 42
+
+
+class _DiamondParent:
+    """Two attributes pointing at the same child object."""
+
+    def __init__(self, child: _SharedChild) -> None:
+        self.left = child
+        self.right = child
+
+
 @pytest.fixture
 def _simple_class_with_property() -> Generator[_ClassWithProperty, None, None]:
     drytorch.utils.repr_utils.INCLUDE_PROPERTIES = True
@@ -149,11 +180,13 @@ def get_tuple_data(
     ]
 
 
-def get_set_data(list_data) -> list[tuple[set[int], int, set[int | Omitted]]]:
+def get_set_data() -> list[tuple[set[int], int, set[int | Omitted]]]:
     """Get data for sets with various sizes."""
     return [
-        (set(obj), max_len, set(expected))
-        for obj, max_len, expected in list_data
+        ({1, 2, 3}, 3, {1, 2, 3}),
+        ({1, 2, 3}, 2, {1, 2, Omitted(1)}),
+        ({1, 2, 3, 4}, 3, {1, 2, 3, Omitted(1)}),
+        ({1, 2, 3, 4}, 2, {1, 2, Omitted(2)}),
     ]
 
 
@@ -213,7 +246,7 @@ def get_repr_data():
         get_atomic_data()
         + list_data
         + get_tuple_data(list_data)
-        + get_set_data(list_data)
+        + get_set_data()
         + get_dict_data()
         + get_numpy_and_torch_data()
         + get_class_data_with_attribute()
@@ -275,3 +308,76 @@ def test_pandas_print_options() -> None:
     assert recursive_repr(df) == expected_df_repr
     assert pd.get_option('display.max_rows') == original_max_rows
     assert pd.get_option('display.max_columns') == original_max_columns
+
+
+def test_direct_self_reference_terminates() -> None:
+    """A direct a.ref = a cycle must not recurse infinitely or blow up."""
+    obj = _SelfReferential()
+    result = recursive_repr(obj)
+    assert result == {
+        'class': '_SelfReferential',
+        'name': 'self_ref',
+        'self_ref': {
+            'duplicated': {
+                'class': '_SelfReferential',
+                'name': 'self_ref',
+                'self_ref': '_SelfReferential',
+            }
+        },
+    }
+
+
+def test_indirect_cycle_terminates() -> None:
+    """Indirect cycle (a->b->a) terminates."""
+    a = _MutuallyReferential()
+    b = _MutuallyReferential(other=a)
+    a.partner = b
+
+    result = recursive_repr(a)
+    assert result['class'] == '_MutuallyReferential'
+    assert result['partner']['class'] == '_MutuallyReferential'
+    assert 'duplicated' in result['partner']['partner']
+
+
+def test_cycle_returns_promptly(recwarn) -> None:
+    """Cycle detection returns quickly, doesn't hang."""
+    import time
+
+    a = _MutuallyReferential()
+    b = _MutuallyReferential(other=a)
+    a.partner = b
+
+    start = time.perf_counter()
+    recursive_repr(a)
+    assert time.perf_counter() - start < 1.0
+
+
+def test_shared_non_cyclic_reference_is_only_expanded_once() -> None:
+    """Shared object appears once, then as marker."""
+    child = _SharedChild()
+    parent = _DiamondParent(child)
+
+    result = recursive_repr(parent)
+    assert result['left'] == {'class': '_SharedChild', 'value': 42}
+    assert 'duplicated' in result['right']
+
+
+def test_max_depth_still_bounds_acyclic_structures() -> None:
+    """Depth limit applies to non-cyclic structures."""
+
+    class _Nested:
+        def __init__(self, child: '_Nested | None') -> None:
+            self.child = child
+
+    deep = None
+    for _ in range(15):
+        deep = _Nested(deep)
+
+    result = recursive_repr(deep)
+    node = result
+    depths = 0
+    while isinstance(node, dict) and 'child' in node:
+        node = node['child']
+        depths += 1
+    assert depths <= drytorch.utils.repr_utils.MAX_DEPTH
+    assert isinstance(node, (str, dict))

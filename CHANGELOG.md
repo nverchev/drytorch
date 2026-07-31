@@ -1,3 +1,15 @@
+## [0.1.0rc9] -
+
+
+### Added
+- tests to check that memory leaks no longer occur in recursive_representation
+
+### Changed
+- recursive_representation now checks visited before dispatching
+
+### Fixed
+- memory leak in recursive_representation
+
 
 ## [0.1.0rc9] - 30-07-2026
 
