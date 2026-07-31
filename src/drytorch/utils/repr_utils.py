@@ -30,7 +30,7 @@ __all__ = [
     'INCLUDE_PROPERTIES',
     'MAX_DEPTH',
     'MAX_REPR_SIZE',
-    '_dispatch_repr',
+    'recursive_repr',
 ]
 
 if TYPE_CHECKING:
