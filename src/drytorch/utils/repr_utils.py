@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 import numpy as np
 import torch
 
+from torch import _tensor_str
 from typing_extensions import override
 
 
@@ -132,6 +133,60 @@ class Omitted:
     count: float = math.nan
 
 
+class TorchPrintOptions:
+    """Context manager to temporarily set PyTorch tensor print options.
+
+    Args:
+        precision: number of digits of precision for floating point output.
+        threshold: max number of elements before triggering summarization.
+        edgeitems: number of elements per dimension when summarizing.
+        sci_mode: whether to use scientific notation.
+    """
+
+    _options: dict[str, Any]
+    _original_options: dict[str, Any]
+
+    def __init__(
+        self,
+        precision: int = 3,
+        threshold: int = 10,
+        edgeitems: int = 3,
+        sci_mode: bool = False,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            precision: see torch.set_printoptions docs.
+            threshold: see torch.set_printoptions docs.
+            edgeitems: see torch.set_printoptions docs.
+            sci_mode: see torch.set_printoptions docs.
+        """
+        self._options = {
+            'precision': precision,
+            'threshold': threshold,
+            'edgeitems': edgeitems,
+            'sci_mode': sci_mode,
+        }
+        self._original_options = {}
+        return
+
+    def __enter__(self) -> None:
+        """Temporarily modify settings."""
+        self._original_options.update(_tensor_str.get_printoptions())
+        torch.set_printoptions(**self._options)
+        return
+
+    def __exit__(
+        self,
+        exc_type: None = None,
+        exc_val: None = None,
+        exc_tb: None = None,
+    ) -> None:
+        """Restore original settings."""
+        torch.set_printoptions(**self._original_options)
+        return
+
+
 @functools.singledispatch
 def _dispatch_repr(
     obj: object,
@@ -231,8 +286,12 @@ def _(
 @_dispatch_repr.register
 def _(obj: torch.Tensor, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
     _not_used = depth
-    np_obj = obj.detach().cpu().numpy()
-    return recursive_repr(np_obj, depth=depth, _visited=_visited)
+    _not_used2 = _visited
+    size_str = f'Tensor of size {tuple(obj.shape)}, dtype={obj.dtype}\n'
+    with TorchPrintOptions(
+        threshold=MAX_REPR_SIZE, edgeitems=max(MAX_REPR_SIZE // 4, 1)
+    ):
+        return LiteralStr(size_str) + LiteralStr(repr(obj))
 
 
 @_dispatch_repr.register

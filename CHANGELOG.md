@@ -1,3 +1,8 @@
+## [0.1.0rc11] - 31-07-2026
+
+### Fixed
+- repr_utils.recursive_representation uses native printing for Torch tensors
+
 ## [0.1.0rc10] - 31-07-2026
 
 

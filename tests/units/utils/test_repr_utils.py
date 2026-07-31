@@ -201,14 +201,15 @@ def get_dict_data() -> list[
 
 
 def get_numpy_and_torch_data() -> list[
-    tuple[int | float | np.ndarray | torch.Tensor, int, LiteralStr]
+    tuple[np.float32 | np.ndarray | torch.Tensor, int, LiteralStr | float]
 ]:
     """External data with numpy arrays, torch tensors, and pandas DataFrames."""
-    size_str = LiteralStr('Array of size (3,)\n')
+    torch_repr = 'Tensor of size (3,), dtype=torch.int64\ntensor([1,  ..., 3])'
+
     return [
-        (np.float32(1), 0, 1.0),
-        (np.array([1, 2, 3]), 2, size_str + LiteralStr('[1 ... 3]')),
-        (torch.FloatTensor([1, 2, 3]), 2, size_str + LiteralStr('[1. ... 3.]')),
+        (np.float32(1.0), 0, 1.0),
+        (np.array([1, 2, 3]), 2, LiteralStr('Array of size (3,)\n[1 ... 3]')),
+        (torch.LongTensor([1, 2, 3]), 2, LiteralStr(torch_repr)),
     ]
 
 
