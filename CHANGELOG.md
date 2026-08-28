@@ -3,12 +3,10 @@
 ## Changed
 - last epoch sorts checkpoint by epoch and not by time of creation
 
-
 ## Fixed
 - model.compile is now assigned correctly
 - torch.is_initialized is called correctly
 - added base lr in PolynomialScheduler
-
 
 
 ## [0.1.0rc11] - 31-07-2026
@@ -16,8 +14,8 @@
 ### Fixed
 - repr_utils.recursive_representation uses native printing for Torch tensors
 
-## [0.1.0rc10] - 31-07-2026
 
+## [0.1.0rc10] - 31-07-2026
 
 ### Added
 - tests to check that memory leaks no longer occur in recursive_representation
@@ -37,6 +35,7 @@
 ### Fixed
 - fixed buggy check for DistributedParallel
 
+
 ## [0.1.0rc8] -29-05-2026
 
 ### [BREAKING CHANGES]
@@ -52,6 +51,7 @@
 - the Objective class does not define a default aggregator anymore.
 - MetricCollection inherits from AverageObjective.
 
+
 ## [0.1.0rc7] - 2026-05-28
 
 ### Added
@@ -65,13 +65,13 @@
 ### Removed:
 - some internal classes in schedulers and hooks
 
+
 ## [0.1.0rc6] - 2026-02-23
 
 ### Added
 - EMA and SWA models
 - AbstractAggregator allows for other aggregation of metrics than mean
 - AbstractAccumulator and subclasses for different accumulators
-
 
 ### Changed
 - checkpoint can now bind with multiple modules
@@ -92,6 +92,7 @@
 ### Changed
 - more informative and clean logging output and naming for optuna
 
+
 ## [0.1.0rc4] - 2026-01-12
 
 ### Added
@@ -105,6 +106,7 @@
 - optuna get_best_trial_value works also with parallelization
 - explicitly closing pbar after the last epoch
 
+
 ## [0.1.0rc3] - 2026-01-07
 
 ### Changed
@@ -113,6 +115,7 @@
 
 ### Fixed
 - corrected an error when calculating the actual number of batches for ddp.
+
 
 ## [0.1.0rc2] - 2025-12-11
 
