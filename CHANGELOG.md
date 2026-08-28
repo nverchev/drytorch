@@ -1,3 +1,14 @@
+## [0.1.0] - 28-08-2026
+
+## Changed
+- last epoch sorts checkpoint by epoch and not by time of creation
+
+
+## Fixed
+- model.compile is now assigned correctly
+
+
+
 ## [0.1.0rc11] - 31-07-2026
 
 ### Fixed

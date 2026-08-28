@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import typing
 
 from collections.abc import Callable
 from typing import ClassVar, Final, Protocol, TypeVar
@@ -141,7 +142,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         """Compile and distribute the module."""
         module = module.to(self._device)
         if self._should_compile:
-            torch.compile(module)
+            module = typing.cast(torch.nn.Module, torch.compile(module))
 
         if dist.is_available() and dist.is_initialized() and self._should_dist:
             if self._device.type == 'cuda':
