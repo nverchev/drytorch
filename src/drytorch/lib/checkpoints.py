@@ -157,7 +157,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
             ModelNotFoundError: if the model location does not exist.
             EpochNotFoundError: if the epoch location does not exist.
         """
-        if dist.is_available and dist.is_initialized():
+        if dist.is_available() and dist.is_initialized():
             device_idx = self.model.device.index
             if device_idx is not None:
                 dist.barrier(device_ids=[device_idx])
