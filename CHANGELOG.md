@@ -4,6 +4,7 @@
 - last epoch sorts checkpoint by epoch and not by time of creation
 
 ## Fixed
+- fixed typo in formula startswith check in objectives
 - model.compile is now assigned correctly
 - torch.is_initialized is called correctly
 - added base lr in PolynomialScheduler

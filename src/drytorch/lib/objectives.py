@@ -584,7 +584,7 @@ class LossBase(
         if formula.startswith('(') and formula.endswith(')'):
             return formula[1:-1]
 
-        if formula.startswith('[]') and formula.endswith(']'):
+        if formula.startswith('[') and formula.endswith(']'):
             return formula[1:-1]
 
         return formula
