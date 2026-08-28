@@ -343,19 +343,11 @@ class LocalCheckpoint(AbstractCheckpoint):
         if not all_epochs:
             raise exceptions.ModelNotFoundError(model_directory)
 
-        last_epoch_dir = max(all_epochs, key=self._creation_time)
+        last_epoch_dir = max(all_epochs, key=self._get_epoch)
         return self._get_epoch(last_epoch_dir)
 
     def _get_location(self) -> str:
         return str(self.paths.epoch_dir)
-
-    @staticmethod
-    def _creation_time(directory: pathlib.Path) -> float:
-        creation_time = 0.0
-        for file in directory.iterdir():
-            creation_time = max(creation_time, file.stat().st_ctime)
-
-        return creation_time
 
     @staticmethod
     def _get_epoch(directory: pathlib.Path) -> int:

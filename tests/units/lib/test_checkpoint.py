@@ -1,7 +1,6 @@
 """Tests for the "checkpoint" module."""
 
 import pathlib
-import time
 
 import torch
 
@@ -114,7 +113,6 @@ class TestLocalCheckpoint:
         old_epoch = checkpoint.model.epoch
         assert checkpoint._get_last_saved_epoch() == old_epoch
         new_epoch = 15
-        time.sleep(0.01)
         checkpoint.model.epoch = new_epoch
         checkpoint.save()
         assert checkpoint._get_last_saved_epoch() == new_epoch
