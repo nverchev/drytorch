@@ -340,7 +340,7 @@ class PolynomialScheduler(BaseScheduler):
             return self.min_decay * base_lr
 
         decay_factor = (1 - epoch / self.max_epochs) ** self.power
-        return self.min_decay + decay_factor * (1 - self.min_decay)
+        return (self.min_decay + decay_factor * (1 - self.min_decay)) * base_lr
 
 
 @dataclasses.dataclass(frozen=True)

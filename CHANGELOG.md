@@ -7,6 +7,7 @@
 ## Fixed
 - model.compile is now assigned correctly
 - torch.is_initialized is called correctly
+- added base lr in PolynomialScheduler
 
 
 
