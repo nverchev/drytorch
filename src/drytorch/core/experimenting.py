@@ -474,10 +474,6 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         if self.record:
             self._update_registry()
 
-        if self._finalizer is not None:
-            self._finalizer.detach()
-            self._finalizer = None
-
         self._pause_experiment(self.experiment, self._id)
         return
 
@@ -527,9 +523,8 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _stop_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
-        """Cleanup without holding reference to a Run instance."""
-        log_events.StopExperimentEvent(experiment.name, run_id)
+    def _teardown(experiment: Experiment[_T_co]) -> None:
+        """Common cleanup for pause and stop."""
         log_events.Event.set_auto_publish(None)
         experiment._active_run = None
         Experiment._clear_current()
@@ -537,13 +532,30 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
+    def _stop_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
+        """Cleanup without holding reference to a Run instance."""
+        # If the run was paused, Event._auto_publish is None.
+        # We temporarily restore it to allow emitting the StopExperimentEvent.
+        orig_publish = log_events.Event._auto_publish
+        if orig_publish is None:
+            if multiprocessing.current_process().name == 'MainProcess':
+                log_events.Event.set_auto_publish(experiment.trackers.publish)
+            else:
+                log_events.Event.set_auto_publish(lambda _: None)
+
+        try:
+            log_events.StopExperimentEvent(experiment.name, run_id)
+        finally:
+            log_events.Event.set_auto_publish(orig_publish)
+
+        Run._teardown(experiment)
+        return
+
+    @staticmethod
     def _pause_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
         """Cleanup on pause without holding reference to a Run instance."""
         log_events.PauseExperimentEvent(experiment.name, run_id)
-        log_events.Event.set_auto_publish(None)
-        experiment._active_run = None
-        Experiment._clear_current()
-        gc.collect()
+        Run._teardown(experiment)
         return
 
     @override

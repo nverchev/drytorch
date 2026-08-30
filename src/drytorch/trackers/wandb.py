@@ -131,10 +131,6 @@ class Wandb(Dumper):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.PauseExperimentEvent) -> None:
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
         """Process metric events.
 

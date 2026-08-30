@@ -417,7 +417,8 @@ class TestRun:
 
         assert experiment._active_run is None
         self.patch_stop.assert_called_once_with(experiment.name, run.id)
-        mock_set_auto_publish.assert_called_once_with(None)
+        mock_set_auto_publish.assert_any_call(None)
+        assert mock_set_auto_publish.call_args_list[-1] == mocker.call(None)
         mock_clear_current.assert_called_once()
 
     def test_update_registry_updates_existing_entry(self, run) -> None:

@@ -117,14 +117,6 @@ class Dumper(tracking.Tracker):
         self.par_dir.mkdir(exist_ok=True, parents=True)
         return super().notify(event)
 
-    @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.PauseExperimentEvent) -> None:
-        return super().notify(event)
-
     def _get_exp_dir(self) -> pathlib.Path:
         exp_dir = self.par_dir / self.folder_name / self.exp_name
         exp_dir.mkdir(exist_ok=True, parents=True)
