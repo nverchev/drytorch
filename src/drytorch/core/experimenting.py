@@ -435,28 +435,6 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         """Check if the run is currently active."""
         return self.status == 'running'
 
-    def stop(self) -> None:
-        """Stop the experiment scope."""
-        if self.status == 'running':  # failed is left as is
-            self.status = 'completed'
-        elif self.status == 'completed':
-            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
-            return
-
-        if self.status == 'created':
-            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
-            return
-
-        if self.record:
-            self._update_registry()
-
-        if self._finalizer is not None:
-            self._finalizer.detach()
-            self._finalizer = None
-
-        self._stop_experiment(self.experiment, self._id)
-        return
-
     def pause(self) -> None:
         """Pause the experiment scope."""
         if self.status == 'running':
@@ -506,6 +484,28 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             self._experiment.par_dir,
             self._experiment.tags,
         )
+        return
+
+    def stop(self) -> None:
+        """Stop the experiment scope."""
+        if self.status in ('running', 'paused'):
+            self.status = 'completed'
+        elif self.status == 'completed':
+            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
+            return
+        # failed is left as is
+        elif self.status == 'created':
+            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
+            return
+
+        if self.record:
+            self._update_registry()
+
+        if self._finalizer is not None:
+            self._finalizer.detach()
+            self._finalizer = None
+
+        self._stop_experiment(self.experiment, self._id)
         return
 
     def _get_run_id(self, run_id: str | None) -> str:
