@@ -1,9 +1,11 @@
-## [0.1.0] - 28-08-2026
+## [0.1.0] - 30-08-2026
 
 ## Changed
 - last epoch sorts checkpoint by epoch and not by time of creation
 
 ## Fixed
+- val_hook is reassigned on bind
+- fixed NestedScopeError message arguments
 - fixed typo in formula startswith check in objectives
 - model.compile is now assigned correctly
 - torch.is_initialized is called correctly

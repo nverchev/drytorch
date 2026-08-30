@@ -370,7 +370,7 @@ class NestedScopeError(DryTorchError):
         """
         self.current_exp_name: Final = current_exp_name
         self.new_exp_name: Final = new_exp_name
-        super().__init__(current_exp_name, new_exp_name)
+        super().__init__(new_exp_name, current_exp_name)
 
 
 class NoActiveExperimentError(DryTorchError):
