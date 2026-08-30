@@ -121,7 +121,7 @@ class TrainerHook(
         self,
         f: Callable[
             [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
-            Hook,
+            Hook[Input, Target, Output],
         ],
         /,
     ) -> Hook[Input, Target, Output]:

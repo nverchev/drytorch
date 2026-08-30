@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any, Final, Self, TypedDict, TypeVar, cast
 
 import torch
@@ -285,12 +285,27 @@ class Trainer(
         validation = evaluations.Validation(
             self.model, name=name, loader=val_loader, metric=self.objective
         )
-        val_hook = hooks.StaticHook(validation)
+        val_hook = cast(
+            hooks.TrainerHook[Input, Target, Output],
+            hooks.StaticHook(validation),
+        )
         if interval < 1:
             raise ValueError(f'Interval must larger than 0. Got {interval}.')
 
         if interval > 1:
-            val_hook.bind(hooks.call_every(interval))
+            val_hook = val_hook.bind(
+                cast(
+                    Callable[
+                        [
+                            Callable[
+                                [p.TrainerProtocol[Input, Target, Output]], None
+                            ]
+                        ],
+                        hooks.Hook[Input, Target, Output],
+                    ],
+                    hooks.call_every(interval),
+                )
+            )
 
         self.post_epoch_hooks.register(val_hook)
         self.validation = validation
