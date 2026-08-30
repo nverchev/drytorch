@@ -110,7 +110,6 @@ class TestExperiment:
         """Set up the tests."""
         mocker.patch.object(log_events, 'StartExperimentEvent')
         mocker.patch.object(log_events, 'StopExperimentEvent')
-        Experiment.previous_runs.clear()
         return
 
     @pytest.fixture()
@@ -209,32 +208,21 @@ class TestExperiment:
         with pytest.raises(ValueError, match='Name contains invalid character'):
             experiment.create_run(run_id='invalid|id', resume=False)
 
-    def test_create_run_resume_from_previous_last(
-        self, experiment, run1, run1_id
-    ) -> None:
-        """Resume the last run from memory."""
+    def test_create_run_resume_last(self, experiment, run1, run1_id) -> None:
+        """Resume the last run."""
         run_resumed = experiment.create_run(resume=True)
 
         assert run_resumed.id == run1_id
         assert run_resumed.resumed
 
-    def test_create_run_resume_specific_from_previous(
+    def test_create_run_resume_specific(
         self, experiment, run1, run2, run1_id
     ) -> None:
-        """Resume specific run from memory."""
+        """Resume specific run."""
         r_resumed = experiment.create_run(run_id=run1_id, resume=True)
 
         assert r_resumed.id == run1_id
         assert r_resumed.resumed
-
-    def test_resume_duplicate_in_memory_raises(
-        self, experiment, run1, run1_id
-    ) -> None:
-        """Error if duplicate run IDs in memory."""
-        experiment.previous_runs.append(run1)  # create a duplicate
-
-        with pytest.raises(RuntimeError, match='Multiple runs'):
-            experiment.create_run(run_id=run1_id, resume=True)
 
     def test_active_run_setter(self, experiment, run1) -> None:
         """Test setting active run manually."""
@@ -299,15 +287,6 @@ class TestRun:
         with pytest.raises(exceptions.NoActiveExperimentError):
             Experiment.get_current()
 
-    def test_run_is_added_to_experiment_runs_list(self, experiment) -> None:
-        """Test that a new run is added to the experiment's run list."""
-        experiment.previous_runs.clear()
-        run1 = experiment.create_run(run_id='run1', resume=False)
-        run2 = experiment.create_run(run_id='run2', resume=False)
-
-        assert len(experiment.previous_runs) == 2
-        assert experiment.previous_runs == [run1, run2]
-
     def test_nested_scope_error(self, run) -> None:
         """Test that an error is raised for nested runs."""
         with run:
@@ -336,14 +315,6 @@ class TestRun:
         """Test creating a Run with resumed=True."""
         run = Run(experiment, run_id='resumed-run', resumed=True)
         assert run.resumed
-        assert run not in experiment.previous_runs
-
-    def test_run_not_resumed_added_to_previous_runs(self, experiment) -> None:
-        """Test that non-resumed runs are added to previous_runs."""
-        initial_count = len(experiment.previous_runs)
-        run = Run(experiment, run_id='new-run', resumed=False)
-        assert len(experiment.previous_runs) == initial_count + 1
-        assert run in experiment.previous_runs
 
     def test_is_active_status(self, run) -> None:
         """Test the is_active method returns the correct status."""

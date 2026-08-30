@@ -25,5 +25,4 @@ def mock_experiment(session_mocker, tmpdir_factory) -> Experiment:
     mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
     mock_experiment.name = 'mock_experiment'
     mock_experiment.run_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
-    mock_experiment.previous_runs = []
     return mock_experiment

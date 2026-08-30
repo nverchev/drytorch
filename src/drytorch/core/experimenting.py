@@ -147,7 +147,6 @@ class Experiment(Generic[_T_co]):
 
     folder_name: ClassVar[str] = '.drytorch'
     run_file: ClassVar[str] = 'runs.json'
-    previous_runs: ClassVar[list[Run]] = []
     _name = repr_utils.DefaultName()
     __current: ClassVar[Experiment[Any] | None] = None
 
@@ -232,13 +231,6 @@ class Experiment(Generic[_T_co]):
         self, run_id: str | None, runs_data: list[RunMetadata], record: bool
     ) -> Run[_T_co]:
         """Handle resume logic for existing runs."""
-        if self.previous_runs:
-            run = self._get_run_from_previous(run_id)
-            if run:
-                run.resumed = True
-                run.status = 'created'
-                return run
-
         if not runs_data:
             warnings.warn(exceptions.NoPreviousRunsWarning(), stacklevel=2)
             return self._create_new_run(run_id, record)
@@ -258,22 +250,6 @@ class Experiment(Generic[_T_co]):
                 raise RuntimeError(msg)
 
         return Run(experiment=self, run_id=run_id, resumed=True, record=record)
-
-    def _get_run_from_previous(self, run_id: str | None) -> Run[_T_co] | None:
-        """Get run from the previous_runs list."""
-        if run_id is None:
-            return self.previous_runs[-1]
-
-        matching_runs = [r for r in self.previous_runs if r.id == run_id]
-        if not matching_runs:
-            return None
-
-        matching_run, *other_runs = matching_runs
-        if other_runs:
-            msg = f'Multiple runs with id {run_id} found for exp {self.name}'
-            raise RuntimeError(msg)
-
-        return matching_run
 
     def _create_new_run(
         self,
@@ -418,8 +394,6 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self.status = 'created'
         self.metadata_manager: Final = tracking.MetadataManager()
         self._finalizer = None
-        if not self.resumed:
-            experiment.previous_runs.append(self)
 
         if self._is_distributed:
             feature = 'Data-distributed support'
