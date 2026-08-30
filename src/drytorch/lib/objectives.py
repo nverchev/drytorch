@@ -176,7 +176,7 @@ class MetricCollection(AverageObjective[Output, Target]):
     named_fn: dict[str, Callable[[Output, Target], Tensor]]
 
     def __init__(
-        self,
+        self: MetricCollection[Output, Target],
         *fn: Callable[[Output, Target], dict[str, Tensor]],
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
@@ -187,7 +187,7 @@ class MetricCollection(AverageObjective[Output, Target]):
             **named_fn: dictionary of named functions returning a single value.
         """
         super().__init__()
-        self.fn = list(fn)
+        self.fn: Final = list(fn)
         self.named_fn: Final = named_fn
         return
 
