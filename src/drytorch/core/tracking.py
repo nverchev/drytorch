@@ -165,6 +165,12 @@ class Tracker(metaclass=abc.ABCMeta):
         self.clean_up()
         return
 
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        _not_used = event
+        self._reset_current()
+        return
+
     def clean_up(self) -> None:
         """Override to clean up the tracker."""
         return

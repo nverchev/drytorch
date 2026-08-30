@@ -167,6 +167,22 @@ class TestTracker:
         tracker.notify(stop_exp)
         clean_up.assert_called_once()
 
+    def test_get_current_after_pause(self, tracker, mocker) -> None:
+        """Test that get_current returns None after pause."""
+        start_exp = mocker.create_autospec(log_events.StartExperimentEvent)
+        tracker.notify(start_exp)
+        pause_exp = mocker.create_autospec(log_events.PauseExperimentEvent)
+        tracker.notify(pause_exp)
+        with pytest.raises(exceptions.TrackerNotUsedError):
+            tracker.get_current()
+
+    def test_no_clean_up_after_pause(self, tracker, mocker) -> None:
+        """Test that pause does not call clean_up."""
+        clean_up = mocker.patch.object(tracker, 'clean_up')
+        pause_exp = mocker.create_autospec(log_events.PauseExperimentEvent)
+        tracker.notify(pause_exp)
+        clean_up.assert_not_called()
+
 
 class TestEventDispatcher:
     """Test the event dispatcher."""

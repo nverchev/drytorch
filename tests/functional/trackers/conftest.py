@@ -48,6 +48,16 @@ def stop_experiment_event(
 
 
 @pytest.fixture
+def pause_experiment_event(
+    example_exp_name, example_run_id
+) -> log_events.PauseExperimentEvent:
+    """Provides a PauseExperiment event instance."""
+    return log_events.PauseExperimentEvent(
+        exp_name=example_exp_name, run_id=example_run_id
+    )
+
+
+@pytest.fixture
 def model_registration_event(
     example_model_name, example_architecure_repr, example_model_ts
 ) -> log_events.ModelRegistrationEvent:

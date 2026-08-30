@@ -23,6 +23,7 @@ __all__ = [
     'LoadModelEvent',
     'MetricEvent',
     'ModelRegistrationEvent',
+    'PauseExperimentEvent',
     'SaveModelEvent',
     'StartEpochEvent',
     'StartExperimentEvent',
@@ -297,6 +298,19 @@ class StartTrainingEvent(Event):
     model_name: str
     start_epoch: int
     end_epoch: int
+
+
+@dataclasses.dataclass(frozen=True)
+class PauseExperimentEvent(Event):
+    """Event logged when an experiment is paused.
+
+    Attributes:
+        exp_name: the name of the experiment.
+        run_id: identifier of the run.
+    """
+
+    exp_name: str
+    run_id: str
 
 
 @dataclasses.dataclass(frozen=True)

@@ -244,6 +244,9 @@ class TestRun:
             log_events, 'StartExperimentEvent'
         )
         self.patch_stop = mocker.patch.object(log_events, 'StopExperimentEvent')
+        self.patch_pause = mocker.patch.object(
+            log_events, 'PauseExperimentEvent'
+        )
         self.patch_load = mocker.patch.object(RunRegistry, 'load_all')
         self.patch_register = mocker.patch.object(
             RunRegistry, 'register_new_run'
@@ -286,6 +289,45 @@ class TestRun:
         assert run.status == 'completed'
         with pytest.raises(exceptions.NoActiveExperimentError):
             Experiment.get_current()
+
+    def test_pause_and_resume_run(
+        self, run, experiment, config, tmp_path
+    ) -> None:
+        """Test pausing and resuming a run."""
+        self.patch_start.reset_mock()
+        run.start()
+
+        self.patch_pause.reset_mock()
+        run.pause()
+        assert run.status == 'paused'
+        with pytest.raises(exceptions.NoActiveExperimentError):
+            Experiment.get_current()
+        self.patch_pause.assert_called_once()
+
+        self.patch_start.reset_mock()
+        run.start()
+        assert run.status == 'running'
+        assert Experiment.get_current() is experiment
+        self.patch_start.assert_called_once()
+
+        run.stop()
+
+    def test_pause_invalid_states_warning(self, run) -> None:
+        """Test that pausing in invalid states raises a warning."""
+        with pytest.warns(exceptions.RunNotStartedWarning):
+            run.pause()
+
+        run.start()
+        run.pause()
+
+        with pytest.warns(exceptions.RunNotStartedWarning):
+            run.pause()
+
+        run.start()
+        run.stop()
+
+        with pytest.warns(exceptions.RunAlreadyCompletedWarning):
+            run.pause()
 
     def test_nested_scope_error(self, run) -> None:
         """Test that an error is raised for nested runs."""

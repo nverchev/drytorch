@@ -10,6 +10,7 @@
 - fixed unformatted string in _validate_batch_size error message
 - fixed MetricCollection typechecker Self bound error
 - removed previous_runs caching to prevent cross-experiment bleeding
+- added PauseExperimentEvent and `paused` RunStatus to cleanly pause training sessions
 - fixed typo in formula startswith check in objectives
 - model.compile is now assigned correctly
 - torch.is_initialized is called correctly

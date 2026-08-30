@@ -38,7 +38,7 @@ __all__ = [
 ]
 
 _T_co = TypeVar('_T_co', covariant=True)
-RunStatus = Literal['created', 'running', 'completed', 'failed']
+RunStatus = Literal['created', 'running', 'completed', 'failed', 'paused']
 
 
 @dataclasses.dataclass
@@ -457,6 +457,30 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self._stop_experiment(self.experiment, self._id)
         return
 
+    def pause(self) -> None:
+        """Pause the experiment scope."""
+        if self.status == 'running':
+            self.status = 'paused'
+        elif self.status == 'paused':
+            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
+            return
+        elif self.status == 'completed':
+            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
+            return
+        elif self.status == 'created':
+            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
+            return
+
+        if self.record:
+            self._update_registry()
+
+        if self._finalizer is not None:
+            self._finalizer.detach()
+            self._finalizer = None
+
+        self._pause_experiment(self.experiment, self._id)
+        return
+
     def start(self: Self) -> None:
         """Start the experiment scope."""
         if self.status == 'running':
@@ -506,6 +530,16 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     def _stop_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
         """Cleanup without holding reference to a Run instance."""
         log_events.StopExperimentEvent(experiment.name, run_id)
+        log_events.Event.set_auto_publish(None)
+        experiment._active_run = None
+        Experiment._clear_current()
+        gc.collect()
+        return
+
+    @staticmethod
+    def _pause_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
+        """Cleanup on pause without holding reference to a Run instance."""
+        log_events.PauseExperimentEvent(experiment.name, run_id)
         log_events.Event.set_auto_publish(None)
         experiment._active_run = None
         Experiment._clear_current()
