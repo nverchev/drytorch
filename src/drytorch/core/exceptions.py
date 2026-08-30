@@ -393,7 +393,7 @@ class NoActiveExperimentError(DryTorchError):
         if experiment_name is not None:
             specify_string = f'named {experiment_name} '
         elif experiment_class is not None:
-            specify_string = f'of class {experiment_class.__class__.__name__} '
+            specify_string = f'of class {experiment_class.__name__} '
         else:
             specify_string = ''
 

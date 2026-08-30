@@ -6,6 +6,7 @@
 ## Fixed
 - val_hook is reassigned on bind
 - fixed NestedScopeError message arguments
+- fixed NoActiveExperimentError class name evaluation
 - fixed typo in formula startswith check in objectives
 - model.compile is now assigned correctly
 - torch.is_initialized is called correctly
