@@ -136,7 +136,7 @@ class TestTrainer:
 
         call_every.assert_called_once_with(interval)
         mock_hook.bind.assert_called_once_with(mock_every)
-        register.assert_called_once_with(mock_hook)
+        register.assert_called_once_with(mock_hook.bind.return_value)
         assert trainer.validation is mock_validation
 
     @pytest.mark.parametrize('interval', [0, -1])
