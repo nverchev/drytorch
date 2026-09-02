@@ -24,6 +24,7 @@
 - fixed missing docstrings in newly added tracker tests
 - fixed a static type checker error (`reportInvalidTypeForm`) in `experimenting.py` by casting to `Any` instead of `cls`
 - fixed a reference duplication bug in `runners.py` where list multiplication created identical list references for gathered outputs
+- fixed `_remove_outer_parentheses` in `objectives.py` erroneously stripping metric name brackets from formulas
 
 
 ## [0.1.0rc11] - 31-07-2026
