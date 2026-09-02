@@ -60,6 +60,7 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
         'pre_epoch_hooks': 'HookRegistry',
     }
 
+    identity_trainer.model.exec_module = identity_trainer.model.module
     assert recursive_repr(identity_trainer) == expected
 
 

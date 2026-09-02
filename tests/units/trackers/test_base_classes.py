@@ -1,5 +1,6 @@
 """Tests for the "base_classes" module."""
 
+import copy
 import functools
 import pathlib
 
@@ -143,8 +144,6 @@ class TestDumper:
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
 
-        import copy
-
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
 
@@ -160,10 +159,6 @@ class TestDumper:
         self, tracker, continue_experiment_mock_event
     ) -> None:
         """Test that continuing without a stash raises an error."""
-        import pytest
-
-        from drytorch.core import exceptions
-
         with pytest.raises(exceptions.NoStashedStateError):
             tracker.notify(continue_experiment_mock_event)
 

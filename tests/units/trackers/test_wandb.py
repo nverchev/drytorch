@@ -1,17 +1,11 @@
 """Tests for the "wandb" module."""
 
+import copy
 import importlib.util
-import sys
 
 from collections.abc import Generator
 
 import pytest
-
-
-# TODO: remove this when wandb adds support to Python 3.14
-if sys.version_info >= (3, 14):
-    msg = 'Skipping wandb tests on Python 3.14 (not yet supported)'
-    pytest.skip(msg, allow_module_level=True)
 
 
 if not importlib.util.find_spec('wandb'):
@@ -51,11 +45,11 @@ class TestWandb:
         tracker.notify(stop_experiment_mock_event)
         return
 
-    def test_cleanup(self, tracker) -> None:
+    def test_cleanup(self, tracker_started) -> None:
         """Test correct cleaning up."""
-        tracker.clean_up()
-        self.finish_mock.assert_called_once()
-        assert tracker._run is None
+        tracker_started.clean_up()
+        self.init_mock.return_value.finish.assert_called_once()
+        assert tracker_started._run is None
 
     def test_notify_start_experiment(
         self,
@@ -202,8 +196,6 @@ class TestWandb:
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
 
-        import copy
-
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
 
@@ -219,10 +211,6 @@ class TestWandb:
         self, tracker, continue_experiment_mock_event
     ) -> None:
         """Test that continuing without a stash raises an error."""
-        import pytest
-
-        from drytorch.core import exceptions
-
         with pytest.raises(exceptions.NoStashedStateError):
             tracker.notify(continue_experiment_mock_event)
 

@@ -1,8 +1,11 @@
 """Tests for the "sqlalchemy" module."""
 
+import copy
 import importlib.util
 
 import pytest
+
+from drytorch.core import exceptions
 
 
 if not importlib.util.find_spec('sqlalchemy'):
@@ -10,7 +13,6 @@ if not importlib.util.find_spec('sqlalchemy'):
 
 from collections.abc import Generator
 
-from drytorch.core import exceptions
 from drytorch.trackers.sqlalchemy import (
     Experiment,
     Log,
@@ -336,8 +338,6 @@ class TestSQLConnection:
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
 
-        import copy
-
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
 
@@ -353,10 +353,6 @@ class TestSQLConnection:
         self, tracker, continue_experiment_mock_event
     ) -> None:
         """Test that continuing without a stash raises an error."""
-        import pytest
-
-        from drytorch.core import exceptions
-
         with pytest.raises(exceptions.NoStashedStateError):
             tracker.notify(continue_experiment_mock_event)
 

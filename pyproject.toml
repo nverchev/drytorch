@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "filelock>=3.21.0",
     "numpy>=1.26.0",
-    "torch>=2.7.0",
+    "torch>=2.10.0",
     "typing_extensions>=4.4.0",
 ]
 

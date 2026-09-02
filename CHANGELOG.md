@@ -5,7 +5,9 @@
 - added specific behaviour for trackers on pause to safely stash and restore resources
 
 ## Changed
+- bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation
+- unwrapped returns original model and not compiled one
 
 ## Fixed
 - val_hook is reassigned on bind

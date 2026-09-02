@@ -1,5 +1,7 @@
 """Tests for the "models" module."""
 
+import unittest.mock
+
 import torch
 
 from ...simple_classes import MLP, TorchData, TorchTuple
@@ -31,13 +33,16 @@ class TestModel:
         self.mock_autocast.return_value.__exit__ = mocker.Mock(
             return_value=None
         )
+        self.mock_compile = mocker.patch(
+            'torch.compile', side_effect=lambda x: x
+        )
         return
 
     @pytest.fixture(scope='class')
     def complex_model(self) -> Model[TorchTuple, TorchData]:
         """Fixture of a complex model wrapped with Model."""
         cpu = torch.device('cpu')
-        return Model(MLP(), name='mlp_model', device=cpu)
+        return Model(MLP(), name='mlp_model', device=cpu, should_compile=False)
 
     def test_model_increment_epoch(self, complex_model: Model) -> None:
         """Test Model's increment_epoch method increases the epoch count."""
@@ -53,8 +58,9 @@ class TestSWAModel:
     """Tests for the SWAModel wrapper."""
 
     @pytest.fixture
-    def swa_model(self) -> SWAModel[TorchTuple, TorchData]:
+    def swa_model(self, mocker) -> SWAModel[TorchTuple, TorchData]:
         """Fixture for AveragedModel."""
+        mocker.patch('torch.compile', side_effect=lambda x: x)
         cpu = torch.device('cpu')
         model = SWAModel(MLP(), name='swa_model', start_epoch=2, device=cpu)
         model.epoch = 2
@@ -142,8 +148,11 @@ class TestEMAModel:
     @pytest.fixture(scope='class')
     def ema_model(self) -> EMAModel[TorchTuple, TorchData]:
         """Fixture for the EMA model."""
-        cpu = torch.device('cpu')
-        return EMAModel(MLP(), name='ema_model', decay=0.9, device=cpu)
+        # Using a class-scoped fixture means we can't easily use mocker fixture.
+        # Instead we patch torch.compile manually.
+        with unittest.mock.patch('torch.compile', side_effect=lambda x: x):
+            cpu = torch.device('cpu')
+            return EMAModel(MLP(), name='ema_model', decay=0.9, device=cpu)
 
     def test_init(self, ema_model) -> None:
         """Test class initialization."""

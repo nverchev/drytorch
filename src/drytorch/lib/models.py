@@ -6,7 +6,7 @@ import abc
 import typing
 
 from collections.abc import Callable
-from typing import ClassVar, Final, Protocol, TypeVar
+from typing import ClassVar, Final, Protocol, TypeVar, cast
 
 import torch
 
@@ -64,7 +64,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     _should_dist: bool
     _registered: bool
 
-    def __init__(  # type: ignore
+    def __init__(
         self,
         module: ModuleProtocol[Input, Output],
         name: str = '',
@@ -141,7 +141,10 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def prepare_module(self, module: torch.nn.Module) -> torch.nn.Module:
         """Compile and distribute the module."""
         module = module.to(self._device)
-        if self._should_compile:
+        is_compiled = isinstance(
+            module, torch._dynamo.eval_frame.OptimizedModule
+        )
+        if self._should_compile and not is_compiled:
             module = typing.cast(torch.nn.Module, torch.compile(module))
 
         if dist.is_available() and dist.is_initialized() and self._should_dist:
@@ -185,10 +188,14 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     def _unwrap_module(self) -> torch.nn.Module:
         """Return the module without wrapping."""
-        if isinstance(self.exec_module, parallel.DistributedDataParallel):
-            return self.exec_module.module
+        module = self.exec_module
+        if isinstance(module, parallel.DistributedDataParallel):
+            module = cast(torch.nn.Module, module.module)
 
-        return self.exec_module
+        if isinstance(module, torch._dynamo.eval_frame.OptimizedModule):
+            module = module._orig_mod
+
+        return module
 
     def post_batch_update(self) -> None:
         """Update the model after processing a batch of data."""
