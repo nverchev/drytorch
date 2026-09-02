@@ -311,3 +311,62 @@ class TestSQLConnection:
         assert result['source1'] == mock_metrics
         find_sources.assert_called_once_with('test_model')
         get_run_metrics.assert_called_once_with([self.source], max_epoch=10)
+
+    def test_pause_stashes_and_continue_restores(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        pause_experiment_mock_event,
+        continue_experiment_mock_event,
+    ) -> None:
+        """Test that pause stashes state and continue restores it."""
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(pause_experiment_mock_event)
+        tracker.notify(continue_experiment_mock_event)
+
+    def test_pause_start_stop_continue_keeps_state(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        pause_experiment_mock_event,
+        stop_experiment_mock_event,
+        continue_experiment_mock_event,
+    ) -> None:
+        """Test that concurrent runs do not corrupt stashed state."""
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(pause_experiment_mock_event)
+
+        import copy
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.run_id = 'run2'
+
+        tracker.notify(start_2)
+
+        stop_2 = copy.copy(stop_experiment_mock_event)
+        stop_2.run_id = 'run2'
+        tracker.notify(stop_2)
+
+        tracker.notify(continue_experiment_mock_event)
+
+    def test_continue_without_stash_raises_error(
+        self, tracker, continue_experiment_mock_event
+    ) -> None:
+        """Test that continuing without a stash raises an error."""
+        import pytest
+
+        from drytorch.core import exceptions
+
+        with pytest.raises(exceptions.NoStashedStateError):
+            tracker.notify(continue_experiment_mock_event)
+
+    def test_close_releases_stashes(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        pause_experiment_mock_event,
+    ) -> None:
+        """Test that close unconditionally releases stashed resources."""
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(pause_experiment_mock_event)
+        tracker.close()

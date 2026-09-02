@@ -204,6 +204,13 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        msg = 'Experiment: %(name)s - Continuing run: %(id)s'
+        args = {'name': event.exp_name, 'id': event.run_id}
+        logger.log(INFO_LEVELS.experiment, msg, args)
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.LearningRateEvent) -> None:
         message_parts = [
             'Updated %(model_name)s optimizer at epoch %(epoch)d',

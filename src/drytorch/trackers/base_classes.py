@@ -43,6 +43,7 @@ class Dumper(tracking.Tracker):
     _par_dir: pathlib.Path | None
     _exp_name: str | None
     _run_id: str | None
+    _stashed_state: dict[str, tuple[pathlib.Path, str, str]]
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
@@ -56,6 +57,7 @@ class Dumper(tracking.Tracker):
         self._par_dir = None
         self._exp_name = None
         self._run_id = None
+        self._stashed_state = {}
         return
 
     @property
@@ -115,6 +117,25 @@ class Dumper(tracking.Tracker):
         self._exp_name = event.exp_name
         self._run_id = event.run_id
         self.par_dir.mkdir(exist_ok=True, parents=True)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        self._stashed_state[event.run_id] = (
+            self.par_dir,
+            self.exp_name,
+            self.run_id,
+        )
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if event.run_id not in self._stashed_state:
+            raise exceptions.NoStashedStateError(self, event.run_id)
+
+        self._par_dir, self._exp_name, self._run_id = self._stashed_state.pop(
+            event.run_id
+        )
         return super().notify(event)
 
     def _get_exp_dir(self) -> pathlib.Path:

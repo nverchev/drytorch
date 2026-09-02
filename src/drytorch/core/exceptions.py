@@ -38,6 +38,7 @@ __all__ = [
     'NestedScopeError',
     'NoActiveExperimentError',
     'NoPreviousRunsWarning',
+    'NoStashedStateError',
     'NotExistingRunWarning',
     'ObjectiveSyncWarning',
     'OptimizerNotLoadedWarning',
@@ -45,10 +46,13 @@ __all__ = [
     'RecursionWarning',
     'ResultNotAvailableError',
     'RunAlreadyCompletedWarning',
+    'RunAlreadyFailedWarning',
+    'RunAlreadyPausedWarning',
     'RunAlreadyRecordedError',
     'RunAlreadyRunningWarning',
     'RunNotRecordedError',
     'RunNotStartedWarning',
+    'RunStillPausedError',
     'TerminatedTrainingWarning',
     'TrackerAlreadyRegisteredError',
     'TrackerError',
@@ -99,6 +103,20 @@ class TrackerError(DryTorchError):
         """
         self.tracker = tracker
         super().__init__(tracker.__class__.__name__, tracker_msg)
+
+
+class NoStashedStateError(TrackerError):
+    """Exception raised when trying to continue a run with no stashed state."""
+
+    def __init__(self, tracker: Any, run_id: str) -> None:
+        """Initialize.
+
+        Args:
+            tracker: the tracker object that encountered the error.
+            run_id: the identifier of the run.
+        """
+        super().__init__(tracker, f'No stashed state found for run {run_id!r}.')
+        return
 
 
 class AccessOutsideScopeError(DryTorchError):
@@ -647,21 +665,31 @@ class RunAlreadyRecordedError(DryTorchError):
 class RunAlreadyCompletedWarning(DryTorchWarning):
     """Warning raised when a run is stopped after completion."""
 
-    _template = (
-        """Attempted to stop a Run instance that is already completed."""
-    )
+    _template = 'Run instance is already completed.'
 
 
 class RunAlreadyRunningWarning(DryTorchWarning):
     """Warning raised when a run is started when already running."""
 
-    _template = """Attempted to start a Run instance that is already running."""
+    _template = 'Run instance is already running.'
 
 
 class RunNotStartedWarning(DryTorchWarning):
     """Warning raised when a run is stopped before being started."""
 
-    _template = """Attempted to stop a Run instance that is not active."""
+    _template = 'Run instance is not active.'
+
+
+class RunAlreadyPausedWarning(DryTorchWarning):
+    """Warning raised when a run is paused when already paused."""
+
+    _template = 'Run instance is already paused.'
+
+
+class RunAlreadyFailedWarning(DryTorchWarning):
+    """Warning raised when a failed run is started or paused."""
+
+    _template = 'Run instance has failed.'
 
 
 class RunNotRecordedError(DryTorchError):
@@ -677,6 +705,25 @@ class RunNotRecordedError(DryTorchError):
         """
         self.run_id: Final = run_id
         super().__init__(run_id)
+
+
+class RunStillPausedError(DryTorchError):
+    """Error raised when resuming a run that is paused in this session."""
+
+    _template = (
+        'Run {} is paused in experiment {}. Call start() on the paused run.'
+    )
+
+    def __init__(self, run_id: str, exp_name: str) -> None:
+        """Initialize.
+
+        Args:
+            run_id: the id of the run that is currently paused.
+            exp_name: the name of the experiment owning the run.
+        """
+        self.run_id: Final = run_id
+        self.exp_name: Final = exp_name
+        super().__init__(run_id, exp_name)
 
 
 class TerminatedTrainingWarning(DryTorchWarning):

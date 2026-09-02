@@ -1,5 +1,9 @@
 ## [0.1.0] - 30-08-2026
 
+## Added
+- added experiment pause and continue feature to allow pausing training sessions cleanly
+- added specific behaviour for trackers on pause to safely stash and restore resources
+
 ## Changed
 - last epoch sorts checkpoint by epoch and not by time of creation
 
@@ -10,11 +14,13 @@
 - fixed unformatted string in _validate_batch_size error message
 - fixed MetricCollection typechecker Self bound error
 - removed previous_runs caching to prevent cross-experiment bleeding
-- added PauseExperimentEvent and `paused` RunStatus to cleanly pause training sessions
 - fixed typo in formula startswith check in objectives
 - model.compile is now assigned correctly
 - torch.is_initialized is called correctly
 - added base lr in PolynomialScheduler
+- fixed a run ID collision issue that occurred when starting multiple runs in the same second
+- fixed `wandb` metrics logging degradation on subsequent runs by resetting `_defined_metrics`
+- fixed a bug where closing an already-failed run threw a spurious warning
 
 
 ## [0.1.0rc11] - 31-07-2026

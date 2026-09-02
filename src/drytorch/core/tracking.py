@@ -171,8 +171,22 @@ class Tracker(metaclass=abc.ABCMeta):
         self._reset_current()
         return
 
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        _not_used = event
+        self._set_current(self)
+        return
+
     def clean_up(self) -> None:
-        """Override to clean up the tracker."""
+        """Override to clean up the tracker idempotently."""
+        return
+
+    def close(self) -> None:
+        """Release everything, including any paused state.
+
+        Called once when the process ends.
+        """
+        self.clean_up()
         return
 
     @classmethod
@@ -222,6 +236,13 @@ class EventDispatcher:
         self.named_trackers: Final = dict[str, Tracker]()
         return
 
+    def clean_up(self) -> None:
+        """Clean up all registered trackers."""
+        for name, tracker in self.named_trackers.items():
+            self._clean_up_tracker(name, tracker)
+
+        return
+
     def publish(self, event: log_events.Event) -> None:
         """Publish an event to all registered trackers.
 
@@ -246,16 +267,20 @@ class EventDispatcher:
                 to_be_removed.append(name)
 
         for name in to_be_removed:
-            tracker = self.named_trackers[name]
-            try:
-                tracker.clean_up()
-            except Exception as err:
-                warnings.warn(
-                    exceptions.TrackerExceptionWarning(name, err),
-                    stacklevel=1,
-                )
+            self._clean_up_tracker(name, self.named_trackers[name])
             self.remove(name)
 
+        return
+
+    def _clean_up_tracker(self, name: str, tracker: Tracker) -> None:
+        try:
+            tracker._reset_current()
+            tracker.close()
+        except Exception as err:
+            warnings.warn(
+                exceptions.TrackerExceptionWarning(name, err),
+                stacklevel=2,
+            )
         return
 
     def _subscribe_tracker(self, name: str, tracker: Tracker) -> None:
@@ -299,7 +324,6 @@ class EventDispatcher:
         Args:
             tracker_name: name of the tracker to remove.
 
-        Raises:
         Raises:
             TrackerNotActiveError: if the tracker is not registered.
         """

@@ -9,12 +9,12 @@ import subprocess
 from importlib.util import find_spec
 from typing import ClassVar
 
-from tensorboard import notebook as tb_notebook
 from torch.utils import tensorboard
 from typing_extensions import override
 
 from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
+from tensorboard import notebook as tb_notebook
 
 
 __all__ = [
@@ -46,6 +46,7 @@ class TensorBoard(base_classes.Dumper):
     _start_server: bool
     _max_queue_size: int
     _flush_secs: int
+    _stashed_writers: dict[str, tensorboard.SummaryWriter]
 
     def __init__(
         self,
@@ -72,6 +73,7 @@ class TensorBoard(base_classes.Dumper):
         self._start_server = start_server
         self._max_queue_size = max_queue_size
         self._flush_secs = flush_secs
+        self._stashed_writers = {}
         return
 
     @property
@@ -99,6 +101,14 @@ class TensorBoard(base_classes.Dumper):
         self._writer = None
         return super().clean_up()
 
+    @override
+    def close(self) -> None:
+        for writer in self._stashed_writers.values():
+            writer.close()
+
+        self._stashed_writers.clear()
+        return super().close()
+
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -120,6 +130,22 @@ class TensorBoard(base_classes.Dumper):
             self.writer.add_text('tag ' + str(i), tag)
 
         return
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        if self._writer is not None:
+            self._stashed_writers[event.run_id] = self._writer
+            self._writer = None
+
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if event.run_id not in self._stashed_writers:
+            raise exceptions.NoStashedStateError(self, event.run_id)
+
+        self._writer = self._stashed_writers.pop(event.run_id)
+        return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:

@@ -211,6 +211,8 @@ class SQLConnection(base_classes.MetricLoader):
     session_factory: orm.sessionmaker[orm.Session]
     _run: Run | None
     _sources: dict[str, Source]
+    _sql_stashed_runs: dict[str, Run]
+    _sql_stashed_sources: dict[str, dict[str, Source]]
 
     def __init__(
         self,
@@ -227,6 +229,8 @@ class SQLConnection(base_classes.MetricLoader):
         self.session_factory = orm.sessionmaker(bind=self.engine)
         self._run = None
         self._sources = {}
+        self._sql_stashed_runs = {}
+        self._sql_stashed_sources = {}
         return
 
     @property
@@ -267,6 +271,25 @@ class SQLConnection(base_classes.MetricLoader):
             session.add(experiment)
             session.commit()
 
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        if self._run is not None:
+            self._sql_stashed_runs[event.run_id] = self._run
+            self._sql_stashed_sources[event.run_id] = self._sources
+            self._run = None
+            self._sources = {}
+
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if event.run_id not in self._sql_stashed_runs:
+            raise exceptions.NoStashedStateError(self, event.run_id)
+
+        self._run = self._sql_stashed_runs.pop(event.run_id)
+        self._sources = self._sql_stashed_sources.pop(event.run_id)
         return super().notify(event)
 
     @notify.register

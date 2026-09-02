@@ -63,6 +63,17 @@ def pause_experiment_mock_event(
 
 
 @pytest.fixture
+def continue_experiment_mock_event(
+    mocker, example_exp_name, example_run_id
+) -> log_events.ContinueExperimentEvent:
+    """Mock ContinueExperiment event instance."""
+    mock = mocker.create_autospec(log_events.ContinueExperimentEvent)
+    mock.exp_name = example_exp_name
+    mock.run_id = example_run_id
+    return mock
+
+
+@pytest.fixture
 def model_registration_mock_event(
     mocker, example_model_name, example_architecure_repr, example_model_ts
 ) -> log_events.ModelRegistrationEvent:

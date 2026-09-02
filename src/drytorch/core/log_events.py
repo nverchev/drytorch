@@ -14,6 +14,7 @@ from drytorch.core import exceptions
 
 __all__ = [
     'ActorRegistrationEvent',
+    'ContinueExperimentEvent',
     'EndEpochEvent',
     'EndTestEvent',
     'EndTrainingEvent',
@@ -72,6 +73,19 @@ class ActorRegistrationEvent(Event):
     model_name: str
     model_ts: datetime.datetime
     metadata: dict[str, Any]
+
+
+@dataclasses.dataclass(frozen=True)
+class ContinueExperimentEvent(Event):
+    """Event logged when a paused experiment is continued.
+
+    Attributes:
+        exp_name: the name of the experiment.
+        run_id: identifier of the run.
+    """
+
+    exp_name: str
+    run_id: str
 
 
 @dataclasses.dataclass(frozen=True)

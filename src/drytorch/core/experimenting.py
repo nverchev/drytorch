@@ -9,10 +9,12 @@ import multiprocessing
 import pathlib
 import shutil
 import subprocess
+import time
 import types
 import warnings
 import weakref
 
+from collections.abc import Mapping
 from typing import (
     Any,
     ClassVar,
@@ -79,6 +81,7 @@ class RunRegistry:
         try:
             with self.file_path.open() as f:
                 data = json.load(f)
+
         except (FileNotFoundError, json.JSONDecodeError):
             return []
 
@@ -93,10 +96,18 @@ class RunRegistry:
 
         Args:
             run_metadata: the metadata for the run (id will be updated).
+
+        Raises:
+            RunAlreadyRecordedError: if the run ID is already registered.
         """
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         with filelock.FileLock(self.lock_path):
             run_data = self.load_all()
+            if any(r.id == run_metadata.id for r in run_data):
+                raise exceptions.RunAlreadyRecordedError(
+                    run_metadata.id, self.file_path.parent.name
+                )
+
             run_data.append(run_metadata)
 
             # Convert to dicts for JSON serialization
@@ -156,6 +167,7 @@ class Experiment(Generic[_T_co]):
     trackers: tracking.EventDispatcher
     _registry: RunRegistry
     _active_run: Run[_T_co] | None
+    _paused_runs: dict[str, Run[_T_co]]
 
     def __init__(
         self,
@@ -183,7 +195,13 @@ class Experiment(Generic[_T_co]):
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
         self._registry = RunRegistry(run_file)
         self._active_run = None
+        self._paused_runs = {}
         return
+
+    @property
+    def paused_runs(self) -> Mapping[str, Run[_T_co]]:
+        """A snapshot of runs paused in this session."""
+        return dict(self._paused_runs)
 
     @property
     def name(self) -> str:
@@ -214,9 +232,12 @@ class Experiment(Generic[_T_co]):
 
         Raises:
             RunAlreadyRecordedError: if creating a new run with an existing id.
+            RunStillPausedError: if creating a run with the id of a paused run.
         """
         if run_id is not None:
             _validate_chars(run_id)
+            if run_id in self._paused_runs:
+                raise exceptions.RunStillPausedError(run_id, self.name)
 
         runs_data = self._registry.load_all()
         if resume:
@@ -249,6 +270,9 @@ class Experiment(Generic[_T_co]):
                 msg = f'Multiple runs with id {run_id} found in the registry.'
                 raise RuntimeError(msg)
 
+        if run_id in self._paused_runs:
+            raise exceptions.RunStillPausedError(run_id, self.name)
+
         return Run(experiment=self, run_id=run_id, resumed=True, record=record)
 
     def _create_new_run(
@@ -257,17 +281,26 @@ class Experiment(Generic[_T_co]):
         record: bool,
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
-        run = Run(experiment=self, run_id=run_id, record=record)
-        run_data = RunMetadata(
-            id=run.id,
-            status='created',
-            timestamp=run.created_at_str,
-            commit=self._get_last_commit_hash(),
-        )
-        if run.record:
-            self._registry.register_new_run(run_data)
+        while True:
+            run = Run(experiment=self, run_id=run_id, record=record)
 
-        return run
+            run_data = RunMetadata(
+                id=run.id,
+                status='created',
+                timestamp=run.created_at_str,
+                commit=self._get_last_commit_hash(),
+            )
+
+            if run.record:
+                try:
+                    self._registry.register_new_run(run_data)
+                except exceptions.RunAlreadyRecordedError as rare:
+                    if run_id is not None:
+                        raise rare
+
+                    time.sleep(1)
+
+            return run
 
     @property
     def run(self) -> Run[_T_co]:
@@ -292,19 +325,25 @@ class Experiment(Generic[_T_co]):
         return cls.get_current().__config
 
     @classmethod
+    def has_current(cls) -> bool:
+        """Check whether there is an active experiment."""
+        return Experiment.__current is not None
+
+    @classmethod
     def get_current(cls) -> Self:
         """Return the currently active experiment.
 
         Raises:
             NoActiveExperimentError: if no experiment is currently active.
         """
-        if Experiment.__current is None:
+        current = Experiment.__current
+        if current is None:
             raise exceptions.NoActiveExperimentError()
 
-        if not isinstance(Experiment.__current, cls):
+        if not isinstance(current, cls):
             raise exceptions.NoActiveExperimentError(experiment_class=cls)
 
-        return Experiment.__current
+        return current
 
     @staticmethod
     def set_current(experiment: Experiment[_T_co]) -> None:
@@ -358,6 +397,16 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         metadata_manager: Manager for run metadata.
         record: whether to record the run in the registry.
     """
+
+    _STATUS_WARNINGS: ClassVar[
+        dict[RunStatus, type[exceptions.DryTorchWarning]]
+    ] = {
+        'created': exceptions.RunNotStartedWarning,
+        'running': exceptions.RunAlreadyRunningWarning,
+        'paused': exceptions.RunAlreadyPausedWarning,
+        'completed': exceptions.RunAlreadyCompletedWarning,
+        'failed': exceptions.RunAlreadyFailedWarning,
+    }
 
     _experiment: Experiment[_T_co]
     _is_distributed: bool
@@ -424,9 +473,15 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
     ) -> None:
-        """Exit the experiment scope."""
+        """Exit the experiment scope, leaving a paused run paused."""
         if exc_type is not None:
-            self.status = 'failed'
+            if self.status in ('running', 'paused'):
+                self.status = 'failed'
+                self._close()
+            return
+
+        if self.status == 'paused':
+            return
 
         self.stop()
         return
@@ -437,73 +492,80 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
     def pause(self) -> None:
         """Pause the experiment scope."""
-        if self.status == 'running':
-            self.status = 'paused'
-        elif self.status == 'paused':
-            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
-            return
-        elif self.status == 'completed':
-            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
-            return
-        elif self.status == 'created':
-            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
+        if self.status != 'running':
+            warnings.warn(self._STATUS_WARNINGS[self.status](), stacklevel=1)
             return
 
+        self.status = 'paused'
         if self.record:
             self._update_registry()
 
+        self._experiment._paused_runs[self._id] = self
         self._pause_experiment(self.experiment, self._id)
         return
 
     def start(self: Self) -> None:
         """Start the experiment scope."""
-        if self.status == 'running':
-            warnings.warn(exceptions.RunAlreadyRunningWarning(), stacklevel=1)
+        if self.status not in ('created', 'paused'):
+            warnings.warn(self._STATUS_WARNINGS[self.status](), stacklevel=1)
             return
 
-        self._finalizer = weakref.finalize(
-            self, self._stop_experiment, self._experiment, self._id
-        )
+        continuing = self.status == 'paused'
+        Experiment.set_current(self._experiment)
         self.status = 'running'
         if self.record:
             self._update_registry()
 
         self._experiment._active_run = self
-        Experiment.set_current(self._experiment)
+        if self._experiment._paused_runs.get(self._id) is self:
+            del self._experiment._paused_runs[self._id]
+
+        if self._finalizer is not None:
+            self._finalizer.detach()
+
+        self._finalizer = weakref.finalize(
+            self, self._stop_experiment, self._experiment, self._id
+        )
+
         if self._is_main_process:
             log_events.Event.set_auto_publish(self._experiment.trackers.publish)
         else:  # no tracking in secondary processes
             log_events.Event.set_auto_publish(lambda _: None)
 
-        log_events.StartExperimentEvent(
-            self._experiment.config,
-            self._experiment.name,
-            self.created_at,
-            self._id,
-            self.resumed,
-            self._experiment.par_dir,
-            self._experiment.tags,
-        )
+        if continuing:
+            log_events.ContinueExperimentEvent(self._experiment.name, self._id)
+        else:
+            log_events.StartExperimentEvent(
+                self._experiment.config,
+                self._experiment.name,
+                self.created_at,
+                self._id,
+                self.resumed,
+                self._experiment.par_dir,
+                self._experiment.tags,
+            )
         return
 
     def stop(self) -> None:
         """Stop the experiment scope."""
-        if self.status in ('running', 'paused'):
-            self.status = 'completed'
-        elif self.status == 'completed':
-            warnings.warn(exceptions.RunAlreadyCompletedWarning(), stacklevel=1)
-            return
-        # failed is left as is
-        elif self.status == 'created':
-            warnings.warn(exceptions.RunNotStartedWarning(), stacklevel=1)
+        if self.status not in ('running', 'paused'):
+            warnings.warn(self._STATUS_WARNINGS[self.status](), stacklevel=1)
             return
 
+        self.status = 'completed'
+        self._close()
+        return
+
+    def _close(self) -> None:
         if self.record:
             self._update_registry()
 
         if self._finalizer is not None:
             self._finalizer.detach()
             self._finalizer = None
+
+        if self._experiment._paused_runs.get(self._id) is self:
+            del self._experiment._paused_runs[self._id]
 
         self._stop_experiment(self.experiment, self._id)
         return
@@ -532,23 +594,21 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _stop_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
+    def _stop_experiment(
+        experiment: Experiment[_T_co],
+        run_id: str,
+    ) -> None:
         """Cleanup without holding reference to a Run instance."""
-        # If the run was paused, Event._auto_publish is None.
-        # We temporarily restore it to allow emitting the StopExperimentEvent.
-        orig_publish = log_events.Event._auto_publish
-        if orig_publish is None:
-            if multiprocessing.current_process().name == 'MainProcess':
-                log_events.Event.set_auto_publish(experiment.trackers.publish)
-            else:
-                log_events.Event.set_auto_publish(lambda _: None)
+        active_run = experiment._active_run
+        if active_run is not None:
+            if active_run.id == run_id:
+                log_events.StopExperimentEvent(experiment.name, run_id)
+                Run._teardown(experiment)
+            return
 
-        try:
-            log_events.StopExperimentEvent(experiment.name, run_id)
-        finally:
-            log_events.Event.set_auto_publish(orig_publish)
+        if not Experiment.has_current():
+            experiment.trackers.clean_up()
 
-        Run._teardown(experiment)
         return
 
     @staticmethod

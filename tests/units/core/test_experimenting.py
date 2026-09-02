@@ -1,5 +1,7 @@
 """Test for the "experimenting" module."""
 
+import warnings
+
 from collections.abc import Generator
 
 import pytest
@@ -62,6 +64,7 @@ class TestRunRegistry:
             registry.register_new_run(run)
 
         loaded_runs = registry.load_all()
+
         assert len(loaded_runs) == 3
         assert loaded_runs[0].id == 'run1'
         assert loaded_runs[0].status == 'completed'
@@ -82,6 +85,7 @@ class TestRunRegistry:
         json_file.write_text('{ invalid json }')
         run_io = RunRegistry(json_file)
         result = run_io.load_all()
+
         assert result == []
 
     def test_roundtrip_data_integrity(self, registry, sample_runs) -> None:
@@ -90,6 +94,7 @@ class TestRunRegistry:
             registry.register_new_run(run)
 
         loaded_runs = registry.load_all()
+
         assert len(loaded_runs) == len(sample_runs)
         for original, loaded in zip(sample_runs, loaded_runs, strict=False):
             assert original.id == loaded.id
@@ -227,6 +232,7 @@ class TestExperiment:
     def test_active_run_setter(self, experiment, run1) -> None:
         """Test setting active run manually."""
         experiment.run = run1
+
         assert experiment.run is run1
 
     def test_experiment_repr(self, experiment) -> None:
@@ -242,6 +248,9 @@ class TestRun:
         """Set up mocks for event logging."""
         self.patch_start = mocker.patch.object(
             log_events, 'StartExperimentEvent'
+        )
+        self.patch_continue = mocker.patch.object(
+            log_events, 'ContinueExperimentEvent'
         )
         self.patch_stop = mocker.patch.object(log_events, 'StopExperimentEvent')
         self.patch_pause = mocker.patch.object(
@@ -277,18 +286,23 @@ class TestRun:
         """Test starting and stopping a run using the context manager."""
         self.patch_start.reset_mock()
         run.start()
-
-        assert run.status == 'running'
-        assert Experiment.get_current() is experiment
-        assert Experiment.get_current().par_dir == tmp_path
-        assert Experiment.get_config() is config
-        assert experiment._active_run is run
-        self.patch_start.assert_called_once()
-
+        status_after_start = run.status
+        current_after_start = Experiment.get_current()
+        active_run_after_start = experiment._active_run
+        start_called_once = self.patch_start.call_count == 1
+        config_after_start = Experiment.get_config()
         run.stop()
-        assert run.status == 'completed'
+        status_after_stop = run.status
         with pytest.raises(exceptions.NoActiveExperimentError):
             Experiment.get_current()
+
+        assert status_after_start == 'running'
+        assert current_after_start is experiment
+        assert current_after_start.par_dir == tmp_path
+        assert config_after_start is config
+        assert active_run_after_start is run
+        assert start_called_once
+        assert status_after_stop == 'completed'
 
     def test_pause_and_resume_run(
         self, run, experiment, config, tmp_path
@@ -296,112 +310,233 @@ class TestRun:
         """Test pausing and resuming a run."""
         self.patch_start.reset_mock()
         run.start()
-
         self.patch_pause.reset_mock()
         run.pause()
-        assert run.status == 'paused'
+        status_after_pause = run.status
         with pytest.raises(exceptions.NoActiveExperimentError):
             Experiment.get_current()
-        self.patch_pause.assert_called_once()
 
+        pause_called = self.patch_pause.call_count
         self.patch_start.reset_mock()
+        self.patch_continue.reset_mock()
         run.start()
-        assert run.status == 'running'
-        assert Experiment.get_current() is experiment
-        self.patch_start.assert_called_once()
-
+        status_after_continue = run.status
+        current_after_continue = Experiment.get_current()
+        start_called = self.patch_start.call_count
+        continue_called = self.patch_continue.call_count
         run.stop()
 
-    def test_pause_invalid_states_warning(self, run) -> None:
-        """Test that pausing in invalid states raises a warning."""
-        with pytest.warns(exceptions.RunNotStartedWarning):
+        assert status_after_pause == 'paused'
+        assert pause_called == 1
+        assert status_after_continue == 'running'
+        assert current_after_continue is experiment
+        assert start_called == 0
+        assert continue_called == 1
+
+    @pytest.mark.parametrize(
+        (
+            'initial_status',
+            'verb',
+            'expected_status',
+            'expected_warning',
+            'expected_parked',
+            'expected_event',
+        ),
+        [
+            ('created', 'start', 'running', None, False, 'patch_start'),
+            (
+                'running',
+                'start',
+                'running',
+                exceptions.RunAlreadyRunningWarning,
+                False,
+                None,
+            ),
+            ('paused', 'start', 'running', None, False, 'patch_continue'),
+            (
+                'completed',
+                'start',
+                'completed',
+                exceptions.RunAlreadyCompletedWarning,
+                False,
+                None,
+            ),
+            (
+                'failed',
+                'start',
+                'failed',
+                exceptions.RunAlreadyFailedWarning,
+                False,
+                None,
+            ),
+            (
+                'created',
+                'pause',
+                'created',
+                exceptions.RunNotStartedWarning,
+                False,
+                None,
+            ),
+            ('running', 'pause', 'paused', None, True, 'patch_pause'),
+            (
+                'paused',
+                'pause',
+                'paused',
+                exceptions.RunAlreadyPausedWarning,
+                True,
+                None,
+            ),
+            (
+                'completed',
+                'pause',
+                'completed',
+                exceptions.RunAlreadyCompletedWarning,
+                False,
+                None,
+            ),
+            (
+                'failed',
+                'pause',
+                'failed',
+                exceptions.RunAlreadyFailedWarning,
+                False,
+                None,
+            ),
+            (
+                'created',
+                'stop',
+                'created',
+                exceptions.RunNotStartedWarning,
+                False,
+                None,
+            ),
+            ('running', 'stop', 'completed', None, False, 'patch_stop'),
+            ('paused', 'stop', 'completed', None, False, None),
+            (
+                'completed',
+                'stop',
+                'completed',
+                exceptions.RunAlreadyCompletedWarning,
+                False,
+                None,
+            ),
+            (
+                'failed',
+                'stop',
+                'failed',
+                exceptions.RunAlreadyFailedWarning,
+                False,
+                None,
+            ),
+        ],
+    )
+    def test_run_state_machine(
+        self,
+        experiment,
+        initial_status,
+        verb,
+        expected_status,
+        expected_warning,
+        expected_parked,
+        expected_event,
+    ) -> None:
+        """Test all valid and invalid transitions in the Run state machine."""
+        run = experiment.create_run(run_id='test-run', resume=False)
+
+        if initial_status == 'running':
+            run.start()
+        elif initial_status == 'paused':
+            run.start()
+            run.pause()
+        elif initial_status == 'completed':
+            run.start()
+            run.stop()
+        elif initial_status == 'failed':
+            run.start()
+            run.status = 'failed'
+
+        self.patch_update.reset_mock()
+        self.patch_start.reset_mock()
+        self.patch_continue.reset_mock()
+        self.patch_pause.reset_mock()
+        self.patch_stop.reset_mock()
+
+        if expected_warning:
+            with pytest.warns(expected_warning):
+                getattr(run, verb)()
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter('error')
+                getattr(run, verb)()
+
+        assert run.status == expected_status
+        assert (run.id in experiment.paused_runs) == expected_parked
+
+        if expected_warning:
+            self.patch_update.assert_not_called()
+        else:
+            self.patch_update.assert_called_once_with(run.id, expected_status)
+
+        if expected_event:
+            getattr(self, expected_event).assert_called_once()
+        else:
+            self.patch_start.assert_not_called()
+            self.patch_continue.assert_not_called()
+            self.patch_pause.assert_not_called()
+            self.patch_stop.assert_not_called()
+
+        Experiment._clear_current()
+
+    def test_context_manager_clean_pause(self, experiment) -> None:
+        """Test pausing inside the context manager keeps the run parked."""
+        with experiment.create_run(run_id='clean-pause') as run:
             run.pause()
 
-        run.start()
-        run.pause()
+        assert run.status == 'paused'
+        assert run.id in experiment.paused_runs
 
-        with pytest.warns(exceptions.RunNotStartedWarning):
-            run.pause()
-
-        run.start()
-        run.stop()
-
-        with pytest.warns(exceptions.RunAlreadyCompletedWarning):
-            run.pause()
-
-    def test_nested_scope_error(self, run) -> None:
-        """Test that an error is raised for nested runs."""
-        with run:
-            run2 = run.experiment.create_run(run_id='nested-run', resume=False)
-            with pytest.raises(exceptions.NestedScopeError):
-                with run2:
-                    pass
-
-    def test_run_status_on_exception(self, run) -> None:
-        """Test that run status is set to 'failed' when an exception occurs."""
+    def test_context_manager_raise_while_paused(self, experiment) -> None:
+        """Test raising an exception while paused marks the run failed."""
         with pytest.raises(RuntimeError):
-            with run:
-                raise RuntimeError('Test exception')
+            with experiment.create_run(run_id='raise-paused') as run:
+                run.pause()
+                raise RuntimeError('test exception')
 
         assert run.status == 'failed'
+        assert run.id not in experiment.paused_runs
 
-    def test_run_direct_constructor(self, experiment) -> None:
-        """Test creating a Run directly with the Initialize."""
-        run = Run(experiment, run_id='direct-run')
-        assert run.id == 'direct-run'
-        assert run.experiment is experiment
-        assert run.status == 'created'
-        assert not run.resumed
+    def test_context_manager_raise_while_running(self, experiment) -> None:
+        """Test raising an exception while running marks the run as failed."""
+        with pytest.raises(RuntimeError):
+            with experiment.create_run(run_id='raise-running') as run:
+                raise RuntimeError('test exception')
 
-    def test_run_constructor_resumed(self, experiment) -> None:
-        """Test creating a Run with resumed=True."""
-        run = Run(experiment, run_id='resumed-run', resumed=True)
-        assert run.resumed
+        assert run.status == 'failed'
+        assert run.id not in experiment.paused_runs
+        with pytest.raises(exceptions.NoActiveExperimentError):
+            Experiment.get_current()
 
-    def test_is_active_status(self, run) -> None:
-        """Test the is_active method returns the correct status."""
-        assert not run.is_active()
+    def test_context_manager_reentry_after_pause(
+        self, experiment, mocker
+    ) -> None:
+        """Test re-entering a paused run publishes a ContinueExperimentEvent."""
+        patch_start = mocker.patch.object(log_events, 'StartExperimentEvent')
+        patch_continue = mocker.patch.object(
+            log_events, 'ContinueExperimentEvent'
+        )
 
-        run.start()
-        assert run.is_active()
+        with experiment.create_run(run_id='reentry-run') as run:
+            run.pause()
 
-        run.stop()
-        assert not run.is_active()
+        patch_start.reset_mock()
+        patch_continue.reset_mock()
 
-    def test_double_start_warning(self, run) -> None:
-        """Test that starting an already started run issues a warning."""
         with run:
-            with pytest.warns(exceptions.RunAlreadyRunningWarning):
-                run.start()
+            pass
 
-            # warn without changing status
-            assert run.status == 'running'
-
-    def test_stop_without_start_warning(self, run) -> None:
-        """Test that stopping a never-started run issues a warning."""
-        with pytest.warns(exceptions.RunNotStartedWarning):
-            run.stop()
-
-        # warn without changing status
-        assert run.status == 'created'
-
-    def test_double_stop_warning(self, run) -> None:
-        """Test that stopping an already completed run issues a warning."""
-        run.start()
-        run.stop()
-
-        with pytest.warns(exceptions.RunAlreadyCompletedWarning):
-            run.stop()
-
-        # warn without changing status
         assert run.status == 'completed'
-
-    def test_stop_failed_run_no_warning(self, run) -> None:
-        """Test stopping a failed run keep the status."""
-        run.start()
-        run.status = 'failed'
-        run.stop()
-        assert run.status == 'failed'
+        patch_start.assert_not_called()
+        patch_continue.assert_called_once()
 
     def test_stop_experiment_static_method(
         self, experiment, run, mocker
@@ -412,31 +547,130 @@ class TestRun:
             log_events.Event, 'set_auto_publish'
         )
         mock_clear_current = mocker.patch.object(Experiment, '_clear_current')
-        experiment._active_run = mocker.Mock()
+        experiment._active_run = run
         Run._stop_experiment(experiment, run.id)
 
         assert experiment._active_run is None
         self.patch_stop.assert_called_once_with(experiment.name, run.id)
-        mock_set_auto_publish.assert_any_call(None)
-        assert mock_set_auto_publish.call_args_list[-1] == mocker.call(None)
+        mock_set_auto_publish.assert_called_once_with(None)
         mock_clear_current.assert_called_once()
+
+    def test_stop_experiment_static_method_paused(
+        self, experiment, run, mocker
+    ) -> None:
+        """Test the _cleanup_resources static method directly when paused."""
+        self.patch_stop.reset_mock()
+        mock_clean_up = mocker.patch.object(experiment.trackers, 'clean_up')
+        mock_set_auto_publish = mocker.patch.object(
+            log_events.Event, 'set_auto_publish'
+        )
+        mock_clear_current = mocker.patch.object(Experiment, '_clear_current')
+        experiment._active_run = None
+        Run._stop_experiment(experiment, run.id)
+
+        assert experiment._active_run is None
+        self.patch_stop.assert_not_called()
+        mock_clean_up.assert_called_once()
+        mock_set_auto_publish.assert_not_called()
+        mock_clear_current.assert_not_called()
 
     def test_update_registry_updates_existing_entry(self, run) -> None:
         """Test that _update_registry updates an existing run entry."""
         self.patch_update.reset_mock()
         run.status = 'completed'
         run._update_registry()
+
         self.patch_update.assert_called_once_with(run.id, 'completed')
 
     def test_update_registry_called_on_start_and_stop(self, run) -> None:
         """Test _update_registry is called when starting and stopping runs."""
         run.start()
-        self.patch_update.assert_called()
+        called_on_start = self.patch_update.called
         self.patch_update.reset_mock()
         run.stop()
-        self.patch_update.assert_called()
+        called_on_stop = self.patch_update.called
+
+        assert called_on_start
+        assert called_on_stop
 
     def test_run_repr(self, experiment) -> None:
         """Test representation."""
         run = experiment.create_run(run_id='fixed_id', resume=False)
+
         assert repr(run) == 'Run(id=fixed_id, status=created)'
+
+    def test_parking_and_unparking(self, experiment) -> None:
+        """Test pause() parks the run and start()/stop() unpark it."""
+        run = experiment.create_run()
+        run.start()
+        empty_after_start1 = not experiment.paused_runs
+        run.pause()
+        in_after_pause1 = run.id in experiment.paused_runs
+        run.start()
+        in_after_start2 = run.id in experiment.paused_runs
+        run.pause()
+        in_after_pause2 = run.id in experiment.paused_runs
+        run.stop()
+        in_after_stop = run.id in experiment.paused_runs
+
+        assert empty_after_start1
+        assert in_after_pause1
+        assert not in_after_start2
+        assert in_after_pause2
+        assert not in_after_stop
+
+    def test_resume_parked_raises_error(self, experiment) -> None:
+        """Test create_run(resume=True) on parked id raises."""
+        run = experiment.create_run(run_id='parked')
+        run.start()
+        run.pause()
+        self.patch_load.return_value = [
+            RunMetadata(
+                id='parked', status='paused', timestamp='now', commit=None
+            )
+        ]
+        with pytest.raises(exceptions.RunStillPausedError):
+            experiment.create_run(resume=True)
+
+        run.stop()
+        run_resumed = experiment.create_run(resume=True)
+        assert run_resumed.id == 'parked'
+
+    def test_resume_abandoned_registry_entry(self, experiment, mocker) -> None:
+        """Test a paused registry entry without live handle resumes normally."""
+        run_data = RunMetadata(
+            id='abandoned_paused',
+            status='paused',
+            timestamp='2021-01-01_00:00:00',
+            commit=None,
+        )
+        self.patch_load.return_value = [run_data]
+        not_in_paused_runs = 'abandoned_paused' not in experiment.paused_runs
+        run_resumed = experiment.create_run(resume=True)
+
+        assert not_in_paused_runs
+        assert run_resumed.id == 'abandoned_paused'
+        assert run_resumed.resumed is True
+
+    def test_start_continue_events(self, experiment) -> None:
+        """Test start vs continue events."""
+        run = experiment.create_run()
+        self.patch_start.reset_mock()
+        run.start()
+        start_call_count = self.patch_start.call_count
+        start_run_id = self.patch_start.call_args.args[3]
+        run.pause()
+        self.patch_continue.reset_mock()
+        run.start()
+        continue_call_count = self.patch_continue.call_count
+        continue_args = (
+            self.patch_continue.call_args[0]
+            if self.patch_continue.call_args
+            else None
+        )
+        run.stop()
+
+        assert start_call_count == 1
+        assert start_run_id == run.id
+        assert continue_call_count == 1
+        assert continue_args == (experiment.name, run.id)

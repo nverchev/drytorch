@@ -4,7 +4,7 @@ import csv
 import functools
 import pathlib
 
-from typing import ClassVar, Final
+from typing import ClassVar
 
 from typing_extensions import override
 
@@ -47,6 +47,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     _active_sources: set[str]
     _dialect: csv.Dialect
     _resume_run: bool
+    _csv_stashed_state: dict[str, tuple[bool, set[str]]]
 
     def __init__(
         self,
@@ -61,9 +62,10 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             dialect: the format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
-        self._active_sources: Final = set()
+        self._active_sources = set()
         self._dialect = dialect
         self._resume_run = False
+        self._csv_stashed_state = {}
         return
 
     @functools.singledispatchmethod
@@ -74,6 +76,25 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         self._resume_run = event.resumed
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        self._csv_stashed_state[event.run_id] = (
+            self._resume_run,
+            self._active_sources,
+        )
+        self._active_sources = set()
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if event.run_id not in self._csv_stashed_state:
+            raise exceptions.NoStashedStateError(self, event.run_id)
+
+        self._resume_run, self._active_sources = self._csv_stashed_state.pop(
+            event.run_id
+        )
         return super().notify(event)
 
     @notify.register
