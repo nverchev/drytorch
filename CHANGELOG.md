@@ -1,4 +1,4 @@
-## [0.1.0] - 30-08-2026
+## [0.1.0] - 02-09-2026
 
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
@@ -21,6 +21,9 @@
 - fixed a run ID collision issue that occurred when starting multiple runs in the same second
 - fixed `wandb` metrics logging degradation on subsequent runs by resetting `_defined_metrics`
 - fixed a bug where closing an already-failed run threw a spurious warning
+- fixed missing docstrings in newly added tracker tests
+- fixed a static type checker error (`reportInvalidTypeForm`) in `experimenting.py` by casting to `Any` instead of `cls`
+- fixed a reference duplication bug in `runners.py` where list multiplication created identical list references for gathered outputs
 
 
 ## [0.1.0rc11] - 31-07-2026

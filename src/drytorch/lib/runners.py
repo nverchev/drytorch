@@ -254,7 +254,9 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         rank = dist.get_rank()
         try:
             if rank == 0:
-                dist_outputs: list[list[Output]] = [[]] * self._world_size
+                dist_outputs: list[list[Output]] = [
+                    [] for _ in range(self._world_size)
+                ]
                 dist.gather_object(self.outputs_list, dist_outputs, dst=0)
                 self.outputs_list.clear()
                 for gathered_tuple in zip(*dist_outputs, strict=True):
