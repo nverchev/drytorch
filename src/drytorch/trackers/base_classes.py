@@ -146,7 +146,7 @@ class Dumper(tracking.Tracker):
     def _get_run_dir(self, mkdir: bool = True) -> pathlib.Path:
         exp_dir = self._get_exp_dir()
         if '@' in self.run_id:
-            day, time = self.run_id.split('@')
+            day, time = self.run_id.split('@', 1)
             run_dir = exp_dir / day / time
         else:
             run_dir = exp_dir / self.run_id

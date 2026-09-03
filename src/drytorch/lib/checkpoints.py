@@ -88,7 +88,7 @@ class CheckpointPathManager:
             else:
                 exp_dir = exp.par_dir / self.folder_name / exp.name
                 if '@' in exp.run.id:
-                    day, time = exp.run.id.split('@')
+                    day, time = exp.run.id.split('@', 1)
                     return exp_dir / day / time
                 else:
                     return exp_dir / exp.run.id
