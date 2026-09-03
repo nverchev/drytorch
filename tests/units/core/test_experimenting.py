@@ -271,9 +271,13 @@ class TestRun:
         return object()
 
     @pytest.fixture()
-    def experiment(self, config, tmp_path) -> Experiment:
+    def experiment(self, config, tmp_path) -> Generator[Experiment, None, None]:
         """Set up an experiment."""
-        return Experiment(config, name='Experiment', par_dir=tmp_path)
+        exp = Experiment(config, name='Experiment', par_dir=tmp_path)
+        try:
+            yield exp
+        finally:
+            Run._teardown(exp)
 
     @pytest.fixture()
     def run(self, experiment) -> Run:

@@ -150,6 +150,7 @@ class TestWandb:
         settings.project = None
         settings.run_group = None
         settings.entity = None
+        settings.reinit = 'default'
 
         tracker = Wandb(settings=settings)
         tracker.notify(start_experiment_mock_event)

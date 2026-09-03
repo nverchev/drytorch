@@ -56,10 +56,11 @@ class Wandb(Dumper):
         """
         super().__init__(par_dir)
         self._settings = copy.copy(settings)
-        if self._settings.reinit != 'create_new':
+        if self._settings.reinit not in ('create_new', 'default', True):
             msg = "Forcing reinit='create_new' to support paused runs."
             warnings.warn(WandbWarning(msg), stacklevel=2)
-            self._settings.reinit = 'create_new'
+
+        self._settings.reinit = 'create_new'
 
         self._run = None
         self._defined_metrics = set()

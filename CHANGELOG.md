@@ -23,6 +23,7 @@
 - fixed a run ID collision issue that occurred when starting multiple runs in the same second
 - fixed `wandb` metrics logging degradation on subsequent runs by resetting `_defined_metrics`
 - fixed a bug where closing an already-failed run threw a spurious warning
+- fixed noisy warnings in test suite
 - fixed missing docstrings in newly added tracker tests
 - fixed a static type checker error (`reportInvalidTypeForm`) in `experimenting.py` by casting to `Any` instead of `cls`
 - fixed a reference duplication bug in `runners.py` where list multiplication created identical list references for gathered outputs

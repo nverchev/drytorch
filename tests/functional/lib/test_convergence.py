@@ -9,6 +9,12 @@ import pytest
 from drytorch.core.experimenting import Run
 
 
+# pytorch dynamo deprecation warnings for torch==2.10 under Python 3.14+
+pytestmark = pytest.mark.filterwarnings(
+    'ignore:.*_UnionGenericAlias.*:DeprecationWarning'
+)
+
+
 @pytest.fixture(autouse=True, scope='module')
 def autorun_experiment(run) -> Generator[Run, None, None]:
     """Create an experimental scope for the tests."""

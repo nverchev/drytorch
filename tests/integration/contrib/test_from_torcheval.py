@@ -1,24 +1,30 @@
 """Tests for the "from torcheval" module."""
 
+import warnings
+
 from typing import TYPE_CHECKING
 
 import torch
 
 import pytest
 
-from drytorch.contrib.torcheval import from_torcheval
 from drytorch.core import protocols as p
 
 
 if TYPE_CHECKING:
     from torcheval import metrics
 
+    from drytorch.contrib.torcheval import from_torcheval
 else:
-    metrics = pytest.importorskip('torcheval.metrics')
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=FutureWarning)
+        metrics = pytest.importorskip('torcheval.metrics')
+        from drytorch.contrib.torcheval import from_torcheval
 
 _Tensor = torch.Tensor
 
 
+@pytest.mark.filterwarnings('ignore:.*torch.jit.script.*:FutureWarning')
 class TestFromTorchMetrics:
     """Tests for integration with torchmetrics."""
 
