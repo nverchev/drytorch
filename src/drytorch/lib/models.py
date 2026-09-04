@@ -216,7 +216,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     @staticmethod
     def _validate_module(
-        torch_model: ModuleProtocol[Input, Output],
+        torch_model: ModuleProtocol,
     ) -> torch.nn.Module:
         if not isinstance(torch_model, torch.nn.Module):
             raise TypeError('torch_module must be a torch.nn.Module subclass')

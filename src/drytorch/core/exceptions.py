@@ -28,6 +28,7 @@ __all__ = [
     'LossNotScalarError',
     'MetricNotFoundError',
     'MissingParamError',
+    'ModelAlreadyBoundError',
     'ModelDeviceMismatchError',
     'ModelNotFoundError',
     'ModuleAlreadyRegisteredError',
@@ -41,6 +42,7 @@ __all__ = [
     'NoStashedStateError',
     'NotExistingRunWarning',
     'ObjectiveSyncWarning',
+    'OptimizerAlreadyBoundError',
     'OptimizerNotLoadedWarning',
     'PastEpochWarning',
     'RecursionWarning',
@@ -299,6 +301,21 @@ class ModuleAlreadyRegisteredError(DryTorchError):
         super().__init__(model_name, exp_name, run_id)
 
 
+class ModelAlreadyBoundError(DryTorchError):
+    """Error raised when binding a second model to a checkpoint."""
+
+    _template = 'Checkpoint is already bound to model {}.'
+
+    def __init__(self, model_name: str) -> None:
+        """Initialize.
+
+        Args:
+            model_name: the name of the model already bound.
+        """
+        self.model_name: Final = model_name
+        super().__init__(model_name)
+
+
 class ModuleNotRegisteredError(DryTorchError):
     """Raised an actor tries to access a module that hasn't been registered."""
 
@@ -416,6 +433,21 @@ class NoActiveExperimentError(DryTorchError):
             specify_string = ''
 
         super().__init__(specify_string)
+
+
+class OptimizerAlreadyBoundError(DryTorchError):
+    """Error raised when binding a second optimizer to a checkpoint."""
+
+    _template = 'Checkpoint for model {} is already bound to an optimizer.'
+
+    def __init__(self, model_name: str) -> None:
+        """Initialize.
+
+        Args:
+            model_name: the name of the model the checkpoint is managing.
+        """
+        self.model_name: Final = model_name
+        super().__init__(model_name)
 
 
 class ResultNotAvailableError(DryTorchError):

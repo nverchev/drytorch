@@ -1,25 +1,11 @@
 """Tests for the "checkpoint" module."""
 
-import pathlib
-
 import torch
 
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.experimenting import Experiment
 from drytorch.lib import checkpoints
-
-
-@pytest.fixture(autouse=True, scope='module')
-def setup_module(session_mocker, tmpdir_factory) -> None:
-    """Fixture for a mock experiment."""
-    mock_experiment = session_mocker.create_autospec(Experiment, instance=True)
-    mock_experiment.name = 'mock_experiment'
-    mock_experiment.run_dir = pathlib.Path(tmpdir_factory.mktemp('experiments'))
-    session_mocker.patch(
-        'drytorch.Experiment.get_current', return_value=mock_experiment
-    )
 
 
 class TestPathManager:
@@ -56,6 +42,9 @@ class TestLocalCheckpoint:
         """Set up the model state class."""
         self.mock_save_event = mocker.patch.object(log_events, 'SaveModelEvent')
         self.mock_load_event = mocker.patch.object(log_events, 'LoadModelEvent')
+        self.mock_check_run = mocker.patch(
+            'drytorch.core.registering.check_current_run'
+        )
 
     @pytest.fixture()
     def optimizer(self, mock_model) -> torch.optim.Optimizer:
@@ -157,3 +146,18 @@ class TestLocalCheckpoint:
 
         for p in aux_module.parameters():
             assert not torch.allclose(p.data, torch.zeros_like(p))
+
+    def test_bind_optimizer_already_bound(self, checkpoint, mock_model) -> None:
+        """Test it raises an error when binding a second optimizer."""
+        optimizer2 = torch.optim.SGD(mock_model.module.parameters(), lr=0.01)
+        with pytest.raises(exceptions.OptimizerAlreadyBoundError):
+            checkpoint.bind_optimizer(optimizer2)
+
+    def test_bind_model_already_bound(
+        self, checkpoint, mocker, mock_model
+    ) -> None:
+        """Test it raises an error when binding a second model."""
+        mock_model2 = mocker.MagicMock(spec=type(mock_model))
+        mock_model2.name = 'MockModel2'
+        with pytest.raises(exceptions.ModelAlreadyBoundError):
+            checkpoint.bind_model(mock_model2)

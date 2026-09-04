@@ -17,6 +17,7 @@ from drytorch.core import protocols as p
 __all__ = [
     'ALL_ACTORS',
     'ALL_MODULES',
+    'check_current_run',
     'register_actor',
     'register_model',
     'unregister_actor',
@@ -26,6 +27,16 @@ __all__ = [
 
 ALL_MODULES: Final = dict[int, experimenting.Run[Any]]()
 ALL_ACTORS: Final = dict[int, set[int]]()
+
+
+def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
+    """Raise if the model's run is not the active one."""
+    run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
+    id_module = id(model.module)
+    if id_module not in ALL_MODULES or ALL_MODULES[id_module] is not run:
+        raise exceptions.ModuleNotRegisteredError(
+            model.name, run.experiment.name, run.id
+        )
 
 
 def register_model(model: p.ModelProtocol[Any, Any]) -> None:
@@ -60,13 +71,9 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
     """
+    check_current_run(model)
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     id_module = id(model.module)
-    if id_module not in ALL_MODULES or ALL_MODULES[id_module] is not run:
-        raise exceptions.ModuleNotRegisteredError(
-            model.name, run.experiment.name, run.id
-        )
-
     actors = ALL_ACTORS.setdefault(id_module, set())
     if id(actor) not in actors:
         run.metadata_manager.register_actor(actor, model)

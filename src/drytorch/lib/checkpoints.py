@@ -5,7 +5,6 @@ import codecs
 import pathlib
 import warnings
 
-from pathlib import Path
 from typing import Any, ClassVar, Final
 
 import numpy as np
@@ -14,7 +13,7 @@ import torch
 from torch import distributed as dist
 from typing_extensions import override
 
-from drytorch.core import exceptions, experimenting, log_events
+from drytorch.core import exceptions, experimenting, log_events, registering
 from drytorch.core import protocols as p
 
 
@@ -42,7 +41,7 @@ SAFE_GLOBALS: list[Any] = [
     codecs.encode,
 ]
 try:
-    from numpy._core.multiarray import scalar  # type: ignore # pyright: ignore
+    from numpy._core.multiarray import scalar  # pyright: ignore
 except ImportError:
     pass
 else:
@@ -61,7 +60,8 @@ class CheckpointPathManager:
 
     folder_name: ClassVar[str] = 'checkpoints'
     _model: p.ModelProtocol[Any, Any]
-    _run_dir: Path | None
+    run_dir: pathlib.Path
+    model_dir: pathlib.Path
 
     def __init__(
         self,
@@ -75,31 +75,11 @@ class CheckpointPathManager:
             run_dir: the directory for experiment data.
         """
         self._model: Final = model
-        self._run_dir = run_dir
-
-    @property
-    def run_dir(self) -> pathlib.Path:
-        """Parent directory for the checkpoints."""
-        if self._run_dir is None:
-            try:
-                exp = experimenting.Experiment[Any].get_current()
-            except exceptions.NoActiveExperimentError as naee:
-                raise exceptions.AccessOutsideScopeError from naee
-            else:
-                exp_dir = exp.par_dir / self.folder_name / exp.name
-                if '@' in exp.run.id:
-                    day, time = exp.run.id.split('@', 1)
-                    return exp_dir / day / time
-                else:
-                    return exp_dir / exp.run.id
-
-        return self._run_dir
-
-    @property
-    def model_dir(self) -> pathlib.Path:
-        """Directory for the model."""
-        model_dir = self.run_dir / self._model.name
-        return model_dir
+        self.run_dir: Final = (
+            run_dir if run_dir is not None else self._get_run_dir()
+        )
+        self.model_dir: Final = self.run_dir / self._model.name
+        return
 
     @property
     def epoch_dir(self) -> pathlib.Path:
@@ -114,6 +94,17 @@ class CheckpointPathManager:
     def get_optimizer_state_path(self) -> pathlib.Path:
         """Get the name of the file with the optimizer state."""
         return self.epoch_dir / 'optimizer_state.pt'
+
+    @classmethod
+    def _get_run_dir(cls) -> pathlib.Path:
+        try:
+            exp = experimenting.Experiment[Any].get_current()
+        except exceptions.NoActiveExperimentError as naee:
+            raise exceptions.AccessOutsideScopeError from naee
+        else:
+            exp_dir = exp.par_dir / cls.folder_name / exp.name
+            day, sep, time = exp.run.id.partition('@')
+            return exp_dir / day / time if sep else exp_dir / exp.run.id
 
 
 class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
@@ -157,6 +148,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
             ModelNotFoundError: if the model location does not exist.
             EpochNotFoundError: if the epoch location does not exist.
         """
+        registering.check_current_run(self.model)
         if dist.is_available() and dist.is_initialized():
             device_idx = self.model.device.index
             if device_idx is not None:
@@ -187,6 +179,9 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
         """Bind the model to manage."""
+        if self._model is not None and self._model is not model:
+            raise exceptions.ModelAlreadyBoundError(self._model.name)
+
         self._model = model
         self.bind_module('model', model.module)
         return
@@ -197,11 +192,15 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
     def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""
+        if self._optimizer is not None and self._optimizer is not optimizer:
+            raise exceptions.OptimizerAlreadyBoundError(self.model.name)
+
         self._optimizer = optimizer
         return
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
+        registering.check_current_run(self.model)
         log_events.SaveModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
@@ -262,17 +261,27 @@ class LocalCheckpoint(AbstractCheckpoint):
         """
         super().__init__()
         self._par_dir = par_dir
+        self._paths: CheckpointPathManager | None = None
         return
 
     @property
     def paths(self) -> CheckpointPathManager:
         """Path manager for directories and checkpoints."""
-        return CheckpointPathManager(self.model, self._par_dir)
+        if self._paths is None:
+            raise exceptions.CheckpointNotInitializedError()
+
+        return self._paths
 
     @override
     def save(self) -> None:
         self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
         super().save()
+        return
+
+    @override
+    def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
+        super().bind_model(model)
+        self._paths = CheckpointPathManager(model, self._par_dir)
         return
 
     @override
@@ -313,9 +322,9 @@ class LocalCheckpoint(AbstractCheckpoint):
                         weights_only=True,
                     ),
                 )
-            except ValueError as ve:
+            except (ValueError, FileNotFoundError) as err:
                 warnings.warn(
-                    exceptions.OptimizerNotLoadedWarning(ve), stacklevel=1
+                    exceptions.OptimizerNotLoadedWarning(err), stacklevel=1
                 )
         return
 

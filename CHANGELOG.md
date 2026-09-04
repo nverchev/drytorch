@@ -3,11 +3,14 @@
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
+- added `OptimizerAlreadyBoundError` and `ModelAlreadyBoundError`
 
 ## Changed
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation
 - unwrapped returns original model and not compiled one
+- `CheckpointPathManager` evaluates `run_dir` and `model_dir` statically at initialization
+- abstracted check for active experiment run ownership to `registering.check_current_run`
 
 ## Fixed
 - val_hook is reassigned on bind
@@ -27,8 +30,9 @@
 - fixed noisy warnings in test suite
 - fixed missing docstrings in newly added tracker tests
 - fixed a static type checker error (`reportInvalidTypeForm`) in `experimenting.py` by casting to `Any` instead of `cls`
-- fixed a reference duplication bug in `runners.py` where list multiplication created identical list references for gathered outputs
+- fixed reference duplication bug in `runners.py` where list multiplication created identical list references for gathered outputs
 - fixed `_remove_outer_parentheses` in `objectives.py` erroneously stripping metric name brackets from formulas
+- fixed test suite cross-contamination caused by a leaky session-scoped experiment mock
 
 
 ## [0.1.0rc11] - 31-07-2026
