@@ -32,6 +32,7 @@ __all__ = [
     'ModelDeviceMismatchError',
     'ModelNotFoundError',
     'ModuleAlreadyRegisteredError',
+    'ModuleFromAnotherRunError',
     'ModuleNotDistributedWarning',
     'ModuleNotRegisteredError',
     'NameAlreadyRegisteredError',
@@ -314,6 +315,42 @@ class ModelAlreadyBoundError(DryTorchError):
         """
         self.model_name: Final = model_name
         super().__init__(model_name)
+
+
+class ModuleFromAnotherRunError(DryTorchError):
+    """Error raised when using a model registered to a different run."""
+
+    _template = 'Model {} belongs to run {} - {}, but active run is {} - {}.'
+
+    def __init__(
+        self,
+        model_name: str,
+        owner_exp_name: str,
+        owner_run_id: str,
+        current_exp_name: str,
+        current_run_id: str,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            model_name: the name of the model.
+            owner_exp_name: the experiment name the model belongs to.
+            owner_run_id: the run id the model belongs to.
+            current_exp_name: the active experiment name.
+            current_run_id: the active run id.
+        """
+        self.model_name: Final = model_name
+        self.owner_exp_name: Final = owner_exp_name
+        self.owner_run_id: Final = owner_run_id
+        self.current_exp_name: Final = current_exp_name
+        self.current_run_id: Final = current_run_id
+        super().__init__(
+            model_name,
+            owner_exp_name,
+            owner_run_id,
+            current_exp_name,
+            current_run_id,
+        )
 
 
 class ModuleNotRegisteredError(DryTorchError):

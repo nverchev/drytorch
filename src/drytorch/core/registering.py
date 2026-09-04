@@ -8,7 +8,12 @@ Attributes:
     ALL_MODULES: A dictionary that maps module references to experiments.
 """
 
+import dataclasses
+import weakref
+
 from typing import Any, Final
+
+import torch
 
 from drytorch.core import exceptions, experimenting
 from drytorch.core import protocols as p
@@ -25,17 +30,35 @@ __all__ = [
 ]
 
 
-ALL_MODULES: Final = dict[int, experimenting.Run[Any]]()
-ALL_ACTORS: Final = dict[int, set[int]]()
+@dataclasses.dataclass(frozen=True)
+class _Owner:
+    run: weakref.ReferenceType[experimenting.Run[Any]]
+    exp_name: str
+    run_id: str
+
+
+ALL_MODULES: Final = weakref.WeakKeyDictionary[torch.nn.Module, _Owner]()
+ALL_ACTORS: Final = weakref.WeakKeyDictionary[
+    torch.nn.Module, weakref.WeakSet[Any]
+]()
 
 
 def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
     """Raise if the model's run is not the active one."""
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-    id_module = id(model.module)
-    if id_module not in ALL_MODULES or ALL_MODULES[id_module] is not run:
+    module = model.module
+    owner = ALL_MODULES.get(module)
+    if owner is None:
         raise exceptions.ModuleNotRegisteredError(
             model.name, run.experiment.name, run.id
+        )
+    elif owner.run() is not run:
+        raise exceptions.ModuleFromAnotherRunError(
+            model.name,
+            owner.exp_name,
+            owner.run_id,
+            run.experiment.name,
+            run.id,
         )
 
 
@@ -49,13 +72,14 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
         ModuleAlreadyRegisteredError: if the module is already registered.
     """
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-    id_module = id(model.module)
-    if id_module in ALL_MODULES:
+    module = model.module
+    if module in ALL_MODULES:
+        owner = ALL_MODULES[module]
         raise exceptions.ModuleAlreadyRegisteredError(
-            model.name, run.experiment.name, run.id
+            model.name, owner.exp_name, owner.run_id
         )
 
-    ALL_MODULES[id_module] = run
+    ALL_MODULES[module] = _Owner(weakref.ref(run), run.experiment.name, run.id)
     run.metadata_manager.register_model(model)
     return
 
@@ -73,11 +97,12 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
     """
     check_current_run(model)
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-    id_module = id(model.module)
-    actors = ALL_ACTORS.setdefault(id_module, set())
-    if id(actor) not in actors:
+    module = model.module
+
+    actors = ALL_ACTORS.setdefault(module, weakref.WeakSet())
+    if actor not in actors:
         run.metadata_manager.register_actor(actor, model)
-        actors.add(id(actor))
+        actors.add(actor)
 
     return
 
@@ -88,19 +113,13 @@ def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
     Args:
         model: the model to register.
     """
-    id_module = id(model.module)
-    if id_module in ALL_MODULES:
-        del ALL_MODULES[id_module]
-
-    if id_module in ALL_ACTORS:
-        del ALL_ACTORS[id_module]
-
-    try:
-        run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-    except exceptions.NoActiveExperimentError:
-        pass
-    else:
-        run.metadata_manager.unregister_model(model)
+    module = model.module
+    owner = ALL_MODULES.pop(module, None)
+    ALL_ACTORS.pop(module, None)
+    if owner is not None:
+        run = owner.run()
+        if run is not None:
+            run.metadata_manager.unregister_model(model)
 
     return
 
@@ -114,6 +133,6 @@ def unregister_actor(actor: Any) -> None:
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     run.metadata_manager.unregister_actor(actor)
     for actor_set in ALL_ACTORS.values():
-        if id(actor) in actor_set:
-            actor_set.remove(id(actor))
+        actor_set.discard(actor)
+
     return

@@ -4,6 +4,7 @@
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
 - added `OptimizerAlreadyBoundError` and `ModelAlreadyBoundError`
+- added `ModuleFromAnotherRunError` to provide accurate messaging when a model is already registered to a different run
 
 ## Changed
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
@@ -11,6 +12,7 @@
 - unwrapped returns original model and not compiled one
 - `CheckpointPathManager` evaluates `run_dir` and `model_dir` statically at initialization
 - abstracted check for active experiment run ownership to `registering.check_current_run`
+- re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
 
 ## Fixed
 - val_hook is reassigned on bind
@@ -33,6 +35,8 @@
 - fixed reference duplication bug in `runners.py` where list multiplication created identical list references for gathered outputs
 - fixed `_remove_outer_parentheses` in `objectives.py` erroneously stripping metric name brackets from formulas
 - fixed test suite cross-contamination caused by a leaky session-scoped experiment mock
+- fixed a bug where short-lived actors reusing memory IDs would falsely appear as already registered
+- fixed a bug where `check_current_run` would incorrectly report the current active run's metadata instead of the model's actual owning run
 
 
 ## [0.1.0rc11] - 31-07-2026
