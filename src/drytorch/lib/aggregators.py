@@ -7,7 +7,7 @@ import copy
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final, Generic, Self, TypeVar
+from typing import Generic, Self, TypeVar
 
 import torch
 
@@ -43,7 +43,7 @@ class AbstractAccumulator(Generic[_T_contra, _R_coo], metaclass=abc.ABCMeta):
 class AbstractAggregator(Generic[_T_contra, _R_coo], metaclass=abc.ABCMeta):
     """Aggregate named values using accumulator objects."""
 
-    __slots__: Final = ('_cached_reduce', 'accumulators')
+    __slots__ = ('_cached_reduce', 'accumulators')
 
     accumulator_cls: type[AbstractAccumulator[_T_contra, _R_coo]]
     accumulators: dict[str, AbstractAccumulator[_T_contra, _R_coo]]
@@ -119,37 +119,6 @@ class AbstractAggregator(Generic[_T_contra, _R_coo], metaclass=abc.ABCMeta):
 
 
 @dataclass(slots=True)
-class MeanAccumulator(AbstractAccumulator[float, float]):
-    """Accumulator computing arithmetic mean for floats.
-
-    Attributes:
-        total: sum of all values.
-        count: number of values.
-    """
-
-    total: float
-    count: int
-
-    @classmethod
-    @override
-    def from_value(cls, value: float) -> MeanAccumulator:
-        return cls(total=value, count=1)
-
-    @override
-    def merge(self, other: Self) -> None:
-        self.total += other.total
-        self.count += other.count
-
-    @override
-    def reduce(self) -> float:
-        return self.total / self.count
-
-    @override
-    def sync(self) -> None:
-        return
-
-
-@dataclass(slots=True)
 class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
     """Accumulator computing arithmetic mean for tensors.
 
@@ -173,6 +142,7 @@ class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
     def merge(self, other: Self) -> None:
         self.total += other.total
         self.count += other.count
+        return
 
     @override
     def reduce(self) -> torch.Tensor:
@@ -190,14 +160,11 @@ class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
             dist.all_reduce(count_tensor, op=dist.ReduceOp.SUM)
             self.count = int(count_tensor.item())
 
-
-class Averager(AbstractAggregator[float, float]):
-    """Aggregator computing mean over floats."""
-
-    accumulator_cls = MeanAccumulator
+        return
 
 
 class TorchAverager(AbstractAggregator[torch.Tensor, torch.Tensor]):
     """Aggregator computing mean over tensors with distributed support."""
 
+    __slots__ = ()
     accumulator_cls = TorchMeanAccumulator

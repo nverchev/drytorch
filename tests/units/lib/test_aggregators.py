@@ -5,7 +5,6 @@ import torch
 import pytest
 
 from drytorch.lib.aggregators import (
-    Averager,
     TorchAverager,
 )
 
@@ -14,30 +13,34 @@ class TestAggregator:
     """Tests for the AbstractAggregator using Averager."""
 
     @pytest.fixture
-    def aggregator(self) -> Averager:
+    def aggregator(self) -> TorchAverager:
         """Fixture creating a base Averager instance."""
-        return Averager(metric1=2.0, metric2=4.0)
+        import torch
 
-    def test_init(self, aggregator: Averager) -> None:
+        return TorchAverager(
+            metric1=torch.tensor(2.0), metric2=torch.tensor(4.0)
+        )
+
+    def test_init(self, aggregator: TorchAverager) -> None:
         """Test initialization stores accumulators correctly."""
         assert aggregator.accumulators['metric1'].total == 2.0
         assert aggregator.accumulators['metric1'].count == 1
         assert aggregator.accumulators['metric2'].total == 4.0
         assert aggregator.accumulators['metric2'].count == 1
 
-    def test_clear(self, aggregator: Averager) -> None:
+    def test_clear(self, aggregator: TorchAverager) -> None:
         """Test clearing the aggregator."""
         aggregator.clear()
         assert not aggregator.accumulators
         assert not aggregator._cached_reduce
 
-    def test_reduce(self, aggregator: Averager) -> None:
+    def test_reduce(self, aggregator: TorchAverager) -> None:
         """Test reduce calculates averages correctly."""
         expected = {'metric1': 2.0, 'metric2': 4.0}
         assert aggregator.reduce() == expected
         assert aggregator._cached_reduce
 
-    def test_all_reduce(self, aggregator: Averager) -> None:
+    def test_all_reduce(self, aggregator: TorchAverager) -> None:
         """Test all_reduce recalculates after state change."""
         aggregator.reduce()
         aggregator.accumulators['metric1'].total = 4.0
@@ -45,25 +48,11 @@ class TestAggregator:
         expected = {'metric1': 4.0, 'metric2': 6.0}
         assert aggregator.all_reduce() == expected
 
-    def test_cached_reduce(self, aggregator: Averager) -> None:
+    def test_cached_reduce(self, aggregator: TorchAverager) -> None:
         """Test reduce returns cached result if present."""
         cached = {'metric1': 4.0}
         aggregator._cached_reduce = cached
         assert aggregator.reduce() == cached
-
-
-class TestAverager:
-    """Tests for Averager implementation."""
-
-    @pytest.fixture
-    def averager(self) -> Averager:
-        """Fixture creating an Averager instance."""
-        return Averager(metric1=2.0, metric2=4.0)
-
-    def test_addition_preserves_mean(self, averager: Averager) -> None:
-        """Test adding identical aggregators preserves mean."""
-        combined = averager + averager
-        assert combined.reduce() == averager.reduce()
 
 
 class TestTorchAverager:
