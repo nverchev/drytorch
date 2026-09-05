@@ -77,11 +77,13 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
         """Normalize gradients using Z-score in-place."""
         for param in params:
             grad = param.grad
-            if grad is None:
+            if grad is None or grad.numel() < 2:
                 continue
 
             mean = grad.mean()
             std = grad.std(unbiased=True)
+            if std <= 0:
+                continue
 
             grad.sub_(mean).div_(std + self._eps)
 
