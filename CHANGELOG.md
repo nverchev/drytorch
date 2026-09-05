@@ -17,6 +17,7 @@
 - re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
 
 ## Fixed
+- fixed `unregister_actor` raising an error when called outside of an active experiment run
 - fixed `PruneCallback` now unconditionally prunes when evaluated against a `None` threshold instead of bypassing and recording the benchmark value
 - fixed training loop failing to break immediately if a pre-epoch hook terminates training
 - fixed `TqdmLogger` leaking epoch progress bars when training is abruptly terminated

@@ -130,8 +130,12 @@ def unregister_actor(actor: Any) -> None:
     Args:
         actor: the object to document.
     """
-    run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-    run.metadata_manager.unregister_actor(actor)
+    try:
+        run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
+        run.metadata_manager.unregister_actor(actor)
+    except exceptions.NoActiveExperimentError:
+        pass
+
     for actor_set in ALL_ACTORS.values():
         actor_set.discard(actor)
 
