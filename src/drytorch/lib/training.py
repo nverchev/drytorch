@@ -351,6 +351,9 @@ class Trainer(
         )
         for _ in range(n_epochs):
             self.pre_epoch_hooks.execute(self)
+            if self.terminated:
+                break
+
             log_events.StartEpochEvent(
                 source_name=self.name,
                 model_name=self.model.name,

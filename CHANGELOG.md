@@ -16,6 +16,7 @@
 - re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
 
 ## Fixed
+- fixed training loop failing to break immediately if a pre-epoch hook terminates training
 - fixed `TqdmLogger` leaking epoch progress bars when training is abruptly terminated
 - fixed `MetricMonitor` failing on name disagreements when cross-referencing metrics against objectives
 - fixed callback docstrings to correctly attach the `'auto'` behavior explanation to the `best_is` parameter
