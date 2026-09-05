@@ -104,12 +104,22 @@ class _DiamondParent:
 
 
 @pytest.fixture
-def _simple_class_with_property() -> Generator[_ClassWithProperty, None, None]:
-    drytorch.utils.repr_utils.INCLUDE_PROPERTIES = True
-    yield _ClassWithProperty()
+def patch_max_repr_size() -> Generator[None, None, None]:
+    """Temporarily override MAX_REPR_SIZE and restore it after."""
+    drytorch.utils.repr_utils.MAX_REPR_SIZE = 2
+    try:
+        yield
+    finally:
+        drytorch.utils.repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
 
-    drytorch.utils.repr_utils.INCLUDE_PROPERTIES = False
-    return
+
+@pytest.fixture
+def _class_with_property() -> Generator[_ClassWithProperty, None, None]:
+    drytorch.utils.repr_utils.INCLUDE_PROPERTIES = True
+    try:
+        yield _ClassWithProperty()
+    finally:
+        drytorch.utils.repr_utils.INCLUDE_PROPERTIES = False
 
 
 class TestCreatedAtMixin:
@@ -260,12 +270,15 @@ def get_repr_data():
 def test_recursive_repr(obj: object, max_size: int, expected: object) -> None:
     """Test the recursive_repr function with various data types."""
     drytorch.utils.repr_utils.MAX_REPR_SIZE = max_size
-    assert recursive_repr(obj) == expected
+    try:
+        assert recursive_repr(obj) == expected
+    finally:
+        drytorch.utils.repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
 
 
-def test_property_repr(_simple_class_with_property) -> None:
+def test_property_repr(_class_with_property) -> None:
     """Test the recursive_repr function with various data types."""
-    assert recursive_repr(_simple_class_with_property) == {
+    assert recursive_repr(_class_with_property) == {
         'class': '_ClassWithProperty',
         'int_property': 2,
         'fail_property': 'Failed',
@@ -294,17 +307,15 @@ def test_has_own_repr() -> None:
     assert _has_own_repr(_CustomReprClass()) is True
 
 
-def test_pandas_print_options() -> None:
+def test_pandas_print_options(patch_max_repr_size) -> None:
     """Test PandasPrintOptions context manager changes Pandas settings."""
     pd = pytest.importorskip('pandas')
-    drytorch.utils.repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
     original_max_rows = pd.get_option('display.max_rows')
     original_max_columns = pd.get_option('display.max_columns')
     df = pd.DataFrame({'A': range(5), 'B': range(5)})
     expected_df_repr = LiteralStr(
         '    A  B\n0   0  0\n.. .. ..\n4   4  4\n\n[5 rows x 2 columns]'
     )
-    drytorch.utils.repr_utils.MAX_REPR_SIZE = 2
 
     assert recursive_repr(df) == expected_df_repr
     assert pd.get_option('display.max_rows') == original_max_rows

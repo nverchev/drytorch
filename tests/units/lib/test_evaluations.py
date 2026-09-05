@@ -6,10 +6,10 @@ from drytorch.lib.evaluations import Diagnostic, Validation
 from drytorch.lib.evaluations import Test as _Test
 
 
-@pytest.fixture(autouse=True)
-def setup_module(session_mocker) -> None:
+@pytest.fixture(autouse=True, scope='module')
+def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
-    session_mocker.patch('drytorch.core.registering.register_actor')
+    module_mocker.patch('drytorch.core.registering.register_actor')
     return
 
 

@@ -38,6 +38,7 @@
 - fixed a bug where short-lived actors reusing memory IDs would falsely appear as already registered
 - fixed a bug where `check_current_run` would incorrectly report the current active run's metadata instead of the model's actual owning run
 - fixed `ReduceLROnPlateau` so that learning rate reductions correctly accumulate via composition instead of resetting
+- fixed order dependence in tests unit -> integration
 
 
 ## [0.1.0rc11] - 31-07-2026
