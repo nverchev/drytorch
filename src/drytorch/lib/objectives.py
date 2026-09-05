@@ -176,7 +176,7 @@ class MetricCollection(AverageObjective[Output, Target]):
     named_fn: dict[str, Callable[[Output, Target], Tensor]]
 
     def __init__(
-        self: MetricCollection[Output, Target],
+        self,
         *fn: Callable[[Output, Target], dict[str, Tensor]],
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
@@ -929,7 +929,7 @@ class MetricTracker(Generic[Output, Target]):
         Returns:
             True if value is a potential improvement, False otherwise.
         """
-        if value != value:  # Check for NaN
+        if value != value:  # check for NaN
             return False
 
         if self.best_is == 'auto':
@@ -939,6 +939,10 @@ class MetricTracker(Generic[Output, Target]):
                 self.best_is = 'lower'
             else:
                 self.best_is = 'higher'
+
+            msg = 'Monitoring {} assuming {} is best.'
+            msg = msg.format(self.metric_name, self.best_is)
+            warnings.warn(msg, stacklevel=2)
 
         if self.best_is == 'lower':
             return reference - self.min_delta > value

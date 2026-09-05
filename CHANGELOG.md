@@ -7,6 +7,7 @@
 - added `ModuleFromAnotherRunError` to provide accurate messaging when a model is already registered to a different run
 
 ## Changed
+- `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation
 - unwrapped returns original model and not compiled one
@@ -15,6 +16,9 @@
 - re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
 
 ## Fixed
+- fixed `MetricMonitor` failing on name disagreements when cross-referencing metrics against objectives
+- fixed callback docstrings to correctly attach the `'auto'` behavior explanation to the `best_is` parameter
+- removed erroneous fallback to `_get_name` in `MetricExtractor` when resolving metric names
 - val_hook is reassigned on bind
 - fixed NestedScopeError message arguments
 - fixed NoActiveExperimentError class name evaluation

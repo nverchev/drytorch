@@ -68,7 +68,7 @@ def test_saving_hook(mock_trainer) -> None:
     """Test that saving_hook calls save_checkpoint on the instance."""
     hook = saving_hook
     hook(mock_trainer)
-    mock_trainer.save_checkpoint.assert_called_once()  # type: ignore
+    mock_trainer.save_checkpoint.assert_called_once()
 
 
 def test_static_hook(mocker) -> None:
@@ -154,14 +154,6 @@ class TestMetricExtractor:
         return mock
 
     @pytest.fixture()
-    def mock_metric_with_get_name(self, mocker) -> p.ObjectiveProtocol:
-        """Mock a metric object with the _get_name method."""
-        mock = mocker.MagicMock()
-        mock._get_name = 'dynamic_name'
-        del mock.name  # Remove name attribute
-        return mock
-
-    @pytest.fixture()
     def extractor_from_str(self, example_loss_name) -> MetricExtractor:
         """Set up an extractor with string metric."""
         return MetricExtractor(metric=example_loss_name)
@@ -230,15 +222,6 @@ class TestMetricExtractor:
         name = MetricExtractor._get_metric_name(mock_metric_higher_is_better)
         assert name == 'test_accuracy'
 
-    def test_get_metric_name_from_object_with_get_name(
-        self, mock_metric_with_get_name
-    ) -> None:
-        """Test extracting a name from an object with the _get_name method."""
-        assert (
-            MetricExtractor._get_metric_name(mock_metric_with_get_name)
-            == 'dynamic_name'
-        )
-
     def test_get_metric_name_from_class_name(
         self, mocker, example_loss_name
     ) -> None:
@@ -302,6 +285,7 @@ class TestMetricExtractor:
         example_loss_name,
     ) -> None:
         """Test extracting metric value when no metric specified."""
+        mock_trainer.validation.objective = None
         extractor_no_metric.extract_metric_value(
             mock_trainer, mock_metric_tracker
         )
@@ -339,8 +323,9 @@ class TestMetricMonitor:
             return_value='higher'
         )
         self.mock_metric_tracker = mocker.create_autospec(
-            objectives.MetricTracker
+            objectives.MetricTracker, instance=True
         )
+        self.mock_metric_tracker.best_is = 'auto'
         self.mock_metric_tracker_cls = mocker.patch(
             'drytorch.lib.objectives.MetricTracker'
         )

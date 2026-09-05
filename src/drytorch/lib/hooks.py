@@ -360,6 +360,7 @@ class MetricExtractor:
 
     metric_spec: p.ObjectiveProtocol[Any, Any] | str | None
     optional_monitor: p.MonitorProtocol | None
+    _resolved_metric: p.ObjectiveProtocol[Any, Any] | None
     _resolved_metric_name: str | None
 
     def __init__(
@@ -375,7 +376,9 @@ class MetricExtractor:
         """
         self.metric_spec: Final = metric
         self.optional_monitor = monitor
+        self._resolved_metric = None
         self._resolved_metric_name = None
+        return
 
     @property
     def metric_name(self) -> str | None:
@@ -400,28 +403,45 @@ class MetricExtractor:
             MetricNotFoundError: if the specified metric is not found.
         """
         monitor = self._get_monitor(instance)
+        metric_name = self._resolved_metric_name
+        if metric_name is None:
+            metric_name, metric = self._resolve_metric(monitor)
+            self._resolved_metric_name = metric_name
+            self._resolved_metric = metric
+            tracker.metric_name = metric_name
+
         last_metrics = monitor.computed_metrics
+        if metric_name not in last_metrics:
+            raise exceptions.MetricNotFoundError(monitor.name, metric_name)
 
-        if self._resolved_metric_name is None:
-            if self.metric_spec is None:
-                self._resolved_metric_name = next(iter(last_metrics.keys()))
-            else:
-                self._resolved_metric_name = self._get_metric_name(
-                    self.metric_spec
-                )
-
-            tracker.metric_name = self._resolved_metric_name
-
-        if self._resolved_metric_name not in last_metrics:
-            raise exceptions.MetricNotFoundError(
-                monitor.name, self._resolved_metric_name
-            )
-
-        return last_metrics[self._resolved_metric_name]
+        return last_metrics[metric_name]
 
     def get_metric_best_is(self) -> Literal['auto', 'higher', 'lower'] | None:
         """Get the best_is preference from the metric if available."""
+        if self._resolved_metric is not None:
+            return self._get_metric_best_is(self._resolved_metric)
+
         return self._get_metric_best_is(self.metric_spec)
+
+    def _resolve_metric(
+        self, monitor: p.MonitorProtocol
+    ) -> tuple[str, p.ObjectiveProtocol[Any, Any] | None]:
+        if isinstance(self.metric_spec, p.ObjectiveProtocol):
+            metric = self.metric_spec
+        else:
+            metric = getattr(monitor, 'objective', None)
+
+        metric_name = None if metric is None else self._get_metric_name(metric)
+        if isinstance(self.metric_spec, str):
+            name = self.metric_spec
+        elif metric_name is not None:
+            name = metric_name
+        else:
+            name = next(iter(monitor.computed_metrics))
+
+        # the objective describes the monitored value only when names agree
+        resolved_metric = metric if name == metric_name else None
+        return name, resolved_metric
 
     def _get_monitor(
         self, instance: p.TrainerProtocol[Any, Target, Output]
@@ -442,9 +462,6 @@ class MetricExtractor:
             return metric
 
         if name := getattr(metric, 'name', False):
-            return str(name)
-
-        if name := getattr(metric, '_get_name', False):
             return str(name)
 
         return metric.__class__.__name__
@@ -488,14 +505,10 @@ class MetricMonitor(Generic[Output, Target]):
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
+                Default 'auto' will determine this from initial measurements.
             filter_fn: function to aggregate recent metric values.
         """
         self.extractor: Final = MetricExtractor(metric=metric, monitor=monitor)
-
-        metric_best_is = self.extractor.get_metric_best_is()
-        if metric_best_is is not None:
-            best_is = metric_best_is
-
         initial_metric_name = None
         if isinstance(metric, str):
             initial_metric_name = metric
@@ -554,6 +567,11 @@ class MetricMonitor(Generic[Output, Target]):
         value = self.extractor.extract_metric_value(
             instance, self.metric_tracker
         )
+        if self.metric_tracker.best_is == 'auto':
+            best_is = self.extractor.get_metric_best_is()
+            if best_is is not None:
+                self.metric_tracker.best_is = best_is
+
         self.metric_tracker.add_value(value)
 
 
@@ -587,8 +605,8 @@ class EarlyStoppingCallback(Generic[Output, Target]):
                 if available, trainer instance otherwise.
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of calls to wait before stopping.
-                Default 'auto' will determine this from initial measurements.
             best_is: whether higher or lower metric values are better.
+                Default 'auto' will determine this from initial measurements.
             filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
@@ -658,7 +676,7 @@ class PruneCallback(Generic[Output, Target]):
                 if available, trainer instance otherwise.
             min_delta: minimum absolute change to qualify as an improvement.
             best_is: whether higher or lower metric values are better.
-               Default 'auto' will determine this from initial measurements.
+                Default 'auto' will determine this from initial measurements.
             filter_fn: function to aggregate the intermediate results
             values. Default
                 gets the last value.
