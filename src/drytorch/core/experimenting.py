@@ -314,11 +314,6 @@ class Experiment(Generic[_T_co]):
 
         return self._active_run
 
-    @run.setter
-    def run(self, current_run: Run[_T_co]) -> None:
-        self._active_run = current_run
-        return
-
     @classmethod
     def get_config(cls) -> _T_co:
         """Retrieve the configuration of the current experiment."""

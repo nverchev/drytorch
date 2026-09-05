@@ -229,12 +229,6 @@ class TestExperiment:
         assert r_resumed.id == run1_id
         assert r_resumed.resumed
 
-    def test_active_run_setter(self, experiment, run1) -> None:
-        """Test setting active run manually."""
-        experiment.run = run1
-
-        assert experiment.run is run1
-
     def test_experiment_repr(self, experiment) -> None:
         """Test representation."""
         assert str(experiment) == f'Experiment(name={experiment.name})'

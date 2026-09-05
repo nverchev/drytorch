@@ -15,6 +15,7 @@
 - `CheckpointPathManager` evaluates `run_dir` and `model_dir` statically at initialization
 - abstracted check for active experiment run ownership to `registering.check_current_run`
 - re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
+- removed the `Experiment.run` setter as it circumvented standard state lifecycle bookkeeping and could lead to orphaned runs
 
 ## Fixed
 - fixed `unregister_actor` raising an error when called outside of an active experiment run
