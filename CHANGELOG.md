@@ -5,6 +5,7 @@
 - added specific behaviour for trackers on pause to safely stash and restore resources
 - added `OptimizerAlreadyBoundError` and `ModelAlreadyBoundError`
 - added `ModuleFromAnotherRunError` to provide accurate messaging when a model is already registered to a different run
+- added `__repr__` to `AbstractScheduler`
 
 ## Changed
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names

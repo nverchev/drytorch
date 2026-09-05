@@ -93,6 +93,11 @@ class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
             the value for learning rate to use.
         """
 
+    def __repr__(self) -> str:
+        """Generic representation of the scheduler."""
+        params = ', '.join(f'{k}={v}' for k, v in self.parameters.items())
+        return f'{self.base_scheduler_name}({params})'
+
 
 class ComposedScheduler(AbstractScheduler):
     """A scheduler produced by composing transformations.
