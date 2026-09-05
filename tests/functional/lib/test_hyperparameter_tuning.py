@@ -76,7 +76,8 @@ def test_iterative_pruning(
 ) -> None:
     """Test a pruning strategy that requires model improvement at each epoch."""
     registering.unregister_model(linear_model)
-    for lr_pow in range(4):
+    first_trial_len = 0
+    for lr_pow in reversed(range(4)):
         training_loder, val_loader = identity_loader.split()
         lr = 10 ** (-lr_pow)
         linear_model_copy = Model(linear_model.module)
@@ -96,9 +97,13 @@ def test_iterative_pruning(
         )
         trainer.post_epoch_hooks.register(prune_callback)
         trainer.train(4)
+        if lr_pow == 3:  # First trial (best LR) establishes curve
+            first_trial_len = len(prune_callback.trial_values)
+
         benchmark_values = prune_callback.trial_values
         registering.unregister_model(linear_model_copy)
         gc.collect()
 
-    # the last run should be immediately pruned.
-    assert len(benchmark_values) <= 1
+    assert first_trial_len == 4
+    # the last run (worst LR) should be immediately pruned at epoch 1.
+    assert len(benchmark_values) == 1

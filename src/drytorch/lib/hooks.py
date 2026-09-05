@@ -707,11 +707,12 @@ class PruneCallback(Generic[Output, Target]):
 
         threshold = self.thresholds[epoch]
         value = self.monitor.filtered_value
-        if threshold is None or not self.monitor.is_better(value, threshold):
-            self.trial_values[epoch] = value
-            metric_name = self.monitor.metric_name
-            msg = f'Training stopped at {threshold=} {metric_name}'
-            instance.terminate_training(msg)
+        self.trial_values[epoch] = value
+        if threshold is not None:
+            if not self.monitor.is_better(value, threshold):
+                metric_name = self.monitor.metric_name
+                msg = f'Training stopped at {threshold=} {metric_name}'
+                instance.terminate_training(msg)
 
         return
 
