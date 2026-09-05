@@ -344,6 +344,8 @@ class StopExperimentEvent(Event):
 class TerminatedTrainingEvent(Event):
     """Event logged when training is terminated.
 
+    Unlike EndTrainingEvent, training is no longer possible.
+
     Attributes:
         source_name: the name object calling the termination.
         model_name: the name of the model.

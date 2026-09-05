@@ -269,6 +269,7 @@ class TqdmLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.TerminatedTrainingEvent) -> None:
+        self._clean_epoch_bar()
         self._clean_training_bar()
         return super().notify(event)
 

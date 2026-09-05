@@ -151,3 +151,17 @@ class TestTqdmLogger:
         tracker_with_double_bar.notify(start_epoch_mock_event)
         output = self.stream.getvalue()
         assert f'Epoch: {start_epoch_mock_event.epoch}' in output
+
+    def test_terminated_training_event(
+        self,
+        tracker_with_double_bar,
+        start_training_mock_event,
+        start_epoch_mock_event,
+        terminated_training_mock_event,
+    ) -> None:
+        """Test handling of TerminatedTraining event cleans up both bars."""
+        tracker_with_double_bar.notify(start_training_mock_event)
+        tracker_with_double_bar.notify(start_epoch_mock_event)
+        tracker_with_double_bar.notify(terminated_training_mock_event)
+        assert tracker_with_double_bar._training_bar is None
+        assert tracker_with_double_bar._epoch_bar is None
