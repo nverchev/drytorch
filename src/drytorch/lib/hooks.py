@@ -485,7 +485,7 @@ class MetricMonitor(Generic[Output, Target]):
         Args:
             metric: name of the metric to monitor or metric calculator instance.
             monitor: evaluation protocol to monitor.
-            min_delta: minimum change required to qualify as an improvement.
+            min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
             filter_fn: function to aggregate recent metric values.
@@ -585,7 +585,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
                 Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
-            min_delta: minimum change required to qualify as an improvement.
+            min_delta: minimum absolute change to qualify as an improvement.
             patience: number of calls to wait before stopping.
                 Default 'auto' will determine this from initial measurements.
             best_is: whether higher or lower metric values are better.
@@ -656,7 +656,7 @@ class PruneCallback(Generic[Output, Target]):
                 Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
-            min_delta: minimum change required to qualify as an improvement.
+            min_delta: minimum absolute change to qualify as an improvement.
             best_is: whether higher or lower metric values are better.
                Default 'auto' will determine this from initial measurements.
             filter_fn: function to aggregate the intermediate results
@@ -729,7 +729,7 @@ class ChangeSchedulerOnPlateauCallback(
                 Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
-            min_delta: minimum change required to qualify as an improvement.
+            min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
@@ -799,6 +799,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
     """
 
     factor: float
+    _n_reductions: int
 
     def __init__(
         self,
@@ -818,7 +819,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
                 Defaults to the first metric found.
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
-            min_delta: minimum change required to qualify as an improvement.
+            min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' will determine this from initial measurements.
@@ -837,6 +838,8 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
             cooldown=cooldown,
         )
         self.factor: Final = factor
+        self._n_reductions = 0
+        return
 
     def get_scheduler(
         self, epoch: int, scheduler: p.SchedulerProtocol
@@ -850,7 +853,10 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         Returns:
             Modified scheduler.
         """
-        return schedulers.RescaleScheduler(scheduler, self.factor)
+        self._n_reductions += 1
+        return schedulers.RescaleScheduler(
+            scheduler, self.factor**self._n_reductions
+        )
 
 
 class RestartScheduleOnPlateau(

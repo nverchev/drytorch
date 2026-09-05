@@ -57,17 +57,20 @@ def test_pruning_callback(square_loss_calc, identity_trainer) -> None:
 def test_reduce_lr_on_plateau(square_loss_calc, identity_trainer) -> None:
     """Test learning rate reduction on plateau."""
     factor = 0.1
+    epochs = 5
     initial_lr = identity_trainer._model_optimizer.base_lr
     identity_trainer.post_epoch_hooks.register(
         hooks.ReduceLROnPlateau(
             metric=square_loss_calc,
             factor=factor,
-            min_delta=0.1,
+            min_delta=1,
         )
     )
-    identity_trainer.train(5)
+    identity_trainer.train(epochs)
     final_lr = identity_trainer._model_optimizer.get_scheduled_lr(initial_lr)
-    assert final_lr == pytest.approx(factor * initial_lr)
+
+    # Due to high min_delta, the hook is triggered every epoch except first
+    assert final_lr == pytest.approx(factor ** (epochs - 1) * initial_lr)
 
 
 def test_restart_schedule_on_plateau(

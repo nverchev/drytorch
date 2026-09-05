@@ -855,7 +855,7 @@ class MetricTracker(Generic[Output, Target]):
 
         Args:
             metric_name: name of the metric to track.
-            min_delta: minimum change required to qualify as an improvement.
+            min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
             filter_fn: function to aggregate recent metric values.
