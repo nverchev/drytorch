@@ -107,7 +107,7 @@ class AbstractAggregator(Generic[_T_contra, _R_coo], metaclass=abc.ABCMeta):
             self._cached_reduce = {
                 key: acc.reduce() for key, acc in self.accumulators.items()
             }
-        return self._cached_reduce
+        return dict(self._cached_reduce)
 
     def all_reduce(self) -> dict[str, _R_coo]:
         """Synchronize accumulators across processes and reduce."""
