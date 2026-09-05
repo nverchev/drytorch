@@ -21,6 +21,7 @@
 
 ## Fixed
 - `GradZScoreNormalizer` now properly skips single-element parameters and zero-variance gradients to prevent division by zero causing `nan` gradients
+- `ZStatCriterion` now properly clips only the upper tail (abnormally large values) rather than improperly increasing abnormally small values
 - `DataLoader.split()` now correctly propagates `pin_memory` and `n_workers` configurations to the resulting sub-loaders instead of dropping them
 - `Permutation` now properly uses the modern numpy RNG instead of legacy `np.random.randint` when no seed is provided
 - `validate_dataset_length` now correctly looks up `__len__` on the class type to respect Python's dunder resolution rules

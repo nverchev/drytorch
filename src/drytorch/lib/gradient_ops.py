@@ -359,7 +359,7 @@ class ZStatCriterion(ClippingCriterion):
             return False
 
         z_score = (value - self._mu_t) / (math.sqrt(self._v_t) + self._eps)
-        return abs(z_score) > self.z_thresh
+        return z_score > self.z_thresh
 
     @override
     def get_clip_value(self, value: float) -> float:
@@ -367,10 +367,10 @@ class ZStatCriterion(ClippingCriterion):
             return value
 
         z_score = (value - self._mu_t) / (math.sqrt(self._v_t) + self._eps)
-        if abs(z_score) <= self.z_thresh:
+        if z_score <= self.z_thresh:
             return value
 
-        new_z_score = self.clipping_function(abs(z_score), self.z_thresh)
+        new_z_score = self.clipping_function(z_score, self.z_thresh)
         return self._mu_t + new_z_score * math.sqrt(self._v_t)
 
     @override

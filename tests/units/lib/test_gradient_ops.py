@@ -254,7 +254,9 @@ class TestZStatCriterion:
         # Z-score = (value - 10) / 2
         assert not zstat_criterion.should_clip(12.0)  # Z-score = 1.0 < 2.0
         assert zstat_criterion.should_clip(16.0)  # Z-score = 3.0 > 2.0
-        assert zstat_criterion.should_clip(4)  # abs(Z-score) = 3 > 2.0
+        assert not zstat_criterion.should_clip(
+            4
+        )  # Z-score = -3.0 < 2.0 (lower tail, no clip)
 
     def test_get_clip_value(self, zstat_criterion: ZStatCriterion) -> None:
         """Test get_clip_value logic."""
@@ -267,6 +269,9 @@ class TestZStatCriterion:
 
         # If not clipping, return the original value
         assert zstat_criterion.get_clip_value(11.0) == 11.0  # Z-score = 1.0
+        assert (
+            zstat_criterion.get_clip_value(5.0) == 5.0
+        )  # Z-score = -5.0 (lower tail)
 
         # reciprocal_clipping
         # value = 15.0, Z-score = (15-10)/1 = 5.0
