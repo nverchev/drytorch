@@ -167,6 +167,11 @@ class AverageObjective(Objective[Output, Target], metaclass=abc.ABCMeta):
 class MetricCollection(AverageObjective[Output, Target]):
     """A collection of multiple metrics.
 
+    Because :class:`AverageObjective` aggregates values across batches,
+    the provided functions should ideally return unreduced ``(B,)`` tensors
+    (where `B` is the batch size) rather than pre-reduced scalars. This
+    ensures the final average correctly weights each batch by its size.
+
     Attributes:
         fn: functions returning multiple named metric values.
         named_fn: dictionary of named functions returning a single value.
