@@ -76,7 +76,11 @@ class LoaderProtocol(Protocol[_Data_co]):
         """Return an iterator over the dataset in batches."""
 
     def __len__(self) -> int:
-        """Return the number of batches in the dataset."""
+        """Return the global number of batches in the dataset across all ranks.
+
+        In distributed training, this is the total batch count across the entire
+        world size, not just the number of batches yielded by the local process.
+        """
 
 
 @runtime_checkable

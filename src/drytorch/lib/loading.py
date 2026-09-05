@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Sequence
 from typing import Any, Final, TypeVar, overload
 
-import numpy as np
 import torch
 
 from numpy import random
@@ -105,7 +104,10 @@ class Permutation(Sequence[int]):
             seed: seed for the random generator.
         """
         self.size = size
-        self.seed = np.random.randint(2**16) if seed is None else seed
+        if seed is None:
+            seed = int(random.default_rng().integers(2**32))
+
+        self.seed = seed
         rng = random.default_rng(self.seed)
         self._new_indices = rng.permutation(self.size).tolist()
 
@@ -186,6 +188,11 @@ class DataLoader(p.LoaderProtocol[Data]):
 
     @override
     def __len__(self) -> int:
+        """Return the global number of batches in the dataset across all ranks.
+
+        In distributed training, this is the total batch count across the entire
+        world size, not just the number of batches yielded by the local process.
+        """
         dataset_len = self.dataset_len
         batch_size = _validate_batch_size(self.batch_size)
         drop_last = not torch.is_inference_mode_enabled()
@@ -246,6 +253,10 @@ class DataLoader(p.LoaderProtocol[Data]):
         Returns:
             A tuple of (DataLoader, DataLoader).
 
+        Note:
+            A user-provided sampler is not propagated: its indices refer to the
+            original dataset, so each split loader builds its own.
+
         Raises:
             ValueError: if split is not between 0 and 1.
         """
@@ -268,8 +279,18 @@ class DataLoader(p.LoaderProtocol[Data]):
             self.dataset, Sliced(indices, slice(first_size, dataset_size))
         )
         batch_size = _validate_batch_size(self.batch_size)
-        first_loader = DataLoader(first_dataset, batch_size)
-        second_loader = DataLoader(second_dataset, batch_size)
+        first_loader = DataLoader(
+            first_dataset,
+            batch_size,
+            pin_memory=self._pin_memory,
+            n_workers=self._n_workers,
+        )
+        second_loader = DataLoader(
+            second_dataset,
+            batch_size,
+            pin_memory=self._pin_memory,
+            n_workers=self._n_workers,
+        )
         return first_loader, second_loader
 
     def _init_sampler(self) -> data.Sampler | Iterable:
@@ -311,8 +332,8 @@ def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
     Raises:
         DatasetHasNoLengthError: if the dataset has no __len__ method.
     """
-    if get_length := getattr(dataset, '__len__', None):
-        return get_length()
+    if get_length := getattr(type(dataset), '__len__', None):
+        return get_length(dataset)
 
     raise exceptions.DatasetHasNoLengthError()
 

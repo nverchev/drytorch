@@ -20,6 +20,10 @@
 - removed unused `Averager` and `MeanAccumulator` aggregators
 
 ## Fixed
+- `DataLoader.split()` now correctly propagates `pin_memory` and `n_workers` configurations to the resulting sub-loaders instead of dropping them
+- `Permutation` now properly uses the modern numpy RNG instead of legacy `np.random.randint` when no seed is provided
+- `validate_dataset_length` now correctly looks up `__len__` on the class type to respect Python's dunder resolution rules
+- updated `__len__` docstrings for `DataLoader` and `LoaderProtocol` to clarify they return the global batch count
 - fixed `reduce()` in aggregators mutating internal cache by returning a copy
 - fixed `unregister_actor` raising an error when called outside of an active experiment run
 - fixed `PruneCallback` now unconditionally prunes when evaluated against a `None` threshold instead of bypassing and recording the benchmark value
