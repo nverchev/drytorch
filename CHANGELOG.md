@@ -7,6 +7,7 @@
 - added `ModuleFromAnotherRunError` to provide accurate messaging when a model is already registered to a different run
 
 ## Changed
+- `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation

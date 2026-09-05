@@ -221,7 +221,14 @@ class MetricCollection(AverageObjective[Output, Target]):
 
         Returns:
             A new instance containing metrics from both instances.
+
+        Raises:
+            RepeatedMetricsError: if the metrics share keys.
         """
+        shared = self.named_fn.keys() & other.named_fn.keys()
+        if shared:
+            raise exceptions.RepeatedMetricsError(sorted(shared))
+
         return MetricCollection(
             *self.fn, *other.fn, **self.named_fn | other.named_fn
         )

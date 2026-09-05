@@ -113,6 +113,13 @@ class TestMetricCollection:
 
         assert metrics.compute() == expected
 
+    def test_or_repeated_metrics(self, metric_fun_1) -> None:
+        """Test it raises RepeatedMetricsError if collections share keys."""
+        col1 = MetricCollection(**metric_fun_1)
+        col2 = MetricCollection(**metric_fun_1)
+        with pytest.raises(exceptions.RepeatedMetricsError):
+            col1 | col2
+
     def test_or(self, metric_1, metric_2, metrics) -> None:
         """Test | works as a union operator."""
         new_metric_fun_dict = {'NewMetric': lambda x, y: torch.tensor(0.5)}

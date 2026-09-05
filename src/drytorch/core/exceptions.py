@@ -47,6 +47,7 @@ __all__ = [
     'OptimizerNotLoadedWarning',
     'PastEpochWarning',
     'RecursionWarning',
+    'RepeatedMetricsError',
     'ResultNotAvailableError',
     'RunAlreadyCompletedWarning',
     'RunAlreadyFailedWarning',
@@ -493,6 +494,21 @@ class ResultNotAvailableError(DryTorchError):
     _template = (
         'The result will be available only after the hook has been called.'
     )
+
+
+class RepeatedMetricsError(DryTorchError):
+    """Exception raised when merging metrics with duplicated names."""
+
+    _template = 'Repeated metrics when merging: {}.'
+
+    def __init__(self, duplicated: list[str]) -> None:
+        """Initialize.
+
+        Args:
+            duplicated: the metric names that are repeated.
+        """
+        self.duplicated: Final = duplicated
+        super().__init__(duplicated)
 
 
 class TrackerAlreadyRegisteredError(DryTorchError):
