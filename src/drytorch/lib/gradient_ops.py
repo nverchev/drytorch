@@ -6,7 +6,7 @@ import math
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from typing import ClassVar, Final, TypeAlias
+from typing import Final, TypeAlias
 
 import torch
 
@@ -326,7 +326,6 @@ class ZStatCriterion(ClippingCriterion):
     alpha: float
     z_thresh: float
     clipping_function: ClipFunction
-    _eps: float
     _mu_t: float
     _v_t: float
     _eps = 1e-8
@@ -473,9 +472,6 @@ class HistClipper(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
 
-    _default_criterion: ClassVar[ZStatCriterion] = ZStatCriterion()
-    _default_grad_op: ClassVar[GradNormClipper] = GradNormClipper()
-
     criterion: ClippingCriterion
     warmup_clip_strategy: GradientOpProtocol
     n_warmup_steps: int
@@ -483,8 +479,8 @@ class HistClipper(ClipOperation):
 
     def __init__(
         self,
-        criterion: ClippingCriterion = _default_criterion,
-        warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
+        criterion: ClippingCriterion | None = None,
+        warmup_clip_strategy: p.GradientOpProtocol | None = None,
         n_warmup_steps: int = 20,
     ) -> None:
         """Initialize.
@@ -495,6 +491,12 @@ class HistClipper(ClipOperation):
             n_warmup_steps: the number of warmup steps to collect initial stats.
         """
         super().__init__()
+        if criterion is None:
+            criterion = ZStatCriterion()
+
+        if warmup_clip_strategy is None:
+            warmup_clip_strategy = GradNormClipper()
+
         self.criterion: Final = criterion
         self.warmup_clip_strategy: Final = warmup_clip_strategy
         self.n_warmup_steps: Final = n_warmup_steps
@@ -553,9 +555,6 @@ class ParamHistClipper(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
 
-    _default_criterion: ClassVar[ZStatCriterion] = ZStatCriterion()
-    _default_grad_op: ClassVar[GradNormClipper] = GradNormClipper()
-
     criterion: ClippingCriterion
     n_warmup_steps: int
     warmup_clip_strategy: GradientOpProtocol
@@ -564,8 +563,8 @@ class ParamHistClipper(ClipOperation):
 
     def __init__(
         self,
-        criterion: ClippingCriterion = _default_criterion,
-        warmup_clip_strategy: p.GradientOpProtocol = _default_grad_op,
+        criterion: ClippingCriterion | None = None,
+        warmup_clip_strategy: p.GradientOpProtocol | None = None,
         n_warmup_steps: int = 20,
     ) -> None:
         """Initialize.
@@ -576,6 +575,12 @@ class ParamHistClipper(ClipOperation):
             n_warmup_steps: the number of warmup steps to collect initial stats.
         """
         super().__init__()
+        if criterion is None:
+            criterion = ZStatCriterion()
+
+        if warmup_clip_strategy is None:
+            warmup_clip_strategy = GradNormClipper()
+
         self.criterion: Final = criterion
         self.n_warmup_steps: Final = n_warmup_steps
         self.warmup_clip_strategy: Final = warmup_clip_strategy
