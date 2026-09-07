@@ -18,7 +18,7 @@
 - re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
 - removed the `Experiment.run` setter to prevent lifecycle state bypasses
 - removed unused `Averager` and `MeanAccumulator` aggregators
-
+- removed unused `min_delta` and `best_is` arguments from `optuna.TrialCallback`
 ## Fixed
 - `GradZScoreNormalizer` now properly skips single-element parameters and zero-variance gradients to prevent division by zero causing `nan` gradients
 - `ZStatCriterion` now properly clips only the upper tail (abnormally large values) rather than improperly increasing abnormally small values

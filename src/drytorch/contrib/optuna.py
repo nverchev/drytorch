@@ -3,7 +3,7 @@
 import string
 
 from collections.abc import Callable, Sequence
-from typing import Any, Final, Generic, Literal, TypeVar
+from typing import Any, Final, Generic, TypeVar
 
 import optuna
 
@@ -56,8 +56,6 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         | str
         | None = None,
         monitor: p.MonitorProtocol | None = None,
-        min_delta: float = 1e-8,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
     ) -> None:
         """Initialize.
 
@@ -68,15 +66,10 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
                     Defaults to the first metric found.
             monitor: Evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
-            min_delta: Minimum change required to qualify as an improvement.
-            best_is: Whether higher or lower metric values are better. Default
-               'auto' will determine this from the first measurements.
         """
         self.monitor: Final = hooks.MetricMonitor(
             metric=metric,
             monitor=monitor,
-            min_delta=min_delta,
-            best_is=best_is,
             filter_fn=filter_fn,
         )
         self.trial: Final = trial
