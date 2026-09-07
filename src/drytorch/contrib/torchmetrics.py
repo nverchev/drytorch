@@ -20,28 +20,6 @@ if TYPE_CHECKING:
 _Tensor = torch.Tensor
 
 
-def _get_leaf_metrics(
-    comp_metric: metric.CompositionalMetric,
-) -> list[metric.Metric]:
-    leaves: list[metric.Metric] = []
-    stack: list[metric.Metric | float | int | _Tensor | None] = [comp_metric]
-    names_seen = set[str]()
-    while stack:
-        node = stack.pop()
-        if isinstance(node, comp_metric.__class__):
-            stack.extend([node.metric_b, node.metric_a])
-        elif isinstance(node, float | int | _Tensor) or node is None:
-            continue
-        else:
-            leaves.append(node)
-            name = node.__class__.__name__
-            if name in names_seen:
-                raise exceptions.RepeatedMetricsError([name])
-
-            names_seen.add(name)
-    return leaves
-
-
 def from_torchmetrics(
     torch_metric: metric.CompositionalMetric,
 ) -> p.LossProtocol[_Tensor, _Tensor]:
@@ -49,7 +27,8 @@ def from_torchmetrics(
 
     Raises:
         RepeatedMetricsError: if two components of the same class are
-            present in the composition.
+            present in the composition. Subclass the metric so each
+            configuration has its own class name.
     """
 
     class _TorchMetricCompositionalMetric(p.LossProtocol[_Tensor, _Tensor]):
@@ -65,6 +44,7 @@ def from_torchmetrics(
             self.metric.sync_on_compute = False
             self.metric.dist_sync_on_step = False
             self._leaf_metrics = _get_leaf_metrics(self.metric)
+            _disable_leaf_syncing(self._leaf_metrics)
             return
 
         def compute(self) -> dict[str, _Tensor]:
@@ -88,3 +68,34 @@ def from_torchmetrics(
             self.metric.update(outputs, targets)
 
     return _TorchMetricCompositionalMetric(torch_metric)
+
+
+def _get_leaf_metrics(
+    comp_metric: metric.CompositionalMetric,
+) -> list[metric.Metric]:
+    leaves: list[metric.Metric] = []
+    stack: list[metric.Metric | float | int | _Tensor | None] = [comp_metric]
+    names_seen = set[str]()
+    while stack:
+        node = stack.pop()
+        if isinstance(node, comp_metric.__class__):
+            stack.extend([node.metric_b, node.metric_a])
+        elif isinstance(node, float | int | _Tensor) or node is None:
+            continue
+        else:
+            leaves.append(node)
+            name = node.__class__.__name__
+            if name in names_seen:
+                raise exceptions.RepeatedMetricsError([name])
+
+            names_seen.add(name)
+
+    return leaves
+
+
+def _disable_leaf_syncing(leaf_metrics: list[metric.Metric]) -> None:
+    for m in leaf_metrics:
+        m.sync_on_compute = False
+        m.dist_sync_on_step = False
+
+    return
