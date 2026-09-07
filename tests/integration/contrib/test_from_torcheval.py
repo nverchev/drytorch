@@ -58,7 +58,9 @@ class TestFromTorchMetrics:
         metric.reset()
         metric.update(mock_outputs, mock_targets)
         result = metric.compute()
-        assert isinstance(result, torch.Tensor)
+        assert isinstance(result, dict)
+        assert 'BinaryAccuracy' in result
+        assert isinstance(result['BinaryAccuracy'], torch.Tensor)
 
     def test_sync(self, mocker, metric) -> None:
         """Test it correctly synchronizes metrics across processes."""

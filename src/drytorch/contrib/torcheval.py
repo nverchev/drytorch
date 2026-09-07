@@ -13,24 +13,40 @@ _Tensor = torch.Tensor
 
 def from_torcheval(
     torch_eval: metrics.Metric[_Tensor | dict[str, _Tensor]],
+    name: str | None = None,
 ) -> p.ObjectiveProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a Metric from torcheval with a sync method."""
 
     class _TorchEvalWithSync(p.ObjectiveProtocol[_Tensor, _Tensor]):
-        name = 'Loss'
-
         def __init__(
             self, _metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
         ) -> None:
             self.metric = _metric
+            self.name = name if name is not None else _metric.__class__.__name__
             self._synced_value: _Tensor | dict[str, _Tensor] | None = None
+            self._check_return_type()
             return
 
-        def compute(self) -> _Tensor | dict[str, _Tensor]:
-            if self._synced_value is not None:
-                return self._synced_value
+        def _check_return_type(self) -> None:
+            """Check the return type of the metric."""
+            initial_val = self.metric.compute()
+            if not isinstance(initial_val, (torch.Tensor, dict)):
+                raise TypeError(
+                    'torcheval metric must return a Tensor or dict of Tensors'
+                )
 
-            return self.metric.compute()
+            return
+
+        def compute(self) -> dict[str, _Tensor]:
+            if self._synced_value is not None:
+                val = self._synced_value
+            else:
+                val = self.metric.compute()
+
+            if isinstance(val, dict):
+                return val
+
+            return {self.name: val}
 
         def reset(self) -> None:
             self.metric.reset()
