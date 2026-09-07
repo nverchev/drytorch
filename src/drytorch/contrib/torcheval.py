@@ -23,22 +23,28 @@ def from_torcheval(
             self, _metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
         ) -> None:
             self.metric = _metric
+            self._synced_value: _Tensor | dict[str, _Tensor] | None = None
             return
 
         def compute(self) -> _Tensor | dict[str, _Tensor]:
+            if self._synced_value is not None:
+                return self._synced_value
+
             return self.metric.compute()
 
         def reset(self) -> None:
             self.metric.reset()
+            self._synced_value = None
             return
 
         def sync(self) -> None:
             """Use torcheval toolkit to synchronize and compute metrics."""
-            toolkit.sync_and_compute(self.metric)
+            self._synced_value = toolkit.sync_and_compute(self.metric)
             return
 
         def update(self, outputs: _Tensor, targets: _Tensor) -> None:
             self.metric.update(outputs, targets)
+            self._synced_value = None
             return
 
     return _TorchEvalWithSync(torch_eval)
