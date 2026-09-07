@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
+from drytorch.core import exceptions
 from drytorch.core import protocols as p
 
 
@@ -19,10 +20,37 @@ if TYPE_CHECKING:
 _Tensor = torch.Tensor
 
 
+def _get_leaf_metrics(
+    comp_metric: metric.CompositionalMetric,
+) -> list[metric.Metric]:
+    leaves: list[metric.Metric] = []
+    stack: list[metric.Metric | float | int | _Tensor | None] = [comp_metric]
+    names_seen = set[str]()
+    while stack:
+        node = stack.pop()
+        if isinstance(node, comp_metric.__class__):
+            stack.extend([node.metric_b, node.metric_a])
+        elif isinstance(node, float | int | _Tensor) or node is None:
+            continue
+        else:
+            leaves.append(node)
+            name = node.__class__.__name__
+            if name in names_seen:
+                raise exceptions.RepeatedMetricsError([name])
+
+            names_seen.add(name)
+    return leaves
+
+
 def from_torchmetrics(
     torch_metric: metric.CompositionalMetric,
 ) -> p.LossProtocol[_Tensor, _Tensor]:
-    """Returns a wrapper of a CompositionalMetric for integration."""
+    """Returns a wrapper of a CompositionalMetric for integration.
+
+    Raises:
+        RepeatedMetricsError: if two components of the same class are
+            present in the composition.
+    """
 
     class _TorchMetricCompositionalMetric(p.LossProtocol[_Tensor, _Tensor]):
         """Wrapper of Compositional Metric reporting internal calculations.
@@ -36,6 +64,7 @@ def from_torchmetrics(
             self.metric = _metric
             self.metric.sync_on_compute = False
             self.metric.dist_sync_on_step = False
+            self._leaf_metrics = _get_leaf_metrics(self.metric)
             return
 
         def compute(self) -> dict[str, _Tensor]:
@@ -43,20 +72,9 @@ def from_torchmetrics(
             dict_output = dict[str, _Tensor](
                 {'Combined Loss': self.metric.compute()}
             )
-            metric_list = list[type(self.metric.metric_b)]()
-            metric_list.append(self.metric)
-            while metric_list:
-                metric_ = metric_list.pop()
-                if isinstance(metric_, self.metric.__class__):
-                    metric_list.extend([metric_.metric_b, metric_.metric_a])
-                elif (
-                    isinstance(metric_, float | int | _Tensor)
-                    or metric_ is None
-                ):
-                    continue
-                else:
-                    if isinstance(value := metric_.compute(), _Tensor):
-                        dict_output[metric_.__class__.__name__] = value
+            for m in self._leaf_metrics:
+                if isinstance(value := m.compute(), _Tensor):
+                    dict_output[m.__class__.__name__] = value
 
             return dict_output
 

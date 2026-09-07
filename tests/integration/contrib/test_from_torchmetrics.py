@@ -8,6 +8,7 @@ import pytest
 
 from drytorch.contrib.torchmetrics import from_torchmetrics
 from drytorch.core import protocols as p
+from drytorch.core.exceptions import RepeatedMetricsError
 
 
 if TYPE_CHECKING:
@@ -110,3 +111,14 @@ class TestFromTorchMetrics:
         metric.update(mock_targets, mock_targets)
         post_reset_result = metric.compute()
         assert post_reset_result['BinaryAccuracy'] == 1
+
+    def test_duplicate_metrics_raises_error(self) -> None:
+        """Test duplicate metrics raise error in composition."""
+        metric_a = torchmetrics.MeanSquaredError()
+        metric_b = torchmetrics.MeanSquaredError(squared=False)
+        composition = metric_a + metric_b
+
+        with pytest.raises(RepeatedMetricsError) as exc_info:
+            from_torchmetrics(composition)
+
+        assert 'MeanSquaredError' in str(exc_info.value)
