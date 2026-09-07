@@ -5,6 +5,7 @@ import torch
 from torcheval import metrics
 from torcheval.metrics import toolkit
 
+from drytorch.core import exceptions
 from drytorch.core import protocols as p
 
 
@@ -15,7 +16,16 @@ def from_torcheval(
     torch_eval: metrics.Metric[_Tensor | dict[str, _Tensor]],
     name: str | None = None,
 ) -> p.ObjectiveProtocol[_Tensor, _Tensor]:
-    """Returns a wrapper of a Metric from torcheval with a sync method."""
+    """Returns a wrapper of a Metric from torcheval with a sync method.
+
+    Args:
+        torch_eval: The torcheval metric to wrap.
+        name: Optional name for the metric. Defaults to the class name.
+
+    Raises:
+        exceptions.ComputedMetricsTypeError: If the metric computes to an
+            invalid type.
+    """
 
     class _TorchEvalWithSync(p.ObjectiveProtocol[_Tensor, _Tensor]):
         def __init__(
@@ -24,27 +34,19 @@ def from_torcheval(
             self.metric = _metric
             self.name = name if name is not None else _metric.__class__.__name__
             self._synced_value: _Tensor | dict[str, _Tensor] | None = None
-            self._check_return_type()
-            return
-
-        def _check_return_type(self) -> None:
-            """Check the return type of the metric."""
-            initial_val = self.metric.compute()
-            if not isinstance(initial_val, (torch.Tensor, dict)):
-                raise TypeError(
-                    'torcheval metric must return a Tensor or dict of Tensors'
-                )
-
             return
 
         def compute(self) -> dict[str, _Tensor]:
-            if self._synced_value is not None:
-                val = self._synced_value
-            else:
+            if self._synced_value is None:
                 val = self.metric.compute()
+            else:
+                val = self._synced_value
 
             if isinstance(val, dict):
                 return val
+
+            if not isinstance(val, _Tensor):
+                raise exceptions.ComputedMetricsTypeError(type(val))
 
             return {self.name: val}
 
