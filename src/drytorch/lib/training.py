@@ -352,7 +352,7 @@ class Trainer(
         for _ in range(n_epochs):
             self.pre_epoch_hooks.execute(self)
             if self.terminated:
-                break
+                return
 
             log_events.StartEpochEvent(
                 source_name=self.name,
@@ -368,7 +368,7 @@ class Trainer(
                 epoch=self.model.epoch,
             )
             if self.terminated:
-                break
+                return
 
         log_events.EndTrainingEvent(self.name)
         return

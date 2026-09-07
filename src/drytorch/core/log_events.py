@@ -120,6 +120,8 @@ class EndTestEvent(Event):
 class EndTrainingEvent(Event):
     """Event logged when training ends.
 
+    It is not published when training was terminated before due. before due.
+
     Attributes:
         source_name: The name of the object that is training a model.
     """

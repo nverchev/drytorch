@@ -37,7 +37,7 @@ class TestTrialCallbackAsk:
     @pytest.fixture
     def trial_callback(self, trial) -> TrialCallback:
         """Create a TrialCallback instance for testing."""
-        return TrialCallback(trial=trial, best_is='lower')
+        return TrialCallback(trial=trial)
 
     def test_reported(self, trial_callback, identity_trainer) -> None:
         """Test reported values."""
@@ -69,7 +69,7 @@ class TestTrialCallbackObjective:
                 TorchData(torch.ones(2)), torch.zeros(2)
             )
             identity_trainer._compute_metrics()
-            trial_callback = TrialCallback(trial=trial, best_is='lower')
+            trial_callback = TrialCallback(trial=trial)
             trial_callback(identity_trainer)
             return get_final_value(trial)
 

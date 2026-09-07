@@ -139,6 +139,44 @@ class TestTrainer:
         register.assert_called_once_with(mock_hook.bind.return_value)
         assert trainer.validation is mock_validation
 
+    def test_post_epoch_hook_terminates_training(self, trainer) -> None:
+        """Test that post-epoch hook termination prevents end_training_event."""
+
+        def terminate_hook(instance):
+            instance.terminate_training('test termination')
+
+        trainer.post_epoch_hooks.register(terminate_hook)
+
+        trainer.train(3)
+
+        self.terminated_event.assert_called_once()
+        self.start_epoch_event.assert_called_once()
+        self.end_epoch_event.assert_called_once()
+        self.end_training_event.assert_not_called()
+
+    def test_pre_epoch_hook_terminates_training(self, trainer) -> None:
+        """Test that pre-epoch hook termination prevents end_training_event."""
+
+        def terminate_hook(instance):
+            instance.terminate_training('test termination')
+
+        trainer.pre_epoch_hooks.register(terminate_hook)
+
+        trainer.train(3)
+
+        self.terminated_event.assert_called_once()
+        self.start_epoch_event.assert_not_called()
+        self.end_epoch_event.assert_not_called()
+        self.end_training_event.assert_not_called()
+
+    def test_normal_training_emits_end_event(self, trainer) -> None:
+        """Test that normal training emits end_training_event."""
+        trainer.train(1)
+
+        self.end_epoch_event.assert_called_once()
+        self.end_training_event.assert_called_once()
+        self.terminated_event.assert_not_called()
+
     @pytest.mark.parametrize('interval', [0, -1])
     def test_add_validation_raises_for_non_positive_interval(
         self,
