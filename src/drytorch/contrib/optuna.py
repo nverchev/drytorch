@@ -2,6 +2,7 @@
 
 import string
 
+from collections import Counter
 from collections.abc import Callable, Sequence
 from typing import Any, Final, Generic, TypeVar
 
@@ -162,16 +163,22 @@ def suggest_overrides(
     Raises:
         OptunaError: if the suggested configuration is invalid.
     """
+
+    def _get_short_name(name: str) -> str:
+        *prefix_parts, suffix = name.rsplit('.', maxsplit=2)
+        if suffix.isdigit() and prefix_parts:
+            suffix = f'{prefix_parts[-1]} {suffix}'
+
+        return string.capwords(suffix.replace('_', ' '))
+
+    short_names = {k: _get_short_name(k) for k in tune_cfg.tune.params}
+    name_counts = Counter(short_names.values())
+
     all_overrides: list[str] = [*tune_cfg.overrides]
     for setting_name, param_value in tune_cfg.tune.params.items():
-        if use_full_name:
+        param_name = short_names[setting_name]
+        if use_full_name or name_counts[param_name] > 1:
             param_name = setting_name
-        else:
-            *prefix_parts, param_name = setting_name.rsplit('.', maxsplit=2)
-            if param_name.isdigit() and prefix_parts:
-                param_name = f'{prefix_parts[-1]} {param_name}'
-
-            param_name = string.capwords(param_name.replace('_', ' '))
 
         if param_value.suggest == 'suggest_list':
             new_value = []
