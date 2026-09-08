@@ -113,11 +113,13 @@ class TestTqdmLogger:
         """Set up the instance."""
         return TqdmLogger(enable_training_bar=True, file=self.stream)
 
-    def test_cleanup(self, tracker):
+    def test_cleanup(self, mocker, tracker):
         """Test correct clean up."""
+        mock_super = mocker.patch('drytorch.core.tracking.Tracker.clean_up')
         tracker.clean_up()
         assert tracker._training_bar is None
         assert tracker._epoch_bar is None
+        mock_super.assert_called_once()
 
     def test_iterate_batch_event(
         self,
@@ -130,6 +132,22 @@ class TestTqdmLogger:
         iterate_batch_mock_event.push_updates[0]({'loss': 0.5}, 1)
         output = self.stream.getvalue()
         assert iterate_batch_mock_event.source_name in output
+
+    def test_iterate_batch_closes_previous_bar(
+        self,
+        tracker,
+        iterate_batch_mock_event,
+    ) -> None:
+        """Test new IterateBatch event closes uncompleted previous bar."""
+        tracker.notify(iterate_batch_mock_event)
+        first_bar = tracker._epoch_bar
+        assert first_bar is not None
+
+        tracker.notify(iterate_batch_mock_event)
+        assert tracker._epoch_bar is not first_bar
+        assert first_bar.pbar not in getattr(
+            first_bar.pbar, '_instances', set()
+        )
 
     def test_start_training_event(
         self,
@@ -151,6 +169,31 @@ class TestTqdmLogger:
         tracker_with_double_bar.notify(start_epoch_mock_event)
         output = self.stream.getvalue()
         assert f'Epoch: {start_epoch_mock_event.epoch}' in output
+
+    def test_pause_experiment_event(
+        self,
+        tracker_with_double_bar,
+        start_training_mock_event,
+        iterate_batch_mock_event,
+        pause_experiment_mock_event,
+    ) -> None:
+        """Test handling of PauseExperiment event cleans up both bars."""
+        tracker_with_double_bar.notify(start_training_mock_event)
+        tracker_with_double_bar.notify(iterate_batch_mock_event)
+        training_bar = tracker_with_double_bar._training_bar
+        epoch_bar = tracker_with_double_bar._epoch_bar
+        assert training_bar is not None
+        assert epoch_bar is not None
+
+        tracker_with_double_bar.notify(pause_experiment_mock_event)
+        assert tracker_with_double_bar._training_bar is None
+        assert tracker_with_double_bar._epoch_bar is None
+        assert training_bar.pbar not in getattr(
+            training_bar.pbar, '_instances', set()
+        )
+        assert epoch_bar.pbar not in getattr(
+            epoch_bar.pbar, '_instances', set()
+        )
 
     def test_terminated_training_event(
         self,

@@ -216,7 +216,7 @@ class TqdmLogger(tracking.Tracker):
     def clean_up(self) -> None:
         self._clean_epoch_bar()
         self._clean_training_bar()
-        return
+        return super().clean_up()
 
     @functools.singledispatchmethod
     @override
@@ -225,6 +225,7 @@ class TqdmLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.IterateBatchEvent) -> None:
+        self._clean_epoch_bar()
         desc = event.source_name.rjust(15)
         leave = self._leave and self._training_bar is None
         self._epoch_bar = EpochBar(
@@ -265,6 +266,12 @@ class TqdmLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.EndTestEvent) -> None:
         self._clean_epoch_bar()
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        self._clean_epoch_bar()
+        self._clean_training_bar()
         return super().notify(event)
 
     @notify.register
