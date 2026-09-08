@@ -253,14 +253,12 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         _source_names: names of the sources to plot.
         _metric_names: names of the metrics to plot.
         _start: epoch from which to start plotting.
-        _removed_start: flag indicating if start epochs were removed.
     """
 
     _model_names: Iterable[str]
     _source_names: Iterable[str]
     _metric_names: Iterable[str]
     _start: int
-    _removed_start: bool
 
     def __init__(
         self,
@@ -290,7 +288,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         self._source_names: Final = source_names
         self._metric_names: Final = metric_names
         self._start = start
-        self._removed_start = False
+        return
 
     @functools.singledispatchmethod
     @override

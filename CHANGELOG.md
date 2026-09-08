@@ -21,6 +21,7 @@
 - removed unused `min_delta` and `best_is` arguments from `optuna.TrialCallback`
 - `optuna.suggest_overrides` now uses full parameter names for repeated values to prevent collisions
 - removed preferential dataclass apply branch in `apply`
+- removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 
 ## Fixed
 - `Dumper.close()` releases stashed paused state
