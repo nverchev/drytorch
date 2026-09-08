@@ -153,11 +153,6 @@ class Wandb(Dumper):
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        self.clean_up()
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         if self._run is not None:
             self._stashed_runs[event.run_id] = self._run
@@ -181,9 +176,6 @@ class Wandb(Dumper):
         Raises:
             AccessOutsideScopeError: if called outside an active run scope.
         """
-        if self.run is None:
-            raise exceptions.AccessOutsideScopeError()
-
         plot_names = {
             f'{event.model_name}/{event.source_name}-{name}': value
             for name, value in event.metrics.items()
