@@ -16,8 +16,7 @@ import math
 import numbers
 import types
 
-from collections.abc import Hashable, Iterable, Sequence, Sized
-from itertools import count
+from collections.abc import Collection, Hashable, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 import numpy as np
@@ -92,7 +91,7 @@ class DefaultName:
         _prefixes: dictionary mapping prefixes to their counters.
     """
 
-    _prefixes: dict[str, count[int]]
+    _prefixes: dict[str, itertools.count[int]]
 
     def __init__(self) -> None:
         """Initialize."""
@@ -397,38 +396,21 @@ def _has_own_repr(obj: Any) -> bool:
     return not repr_str.endswith(hex_id + '>')
 
 
-def _limit_size(container: Iterable[Any]) -> list[Any]:
-    """Limit the size of iterables and adds an Omitted object."""
-    # prevents infinite iterators
-    if isinstance(container, Sized):
-        len_container = len(container)
-        if len_container <= MAX_REPR_SIZE:
-            listed = list(container)
-        else:
-            omitted = Omitted(len_container - MAX_REPR_SIZE)
-            if isinstance(container, Sequence):
-                listed = [
-                    *container[: MAX_REPR_SIZE // 2],
-                    omitted,
-                    *container[-MAX_REPR_SIZE // 2 :],
-                ]
-            else:
-                listed = list(itertools.islice(container, MAX_REPR_SIZE))
-                listed.append(omitted)
+def _limit_size(container: Collection[Any]) -> list[Any]:
+    """Limit the size of a container and add an Omitted object."""
+    len_container = len(container)
+    if len_container <= MAX_REPR_SIZE:
+        return list(container)
 
-    else:
-        listed = []
-        iter_container = iter(container)
-        for _ in range(MAX_REPR_SIZE):
-            try:
-                value = next(iter_container)
-                listed.append(value)
-            except StopIteration:
-                break
+    omitted = Omitted(len_container - MAX_REPR_SIZE)
+    if isinstance(container, Sequence):
+        head = MAX_REPR_SIZE // 2
+        tail = MAX_REPR_SIZE - head
+        tail_items = container[-tail:] if tail else ()
+        return [*container[:head], omitted, *tail_items]
 
-        else:
-            listed.append(Omitted())
-
+    listed = list(itertools.islice(container, MAX_REPR_SIZE))
+    listed.append(omitted)
     return listed
 
 

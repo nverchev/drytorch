@@ -175,6 +175,8 @@ def get_list_data() -> list[tuple[list[int], int, list[int | Omitted]]]:
     return [
         ([1, 2, 3], 3, [1, 2, 3]),
         ([1, 2, 3], 2, [1, Omitted(1), 3]),
+        ([1, 2, 3], 1, [Omitted(2), 3]),
+        ([1, 2, 3], 0, [Omitted(3)]),
         ([1, 2, 3, 4], 3, [1, Omitted(1), 3, 4]),
         ([1, 2, 3, 4], 2, [1, Omitted(2), 4]),
     ]
@@ -195,6 +197,7 @@ def get_set_data() -> list[tuple[set[int], int, set[int | Omitted]]]:
     return [
         ({1, 2, 3}, 3, {1, 2, 3}),
         ({1, 2, 3}, 2, {1, 2, Omitted(1)}),
+        ({1, 2, 3}, 0, {Omitted(3)}),
         ({1, 2, 3, 4}, 3, {1, 2, 3, Omitted(1)}),
         ({1, 2, 3, 4}, 2, {1, 2, Omitted(2)}),
     ]
@@ -207,6 +210,7 @@ def get_dict_data() -> list[
     return [
         ({1: 1, 2: 2, 3: 3}, 3, {'1': 1, '2': 2, '3': 3}),
         ({1: 1, 2: 2, 3: 3}, 2, {'1': 1, '2': 2, '...': Omitted(1)}),
+        ({1: 1, 2: 2, 3: 3}, 0, {'...': Omitted(3)}),
     ]
 
 
