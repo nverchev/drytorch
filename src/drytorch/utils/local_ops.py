@@ -5,6 +5,8 @@ import shutil
 
 from collections.abc import Callable
 
+from drytorch.core import exceptions
+
 
 __all__ = [
     'clone_experiment_data',
@@ -12,30 +14,20 @@ __all__ = [
     'rename_experiment_data',
 ]
 
-_LocalOp = Callable[[pathlib.Path, pathlib.Path], None]
+_TransferOp = Callable[[pathlib.Path, pathlib.Path], object]
 
 
-def _experiment_data_op(
-    op: _LocalOp,
-    par_dir: pathlib.Path | str,
-    exp_name: str,
-    new_exp_name: str,
+def clone_experiment_data(
+    par_dir: pathlib.Path | str, exp_name: str, new_exp_name: str
 ) -> None:
-    """Apply an operation to experiment data folders.
+    """Clone local experiment data folders.
 
     Args:
-        op: operation to apply to the experiment data folders.
         par_dir: parent directory of the experiment folders.
-        exp_name: name of the experiment.
-        new_exp_name: new experiment name.
+        exp_name: experiment name to clone.
+        new_exp_name: name for the clone.
     """
-    par_dir = pathlib.Path(par_dir)
-    for folder in par_dir.iterdir():
-        if folder.is_dir():
-            exp_folder = folder / exp_name
-            if exp_folder.is_dir():
-                op(exp_folder, folder / new_exp_name)
-
+    _transfer_experiment_data(shutil.copytree, par_dir, exp_name, new_exp_name)
     return
 
 
@@ -46,12 +38,9 @@ def delete_experiment_data(par_dir: pathlib.Path | str, exp_name: str) -> None:
         par_dir: parent directory of the experiment folders.
         exp_name: name of the experiment.
     """
+    for exp_folder in _get_experiment_folders(par_dir, exp_name):
+        shutil.rmtree(exp_folder)
 
-    def _delete(path: pathlib.Path, _: pathlib.Path) -> None:
-        shutil.rmtree(path)
-        return
-
-    _experiment_data_op(_delete, par_dir, exp_name, '')
     return
 
 
@@ -65,29 +54,71 @@ def rename_experiment_data(
         exp_name: existing experiment name.
         new_exp_name: new experiment name.
     """
-
-    def _rename(path: pathlib.Path, new_path: pathlib.Path) -> None:
-        path.rename(new_path)
-        return
-
-    _experiment_data_op(_rename, par_dir, exp_name, new_exp_name)
+    _transfer_experiment_data(
+        pathlib.Path.rename, par_dir, exp_name, new_exp_name
+    )
     return
 
 
-def clone_experiment_data(
-    par_dir: pathlib.Path | str, exp_name: str, new_exp_name: str
-) -> None:
-    """Clone local experiment data folders.
+def _get_experiment_folders(
+    par_dir: pathlib.Path | str, exp_name: str
+) -> list[pathlib.Path]:
+    """Collect the folders containing the data of an experiment.
 
     Args:
         par_dir: parent directory of the experiment folders.
-        exp_name: experiment name to clone.
-        new_exp_name: name for the clone.
+        exp_name: name of the experiment.
+
+    Returns:
+        The experiment folder inside each tracker folder.
+
+    Raises:
+        ValueError: if the experiment name is not a plain folder name.
     """
+    _validate_name(exp_name)
+    par_dir = pathlib.Path(par_dir)
+    return [
+        folder / exp_name
+        for folder in par_dir.iterdir()
+        if folder.is_dir() and (folder / exp_name).is_dir()
+    ]
 
-    def _clone(path: pathlib.Path, new_path: pathlib.Path) -> None:
-        shutil.copytree(path, new_path)
-        return
 
-    _experiment_data_op(_clone, par_dir, exp_name, new_exp_name)
+def _transfer_experiment_data(
+    op: _TransferOp,
+    par_dir: pathlib.Path | str,
+    exp_name: str,
+    new_exp_name: str,
+) -> None:
+    """Apply an operation moving experiment data to a new name.
+
+    Args:
+        op: operation to apply to the experiment data folders.
+        par_dir: parent directory of the experiment folders.
+        exp_name: name of the experiment.
+        new_exp_name: new experiment name.
+
+    Raises:
+        ValueError: if an experiment name is not a plain folder name.
+        FolderAlreadyExistsError: if a target folder already exists.
+    """
+    _validate_name(new_exp_name)
+    pairs: list[tuple[pathlib.Path, pathlib.Path]] = []
+    for exp_folder in _get_experiment_folders(par_dir, exp_name):
+        new_folder = exp_folder.parent / new_exp_name
+        if new_folder.exists():
+            raise exceptions.FolderAlreadyExistsError(new_folder)
+
+        pairs.append((exp_folder, new_folder))
+
+    for exp_folder, new_folder in pairs:
+        op(exp_folder, new_folder)
+
+    return
+
+
+def _validate_name(name: str) -> None:
+    if not name or '/' in name or '\\' in name or name in ('.', '..'):
+        raise ValueError(f'Invalid experiment name: {name!r}')
+
     return

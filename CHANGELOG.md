@@ -22,6 +22,7 @@
 - `optuna.suggest_overrides` now uses full parameter names for repeated values to prevent collisions
 
 ## Fixed
+- `local_ops` validates targets upfront to prevent partial directory operations
 - terminated training no longer emits `EndTrainingEvent`
 - `GradZScoreNormalizer` now properly skips single-element parameters and zero-variance gradients to prevent division by zero causing `nan` gradients
 - `ZStatCriterion` now properly clips only the upper tail (abnormally large values) rather than improperly increasing abnormally small values

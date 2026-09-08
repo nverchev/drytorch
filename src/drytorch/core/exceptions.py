@@ -24,6 +24,7 @@ __all__ = [
     'EpochNotFoundError',
     'ExperimentalFeatureWarning',
     'FailedOptionalImportWarning',
+    'FolderAlreadyExistsError',
     'FuncNotApplicableError',
     'LossNotScalarError',
     'MetricNotFoundError',
@@ -228,6 +229,18 @@ class FuncNotApplicableError(DryTorchError):
         self.func_name: Final = func_name
         self.type_name: Final = type_name
         super().__init__(func_name, type_name)
+
+
+class FolderAlreadyExistsError(DryTorchError):
+    """Raised when a folder already exists and cannot be overwritten."""
+
+    def __init__(self, path: pathlib.Path | str) -> None:
+        """Initialize the error.
+
+        Args:
+            path: the path to the folder that already exists.
+        """
+        super().__init__(f'Target directory already exists: {path}')
 
 
 class LossNotScalarError(DryTorchError):
