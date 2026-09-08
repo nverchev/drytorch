@@ -236,7 +236,7 @@ class MemoryMetrics(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.LoadModelEvent) -> None:
         if self._metric_loader is None:
-            return None
+            return super().notify(event)
 
         metrics = self._metric_loader.load_metrics(
             event.model_name, event.epoch
