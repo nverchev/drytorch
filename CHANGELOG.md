@@ -36,6 +36,7 @@
 - `TqdmLogger.clean_up()` invokes `super().clean_up()`
 - `TensorBoard` catches `OSError` on server launch failure to raise `TrackerError`
 - `TensorBoard` reuses running server across runs for the same directory and terminates it on clean_up, close, or directory change
+- `TensorBoard` avoids flushing on every metric event so `SummaryWriter` honors `max_queue_size` and `flush_secs`
 - `SQLConnection` disposes its engine on `close()` rather than between runs
 - `SQLConnection` reuses existing experiment rows and avoids duplicating tags across runs
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty

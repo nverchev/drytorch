@@ -143,6 +143,7 @@ class TensorBoard(base_classes.Dumper):
     @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         if self._writer is not None:
+            self.writer.flush()
             self._stashed_writers[event.run_id] = self._writer
             self._writer = None
 
@@ -162,7 +163,6 @@ class TensorBoard(base_classes.Dumper):
             full_name = f'{event.model_name}/{event.source_name}-{name}'
             self.writer.add_scalar(full_name, value, global_step=event.epoch)
 
-        self.writer.flush()
         return super().notify(event)
 
     def _start_tensorboard(self, logdir: pathlib.Path) -> None:

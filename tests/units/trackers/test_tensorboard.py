@@ -84,10 +84,11 @@ class TestTensorBoard:
     def test_notify_metrics(
         self, tracker_started, epoch_metrics_mock_event
     ) -> None:
-        """Test there is one call for each metrics."""
+        """Test there is one call for each metrics and no immediate flush."""
         tracker_started.notify(epoch_metrics_mock_event)
         n_metrics = len(epoch_metrics_mock_event.metrics)
         assert tracker_started.writer.add_scalar.call_count == n_metrics
+        tracker_started.writer.flush.assert_not_called()
 
     def test_no_logging_before_start(
         self, tracker, epoch_metrics_mock_event
@@ -114,7 +115,9 @@ class TestTensorBoard:
     ) -> None:
         """Test that pause stashes state and continue restores it."""
         tracker.notify(start_experiment_mock_event)
+        writer = tracker.writer
         tracker.notify(pause_experiment_mock_event)
+        writer.flush.assert_called_once()
         tracker.notify(continue_experiment_mock_event)
 
     def test_pause_start_stop_continue_keeps_state(
