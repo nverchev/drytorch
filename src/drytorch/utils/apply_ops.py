@@ -1,14 +1,9 @@
 """Module containing functions for nested containers."""
 
 import copy
-import dataclasses
 
 from collections.abc import Callable, MutableMapping, MutableSequence
-from typing import TYPE_CHECKING, Any, TypeVar, overload
-
-
-if TYPE_CHECKING:
-    from _typeshed import DataclassInstance
+from typing import TypeVar, overload
 
 import torch
 
@@ -23,11 +18,6 @@ __all__ = [
 
 _T = TypeVar('_T')
 _C = TypeVar('_C')
-
-if TYPE_CHECKING:
-    _D = TypeVar('_D', bound=DataclassInstance)
-else:
-    _D = TypeVar('_D')
 
 _MISSING = object()
 
@@ -59,12 +49,12 @@ def recursive_apply(
     objects of type tuple are namedtuple classes.
 
     Args:
-        obj: a container containing the expected objects and other containers.
-        expected_type: the type of the objects to modify.
-        func: a function that modifies objects of the expected type.
+        obj: target or object containing other containers and target objects.
+        expected_type: the type of the target object to modify.
+        func: a function that modifies target objects of the expected type.
 
     Returns:
-        The modified object or a copy containing the modified objects.
+        the modified target or container with the modified target objects.
 
     Raises:
         FuncNotApplicableError: if the object is of an unexpected type.
@@ -105,24 +95,6 @@ def recursive_apply(
     )
 
 
-def _dataclass_apply(
-    obj: _D, expected_type: type[_T], func: Callable[[_T], _T]
-) -> _D:
-    """Apply func recursively to all fields of a dataclass."""
-    values: dict[str, Any] = {}
-    for f in dataclasses.fields(obj):
-        value = getattr(obj, f.name, _MISSING)
-        if value is _MISSING:
-            continue
-
-        if f.init:
-            values[f.name] = recursive_apply(
-                value, expected_type=expected_type, func=func
-            )
-
-    return dataclasses.replace(obj, **values)
-
-
 def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     """Extend recursive_apply supports.
 
@@ -130,53 +102,46 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     instance and sets the attributes of a new instance to the new values.
 
     Args:
-        obj: container or class containing other containers and tensors.
-        expected_type: the type of the objects to modify.
-        func: a function that modifies objects of the expected type.
+        obj: object containing other containers and target objects.
+        expected_type: the type of the target object to modify.
+        func: a function that modifies target objects of the expected type.
 
     Returns:
-        The container or class with the modified objects.
+        the container with the modified target objects.
     """
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        try:
-            return _dataclass_apply(obj, expected_type, func)
-        except (TypeError, AttributeError):
-            pass
+    if isinstance(obj, type):
+        return recursive_apply(obj, expected_type=expected_type, func=func)
 
-    dict_attr: dict[str, Any] = {}
-    if hasattr(obj, '__dict__'):
-        dict_attr.update(obj.__dict__)
+    names: list[str] = []
+    names.extend(getattr(obj, '__dict__', {}))
+    for cls in type(obj).__mro__:
+        names.extend(s for s in getattr(cls, '__slots__', ()) if s not in names)
 
-    if slots := getattr(obj, '__slots__', None):
-        for key in slots:
-            try:
-                dict_attr[key] = getattr(obj, key)
-            except AttributeError:  # slotted attributes may not be initialized
-                pass
+    if not names:
+        return recursive_apply(obj, expected_type=expected_type, func=func)
 
-    if dict_attr:
-        obj_copy = copy.copy(obj)
-        for key, value in dict_attr.items():
-            setattr(
-                obj_copy,
-                key,
-                recursive_apply(value, expected_type=expected_type, func=func),
-            )
+    new_obj = copy.copy(obj)
+    for name in names:
+        value = getattr(obj, name, _MISSING)
+        if value is _MISSING:
+            continue
 
-        return obj_copy
+        object.__setattr__(
+            new_obj, name, recursive_apply(value, expected_type, func)
+        )
 
-    return recursive_apply(obj, expected_type=expected_type, func=func)
+    return new_obj
 
 
 def apply_to(obj: _C, device: torch.device) -> _C:
     """Change the device of tensors inside a container.
 
     Args:
-        obj: container or class containing other containers and tensors.
+        obj: object containing other containers and tensors.
         device: the target device.
 
     Returns:
-        the same container with the tensor on the target device.
+        the container with the target tensors on the target device.
     """
     non_blocking = device != torch.device('cpu')
 
@@ -190,10 +155,10 @@ def apply_cpu_detach(obj: _C) -> _C:
     """Detach and store in cpu the tensors inside a container.
 
     Args:
-         obj: container or class containing other containers and tensors.
+        obj: object containing other containers and tensors.
 
     Returns:
-        the same obj with the tensor on cpu.
+        the container with the target tensors on cpu.
     """
 
     def _cpu_detach(tensor: torch.Tensor) -> torch.Tensor:

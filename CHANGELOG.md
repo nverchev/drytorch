@@ -1,4 +1,4 @@
-## [0.1.0] - 02-09-2026
+## [0.1.0] - 08-09-2026
 
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
@@ -20,6 +20,7 @@
 - removed unused `Averager` and `MeanAccumulator` aggregators
 - removed unused `min_delta` and `best_is` arguments from `optuna.TrialCallback`
 - `optuna.suggest_overrides` now uses full parameter names for repeated values to prevent collisions
+- removed preferential dataclass apply branch in `apply`
 
 ## Fixed
 - `local_ops` validates targets upfront to prevent partial directory operations
