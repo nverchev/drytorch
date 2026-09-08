@@ -9,7 +9,7 @@ except ImportError:
     pytest.skip('yaml not available', allow_module_level=True)
     raise
 
-from drytorch.trackers.yaml import YamlDumper
+from drytorch.trackers.yaml import MetadataDumper
 from drytorch.utils import repr_utils
 
 
@@ -20,9 +20,9 @@ class TestSQLConnectionFullCycle:
     """Complete SQLConnection session and tests it afterward."""
 
     @pytest.fixture
-    def tracker(self, tmp_path) -> YamlDumper:
+    def tracker(self, tmp_path) -> MetadataDumper:
         """Set up the instance."""
-        return YamlDumper(tmp_path)
+        return MetadataDumper(tmp_path)
 
     def test_config_metadata(
         self, tracker, start_experiment_event, example_run_ts, example_config

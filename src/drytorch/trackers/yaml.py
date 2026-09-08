@@ -25,7 +25,7 @@ __all__ = [
     'MAX_LENGTH_PLAIN_REPR',
     'MAX_LENGTH_SHORT_REPR',
     'TS_FMT',
-    'YamlDumper',
+    'MetadataDumper',
 ]
 
 
@@ -35,7 +35,11 @@ MAX_LENGTH_SHORT_REPR = 10
 TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 
 
-class YamlDumper(base_classes.Dumper):
+class DryTorchDumper(yaml.Dumper):
+    """YAML Dumper with custom representers for drytorch."""
+
+
+class MetadataDumper(base_classes.Dumper):
     """Tracker that dumps metadata in a YAML file.
 
     Class Attributes:
@@ -44,7 +48,7 @@ class YamlDumper(base_classes.Dumper):
 
     folder_name = 'metadata'
 
-    def __init__(self, par_dir: pathlib.Path | None = None):
+    def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
 
         Args:
@@ -87,7 +91,7 @@ class YamlDumper(base_classes.Dumper):
     @staticmethod
     def _dump(metadata: dict[str, Any] | str, file_path: pathlib.Path) -> None:
         with file_path.open('w') as metadata_file:
-            yaml.dump(metadata, metadata_file)
+            yaml.dump(metadata, metadata_file, Dumper=DryTorchDumper)
 
         return
 
@@ -102,10 +106,11 @@ class YamlDumper(base_classes.Dumper):
         return model_path / f'{obj_name}.yaml'
 
 
-def has_short_repr(
-    obj: object, max_length: int = MAX_LENGTH_SHORT_REPR
-) -> bool:
+def has_short_repr(obj: object, max_length: int | None = None) -> bool:
     """Indicate whether an object has a short representation."""
+    if max_length is None:
+        max_length = MAX_LENGTH_SHORT_REPR
+
     if isinstance(obj, repr_utils.LiteralStr):
         return False
     elif isinstance(obj, str):
@@ -127,10 +132,19 @@ def represent_literal_str(
 
 def represent_sequence(
     dumper: yaml.Dumper,
-    sequence: Sequence[Any] | set[Any],
-    max_length_for_plain: int = MAX_LENGTH_PLAIN_REPR,
+    sequence: Sequence[Any] | set[Any] | frozenset[Any],
+    max_length_for_plain: int | None = None,
 ) -> yaml.SequenceNode:
     """YAML representer for sequences."""
+    if max_length_for_plain is None:
+        max_length_for_plain = MAX_LENGTH_PLAIN_REPR
+
+    if isinstance(sequence, (set, frozenset)):
+        try:
+            sequence = sorted(sequence)
+        except TypeError:
+            sequence = sorted(sequence, key=str)
+
     flow_style = False
     if len(sequence) <= max_length_for_plain:
         if all(has_short_repr(elem) for elem in sequence):
@@ -150,8 +164,9 @@ def represent_omitted(
     )
 
 
-yaml.add_representer(repr_utils.LiteralStr, represent_literal_str)
-yaml.add_representer(list, represent_sequence)
-yaml.add_representer(tuple, represent_sequence)
-yaml.add_representer(set, represent_sequence)
-yaml.add_representer(repr_utils.Omitted, represent_omitted)
+DryTorchDumper.add_representer(repr_utils.LiteralStr, represent_literal_str)
+DryTorchDumper.add_representer(list, represent_sequence)
+DryTorchDumper.add_representer(tuple, represent_sequence)
+DryTorchDumper.add_representer(set, represent_sequence)
+DryTorchDumper.add_representer(frozenset, represent_sequence)
+DryTorchDumper.add_representer(repr_utils.Omitted, represent_omitted)

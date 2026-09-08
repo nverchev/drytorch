@@ -137,7 +137,7 @@ def _add_yaml(tracker_list: list[Tracker]) -> bool:
         warnings.warn(FailedOptionalImportWarning('yaml'), stacklevel=2)
         return False
 
-    tracker_list.append(yaml.YamlDumper())
+    tracker_list.append(yaml.MetadataDumper())
     return True
 
 

@@ -19,6 +19,7 @@ except ImportError:
 from drytorch.trackers.yaml import (
     MAX_LENGTH_PLAIN_REPR,
     MAX_LENGTH_SHORT_REPR,
+    DryTorchDumper,
     has_short_repr,
 )
 from drytorch.utils import repr_utils
@@ -38,48 +39,50 @@ def test_literal_string():
     """Test YAML representers for correct serialization."""
     str_value = 'test'
     lit_str = repr_utils.LiteralStr(str_value)
-    yaml_output = yaml.dump(lit_str)
+    yaml_output = yaml.dump(lit_str, Dumper=DryTorchDumper)
     assert yaml_output == yaml.dump(str_value, default_style='|')
 
 
 def test_short_sequence():
     """Test sequence representation logic."""
     short_seq = ('a', 'b')
-    yaml_output = yaml.dump(short_seq)
+    yaml_output = yaml.dump(short_seq, Dumper=DryTorchDumper)
     assert yaml_output.strip() == '[a, b]'  # Flow style
 
 
 def test_long_sequence():
     """Test sequence representation logic."""
     long_seq = ['a'] * (MAX_LENGTH_PLAIN_REPR + 1)
-    yaml_output = yaml.dump(long_seq)
+    yaml_output = yaml.dump(long_seq, Dumper=DryTorchDumper)
     assert '- ' in yaml_output  # Block style for long sequences
 
 
 def test_long_element():
     """Test sequence representation logic."""
     long_element = ('a' * (MAX_LENGTH_SHORT_REPR + 1),)
-    yaml_output = yaml.dump(long_element)
+    yaml_output = yaml.dump(long_element, Dumper=DryTorchDumper)
     assert '- ' in yaml_output  # Block style for long elements
 
 
 def test_represent_omitted():
     """Test correct representation of omitted values."""
     omitted = repr_utils.Omitted(5)
-    yaml_string = yaml.dump(omitted)
+    yaml_string = yaml.dump(omitted, Dumper=DryTorchDumper)
     assert yaml_string == '!Omitted\nomitted_elements: 5\n'
 
 
 def test_represent_unknown_omitted():
     """Test correct representation of an unknown number of omitted values."""
     omitted = repr_utils.Omitted()
-    yaml_string = yaml.dump(omitted, Dumper=yaml.Dumper)
+    yaml_string = yaml.dump(omitted, Dumper=DryTorchDumper)
     assert yaml_string == '!Omitted\nomitted_elements: .nan\n'
 
 
 def test_represent_list_with_omitted():
     """Test the correct representation of omitted values inside a list."""
-    yaml_string = yaml.dump([2, repr_utils.Omitted(5), 3])
+    yaml_string = yaml.dump(
+        [2, repr_utils.Omitted(5), 3], Dumper=DryTorchDumper
+    )
     assert yaml_string == '[2, !Omitted {omitted_elements: 5}, 3]\n'
 
 
@@ -90,5 +93,5 @@ def test_literal_str_yaml_representation(string):
     stripped = string.strip()
     assume(stripped)
     literal = repr_utils.LiteralStr(stripped)
-    yaml_literal = yaml.dump(literal)
+    yaml_literal = yaml.dump(literal, Dumper=DryTorchDumper)
     assert yaml_literal.startswith('|-\n')

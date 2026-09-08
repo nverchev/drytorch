@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.19.1
+    jupytext_version: 1.18.1
 kernelspec:
   display_name: Python 3
   language: python
@@ -47,7 +47,7 @@ DRYTorch default trackers are subscribed to every experiment upon instantiation.
 In standard mode, these are:
 - `trackers.builtin_logging.BuiltinLogger` - handles the "drytorch" logger from the standard library
 - `trackers.tqdm.TqdmLogger` - for progress bars (when `tqdm` is available)
-- `trackers.yaml.YamlDumper` - to dump metadata (when `PyAML` is available)
+- `trackers.yaml.MetadataDumper` - to dump metadata (when `PyAML` is available)
 
 #### Modes
 DRYTorch offers carefully designed configurations, or initialization modes,

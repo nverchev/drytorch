@@ -22,8 +22,13 @@
 - `optuna.suggest_overrides` now uses full parameter names for repeated values to prevent collisions
 - removed preferential dataclass apply branch in `apply`
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
+- renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml` with a backwards-compatible alias
 
 ## Fixed
+- `MetadataDumper` scopes sequence representers to `DryTorchDumper` to avoid mutating global PyYAML representers
+- `MetadataDumper` reads sequence length limits dynamically from module attributes
+- `MetadataDumper` sorts set and frozenset elements to ensure deterministic serialization across runs
+- added `-> None` return type annotation to `MetadataDumper.__init__`
 - `BasePlotter` raises `TrackerError` when epoch and value counts do not match
 - `BuiltinLogger` keys metric format arguments by position to prevent collisions with `desc` and `_value`
 - `set_formatter` validates style upfront regardless of registered handlers
