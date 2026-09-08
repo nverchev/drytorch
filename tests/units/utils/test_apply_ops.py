@@ -10,6 +10,7 @@ import pytest
 
 from drytorch.core import exceptions
 from drytorch.utils.apply_ops import (
+    _PASSTHROUGH_TYPES,
     apply,
     apply_cpu_detach,
     apply_to,
@@ -29,6 +30,12 @@ class _TorchLikeTuple(NamedTuple):
 
     tensor: torch.Tensor
     tensor_lst: list[torch.Tensor]
+
+
+class _NamedTupleWithString(NamedTuple):
+    """NamedTuple containing a string."""
+
+    text: str
 
 
 class _BaseTestClass:
@@ -300,3 +307,79 @@ def test_apply_class_object_raises_error() -> None:
 
     with pytest.raises(exceptions.FuncNotApplicableError):
         apply(cls, torch.Tensor, _times_two)
+
+
+def test_apply_to_collated_batch() -> None:
+    """Test a collated batch shape with strings works end to end."""
+    batch = (torch.zeros(2, 3), ['sample_a', 'sample_b'])
+    device = torch.device('cpu')
+
+    out = apply_to(batch, device=device)
+
+    assert torch.equal(out[0], torch.zeros(2, 3))
+    assert out[1] == ['sample_a', 'sample_b']
+
+
+def test_apply_strings_and_bytes_passthrough() -> None:
+    """Test strings and bytes pass through wherever they sit."""
+    data = {
+        'tensor': torch.tensor(1.0),
+        'bare_str': 'sample_string',
+        'bare_bytes': b'sample_bytes',
+        'list_str': ['a', 'b'],
+        'named_tuple': _NamedTupleWithString('foo'),
+    }
+
+    out = apply(data, torch.Tensor, _times_two)
+
+    assert out['tensor'].item() == 2.0
+    assert out['bare_str'] == 'sample_string'
+    assert out['bare_bytes'] == b'sample_bytes'
+    assert out['list_str'] == ['a', 'b']
+    assert out['named_tuple'] == _NamedTupleWithString('foo')
+
+
+def test_recursive_apply_preserves_string_identity() -> None:
+    """Test a str leaf comes back as the same object rather than a copy."""
+    leaf = 'sample_string'
+    container = [leaf]
+
+    out = recursive_apply(container, torch.Tensor, _times_two)
+
+    assert out[0] is leaf
+
+
+def test_recursive_apply_unsupported_types_still_raise() -> None:
+    """Test recursive_apply raises for None, a set, and a plain object."""
+    none_leaf = [None]
+    set_leaf = [{1, 2}]
+    obj_leaf = [object()]
+
+    with pytest.raises(exceptions.FuncNotApplicableError) as exc_none:
+        recursive_apply(none_leaf, torch.Tensor, _times_two)
+    with pytest.raises(exceptions.FuncNotApplicableError) as exc_set:
+        recursive_apply(set_leaf, torch.Tensor, _times_two)
+    with pytest.raises(exceptions.FuncNotApplicableError) as exc_obj:
+        recursive_apply(obj_leaf, torch.Tensor, _times_two)
+
+    assert exc_none.type is exceptions.FuncNotApplicableError
+    assert exc_set.type is exceptions.FuncNotApplicableError
+    assert exc_obj.type is exceptions.FuncNotApplicableError
+
+
+def test_passthrough_types_constant() -> None:
+    """Test _PASSTHROUGH_TYPES constant contains str and bytes."""
+    expected = (str, bytes)
+
+    actual = _PASSTHROUGH_TYPES
+
+    assert actual == expected
+
+
+def test_recursive_apply_expected_type_str() -> None:
+    """Test calling recursive_apply with expected_type=str transforms it."""
+    s = 'hello'
+
+    out = recursive_apply(s, str, str.upper)
+
+    assert out == 'HELLO'

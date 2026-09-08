@@ -23,6 +23,7 @@
 - removed preferential dataclass apply branch in `apply`
 
 ## Fixed
+- batches carrying strings or bytes beside their tensors no longer stop training
 - `local_ops` validates targets upfront to prevent partial directory operations
 - terminated training no longer emits `EndTrainingEvent`
 - `GradZScoreNormalizer` now properly skips single-element parameters and zero-variance gradients to prevent division by zero causing `nan` gradients

@@ -3,7 +3,7 @@
 import copy
 
 from collections.abc import Callable, MutableMapping, MutableSequence
-from typing import TypeVar, overload
+from typing import Final, TypeVar, overload
 
 import torch
 
@@ -20,6 +20,7 @@ _T = TypeVar('_T')
 _C = TypeVar('_C')
 
 _MISSING = object()
+_PASSTHROUGH_TYPES: Final = (str, bytes)
 
 
 @overload
@@ -41,12 +42,9 @@ def recursive_apply(
 
     The implementation is similar to default_convert in
     github.com/pytorch/pytorch/blob/main/torch/utils/data/_utils/collate.py.
-    It makes a deepcopy of a MutableMapping or MutableSequence container and
-    modifies the elements of the expected type using the functions or act
-    recursively on other containers. If obj is a namedtuple, the
-    function uses the class constructor to create a new instance with the
-    modified elements. Note that when applied after default_convert, the only
-    objects of type tuple are namedtuple classes.
+    It transforms objects of the expected type, traverses mappings, lists,
+    tuples and named tuples, and returns strings and bytes unchanged. Every
+    other unrecognised type raises FuncNotApplicableError.
 
     Args:
         obj: target or object containing other containers and target objects.
@@ -62,6 +60,9 @@ def recursive_apply(
     """
     if isinstance(obj, expected_type):
         return func(obj)
+
+    if isinstance(obj, _PASSTHROUGH_TYPES):
+        return obj
 
     if isinstance(obj, MutableMapping):
         mapping = copy.copy(obj)
@@ -100,6 +101,10 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
 
     If the input has attributes, it calls recursive_apply, creates a new
     instance and sets the attributes of a new instance to the new values.
+    Otherwise, it follows the recursive_apply contract: objects of the expected
+    type are transformed, mappings, lists, tuples and named tuples are
+    traversed, strings and bytes return unchanged, and every other unrecognised
+    type raises FuncNotApplicableError.
 
     Args:
         obj: object containing other containers and target objects.
@@ -148,6 +153,7 @@ def apply_to(obj: _C, device: torch.device) -> _C:
     def _to_device(tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(device, non_blocking=non_blocking)
 
+    _to_device.__name__ = 'apply_to'
     return apply(obj, expected_type=torch.Tensor, func=_to_device)
 
 
@@ -164,4 +170,5 @@ def apply_cpu_detach(obj: _C) -> _C:
     def _cpu_detach(tensor: torch.Tensor) -> torch.Tensor:
         return tensor.detach().cpu()
 
+    _cpu_detach.__name__ = 'apply_cpu_detach'
     return apply(obj, expected_type=torch.Tensor, func=_cpu_detach)
