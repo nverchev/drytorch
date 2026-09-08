@@ -29,6 +29,7 @@
 - `CSVDumper.clean_up()` resets active sources so consecutive runs write headers
 - `CSVDumper` and `SQLConnection` release stashed state on `close()`
 - `Dumper.close()` releases stashed paused state
+- `DryTorchFormatter` formats messages via `formatMessage()` instead of mutating `_style._fmt`
 - `SQLConnection` disposes its engine on `close()` rather than between runs
 - `SQLConnection` reuses existing experiment rows and avoids duplicating tags across runs
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty

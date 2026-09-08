@@ -1,6 +1,7 @@
 """Tests for the "logging" module."""
 
 import logging
+import sys
 
 from collections.abc import Generator
 
@@ -267,6 +268,21 @@ class TestDryTorchFormatter:
         """Test formatting at epoch level."""
         formatted = formatter.format(example_record)
         assert formatted == '\rTest message\n'
+
+    def test_uses_time(self, formatter) -> None:
+        """Test usesTime returns True."""
+        assert formatter.usesTime() is True
+
+    def test_format_with_exception(self, formatter, example_record) -> None:
+        """Test formatting record with exc_info."""
+        try:
+            raise ValueError('Test error')
+        except ValueError:
+            example_record.exc_info = sys.exc_info()
+
+        formatted = formatter.format(example_record)
+        assert 'Test message' in formatted
+        assert 'ValueError: Test error' in formatted
 
 
 class TestProgressFormatter:

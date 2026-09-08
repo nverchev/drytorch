@@ -15,7 +15,7 @@ import functools
 import logging
 import sys
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 from typing_extensions import override
 
@@ -270,7 +270,7 @@ class DryTorchFormatter(logging.Formatter):
         default_msec_format: format for milliseconds.
     """
 
-    default_msec_format: ClassVar[str] = ''
+    default_msec_format = ''
 
     def __init__(self) -> None:
         """Initialize."""
@@ -278,10 +278,14 @@ class DryTorchFormatter(logging.Formatter):
         return
 
     @override
-    def format(self, record: logging.LogRecord) -> str:
-        """Format the log record."""
-        self._style._fmt = self._info_fmt(record.levelno)
-        return super().format(record)
+    def usesTime(self) -> bool:
+        """Indicate whether the formatter uses asctime."""
+        return True
+
+    @override
+    def formatMessage(self, record: logging.LogRecord) -> str:
+        """Format the log record message."""
+        return self._info_fmt(record.levelno) % record.__dict__
 
     @staticmethod
     def _info_fmt(level_no: int) -> str:
