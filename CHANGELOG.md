@@ -38,6 +38,7 @@
 - `TensorBoard` reuses running server across runs for the same directory and terminates it on clean_up, close, or directory change
 - `TensorBoard` avoids flushing on every metric event so `SummaryWriter` honors `max_queue_size` and `flush_secs`
 - `Wandb` relies on base tracker cleanup on stop and removes redundant scope guard in `MetricEvent`
+- `Wandb` stashes `_defined_metrics` across pause and continue to prevent redundant metric definitions
 - `SQLConnection` disposes its engine on `close()` rather than between runs
 - `SQLConnection` reuses existing experiment rows and avoids duplicating tags across runs
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty

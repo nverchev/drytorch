@@ -40,7 +40,7 @@ class Wandb(Dumper):
     _settings: wandb_settings.Settings
     _run: wandb_run.Run | None
     _defined_metrics: set[str]
-    _stashed_runs: dict[str, wandb_run.Run]
+    _stashed_runs: dict[str, tuple[wandb_run.Run, set[str]]]
 
     def __init__(
         self,
@@ -96,7 +96,7 @@ class Wandb(Dumper):
 
     @override
     def close(self) -> None:
-        for run in self._stashed_runs.values():
+        for run, _ in self._stashed_runs.values():
             try:
                 run.finish()
             except Exception as e:
@@ -155,7 +155,10 @@ class Wandb(Dumper):
     @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         if self._run is not None:
-            self._stashed_runs[event.run_id] = self._run
+            self._stashed_runs[event.run_id] = (
+                self._run,
+                self._defined_metrics,
+            )
             self._run = None
             self._defined_metrics = set()
 
@@ -166,7 +169,7 @@ class Wandb(Dumper):
         if event.run_id not in self._stashed_runs:
             raise exceptions.NoStashedStateError(self, event.run_id)
 
-        self._run = self._stashed_runs.pop(event.run_id)
+        self._run, self._defined_metrics = self._stashed_runs.pop(event.run_id)
         return super().notify(event)
 
     @notify.register

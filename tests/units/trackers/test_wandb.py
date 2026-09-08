@@ -179,11 +179,20 @@ class TestWandb:
         start_experiment_mock_event,
         pause_experiment_mock_event,
         continue_experiment_mock_event,
+        epoch_metrics_mock_event,
     ) -> None:
         """Test that pause stashes state and continue restores it."""
         tracker.notify(start_experiment_mock_event)
+        tracker.notify(epoch_metrics_mock_event)
+        define_metric_mock = tracker.run.define_metric
+        initial_calls = define_metric_mock.call_count
+        assert initial_calls > 0
+
         tracker.notify(pause_experiment_mock_event)
         tracker.notify(continue_experiment_mock_event)
+
+        tracker.notify(epoch_metrics_mock_event)
+        assert define_metric_mock.call_count == initial_calls
 
     def test_pause_start_stop_continue_keeps_state(
         self,
