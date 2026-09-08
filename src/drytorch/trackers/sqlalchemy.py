@@ -266,15 +266,24 @@ class SQLConnection(base_classes.MetricLoader):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         with self.session_factory() as session:
-            experiment = Experiment(
-                experiment_name=event.exp_name,
+            experiment = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_(event.exp_name))
+                .first()
             )
 
+            if experiment is None:
+                experiment = Experiment(experiment_name=event.exp_name)
+                session.add(experiment)
+
+            existing_tags = {tag.text for tag in experiment.tags}
             for tag_str in event.tags:
-                tag = Tags(text=tag_str, experiment=experiment)
-                session.add(tag)
+                if tag_str not in existing_tags:
+                    tag = Tags(text=tag_str, experiment=experiment)
+                    session.add(tag)
+
             self._run = Run(event.run_id, event.run_ts, experiment)
-            session.add(experiment)
+            session.add(self._run)
             session.commit()
 
         return super().notify(event)

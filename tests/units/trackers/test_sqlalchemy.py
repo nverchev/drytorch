@@ -40,11 +40,15 @@ class TestSQLConnection:
         self.create_engine_mock = mocker.Mock(return_value=self.mock_engine)
         self.make_mock_session = mocker.Mock(return_value=self.MockSession)
         self.exp = mocker.create_autospec(Experiment, instance=True)
+        self.exp.tags = []
+        self.exp.runs = []
         self.log = mocker.create_autospec(Log, instance=True)
         self.run = mocker.create_autospec(Run, instance=True)
         self.source = mocker.create_autospec(Source, instance=True)
         self.tags = mocker.create_autospec(Tags, instance=True)
         self.mock_last_run = mocker.Mock()
+        mock_where = self.mock_context.query.return_value.where.return_value
+        mock_where.first.return_value = None
         mocker.patch('sqlalchemy.create_engine', self.create_engine_mock)
         mocker.patch('sqlalchemy.orm.sessionmaker', self.make_mock_session)
         mocker.patch('sqlalchemy.schema.MetaData.create_all')
@@ -114,8 +118,10 @@ class TestSQLConnection:
         start_experiment_mock_event,
     ) -> None:
         """Test start experiment notification creates new tables."""
+        added = [call.args[0] for call in self.mock_context.add.call_args_list]
         assert tracker_started.run == self.run
-        self.mock_context.add.assert_called_with(self.exp)
+        assert self.exp in added
+        assert self.run in added
 
     def test_notify_start_stop_experiment(
         self,
@@ -380,6 +386,33 @@ class TestSQLConnection:
         assert tracker._sql_stashed_runs == {}
         assert tracker._sql_stashed_sources == {}
 
+    def test_start_experiment_reuses_existing_experiment(
+        self,
+        mocker,
+        tracker,
+        start_experiment_mock_event,
+    ) -> None:
+        """Test StartExperimentEvent reuses existing experiment and tags."""
+        # Prepare
+        existing_tag = mocker.Mock(text='tag1')
+        mock_where = self.mock_context.query.return_value.where.return_value
+        mock_where.first.return_value = self.exp
+        self.exp.tags = [existing_tag]
+        start_experiment_mock_event.tags = ['tag1', 'tag2']
+
+        # Trigger
+        tracker.notify(start_experiment_mock_event)
+
+        # Assert
+        self.Experiment.assert_not_called()
+        self.Run.assert_called_once_with(
+            start_experiment_mock_event.run_id,
+            start_experiment_mock_event.run_ts,
+            self.exp,
+        )
+        assert self.Tags.call_count == 1
+        self.Tags.assert_called_once_with(text='tag2', experiment=self.exp)
+
 
 class TestSQLConnectionInMemory:
     """Tests with a real in-memory engine."""
@@ -393,13 +426,17 @@ class TestSQLConnectionInMemory:
         # Prepare
         engine = sqlalchemy.create_engine('sqlite://')
         tracker = SQLConnection(engine=engine)
+        start_experiment_mock_event.tags = ['tag1', 'tag2']
         try:
             start_event_2 = dataclasses.replace(
-                start_experiment_mock_event, run_id='run2'
+                start_experiment_mock_event,
+                run_id='run2',
+                tags=['tag2', 'tag3'],
             )
         except TypeError:
             start_event_2 = copy.copy(start_experiment_mock_event)
             start_event_2.run_id = 'run2'
+            start_event_2.tags = ['tag2', 'tag3']
 
         # Trigger
         tracker.notify(start_experiment_mock_event)
@@ -408,5 +445,17 @@ class TestSQLConnectionInMemory:
 
         # Assert
         with tracker.session_factory() as session:
+            experiments = session.query(Experiment).all()
             runs = session.query(Run).all()
-        assert len(runs) == 2
+            tags = session.query(Tags).all()
+            num_experiments = len(experiments)
+            num_runs = len(runs)
+            exp_runs_count = len(experiments[0].runs) if experiments else 0
+            tag_texts = {t.text for t in tags}
+            num_tags = len(tags)
+
+        assert num_experiments == 1
+        assert num_runs == 2
+        assert exp_runs_count == 2
+        assert tag_texts == {'tag1', 'tag2', 'tag3'}
+        assert num_tags == 3
