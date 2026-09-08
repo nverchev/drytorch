@@ -41,6 +41,7 @@ class TensorBoard(base_classes.Dumper):
 
     _writer: tensorboard.SummaryWriter | None
     _process: subprocess.Popen | None
+    _current_logdir: pathlib.Path | None
     _port: int | None
     _instance_number: int
     _start_server: bool
@@ -67,6 +68,7 @@ class TensorBoard(base_classes.Dumper):
         super().__init__(par_dir)
         self._writer = None
         self._process = None
+        self._current_logdir = None
         self._port = None
         self.__class__.instance_count += 1
         self._instance_number = self.__class__.instance_count
@@ -88,16 +90,22 @@ class TensorBoard(base_classes.Dumper):
 
         return self._writer
 
+    def _terminate_server(self) -> None:
+        if self._process is not None:
+            self._process.terminate()
+            self._process.wait()
+            self._process = None
+            self._current_logdir = None
+            self._port = None
+
+        return
+
     @override
     def clean_up(self) -> None:
         if self._writer is not None:
             self.writer.close()
 
-        if self._process is not None:
-            self._process.terminate()
-            self._process.wait()
-            self._process = None
-
+        self._terminate_server()
         self._writer = None
         return super().clean_up()
 
@@ -107,6 +115,7 @@ class TensorBoard(base_classes.Dumper):
             writer.close()
 
         self._stashed_writers.clear()
+        self._terminate_server()
         return super().close()
 
     @functools.singledispatchmethod
@@ -166,6 +175,12 @@ class TensorBoard(base_classes.Dumper):
 
     def _start_tensorboard_server(self, logdir: pathlib.Path) -> None:
         """Start a TensorBoard server process."""
+        if self._process is not None:
+            if self._process.poll() is None and self._current_logdir == logdir:
+                return
+
+            self._terminate_server()
+
         instance_port = self.base_port + self._instance_number
         port = self._find_free_port(start=instance_port)
         self._port = port
@@ -194,6 +209,7 @@ class TensorBoard(base_classes.Dumper):
             msg = 'TensorBoard failed to start'
             raise exceptions.TrackerError(self, msg) from ose
 
+        self._current_logdir = logdir
         return
 
     @staticmethod
