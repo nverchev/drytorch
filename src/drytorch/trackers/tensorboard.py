@@ -190,9 +190,9 @@ class TensorBoard(base_classes.Dumper):
                     'true',
                 ],
             )
-        except subprocess.CalledProcessError as cpe:
+        except OSError as ose:
             msg = 'TensorBoard failed to start'
-            raise exceptions.TrackerError(self, msg) from cpe
+            raise exceptions.TrackerError(self, msg) from ose
 
         return
 

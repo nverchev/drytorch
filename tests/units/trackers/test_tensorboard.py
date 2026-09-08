@@ -151,3 +151,15 @@ class TestTensorBoard:
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
         tracker.close()
+
+    def test_tensorboard_launch_fails_on_os_error(
+        self,
+        tracker,
+        start_experiment_mock_event,
+    ) -> None:
+        """Test TrackerError is raised when Popen fails with OSError."""
+        self.mock_popen.side_effect = PermissionError('Permission denied')
+        with pytest.raises(
+            exceptions.TrackerError, match='TensorBoard failed to start'
+        ):
+            tracker.notify(start_experiment_mock_event)

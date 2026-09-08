@@ -34,6 +34,7 @@
 - `DryTorchFormatter` formats messages via `formatMessage()` instead of mutating `_style._fmt`
 - `TqdmLogger` closes active progress bars on pause and replaces incomplete epoch bars cleanly
 - `TqdmLogger.clean_up()` invokes `super().clean_up()`
+- `TensorBoard` catches `OSError` on server launch failure to raise `TrackerError`
 - `SQLConnection` disposes its engine on `close()` rather than between runs
 - `SQLConnection` reuses existing experiment rows and avoids duplicating tags across runs
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty
