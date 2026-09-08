@@ -44,10 +44,10 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     _default_dialect: ClassVar[csv.Dialect] = DryTorchDialect()
     _base_headers: ClassVar[tuple[str, ...]] = ('Model', 'Source', 'Epoch')
 
-    _active_sources: set[str]
+    _active_sources: dict[str, tuple[str, ...]]
     _dialect: csv.Dialect
     _resume_run: bool
-    _csv_stashed_state: dict[str, tuple[bool, set[str]]]
+    _csv_stashed_state: dict[str, tuple[bool, dict[str, tuple[str, ...]]]]
 
     def __init__(
         self,
@@ -62,7 +62,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             dialect: the format specification. Defaults to local dialect.
         """
         super().__init__(par_dir)
-        self._active_sources = set()
+        self._active_sources = {}
         self._dialect = dialect
         self._resume_run = False
         self._csv_stashed_state = {}
@@ -84,7 +84,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             self._resume_run,
             self._active_sources,
         )
-        self._active_sources = set()
+        self._active_sources = {}
         return super().notify(event)
 
     @notify.register
@@ -103,26 +103,43 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         file_address = self._file_path(
             run_dir, event.model_name, event.source_name
         )
-        metric_names = tuple(event.metrics)
-        headers = self._base_headers + metric_names
         if event.source_name not in self._active_sources:
             if self._resume_run and file_address.exists():
                 with file_address.open(newline='') as log:
                     reader = csv.reader(log, dialect=self._dialect)
                     previous_headers = tuple(next(reader))
-                    if headers != previous_headers:
+                    len_base = len(self._base_headers)
+                    recorded_metrics = previous_headers[len_base:]
+                    if set(event.metrics) != set(recorded_metrics):
                         msg = (
-                            f'Current {headers=} and previous headers='
-                            f'{previous_headers} do not correspond'
+                            'Headers for source {!r} do not match previous: '
+                            '{} vs {}'
+                        )
+                        msg = msg.format(
+                            event.source_name,
+                            tuple(event.metrics),
+                            recorded_metrics,
                         )
                         raise exceptions.TrackerError(self, msg)
 
+                    self._active_sources[event.source_name] = recorded_metrics
             else:
+                metric_names = tuple(event.metrics)
+                headers = self._base_headers + metric_names
                 with file_address.open('w', newline='') as log:  # reset
                     writer = csv.writer(log, dialect=self._dialect)
                     writer.writerow(headers)
 
-            self._active_sources.add(event.source_name)
+                self._active_sources[event.source_name] = metric_names
+
+        recorded_metrics = self._active_sources[event.source_name]
+        if set(event.metrics) != set(recorded_metrics):
+            msg = 'Metric set changed for source {!r}: expected {}, got {}'
+            msg = msg.format(
+                event.source_name, recorded_metrics, tuple(event.metrics)
+            )
+            raise exceptions.TrackerError(self, msg)
+
         with file_address.open('a', newline='') as log:
             writer = csv.writer(log, dialect=self._dialect)
             writer.writerow(
@@ -130,7 +147,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
                     event.model_name,
                     event.source_name,
                     event.epoch,
-                    *event.metrics.values(),
+                    *(event.metrics[m] for m in recorded_metrics),
                 ]
             )
         return super().notify(event)
@@ -172,9 +189,19 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
                     continue
 
                 epochs.append(epoch)
-                for metric, value in zip(
-                    metric_names, row[len_base:], strict=True
-                ):
+                try:
+                    metric_value_pairs = tuple(
+                        zip(metric_names, row[len_base:], strict=True)
+                    )
+                except ValueError as err:
+                    msg = (
+                        'Malformed row at epoch {} in {}: '
+                        'row values do not match headers {}.'
+                    )
+                    msg = msg.format(epoch, file_address, metric_names)
+                    raise exceptions.TrackerError(self, msg) from err
+
+                for metric, value in metric_value_pairs:
                     value_list = named_metric_values.setdefault(metric, [])
                     value_list.append(float(value))
 

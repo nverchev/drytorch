@@ -6,7 +6,7 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch.core import exceptions
+from drytorch.core import exceptions, log_events
 from drytorch.core.exceptions import TrackerError
 from drytorch.trackers.csv import CSVDumper
 
@@ -76,7 +76,7 @@ class TestCsvDumper:
             f.write('"Model","Source","Epoch","DifferentMetric"\n')
             f.write('"model","source",1,0.1\n')
 
-        with pytest.raises(TrackerError, match='headers'):
+        with pytest.raises(TrackerError, match='Headers'):
             tracker_started_with_resume.notify(epoch_metrics_mock_event)
 
     def test_read_csv(
@@ -163,3 +163,96 @@ class TestCsvDumper:
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
         tracker.close()
+
+    def test_metrics_different_order_written_under_own_columns(
+        self, tracker_started, epoch_metrics_mock_event
+    ) -> None:
+        """Test that metrics in different order land under their own column."""
+        # Prepare
+        model_name = epoch_metrics_mock_event.model_name
+        source_name = epoch_metrics_mock_event.source_name
+        event_1 = log_events.MetricEvent(
+            epoch=1,
+            model_name=model_name,
+            source_name=source_name,
+            metrics={'a': 1.0, 'b': 2.0},
+        )
+        event_2 = log_events.MetricEvent(
+            epoch=2,
+            model_name=model_name,
+            source_name=source_name,
+            metrics={'b': 20.0, 'a': 10.0},
+        )
+
+        # Trigger
+        tracker_started.notify(event_1)
+        tracker_started.notify(event_2)
+        epochs, metric_dict = tracker_started.read_csv(model_name, source_name)
+
+        # Assert
+        assert epochs == [1, 2]
+        assert metric_dict['a'] == [1.0, 10.0]
+        assert metric_dict['b'] == [2.0, 20.0]
+
+    @pytest.mark.parametrize(
+        'second_metrics, expected_error_metric',
+        [
+            ({'a': 1.0, 'b': 2.0, 'c': 3.0}, 'c'),
+            ({'a': 1.0}, 'b'),
+        ],
+    )
+    def test_metric_set_change_raises_tracker_error(
+        self,
+        tracker_started,
+        epoch_metrics_mock_event,
+        second_metrics,
+        expected_error_metric,
+    ) -> None:
+        """Test that adding or dropping a metric raises TrackerError."""
+        # Prepare
+        model_name = epoch_metrics_mock_event.model_name
+        source_name = epoch_metrics_mock_event.source_name
+        event_1 = log_events.MetricEvent(
+            epoch=1,
+            model_name=model_name,
+            source_name=source_name,
+            metrics={'a': 1.0, 'b': 2.0},
+        )
+        event_2 = log_events.MetricEvent(
+            epoch=2,
+            model_name=model_name,
+            source_name=source_name,
+            metrics=second_metrics,
+        )
+
+        # Trigger
+        tracker_started.notify(event_1)
+        with pytest.raises(TrackerError) as exc_info:
+            tracker_started.notify(event_2)
+
+        # Assert
+        error_msg = str(exc_info.value)
+        assert source_name in error_msg
+        assert expected_error_metric in error_msg
+
+    def test_read_csv_short_row_raises_tracker_error(
+        self, tracker_started, epoch_metrics_mock_event
+    ) -> None:
+        """Test row shorter than header raises TrackerError."""
+        # Prepare
+        model_name = epoch_metrics_mock_event.model_name
+        source_name = epoch_metrics_mock_event.source_name
+        run_dir = tracker_started._get_run_dir()
+        csv_path = tracker_started._file_path(run_dir, model_name, source_name)
+        with csv_path.open('w') as f:
+            f.write('"Model","Source","Epoch","a","b"\n')
+            f.write('"model","source",1,1.0\n')
+
+        # Trigger
+        with pytest.raises(TrackerError) as exc_info:
+            tracker_started.read_csv(model_name, source_name)
+
+        # Assert
+        error_msg = str(exc_info.value)
+        assert str(csv_path) in error_msg
+        assert '1' in error_msg
