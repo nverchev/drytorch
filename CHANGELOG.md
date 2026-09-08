@@ -23,6 +23,7 @@
 - removed preferential dataclass apply branch in `apply`
 
 ## Fixed
+- `Dumper.close()` releases stashed paused state
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty
 - setting `MAX_REPR_SIZE` to 0 now records the element count without the elements, as it already did for dictionaries
 - batches carrying strings or bytes beside their tensors no longer stop training

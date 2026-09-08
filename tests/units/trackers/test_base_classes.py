@@ -162,16 +162,38 @@ class TestDumper:
         with pytest.raises(exceptions.NoStashedStateError):
             tracker.notify(continue_experiment_mock_event)
 
-    def test_close_releases_stashes(
+    def test_clean_up_leaves_stashed_state(
         self,
         tracker,
         start_experiment_mock_event,
         pause_experiment_mock_event,
     ) -> None:
+        """Test that clean_up does not clear stashed paused state."""
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(pause_experiment_mock_event)
+
+        tracker.clean_up()
+
+        assert len(tracker._stashed_state) == 1
+
+    def test_close_releases_stashes(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        pause_experiment_mock_event,
+        continue_experiment_mock_event,
+    ) -> None:
         """Test that close unconditionally releases stashed resources."""
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
+
+        assert len(tracker._stashed_state) == 1
+
         tracker.close()
+
+        assert len(tracker._stashed_state) == 0
+        with pytest.raises(exceptions.NoStashedStateError):
+            tracker.notify(continue_experiment_mock_event)
 
 
 class TestMetricLoader:

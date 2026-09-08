@@ -100,11 +100,19 @@ class Dumper(tracking.Tracker):
 
         return self._exp_name
 
+    @override
     def clean_up(self) -> None:
         """Remove experimental data from the tracker."""
         self._par_dir = None
         self._exp_name = None
         self._run_id = None
+        return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        """Release tracker state, including any paused state."""
+        self._stashed_state.clear()
+        return super().close()
 
     @functools.singledispatchmethod
     @override
