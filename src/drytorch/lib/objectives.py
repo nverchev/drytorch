@@ -917,6 +917,9 @@ class MetricTracker(Generic[Output, Target]):
         Raises:
             ResultNotAvailableError: if no results have been logged yet.
         """
+        if not self.history:
+            raise exceptions.ResultNotAvailableError()
+
         return self.filter_fn(self.history)
 
     def add_value(self, value: float) -> None:

@@ -497,6 +497,16 @@ class TestMetricTracker:
         with pytest.raises(exceptions.ResultNotAvailableError):
             _ = tracker_auto.best_value
 
+    def test_filtered_result_not_available(self, tracker_auto) -> None:
+        """Test calling filtered_value before any values are added fails."""
+        with pytest.raises(exceptions.ResultNotAvailableError):
+            _ = tracker_auto.filtered_value
+
+        tracker_auto.add_value(5.0)
+
+        assert tracker_auto.filtered_value == 5.0
+        assert tracker_auto.best_value == 5.0
+
     def test_add_value(self, tracker_auto) -> None:
         """Test adding values to history."""
         tracker_auto.add_value(1.0)
