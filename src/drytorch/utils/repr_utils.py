@@ -17,7 +17,7 @@ import numbers
 import types
 
 from collections.abc import Collection, Hashable, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeAlias, overload
 
 import numpy as np
 import torch
@@ -97,8 +97,16 @@ class DefaultName:
         """Initialize."""
         self._prefixes = {}
 
-    def __get__(self, instance: Any, objtype: type | None = None) -> str:
-        """Return the default name for the instance or class."""
+    @overload
+    def __get__(self, instance: None, objtype: type | None = None) -> Self: ...
+
+    @overload
+    def __get__(self, instance: Any, objtype: type | None = None) -> str: ...
+
+    def __get__(self, instance: Any, objtype: type | None = None) -> Self | str:
+        """Return descriptor on class access or default name on instance."""
+        if instance is None:
+            return self
         return instance.__name
 
     def __set__(self, instance: Any, value: str) -> None:
@@ -301,7 +309,7 @@ def _(obj: ndarray, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
         precision=3,
         suppress=True,
         threshold=MAX_REPR_SIZE // size_factor,
-        edgeitems=MAX_REPR_SIZE // (size_factor * 2),
+        edgeitems=max(MAX_REPR_SIZE // (size_factor * 2), 1),
     ):
         _not_used = depth
         return LiteralStr(size_str) + LiteralStr(obj)

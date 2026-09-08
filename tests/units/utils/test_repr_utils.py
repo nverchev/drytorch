@@ -162,6 +162,15 @@ class TestDefaultName:
         assert other_instance.name == f'{class_instance.__class__.__name__}_1'
         assert sub_class_instance.name == sub_class_instance.__class__.__name__
 
+    def test_class_access(self, class_instance) -> None:
+        """Test descriptor returns self on class access and name on instance."""
+        descriptor = _NamedClass.name
+        instance_name = class_instance.name
+
+        assert isinstance(descriptor, DefaultName)
+        assert isinstance(instance_name, str)
+        assert instance_name.startswith('_NamedClass')
+
 
 def get_atomic_data() -> list[
     tuple[int | str | complex | None, int, int | complex | str | None]
@@ -397,3 +406,30 @@ def test_max_depth_still_bounds_acyclic_structures() -> None:
         depths += 1
     assert depths <= drytorch.utils.repr_utils.MAX_DEPTH
     assert isinstance(node, (str, dict))
+
+
+def test_numpy_multidimensional_representation() -> None:
+    """Test 4D and 5D numpy arrays record numbers, while 1D-3D are unchanged."""
+    arr_1d = np.ones((4,))
+    arr_2d = np.ones((2, 2))
+    arr_3d = np.ones((2, 2, 2))
+    arr_4d = np.ones((2, 2, 2, 2))
+    arr_5d = np.ones((2, 2, 2, 2, 2))
+
+    repr_1d = recursive_repr(arr_1d)
+    repr_2d = recursive_repr(arr_2d)
+    repr_3d = recursive_repr(arr_3d)
+    repr_4d = recursive_repr(arr_4d)
+    repr_5d = recursive_repr(arr_5d)
+
+    body_1d = str(repr_1d).split('\n', 1)[1]
+    body_2d = str(repr_2d).split('\n', 1)[1]
+    body_3d = str(repr_3d).split('\n', 1)[1]
+    body_4d = str(repr_4d).split('\n', 1)[1]
+    body_5d = str(repr_5d).split('\n', 1)[1]
+
+    assert any(c.isdigit() for c in body_1d)
+    assert any(c.isdigit() for c in body_2d)
+    assert any(c.isdigit() for c in body_3d)
+    assert any(c.isdigit() for c in body_4d)
+    assert any(c.isdigit() for c in body_5d)
