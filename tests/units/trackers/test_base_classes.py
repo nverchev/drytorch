@@ -484,8 +484,8 @@ class TestBasePlotter:
         plotter,
     ) -> None:
         """Test all the pre_processing helper functions."""
-        # Test _filter_metric
-        sourced_metric = plotter._filter_metric(
+        # Test _get_sourced_metric
+        sourced_metric = plotter._get_sourced_metric(
             example_sourced_metrics, example_loss_name
         )
         assert example_source_name in sourced_metric
@@ -518,3 +518,81 @@ class TestBasePlotter:
         )
         for source_name, array in filtered_sources.items():
             assert np.array_equal(pipelined[source_name], array)
+
+    def test_process_source_epoch_mismatch_raises_tracker_error(
+        self,
+        plotter,
+    ) -> None:
+        """Test mismatched epoch and value list lengths raise TrackerError."""
+        # Prepare
+        sourced_metrics: SourcedMetrics = {
+            'val': ([1, 2, 3], {'metric_a': [1.0, 2.0]}),
+        }
+
+        # Trigger
+        with pytest.raises(exceptions.TrackerError) as exc_info:
+            plotter._process_source(sourced_metrics, 'metric_a', start=1)
+
+        # Assert
+        error_msg = str(exc_info.value)
+        assert 'val' in error_msg
+        assert 'metric_a' in error_msg
+
+    def test_plot_source_missing_initial_epoch_raises_tracker_error(
+        self,
+    ) -> None:
+        """Test metric appearing only from second epoch raises TrackerError."""
+        # Prepare
+        plotter = _ConcretePlotter()
+        model_name = 'model_a'
+        source_name = 'val'
+        event_1 = log_events.MetricEvent(
+            epoch=1,
+            model_name=model_name,
+            source_name=source_name,
+            metrics={'metric_1': 1.0},
+        )
+        event_2 = log_events.MetricEvent(
+            epoch=2,
+            model_name=model_name,
+            source_name=source_name,
+            metrics={'metric_1': 2.0, 'metric_2': 5.0},
+        )
+        plotter.notify(event_1)
+        plotter.notify(event_2)
+
+        # Trigger
+        with pytest.raises(exceptions.TrackerError) as exc_info:
+            plotter.plot(model_name)
+
+        # Assert
+        error_msg = str(exc_info.value)
+        assert source_name in error_msg
+        assert 'metric_2' in error_msg
+
+    def test_plot_consistent_sources_plots_successfully(self) -> None:
+        """Test that consistent metrics across epochs plot successfully."""
+        # Prepare
+        plotter = _ConcretePlotter()
+        model_name = 'model_a'
+        source_name = 'val'
+        event_1 = log_events.MetricEvent(
+            epoch=1,
+            model_name=model_name,
+            source_name=source_name,
+            metrics={'metric_1': 1.0, 'metric_2': 4.0},
+        )
+        event_2 = log_events.MetricEvent(
+            epoch=2,
+            model_name=model_name,
+            source_name=source_name,
+            metrics={'metric_1': 2.0, 'metric_2': 5.0},
+        )
+        plotter.notify(event_1)
+        plotter.notify(event_2)
+
+        # Trigger
+        plots = plotter.plot(model_name)
+
+        # Assert
+        assert len(plots) == 2

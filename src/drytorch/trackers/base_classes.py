@@ -388,6 +388,22 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         self, model_name: str, metric_name: str, **sourced_array: NpArray
     ) -> Plot: ...
 
+    def _get_sourced_metric(
+        self, sourced_metrics: SourcedMetrics, metric_name: str
+    ) -> SourcedMetric:
+        out: SourcedMetric = {}
+        for source_name, (epochs, metrics) in sourced_metrics.items():
+            if epochs and metric_name in metrics:
+                values = metrics[metric_name]
+                if len(epochs) != len(values):
+                    msg = '{} and {} logs refer to different epochs.'
+                    msg = msg.format(source_name, metric_name)
+                    raise exceptions.TrackerError(self, msg)
+
+                out[source_name] = (epochs, values)
+
+        return out
+
     def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
         _not_used = model_name, metric_names
         return
@@ -395,7 +411,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     def _process_source(
         self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
     ) -> SourcedArray:
-        sourced_metric = self._filter_metric(sourced_metrics, metric_name)
+        sourced_metric = self._get_sourced_metric(sourced_metrics, metric_name)
         ordered_sources = self._order_sources(sourced_metric)
         sourced_array = self._source_to_numpy(ordered_sources)
         return self._filter_by_epoch(sourced_array, start)
@@ -410,16 +426,6 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     @classmethod
     def _order_sources(cls, sources: SourcedMetric) -> SourcedMetric:
         return dict(sorted(sources.items(), key=cls._len_source))
-
-    @staticmethod
-    def _filter_metric(
-        sourced_metrics: SourcedMetrics, metric_name: str
-    ) -> SourcedMetric:
-        return {
-            source_name: (epochs, metrics[metric_name])
-            for source_name, (epochs, metrics) in sourced_metrics.items()
-            if epochs and metric_name in metrics
-        }
 
     @staticmethod
     def _filter_by_epoch(

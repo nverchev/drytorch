@@ -24,6 +24,7 @@
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 
 ## Fixed
+- `BasePlotter` raises `TrackerError` when epoch and value counts do not match
 - `Dumper.close()` releases stashed paused state
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty
 - setting `MAX_REPR_SIZE` to 0 now records the element count without the elements, as it already did for dictionaries
