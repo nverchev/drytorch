@@ -26,6 +26,8 @@
 ## Fixed
 - `BasePlotter` raises `TrackerError` when epoch and value counts do not match
 - `CSVDumper` writes rows matching column headers and raises `TrackerError` on metric changes
+- `CSVDumper.clean_up()` resets active sources so consecutive runs write headers
+- `CSVDumper` and `SQLConnection` release stashed state on `close()`
 - `Dumper.close()` releases stashed paused state
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty
 - setting `MAX_REPR_SIZE` to 0 now records the element count without the elements, as it already did for dictionaries

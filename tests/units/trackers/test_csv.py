@@ -1,6 +1,8 @@
 """Tests for the "csv" module."""
 
 import copy
+import csv
+import dataclasses
 
 from collections.abc import Generator
 
@@ -163,6 +165,47 @@ class TestCsvDumper:
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
         tracker.close()
+        assert tracker._csv_stashed_state == {}
+
+    def test_second_run_writes_header_after_clean_up(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        epoch_metrics_mock_event,
+    ) -> None:
+        """Test that a second run creates a header for active sources."""
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(epoch_metrics_mock_event)
+        tracker.notify(stop_experiment_mock_event)
+
+        try:
+            start_event_2 = dataclasses.replace(
+                start_experiment_mock_event, run_id='run2'
+            )
+        except TypeError:
+            start_event_2 = copy.copy(start_experiment_mock_event)
+            start_event_2.run_id = 'run2'
+
+        tracker.notify(start_event_2)
+        tracker.notify(epoch_metrics_mock_event)
+
+        model_name = epoch_metrics_mock_event.model_name
+        source_name = epoch_metrics_mock_event.source_name
+        csv_path = tracker._file_path(
+            tracker._get_run_dir(), model_name, source_name
+        )
+        with csv_path.open(newline='') as f:
+            header_row = next(csv.reader(f))
+        assert header_row == [
+            *tracker._base_headers,
+            *epoch_metrics_mock_event.metrics,
+        ]
+
+        epochs, metric_dict = tracker.read_csv(model_name, source_name)
+        assert epochs == [epoch_metrics_mock_event.epoch]
+        for metric_name in epoch_metrics_mock_event.metrics:
+            assert metric_name in metric_dict
 
     def test_metrics_different_order_written_under_own_columns(
         self, tracker_started, epoch_metrics_mock_event

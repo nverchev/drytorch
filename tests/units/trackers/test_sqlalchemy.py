@@ -366,3 +366,5 @@ class TestSQLConnection:
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
         tracker.close()
+        assert tracker._sql_stashed_runs == {}
+        assert tracker._sql_stashed_sources == {}

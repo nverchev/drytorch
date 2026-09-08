@@ -210,7 +210,13 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     @override
     def clean_up(self) -> None:
         self._resume_run = False
+        self._active_sources.clear()
         return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        self._csv_stashed_state.clear()
+        return super().close()
 
     def _find_sources(self, model_name: str) -> set[str]:
         path = self._get_run_dir() / model_name

@@ -252,6 +252,12 @@ class SQLConnection(base_classes.MetricLoader):
         self.engine.dispose()
         return super().clean_up()
 
+    @override
+    def close(self) -> None:
+        self._sql_stashed_runs.clear()
+        self._sql_stashed_sources.clear()
+        return super().close()
+
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
