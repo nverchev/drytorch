@@ -25,6 +25,9 @@
 - renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml` with a backwards-compatible alias
 
 ## Fixed
+- `HydraLink` raises `TrackerError` when `HydraConfig` is unset and hydra has not started
+- `HydraLink` resolves symlink collisions when runs share timestamps or following clean-up
+- `HydraLink.clean_up()` uses `mkdir=False` keyword argument
 - `MetadataDumper` scopes sequence representers to `DryTorchDumper` to avoid mutating global PyYAML representers
 - `MetadataDumper` reads sequence length limits dynamically from module attributes
 - `MetadataDumper` sorts set and frozenset elements to ensure deterministic serialization across runs

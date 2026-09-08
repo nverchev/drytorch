@@ -29,6 +29,10 @@ class HydraLink(base_classes.Dumper):
 
     Attributes:
         hydra_dir: the directory where hydra saves the run.
+
+    Note:
+        On Windows, creating symbolic links requires Developer Mode or
+        elevated privileges.
     """
 
     folder_name: ClassVar[str] = 'hydra'
@@ -56,7 +60,12 @@ class HydraLink(base_classes.Dumper):
         super().__init__(par_dir)
         if hydra_dir is None:
             # get hydra configuration
-            hydra_config = hydra.core.hydra_config.HydraConfig.get()
+            try:
+                hydra_config = hydra.core.hydra_config.HydraConfig.get()
+            except ValueError as exc:
+                msg = 'Hydra has not started.'
+                raise exceptions.TrackerError(self, msg) from exc
+
             str_dir = hydra_config.runtime.output_dir
             self.hydra_dir = pathlib.Path(str_dir)
         else:
@@ -71,7 +80,7 @@ class HydraLink(base_classes.Dumper):
     @override
     def clean_up(self) -> None:
         try:
-            run_dir = self._get_run_dir(False)
+            run_dir = self._get_run_dir(mkdir=False)
             if self._copy_hydra and run_dir.is_symlink():
                 run_dir.unlink()
                 shutil.copytree(self.hydra_dir, run_dir)
@@ -90,8 +99,17 @@ class HydraLink(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         # call super method to create par_dir first
         super().notify(event)
-        self._run_id = event.run_ts.strftime(TS_FMT)  # use ts instead of id
-        link = self._get_run_dir(mkdir=False)
-        link.parent.mkdir(exist_ok=True, parents=True)
-        link.symlink_to(self.hydra_dir, target_is_directory=True)
+        base_id = event.run_ts.strftime(TS_FMT)  # hydra dir is per launch
+        counter = 0
+        while True:
+            self._run_id = base_id if counter == 0 else f'{base_id}_{counter}'
+            link = self._get_run_dir(mkdir=False)
+            link.parent.mkdir(exist_ok=True, parents=True)
+            try:
+                link.symlink_to(self.hydra_dir, target_is_directory=True)
+            except FileExistsError:
+                counter += 1
+            else:
+                break
+
         return

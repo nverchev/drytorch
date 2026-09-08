@@ -1,15 +1,8 @@
 """Tests for the "hydra" module."""
 
 import importlib.util
-import sys
 
 import pytest
-
-
-# TODO: remove this when hydra adds support to Python 3.14
-if sys.version_info >= (3, 14):
-    msg = 'Skipping hydra tests on Python 3.14 (not yet supported)'
-    pytest.skip(msg, allow_module_level=True)
 
 
 if not importlib.util.find_spec('hydra'):
@@ -81,3 +74,50 @@ class TestHydraLink:
         tracker.notify(start_experiment_mock_event)
         assert tracker._get_run_dir().is_symlink()
         assert tracker._get_run_dir().resolve() == self.hydra_output_dir
+
+    def test_init_when_hydra_config_not_set_raises_tracker_error(
+        self, mocker, tmp_path
+    ) -> None:
+        """Test init raises TrackerError when HydraConfig was not set."""
+        mocker.patch(
+            'hydra.core.hydra_config.HydraConfig.get',
+            side_effect=ValueError('HydraConfig was not set'),
+        )
+        with pytest.raises(
+            exceptions.TrackerError, match='Hydra has not started'
+        ):
+            HydraLink(par_dir=tmp_path)
+
+    def test_notify_start_experiment_same_timestamp_collision(
+        self, tmp_path, start_experiment_mock_event
+    ) -> None:
+        """Test multiple runs starting in the same second avoid collisions."""
+        t1 = HydraLink(par_dir=tmp_path)
+        t1.notify(start_experiment_mock_event)
+        link1 = t1._get_run_dir()
+        assert link1.is_symlink()
+
+        t2 = HydraLink(par_dir=tmp_path)
+        t2.notify(start_experiment_mock_event)
+        link2 = t2._get_run_dir()
+        assert link2.is_symlink()
+        assert link2 != link1
+        assert link2.name == f'{link1.name}_1'
+        assert link2.resolve() == self.hydra_output_dir
+
+    def test_notify_start_experiment_collision_after_cleanup(
+        self, tmp_path, start_experiment_mock_event
+    ) -> None:
+        """Test collision resolution after run was converted to directory."""
+        t1 = HydraLink(par_dir=tmp_path, copy_hydra=True)
+        t1.notify(start_experiment_mock_event)
+        dir1 = t1._get_run_dir()
+        t1.clean_up()
+        assert dir1.is_dir()
+        assert not dir1.is_symlink()
+
+        t2 = HydraLink(par_dir=tmp_path)
+        t2.notify(start_experiment_mock_event)
+        link2 = t2._get_run_dir()
+        assert link2.is_symlink()
+        assert link2.name == f'{dir1.name}_1'
