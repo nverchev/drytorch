@@ -25,6 +25,8 @@
 
 ## Fixed
 - `BasePlotter` raises `TrackerError` when epoch and value counts do not match
+- `BuiltinLogger` keys metric format arguments by position to prevent collisions with `desc` and `_value`
+- `set_formatter` validates style upfront regardless of registered handlers
 - `CSVDumper` writes rows matching column headers and raises `TrackerError` on metric changes
 - `CSVDumper.clean_up()` resets active sources so consecutive runs write headers
 - `CSVDumper` and `SQLConnection` release stashed state on `close()`

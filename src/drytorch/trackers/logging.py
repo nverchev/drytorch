@@ -144,9 +144,10 @@ class BuiltinLogger(tracking.Tracker):
         log_msg_list: list[str] = ['%(desc)s']
         desc = _to_desc(event.source_name)
         log_args: dict[str, str | float] = {'desc': desc}
-        for metric, value in event.metrics.items():
-            log_msg_list.append(f'%({metric})s=%({metric}_value)4e')
-            log_args.update({metric: metric, f'{metric}_value': value})
+        for i, (metric, value) in enumerate(event.metrics.items()):
+            log_msg_list.append(f'%(name_{i})s=%(value_{i})4e')
+            log_args[f'name_{i}'] = metric
+            log_args[f'value_{i}'] = value
 
         logger.log(INFO_LEVELS.metrics, '\t'.join(log_msg_list), log_args)
         return super().notify(event)
@@ -370,14 +371,16 @@ def set_formatter(style: Literal['drytorch', 'progress']) -> None:
     Raises:
         ValueError: if the style is not 'drytorch' or 'progress'.
     """
+    if style == 'progress':
+        formatter_cls = ProgressFormatter
+    elif style == 'drytorch':
+        formatter_cls = DryTorchFormatter
+    else:
+        raise ValueError('Invalid formatter style.')
+
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
-            if style == 'progress':
-                handler.formatter = ProgressFormatter()
-            elif style == 'drytorch':
-                handler.formatter = DryTorchFormatter()
-            else:
-                raise ValueError('Invalid formatter style.')
+            handler.formatter = formatter_cls()
 
     return
 

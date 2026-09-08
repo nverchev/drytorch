@@ -7,7 +7,6 @@ from collections.abc import Generator
 
 import pytest
 
-from drytorch.core import log_events
 from drytorch.trackers.logging import (
     INFO_LEVELS,
     BuiltinLogger,
@@ -104,7 +103,7 @@ class TestBuiltinLogger:
     def test_start_training_event(
         self,
         tracker,
-        start_training_mock_event: log_events.StartTrainingEvent,
+        start_training_mock_event,
     ) -> None:
         """Tests handling of StartTraining event."""
         start_training_mock_event.model_name = 'my_model'
@@ -186,6 +185,25 @@ class TestBuiltinLogger:
         tracker.notify(epoch_metrics_mock_event)
         expected = 'test_source:    loss=1.200000e+00   accuracy=8.100000e-01\n'
         assert self.stream.getvalue().expandtabs(4).endswith(expected)
+
+    def test_metric_event_with_colliding_names(
+        self,
+        tracker,
+        epoch_metrics_mock_event,
+    ) -> None:
+        """Test metric logging when metric names collide with desc or _value."""
+        epoch_metrics_mock_event.source_name = 'Val'
+        epoch_metrics_mock_event.metrics = {
+            'desc': 1.0,
+            'a': 2.0,
+            'a_value': 3.0,
+        }
+        tracker.notify(epoch_metrics_mock_event)
+        output = self.stream.getvalue()
+        assert 'Val:' in output
+        assert 'desc=1.000000e+00' in output
+        assert 'a=2.000000e+00' in output
+        assert 'a_value=3.000000e+00' in output
 
     def test_terminated_training_event(
         self,
@@ -357,3 +375,19 @@ def test_set_formatter_style(stream_handler, logger) -> None:
     assert isinstance(stream_handler.formatter, DryTorchFormatter)
     set_formatter(style='progress')
     assert isinstance(stream_handler.formatter, ProgressFormatter)
+
+
+@pytest.mark.parametrize('disable_handler', [False, True])
+def test_set_formatter_invalid_style(
+    stream_handler,
+    logger,
+    disable_handler: bool,
+) -> None:
+    """Test setting invalid formatter style raises ValueError."""
+    if disable_handler:
+        disable_default_handler()
+    else:
+        logger.addHandler(stream_handler)
+
+    with pytest.raises(ValueError, match=r'Invalid formatter style\.'):
+        set_formatter(style='invalid')  # type: ignore[arg-type]
