@@ -1,6 +1,7 @@
 """Tests for the "sqlalchemy" module."""
 
 import copy
+import dataclasses
 import importlib.util
 
 import pytest
@@ -12,6 +13,8 @@ if not importlib.util.find_spec('sqlalchemy'):
     pytest.skip('sqlalchemy not available', allow_module_level=True)
 
 from collections.abc import Generator
+
+import sqlalchemy
 
 from drytorch.trackers.sqlalchemy import (
     Experiment,
@@ -85,11 +88,13 @@ class TestSQLConnection:
         tracker.notify(stop_experiment_mock_event)
         return
 
-    def test_cleanup(self, tracker_started):
+    def test_cleanup(self, tracker_started) -> None:
         """Test correct cleaning up."""
+        # Trigger
         tracker_started.clean_up()
 
-        assert self.mock_engine.dispose.call_count == 1
+        # Assert
+        assert self.mock_engine.dispose.call_count == 0
         assert tracker_started._run is None
         assert tracker_started._sources == {}
 
@@ -363,8 +368,45 @@ class TestSQLConnection:
         pause_experiment_mock_event,
     ) -> None:
         """Test that close unconditionally releases stashed resources."""
+        # Prepare
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
+
+        # Trigger
         tracker.close()
+
+        # Assert
+        assert self.mock_engine.dispose.call_count == 1
         assert tracker._sql_stashed_runs == {}
         assert tracker._sql_stashed_sources == {}
+
+
+class TestSQLConnectionInMemory:
+    """Tests with a real in-memory engine."""
+
+    def test_in_memory_engine_survives_between_runs(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Test that in-memory SQLite database survives between runs."""
+        # Prepare
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+        try:
+            start_event_2 = dataclasses.replace(
+                start_experiment_mock_event, run_id='run2'
+            )
+        except TypeError:
+            start_event_2 = copy.copy(start_experiment_mock_event)
+            start_event_2.run_id = 'run2'
+
+        # Trigger
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(stop_experiment_mock_event)
+        tracker.notify(start_event_2)
+
+        # Assert
+        with tracker.session_factory() as session:
+            runs = session.query(Run).all()
+        assert len(runs) == 2

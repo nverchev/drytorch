@@ -29,6 +29,7 @@
 - `CSVDumper.clean_up()` resets active sources so consecutive runs write headers
 - `CSVDumper` and `SQLConnection` release stashed state on `close()`
 - `Dumper.close()` releases stashed paused state
+- `SQLConnection` disposes its engine on `close()` rather than between runs
 - `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty
 - setting `MAX_REPR_SIZE` to 0 now records the element count without the elements, as it already did for dictionaries
 - batches carrying strings or bytes beside their tensors no longer stop training
