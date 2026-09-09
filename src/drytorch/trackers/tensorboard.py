@@ -105,7 +105,6 @@ class TensorBoard(base_classes.Dumper):
         if self._writer is not None:
             self.writer.close()
 
-        self._terminate_server()
         self._writer = None
         return super().clean_up()
 

@@ -49,17 +49,17 @@ class TestTensorBoard:
         yield tracker
 
         tracker.notify(stop_experiment_mock_event)
+        tracker.close()
         return
 
-    def test_cleanup(self, tracker_started):
-        """Test correct cleaning up."""
+    def test_clean_up_retains_server(self, tracker_started):
+        """Test clean_up closes writer but retains server process."""
         process = tracker_started._process
         assert process is not None
         tracker_started.clean_up()
         assert tracker_started._writer is None
-        assert tracker_started._process is None
-        process.terminate.assert_called_once()  # type: ignore[attr-defined]
-        process.wait.assert_called_once()  # type: ignore[attr-defined]
+        assert tracker_started._process is process
+        process.terminate.assert_not_called()
 
     def test_notify_stop_and_start_experiment(
         self,
@@ -177,14 +177,14 @@ class TestTensorBoard:
         self,
         tracker,
         start_experiment_mock_event,
-        pause_experiment_mock_event,
+        stop_experiment_mock_event,
     ) -> None:
         """Test server process is reused across runs serving the same logdir."""
         tracker.notify(start_experiment_mock_event)
         assert self.mock_popen.call_count == 1
         initial_process = tracker._process
 
-        tracker.notify(pause_experiment_mock_event)
+        tracker.notify(stop_experiment_mock_event)
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
         tracker.notify(start_2)

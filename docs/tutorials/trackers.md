@@ -101,6 +101,11 @@ Many of these trackers offer additional customization parameters. For example,
 
 Several optional trackers act as **dumpers**, meaning they store metadata directly on disk. Dumpers typically accept a `par_dir` argument to control the output directory. If no directory is provided, DRYTorch falls back to a standardized, time‑stamped folder structure based on the experiment’s name and start time.
 
+> **Note on TensorBoard:** When initialized with `start_server=True` (the default), `TensorBoard` starts a local server that remains active throughout the tracker's session across runs (until `tracker.close()` is called). For post-session analysis after the script has exited, run TensorBoard separately from the command line pointing to the experiment directory:
+> ```bash
+> tensorboard --logdir <par_dir>/tensorboard
+> ```
+
 `trackers.plotly.PlotlyPlotter`, `trackers.matplotlib.MatPlotter` and `trackers.visdom.VisdomPlotter` are instead **plotters**.
 Plotters implement the `plot_metric` method, keep track of the metrics during the current session and can also load metrics from a previous session when initialized with a `MetricLoader`.
 DryTorch offers two `MetricLoader`s out of the box: `trackers.sqlalchemy.SQLConnection` and `trackers.csv.CSVDumper` .

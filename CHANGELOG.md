@@ -52,7 +52,7 @@
 - `TqdmLogger` closes active progress bars on pause and replaces incomplete epoch bars cleanly
 - `TqdmLogger.clean_up()` invokes `super().clean_up()`
 - `TensorBoard` catches `OSError` on server launch failure to raise `TrackerError`
-- `TensorBoard` reuses running server across runs for the same directory and terminates it on clean_up, close, or directory change
+- `TensorBoard` reuses running server across runs for the same directory and terminates it on close or directory change
 - `TensorBoard` avoids flushing on every metric event so `SummaryWriter` honors `max_queue_size` and `flush_secs`
 - `Wandb` relies on base tracker cleanup on stop and removes redundant scope guard in `MetricEvent`
 - `Wandb` stashes `_defined_metrics` across pause and continue to prevent redundant metric definitions
