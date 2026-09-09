@@ -188,8 +188,8 @@ class RescaleScheduler(TransformScheduler):
         self.parameters['factor'] = factor
         return
 
-    def _compute(self, start_val: float, epoch: int) -> float:
-        return self.factor * self.logic(start_val, epoch)
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        return self.factor * self.logic(base_lr, epoch)
 
 
 class RestartScheduler(TransformScheduler):

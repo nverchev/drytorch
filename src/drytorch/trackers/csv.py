@@ -29,12 +29,12 @@ class DryTorchDialect(csv.Dialect):
         quoting: quoting style.
     """
 
-    delimiter: ClassVar[str] = ','
-    quotechar: ClassVar[str] = '"'
-    doublequote: ClassVar[bool] = True
-    skipinitialspace: ClassVar[bool] = False
-    lineterminator: ClassVar[str] = '\r\n'
-    quoting: ClassVar[int] = csv.QUOTE_NONNUMERIC
+    delimiter = ','
+    quotechar = '"'
+    doublequote = True
+    skipinitialspace = False
+    lineterminator = '\r\n'
+    quoting = csv.QUOTE_NONNUMERIC
 
 
 class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
