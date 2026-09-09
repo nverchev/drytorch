@@ -36,7 +36,7 @@
 - `MatPlotter` raises `TrackerError` when palette has insufficient distinct colors
 - `MatPlotter` assigns metric titles to each subplot
 - `BasePlotter`, `MatPlotter`, and `PlotlyPlotter` synchronize figure display after all metrics are plotted via `_display_plot`
-- `PlotlyPlotter` returns figures without calling `fig.show()`
+- `PlotlyPlotter` renders figures on an explicit `plot` call and does no work during training
 - `HydraLink` raises `TrackerError` when `HydraConfig` is unset and hydra has not started
 - `HydraLink` resolves symlink collisions when runs share timestamps or following clean-up
 - `HydraLink.clean_up()` uses `mkdir=False` keyword argument

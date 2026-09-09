@@ -13,7 +13,16 @@ __all__ = [
 
 
 class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
-    """Tracker that creates new plots each call (no update) using plotly."""
+    """Tracker that builds a plotly figure per metric on request."""
+
+    @override
+    def _display_plot(self, model_name: str, plots: list[go.Figure]) -> None:
+        """Render the figures once a requested plot pass is complete."""
+        _not_used = model_name
+        for figure in plots:
+            figure.show()
+
+        return
 
     @override
     def _plot_metric(
@@ -46,3 +55,9 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
                 yaxis={'title': metric_name},
             ),
         )
+
+    @override
+    def _update_plot(self, model_name: str, start: int) -> None:
+        """Skip the automatic per-epoch pass."""
+        _not_used = model_name, start
+        return
