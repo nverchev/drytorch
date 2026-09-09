@@ -45,6 +45,7 @@ class TestPlotlyPlotter:
         tracker._plot_metric(model_name, example_loss_name, **sourced_array)
         self.go_mock.scatter.Marker.assert_called_once_with(symbol=24, size=20)
         self.go_mock.Figure.assert_called_once()
+        self.mock_figure.show.assert_not_called()
 
     def test_plot_multiple_points(
         self,
@@ -60,3 +61,17 @@ class TestPlotlyPlotter:
         tracker._plot_metric(model_name, example_model_name, **sourced_array)
         self.go_mock.scatter.Marker.assert_not_called()
         self.go_mock.Figure.assert_called_once()
+        self.mock_figure.show.assert_not_called()
+
+    def test_display_plot(
+        self,
+        tracker,
+        example_model_name,
+        mocker,
+    ) -> None:
+        """Test display_plot calls show on each figure in plots."""
+        mock_fig1 = mocker.Mock()
+        mock_fig2 = mocker.Mock()
+        tracker._display_plot(example_model_name, [mock_fig1, mock_fig2])
+        mock_fig1.show.assert_called_once()
+        mock_fig2.show.assert_called_once()

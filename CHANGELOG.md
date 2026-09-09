@@ -25,6 +25,14 @@
 - renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml` with a backwards-compatible alias
 
 ## Fixed
+- `MatPlotter` creates figures with `plt.figure()` for managed pyplot interactive display
+- `MatPlotter` clears and rebuilds layout grid when new metrics appear mid-run
+- `MatPlotter.close()` closes all managed figures and clears color mappings on tracker teardown
+- `MatPlotter` uses `ax.plot` with marker styling for single points to autoscale axes properly
+- `MatPlotter` disperses continuous colormap colors across sources via successive interval bisection
+- `MatPlotter` raises `TrackerError` when palette has insufficient distinct colors
+- `MatPlotter` assigns metric titles to each subplot
+- `BasePlotter`, `MatPlotter`, and `PlotlyPlotter` synchronize figure display after all metrics are plotted via `_display_plot`
 - `HydraLink` raises `TrackerError` when `HydraConfig` is unset and hydra has not started
 - `HydraLink` resolves symlink collisions when runs share timestamps or following clean-up
 - `HydraLink.clean_up()` uses `mkdir=False` keyword argument

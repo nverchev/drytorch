@@ -38,7 +38,7 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
             else:
                 data.append(go.Scatter(x=log[:, 0], y=log[:, 1], name=name))
 
-        fig = go.Figure(
+        return go.Figure(
             data=data,
             layout=go.Layout(
                 title=model_name,
@@ -46,5 +46,11 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
                 yaxis={'title': metric_name},
             ),
         )
-        fig.show()
-        return fig
+
+    @override
+    def _display_plot(self, model_name: str, plots: list[go.Figure]) -> None:
+        _not_used = model_name
+        for fig in plots:
+            fig.show()
+
+        return

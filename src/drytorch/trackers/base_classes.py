@@ -381,7 +381,12 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
                     )
                 )
 
+        self._display_plot(model_name, plots)
         return plots
+
+    def _display_plot(self, model_name: str, plots: list[Plot]) -> None:
+        _not_used = model_name, plots
+        return
 
     @abc.abstractmethod
     def _plot_metric(

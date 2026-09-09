@@ -596,3 +596,11 @@ class TestBasePlotter:
 
         # Assert
         assert len(plots) == 2
+
+    def test_plot_calls_display_plot(
+        self, mocker, example_model_name, plotter
+    ) -> None:
+        """Test _plot calls _display_plot with model name and plots list."""
+        spy_display = mocker.patch.object(plotter, '_display_plot')
+        plots = plotter.plot(example_model_name)
+        spy_display.assert_called_once_with(example_model_name, plots)
