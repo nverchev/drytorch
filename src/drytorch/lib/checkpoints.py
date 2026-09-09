@@ -207,7 +207,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
             location=self._get_location(),
             epoch=self.model.epoch,
         )
-        if dist.is_available and dist.is_initialized() and dist.get_rank():
+        if dist.is_available() and dist.is_initialized() and dist.get_rank():
             return
 
         for name, module in self._modules.items():
