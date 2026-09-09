@@ -6,6 +6,7 @@
 - added `OptimizerAlreadyBoundError` and `ModelAlreadyBoundError`
 - added `ModuleFromAnotherRunError` to provide accurate messaging when a model is already registered to a different run
 - added `__repr__` to `AbstractScheduler`
+- added `PauseExperimentEvent` and `ContinueExperimentEvent` to test workflows
 
 ## Changed
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names

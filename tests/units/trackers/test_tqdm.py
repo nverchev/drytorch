@@ -195,6 +195,18 @@ class TestTqdmLogger:
             epoch_bar.pbar, '_instances', set()
         )
 
+    def test_continue_experiment_event(
+        self,
+        tracker_with_double_bar,
+        pause_experiment_mock_event,
+        continue_experiment_mock_event,
+    ) -> None:
+        """Test handling of ContinueExperiment event."""
+        tracker_with_double_bar.notify(pause_experiment_mock_event)
+        tracker_with_double_bar.notify(continue_experiment_mock_event)
+        assert tracker_with_double_bar._training_bar is None
+        assert tracker_with_double_bar._epoch_bar is None
+
     def test_terminated_training_event(
         self,
         tracker_with_double_bar,

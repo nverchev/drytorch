@@ -3,6 +3,7 @@
 from tests.functional.trackers.conftest import (
     actor_registration_event,
     allow_event_creation_outside_scope,
+    continue_experiment_event,
     end_epoch_event,
     end_test_event,
     end_training_event,
@@ -11,6 +12,7 @@ from tests.functional.trackers.conftest import (
     load_model_event,
     metrics_event,
     model_registration_event,
+    pause_experiment_event,
     save_model_event,
     start_epoch_event,
     start_experiment_event,
@@ -26,6 +28,8 @@ from tests.functional.trackers.conftest import (
 _fixtures = (
     start_experiment_event,
     stop_experiment_event,
+    pause_experiment_event,
+    continue_experiment_event,
     model_registration_event,
     actor_registration_event,
     save_model_event,

@@ -24,7 +24,7 @@ from drytorch.trackers.tensorboard import TensorBoard
 class TestTensorBoardFullCycle:
     """Complete TensorBoard session and tests it afterward."""
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture
     def setup(
         self,
         plotting_workflow: tuple[log_events.Event, ...],
@@ -121,7 +121,7 @@ class TestTensorBoardFullCycle:
         tracker.close()
         return
 
-    def test_folder_creation(self, tmp_path, example_exp_name) -> None:
+    def test_folder_creation(self, setup, tmp_path, example_exp_name) -> None:
         """Test that TensorBoard creates local files and logs."""
         tb_dir = tmp_path / TensorBoard.folder_name / example_exp_name
         assert tb_dir.exists()

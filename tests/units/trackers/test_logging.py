@@ -251,6 +251,32 @@ class TestBuiltinLogger:
         assert output_learning == output_optimizer + expected_learning
         assert output_scheduler == output_learning + expected_scheduler
 
+    def test_pause_experiment_event(
+        self,
+        tracker,
+        pause_experiment_mock_event,
+    ) -> None:
+        """Test handling of the PauseExperiment event."""
+        tracker.notify(pause_experiment_mock_event)
+        expected = (
+            f'Experiment: {pause_experiment_mock_event.exp_name} - '
+            f'Pausing run: {pause_experiment_mock_event.run_id}'
+        )
+        assert expected in self.stream.getvalue()
+
+    def test_continue_experiment_event(
+        self,
+        tracker,
+        continue_experiment_mock_event,
+    ) -> None:
+        """Test handling of the ContinueExperiment event."""
+        tracker.notify(continue_experiment_mock_event)
+        expected = (
+            f'Experiment: {continue_experiment_mock_event.exp_name} - '
+            f'Continuing run: {continue_experiment_mock_event.run_id}'
+        )
+        assert expected in self.stream.getvalue()
+
 
 class TestDryTorchFilter:
     """Test DryTorchFilter."""

@@ -58,6 +58,16 @@ def pause_experiment_event(
 
 
 @pytest.fixture
+def continue_experiment_event(
+    example_exp_name, example_run_id
+) -> log_events.ContinueExperimentEvent:
+    """Provides a ContinueExperiment event instance."""
+    return log_events.ContinueExperimentEvent(
+        exp_name=example_exp_name, run_id=example_run_id
+    )
+
+
+@pytest.fixture
 def model_registration_event(
     example_model_name, example_architecure_repr, example_model_ts
 ) -> log_events.ModelRegistrationEvent:
@@ -258,6 +268,8 @@ def event_workflow(
     end_epoch_event,
     update_learning_rate_event,
     save_model_event,
+    pause_experiment_event,
+    continue_experiment_event,
     terminated_training_event,
     end_training_event,
     start_test_event,
@@ -319,6 +331,8 @@ def event_workflow(
         second_end_epoch_event,
         update_learning_rate_event,
         save_model_event,
+        pause_experiment_event,
+        continue_experiment_event,
         third_start_epoch_event,
         iterate_batch_event,
         third_epoch_metrics_event,
@@ -407,6 +421,8 @@ def plotting_workflow(
     simulated_learning_curves: dict[str, list[float]],
     start_experiment_event: log_events.StartExperimentEvent,
     stop_experiment_event: log_events.StopExperimentEvent,
+    pause_experiment_event: log_events.PauseExperimentEvent,
+    continue_experiment_event: log_events.ContinueExperimentEvent,
 ) -> tuple[log_events.Event, ...]:
     """Generates a complete 10-epoch training and test event sequence."""
     model_name = example_model_name
@@ -453,6 +469,9 @@ def plotting_workflow(
                 epoch=epoch,
             )
         )
+        if epoch == 5:
+            events.append(pause_experiment_event)
+            events.append(continue_experiment_event)
 
     # Final test evaluation events
     events.append(
