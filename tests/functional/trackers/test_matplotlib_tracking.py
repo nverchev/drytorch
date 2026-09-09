@@ -18,14 +18,17 @@ from drytorch.trackers.matplotlib import MatPlotter
 class TestMatPlotterFullCycle:
     """Complete MatPlotter session and manual verification."""
 
+    @pytest.mark.skipif(
+        'LIVE_PLOT' not in os.environ,
+        reason='opens figure windows; run manually with LIVE_PLOT set',
+    )
     def test_live_plotting_lifecycle(
         self,
         plotting_workflow: tuple[log_events.Event, ...],
     ) -> None:
         """Verify multi-epoch, multi-metric training with live plots."""
-        is_live = 'LIVE_PLOT' in os.environ
-        pause_epoch = 0.5 if is_live else 0.001
-        pause_final = 2.0 if is_live else 0.001
+        pause_epoch = 0.5
+        pause_final = 2.0
         plotter = MatPlotter()
 
         for event in plotting_workflow:
