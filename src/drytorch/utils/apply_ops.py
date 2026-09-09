@@ -72,28 +72,28 @@ def recursive_apply(
                 for key, item in obj.items()
             }
         )
-        return mapping  # type: ignore
+        return mapping
 
     if isinstance(obj, MutableSequence):
         sequence = copy.copy(obj)
         for i, value in enumerate(obj):
             sequence[i] = recursive_apply(value, expected_type, func)
 
-        return sequence  # type: ignore
+        return sequence
 
     if isinstance(obj, tuple):
         new = (recursive_apply(item, expected_type, func) for item in obj)
         if obj.__class__ is tuple:
-            return obj.__class__(new)  # type: ignore
+            return obj.__class__(new)
 
         try:
-            return obj.__class__(*new)  # type: ignore
+            return obj.__class__(*new)
         except TypeError as te:
             raise exceptions.NamedTupleOnlyError(obj.__class__.__name__) from te
 
-    raise exceptions.FuncNotApplicableError(
-        func.__name__, obj.__class__.__name__
-    )
+    # a callable that is not a function has no __name__
+    func_name = getattr(func, '__name__', type(func).__name__)
+    raise exceptions.FuncNotApplicableError(func_name, obj.__class__.__name__)
 
 
 def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:

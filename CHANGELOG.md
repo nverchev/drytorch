@@ -26,6 +26,7 @@
 - renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml` with a backwards-compatible alias
 
 ## Fixed
+- `recursive_apply` falls back to type name for callables that are not functions
 - `MatPlotter` creates figures with `plt.figure()` for managed pyplot interactive display
 - `MatPlotter` clears and rebuilds layout grid when new metrics appear mid-run
 - `MatPlotter.close()` closes all managed figures and clears color mappings on tracker teardown
