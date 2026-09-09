@@ -1,6 +1,10 @@
 """Functional tests for Wandb tracker."""
 
-from collections.abc import Generator
+import os
+import pathlib
+import webbrowser
+
+from collections.abc import Generator, Iterable
 
 import pytest
 
@@ -11,23 +15,68 @@ except ImportError:
     pytest.skip('wandb not available', allow_module_level=True)
     raise
 
+from drytorch.core import log_events
 from drytorch.trackers.wandb import Wandb
 
 
+@pytest.mark.filterwarnings('ignore::DeprecationWarning:wandb.*')
 class TestWandbFullCycle:
     """Complete Wandb session and tests it afterward."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_path, event_workflow) -> None:
-        """Set up a unique experiment name for every test run."""
-        self.settings = wandb_settings.Settings(
-            anonymous='allow', mode='offline', root_dir=tmp_path.as_posix()
-        )
+    def setup(
+        self,
+        tmp_path: pathlib.Path,
+        plotting_workflow: tuple[log_events.Event, ...],
+    ) -> None:
+        """Set up a unique experiment name and execute the workflow."""
+        self.settings = self._create_settings(tmp_path)
         tracker = Wandb(settings=self.settings)
-        for event in event_workflow:
-            tracker.notify(event)
+        url = self._run_workflow(tracker, plotting_workflow)
+
+        if 'LIVE_PLOT' in os.environ and url:
+            self._open_dashboard(url)
 
         return
+
+    @staticmethod
+    def _create_settings(tmp_path: pathlib.Path) -> wandb_settings.Settings:
+        mode = 'online' if 'LIVE_PLOT' in os.environ else 'offline'
+        return wandb_settings.Settings(
+            anonymous='allow',
+            mode=mode,
+            root_dir=tmp_path.as_posix(),
+        )
+
+    @staticmethod
+    def _run_workflow(
+        tracker: Wandb,
+        workflow: Iterable[log_events.Event],
+    ) -> str | None:
+        url = None
+        for event in workflow:
+            tracker.notify(event)
+            if url is None and tracker._run is not None:
+                url = tracker._run.url
+
+        return url
+
+    @staticmethod
+    def _open_dashboard(url: str) -> None:
+        # Silence GTK accessibility warning when launching browser
+        os.environ['NO_AT_BRIDGE'] = '1'
+        if 'GTK_MODULES' in os.environ:
+            _modules = [
+                m
+                for m in os.environ['GTK_MODULES'].split(':')
+                if m != 'atk-bridge'
+            ]
+            if _modules:
+                os.environ['GTK_MODULES'] = ':'.join(_modules)
+            else:
+                del os.environ['GTK_MODULES']
+
+        webbrowser.open(url)
 
     @pytest.fixture
     def resumed_tracker(

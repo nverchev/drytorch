@@ -332,3 +332,139 @@ def event_workflow(
         stop_experiment_event,
     )
     return event_tuple
+
+
+@pytest.fixture
+def simulated_learning_curves() -> dict[str, list[float]]:
+    """Provides a realistic 10-epoch multi-metric history."""
+    return {
+        'train_loss': [
+            1.8,
+            1.4,
+            1.1,
+            0.85,
+            0.65,
+            0.50,
+            0.40,
+            0.32,
+            0.25,
+            0.20,
+        ],
+        'train_accuracy': [
+            0.35,
+            0.50,
+            0.62,
+            0.70,
+            0.78,
+            0.84,
+            0.88,
+            0.91,
+            0.94,
+            0.96,
+        ],
+        'val_loss': [
+            1.5,
+            1.25,
+            1.0,
+            0.85,
+            0.75,
+            0.70,
+            0.68,
+            0.67,
+            0.66,
+            0.65,
+        ],
+        'val_accuracy': [
+            0.45,
+            0.55,
+            0.65,
+            0.72,
+            0.77,
+            0.80,
+            0.82,
+            0.83,
+            0.84,
+            0.85,
+        ],
+        'val_f1_score': [
+            0.42,
+            0.53,
+            0.63,
+            0.70,
+            0.75,
+            0.78,
+            0.80,
+            0.81,
+            0.82,
+            0.83,
+        ],
+    }
+
+
+@pytest.fixture
+def plotting_workflow(
+    example_model_name: str,
+    simulated_learning_curves: dict[str, list[float]],
+    start_experiment_event: log_events.StartExperimentEvent,
+    stop_experiment_event: log_events.StopExperimentEvent,
+) -> tuple[log_events.Event, ...]:
+    """Generates a complete 10-epoch training and test event sequence."""
+    model_name = example_model_name
+    train_source = 'train'
+    val_source = 'val'
+    test_source = 'test'
+
+    train_loss = simulated_learning_curves['train_loss']
+    train_acc = simulated_learning_curves['train_accuracy']
+    val_loss = simulated_learning_curves['val_loss']
+    val_acc = simulated_learning_curves['val_accuracy']
+    val_f1 = simulated_learning_curves['val_f1_score']
+
+    events: list[log_events.Event] = [start_experiment_event]
+
+    for epoch in range(1, 11):
+        events.append(
+            log_events.MetricEvent(
+                model_name=model_name,
+                source_name=train_source,
+                epoch=epoch,
+                metrics={
+                    'loss': train_loss[epoch - 1],
+                    'accuracy': train_acc[epoch - 1],
+                },
+            )
+        )
+        events.append(
+            log_events.MetricEvent(
+                model_name=model_name,
+                source_name=val_source,
+                epoch=epoch,
+                metrics={
+                    'loss': val_loss[epoch - 1],
+                    'accuracy': val_acc[epoch - 1],
+                    'f1_score': val_f1[epoch - 1],
+                },
+            )
+        )
+        events.append(
+            log_events.EndEpochEvent(
+                source_name=train_source,
+                model_name=model_name,
+                epoch=epoch,
+            )
+        )
+
+    # Final test evaluation events
+    events.append(
+        log_events.MetricEvent(
+            model_name=model_name,
+            source_name=test_source,
+            epoch=10,
+            metrics={'loss': 0.69, 'accuracy': 0.83, 'f1_score': 0.81},
+        )
+    )
+    events.append(
+        log_events.EndTestEvent(source_name=test_source, model_name=model_name)
+    )
+    events.append(stop_experiment_event)
+    return tuple(events)
