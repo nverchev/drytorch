@@ -22,10 +22,10 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
         metric_name: str,
         **sourced_array: base_classes.NpArray,
     ) -> go.Figure:
-        data = list[go.Scatter | go.Bar]()
+        data = list[go.Scatter]()
         for name, log in sourced_array.items():
             if log.shape[0] == 1:
-                marker = go.scatter.Marker(symbol=24, size=20)
+                marker = go.scatter.Marker(symbol='diamond', size=20)
                 data.append(
                     go.Scatter(
                         x=log[:, 0],
@@ -46,11 +46,3 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
                 yaxis={'title': metric_name},
             ),
         )
-
-    @override
-    def _display_plot(self, model_name: str, plots: list[go.Figure]) -> None:
-        _not_used = model_name
-        for fig in plots:
-            fig.show()
-
-        return
