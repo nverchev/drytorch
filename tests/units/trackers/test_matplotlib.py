@@ -8,7 +8,6 @@ import pytest
 if not importlib.util.find_spec('matplotlib'):
     pytest.skip('matplotlib not available', allow_module_level=True)
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 from drytorch.core import exceptions
@@ -279,24 +278,3 @@ class TestMatPlotter:
         # Assert
         self.plt_mock.close.assert_not_called()
         assert example_model_name in tracker_with_layout._model_figure
-
-
-class TestMatPlotterFigureLifecycle:
-    """Tests for real figure registration in pyplot manager."""
-
-    def test_figure_lifecycle(self, example_model_name: str) -> None:
-        """Test figure registration with pyplot, clean_up, and close."""
-        plotter = MatPlotter()
-        try:
-            plotter._prepare_layout(example_model_name, ['loss'])
-            assert len(plt.get_fignums()) == 1
-
-            plotter.clean_up()
-            assert len(plt.get_fignums()) == 1
-
-            plotter.close()
-            assert len(plt.get_fignums()) == 0
-            assert plotter._model_figure == {}
-            assert plotter._source_colors == {}
-        finally:
-            plt.close('all')

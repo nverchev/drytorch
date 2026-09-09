@@ -729,12 +729,11 @@ def test_check_device_passes(mocker):
     check_device(mock_calculator, device)  # Should not raise
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA not available')
-def test_check_device_fails(mocker):
+def test_check_device_fails(mocker) -> None:
     """Test check_device raises errors when metrics are on the wrong device."""
     mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
     mock_calculator.compute.return_value = {
-        'loss': torch.tensor([0.5], device='cuda'),
+        'loss': torch.tensor([0.5], device='meta'),
     }
 
     with pytest.raises(exceptions.DeviceMismatchError):

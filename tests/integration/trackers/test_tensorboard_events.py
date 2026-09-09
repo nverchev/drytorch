@@ -60,8 +60,8 @@ class TestTensorBoardPauseContinue:
 
         assert dir_a.exists()
         assert dir_b.exists()
-        assert len(files_a) >= 1
-        assert len(files_b) >= 1
+        assert len(files_a) == 1
+        assert len(files_b) == 1
         assert all(f.stat().st_size > 0 for f in files_a)
         assert all(f.stat().st_size > 0 for f in files_b)
         assert scalars_a == [0.1, 0.05]

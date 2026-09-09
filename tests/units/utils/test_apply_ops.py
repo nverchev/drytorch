@@ -284,10 +284,11 @@ def test_recursive_to() -> None:
     list_data = _TorchLikeTuple(
         torch.tensor(1.0), [torch.tensor(1.0), torch.tensor(2.0)]
     )
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('meta')
     list_data = apply_to(list_data, device=device)
     assert list_data[0].device == device
     assert list_data[1][0].device == device
+    assert list_data[1][1].device == device
 
 
 def test_apply_cpu_detach() -> None:
