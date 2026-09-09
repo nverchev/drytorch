@@ -24,6 +24,7 @@
 - removed preferential dataclass apply branch in `apply`
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 - renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml` with a backwards-compatible alias
+- consolidated integration tracker tests into one module per tracker
 
 ## Fixed
 - `recursive_apply` falls back to type name for callables that are not functions

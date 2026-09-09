@@ -61,6 +61,7 @@ class Wandb(Dumper):
             warnings.warn(WandbWarning(msg), stacklevel=2)
 
         self._settings.reinit = 'create_new'
+        self._explicit_run_id = self._settings.run_id
 
         self._run = None
         self._defined_metrics = set()
@@ -91,6 +92,7 @@ class Wandb(Dumper):
         finally:
             self._run = None
             self._defined_metrics = set()
+            self._settings.run_id = self._explicit_run_id
 
         return super().clean_up()
 
@@ -132,10 +134,9 @@ class Wandb(Dumper):
                 msg = 'No previous runs. Starting a new one.'
                 warnings.warn(WandbWarning(msg), stacklevel=2)
 
-        if self._settings.run_id:
-            run_id = self._settings.run_id
-
-        if not run_id:
+        if self._explicit_run_id:
+            run_id = self._explicit_run_id
+        elif not run_id:
             run_id = event.exp_name + '_' + event.run_id
 
         repr_config = repr_utils.recursive_repr(event.config, depth=1000)
@@ -146,7 +147,7 @@ class Wandb(Dumper):
             group=group,
             config=repr_config,
             tags=event.tags,
-            settings=self._settings,
+            settings=copy.copy(self._settings),
             resume='allow' if event.resumed else None,
         )
         self._defined_metrics = set()

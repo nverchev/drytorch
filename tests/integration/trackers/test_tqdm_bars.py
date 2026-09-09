@@ -1,5 +1,7 @@
 """Tests TqdmLogger integration with the event system."""
 
+import io
+
 from collections.abc import Generator, Sequence
 
 import pytest
@@ -94,6 +96,62 @@ class TestTqdmLoggerFullCycle:
 
         actual_output = string_stream.getvalue().strip()
         assert actual_output == EXPECTED_OUT
+
+
+class TestTqdmLoggerPauseContinue:
+    """Tests TqdmLogger bar lifecycle and isolation across interleaved runs."""
+
+    @pytest.fixture
+    def tracker(self, string_stream: io.StringIO) -> TqdmLogger:
+        """Create a TqdmLogger writing to a StringIO stream."""
+        return TqdmLogger(enable_training_bar=True, file=string_stream)
+
+    def test_interleaved_pause_continue(
+        self,
+        tracker: TqdmLogger,
+        start_training_event: log_events.StartTrainingEvent,
+        iterate_batch_event: log_events.IterateBatchEvent,
+        pause_experiment_event: log_events.PauseExperimentEvent,
+        continue_experiment_event: log_events.ContinueExperimentEvent,
+        stop_experiment_event: log_events.StopExperimentEvent,
+        stop_experiment_event_b: log_events.StopExperimentEvent,
+    ) -> None:
+        """Verify TqdmLogger closes bars on pause and isolates runs."""
+        # Trigger
+        tracker.notify(start_training_event)
+        tracker.notify(iterate_batch_event)
+        bar_a_training = tracker._training_bar
+        bar_a_epoch = tracker._epoch_bar
+
+        tracker.notify(pause_experiment_event)
+        training_bar_after_pause = tracker._training_bar
+        epoch_bar_after_pause = tracker._epoch_bar
+
+        tracker.notify(start_training_event)
+        tracker.notify(iterate_batch_event)
+        bar_b_training = tracker._training_bar
+        bar_b_epoch = tracker._epoch_bar
+
+        tracker.notify(stop_experiment_event_b)
+
+        tracker.notify(continue_experiment_event)
+        tracker.notify(iterate_batch_event)
+        bar_a_continued_epoch = tracker._epoch_bar
+
+        tracker.notify(stop_experiment_event)
+        final_training_bar = tracker._training_bar
+        final_epoch_bar = tracker._epoch_bar
+
+        # Assert
+        assert bar_a_training is not None
+        assert bar_a_epoch is not None
+        assert training_bar_after_pause is None
+        assert epoch_bar_after_pause is None
+        assert bar_b_training is not bar_a_training
+        assert bar_b_epoch is not bar_a_epoch
+        assert bar_a_continued_epoch is not bar_b_epoch
+        assert final_training_bar is None
+        assert final_epoch_bar is None
 
 
 def _notify_workflow(

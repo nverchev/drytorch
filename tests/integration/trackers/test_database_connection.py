@@ -1,6 +1,8 @@
 """Tests for SQLConnection focusing on error conditions and edge cases."""
 
 import gc
+import pathlib
+import threading
 
 from collections.abc import Generator
 
@@ -9,15 +11,14 @@ import pytest
 
 try:
     import sqlalchemy
+
+    from sqlalchemy import exc as sqlalchemy_exc
 except ImportError:
     pytest.skip('sqlalchemy not available', allow_module_level=True)
     raise
 
-import threading
-
-from sqlalchemy import exc as sqlalchemy_exc
-
 from drytorch.core import log_events
+from drytorch.trackers import sqlalchemy as sql_models
 from drytorch.trackers.sqlalchemy import Experiment, Source, SQLConnection
 
 
@@ -162,3 +163,87 @@ class TestSQLConnection:
             assert len(sources) == 1
 
         gc.collect()
+
+
+class TestSQLConnectionPauseContinue:
+    """Tests SQLConnection run isolation across interleaved runs."""
+
+    @pytest.fixture
+    def tracker(
+        self, tmp_path: pathlib.Path
+    ) -> Generator[SQLConnection, None, None]:
+        """Create a SQLConnection instance with SQLite file."""
+        db_file = tmp_path / 'metrics.db'
+        engine = sqlalchemy.create_engine(f'sqlite:///{db_file.as_posix()}')
+        instance = SQLConnection(engine=engine)
+        yield instance
+        instance.close()
+        engine.dispose()
+        return
+
+    def test_interleaved_pause_continue(
+        self,
+        tracker: SQLConnection,
+        example_exp_name: str,
+        start_experiment_event: log_events.StartExperimentEvent,
+        pause_experiment_event: log_events.PauseExperimentEvent,
+        continue_experiment_event: log_events.ContinueExperimentEvent,
+        stop_experiment_event: log_events.StopExperimentEvent,
+        start_experiment_event_b: log_events.StartExperimentEvent,
+        stop_experiment_event_b: log_events.StopExperimentEvent,
+        actor_registration_event: log_events.ActorRegistrationEvent,
+        metrics_event_a1: log_events.MetricEvent,
+        metrics_event_b: log_events.MetricEvent,
+        metrics_event_a2: log_events.MetricEvent,
+        run_b_id: str,
+    ) -> None:
+        """Verify SQLConnection keeps separate run rows and isolated logs."""
+        run_a = start_experiment_event.run_id
+
+        # Trigger
+        tracker.notify(start_experiment_event)
+        tracker.notify(actor_registration_event)
+        tracker.notify(metrics_event_a1)
+        tracker.notify(pause_experiment_event)
+
+        tracker.notify(start_experiment_event_b)
+        tracker.notify(actor_registration_event)
+        tracker.notify(metrics_event_b)
+        tracker.notify(stop_experiment_event_b)
+
+        tracker.notify(continue_experiment_event)
+        tracker.notify(metrics_event_a2)
+        tracker.notify(stop_experiment_event)
+
+        # Assert
+        with tracker.session_factory() as session:
+            exp_rows = session.scalars(
+                sqlalchemy.select(sql_models.Experiment)
+            ).all()
+            run_rows = session.scalars(sqlalchemy.select(sql_models.Run)).all()
+
+            logs_a = session.scalars(
+                sqlalchemy.select(sql_models.Log)
+                .join(sql_models.Source)
+                .join(sql_models.Run)
+                .where(sql_models.Run.run_id == run_a)
+                .order_by(sql_models.Log.epoch)
+            ).all()
+            logs_b = session.scalars(
+                sqlalchemy.select(sql_models.Log)
+                .join(sql_models.Source)
+                .join(sql_models.Run)
+                .where(sql_models.Run.run_id == run_b_id)
+                .order_by(sql_models.Log.epoch)
+            ).all()
+
+            run_ids = {r.run_id for r in run_rows}
+            values_a = [round(log.value, 4) for log in logs_a]
+            values_b = [round(log.value, 4) for log in logs_b]
+
+        assert len(exp_rows) == 1
+        assert exp_rows[0].experiment_name == example_exp_name
+        assert run_ids == {run_a, run_b_id}
+        assert values_a == [0.1, 0.05]
+        assert values_b == [0.9]
+        assert 0.9 not in values_a
