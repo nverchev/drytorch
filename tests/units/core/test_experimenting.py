@@ -229,6 +229,26 @@ class TestExperiment:
         assert r_resumed.id == run1_id
         assert r_resumed.resumed
 
+    def test_create_run_without_record(self, experiment) -> None:
+        """Test a run that is not recorded leaves the registry empty."""
+        run = experiment.create_run(record=False)
+
+        assert not run.record
+        assert experiment._registry.load_all() == []
+
+    def test_create_run_retries_taken_id(self, experiment, mocker) -> None:
+        """Test a new run retries when its automatic id is already recorded."""
+        error = exceptions.RunAlreadyRecordedError('taken_id', 'Experiment')
+        register = mocker.patch.object(
+            RunRegistry, 'register_new_run', side_effect=[error, None]
+        )
+        sleep = mocker.patch('time.sleep')
+
+        experiment.create_run()
+
+        assert register.call_count == 2
+        sleep.assert_called_once_with(1)
+
     def test_experiment_repr(self, experiment) -> None:
         """Test representation."""
         assert str(experiment) == f'Experiment(name={experiment.name})'

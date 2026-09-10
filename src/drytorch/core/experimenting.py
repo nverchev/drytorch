@@ -283,6 +283,8 @@ class Experiment(Generic[_T_co]):
         """Create a new run (non-resume case)."""
         while True:
             run = Run(experiment=self, run_id=run_id, record=record)
+            if not run.record:
+                break
 
             run_data = RunMetadata(
                 id=run.id,
@@ -290,17 +292,17 @@ class Experiment(Generic[_T_co]):
                 timestamp=run.created_at_str,
                 commit=self._get_last_commit_hash(),
             )
+            try:
+                self._registry.register_new_run(run_data)
+            except exceptions.RunAlreadyRecordedError as rare:
+                if run_id is not None:
+                    raise rare
 
-            if run.record:
-                try:
-                    self._registry.register_new_run(run_data)
-                except exceptions.RunAlreadyRecordedError as rare:
-                    if run_id is not None:
-                        raise rare
+                time.sleep(1)  # the next timestamp gives a new id
+            else:
+                break
 
-                    time.sleep(1)
-
-            return run
+        return run
 
     @property
     def run(self) -> Run[_T_co]:
