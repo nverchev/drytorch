@@ -42,7 +42,7 @@ class TestModel:
     def complex_model(self) -> Model[TorchTuple, TorchData]:
         """Fixture of a complex model wrapped with Model."""
         cpu = torch.device('cpu')
-        return Model(MLP(), name='mlp_model', device=cpu, should_compile=False)
+        return Model(MLP(), name='mlp_model', device=cpu, torch_compile=False)
 
     def test_model_increment_epoch(self, complex_model: Model) -> None:
         """Test Model's increment_epoch method increases the epoch count."""

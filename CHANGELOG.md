@@ -14,6 +14,7 @@
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation
 - unwrapped returns original model and not compiled one
+- `Model` flags renamed: `should_compile` → `torch_compile`, `should_distribute` → `distribute`
 - `CheckpointPathManager` evaluates `run_dir` and `model_dir` statically at initialization
 - abstracted check for active experiment run ownership to `registering.check_current_run`
 - re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
@@ -93,7 +94,7 @@
 - fixed MetricCollection typechecker Self bound error
 - removed previous_runs caching to prevent cross-experiment bleeding
 - fixed typo in formula startswith check in objectives
-- model.compile is now assigned correctly
+- `torch_compile=True` now compiles the module (it had no effect before), and the default is now `False`
 - torch.is_initialized is called correctly
 - added base lr in PolynomialScheduler
 - fixed a run ID collision issue that occurred when starting multiple runs in the same second

@@ -60,8 +60,8 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     mixed_precision: bool
     checkpoint: p.CheckpointProtocol
     _device: torch.device
-    _should_compile: bool
-    _should_dist: bool
+    _compile: bool
+    _distribute: bool
     _registered: bool
 
     def __init__(
@@ -71,12 +71,12 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
-        should_compile: bool = True,
-        should_distribute: bool = True,
+        torch_compile: bool = False,
+        distribute: bool = True,
     ) -> None:
         """Initialize.
 
-        Option should_distribute assumes that there is a single accelerator for
+        The distribute option assumes that there is a single accelerator for
         each process and that the device for the process is already set.
 
         Args:
@@ -86,13 +86,13 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
                 Default uses the accelerator if available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
-            should_compile: compile the module at instantiation (Python < 3.14).
-            should_distribute: wrap the module for data-distributed settings.
+            torch_compile: whether to compile the module with torch.compile.
+            distribute: whether to wrap the module for ddp training.
         """
         super().__init__()
         self._device = self._default_device() if device is None else device
-        self._should_compile = should_compile
-        self._should_dist = should_distribute
+        self._compile = torch_compile
+        self._distribute = distribute
         self.mixed_precision: Final = mixed_precision
         torch_module = self._validate_module(module)
         self.exec_module: Final = self.prepare_module(torch_module)
@@ -144,10 +144,10 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         is_compiled = isinstance(
             module, torch._dynamo.eval_frame.OptimizedModule
         )
-        if self._should_compile and not is_compiled:
+        if self._compile and not is_compiled:
             module = typing.cast(torch.nn.Module, torch.compile(module))
 
-        if dist.is_available() and dist.is_initialized() and self._should_dist:
+        if dist.is_available() and dist.is_initialized() and self._distribute:
             if self._device.type == 'cuda':
                 module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
 
