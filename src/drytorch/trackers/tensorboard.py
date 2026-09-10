@@ -9,12 +9,12 @@ import subprocess
 from importlib.util import find_spec
 from typing import ClassVar
 
+from tensorboard import notebook as tb_notebook
 from torch.utils import tensorboard
 from typing_extensions import override
 
 from drytorch.core import exceptions, log_events
 from drytorch.trackers import base_classes
-from tensorboard import notebook as tb_notebook
 
 
 __all__ = [
