@@ -1,7 +1,5 @@
 """Tests for DistributedTorchAverager."""
 
-import sys
-
 import torch
 import torch.distributed as dist
 
@@ -12,7 +10,6 @@ import pytest
 from drytorch.lib.aggregators import TorchAverager
 
 
-@pytest.mark.skipif(sys.platform != 'linux', reason='ddp only works on linux')
 @pytest.mark.skipif(not dist.is_available(), reason='Distributed not available')
 class TestDistributedTorchAverager:
     """Tests for DistributedTorchAverager."""

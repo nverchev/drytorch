@@ -1,7 +1,5 @@
 """Integration tests for distributed data loading."""
 
-import sys
-
 import torch
 import torch.distributed as dist
 
@@ -30,7 +28,6 @@ class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
         return 16
 
 
-@pytest.mark.skipif(sys.platform != 'linux', reason='ddp only works on linux')
 @pytest.mark.skipif(not dist.is_available(), reason='Distributed not available')
 class TestDistributedDataLoader:
     """Test distributed data loading functionality."""
