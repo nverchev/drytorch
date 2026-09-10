@@ -135,7 +135,9 @@ class TestDistributedDataLoader:
     def _assert_runner_set_epoch(dataset: data.Dataset) -> None:
         """Test ModelRunner with distributed DataLoader."""
         loader = DataLoader(dataset, batch_size=4)
-        model = Model(nn.Linear(1, 1), name='linear')
+        model = Model(
+            nn.Linear(1, 1), name='linear', device=torch.device('cpu')
+        )
         model.epoch = 5
         runner = ModelRunner(model, loader=loader)
         runner()

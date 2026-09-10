@@ -20,6 +20,7 @@ from drytorch.core import protocols as p
 
 
 WORLD_SIZE = 2
+DEVICE = torch.device('cpu')  # gloo only handles CPU tensors
 
 
 def mse(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
@@ -46,7 +47,7 @@ class GradRecord(p.GradientOpProtocol):
 def setup_training() -> Trainer[TorchTuple, torch.Tensor, TorchData]:
     """Setup DDP training."""
     network = Linear(1, 1)
-    model = Model(network, name='linear')
+    model = Model(network, name='linear', device=DEVICE)
     dataset = IdentityDataset(80)
     loader = DataLoader(dataset=dataset, batch_size=4)
     loss = Loss(mse, name='MSE')
@@ -64,7 +65,7 @@ def setup_training_with_no_ddp_module() -> Trainer[
     TorchTuple, torch.Tensor, TorchData
 ]:
     """Setup DDP training without DDP module."""
-    model = Model(Linear(1, 1), name='linear', distribute=False)
+    model = Model(Linear(1, 1), name='linear', device=DEVICE, distribute=False)
     dataset = IdentityDataset(80)
     loader = DataLoader(dataset=dataset, batch_size=4)
     loss = Loss(mse, name='MSE')
@@ -141,7 +142,7 @@ class BatchNormLinear(nn.Module):
 
 def infer_on_first_rank() -> None:
     """Train on all ranks, then run inference on the first rank only."""
-    model = Model(BatchNormLinear(), name='batch_norm_linear')
+    model = Model(BatchNormLinear(), name='batch_norm_linear', device=DEVICE)
     trainer = Trainer(
         model,
         name='MyDDPTrainer',

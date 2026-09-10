@@ -27,7 +27,7 @@ def mse(outputs: TorchData, targets: torch.Tensor) -> torch.Tensor:
 def setup_training() -> Trainer[TorchTuple, torch.Tensor, TorchData]:
     """Setup DDP training."""
     network = Linear(1, 1)
-    model = Model(network, name='linear')
+    model = Model(network, name='linear', device=torch.device('cpu'))
     dataset = IdentityDataset(80)
     loader = DataLoader(dataset=dataset, batch_size=4)
     loss = Loss(mse, name='MSE')
