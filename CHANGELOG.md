@@ -7,6 +7,7 @@
 - added `ModuleFromAnotherRunError` to provide accurate messaging when a model is already registered to a different run
 - added `__repr__` to `AbstractScheduler`
 - added `PauseExperimentEvent` and `ContinueExperimentEvent` to test workflows
+- added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 
 ## Changed
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
@@ -95,6 +96,8 @@
 - removed previous_runs caching to prevent cross-experiment bleeding
 - fixed typo in formula startswith check in objectives
 - `torch_compile=True` now compiles the module (it had no effect before), and the default is now `False`
+- `Model` skips DDP at inference, so one rank does not wait for the others
+- `EMAModel` and `SWAModel` use mixed precision at inference
 - torch.is_initialized is called correctly
 - added base lr in PolynomialScheduler
 - fixed a run ID collision issue that occurred when starting multiple runs in the same second

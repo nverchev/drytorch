@@ -173,3 +173,48 @@ class TestEMAModel:
             not torch.allclose(p0, p1)
             for p0, p1 in zip(initial, updated, strict=False)
         )
+
+    def test_call_uses_averaged_model_in_inference(
+        self, ema_model, mocker
+    ) -> None:
+        """Forward should use averaged model in inference mode."""
+        spy = mocker.spy(ema_model.averaged_module, 'forward')
+
+        x = torch.randn(1, 1)
+        with torch.inference_mode():
+            ema_model(TorchTuple(x))
+
+        assert spy.called
+
+    def test_call_uses_mixed_precision_in_inference(self) -> None:
+        """Averaged model should run under autocast in inference mode."""
+        cpu = torch.device('cpu')
+        model = EMAModel(
+            MLP(), name='ema_mixed', device=cpu, mixed_precision=True
+        )
+
+        x = torch.randn(1, 1)
+        with torch.inference_mode():
+            outputs = model(TorchTuple(x))
+
+        assert outputs.output.dtype == torch.bfloat16
+
+    def test_call_uses_compiled_averaged_module(self, mocker) -> None:
+        """Inference should use the compiled averaged module when requested."""
+        compiled_average = mocker.Mock(return_value=TorchData(torch.zeros(1)))
+
+        def fake_compile(module: torch.nn.Module) -> torch.nn.Module:
+            # only the averaged module is in eval mode at construction
+            return module if module.training else compiled_average
+
+        mocker.patch('torch.compile', side_effect=fake_compile)
+        cpu = torch.device('cpu')
+        model = EMAModel(
+            MLP(), name='ema_compiled', device=cpu, torch_compile=True
+        )
+        inputs = TorchTuple(torch.randn(1, 1))
+
+        with torch.inference_mode():
+            model(inputs)
+
+        compiled_average.assert_called_once_with(inputs)

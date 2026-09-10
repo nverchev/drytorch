@@ -109,10 +109,15 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     def __call__(self, inputs: Input) -> Output:
         """Execute forward pass."""
+        if torch.is_inference_mode_enabled():
+            module = self._get_inference_module()
+        else:
+            module = self.exec_module
+
         with torch.autocast(
             device_type=self.device.type, enabled=self.mixed_precision
         ):
-            return self.exec_module(inputs)
+            return module(inputs)
 
     def __del__(self):
         """Unregister from the registry when deleted/garbage-collected."""
@@ -186,12 +191,21 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._registered = False
         return
 
-    def _unwrap_module(self) -> torch.nn.Module:
-        """Return the module without wrapping."""
+    def _get_inference_module(self) -> torch.nn.Module:
+        """Return the module used in inference mode."""
+        return self._unwrap_ddp()
+
+    def _unwrap_ddp(self) -> torch.nn.Module:
+        """Return the module without the ddp wrapper."""
         module = self.exec_module
         if isinstance(module, parallel.DistributedDataParallel):
             module = cast(torch.nn.Module, module.module)
 
+        return module
+
+    def _unwrap_module(self) -> torch.nn.Module:
+        """Return the module without wrapping."""
+        module = self._unwrap_ddp()
         if isinstance(module, torch._dynamo.eval_frame.OptimizedModule):
             module = module._orig_mod
 
@@ -235,6 +249,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
 
     average_name: ClassVar[str] = 'averaged_model'
     exec_averaged_module: torch.optim.swa_utils.AveragedModel
+    _inference_averaged_module: torch.nn.Module
 
     def __init__(
         self,
@@ -244,6 +259,8 @@ class AveragedModel(Model[Input, Output], abc.ABC):
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
+        torch_compile: bool = False,
+        distribute: bool = True,
     ) -> None:
         """Initialize.
 
@@ -255,23 +272,30 @@ class AveragedModel(Model[Input, Output], abc.ABC):
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to False.
+            torch_compile: whether to compile the module with torch.compile.
+            distribute: whether to wrap the module for ddp training.
         """
         super().__init__(
-            torch_module, name, device, checkpoint, mixed_precision
+            torch_module,
+            name,
+            device,
+            checkpoint,
+            mixed_precision,
+            torch_compile=torch_compile,
+            distribute=distribute,
         )
         self.exec_averaged_module = self._create_averaged_module()
         self.checkpoint.bind_module(
             self.average_name,
             self.exec_averaged_module,  # save wrapped module
         )
+        self._inference_averaged_module = self.averaged_module
+        if self._compile:  # compiled copy shares the averaged parameters
+            self._inference_averaged_module = cast(
+                torch.nn.Module, torch.compile(self.averaged_module)
+            )
+
         return
-
-    def __call__(self, inputs: Input) -> Output:
-        """Execute the forward pass."""
-        if torch.is_inference_mode_enabled():
-            return self.exec_averaged_module(inputs)  # no mixed precision here
-
-        return super().__call__(inputs)
 
     @property
     def averaged_module(self) -> torch.nn.Module:
@@ -294,6 +318,10 @@ class AveragedModel(Model[Input, Output], abc.ABC):
     @abc.abstractmethod
     def _get_multi_avg_fn(self) -> _MultiAvgFn | None:
         """Define the averaging function for the model parameters."""
+
+    @override
+    def _get_inference_module(self) -> torch.nn.Module:
+        return self._inference_averaged_module
 
     def _update_parameters(self) -> None:
         self.exec_averaged_module.update_parameters(self._unwrap_module())
@@ -325,6 +353,8 @@ class SWAModel(AveragedModel[Input, Output]):
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
+        torch_compile: bool = False,
+        distribute: bool = True,
     ) -> None:
         """Initialize.
 
@@ -337,19 +367,20 @@ class SWAModel(AveragedModel[Input, Output]):
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to False.
+            torch_compile: whether to compile the module with torch.compile.
+            distribute: whether to wrap the module for ddp training.
         """
         self.start_epoch: Final = start_epoch
         super().__init__(
-            torch_module, name, device, checkpoint, mixed_precision
+            torch_module,
+            name,
+            device,
+            checkpoint,
+            mixed_precision,
+            torch_compile=torch_compile,
+            distribute=distribute,
         )
         return
-
-    def __call__(self, inputs: Input) -> Output:
-        """Execute the forward pass."""
-        if torch.is_inference_mode_enabled() and self.epoch >= self.start_epoch:
-            return self.averaged_module(inputs)  # no mixed precision here
-
-        return super(AveragedModel, self).__call__(inputs)
 
     @override
     def post_epoch_update(self) -> None:
@@ -357,6 +388,13 @@ class SWAModel(AveragedModel[Input, Output]):
             self._update_parameters()
 
         return
+
+    @override
+    def _get_inference_module(self) -> torch.nn.Module:
+        if self.epoch < self.start_epoch:
+            return self._unwrap_ddp()
+
+        return super()._get_inference_module()
 
     @override
     def _get_multi_avg_fn(self) -> None:
@@ -385,6 +423,8 @@ class EMAModel(AveragedModel[Input, Output]):
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
         mixed_precision: bool = False,
+        torch_compile: bool = False,
+        distribute: bool = True,
         decay: float = 0.999,
     ) -> None:
         """Initialize.
@@ -397,11 +437,19 @@ class EMAModel(AveragedModel[Input, Output]):
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to False.
+            torch_compile: whether to compile the module with torch.compile.
+            distribute: whether to wrap the module for ddp training.
             decay: the exponential decay rate for the moving average.
         """
         self.decay: Final = decay
         super().__init__(
-            torch_module, name, device, checkpoint, mixed_precision
+            torch_module,
+            name,
+            device,
+            checkpoint,
+            mixed_precision,
+            torch_compile=torch_compile,
+            distribute=distribute,
         )
         return
 

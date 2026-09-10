@@ -125,6 +125,39 @@ def save_and_load() -> list[nn.Parameter]:
     return list(trainer.model.module.parameters())
 
 
+class BatchNormLinear(nn.Module):
+    """Linear layer followed by batch normalization, which has buffers."""
+
+    def __init__(self) -> None:
+        """Initialize."""
+        super().__init__()
+        self.linear = nn.Linear(1, 1)
+        self.norm = nn.BatchNorm1d(1)
+
+    def forward(self, inputs: TorchTuple) -> TorchData:
+        """Forward pass."""
+        return TorchData(self.norm(self.linear(inputs.input)))
+
+
+def infer_on_first_rank() -> None:
+    """Train on all ranks, then run inference on the first rank only."""
+    model = Model(BatchNormLinear(), name='batch_norm_linear')
+    trainer = Trainer(
+        model,
+        name='MyDDPTrainer',
+        loader=DataLoader(dataset=IdentityDataset(80), batch_size=4),
+        learning_schema=LearningSchema.sgd(momentum=0),
+        loss=Loss(mse, name='MSE'),
+    )
+    trainer.train(1)
+    if torch.distributed.get_rank() == 0:
+        model.module.eval()
+        with torch.inference_mode():
+            model(TorchTuple(torch.ones(2, 1)))
+
+    return
+
+
 @pytest.mark.parametrize('world_size', [WORLD_SIZE])
 def test_ddp_warning(example_run_id, tmp_path, world_size) -> None:
     """Test that missing ddp in module triggers warning."""
@@ -188,6 +221,18 @@ def test_checkpointing(example_run_id, tmp_path, world_size) -> None:
             return_dict[0][0], return_dict[rank][0], strict=True
         ):
             assert torch.allclose(param0, param_rank)
+
+
+@pytest.mark.parametrize('world_size', [WORLD_SIZE])
+def test_inference_on_one_rank(example_run_id, tmp_path, world_size) -> None:
+    """Test that inference on one rank does not wait for the other ranks."""
+    running_worker = RunningWorker(
+        infer_on_first_rank, par_dir=tmp_path, run_id=example_run_id
+    )
+    worker = DistributedWorker(running_worker, world_size=world_size)
+    exit_codes, _ = worker.process()
+
+    assert all(exit_code == 0 for exit_code in exit_codes)
 
 
 @pytest.mark.parametrize('world_size', [WORLD_SIZE])
