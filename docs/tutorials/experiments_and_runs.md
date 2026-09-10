@@ -232,10 +232,10 @@ with second_experiment.create_run():  # new run
     model_caller = ModelRunner(second_model, loader=loader)
     try:
         model_caller()
-    except exceptions.ModuleNotRegisteredError:
+    except exceptions.ModuleFromAnotherRunError:
         pass
     else:
-        raise AssertionError('Model not registered in the current run')
+        raise AssertionError('Model registered in another run')
 ```
 
 ## Metadata Extraction

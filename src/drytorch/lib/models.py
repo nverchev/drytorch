@@ -98,13 +98,13 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self.exec_module: Final = self.prepare_module(torch_module)
         self._name = name
         self.epoch = 0
+        self._registered = False
+        self.register()
         if checkpoint is None:
             checkpoint = checkpoints.LocalCheckpoint()
 
         self.checkpoint = checkpoint
         self.checkpoint.bind_model(self)
-        self._registered = False
-        self.register()
         return
 
     def __call__(self, inputs: Input) -> Output:

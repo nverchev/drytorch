@@ -52,7 +52,7 @@ def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
         raise exceptions.ModuleNotRegisteredError(
             model.name, run.experiment.name, run.id
         )
-    elif owner.run() is not run:
+    elif (owner.exp_name, owner.run_id) != (run.experiment.name, run.id):
         raise exceptions.ModuleFromAnotherRunError(
             model.name,
             owner.exp_name,
