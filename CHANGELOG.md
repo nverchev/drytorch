@@ -27,6 +27,7 @@
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 - renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml` with a backwards-compatible alias
 - consolidated integration tracker tests into one module per tracker
+- moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
 
 ## Fixed
 - `recursive_apply` falls back to type name for callables that are not functions

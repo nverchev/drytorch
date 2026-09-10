@@ -1,9 +1,12 @@
 """Integration tests for experiment multiprocessing safety."""
 
 import multiprocessing
+import pathlib
 import warnings
 
 from ..conftest import RunningWorker
+
+import drytorch
 
 from drytorch.core.exceptions import RunAlreadyCompletedWarning
 from drytorch.core.experimenting import Experiment, RunStatus
@@ -80,6 +83,22 @@ class TestExperimentMultiprocessing:
         for run in runs:
             assert run.status in status_list
 
+    def test_resume_in_worker(self, tmp_path, example_run_id) -> None:
+        """Test a worker process resumes a run under its recorded id."""
+        drytorch.remove_all_default_trackers()
+        exp = Experiment(config=None, name='ResumeExperiment', par_dir=tmp_path)
+        with exp.create_run(run_id=example_run_id):
+            pass
+
+        # spawn: a forked worker would inherit the experiment name counters
+        context = multiprocessing.get_context('spawn')
+        with context.Pool(processes=1) as pool:
+            resumed_id = pool.apply(
+                self._resume, (tmp_path, exp.name, example_run_id)
+            )
+
+        assert resumed_id == example_run_id
+
     @staticmethod
     def _get_run_id():
         """Worker function to create a run (module-level for pickling)."""
@@ -92,3 +111,16 @@ class TestExperimentMultiprocessing:
         run.status = status
         run._update_registry()
         return None
+
+    @staticmethod
+    def _resume(par_dir: pathlib.Path, name: str, run_id: str) -> str:
+        """Resume a run and return its id (module-level for pickling)."""
+        drytorch.remove_all_default_trackers()
+        exp = Experiment(config=None, name=name, par_dir=par_dir)
+        run = exp.create_run(run_id=run_id, resume=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RunAlreadyCompletedWarning)
+            with run:
+                pass
+
+        return run.id

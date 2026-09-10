@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import gc
 import json
 import multiprocessing
@@ -239,6 +240,7 @@ class Experiment(Generic[_T_co]):
             if run_id in self._paused_runs:
                 raise exceptions.RunStillPausedError(run_id, self.name)
 
+        record = record and _is_main_process()
         runs_data = self._registry.load_all()
         if resume:
             return self._handle_resume_logic(run_id, runs_data, record)
@@ -281,28 +283,40 @@ class Experiment(Generic[_T_co]):
         record: bool,
     ) -> Run[_T_co]:
         """Create a new run (non-resume case)."""
-        while True:
-            run = Run(experiment=self, run_id=run_id, record=record)
-            if not run.record:
-                break
+        new_id = self._make_run_id(run_id)
+        while record and not self._try_register(new_id):
+            if run_id is not None:
+                raise exceptions.RunAlreadyRecordedError(new_id, self.name)
 
-            run_data = RunMetadata(
-                id=run.id,
-                status='created',
-                timestamp=run.created_at_str,
-                commit=self._get_last_commit_hash(),
-            )
-            try:
-                self._registry.register_new_run(run_data)
-            except exceptions.RunAlreadyRecordedError as rare:
-                if run_id is not None:
-                    raise rare
+            time.sleep(1)  # the next timestamp gives a new id
+            new_id = self._make_run_id(None)
 
-                time.sleep(1)  # the next timestamp gives a new id
-            else:
-                break
+        return Run(experiment=self, run_id=new_id, record=record)
 
-        return run
+    def _try_register(self, run_id: str) -> bool:
+        """Record a new run; return False if its id is already recorded."""
+        run_data = RunMetadata(
+            id=run_id,
+            status='created',
+            timestamp=_timestamp(),
+            commit=self._get_last_commit_hash(),
+        )
+        try:
+            self._registry.register_new_run(run_data)
+        except exceptions.RunAlreadyRecordedError:
+            return False
+
+        return True
+
+    @staticmethod
+    def _make_run_id(run_id: str | None) -> str:
+        """Return the id, or a timestamp; worker processes append their PID."""
+        final_id = run_id or _timestamp()
+        if not _is_distributed():  # keep the same ID for distributed runs
+            if multiprocessing.current_process().name != 'MainProcess':
+                final_id = f'{final_id}_{multiprocessing.current_process().pid}'
+
+        return final_id
 
     @property
     def run(self) -> Run[_T_co]:
@@ -406,8 +420,6 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     }
 
     _experiment: Experiment[_T_co]
-    _is_distributed: bool
-    _is_main_process: bool
     _id: str
     resumed: bool
     record: bool
@@ -418,7 +430,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     def __init__(
         self,
         experiment: Experiment[_T_co],
-        run_id: str | None,
+        run_id: str,
         resumed: bool = False,
         record: bool = True,
     ) -> None:
@@ -432,21 +444,12 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         """
         super().__init__()
         self._experiment: Final = experiment
-        self._is_distributed = dist.is_available() and dist.is_initialized()
-        self._is_main_process = not self._is_distributed or dist.get_rank() == 0
-        self._id: Final = self._get_run_id(run_id)
+        self._id: Final = run_id
         self.resumed = resumed
-        self.record = record and self._is_main_process
+        self.record = record
         self.status = 'created'
         self.metadata_manager: Final = tracking.MetadataManager()
         self._finalizer = None
-
-        if self._is_distributed:
-            feature = 'Data-distributed support'
-            warnings.warn(
-                exceptions.ExperimentalFeatureWarning(feature), stacklevel=2
-            )
-
         return
 
     @property
@@ -524,7 +527,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             self, self._stop_experiment, self._experiment, self._id
         )
 
-        if self._is_main_process:
+        if _is_main_process():
             log_events.Event.set_auto_publish(self._experiment.trackers.publish)
         else:  # no tracking in secondary processes
             log_events.Event.set_auto_publish(lambda _: None)
@@ -566,15 +569,6 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         self._stop_experiment(self.experiment, self._id)
         return
-
-    def _get_run_id(self, run_id: str | None) -> str:
-        """Generate a run ID, appending PID if in a worker process."""
-        final_id = run_id or self.created_at_str
-        if not self._is_distributed:  # keep the same ID for distributed runs
-            if multiprocessing.current_process().name != 'MainProcess':
-                final_id = f'{final_id}_{multiprocessing.current_process().pid}'
-
-        return final_id
 
     def _update_registry(self) -> None:
         """Update the run status in the experiment's registry."""
@@ -618,6 +612,21 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(id={self.id}, status={self.status})'
+
+
+def _is_distributed() -> bool:
+    """Whether this process belongs to an initialized distributed group."""
+    return dist.is_available() and dist.is_initialized()
+
+
+def _is_main_process() -> bool:
+    """Whether this process is not distributed or has rank 0."""
+    return not _is_distributed() or dist.get_rank() == 0
+
+
+def _timestamp() -> str:
+    """Return the current time in the format used for run ids."""
+    return datetime.datetime.now().strftime(repr_utils.CreatedAtMixin.ts_fmt)
 
 
 def _validate_chars(name: str) -> None:
