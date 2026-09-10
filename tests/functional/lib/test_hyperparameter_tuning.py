@@ -6,6 +6,8 @@ import gc
 from collections.abc import Generator, MutableMapping
 from typing import Any
 
+from ...simple_classes import Linear
+
 import pytest
 
 from drytorch import Trainer
@@ -70,22 +72,19 @@ def test_automatic_names(
 def test_iterative_pruning(
     benchmark_values,
     standard_learning_schema,
-    linear_model,
     square_loss_calc,
     identity_loader,
 ) -> None:
     """Test a pruning strategy that requires model improvement at each epoch."""
-    registering.unregister_model(linear_model)
     first_trial_len = 0
-    for lr_pow in reversed(range(4)):
+    for lr in (0.001, 0.01, 0.1, 10):  # the last learning rate diverges
         training_loder, val_loader = identity_loader.split()
-        lr = 10 ** (-lr_pow)
-        linear_model_copy = Model(linear_model.module)
+        trial_model = Model(Linear(1, 1))  # every trial starts from zero
         new_learning_schema = dataclasses.replace(
             standard_learning_schema, base_lr=lr
         )
         trainer = Trainer(
-            model=linear_model_copy,
+            model=trial_model,
             name='MyTrainer',
             loader=training_loder,
             learning_schema=new_learning_schema,
@@ -97,11 +96,11 @@ def test_iterative_pruning(
         )
         trainer.post_epoch_hooks.register(prune_callback)
         trainer.train(4)
-        if lr_pow == 3:  # First trial (best LR) establishes curve
+        if lr == 0.001:  # first trial has no thresholds
             first_trial_len = len(prune_callback.trial_values)
 
         benchmark_values = prune_callback.trial_values
-        registering.unregister_model(linear_model_copy)
+        registering.unregister_model(trial_model)
         gc.collect()
 
     assert first_trial_len == 4
