@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 import functools
 
-from typing import ClassVar, cast
+from typing import ClassVar
 
 import sqlalchemy
 
@@ -361,7 +361,6 @@ class SQLConnection(base_classes.MetricLoader):
             )
             named_sources = dict[str, list[Source]]()
             for source in query:
-                source = cast(Source, source)  # fixing wrong annotation
                 sources = named_sources.setdefault(source.source_name, [])
                 sources.append(source)
 
@@ -388,7 +387,6 @@ class SQLConnection(base_classes.MetricLoader):
             named_metric_values = dict[str, list[float]]()
 
             for log in query:
-                log = cast(Log, log)  # fixing wrong annotation
                 epochs = named_epochs.setdefault(log.metric_name, [])
                 epochs.append(log.epoch)
                 values = named_metric_values.setdefault(log.metric_name, [])

@@ -35,16 +35,16 @@ __all__ = [
     'static_hook_class',
 ]
 
-_T_contra = TypeVar('_T_contra', contravariant=True)
+_T = TypeVar('_T')
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
-Input = TypeVar('Input', bound=p.InputType, contravariant=True)
-Target = TypeVar('Target', bound=p.TargetType, contravariant=True)
-Output = TypeVar('Output', bound=p.OutputType, contravariant=True)
+Input = TypeVar('Input', bound=p.InputType)
+Target = TypeVar('Target', bound=p.TargetType)
+Output = TypeVar('Output', bound=p.OutputType)
 get_last: Final = operator.itemgetter(-1)
 
 
-class HookRegistry(Generic[_T_contra]):
+class HookRegistry(Generic[_T]):
     """A registry for managing and executing hooks.
 
     The hooks have a generic object as input and can access it.
@@ -53,13 +53,13 @@ class HookRegistry(Generic[_T_contra]):
         hooks: a list of registered hooks.
     """
 
-    hooks: list[Callable[[_T_contra], None]]
+    hooks: list[Callable[[_T], None]]
 
     def __init__(self) -> None:
         """Initialize."""
         self.hooks = []
 
-    def execute(self, input_object: _T_contra) -> None:
+    def execute(self, input_object: _T) -> None:
         """Execute the registered hooks in order of registration.
 
         Args:
@@ -69,7 +69,7 @@ class HookRegistry(Generic[_T_contra]):
             hook(input_object)
         return
 
-    def register(self, hook: Callable[[_T_contra], None]) -> None:
+    def register(self, hook: Callable[[_T], None]) -> None:
         """Register a single hook.
 
         Args:
@@ -80,7 +80,7 @@ class HookRegistry(Generic[_T_contra]):
 
     def register_all(
         self,
-        hook_list: list[Callable[[_T_contra], None]],
+        hook_list: list[Callable[[_T], None]],
     ) -> None:
         """Register multiple hooks.
 

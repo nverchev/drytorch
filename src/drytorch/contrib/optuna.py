@@ -22,12 +22,8 @@ __all__ = [
     'suggest_overrides',
 ]
 
-_Target_contra = TypeVar(
-    '_Target_contra', bound=p.TargetType, contravariant=True
-)
-_Output_contra = TypeVar(
-    '_Output_contra', bound=p.OutputType, contravariant=True
-)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class OptunaError(exceptions.DryTorchError):
@@ -36,7 +32,7 @@ class OptunaError(exceptions.DryTorchError):
     _template = 'Optuna: {}'
 
 
-class TrialCallback(Generic[_Output_contra, _Target_contra]):
+class TrialCallback(Generic[_Output, _Target]):
     """Implements pruning logic for training models.
 
     Attributes:
@@ -53,9 +49,7 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
         self,
         trial: optuna.Trial,
         filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
-        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | str
-        | None = None,
+        metric: p.ObjectiveProtocol[_Output, _Target] | str | None = None,
         monitor: p.MonitorProtocol | None = None,
     ) -> None:
         """Initialize.
@@ -79,7 +73,7 @@ class TrialCallback(Generic[_Output_contra, _Target_contra]):
 
     def __call__(
         self,
-        instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra],
+        instance: p.TrainerProtocol[Any, _Target, _Output],
     ) -> None:
         """Evaluate whether training should be stopped early.
 

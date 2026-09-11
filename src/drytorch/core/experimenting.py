@@ -357,7 +357,7 @@ class Experiment(Generic[_T_co]):
         return current
 
     @staticmethod
-    def set_current(experiment: Experiment[_T_co]) -> None:
+    def set_current(experiment: Experiment[Any]) -> None:
         """Set an experiment as active.
 
         Raises:
@@ -576,7 +576,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _teardown(experiment: Experiment[_T_co]) -> None:
+    def _teardown(experiment: Experiment[Any]) -> None:
         """Common cleanup for pause and stop."""
         log_events.Event.set_auto_publish(None)
         experiment._active_run = None
@@ -586,7 +586,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
     @staticmethod
     def _stop_experiment(
-        experiment: Experiment[_T_co],
+        experiment: Experiment[Any],
         run_id: str,
     ) -> None:
         """Cleanup without holding reference to a Run instance."""
@@ -595,6 +595,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             if active_run.id == run_id:
                 log_events.StopExperimentEvent(experiment.name, run_id)
                 Run._teardown(experiment)
+
             return
 
         if not Experiment.has_current():
@@ -603,7 +604,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _pause_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
+    def _pause_experiment(experiment: Experiment[Any], run_id: str) -> None:
         """Cleanup on pause without holding reference to a Run instance."""
         log_events.PauseExperimentEvent(experiment.name, run_id)
         Run._teardown(experiment)
