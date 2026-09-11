@@ -113,7 +113,7 @@ class GradNormClipper(ClipOperation):
         """
         super().__init__()
         _validate_threshold(threshold)
-        self.threshold = threshold
+        self.threshold: Final = threshold
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:

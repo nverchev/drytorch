@@ -49,8 +49,8 @@ class Sliced(Sequence[_T]):
             seq: the sequence to keep reference to.
             slice_: the slice to use.
         """
-        self.seq = seq
-        self.slice = slice_
+        self.seq: Final = seq
+        self.slice: Final = slice_
         # take advantage of range implementation
         self._range = range(len(self.seq))[slice_]
         self._sliced = self.seq[slice_]
@@ -103,11 +103,11 @@ class Permutation(Sequence[int]):
             size: the length of the permutation.
             seed: seed for the random generator.
         """
-        self.size = size
+        self.size: Final = size
         if seed is None:
             seed = int(random.default_rng().integers(2**32))
 
-        self.seed = seed
+        self.seed: Final = seed
         rng = random.default_rng(self.seed)
         self._new_indices = rng.permutation(self.size).tolist()
 
@@ -178,7 +178,9 @@ class DataLoader(p.LoaderProtocol[Data]):
         self._n_workers = n_workers
         self._distributed = dist.is_available() and dist.is_initialized()
         self._user_sampler = sampler
-        self.sampler = self._init_sampler() if sampler is None else sampler
+        self.sampler: Final = (
+            self._init_sampler() if sampler is None else sampler
+        )
         return
 
     @override

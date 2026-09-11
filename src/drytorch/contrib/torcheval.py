@@ -1,5 +1,7 @@
 """Support for torcheval syncing recommended for distributed training."""
 
+from typing import Final
+
 import torch
 
 from torcheval import metrics
@@ -28,11 +30,15 @@ def from_torcheval(
     """
 
     class _TorchEvalWithSync(p.ObjectiveProtocol[_Tensor, _Tensor]):
+        metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
+        name: str
+
         def __init__(
             self, _metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
         ) -> None:
-            self.metric = _metric
-            self.name = name if name is not None else _metric.__class__.__name__
+            self.metric: Final = _metric
+            name_str = name if name is not None else _metric.__class__.__name__
+            self.name: Final = name_str
             self._synced_value: _Tensor | dict[str, _Tensor] | None = None
             return
 

@@ -189,7 +189,7 @@ class Experiment(Generic[_T_co]):
         _validate_chars(name)
         self.__config: Final = config
         self._name = name
-        self.par_dir = pathlib.Path(par_dir)
+        self.par_dir: Final = pathlib.Path(par_dir)
         self.tags = tags or []
         self.trackers: Final = tracking.EventDispatcher(self.name)
         self.trackers.subscribe(**tracking.DEFAULT_TRACKERS)
@@ -445,8 +445,8 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         super().__init__()
         self._experiment: Final = experiment
         self._id: Final = run_id
-        self.resumed = resumed
-        self.record = record
+        self.resumed: Final = resumed
+        self.record: Final = record
         self.status = 'created'
         self.metadata_manager: Final = tracking.MetadataManager()
         self._finalizer = None

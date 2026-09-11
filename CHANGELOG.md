@@ -17,6 +17,7 @@
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 
 ## Changed
+- marked non-reassigned configuration attributes as Final across Model, DataLoader, Permutation, Sliced, GradNormClipper, Run, Experiment, and torcheval wrapper
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites

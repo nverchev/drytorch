@@ -103,7 +103,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         if checkpoint is None:
             checkpoint = checkpoints.LocalCheckpoint()
 
-        self.checkpoint = checkpoint
+        self.checkpoint: Final = checkpoint
         self.checkpoint.bind_model(self)
         return
 
