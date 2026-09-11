@@ -159,7 +159,7 @@ if not metric_collection.compute() == expected_metric_collection:
 ### Define a Custom Metric class
 
 You can subclass the abstract `AverageObjective` class by overriding the
-`calculate` method. For different aggregation strategies, subclass the `Objective` and override the `_compute` and `_get_aggregator` method.
+`calculate` method. For different aggregation strategies, subclass the `Objective` and override the `_get_accumulator_cls` method to return your own accumulator.
 In this example, we slightly reduce the calculation overhead to obtain the previous metrics.
 
 ```{code-cell} ipython3

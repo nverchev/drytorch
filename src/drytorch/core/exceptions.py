@@ -10,6 +10,7 @@ import torch
 
 __all__ = [
     'AccessOutsideScopeError',
+    'AccumulatorMismatchError',
     'CannotStoreOutputWarning',
     'CheckpointNotInitializedError',
     'ComputedBeforeUpdatedWarning',
@@ -128,6 +129,29 @@ class AccessOutsideScopeError(DryTorchError):
     """Raised when an operation is attempted outside an experiment scope."""
 
     _template = 'Operation only allowed within an experiment scope.'
+
+
+class AccumulatorMismatchError(DryTorchError):
+    """Raised when merging objectives with different accumulators."""
+
+    _template = 'Cannot merge states accumulated with {} and {}.'
+
+    def __init__(
+        self,
+        accumulator_cls: type,
+        other_accumulator_cls: type,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            accumulator_cls: the accumulator class of the current objective.
+            other_accumulator_cls: the accumulator class of the other objective.
+        """
+        self.accumulator_cls: Final = accumulator_cls
+        self.other_accumulator_cls: Final = other_accumulator_cls
+        super().__init__(
+            accumulator_cls.__name__, other_accumulator_cls.__name__
+        )
 
 
 class CheckpointNotInitializedError(DryTorchError):

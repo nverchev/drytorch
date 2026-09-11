@@ -4,84 +4,134 @@ import torch
 
 import pytest
 
-from drytorch.lib.aggregators import (
-    TorchAverager,
-)
+from drytorch.lib.aggregators import Aggregator, TorchMeanAccumulator
 
 
-class TestAggregator:
-    """Tests for the AbstractAggregator using Averager."""
+class TestTorchMeanAccumulator:
+    """Tests for TorchMeanAccumulator."""
 
-    @pytest.fixture
-    def aggregator(self) -> TorchAverager:
-        """Fixture creating a base Averager instance."""
-        import torch
+    def test_from_value(self) -> None:
+        """Test the accumulator stores the sum and the number of elements."""
+        acc = TorchMeanAccumulator.from_value(torch.ones((2, 2)))
 
-        return TorchAverager(
-            metric1=torch.tensor(2.0), metric2=torch.tensor(4.0)
-        )
-
-    def test_init(self, aggregator: TorchAverager) -> None:
-        """Test initialization stores accumulators correctly."""
-        assert aggregator.accumulators['metric1'].total == 2.0
-        assert aggregator.accumulators['metric1'].count == 1
-        assert aggregator.accumulators['metric2'].total == 4.0
-        assert aggregator.accumulators['metric2'].count == 1
-
-    def test_clear(self, aggregator: TorchAverager) -> None:
-        """Test clearing the aggregator."""
-        aggregator.clear()
-        assert not aggregator.accumulators
-        assert not aggregator._cached_reduce
-
-    def test_reduce(self, aggregator: TorchAverager) -> None:
-        """Test reduce calculates averages correctly."""
-        expected = {'metric1': 2.0, 'metric2': 4.0}
-        assert aggregator.reduce() == expected
-        assert aggregator._cached_reduce
-
-    def test_all_reduce(self, aggregator: TorchAverager) -> None:
-        """Test all_reduce recalculates after state change."""
-        aggregator.reduce()
-        aggregator.accumulators['metric1'].total = 4.0
-        aggregator.accumulators['metric2'].total = 6.0
-        expected = {'metric1': 4.0, 'metric2': 6.0}
-        assert aggregator.all_reduce() == expected
-
-    def test_cached_reduce(self, aggregator: TorchAverager) -> None:
-        """Test reduce returns cached result if present."""
-        cached = {'metric1': 4.0}
-        aggregator._cached_reduce = cached
-        assert aggregator.reduce() == cached
-
-
-class TestTorchAverager:
-    """Tests for TorchAverager."""
-
-    @pytest.fixture
-    def torch_averager(self) -> TorchAverager:
-        """Fixture creating a TorchAverager instance."""
-        tensor = torch.ones((2, 2))
-        return TorchAverager(metric=tensor)
-
-    def test_init(self, torch_averager: TorchAverager) -> None:
-        """Test tensor accumulator stores the correct total and count."""
-        acc = torch_averager.accumulators['metric']
         assert torch.is_tensor(acc.total)
         assert acc.total.item() == 4.0
         assert acc.count == 4
 
-    def test_reduce_with_tensors(self, torch_averager: TorchAverager) -> None:
-        """Test reduce calculates correct tensor mean."""
-        result = torch_averager.reduce()
-        assert torch.is_tensor(result['metric'])
-        assert result['metric'].item() == 1.0
+    def test_merge(self) -> None:
+        """Test merging adds totals and counts."""
+        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 2.0]))
+        other = TorchMeanAccumulator.from_value(torch.tensor([3.0]))
 
-    def test_clear(self, torch_averager: TorchAverager) -> None:
+        acc.merge(other)
+
+        assert acc.total.item() == 6.0
+        assert acc.count == 3
+
+    def test_reduce(self) -> None:
+        """Test reduce returns the mean."""
+        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 2.0, 6.0]))
+
+        result = acc.reduce()
+
+        assert result.item() == 3.0
+
+    def test_sync_without_distributed(self) -> None:
+        """Test sync leaves the state unchanged when not distributed."""
+        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 3.0]))
+
+        acc.sync()
+
+        assert acc.total.item() == 4.0
+        assert acc.count == 2
+
+
+class TestAggregator:
+    """Tests for Aggregator."""
+
+    @pytest.fixture
+    def aggregator(self) -> Aggregator[TorchMeanAccumulator]:
+        """Fixture creating an aggregator with two accumulators."""
+        return Aggregator(
+            metric1=TorchMeanAccumulator.from_value(torch.tensor(2.0)),
+            metric2=TorchMeanAccumulator.from_value(torch.tensor(4.0)),
+        )
+
+    def test_init(self, aggregator: Aggregator[TorchMeanAccumulator]) -> None:
+        """Test initialization stores the accumulators by name."""
+        assert aggregator.keys() == ['metric1', 'metric2']
+        assert aggregator.accumulators['metric1'].total == 2.0
+        assert aggregator.accumulators['metric2'].total == 4.0
+
+    def test_iadd_merges_stored_name(
+        self, aggregator: Aggregator[TorchMeanAccumulator]
+    ) -> None:
+        """Test adding an accumulator with a stored name merges it."""
+        new = TorchMeanAccumulator.from_value(torch.tensor(6.0))
+
+        aggregator += {'metric1': new}
+
+        assert aggregator.accumulators['metric1'].total == 8.0
+        assert aggregator.accumulators['metric1'].count == 2
+
+    def test_iadd_copies_new_name(
+        self, aggregator: Aggregator[TorchMeanAccumulator]
+    ) -> None:
+        """Test adding an accumulator with a new name stores a copy."""
+        new = TorchMeanAccumulator.from_value(torch.tensor(6.0))
+
+        aggregator += {'metric3': new}
+
+        assert aggregator.accumulators['metric3'] is not new
+        assert aggregator.accumulators['metric3'].total == 6.0
+
+    def test_iadd_other_accumulators(
+        self, aggregator: Aggregator[TorchMeanAccumulator]
+    ) -> None:
+        """Test adding another aggregator's accumulators merges them by name."""
+        other = Aggregator(
+            metric2=TorchMeanAccumulator.from_value(torch.tensor(2.0)),
+            metric3=TorchMeanAccumulator.from_value(torch.tensor(1.0)),
+        )
+
+        aggregator += other.accumulators
+
+        assert aggregator.keys() == ['metric1', 'metric2', 'metric3']
+        assert aggregator.accumulators['metric2'].total == 6.0
+        assert aggregator.accumulators['metric2'].count == 2
+
+    def test_add_returns_new_aggregator(
+        self, aggregator: Aggregator[TorchMeanAccumulator]
+    ) -> None:
+        """Test addition returns a new aggregator and leaves operands as is."""
+        other = Aggregator(
+            metric1=TorchMeanAccumulator.from_value(torch.tensor(6.0))
+        )
+
+        result = aggregator + other.accumulators
+
+        assert result.accumulators['metric1'].total == 8.0
+        assert aggregator.accumulators['metric1'].total == 2.0
+        assert other.accumulators['metric1'].total == 6.0
+
+    def test_bool(self, aggregator: Aggregator[TorchMeanAccumulator]) -> None:
+        """Test an aggregator is true only when it stores accumulators."""
+        empty = Aggregator[TorchMeanAccumulator]()
+
+        assert aggregator
+        assert not empty
+
+    def test_clear(self, aggregator: Aggregator[TorchMeanAccumulator]) -> None:
         """Test clearing removes all accumulators."""
-        torch_averager.clear()
-        assert torch_averager.reduce() == {}
+        aggregator.clear()
 
-    def test_all_reduce(self, torch_averager: TorchAverager) -> None:
-        """Test all_reduce behaves like ``reduce`` when not distributed."""
-        assert torch_averager.all_reduce() == torch_averager.reduce()
+        assert not aggregator.accumulators
+
+    def test_sync_without_distributed(
+        self, aggregator: Aggregator[TorchMeanAccumulator]
+    ) -> None:
+        """Test sync leaves the state unchanged when not distributed."""
+        aggregator.sync()
+
+        assert aggregator.accumulators['metric1'].total == 2.0
+        assert aggregator.accumulators['metric1'].count == 1

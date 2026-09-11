@@ -8,6 +8,7 @@ import pytest
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
+from drytorch.lib.aggregators import TorchMeanAccumulator
 from drytorch.lib.objectives import (
     CompositionalLoss,
     DictLoss,
@@ -112,6 +113,50 @@ class TestMetricCollection:
         expected = {metric_1: torch.tensor(1), metric_2: torch.tensor(0)}
 
         assert metrics.compute() == expected
+
+    def test_compute_uses_cache(self, mocker, metric_1, metric_fun_1) -> None:
+        """Test compute reuses the values until the state changes."""
+        metrics = MetricCollection(**metric_fun_1)
+        metrics.update(torch.tensor(1.0), torch.tensor(0.0))
+        spy = mocker.spy(metrics, '_compute')
+
+        metrics.compute()
+        metrics.compute()
+        metrics.update(torch.tensor(3.0), torch.tensor(0.0))
+        after_update = metrics.compute()
+
+        assert spy.call_count == 2
+        assert after_update == {metric_1: torch.tensor(2.0)}
+
+    def test_merge_state(self, metric_1, metric_fun_1) -> None:
+        """Test merging states averages over the updates of both objectives."""
+        metrics = MetricCollection(**metric_fun_1)
+        other = MetricCollection(**metric_fun_1)
+        metrics.update(torch.tensor(1.0), torch.tensor(0.0))
+        other.update(torch.tensor(3.0), torch.tensor(0.0))
+        metrics.compute()  # fills the cache
+
+        metrics.merge_state(other)
+
+        assert metrics.compute() == {metric_1: torch.tensor(2.0)}
+        assert other.compute() == {metric_1: torch.tensor(3.0)}
+
+    def test_merge_state_different_accumulators(self, metric_fun_1) -> None:
+        """Test merging objectives with different accumulators raises."""
+
+        class OtherAccumulator(TorchMeanAccumulator):
+            pass
+
+        class OtherCollection(MetricCollection):
+            @classmethod
+            def _get_accumulator_cls(cls) -> type[TorchMeanAccumulator]:
+                return OtherAccumulator
+
+        metrics = MetricCollection(**metric_fun_1)
+        other = OtherCollection(**metric_fun_1)
+
+        with pytest.raises(exceptions.AccumulatorMismatchError):
+            metrics.merge_state(other)
 
     def test_or_repeated_metrics(self, metric_fun_1) -> None:
         """Test it raises RepeatedMetricsError if collections share keys."""

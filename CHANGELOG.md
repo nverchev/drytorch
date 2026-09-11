@@ -1,8 +1,15 @@
 ## [0.1.0] - 08-09-2026
 
+## [BREAKING CHANGES]
+- replaced `AbstractAggregator` and `TorchAverager` with `Aggregator`, a container merging accumulators by name; `reduce` and `all_reduce` are removed, and the accumulators are reduced by their owner
+- `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
+- `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators
+- `AbstractAccumulator.merge` takes `other: Any`; subclasses annotate `other` with their own class
+
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
+- added `AccumulatorMismatchError`
 - added `OptimizerAlreadyBoundError` and `ModelAlreadyBoundError`
 - added `ModuleFromAnotherRunError` to provide accurate messaging when a model is already registered to a different run
 - added `__repr__` to `AbstractScheduler`

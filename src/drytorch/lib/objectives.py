@@ -51,7 +51,10 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
 
     def __init__(self) -> None:
         """Initialize."""
-        self._aggregator = self._get_aggregator()
+        self._aggregator = aggregators.Aggregator[
+            aggregators.AbstractAccumulator[Tensor, Tensor]
+        ]()
+        self._cached_values: dict[str, Tensor] = {}
         return
 
     @override
@@ -68,7 +71,11 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
             warnings.warn(
                 exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
             )
-        return self._compute()
+
+        if not self._cached_values:
+            self._cached_values = self._compute()
+
+        return dict(self._cached_values)
 
     @override
     def update(
@@ -84,13 +91,19 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
             A dictionary of the calculated metric values for the current update.
         """
         results = self.calculate(outputs, targets)
-        self._aggregator += results
+        accumulator_cls = self._get_accumulator_cls()
+        self._aggregator += {
+            key: accumulator_cls.from_value(value)
+            for key, value in results.items()
+        }
+        self._cached_values.clear()
         return results
 
     @override
     def reset(self: Self) -> None:
         """Resets the internal state of the instance."""
         self._aggregator.clear()
+        self._cached_values.clear()
         return
 
     @abc.abstractmethod
@@ -111,18 +124,31 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         """Create a (deep)copy of self."""
         return copy.deepcopy(self, {})
 
-    def merge_state(self: Self, other: Self) -> None:
+    def merge_state(self, other: Objective[Any, Any]) -> None:
         """Merge metric states.
 
         Args:
             other: metric to be merged with.
+
+        Raises:
+            AccumulatorMismatchError: if the two objectives use different
+                accumulators.
         """
-        self._aggregator += other._aggregator
+        accumulator_cls = self._get_accumulator_cls()
+        other_accumulator_cls = other._get_accumulator_cls()
+        if other_accumulator_cls is not accumulator_cls:
+            raise exceptions.AccumulatorMismatchError(
+                accumulator_cls, other_accumulator_cls
+            )
+
+        self._aggregator += other._aggregator.accumulators
+        self._cached_values.clear()
         return
 
     def sync(self: Self) -> None:
         """Synchronize metric states across processes."""
-        self._aggregator.all_reduce()
+        self._aggregator.sync()
+        self._cached_values.clear()
         return
 
     def __deepcopy__(self, memo: dict[int, Any]) -> Self:
@@ -141,27 +167,30 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
 
         return result
 
-    @abc.abstractmethod
     def _compute(self: Self) -> dict[str, Tensor]:
         """Computes the objective value(s)."""
+        return {
+            key: acc.reduce()
+            for key, acc in self._aggregator.accumulators.items()
+        }
 
     @classmethod
     @abc.abstractmethod
-    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Any, Any]:
-        """Returns the aggregator class."""
+    def _get_accumulator_cls(
+        cls,
+    ) -> type[aggregators.AbstractAccumulator[Tensor, Tensor]]:
+        """Returns the accumulator class."""
 
 
 class AverageObjective(Objective[Output, Target], metaclass=abc.ABCMeta):
     """Class defining the default aggregation."""
 
-    @override
-    def _compute(self: Self) -> dict[str, Tensor]:
-        """Computes the objective value(s)."""
-        return self._aggregator.reduce()
-
     @classmethod
-    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Tensor, Tensor]:
-        return aggregators.TorchAverager()
+    @override
+    def _get_accumulator_cls(
+        cls,
+    ) -> type[aggregators.AbstractAccumulator[Tensor, Tensor]]:
+        return aggregators.TorchMeanAccumulator
 
 
 class MetricCollection(AverageObjective[Output, Target]):
