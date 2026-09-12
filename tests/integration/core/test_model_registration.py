@@ -1,5 +1,7 @@
 """Integration tests for registering models inside and across runs."""
 
+import pathlib
+
 import torch
 
 import pytest
@@ -8,11 +10,16 @@ import drytorch
 
 from drytorch.core import exceptions, registering
 from drytorch.core.experimenting import Experiment
+from drytorch.lib.checkpoints import LocalCheckpoint
 from drytorch.lib.models import Model
 
 
 class _Actor:
     """Object acting on a model."""
+
+    def __init__(self, model: Model | None = None) -> None:
+        if model is not None:
+            self.model = model
 
 
 class TestModelRegistration:
@@ -50,3 +57,33 @@ class TestModelRegistration:
         with experiment.create_run():
             with pytest.raises(exceptions.ModuleFromAnotherRunError):
                 registering.register_actor(_Actor(), model)
+
+    def test_actor_records_checkpoint_par_dir(
+        self, experiment, tmp_path: pathlib.Path
+    ) -> None:
+        """Test actor with model records custom checkpoint par_dir."""
+        custom_par_dir = tmp_path / 'weights'
+        checkpoint = LocalCheckpoint(custom_par_dir)
+
+        with experiment.create_run() as run:
+            model = Model(torch.nn.Linear(1, 1), checkpoint=checkpoint)
+            actor = _Actor(model)
+            registering.register_actor(actor, model)
+            metadata = run.metadata_manager.metadata_dict['_Actor']
+
+        assert isinstance(metadata, dict)
+        assert metadata['model']['checkpoint'] == {
+            'class': 'LocalCheckpoint',
+            'par_dir': repr(custom_par_dir),
+        }
+
+    def test_actor_records_default_checkpoint(self, experiment) -> None:
+        """Test actor with default checkpoint records class name."""
+        with experiment.create_run() as run:
+            model = Model(torch.nn.Linear(1, 1))
+            actor = _Actor(model)
+            registering.register_actor(actor, model)
+            metadata = run.metadata_manager.metadata_dict['_Actor']
+
+        assert isinstance(metadata, dict)
+        assert metadata['model']['checkpoint'] == 'LocalCheckpoint'

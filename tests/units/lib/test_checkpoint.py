@@ -61,6 +61,13 @@ class TestLocalCheckpoint:
         checkpoint.bind_optimizer(optimizer)
         return checkpoint
 
+    def test_par_dir(self, checkpoint, tmp_path) -> None:
+        """Test par_dir attribute on LocalCheckpoint."""
+        default_checkpoint = checkpoints.LocalCheckpoint()
+
+        assert checkpoint.par_dir == tmp_path
+        assert default_checkpoint.par_dir is None
+
     def test_checkpoint_not_initialized(self, tmp_path) -> None:
         """Test it raises an error if no model was registered."""
         checkpoint = checkpoints.LocalCheckpoint(tmp_path)

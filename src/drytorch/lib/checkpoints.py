@@ -251,7 +251,13 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
 
 class LocalCheckpoint(AbstractCheckpoint):
-    """Manage locally saving and loading the model state and optimizer."""
+    """Manage locally saving and loading the model state and optimizer.
+
+    Attributes:
+        par_dir: parent directory for experiment data.
+    """
+
+    par_dir: pathlib.Path | None
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
@@ -260,7 +266,7 @@ class LocalCheckpoint(AbstractCheckpoint):
             par_dir: parent directory for experiment data.
         """
         super().__init__()
-        self._par_dir = par_dir
+        self.par_dir: Final = par_dir
         self._paths: CheckpointPathManager | None = None
         return
 
@@ -281,7 +287,7 @@ class LocalCheckpoint(AbstractCheckpoint):
     @override
     def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
         super().bind_model(model)
-        self._paths = CheckpointPathManager(model, self._par_dir)
+        self._paths = CheckpointPathManager(model, self.par_dir)
         return
 
     @override

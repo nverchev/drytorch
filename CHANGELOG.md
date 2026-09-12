@@ -17,6 +17,7 @@
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 
 ## Changed
+- `LocalCheckpoint.par_dir` is public for metadata recording
 - marked non-reassigned configuration attributes as Final across Model, DataLoader, Permutation, Sliced, GradNormClipper, Run, Experiment, and torcheval wrapper
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
