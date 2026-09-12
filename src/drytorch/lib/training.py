@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import Any, Final, Self, TypedDict, TypeVar, cast
 
 import torch
@@ -41,7 +41,7 @@ class ModelOptimizer:
 
     _model: p.ModelProtocol
     _module: torch.nn.Module
-    _lr: float | dict[str, float]
+    _lr: float | Mapping[str, float]
     _params_lr: list[_OptParams]
     _scheduler: p.SchedulerProtocol
     _optimizer: torch.optim.Optimizer
@@ -88,7 +88,7 @@ class ModelOptimizer:
         )
 
     @property
-    def base_lr(self) -> float | dict[str, float]:
+    def base_lr(self) -> float | Mapping[str, float]:
         """Learning rate(s) for the module parameters.
 
         Raises:
@@ -97,8 +97,8 @@ class ModelOptimizer:
         return self._lr
 
     @base_lr.setter
-    def base_lr(self, lr: float | dict[str, float]) -> None:
-        self._lr = lr
+    def base_lr(self, lr: float | Mapping[str, float]) -> None:
+        self._lr = dict(lr) if isinstance(lr, Mapping) else lr
         if isinstance(lr, float | int):
             self._params_lr = [
                 {'params': self._module.parameters(), 'lr': lr},
@@ -133,7 +133,7 @@ class ModelOptimizer:
 
     def update_learning_rate(
         self,
-        base_lr: float | dict[str, float] | None = None,
+        base_lr: float | Mapping[str, float] | None = None,
         scheduler: p.SchedulerProtocol | None = None,
     ) -> None:
         """Recalculate the learning rates for the current epoch.

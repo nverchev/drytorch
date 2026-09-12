@@ -15,7 +15,7 @@ import types
 import warnings
 import weakref
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import (
     Any,
     ClassVar,
@@ -164,7 +164,7 @@ class Experiment(Generic[_T_co]):
 
     par_dir: pathlib.Path
     __config: _T_co
-    tags: list[str]
+    tags: Sequence[str]
     trackers: tracking.EventDispatcher
     _registry: RunRegistry
     _active_run: Run[_T_co] | None
@@ -176,7 +176,7 @@ class Experiment(Generic[_T_co]):
         *,
         name: str = '',
         par_dir: str | pathlib.Path = pathlib.Path(),
-        tags: list[str] | None = None,
+        tags: Sequence[str] | None = None,
     ) -> None:
         """Initialize.
 
@@ -190,7 +190,7 @@ class Experiment(Generic[_T_co]):
         self.__config: Final = config
         self._name = name
         self.par_dir: Final = pathlib.Path(par_dir)
-        self.tags = tags or []
+        self.tags: Final = tuple(tags) if tags else ()
         self.trackers: Final = tracking.EventDispatcher(self.name)
         self.trackers.subscribe(**tracking.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file

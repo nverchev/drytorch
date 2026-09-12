@@ -164,6 +164,25 @@ class TestExperiment:
         with pytest.raises(ValueError, match='Name contains invalid character'):
             Experiment(config, name='Invalid*Name', par_dir=tmp_path)
 
+    def test_tags_copied_and_immutable(self, config, tmp_path) -> None:
+        """Test that tags are copied and stored as an immutable tuple."""
+        original_tags = ['tag1', 'tag2']
+
+        experiment = Experiment(
+            config, name='TagsExp', par_dir=tmp_path, tags=original_tags
+        )
+        original_tags.append('tag3')
+
+        assert experiment.tags == ('tag1', 'tag2')
+        assert isinstance(experiment.tags, tuple)
+
+    def test_default_tags_empty_tuple(self, config, tmp_path) -> None:
+        """Test that default tags are an empty tuple."""
+        experiment = Experiment(config, name='DefaultTagsExp', par_dir=tmp_path)
+
+        assert experiment.tags == ()
+        assert isinstance(experiment.tags, tuple)
+
     def test_no_active_experiment_error(self, experiment) -> None:
         """Test that an error is raised when no experiment is active."""
         with pytest.raises(exceptions.NoActiveExperimentError):

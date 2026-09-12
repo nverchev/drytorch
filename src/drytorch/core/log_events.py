@@ -6,7 +6,7 @@ import dataclasses
 import datetime
 import pathlib
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, ClassVar
 
 from drytorch.core import exceptions
@@ -283,7 +283,7 @@ class StartExperimentEvent(Event):
     run_id: str
     resumed: bool = False
     par_dir: pathlib.Path = pathlib.Path()
-    tags: list[str] = dataclasses.field(default_factory=list)
+    tags: Sequence[str] = dataclasses.field(default_factory=tuple)
 
 
 @dataclasses.dataclass(frozen=True)

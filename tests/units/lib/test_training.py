@@ -56,6 +56,15 @@ class TestModelOptimizer:
         with pytest.raises(exceptions.MissingParamError):
             model_optimizer.base_lr = {'linear': 0.1}
 
+    def test_base_lr_dict_copied(self, model_optimizer) -> None:
+        """Test that base_lr dictionary is copied when assigned."""
+        dict_lr: dict[str, float] = {'linear': 0.01, 'linear2': 0.001}
+
+        model_optimizer.base_lr = dict_lr
+        dict_lr['linear'] = 0.999
+
+        assert model_optimizer.base_lr == {'linear': 0.01, 'linear2': 0.001}
+
 
 class TestTrainer:
     """Tests for Trainer."""

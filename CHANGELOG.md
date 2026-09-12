@@ -17,6 +17,7 @@
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 
 ## Changed
+- copied mutable arguments and exposed read-only types for `Experiment.tags`, `StartExperimentEvent.tags`, and `ModelOptimizer.base_lr`
 - `LocalCheckpoint.par_dir` is public for metadata recording
 - marked non-reassigned configuration attributes as Final across Model, DataLoader, Permutation, Sliced, GradNormClipper, Run, Experiment, and torcheval wrapper
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
