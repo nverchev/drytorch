@@ -9,9 +9,11 @@ import pytest
 
 from drytorch.core import exceptions, log_events
 from drytorch.core.tracking import (
+    DEFAULT_TRACKERS,
     EventDispatcher,
     MetadataManager,
     Tracker,
+    extend_default_trackers,
     remove_all_default_trackers,
 )
 
@@ -280,3 +282,13 @@ class TestEventDispatcher:
         """Test that named_trackers cannot be reassigned."""
         with pytest.raises(AttributeError):
             dispatcher.named_trackers = {}
+
+
+def test_extend_default_trackers_iterable() -> None:
+    """Test extend_default_trackers accepts an arbitrary Iterable."""
+    tracker = _SimpleTracker()
+    extend_default_trackers((tracker,))
+    try:
+        assert DEFAULT_TRACKERS['_SimpleTracker'] is tracker
+    finally:
+        remove_all_default_trackers()

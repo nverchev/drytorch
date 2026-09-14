@@ -3,6 +3,7 @@
 import pathlib
 import traceback
 
+from collections.abc import Sequence
 from typing import Any, ClassVar, Final
 
 import torch
@@ -305,16 +306,16 @@ class MissingParamError(DryTorchError):
     _template = 'Parameter groups in input learning rate miss parameters {}.'
 
     def __init__(
-        self, module_names: list[str], lr_param_groups: list[str]
+        self, module_names: Sequence[str], lr_param_groups: Sequence[str]
     ) -> None:
         """Initialize.
 
         Args:
-            module_names: list of module names that should have parameters.
-            lr_param_groups: group names in the parameter learning rate config.
+            module_names: names of modules that should have parameters.
+            lr_param_groups: group names in parameter learning rate config.
         """
-        self.module_names: Final = module_names
-        self.lr_param_groups: Final = lr_param_groups
+        self.module_names: Final[Sequence[str]] = module_names
+        self.lr_param_groups: Final[Sequence[str]] = lr_param_groups
         self.missing: Final = set(module_names) - set(lr_param_groups)
         super().__init__(self.missing)
 
@@ -538,13 +539,13 @@ class RepeatedMetricsError(DryTorchError):
 
     _template = 'Repeated metrics when merging: {}.'
 
-    def __init__(self, duplicated: list[str]) -> None:
+    def __init__(self, duplicated: Sequence[str]) -> None:
         """Initialize.
 
         Args:
             duplicated: the metric names that are repeated.
         """
-        self.duplicated: Final = duplicated
+        self.duplicated: Final[Sequence[str]] = duplicated
         super().__init__(duplicated)
 
 

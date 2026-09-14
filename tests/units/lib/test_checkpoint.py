@@ -168,3 +168,9 @@ class TestLocalCheckpoint:
         mock_model2.name = 'MockModel2'
         with pytest.raises(exceptions.ModelAlreadyBoundError):
             checkpoint.bind_model(mock_model2)
+
+
+def test_safe_globals_is_tuple() -> None:
+    """Test that SAFE_GLOBALS is an immutable tuple."""
+    assert isinstance(checkpoints.SAFE_GLOBALS, tuple)
+    assert len(checkpoints.SAFE_GLOBALS) > 0

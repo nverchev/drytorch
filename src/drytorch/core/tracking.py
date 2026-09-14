@@ -12,7 +12,7 @@ import functools
 import warnings
 
 from abc import abstractmethod
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, ClassVar, Final, Self
 
 from drytorch.core import exceptions, log_events
@@ -350,8 +350,8 @@ class EventDispatcher:
         return
 
 
-def extend_default_trackers(tracker_list: list[Tracker]) -> None:
-    """Add a list of trackers to the default ones."""
+def extend_default_trackers(tracker_list: Iterable[Tracker]) -> None:
+    """Add trackers to the default ones."""
     for tracker in tracker_list:
         DEFAULT_TRACKERS[tracker.__class__.__name__] = tracker
 

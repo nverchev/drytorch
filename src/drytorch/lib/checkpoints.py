@@ -1,4 +1,8 @@
-"""Module containing classes to save the model state and its optimizer state."""
+"""Module containing classes to save the model state and its optimizer state.
+
+Attributes:
+    SAFE_GLOBALS: types registered as safe for torch serialization.
+"""
 
 import abc
 import codecs
@@ -22,7 +26,15 @@ __all__ = [
     'LocalCheckpoint',
 ]
 
-SAFE_GLOBALS: list[Any] = [
+_np_scalars: list[Any] = []
+try:
+    from numpy._core.multiarray import scalar  # pyright: ignore
+except ImportError:
+    pass
+else:
+    _np_scalars.append(scalar)
+
+SAFE_GLOBALS: Final[tuple[Any, ...]] = (
     np.bool_,
     np.int8,
     np.int16,
@@ -39,16 +51,10 @@ SAFE_GLOBALS: list[Any] = [
     np.complex128,
     np.dtype,
     codecs.encode,
-]
-try:
-    from numpy._core.multiarray import scalar  # pyright: ignore
-except ImportError:
-    pass
-else:
-    SAFE_GLOBALS.append(scalar)
-
-SAFE_GLOBALS.extend([getattr(np.dtypes, name) for name in np.dtypes.__all__])
-torch.serialization.add_safe_globals(SAFE_GLOBALS)
+    *_np_scalars,
+    *(getattr(np.dtypes, name) for name in np.dtypes.__all__),
+)
+torch.serialization.add_safe_globals(list(SAFE_GLOBALS))
 
 
 class CheckpointPathManager:
