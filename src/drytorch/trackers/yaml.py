@@ -56,6 +56,7 @@ class MetadataDumper(base_classes.Dumper):
                 experiment's one.
         """
         super().__init__(par_dir)
+        return
 
     @functools.singledispatchmethod
     @override

@@ -111,6 +111,7 @@ class Aggregator(Generic[_A]):
     def clear(self) -> None:
         """Remove all accumulators."""
         self._accumulators.clear()
+        return
 
     def keys(self) -> list[str]:
         """Return stored metric names."""

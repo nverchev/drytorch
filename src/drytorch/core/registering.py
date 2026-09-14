@@ -61,6 +61,8 @@ def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
             run.id,
         )
 
+    return
+
 
 def register_model(model: p.ModelProtocol[Any, Any]) -> None:
     """Register a module in the current experiment.

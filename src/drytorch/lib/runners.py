@@ -369,6 +369,8 @@ class ModelRunnerWithObjective(
                 stacklevel=2,
             )
 
+        return
+
 
 class ModelRunnerWithLogs(
     ModelRunnerWithObjective[Input, Target, Output, _Objective_co]

@@ -54,6 +54,7 @@ class Sliced(Sequence[_T]):
         # take advantage of range implementation
         self._range = range(len(self.seq))[slice_]
         self._sliced = self.seq[slice_]
+        return
 
     @overload
     def __getitem__(self, idx: int) -> _T: ...
@@ -96,7 +97,7 @@ class Permutation(Sequence[int]):
     seed: Final[int]
     _new_indices: list[int]
 
-    def __init__(self, size: int, seed: int | None):
+    def __init__(self, size: int, seed: int | None) -> None:
         """Initialize.
 
         Args:
@@ -110,6 +111,7 @@ class Permutation(Sequence[int]):
         self.seed = seed
         rng = random.default_rng(self.seed)
         self._new_indices = rng.permutation(self.size).tolist()
+        return
 
     @overload
     def __getitem__(self, idx: int) -> int: ...

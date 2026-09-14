@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 
 import torch
 
@@ -62,11 +62,13 @@ def from_torchmetrics(
         def forward(self, outputs: _Tensor, targets: _Tensor) -> _Tensor:
             return self.metric(outputs, targets)
 
-        def reset(self) -> Any:
+        def reset(self) -> None:
             self.metric.reset()
+            return
 
-        def update(self, outputs: _Tensor, targets: _Tensor) -> Any:
+        def update(self, outputs: _Tensor, targets: _Tensor) -> None:
             self.metric.update(outputs, targets)
+            return
 
     return _TorchMetricCompositionalMetric(torch_metric)
 

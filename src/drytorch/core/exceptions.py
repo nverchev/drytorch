@@ -80,6 +80,7 @@ class DryTorchError(Exception):
             *args: arguments to be formatted into the message template.
         """
         super().__init__(self._template.format(*args))
+        return
 
 
 class DryTorchWarning(UserWarning):
@@ -94,6 +95,7 @@ class DryTorchWarning(UserWarning):
             *args: arguments to be formatted into the message template.
         """
         super().__init__(self._template.format(*args))
+        return
 
 
 class TrackerError(DryTorchError):
@@ -110,6 +112,7 @@ class TrackerError(DryTorchError):
         """
         self.tracker = tracker
         super().__init__(tracker.__class__.__name__, tracker_msg)
+        return
 
 
 class NoStashedStateError(TrackerError):
@@ -156,6 +159,7 @@ class AccumulatorMismatchError(DryTorchError):
         super().__init__(
             accumulator_cls.__name__, other_accumulator_cls.__name__
         )
+        return
 
 
 class CheckpointNotInitializedError(DryTorchError):
@@ -181,6 +185,7 @@ class ComputedMetricsTypeError(DryTorchError):
         """
         self.computed_metrics_type = computed_metrics_type
         super().__init__(computed_metrics_type.__name__)
+        return
 
 
 class ConvergenceError(DryTorchError):
@@ -198,6 +203,7 @@ class ConvergenceError(DryTorchError):
         """
         self.criterion = criterion
         super().__init__(criterion)
+        return
 
 
 class DatasetHasNoLengthError(DryTorchError):
@@ -232,6 +238,7 @@ class DeviceMismatchError(DryTorchError):
         self.metric_device = metric_device
         self.target_device = target_device
         super().__init__(metric_name, metric_device, target_device)
+        return
 
 
 class EpochNotFoundError(DryTorchError):
@@ -250,6 +257,7 @@ class EpochNotFoundError(DryTorchError):
         """
         self.model_directory = checkpoint_directory
         super().__init__(epoch, checkpoint_directory)
+        return
 
 
 class FuncNotApplicableError(DryTorchError):
@@ -270,6 +278,7 @@ class FuncNotApplicableError(DryTorchError):
         self.func_name = func_name
         self.type_name = type_name
         super().__init__(func_name, type_name)
+        return
 
 
 class FolderAlreadyExistsError(DryTorchError):
@@ -282,6 +291,7 @@ class FolderAlreadyExistsError(DryTorchError):
             path: the path to the folder that already exists.
         """
         super().__init__(f'Target directory already exists: {path}')
+        return
 
 
 class LossNotScalarError(DryTorchError):
@@ -299,6 +309,7 @@ class LossNotScalarError(DryTorchError):
         """
         self.size = size
         super().__init__(size)
+        return
 
 
 class MetricNotFoundError(DryTorchError):
@@ -319,6 +330,7 @@ class MetricNotFoundError(DryTorchError):
         self.source_name = source_name
         self.metric_name = metric_name + ' ' if metric_name else ''
         super().__init__(self.metric_name, source_name)
+        return
 
 
 class MissingParamError(DryTorchError):
@@ -343,6 +355,7 @@ class MissingParamError(DryTorchError):
         self.lr_param_groups = lr_param_groups
         self.missing = set(module_names) - set(lr_param_groups)
         super().__init__(self.missing)
+        return
 
 
 class ModuleAlreadyRegisteredError(DryTorchError):
@@ -368,6 +381,7 @@ class ModuleAlreadyRegisteredError(DryTorchError):
         self.exp_name = exp_name
         self.run_id = run_id
         super().__init__(model_name, exp_name, run_id)
+        return
 
 
 class ModelAlreadyBoundError(DryTorchError):
@@ -385,6 +399,7 @@ class ModelAlreadyBoundError(DryTorchError):
         """
         self.model_name = model_name
         super().__init__(model_name)
+        return
 
 
 class ModuleFromAnotherRunError(DryTorchError):
@@ -427,6 +442,7 @@ class ModuleFromAnotherRunError(DryTorchError):
             current_exp_name,
             current_run_id,
         )
+        return
 
 
 class ModuleNotRegisteredError(DryTorchError):
@@ -452,6 +468,7 @@ class ModuleNotRegisteredError(DryTorchError):
         self.exp_name = exp_name
         self.run_id = run_id
         super().__init__(model_name, exp_name, run_id)
+        return
 
 
 class ModelDeviceMismatchError(DryTorchError):
@@ -477,6 +494,7 @@ class ModelNotFoundError(DryTorchError):
         """
         self.checkpoint_directory = checkpoint_directory
         super().__init__(checkpoint_directory)
+        return
 
 
 class NameAlreadyRegisteredError(DryTorchError):
@@ -491,6 +509,7 @@ class NameAlreadyRegisteredError(DryTorchError):
             name: the name that is already registered.
         """
         super().__init__(name)
+        return
 
 
 class NamedTupleOnlyError(DryTorchError):
@@ -510,6 +529,7 @@ class NamedTupleOnlyError(DryTorchError):
         """
         self.tuple_type = tuple_type
         super().__init__(tuple_type)
+        return
 
 
 class NestedScopeError(DryTorchError):
@@ -530,6 +550,7 @@ class NestedScopeError(DryTorchError):
         self.current_exp_name = current_exp_name
         self.new_exp_name = new_exp_name
         super().__init__(new_exp_name, current_exp_name)
+        return
 
 
 class NoActiveExperimentError(DryTorchError):
@@ -559,6 +580,7 @@ class NoActiveExperimentError(DryTorchError):
             specify_string = ''
 
         super().__init__(specify_string)
+        return
 
 
 class OptimizerAlreadyBoundError(DryTorchError):
@@ -576,6 +598,7 @@ class OptimizerAlreadyBoundError(DryTorchError):
         """
         self.model_name = model_name
         super().__init__(model_name)
+        return
 
 
 class ResultNotAvailableError(DryTorchError):
@@ -601,6 +624,7 @@ class RepeatedMetricsError(DryTorchError):
         """
         self.duplicated = duplicated
         super().__init__(duplicated)
+        return
 
 
 class TrackerAlreadyRegisteredError(DryTorchError):
@@ -619,6 +643,7 @@ class TrackerAlreadyRegisteredError(DryTorchError):
         """
         self.tracker_name = tracker_name
         super().__init__(tracker_name, exp_name)
+        return
 
 
 class TrackerNotUsedError(DryTorchError):
@@ -636,6 +661,7 @@ class TrackerNotUsedError(DryTorchError):
         """
         self.tracker_name = tracker_name
         super().__init__(tracker_name)
+        return
 
 
 class CannotStoreOutputWarning(DryTorchWarning):
@@ -653,6 +679,7 @@ class CannotStoreOutputWarning(DryTorchWarning):
         """
         self.error = error
         super().__init__(str(error))
+        return
 
 
 class ComputedBeforeUpdatedWarning(DryTorchWarning):
@@ -670,6 +697,7 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         """
         self.calculator = calculator
         super().__init__(calculator.__class__.__name__)
+        return
 
 
 class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
@@ -697,6 +725,7 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
         self.dataset_size = len_dataset
         self.num_processes = n_processes
         super().__init__(name, len_dataset, n_processes)
+        return
 
 
 class DistributedStorageWarning(DryTorchWarning):
@@ -714,6 +743,7 @@ class DistributedStorageWarning(DryTorchWarning):
         """
         self.error = error
         super().__init__(str(error))
+        return
 
 
 class ExperimentalFeatureWarning(DryTorchWarning):
@@ -731,6 +761,7 @@ class ExperimentalFeatureWarning(DryTorchWarning):
         """
         self.feature = feature
         super().__init__(feature)
+        return
 
 
 class FailedOptionalImportWarning(DryTorchWarning):
@@ -750,6 +781,7 @@ class FailedOptionalImportWarning(DryTorchWarning):
         """
         self.package_name = package_name
         super().__init__(package_name)
+        return
 
 
 class ModuleNotDistributedWarning(DryTorchWarning):
@@ -779,6 +811,7 @@ class NotExistingRunWarning(DryTorchWarning):
         """
         self.run_id = run_id
         super().__init__(run_id)
+        return
 
 
 class ObjectiveSyncWarning(DryTorchWarning):
@@ -801,6 +834,7 @@ class ObjectiveSyncWarning(DryTorchWarning):
         self.issue = issue
         self.recommend = recommend
         super().__init__(issue, recommend)
+        return
 
 
 class OptimizerNotLoadedWarning(DryTorchWarning):
@@ -818,6 +852,7 @@ class OptimizerNotLoadedWarning(DryTorchWarning):
         """
         self.error = error
         super().__init__(error)
+        return
 
 
 class PastEpochWarning(DryTorchWarning):
@@ -838,6 +873,7 @@ class PastEpochWarning(DryTorchWarning):
         self.selected_epoch = selected_epoch
         self.current_epoch = current_epoch
         super().__init__(selected_epoch, current_epoch)
+        return
 
 
 class RecursionWarning(DryTorchWarning):
@@ -868,6 +904,7 @@ class RunAlreadyRecordedError(DryTorchError):
         self.run_id = run_id
         self.exp_name = exp_name
         super().__init__(run_id, exp_name)
+        return
 
 
 class RunAlreadyCompletedWarning(DryTorchWarning):
@@ -915,6 +952,7 @@ class RunNotRecordedError(DryTorchError):
         """
         self.run_id = run_id
         super().__init__(run_id)
+        return
 
 
 class RunStillPausedError(DryTorchError):
@@ -937,6 +975,7 @@ class RunStillPausedError(DryTorchError):
         self.run_id = run_id
         self.exp_name = exp_name
         super().__init__(run_id, exp_name)
+        return
 
 
 class TerminatedTrainingWarning(DryTorchWarning):
@@ -966,3 +1005,4 @@ class TrackerExceptionWarning(DryTorchWarning):
         self.error = error
         formatted_traceback: Final = traceback.format_exc()
         super().__init__(subscriber_name, formatted_traceback)
+        return

@@ -638,3 +638,5 @@ def _validate_chars(name: str) -> None:
     if invalid_chars := set(name) & not_allowed_chars:
         msg = f'Name contains invalid character(s): {invalid_chars!r}'
         raise ValueError(msg)
+
+    return

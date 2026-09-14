@@ -165,6 +165,7 @@ class TrainingBar:
         )
         self._start_epoch = start_epoch
         self._end_epoch = end_epoch
+        return
 
     def update(self, current_epoch: int) -> None:
         """Update the bar and display the current epoch.

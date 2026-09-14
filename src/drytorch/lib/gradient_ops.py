@@ -13,7 +13,6 @@ import torch
 from typing_extensions import override
 
 from drytorch.core import protocols as p
-from drytorch.core.protocols import GradientOpProtocol
 
 
 __all__ = [
@@ -41,8 +40,10 @@ def _validate_threshold(threshold: float) -> None:
     if threshold <= 0:
         raise ValueError('Gradient threshold must be positive.')
 
+    return
 
-class NoOp(GradientOpProtocol):
+
+class NoOp(p.GradientOpProtocol):
     """Placeholder performing no gradient action."""
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -86,6 +87,8 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
                 continue
 
             grad.sub_(mean).div_(std + self._eps)
+
+        return
 
 
 class ClipOperation(p.GradientOpProtocol, abc.ABC):
@@ -473,7 +476,7 @@ class HistClipper(ClipOperation):
     """
 
     criterion: Final[ClippingCriterion]
-    warmup_clip_strategy: Final[GradientOpProtocol]
+    warmup_clip_strategy: Final[p.GradientOpProtocol]
     n_warmup_steps: Final[int]
     _warmup_handler: Final[StatsCollector]
 
@@ -557,7 +560,7 @@ class ParamHistClipper(ClipOperation):
 
     criterion: Final[ClippingCriterion]
     n_warmup_steps: Final[int]
-    warmup_clip_strategy: Final[GradientOpProtocol]
+    warmup_clip_strategy: Final[p.GradientOpProtocol]
     _dict_criterion: defaultdict[int, ClippingCriterion]
     _dict_warmup_handler: defaultdict[int, StatsCollector]
 

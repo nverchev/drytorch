@@ -58,6 +58,7 @@ class HookRegistry(Generic[_T]):
     def __init__(self) -> None:
         """Initialize."""
         self.hooks = []
+        return
 
     def execute(self, input_object: _T) -> None:
         """Execute the registered hooks in order of registration.
@@ -520,6 +521,7 @@ class MetricMonitor(Generic[Output, Target]):
             best_is=best_is,
             filter_fn=filter_fn,
         )
+        return
 
     @property
     def metric_name(self) -> str | None:
@@ -573,6 +575,7 @@ class MetricMonitor(Generic[Output, Target]):
                 self.metric_tracker.best_is = best_is
 
         self.metric_tracker.add_value(value)
+        return
 
 
 class EarlyStoppingCallback(Generic[Output, Target]):

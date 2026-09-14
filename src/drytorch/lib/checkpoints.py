@@ -193,6 +193,7 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     def bind_module(self, name: str, module: torch.nn.Module) -> None:
         """Bind a module connected to the model."""
         self._modules[name] = module
+        return
 
     def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""
@@ -246,12 +247,13 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     @abc.abstractmethod
     def _save_optimizer(self) -> None: ...
 
-    def _update_epoch(self, epoch: int):
+    def _update_epoch(self, epoch: int) -> None:
         if epoch < -1:
             raise ValueError('Epoch must be larger than -1.')
 
         epoch = epoch if epoch >= 0 else self._get_last_saved_epoch()
         self.model.epoch = epoch
+        return
 
 
 class LocalCheckpoint(AbstractCheckpoint):

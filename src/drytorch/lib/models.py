@@ -169,10 +169,12 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
         self.epoch += 1
+        return
 
-    def load_state(self, epoch=-1) -> None:
+    def load_state(self, epoch: int = -1) -> None:
         """Load the weights and epoch of the model."""
         self.checkpoint.load(epoch=epoch)
+        return
 
     def register(self) -> None:
         """Register to the registry."""
@@ -183,6 +185,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def save_state(self) -> None:
         """Save the weights and epoch of the model."""
         self.checkpoint.save()
+        return
 
     def unregister(self) -> None:
         """Unregister from the registry."""

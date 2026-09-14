@@ -332,6 +332,7 @@ class Trainer(
     @override
     def save_checkpoint(self) -> None:
         self.model.checkpoint.save()
+        return
 
     @override
     def terminate_training(self, reason: str) -> None:

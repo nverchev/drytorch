@@ -72,6 +72,7 @@ class CreatedAtMixin:
         """Initialize."""
         self._created_at = datetime.datetime.now()
         super().__init__(*args, **kwargs)
+        return
 
     @property
     def created_at(self) -> datetime.datetime:
@@ -96,6 +97,7 @@ class DefaultName:
     def __init__(self) -> None:
         """Initialize."""
         self._prefixes = {}
+        return
 
     @overload
     def __get__(self, instance: None, objtype: type | None = None) -> Self: ...
