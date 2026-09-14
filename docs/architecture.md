@@ -21,23 +21,27 @@ The following diagram maps the dependencies between the core interfaces using UM
 
 - **Dependency (..>):** Represents a logical dependency that is not enforced by the protocol but often necessary for its implementation.
 
+- **Members:** those marked with `+` are methods or read-only properties; the
+  others are attributes that implementations may reassign.
+
 ```mermaid
 
 classDiagram
 direction TB
     class LoaderProtocol["LoaderProtocol[Input, Target]"] {
-        batch_size: int | None
-        sampler: torch.utils.data.Sampler | Iterable
-        dataset: torch.utils.data.Dataset
+        +batch_size: int | None
+        +sampler: torch.utils.data.Sampler | Iterable
+        +dataset: torch.utils.data.Dataset
         +__iter__() Iterator[Input, Target]
         +__len__() int
     }
 
     class ModelProtocol["ModelProtocol[Input, Output]"] {
-        module: torch.nn.Module
         epoch: int
-        checkpoint: CheckpointProtocol
-        mixed_precision: bool
+        +module: torch.nn.Module
+        +device: torch.device
+        +checkpoint: CheckpointProtocol
+        +mixed_precision: bool
         +name: str
         +__call__(inputs: Input) Output
         +increment_epoch()
@@ -47,7 +51,7 @@ direction TB
 
     class CheckpointProtocol {
         +bind_model(model: ModelProtocol)
-        +bind_module(module: torch.nn.Module)
+        +bind_module(name: str, module: torch.nn.Module)
         +bind_optimizer(optimizer: Optimizer)
         +save()
         +load(epoch: int)
@@ -63,9 +67,9 @@ direction TB
 
     class LearningProtocol {
         optimizer_cls: type[torch.optim.Optimizer]
-        base_lr: float | dict[str, float]
+        base_lr: float | Mapping[str, float]
         scheduler: SchedulerProtocol
-        optimizer_defaults: dict[str, Any]
+        optimizer_defaults: Mapping[str, Any]
         gradient_op: GradientOpProtocol
     }
 
@@ -83,18 +87,19 @@ direction TB
         model: ModelProtocol
         +name: str
         +computed_metrics: Mapping[str, float]
+        +__call__(store_outputs: bool)
     }
 
     class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {
         model: ModelProtocol[Input, Output]
-        learning_schema: LearningProtocol
         objective: LossProtocol[Output, Target]
-        validation: MonitorProtocol | None
+        +learning_schema: LearningProtocol
+        +validation: MonitorProtocol | None
         +terminated: bool
         +save_checkpoint()
         +load_checkpoint(epoch: int)
         +terminate_training(reason: str)
-        +train(num_epochs: int)
+        +train(n_epochs: int)
         +update_learning_rate(base_lr, scheduler)
     }
 
