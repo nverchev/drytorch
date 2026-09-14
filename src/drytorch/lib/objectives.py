@@ -904,7 +904,7 @@ class MetricTracker(Generic[Output, Target]):
         self.min_delta = min_delta
         self._validate_patience(patience)
         self.patience = patience
-        self.history = list[float]()
+        self.history = []
         self._patience_countdown = patience
         self._best_value = None
         return

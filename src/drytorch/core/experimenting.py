@@ -86,7 +86,7 @@ class RunRegistry:
         except (FileNotFoundError, json.JSONDecodeError):
             return []
 
-        run_data = []
+        run_data: list[RunMetadata] = []
         for item in data:
             run_data.append(RunMetadata(**item))
 

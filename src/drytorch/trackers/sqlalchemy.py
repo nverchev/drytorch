@@ -359,7 +359,7 @@ class SQLConnection(base_classes.MetricLoader):
                     Source.model_name.is_(model_name),
                 )
             )
-            named_sources = dict[str, list[Source]]()
+            named_sources: dict[str, list[Source]] = {}
             for source in query:
                 sources = named_sources.setdefault(source.source_name, [])
                 sources.append(source)
@@ -383,8 +383,8 @@ class SQLConnection(base_classes.MetricLoader):
             if max_epoch != -1:
                 query = query.where(Log.epoch <= max_epoch)
 
-            named_epochs = dict[str, list[int]]()
-            named_metric_values = dict[str, list[float]]()
+            named_epochs: dict[str, list[int]] = {}
+            named_metric_values: dict[str, list[float]] = {}
 
             for log in query:
                 epochs = named_epochs.setdefault(log.metric_name, [])
@@ -393,7 +393,7 @@ class SQLConnection(base_classes.MetricLoader):
                 values.append(log.value)
 
         name = ''
-        epochs = list[int]()
+        epochs: list[int] = []
         for next_name, next_epochs in named_epochs.items():
             if epochs and epochs != next_epochs:
                 msg = f'{name} and {next_name} logs refer to different epochs.'

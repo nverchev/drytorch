@@ -206,7 +206,7 @@ def _dispatch_repr(
     class_name = obj.__class__.__name__
     if depth > 0:
         attributes = _get_object_attributes(obj)
-        result_attrs = {}
+        result_attrs: dict[str, Any] = {}
         for key, value in attributes.items():
             if _should_skip_attribute(key, value, obj):
                 continue
@@ -385,7 +385,7 @@ def _get_object_attributes(obj: object) -> dict[str, Any]:
 
 def _get_object_properties(obj: object) -> dict[str, Any]:
     """Extract property values from an object."""
-    properties = {}
+    properties: dict[str, Any] = {}
 
     for cls in reversed(obj.__class__.__mro__):
         for name, attr in cls.__dict__.items():

@@ -229,7 +229,7 @@ class MemoryMetrics(tracking.Tracker):
         """
         super().__init__()
         self._metric_loader = metric_loader
-        self.model_dict = dict[str, SourcedMetrics]()
+        self.model_dict = {}
         return
 
     @functools.singledispatchmethod
@@ -384,7 +384,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
             )
             metric_names = sorted(set().union(*all_metrics))
 
-        plots = list[Plot]()
+        plots: list[Plot] = []
         self._prepare_layout(model_name, list(metric_names))
         for metric_name in metric_names:
             processed_sources = self._process_source(
@@ -455,7 +455,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         if start == 1:
             return sourced_array
 
-        filtered = {}
+        filtered: SourcedArray = {}
         for name, data in sourced_array.items():
             mask = data[:, 0] >= start  # the epoch is in column 0
             if np.any(mask):

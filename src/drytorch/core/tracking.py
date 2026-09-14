@@ -40,10 +40,12 @@ class MetadataManager:
         named_metadata: mapping of registered names to their metadata.
     """
 
+    _named_metadata: Final[dict[str, Any]]
+
     def __init__(self) -> None:
         """Initialize."""
         super().__init__()
-        self._named_metadata = dict[str, Any]()
+        self._named_metadata = {}
         return
 
     @property
@@ -126,7 +128,7 @@ class MetadataManager:
             obj: an object to document.
         """
         try:
-            metadata = repr_utils.recursive_repr(obj)
+            metadata: Mapping[str, Any] | str = repr_utils.recursive_repr(obj)
         except RecursionError:
             warnings.warn(exceptions.RecursionWarning(), stacklevel=1)
             metadata = {}
@@ -229,6 +231,7 @@ class EventDispatcher:
     """
 
     exp_name: Final[str]
+    _named_trackers: Final[dict[str, Tracker]]
 
     def __init__(self, exp_name) -> None:
         """Initialize.
@@ -237,7 +240,7 @@ class EventDispatcher:
             exp_name: name of the current experiment.
         """
         self.exp_name = str(exp_name)
-        self._named_trackers = dict[str, Tracker]()
+        self._named_trackers = {}
         return
 
     @property
@@ -262,7 +265,7 @@ class EventDispatcher:
             KeyboardInterrupt: if a tracker raises KeyboardInterrupt.
             SystemExit: if a tracker raises SystemExit.
         """
-        to_be_removed = list[str]()
+        to_be_removed: list[str] = []
         for name, tracker in self._named_trackers.items():
             try:
                 tracker.notify(event)

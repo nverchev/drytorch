@@ -68,7 +68,7 @@ class TrialCallback(Generic[_Output, _Target]):
             filter_fn=filter_fn,
         )
         self.trial = trial
-        self.reported = dict[int, float]()
+        self.reported = {}
         return
 
     def __call__(
@@ -175,7 +175,7 @@ def suggest_overrides(
             param_name = setting_name
 
         if param_value.suggest == 'suggest_list':
-            new_value = []
+            new_value: list[Any] = []
             for i in range(
                 trial.suggest_int(
                     name=f'{param_name} #',

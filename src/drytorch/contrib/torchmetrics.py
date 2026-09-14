@@ -78,7 +78,7 @@ def _get_leaf_metrics(
 ) -> list[metric.Metric]:
     leaves: list[metric.Metric] = []
     stack: list[metric.Metric | float | int | _Tensor | None] = [comp_metric]
-    names_seen = set[str]()
+    names_seen: set[str] = set()
     while stack:
         node = stack.pop()
         if isinstance(node, comp_metric.__class__):

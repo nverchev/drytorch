@@ -4,6 +4,7 @@ import csv
 import functools
 import pathlib
 
+from collections.abc import Iterable
 from typing import ClassVar
 
 from typing_extensions import override
@@ -176,8 +177,8 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             headers = next(reader)
             len_base = len(self._base_headers)
             metric_names = headers[len_base:]
-            epochs = list[int]()
-            named_metric_values = dict[str, list[float]]()
+            epochs: list[int] = []
+            named_metric_values: dict[str, list[float]] = {}
             epoch_column = self._base_headers.index('Epoch')
             for row in reader:
                 epoch = int(row[epoch_column])
@@ -243,7 +244,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         out: base_classes.SourcedMetrics = {}
 
         if self._resume_run:
-            sources = self._find_sources(model_name)
+            sources: Iterable[str] = self._find_sources(model_name)
         elif self._active_sources:
             sources = self._active_sources
         else:

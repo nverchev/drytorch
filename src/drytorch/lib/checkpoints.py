@@ -357,7 +357,9 @@ class LocalCheckpoint(AbstractCheckpoint):
     def _get_last_saved_epoch(self) -> int:
         model_directory = self.paths.model_dir
         if model_directory.exists():
-            all_epochs = [d for d in model_directory.iterdir() if d.is_dir()]
+            all_epochs: list[pathlib.Path] = [
+                d for d in model_directory.iterdir() if d.is_dir()
+            ]
         else:
             all_epochs = []
 

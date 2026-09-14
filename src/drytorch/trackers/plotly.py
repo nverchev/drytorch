@@ -31,7 +31,7 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
         metric_name: str,
         **sourced_array: base_classes.NpArray,
     ) -> go.Figure:
-        data = list[go.Scatter]()
+        data: list[go.Scatter] = []
         for name, log in sourced_array.items():
             if log.shape[0] == 1:
                 marker = go.scatter.Marker(symbol='diamond', size=20)

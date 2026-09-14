@@ -108,7 +108,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
         n_rows = math.ceil(math.sqrt(n_metrics))
         n_cols = math.ceil(n_metrics / n_rows)
         fig.suptitle(model_name, fontsize=16)
-        axes_dict = dict[str, axes.Axes]()
+        axes_dict: dict[str, axes.Axes] = {}
         for index, metric_name in enumerate(metric_names):
             ax = fig.add_subplot(n_rows, n_cols, index + 1)
             ax.set_title(metric_name)

@@ -130,7 +130,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         """
         super().__init__(model, name)
         self.loader = loader
-        self._outputs_list = list[Output]()
+        self._outputs_list = []
         self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
         self._world_size = dist.get_world_size() if self._is_distributed else 1
