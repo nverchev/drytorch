@@ -1,14 +1,13 @@
 """Support for optuna."""
 
+import collections
 import string
 
-from collections import Counter
 from collections.abc import Callable, Sequence
 from typing import Any, Final, Generic, TypeVar
 
+import omegaconf
 import optuna
-
-from omegaconf import DictConfig
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
@@ -98,7 +97,9 @@ class TrialCallback(Generic[_Output, _Target]):
 
 
 def suggest_overrides(
-    tune_cfg: DictConfig, trial: optuna.Trial, use_full_name: bool = False
+    tune_cfg: omegaconf.DictConfig,
+    trial: optuna.Trial,
+    use_full_name: bool = False,
 ) -> list[str]:
     """Suggest values for a trial from structured configurations.
 
@@ -166,7 +167,7 @@ def suggest_overrides(
         return string.capwords(suffix.replace('_', ' '))
 
     short_names = {k: _get_short_name(k) for k in tune_cfg.tune.params}
-    name_counts = Counter(short_names.values())
+    name_counts = collections.Counter(short_names.values())
 
     all_overrides: list[str] = [*tune_cfg.overrides]
     for setting_name, param_value in tune_cfg.tune.params.items():

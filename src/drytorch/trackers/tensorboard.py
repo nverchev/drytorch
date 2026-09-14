@@ -1,12 +1,12 @@
 """Module containing a TensorBoard tracker."""
 
 import functools
+import importlib.util
 import pathlib
 import shutil
 import socket
 import subprocess
 
-from importlib.util import find_spec
 from typing import ClassVar
 
 from tensorboard import notebook as tb_notebook
@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 
-if find_spec('tensorboard') is None:
+if importlib.util.find_spec('tensorboard') is None:
     _MSG = 'TensorBoard is not installed. Run `pip install tensorboard`.'
     raise ImportError(_MSG)
 
@@ -215,15 +215,15 @@ class TensorBoard(base_classes.Dumper):
     def _is_notebook() -> bool:
         """Detect a Jupyter notebook or similar environment."""
         try:
-            from IPython.core.getipython import get_ipython
+            from IPython.core import getipython
         except ImportError:
             return False
         else:
-            shell = get_ipython().__class__.__name__
+            shell = getipython.get_ipython().__class__.__name__
             if shell == 'ZMQInteractiveShell':
                 return True  # Jupyter notebook or qtconsole
 
-            if 'colab' in str(get_ipython().__class__):
+            if 'colab' in str(getipython.get_ipython().__class__):
                 return True
 
         return False

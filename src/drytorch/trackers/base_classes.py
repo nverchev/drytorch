@@ -7,7 +7,6 @@ import functools
 import pathlib
 
 from collections.abc import Generator, Iterable
-from pathlib import Path
 from typing import ClassVar, Final, Generic, TypeAlias, TypeVar
 
 import numpy as np
@@ -55,7 +54,7 @@ class Dumper(tracking.Tracker):
 
     folder_name: ClassVar[str] = 'tracker'
 
-    user_par_dir: Path | None
+    user_par_dir: pathlib.Path | None
     _par_dir: pathlib.Path | None
     _exp_name: str | None
     _run_id: str | None

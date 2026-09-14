@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import abc
 import copy
+import dataclasses
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any, Final, Generic, Self, TypeVar
 
 import torch
@@ -125,7 +125,7 @@ class Aggregator(Generic[_A]):
         return
 
 
-@dataclass(slots=True)
+@dataclasses.dataclass(slots=True)
 class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
     """Accumulator computing arithmetic mean for tensors.
 

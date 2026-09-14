@@ -1,8 +1,8 @@
 # Style guide
 
-Recommendations for writing drytorch code. Ruff (`ruff.toml`) and
-basedpyright (basic mode) enforce formatting, linting and typing; their rules
-are not repeated here.
+Recommendations for writing drytorch code: follow them unless there is a good
+reason not to. Ruff (`ruff.toml`) and basedpyright (basic mode) enforce
+formatting, linting and typing; their rules are not repeated here.
 
 ## Principles
 - An experiment is correct if it is well documented: configuration that

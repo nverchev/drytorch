@@ -11,7 +11,6 @@ import datetime
 import functools
 import warnings
 
-from abc import abstractmethod
 from collections.abc import Iterable, Mapping
 from typing import Any, ClassVar, Final, Self
 
@@ -150,7 +149,7 @@ class Tracker(abc.ABC):
     _current: ClassVar[Self | None] = None
 
     @functools.singledispatchmethod
-    @abstractmethod
+    @abc.abstractmethod
     def notify(self, event: log_events.Event) -> None:
         """Notify the tracker of an event.
 

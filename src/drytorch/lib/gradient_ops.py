@@ -1,10 +1,10 @@
 """Module containing gradient operations."""
 
 import abc
+import collections
 import copy
 import math
 
-from collections import defaultdict
 from collections.abc import Callable, Iterable
 from typing import Final, TypeAlias
 
@@ -561,8 +561,8 @@ class ParamHistClipper(ClipOperation):
     criterion: Final[ClippingCriterion]
     n_warmup_steps: Final[int]
     warmup_clip_strategy: Final[p.GradientOpProtocol]
-    _dict_criterion: defaultdict[int, ClippingCriterion]
-    _dict_warmup_handler: defaultdict[int, StatsCollector]
+    _dict_criterion: collections.defaultdict[int, ClippingCriterion]
+    _dict_warmup_handler: collections.defaultdict[int, StatsCollector]
 
     def __init__(
         self,
@@ -587,8 +587,10 @@ class ParamHistClipper(ClipOperation):
         self.criterion = criterion
         self.n_warmup_steps = n_warmup_steps
         self.warmup_clip_strategy = warmup_clip_strategy
-        self._dict_criterion = defaultdict(lambda: copy.copy(criterion))
-        self._dict_warmup_handler = defaultdict(
+        self._dict_criterion = collections.defaultdict(
+            lambda: copy.copy(criterion)
+        )
+        self._dict_warmup_handler = collections.defaultdict(
             lambda: StatsCollector(n_warmup_steps)
         )
         return

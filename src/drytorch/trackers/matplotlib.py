@@ -5,9 +5,10 @@ import math
 from collections.abc import Iterable
 from typing import TypeAlias
 
+import matplotlib
 import matplotlib.pyplot as plt
 
-from matplotlib import axes, colormaps, colors, figure
+from matplotlib import axes, colors, figure
 from typing_extensions import override
 
 from drytorch.core import exceptions
@@ -84,7 +85,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
 
     def _get_cmap(self, palette: str) -> colors.Colormap:
         try:
-            return colormaps[palette]
+            return matplotlib.colormaps[palette]
         except (KeyError, TypeError) as exc:
             msg = f'Colormap {palette!r} is not registered in matplotlib.'
             raise ValueError(msg) from exc

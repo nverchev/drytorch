@@ -36,7 +36,7 @@ __all__ = [
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-    from pandas.core.generic import NDFrame
+    from pandas.core import generic as pd_generic
 
     GenericDict: TypeAlias = dict[Hashable, Any]
     GenericList: TypeAlias = list[Any]
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     ndarray: TypeAlias = npt.NDArray[Any]
 
 else:
-    from numpy import ndarray
+    ndarray = np.ndarray
 
     GenericList = list
     GenericDict = dict
@@ -446,7 +446,7 @@ except (ImportError, ModuleNotFoundError):
     pass
 
 else:
-    from pandas.core.generic import NDFrame
+    from pandas.core import generic as pd_generic
 
     class PandasPrintOptions:
         """Context manager to temporarily set Pandas display options.
@@ -501,7 +501,9 @@ else:
             return
 
     @_dispatch_repr.register
-    def _(obj: NDFrame, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
+    def _(
+        obj: pd_generic.NDFrame, *, depth: int = 10, _visited: set[int]
+    ) -> LiteralStr:
         # only defined when Pandas is imported
         _not_used = depth
         with PandasPrintOptions(

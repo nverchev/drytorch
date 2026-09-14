@@ -28,11 +28,11 @@ __all__ = [
 
 _np_scalars: list[Any] = []
 try:
-    from numpy._core.multiarray import scalar  # pyright: ignore
+    from numpy._core import multiarray
 except ImportError:
     pass
 else:
-    _np_scalars.append(scalar)
+    _np_scalars.append(multiarray.scalar)
 
 SAFE_GLOBALS: Final[tuple[Any, ...]] = (
     np.bool_,
