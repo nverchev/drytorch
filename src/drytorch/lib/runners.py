@@ -106,8 +106,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
     max_stored_output: ClassVar[int] = sys.maxsize
 
     loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
-    outputs_list: Final[Sequence[Output]]
-    _outputs_list: list[Output]
+    _outputs_list: Final[list[Output]]
     _cached_metrics: Mapping[str, float]
     _is_distributed: bool
     _world_size: int
@@ -132,7 +131,6 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         super().__init__(model, name)
         self.loader = loader
         self._outputs_list = list[Output]()
-        self.outputs_list = self._outputs_list
         self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
         self._world_size = dist.get_world_size() if self._is_distributed else 1
@@ -153,6 +151,11 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
     def computed_metrics(self) -> Mapping[str, float]:
         """Retrieve cached metrics."""
         return self._cached_metrics
+
+    @property
+    def outputs_list(self) -> Sequence[Output]:
+        """Sequence of optionally stored outputs."""
+        return self._outputs_list
 
     def _check_divisibility(self, n_samples: int) -> None:
         if torch.is_inference_mode_enabled() and self._is_distributed:

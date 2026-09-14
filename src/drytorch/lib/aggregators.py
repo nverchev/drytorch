@@ -15,6 +15,13 @@ from torch import distributed as dist
 from typing_extensions import override
 
 
+__all__ = [
+    'AbstractAccumulator',
+    'Aggregator',
+    'TorchMeanAccumulator',
+]
+
+
 _T_contra = TypeVar('_T_contra', contravariant=True)
 _R_co = TypeVar('_R_co', covariant=True)
 
@@ -54,10 +61,9 @@ class Aggregator(Generic[_A]):
         accumulators: the accumulators by name.
     """
 
-    __slots__ = ('_accumulators', 'accumulators')
+    __slots__ = ('_accumulators',)
 
-    accumulators: Final[Mapping[str, _A]]
-    _accumulators: dict[str, _A]
+    _accumulators: Final[dict[str, _A]]
 
     def __init__(self, **accumulators: _A) -> None:
         """Initialize.
@@ -66,8 +72,12 @@ class Aggregator(Generic[_A]):
             accumulators: named accumulators to store.
         """
         self._accumulators = dict(accumulators)
-        self.accumulators = self._accumulators  # read-only view of the dict
         return
+
+    @property
+    def accumulators(self) -> Mapping[str, _A]:
+        """Return the accumulators by name."""
+        return self._accumulators
 
     def __add__(self, other: Mapping[str, _A]) -> Self:
         """Return a new aggregator with the named accumulators merged."""
