@@ -132,14 +132,17 @@ formatting, linting and typing; their rules are not repeated here.
 - `tests/units` tests one module with mocks; `tests/integration` combines
   real components; `tests/functional` runs whole workflows. Each level has
   its own `conftest.py`.
-- Unit test files mirror the source: `tests/units/<package>/test_<module>.py`.
+- Unit test files mirror the source:
+  `tests/units/<package>/test_<module>.py` (except `contrib`, tested under
+  integration).
 - Arrange, act, assert, with all assertions at the end.
 - Each test checks one behaviour; several assertions are fine when together
   they describe it.
-- Test docstrings start with "Test"; fixture docstrings say what they
-  provide.
-- `tmp_path` for files; `pytest.raises` and `pytest.warns` for errors and
-  warnings; `pytest.mark.parametrize` for input variations.
+- Fixture docstrings say what they provide; private fixtures (`_fixture`)
+  need no docstring.
+- `tmp_path` and `tmp_path_factory` for files; `pytest.raises` and
+  `pytest.warns` for errors and warnings; `pytest.mark.parametrize` for input
+  variations.
 - Skipped tests state their reason.
 
 ## Changelog and commits

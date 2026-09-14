@@ -17,9 +17,7 @@ from drytorch.core.registering import (
 
 
 @pytest.fixture(autouse=True, scope='module')
-def setup_module(
-    module_mocker, tmpdir_factory, mock_experiment, mock_run
-) -> None:
+def setup_module(module_mocker, mock_experiment, mock_run) -> None:
     """Fixture for a mock experiment."""
     mock_experiment.run = mock_run
     module_mocker.patch(

@@ -171,10 +171,10 @@ def identity_trainer_with_swa(
 
 
 @pytest.fixture(scope='module')
-def run(tmpdir_factory, example_run_id) -> Generator[Run, None, None]:
+def run(tmp_path_factory, example_run_id) -> Generator[Run, None, None]:
     """Fixture of an experiment."""
     drytorch.remove_all_default_trackers()
-    par_dir = tmpdir_factory.mktemp('experiments')
+    par_dir = tmp_path_factory.mktemp('experiments')
     exp = Experiment(name='TestExperiment', par_dir=par_dir, config=None)
     with exp.create_run(run_id=example_run_id) as run:
         yield run
