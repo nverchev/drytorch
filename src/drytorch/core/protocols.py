@@ -87,6 +87,10 @@ class LoaderProtocol(Protocol[_Data_co]):
 class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     """Protocol for a wrapper around a torch module.
 
+    Implementations register with
+    :func:`~drytorch.core.registering.register_model` when created, which
+    emits :class:`~drytorch.core.log_events.ModelRegistrationEvent`.
+
     Attributes:
         epoch: the number of epochs the model has been trained so far.
         checkpoint: the object responsible for saving and loading the model.
@@ -127,7 +131,13 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
 
 class CheckpointProtocol(Protocol):
-    """Protocol that stores and loads weight for a ModelProtocol class."""
+    """Protocol that stores and loads weight for a ModelProtocol class.
+
+    Implementations check that the model belongs to the current run
+    (:func:`~drytorch.core.registering.check_current_run`) and emit
+    :class:`~drytorch.core.log_events.SaveModelEvent` on ``save`` and
+    :class:`~drytorch.core.log_events.LoadModelEvent` on ``load``.
+    """
 
     def bind_model(self, model: ModelProtocol[Any, Any]) -> None:
         """Bind the model to manage."""
@@ -230,6 +240,12 @@ class LossProtocol(ObjectiveProtocol[_Output_contra, _Target_contra], Protocol):
 class MonitorProtocol(Protocol):
     """Protocol for a class that validates a model.
 
+    Implementations register as actors of their model with
+    :func:`~drytorch.core.registering.register_actor`, which emits
+    :class:`~drytorch.core.log_events.ActorRegistrationEvent`. Each pass
+    over the data emits :class:`~drytorch.core.log_events.IterateBatchEvent`
+    and then :class:`~drytorch.core.log_events.MetricEvent`.
+
     Attributes:
         model: the model to evaluate.
     """
@@ -251,6 +267,16 @@ class TrainerProtocol(
     Protocol[_Input, _Target, _Output],
 ):
     """Protocol for a class that train a model.
+
+    Besides the duties of :class:`MonitorProtocol`, ``train`` emits
+    :class:`~drytorch.core.log_events.StartTrainingEvent`, then
+    :class:`~drytorch.core.log_events.StartEpochEvent` and
+    :class:`~drytorch.core.log_events.EndEpochEvent` for each epoch, and
+    :class:`~drytorch.core.log_events.EndTrainingEvent` unless terminated;
+    ``terminate_training`` emits
+    :class:`~drytorch.core.log_events.TerminatedTrainingEvent` and
+    ``update_learning_rate`` emits
+    :class:`~drytorch.core.log_events.LearningRateEvent`.
 
     Attributes:
         model: the model to train.
