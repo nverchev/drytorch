@@ -20,6 +20,7 @@
 - immutable `Experiment.tags`, `ModelOptimizer.base_lr`, `LearningSchema.base_lr`, `LearningSchema.optimizer_defaults`, `MetadataManager.named_metadata`, `EventDispatcher.named_trackers`, `checkpoints.SAFE_GLOBALS`, and transform scheduler parameters
 - added `IterateBatchEvent.refresh` to update metrics without advancing progress and documented callback ordering and mutability
 - widened parameter types: `extend_default_trackers` accepts `Iterable[Tracker]`, and `MissingParamError`/`RepeatedMetricsError` accept `Sequence[str]`
+- `ModelRunner.outputs_list` is exposed as a read-only `Final[Sequence[Output]]` backed by private `_outputs_list`
 - `LocalCheckpoint.par_dir` is public for metadata recording
 - `MetadataDumper.dump` is public for dumping metadata
 - marked non-reassigned configuration attributes as `Final` across `Model`, `DataLoader`, `Permutation`, `Sliced`, `GradNormClipper`, `Run`, `Experiment`, `RunRegistry`, `AveragedModel`, `torchmetrics` and `torcheval` wrappers, and transform schedulers

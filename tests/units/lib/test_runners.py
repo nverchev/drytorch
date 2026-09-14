@@ -105,6 +105,7 @@ class TestModelRunner:
         """Test initialization with all parameters."""
         assert runner.loader == mock_loader
         assert runner.outputs_list == []
+        assert runner.outputs_list is runner._outputs_list
 
     def test_get_batches(self, runner, mock_loader) -> None:
         """Test batch generation applies operations to the device."""
@@ -189,7 +190,7 @@ class TestModelRunner:
 
     def test_outputs_list_cleared_on_epoch_run(self, mocker, runner) -> None:
         """Test that the output list is cleared at the start of each epoch."""
-        runner.outputs_list = [self.mock_output]
+        runner._outputs_list.append(self.mock_output)
         get_batch = mocker.patch.object(runner, '_get_batches')
         get_batch.return_value = [(self.mock_input, self.mock_target)]
         run_batch = mocker.patch.object(runner, '_run_batch')

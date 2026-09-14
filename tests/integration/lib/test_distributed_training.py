@@ -1,5 +1,7 @@
 """DDP functional tests for Trainer on CPU."""
 
+from collections.abc import Sequence
+
 import torch
 
 from ...simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
@@ -88,14 +90,14 @@ def assert_ddp_warning_is_raised() -> None:
     return
 
 
-def gather_ddp_outputs() -> list[TorchData]:
+def gather_ddp_outputs() -> Sequence[TorchData]:
     """Worker function to test distributed output gathering."""
     trainer = setup_training()
 
     # different outputs for each rank
     rank = torch.distributed.get_rank()
     dummy_output = 2 * [TorchData(torch.tensor([rank]))]
-    trainer.outputs_list.extend(dummy_output)
+    trainer._outputs_list.extend(dummy_output)
 
     trainer._gather_stored_outputs()
 

@@ -5,7 +5,7 @@ import copy
 import sys
 import warnings
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import (
     Any,
     ClassVar,
@@ -102,13 +102,13 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
     Attributes:
         model: the model to run.
         loader: the loader providing inputs and targets in batches.
-        outputs_list: list of optionally stored outputs.
+        outputs_list: sequence of optionally stored outputs.
     """
 
     max_stored_output: ClassVar[int] = sys.maxsize
 
     loader: p.LoaderProtocol[tuple[Input, Target]]
-    outputs_list: list[Output]
+    _outputs_list: list[Output]
     _cached_metrics: Mapping[str, float]
     _is_distributed: bool
     _world_size: int
@@ -132,7 +132,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         """
         super().__init__(model, name)
         self.loader: Final = loader
-        self.outputs_list: Final = list[Output]()
+        self._outputs_list = list[Output]()
+        self.outputs_list: Final[Sequence[Output]] = self._outputs_list
         self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
         self._world_size = dist.get_world_size() if self._is_distributed else 1
@@ -202,7 +203,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                     exceptions.ModuleNotDistributedWarning(), stacklevel=2
                 )
 
-        self.outputs_list.clear()
+        self._outputs_list.clear()
         n_samples = loading.validate_dataset_length(self.loader.dataset)
         self._check_divisibility(n_samples)
         n_processes = dist.get_world_size() if self._is_distributed else 1
@@ -237,8 +238,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 exceptions.CannotStoreOutputWarning(err), stacklevel=3
             )
         else:
-            if len(self.outputs_list) < self._max_stored_process:
-                self.outputs_list.append(outputs)
+            if len(self._outputs_list) < self._max_stored_process:
+                self._outputs_list.append(outputs)
 
         return
 
@@ -248,7 +249,7 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
     def _gather_stored_outputs(self) -> None:
         """Gather outputs from all processes to rank 0."""
-        if not self.outputs_list:
+        if not self._outputs_list:
             return
 
         rank = dist.get_rank()
@@ -257,13 +258,13 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 dist_outputs: list[list[Output]] = [
                     [] for _ in range(self._world_size)
                 ]
-                dist.gather_object(self.outputs_list, dist_outputs, dst=0)
-                self.outputs_list.clear()
+                dist.gather_object(self._outputs_list, dist_outputs, dst=0)
+                self._outputs_list.clear()
                 for gathered_tuple in zip(*dist_outputs, strict=True):
-                    self.outputs_list.extend(gathered_tuple)
+                    self._outputs_list.extend(gathered_tuple)
             else:
-                dist.gather_object(self.outputs_list, None, dst=0)
-                self.outputs_list.clear()
+                dist.gather_object(self._outputs_list, None, dst=0)
+                self._outputs_list.clear()
 
         except Exception as err:
             warnings.warn(
@@ -284,7 +285,7 @@ class ModelRunnerWithObjective(
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
-        outputs_list: list of optionally stored outputs.
+        outputs_list: sequence of optionally stored outputs.
     """
 
     objective: _Objective_co
@@ -376,7 +377,7 @@ class ModelRunnerWithLogs(
         model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
         objective: processes the model outputs and targets.
-        outputs_list: list of optionally stored outputs.
+        outputs_list: sequence of optionally stored outputs.
     """
 
     def _run_epoch(self, store_outputs: bool):
