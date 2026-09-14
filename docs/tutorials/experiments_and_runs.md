@@ -188,7 +188,7 @@ with second_experiment.create_run():
 
 An **actor** is an object, like a trainer or a test class, that acts upon a model or produces logging from it.
 
-Registration checks that the model and the actor belong to the same experiment. Actors from the library implementation register themselves when called.
+Registration checks that the model and the actor belong to the same experiment. Actors from the library implementation register themselves when created.
 
 ```{code-cell} ipython3
 import torch
@@ -222,16 +222,15 @@ one_dataset: Dataset[tuple[torch.Tensor, torch.Tensor]] = MyDataset()
 
 with second_experiment.create_run(resume=True):  # correctly resuming run
     loader = DataLoader(one_dataset, batch_size=1)
-    model_caller = ModelRunner(second_model, loader=loader)
-    model_caller()
+    runner = ModelRunner(second_model, loader=loader)
+    runner()
 ```
 
 ```{code-cell} ipython3
 with second_experiment.create_run():  # new run
     loader = DataLoader(one_dataset, batch_size=1)
-    model_caller = ModelRunner(second_model, loader=loader)
     try:
-        model_caller()
+        ModelRunner(second_model, loader=loader)
     except exceptions.ModuleFromAnotherRunError:
         pass
     else:
@@ -299,6 +298,6 @@ Private attributes, that is, attributes that start with an underscore, are ignor
 ```{code-cell} ipython3
 with third_experiment.create_run(resume=True):  # correctly resuming run
     loader = DataLoader(one_dataset, batch_size=1)
-    model_caller = ModelRunner(third_model, loader=loader)
-    model_caller()
+    runner = ModelRunner(third_model, loader=loader)
+    runner()
 ```

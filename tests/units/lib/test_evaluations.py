@@ -48,8 +48,15 @@ class TestValidation:
     @pytest.fixture(autouse=True)
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
+
+        def _set_model(instance, model, *_, **__) -> None:
+            instance.model = model  # read by the registering metaclass
+            return
+
         self.mock_super_init = mocker.patch(
-            'drytorch.lib.runners.ModelRunnerWithLogs.__init__'
+            'drytorch.lib.runners.ModelRunnerWithLogs.__init__',
+            autospec=True,
+            side_effect=_set_model,
         )
         return
 

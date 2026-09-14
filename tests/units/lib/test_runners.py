@@ -1,12 +1,15 @@
 """Tests for the "runners" module."""
 
+from typing import Protocol
+
+import typing_extensions
+
 from typing_extensions import override
 
 import pytest
 
 from drytorch.core import exceptions
 from drytorch.lib.runners import (
-    ModelCaller,
     ModelRunner,
     ModelRunnerWithLogs,
     ModelRunnerWithObjective,
@@ -20,53 +23,101 @@ def setup_module(module_mocker) -> None:
     return
 
 
-class SimpleCaller(ModelCaller):
-    """Simplest concrete implementation for ModelCaller."""
+class _TypingProtocol(Protocol):
+    """Protocol from typing."""
 
-    @override
-    def __call__(self) -> None:
-        super().__call__()
+    def first(self) -> None:
+        """First method."""
+
+
+class _ExtensionsProtocol(typing_extensions.Protocol):
+    """Protocol from typing_extensions."""
+
+    def second(self) -> None:
+        """Second method."""
+
+
+class _ExtendedRunner(ModelRunner):
+    """Runner setting an attribute after the parent initialization."""
+
+    extra: str
+
+    def __init__(self, model, loader) -> None:
+        """Initialize."""
+        super().__init__(model, loader=loader)
+        self.extra = 'extra'
         return
 
 
-class TestModelCaller:
-    """Tests for the ModelCaller class."""
+class _InheritedRunner(_ExtendedRunner):
+    """Runner without its own initialization."""
+
+
+class _FailingRunner(ModelRunner):
+    """Runner whose initialization fails after the parent initialization."""
+
+    def __init__(self, model, loader) -> None:
+        """Initialize."""
+        super().__init__(model, loader=loader)
+        raise ValueError('failing initialization')
+
+
+class _ProtocolRunner(ModelRunner, _TypingProtocol, _ExtensionsProtocol):
+    """Runner inheriting protocols from typing and typing_extensions."""
+
+    @override
+    def first(self) -> None:
+        return
+
+    @override
+    def second(self) -> None:
+        return
+
+
+class TestRegisteringMeta:
+    """Tests for the metaclass registering the runners."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests."""
+        self.registered_attributes: list[set[str]] = []
         self.mock_register_actor = mocker.patch(
-            'drytorch.core.registering.register_actor'
+            'drytorch.core.registering.register_actor',
+            side_effect=lambda actor, _: self.registered_attributes.append(
+                set(vars(actor))
+            ),
         )
         return
 
-    @pytest.fixture
-    def caller_name(self) -> str:
-        """Set up a test argument."""
-        return 'Caller'
+    def test_registers_after_subclass_init(
+        self, mock_model, mock_loader
+    ) -> None:
+        """Test the runner registers once, after the subclass initialization."""
+        runner = _ExtendedRunner(mock_model, mock_loader)
 
-    @pytest.fixture
-    def caller(self, mock_model, caller_name) -> ModelCaller:
-        """Set up a test instance."""
-        return SimpleCaller(mock_model, caller_name)
+        self.mock_register_actor.assert_called_once_with(runner, mock_model)
+        assert 'extra' in self.registered_attributes[0]
 
-    def test_initialization(self, mock_model, caller, caller_name) -> None:
-        """Test initialization with all parameters."""
-        assert caller.model == mock_model
-        assert caller.name == caller_name
+    def test_registers_inherited_init(self, mock_model, mock_loader) -> None:
+        """Test a subclass without initialization registers once."""
+        runner = _InheritedRunner(mock_model, mock_loader)
 
-    def test_name_property(self, caller, caller_name) -> None:
-        """Test name property starts with the expected value."""
-        assert caller.name.startswith(caller_name)
+        self.mock_register_actor.assert_called_once_with(runner, mock_model)
 
-    def test_str(self, caller, mock_model, caller_name):
-        """Test string representation of the class."""
-        assert str(caller).startswith(caller_name)
+    def test_failed_init_does_not_register(
+        self, mock_model, mock_loader
+    ) -> None:
+        """Test a runner is not registered when its initialization fails."""
+        with pytest.raises(ValueError):
+            _FailingRunner(mock_model, mock_loader)
 
-    def test_call_registration(self, caller) -> None:
-        """Test __call__ method registers model on first call."""
-        caller()
-        self.mock_register_actor.assert_called_once_with(caller, caller.model)
+        self.mock_register_actor.assert_not_called()
+
+    def test_protocol_inheritance(self, mock_model, mock_loader) -> None:
+        """Test a runner inheriting typing and typing_extensions protocols."""
+        runner = _ProtocolRunner(mock_model, loader=mock_loader)
+
+        self.mock_register_actor.assert_called_once_with(runner, mock_model)
 
 
 class TestModelRunner:
@@ -91,6 +142,9 @@ class TestModelRunner:
             'drytorch.lib.objectives.compute_metrics',
             return_value={'loss': 0.1},
         )
+        self.mock_register_actor = mocker.patch(
+            'drytorch.core.registering.register_actor'
+        )
         return
 
     @pytest.fixture
@@ -103,9 +157,32 @@ class TestModelRunner:
 
     def test_initialization(self, mock_model, mock_loader, runner) -> None:
         """Test initialization with all parameters."""
+        assert runner.model == mock_model
         assert runner.loader == mock_loader
         assert runner.outputs_list == []
         assert runner.outputs_list is runner._outputs_list
+
+    def test_registration_on_creation(self, mock_model, runner) -> None:
+        """Test the runner registers as an actor of its model when created."""
+        self.mock_register_actor.assert_called_once_with(runner, mock_model)
+
+    def test_no_registration_on_call(self, mocker, runner) -> None:
+        """Test calling the runner does not register it again."""
+        mocker.patch.object(runner, '_run_epoch')
+
+        runner()
+
+        self.mock_register_actor.assert_called_once()
+
+    def test_name_property(self, mock_model, mock_loader) -> None:
+        """Test name property starts with the given name."""
+        runner = ModelRunner(mock_model, 'Runner', loader=mock_loader)
+
+        assert runner.name.startswith('Runner')
+
+    def test_repr(self, mock_model, runner) -> None:
+        """Test the representation contains the runner and model names."""
+        assert repr(runner) == f'{runner.name}({mock_model.name})'
 
     def test_get_batches(self, runner, mock_loader) -> None:
         """Test batch generation applies operations to the device."""
@@ -234,7 +311,8 @@ class TestModelRunnerWithObjective:
     def setup(self, mocker, mock_loss) -> None:
         """Set up the tests."""
 
-        def _mock_init(instance, *_, **__):
+        def _mock_init(instance, model, *_, **__):
+            instance.model = model
             instance._is_distributed = True
             return
 

@@ -6,6 +6,8 @@
 - `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
 - `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators
 - `AbstractAccumulator.merge` takes `other: Any`; subclasses annotate `other` with their own class
+- removed `ModelCaller`; `ModelRunner` is the base class of the runners
+- runners register as actors of their model when created instead of when first called
 
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly

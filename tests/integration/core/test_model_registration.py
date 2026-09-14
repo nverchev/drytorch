@@ -11,7 +11,9 @@ import drytorch
 from drytorch.core import exceptions, registering
 from drytorch.core.experimenting import Experiment
 from drytorch.lib.checkpoints import LocalCheckpoint
+from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
+from drytorch.lib.runners import ModelRunner
 
 
 class _Actor:
@@ -87,3 +89,22 @@ class TestModelRegistration:
 
         assert isinstance(metadata, dict)
         assert metadata['model']['checkpoint_'] == 'LocalCheckpoint'
+
+    def test_runner_registers_when_created(self, experiment) -> None:
+        """Test a runner registers as an actor of its model when created."""
+        dataset = torch.utils.data.TensorDataset(torch.ones(4, 1))
+        with experiment.create_run():
+            model = Model(torch.nn.Linear(1, 1))
+            runner = ModelRunner(model, loader=DataLoader(dataset, 2))
+
+        assert runner in registering.ALL_ACTORS[model.module]
+
+    def test_runner_in_new_run(self, experiment) -> None:
+        """Test a runner is rejected for a model from a previous run."""
+        dataset = torch.utils.data.TensorDataset(torch.ones(4, 1))
+        with experiment.create_run():
+            model = Model(torch.nn.Linear(1, 1))
+
+        with experiment.create_run():
+            with pytest.raises(exceptions.ModuleFromAnotherRunError):
+                ModelRunner(model, loader=DataLoader(dataset, 2))

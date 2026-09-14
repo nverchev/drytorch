@@ -11,11 +11,10 @@ from drytorch.core import exceptions
 from drytorch.lib.training import ModelOptimizer
 
 
-@pytest.fixture(autouse=True)
-def setup_module(session_mocker) -> None:
+@pytest.fixture(autouse=True, scope='module')
+def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
-    # Patch at the point where register_source is called
-    session_mocker.patch('drytorch.core.registering.register_actor')
+    module_mocker.patch('drytorch.core.registering.register_actor')
     return
 
 

@@ -7,6 +7,7 @@ import warnings
 
 from collections.abc import Iterator, Mapping, Sequence
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
     Final,
@@ -17,6 +18,7 @@ from typing import (
 )
 
 import torch
+import typing_extensions
 
 from torch import distributed as dist
 from torch.utils import data
@@ -28,8 +30,13 @@ from drytorch.lib import loading, objectives
 from drytorch.utils import apply_ops, repr_utils
 
 
+if TYPE_CHECKING:
+    from typing import _ProtocolMeta
+else:  # typing_extensions metaclass subclasses the typing one
+    _ProtocolMeta = type(typing_extensions.Protocol)
+
+
 __all__ = [
-    'ModelCaller',
     'ModelRunner',
     'ModelRunnerWithLogs',
     'ModelRunnerWithObjective',
@@ -42,6 +49,7 @@ Output = TypeVar('Output', bound=p.OutputType)
 _Objective_co = TypeVar(
     '_Objective_co', bound=p.LossProtocol[Any, Any], covariant=True
 )
+_T = TypeVar('_T')
 
 
 @runtime_checkable
@@ -52,50 +60,28 @@ class SupportsSync(Protocol):
         """Sync across all processes."""
 
 
-class ModelCaller(repr_utils.CreatedAtMixin, abc.ABC, Generic[Input, Output]):
-    """Base class that calls a model.
+class _RegisteringMeta(_ProtocolMeta, abc.ABCMeta):
+    """Metaclass registering a runner once its initialization is complete.
 
-    Attributes:
-        model: the wrapped model.
+    It derives from the protocol metaclass, so runners can inherit protocols.
     """
 
-    _name = repr_utils.DefaultName()
-
-    model: Final[p.ModelProtocol[Input, Output]]
-
-    def __init__(
-        self, model: p.ModelProtocol[Input, Output], name: str = ''
-    ) -> None:
-        """Initialize.
-
-        Args:
-            model: the wrapped model.
-            name: the name for the object for logging purposes.
-                Defaults to class name plus eventual counter.
-        """
-        super().__init__()
-        self.model = model
-        self._name = name
-        return
-
-    @property
-    def name(self) -> str:
-        """The name of the model."""
-        return self._name
-
-    @abc.abstractmethod
-    def __call__(self) -> None:
-        """Document itself when the model is first called."""
-        registering.register_actor(self, self.model)
-        return
-
-    @override
-    def __repr__(self) -> str:
-        return f'{self.name}({self.model.name})'
+    def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
+        """Create the runner, then register it as an actor of its model."""
+        instance = type.__call__(cls, *args, **kwargs)
+        registering.register_actor(instance, instance.model)
+        return instance
 
 
-class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
+class ModelRunner(
+    repr_utils.CreatedAtMixin,
+    Generic[Input, Target, Output],
+    metaclass=_RegisteringMeta,
+):
     """Run a model on a dataset.
+
+    The runner registers as an actor of its model once created, so it must be
+    created during the run that registered the model.
 
     Attributes:
         model: the model to run.
@@ -105,6 +91,9 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
     max_stored_output: ClassVar[int] = sys.maxsize
 
+    _name = repr_utils.DefaultName()
+
+    model: Final[p.ModelProtocol[Input, Output]]
     loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
     _outputs_list: Final[list[Output]]
     _cached_metrics: Mapping[str, float]
@@ -128,7 +117,9 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
             loader: provides inputs and targets in batches.
 
         """
-        super().__init__(model, name)
+        super().__init__()
+        self.model = model
+        self._name = name
         self.loader = loader
         self._outputs_list = []
         self._cached_metrics = {}
@@ -144,7 +135,6 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
             store_outputs: whether to store model outputs. Defaults to
                 ``False``.
         """
-        super().__call__()
         self._run_epoch(store_outputs)
         return
 
@@ -154,9 +144,18 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         return self._cached_metrics
 
     @property
+    def name(self) -> str:
+        """The name of the runner."""
+        return self._name
+
+    @property
     def outputs_list(self) -> Sequence[Output]:
         """Sequence of optionally stored outputs."""
         return self._outputs_list
+
+    @override
+    def __repr__(self) -> str:
+        return f'{self.name}({self.model.name})'
 
     def _check_divisibility(self, n_samples: int) -> None:
         if torch.is_inference_mode_enabled() and self._is_distributed:
