@@ -17,10 +17,10 @@
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 
 ## Changed
-- immutable `Experiment.tags`, `ModelOptimizer.base_lr`, `LearningSchema.base_lr`, and `LearningSchema.optimizer_defaults`
+- immutable `Experiment.tags`, `ModelOptimizer.base_lr`, `LearningSchema.base_lr`, `LearningSchema.optimizer_defaults`, and transform scheduler parameters
 - `LocalCheckpoint.par_dir` is public for metadata recording
 - `MetadataDumper.dump` is public for dumping metadata
-- marked non-reassigned configuration attributes as `Final` across `Model`, `DataLoader`, `Permutation`, `Sliced`, `GradNormClipper`, `Run`, `Experiment`, and `torcheval` wrapper
+- marked non-reassigned configuration attributes as `Final` across `Model`, `DataLoader`, `Permutation`, `Sliced`, `GradNormClipper`, `Run`, `Experiment`, `torcheval` wrapper, and transform schedulers
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
@@ -41,8 +41,7 @@
 - moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
 
 ## Fixed
-- typed actor metadata in `extract_metadata` and
-  `ActorRegistrationEvent.metadata` as `Mapping[str, Any] | str`
+- typed actor metadata in `extract_metadata` and `ActorRegistrationEvent.metadata` as `Mapping[str, Any] | str`
 - `recursive_apply` falls back to type name for callables that are not functions
 - `MatPlotter` creates figures with `plt.figure()` for managed pyplot interactive display
 - `MatPlotter` clears and rebuilds layout grid when new metrics appear mid-run

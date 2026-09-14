@@ -1,18 +1,31 @@
 """Tests for the "schedulers" module."""
 
+from collections.abc import Mapping
+from typing import Any
+
 import pytest
 
+from drytorch.core.tracking import MetadataManager
 from drytorch.lib.schedulers import (
     AbstractScheduler,
+    ComposedScheduler,
     ConstantScheduler,
     CosineScheduler,
     ExponentialScheduler,
     PolynomialScheduler,
     StepScheduler,
+    TransformScheduler,
     rescale,
     restart,
     warmup,
 )
+
+
+class _DummyTransform(TransformScheduler):
+    """Dummy TransformScheduler subclass for testing."""
+
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        return self.logic(base_lr, epoch)
 
 
 class TestConstantScheduler:
@@ -381,3 +394,89 @@ class TestWarmupLogic:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
             ConstantScheduler().bind(warmup(warmup_steps=-1))
+
+
+class TestTransformSchedulers:
+    """Test TransformScheduler and ComposedScheduler."""
+
+    def test_transform_scheduler_defaults(self) -> None:
+        """Test default attributes of TransformScheduler."""
+        scheduler = _DummyTransform(lambda lr, epoch: lr)
+        assert scheduler.parameters == {}
+        assert scheduler.base_scheduler_name == '_DummyTransform'
+
+    def test_composed_scheduler_with_mapping(self) -> None:
+        """Test ComposedScheduler initialization with Mapping."""
+        params: Mapping[str, Any] = {'step': 10}
+        composed = ComposedScheduler('Custom', params, lambda lr, epoch: lr * 2)
+        assert composed.base_scheduler_name == 'Custom'
+        assert composed.parameters == {'step': 10}
+        assert composed(1.0, 0) == 2.0
+
+
+class TestBaseSchedulerMetadata:
+    """Test parameters and repr for BaseScheduler subclasses."""
+
+    @pytest.mark.parametrize(
+        ('scheduler', 'expected_name', 'expected_params'),
+        [
+            (
+                ConstantScheduler(),
+                'ConstantScheduler',
+                {},
+            ),
+            (
+                CosineScheduler(decay_steps=100, min_decay=0.05),
+                'CosineScheduler',
+                {'decay_steps': 100, 'min_decay': 0.05},
+            ),
+            (
+                ExponentialScheduler(exp_decay=0.95, min_decay=0.02),
+                'ExponentialScheduler',
+                {'exp_decay': 0.95, 'min_decay': 0.02},
+            ),
+            (
+                PolynomialScheduler(max_epochs=500, power=2.0, min_decay=0.01),
+                'PolynomialScheduler',
+                {'max_epochs': 500, 'power': 2.0, 'min_decay': 0.01},
+            ),
+            (
+                StepScheduler(milestones=[50, 100], gamma=0.5),
+                'StepScheduler',
+                {'milestones': [50, 100], 'gamma': 0.5},
+            ),
+        ],
+    )
+    def test_parameters_and_repr(
+        self,
+        scheduler: AbstractScheduler,
+        expected_name: str,
+        expected_params: dict[str, Any],
+    ) -> None:
+        """Test parameters mapping and repr string."""
+        assert scheduler.base_scheduler_name == expected_name
+        assert scheduler.parameters == expected_params
+        for key, value in expected_params.items():
+            assert f'{key}={value}' in repr(scheduler)
+
+    def test_extract_metadata_dataclass_and_composed(self) -> None:
+        """Test metadata extraction for dataclass and composed schedulers."""
+        scheduler = ExponentialScheduler(exp_decay=0.9, min_decay=0.1)
+        metadata = MetadataManager.extract_metadata(scheduler)
+        assert isinstance(metadata, dict)
+        assert metadata['class'] == 'ExponentialScheduler'
+        assert metadata['exp_decay'] == 0.9
+        assert metadata['min_decay'] == 0.1
+        assert 'parameters' not in metadata
+        assert 'base_scheduler_name' not in metadata
+
+        composed = scheduler.bind(rescale(2.0))
+        composed_meta = MetadataManager.extract_metadata(composed)
+        assert isinstance(composed_meta, dict)
+        assert composed_meta['class'] == 'ComposedScheduler'
+        assert composed_meta['base_scheduler_name'] == 'ExponentialScheduler'
+        assert composed_meta['parameters'] == {
+            'exp_decay': 0.9,
+            'min_decay': 0.1,
+            'factor': 2.0,
+        }

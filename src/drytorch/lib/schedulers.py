@@ -5,8 +5,8 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from collections.abc import Callable, Iterable
-from typing import Any, TypeAlias
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any, Final, TypeAlias
 
 import numpy as np
 
@@ -34,15 +34,7 @@ _SchedulingLogic: TypeAlias = Callable[[float, int], float]
 
 
 class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
-    """Abstract class for the scheduler.
-
-    Attributes:
-        base_scheduler_name: name of the base scheduler for representation.
-        parameters: metadata associated with the scheduler.
-    """
-
-    base_scheduler_name: str
-    parameters: dict[str, Any]
+    """Abstract class for the scheduler."""
 
     def __call__(self, base_lr: float, epoch: int) -> float:
         """Modify the learning rate according to a schedule.
@@ -76,10 +68,21 @@ class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
             the transformed scheduler.
         """
         next_scheduler = f(self._compute)
-        parameters = self.parameters | next_scheduler.parameters
+        parameters = {
+            **self._get_parameters(),
+            **next_scheduler._get_parameters(),
+        }
         return ComposedScheduler(
-            self.base_scheduler_name, parameters, next_scheduler._compute
+            self._get_name(), parameters, next_scheduler._compute
         )
+
+    @abc.abstractmethod
+    def _get_name(self) -> str:
+        """Name of the base scheduler for representation."""
+
+    @abc.abstractmethod
+    def _get_parameters(self) -> Mapping[str, Any]:
+        """Metadata associated with the scheduler."""
 
     @abc.abstractmethod
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -95,8 +98,10 @@ class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
 
     def __repr__(self) -> str:
         """Generic representation of the scheduler."""
-        params = ', '.join(f'{k}={v}' for k, v in self.parameters.items())
-        return f'{self.base_scheduler_name}({params})'
+        params_dict = self._get_parameters()
+        params_list = [f'{k}={v}' for k, v in params_dict.items()]
+        params = ', '.join(params_list)
+        return f'{self._get_name()}({params})'
 
 
 class ComposedScheduler(AbstractScheduler):
@@ -110,20 +115,28 @@ class ComposedScheduler(AbstractScheduler):
     def __init__(
         self,
         base_scheduler: str,
-        parameters: dict[str, Any],
+        parameters: Mapping[str, Any],
         logic: _SchedulingLogic,
     ):
         """Initialize.
 
         Args:
             base_scheduler: name of the base scheduler for representation.
-            logic: the composed scheduling callable.
             parameters: merged parameters from all composed schedulers.
+            logic: the composed scheduling callable.
         """
-        self.base_scheduler_name = base_scheduler
-        self._logic = logic
-        self.parameters = parameters
+        self.base_scheduler_name: Final[str] = base_scheduler
+        self.parameters: Final[Mapping[str, Any]] = dict(parameters)
+        self._logic: Final = logic
         return
+
+    @override
+    def _get_name(self) -> str:
+        return self.base_scheduler_name
+
+    @override
+    def _get_parameters(self) -> Mapping[str, Any]:
+        return self.parameters
 
     @override
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -139,16 +152,31 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
         base_scheduler_name: name of the base scheduler for representation.
     """
 
-    def __init__(self, logic: _SchedulingLogic):
+    def __init__(
+        self,
+        logic: _SchedulingLogic,
+        parameters: Mapping[str, Any] | None = None,
+    ):
         """Initialize.
 
         Args:
             logic: callable to calculate the scheduling.
+            parameters: metadata associated with the scheduler.
         """
-        self.logic = logic
-        self.parameters = {}
-        self.base_scheduler_name = self.__class__.__name__
+        self.base_scheduler_name: Final[str] = self.__class__.__name__
+        self.parameters: Final[Mapping[str, Any]] = (
+            {} if parameters is None else dict(parameters)
+        )
+        self.logic: Final = logic
         return
+
+    @override
+    def _get_name(self) -> str:
+        return self.base_scheduler_name
+
+    @override
+    def _get_parameters(self) -> Mapping[str, Any]:
+        return self.parameters
 
     @abc.abstractmethod
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -180,12 +208,11 @@ class RescaleScheduler(TransformScheduler):
             logic: callable to calculate the scheduling.
             factor: factor to multiply the output by.
         """
-        super().__init__(logic)
         if factor <= 0:
             raise ValueError('factor must be positive.')
 
-        self.factor = factor
-        self.parameters['factor'] = factor
+        super().__init__(logic, {'factor': factor})
+        self.factor: Final = factor
         return
 
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -219,7 +246,6 @@ class RestartScheduler(TransformScheduler):
             restart_fraction: fraction to use when restarting.
             max_restart: maximum number of restarts before deactivating.
         """
-        super().__init__(logic)
         if restart_interval <= 0:
             raise ValueError('restart_interval must be positive.')
 
@@ -229,12 +255,15 @@ class RestartScheduler(TransformScheduler):
         if max_restart is not None and max_restart <= 0:
             raise ValueError('max_restart must be positive.')
 
-        self.restart_interval = restart_interval
-        self.restart_fraction = restart_fraction
-        self.max_restart = max_restart
-        self.parameters['restart_interval'] = restart_interval
-        self.parameters['restart_fraction'] = restart_fraction
-        self.parameters['max_restart'] = max_restart
+        parameters = {
+            'restart_interval': restart_interval,
+            'restart_fraction': restart_fraction,
+            'max_restart': max_restart,
+        }
+        super().__init__(logic, parameters)
+        self.restart_interval: Final = restart_interval
+        self.restart_fraction: Final = restart_fraction
+        self.max_restart: Final = max_restart
         return
 
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -267,12 +296,11 @@ class WarmupScheduler(TransformScheduler):
             logic: callable to calculate the scheduling.
             warmup_steps: number of warmup steps.
         """
-        super().__init__(logic)
         if warmup_steps < 0:
             raise ValueError('warmup_steps must be non-negative.')
 
-        self.warmup_steps = warmup_steps
-        self.parameters['warmup_steps'] = warmup_steps
+        super().__init__(logic, {'warmup_steps': warmup_steps})
+        self.warmup_steps: Final = warmup_steps
         return
 
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -295,6 +323,14 @@ class BaseScheduler(AbstractScheduler, abc.ABC):
     def parameters(self) -> dict[str, Any]:
         """Metadata associated with the scheduler."""
         return dataclasses.asdict(self)
+
+    @override
+    def _get_name(self) -> str:
+        return self.base_scheduler_name
+
+    @override
+    def _get_parameters(self) -> Mapping[str, Any]:
+        return self.parameters
 
 
 @dataclasses.dataclass(frozen=True)
