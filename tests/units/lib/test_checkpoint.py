@@ -103,6 +103,27 @@ class TestLocalCheckpoint:
         checkpoint.load(checkpoint.model.epoch)
         assert old_lr == checkpoint.optimizer.param_groups[0]['lr']
 
+    def test_failed_save_emits_no_event(self, mocker, checkpoint) -> None:
+        """Test a failed save emits no SaveModelEvent."""
+        mocker.patch.object(checkpoint, '_save_module', side_effect=OSError)
+
+        with pytest.raises(OSError):
+            checkpoint.save()
+
+        self.mock_save_event.assert_not_called()
+
+    def test_failed_load_emits_no_event(self, mocker, checkpoint) -> None:
+        """Test a failed load emits no LoadModelEvent."""
+        checkpoint.save()
+        mocker.patch.object(
+            checkpoint, '_load_module', side_effect=RuntimeError
+        )
+
+        with pytest.raises(RuntimeError):
+            checkpoint.load(checkpoint.model.epoch)
+
+        self.mock_load_event.assert_not_called()
+
     def test_get_last_saved_epoch(self, checkpoint, mock_model) -> None:
         """Test it recovers the epoch of the longest trained model."""
         checkpoint.save()

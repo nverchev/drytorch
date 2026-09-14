@@ -162,16 +162,16 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
 
         self._update_epoch(epoch)
         self._check_location(epoch)
+        for name, module in self._modules.items():
+            self._load_module(name, module, epoch)
+
+        self._load_optimizer(epoch)
         log_events.LoadModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
             location=self._get_location(),
             epoch=self.model.epoch,
         )
-        for name, module in self._modules.items():
-            self._load_module(name, module, epoch)
-
-        self._load_optimizer(epoch)
         return
 
     def remove_model(self) -> None:
@@ -206,19 +206,21 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
         registering.check_current_run(self.model)
+        is_main_process = not (
+            dist.is_available() and dist.is_initialized() and dist.get_rank()
+        )
+        if is_main_process:
+            for name, module in self._modules.items():
+                self._save_module(name, module)
+
+            self._save_optimizer()
+
         log_events.SaveModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
             location=self._get_location(),
             epoch=self.model.epoch,
         )
-        if dist.is_available() and dist.is_initialized() and dist.get_rank():
-            return
-
-        for name, module in self._modules.items():
-            self._save_module(name, module)
-
-        self._save_optimizer()
         return
 
     @abc.abstractmethod

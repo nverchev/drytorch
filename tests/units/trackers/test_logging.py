@@ -151,7 +151,7 @@ class TestBuiltinLogger:
         save_model_mock_event.definition = 'weights'
         save_model_mock_event.location = 'folder'
         tracker.notify(save_model_mock_event)
-        expected = 'Saving my_model weights in: folder'
+        expected = 'Saved my_model weights in: folder'
         assert expected in self.stream.getvalue()
 
     def test_load_model_event(
@@ -165,7 +165,7 @@ class TestBuiltinLogger:
         load_model_mock_event.location = 'folder'
         load_model_mock_event.epoch = 3
         tracker.notify(load_model_mock_event)
-        expected = 'Loading my_model weights at epoch 3'
+        expected = 'Loaded my_model weights at epoch 3'
         assert expected in self.stream.getvalue()
 
     def test_test_event(self, tracker, start_test_mock_event) -> None:

@@ -17,6 +17,7 @@
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 
 ## Changed
+- `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
 - enforced explicit returns at the end of all functions and methods
 - renamed `DistributedDatasetNotDivisibleWarning` attribute `num_processes` to `n_processes`
 - normalized all docstring argument descriptions to start in lowercase and `__init__` docstrings to `"""Initialize."""`

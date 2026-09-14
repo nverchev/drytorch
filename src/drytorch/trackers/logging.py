@@ -117,7 +117,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.SaveModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,
-            'Saving %(name)s %(definition)s in: %(location)s',
+            'Saved %(name)s %(definition)s in: %(location)s',
             {
                 'name': event.model_name,
                 'definition': event.definition,
@@ -130,7 +130,7 @@ class BuiltinLogger(tracking.Tracker):
     def _(self, event: log_events.LoadModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,
-            'Loading %(name)s %(definition)s at epoch %(epoch)d',
+            'Loaded %(name)s %(definition)s at epoch %(epoch)d',
             {
                 'name': event.model_name,
                 'definition': event.definition,
