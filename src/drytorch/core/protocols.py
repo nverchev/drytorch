@@ -263,9 +263,16 @@ class MonitorProtocol(Protocol):
 
     model: ModelProtocol[Any, Any]
 
+    def __call__(self, store_outputs: bool = False) -> None:
+        """Run the model on the data once.
+
+        Args:
+            store_outputs: whether to store the model outputs.
+        """
+
     @property
     def name(self) -> str:
-        """The name of the model."""
+        """The name of the monitor."""
 
     @property
     def computed_metrics(self) -> Mapping[str, float]:
@@ -292,12 +299,10 @@ class TrainerProtocol(
     Attributes:
         model: the model to train.
         objective: determines the optimization's criterion.
-        validation: class that validates the model,
     """
 
     model: ModelProtocol[_Input, _Output]
     objective: LossProtocol[_Output, _Target]
-    validation: MonitorProtocol | None
 
     @property
     @abc.abstractmethod
@@ -307,6 +312,11 @@ class TrainerProtocol(
     @property
     def terminated(self) -> bool:
         """If true, this trainer should not be used for training anymore."""
+
+    @property
+    @abc.abstractmethod
+    def validation(self) -> MonitorProtocol | None:
+        """The validation run during training, if any."""
 
     def train(self, n_epochs: int) -> None:
         """Train the module for the specified number of epochs.

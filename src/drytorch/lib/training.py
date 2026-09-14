@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import warnings
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
-from typing import Any, Final, TypedDict, TypeVar, cast
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from typing import Any, Final, Generic, TypedDict, TypeVar, cast
 
 import torch
 
@@ -20,6 +20,7 @@ from drytorch.lib import evaluations, hooks, runners
 __all__ = [
     'ModelOptimizer',
     'Trainer',
+    'TrainerBuilder',
 ]
 
 
@@ -199,14 +200,15 @@ class Trainer(
         model: the model to train.
         loader: provides inputs and targets in batches.
         objective: determines the optimization's criterion.
-        validation: class that validates the model,
+        pre_epoch_hooks: hooks executed before each epoch.
+        post_epoch_hooks: hooks executed after each epoch, validation first.
     """
 
     learning_schema_: Final[p.LearningProtocol]
-    validation: p.MonitorProtocol | None
+    validation_: Final[evaluations.Validation[Input, Target, Output] | None]
+    pre_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
+    post_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
     _model_optimizer: Final[ModelOptimizer]
-    pre_epoch_hooks: Final[hooks.HookRegistry[Trainer[Input, Target, Output]]]
-    post_epoch_hooks: Final[hooks.HookRegistry[Trainer[Input, Target, Output]]]
     _terminated: bool
 
     def __init__(
@@ -217,6 +219,15 @@ class Trainer(
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
         learning_schema: p.LearningProtocol,
+        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None = None,
+        val_name: str = '',
+        validate_every: int = 1,
+        pre_epoch_hooks: Sequence[
+            Callable[[Trainer[Input, Target, Output]], None]
+        ] = (),
+        post_epoch_hooks: Sequence[
+            Callable[[Trainer[Input, Target, Output]], None]
+        ] = (),
     ) -> None:
         """Initialize.
 
@@ -227,17 +238,29 @@ class Trainer(
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
             learning_schema: contains optimizer settings and scheduling.
+            val_loader: the loader for validation with the same metrics as
+                for training. Default does not validate.
+            val_name: the name for the validation.
+            validate_every: the number of epochs between validations.
+            pre_epoch_hooks: hooks executed before each epoch.
+            post_epoch_hooks: hooks executed after each epoch and validation.
+
+        Raises:
+            ValueError: if validate_every is not strictly positive when
+                val_loader is given.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
         self.learning_schema_ = learning_schema
-        self.validation = None
+        self.validation_ = self._create_validation(val_loader, val_name)
+        self.pre_epoch_hooks = hooks.HookChain(pre_epoch_hooks)
+        if self.validation_ is None:
+            post_epoch_chain = hooks.HookChain(post_epoch_hooks)
+        else:
+            val_hook = hooks.evaluation_hook(self.validation_, validate_every)
+            post_epoch_chain = hooks.HookChain([val_hook, *post_epoch_hooks])
+
+        self.post_epoch_hooks = post_epoch_chain
         self._model_optimizer = ModelOptimizer(model, learning_schema)
-        self.pre_epoch_hooks = hooks.HookRegistry[
-            Trainer[Input, Target, Output]
-        ]()
-        self.post_epoch_hooks = hooks.HookRegistry[
-            Trainer[Input, Target, Output]
-        ]()
         self._terminated = False
         return
 
@@ -250,6 +273,38 @@ class Trainer(
     @override
     def terminated(self) -> bool:
         return self._terminated
+
+    @property
+    @override
+    def validation(self) -> p.MonitorProtocol | None:
+        return self.validation_
+
+    @staticmethod
+    def builder(
+        model: p.ModelProtocol[Input, Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[Input, Target]],
+        loss: p.LossProtocol[Output, Target],
+        learning_schema: p.LearningProtocol,
+    ) -> TrainerBuilder[Input, Target, Output]:
+        """Collect the validation and the hooks before creating a trainer.
+
+        Args:
+            model: the model containing the weights to evaluate.
+            name: the base name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
+            loader: provides inputs and targets in batches.
+            loss: determines the optimization's criterion.
+            learning_schema: contains optimizer settings and scheduling.
+        """
+        return TrainerBuilder(
+            model,
+            name,
+            loader=loader,
+            loss=loss,
+            learning_schema=learning_schema,
+        )
 
     @override
     def __call__(self, store_outputs: bool = False) -> None:
@@ -272,54 +327,6 @@ class Trainer(
             raise ce
 
         self.model.post_epoch_update()
-        return
-
-    def add_validation(
-        self,
-        val_loader: p.LoaderProtocol[tuple[Input, Target]],
-        name: str = '',
-        interval: int = 1,
-    ) -> None:
-        """Add a loader for validation with the same metrics as for training.
-
-        If different validation loaders are added, they will all be performed,
-        but only the last will be stored as the instance validation.
-
-        Args:
-            val_loader: the loader for validation.
-            name: the name for the validation.
-            interval: the frequency of validation.
-
-        Raises:
-            ValueError: if the interval is not strictly positive.
-        """
-        validation = evaluations.Validation(
-            self.model, name=name, loader=val_loader, metric=self.objective
-        )
-        val_hook = cast(
-            hooks.TrainerHook[Input, Target, Output],
-            hooks.StaticHook(validation),
-        )
-        if interval < 1:
-            raise ValueError(f'Interval must larger than 0. Got {interval}.')
-
-        if interval > 1:
-            val_hook = val_hook.bind(
-                cast(
-                    Callable[
-                        [
-                            Callable[
-                                [p.TrainerProtocol[Input, Target, Output]], None
-                            ]
-                        ],
-                        hooks.Hook[Input, Target, Output],
-                    ],
-                    hooks.call_every(interval),
-                )
-            )
-
-        self.post_epoch_hooks.register(val_hook)
-        self.validation = validation
         return
 
     @override
@@ -448,3 +455,122 @@ class Trainer(
         self._model_optimizer.optimize(loss_value)
         self.model.post_batch_update()
         return
+
+    def _create_validation(
+        self,
+        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None,
+        val_name: str,
+    ) -> evaluations.Validation[Input, Target, Output] | None:
+        if val_loader is None:
+            return None
+
+        return evaluations.Validation(
+            self.model, name=val_name, loader=val_loader, metric=self.objective
+        )
+
+
+class TrainerBuilder(Generic[Input, Target, Output]):
+    """Collect the validation and the hooks before creating a trainer."""
+
+    _model: Final[p.ModelProtocol[Input, Output]]
+    _name: Final[str]
+    _loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
+    _loss: Final[p.LossProtocol[Output, Target]]
+    _learning_schema: Final[p.LearningProtocol]
+    _pre_epoch_hooks: Final[
+        list[Callable[[Trainer[Input, Target, Output]], None]]
+    ]
+    _post_epoch_hooks: Final[
+        list[Callable[[Trainer[Input, Target, Output]], None]]
+    ]
+    _val_loader: p.LoaderProtocol[tuple[Input, Target]] | None
+    _val_name: str
+    _validate_every: int
+
+    def __init__(
+        self,
+        model: p.ModelProtocol[Input, Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[Input, Target]],
+        loss: p.LossProtocol[Output, Target],
+        learning_schema: p.LearningProtocol,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            model: the model containing the weights to evaluate.
+            name: the base name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
+            loader: provides inputs and targets in batches.
+            loss: determines the optimization's criterion.
+            learning_schema: contains optimizer settings and scheduling.
+        """
+        self._model = model
+        self._name = name
+        self._loader = loader
+        self._loss = loss
+        self._learning_schema = learning_schema
+        self._val_loader = None
+        self._val_name = ''
+        self._validate_every = 1
+        self._pre_epoch_hooks = []
+        self._post_epoch_hooks = []
+        return
+
+    def add_post_epoch_hook(
+        self, hook: Callable[[Trainer[Input, Target, Output]], None]
+    ) -> None:
+        """Add a hook to execute after each epoch and validation.
+
+        Args:
+            hook: the hook to execute after the ones already added.
+        """
+        self._post_epoch_hooks.append(hook)
+        return
+
+    def add_pre_epoch_hook(
+        self, hook: Callable[[Trainer[Input, Target, Output]], None]
+    ) -> None:
+        """Add a hook to execute before each epoch.
+
+        Args:
+            hook: the hook to execute after the ones already added.
+        """
+        self._pre_epoch_hooks.append(hook)
+        return
+
+    def add_validation(
+        self,
+        val_loader: p.LoaderProtocol[tuple[Input, Target]],
+        val_name: str = '',
+        validate_every: int = 1,
+    ) -> None:
+        """Validate with the same metrics as for training.
+
+        Calling it again replaces the previous validation.
+
+        Args:
+            val_loader: the loader for validation.
+            val_name: the name for the validation.
+            validate_every: the number of epochs between validations.
+        """
+        self._val_loader = val_loader
+        self._val_name = val_name
+        self._validate_every = validate_every
+        return
+
+    def build(self) -> Trainer[Input, Target, Output]:
+        """Create the trainer with the collected validation and hooks."""
+        return Trainer(
+            self._model,
+            self._name,
+            loader=self._loader,
+            loss=self._loss,
+            learning_schema=self._learning_schema,
+            val_loader=self._val_loader,
+            val_name=self._val_name,
+            validate_every=self._validate_every,
+            pre_epoch_hooks=self._pre_epoch_hooks,
+            post_epoch_hooks=self._post_epoch_hooks,
+        )

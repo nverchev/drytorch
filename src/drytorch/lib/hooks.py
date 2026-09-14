@@ -1,4 +1,4 @@
-"""Module containing registry, callbacks, and hooks for a Trainer."""
+"""Module containing hooks and callbacks for a Trainer."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ __all__ = [
     'ChangeSchedulerOnPlateauCallback',
     'EarlyStoppingCallback',
     'Hook',
-    'HookRegistry',
+    'HookChain',
     'MetricExtractor',
     'MetricMonitor',
     'PruneCallback',
@@ -31,11 +31,12 @@ __all__ = [
     'StaticHook',
     'TrainerHook',
     'call_every',
+    'evaluation_hook',
     'saving_hook',
     'static_hook_class',
 ]
 
-_T = TypeVar('_T')
+_T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
 _Q = ParamSpec('_Q')
 Input = TypeVar('Input', bound=p.InputType)
@@ -44,52 +45,35 @@ Output = TypeVar('Output', bound=p.OutputType)
 get_last: Final = operator.itemgetter(-1)
 
 
-class HookRegistry(Generic[_T]):
-    """A registry for managing and executing hooks.
-
-    The hooks have a generic object as input and can access it.
+class HookChain(Generic[_T_contra]):
+    """Execute a fixed chain of hooks in order.
 
     Attributes:
-        hooks: a list of registered hooks.
+        hooks: the hooks in order of execution.
     """
 
-    hooks: list[Callable[[_T], None]]
+    hooks: Final[tuple[Callable[[_T_contra], None], ...]]
 
-    def __init__(self) -> None:
-        """Initialize."""
-        self.hooks = []
+    def __init__(
+        self, hooks: Sequence[Callable[[_T_contra], None]] = ()
+    ) -> None:
+        """Initialize.
+
+        Args:
+            hooks: the hooks to execute, in order.
+        """
+        self.hooks = tuple(hooks)
         return
 
-    def execute(self, input_object: _T) -> None:
-        """Execute the registered hooks in order of registration.
+    def execute(self, input_object: _T_contra) -> None:
+        """Execute the hooks in order.
 
         Args:
             input_object: the input to pass to each hook.
         """
         for hook in self.hooks:
             hook(input_object)
-        return
 
-    def register(self, hook: Callable[[_T], None]) -> None:
-        """Register a single hook.
-
-        Args:
-            hook: the hook to register.
-        """
-        self.hooks.append(hook)
-        return
-
-    def register_all(
-        self,
-        hook_list: list[Callable[[_T], None]],
-    ) -> None:
-        """Register multiple hooks.
-
-        Args:
-            hook_list: the list of hooks to register.
-        """
-        for hook in hook_list:
-            self.register(hook)
         return
 
 
@@ -338,6 +322,31 @@ def call_every(
         return CallEvery(wrapped=func, interval=interval, start=start)
 
     return _transformer
+
+
+def evaluation_hook(
+    evaluation: Callable[[], None], every: int = 1
+) -> TrainerHook[Any, Any, Any]:
+    """Create a hook running an evaluation every given number of epochs.
+
+    With ``every`` above one, the evaluation also runs when training is
+    terminated.
+
+    Args:
+        evaluation: the evaluation to run, for example a validation.
+        every: the number of epochs between evaluations.
+
+    Raises:
+        ValueError: if every is not strictly positive.
+    """
+    if every < 1:
+        raise ValueError(f'every must be positive. Got {every}.')
+
+    hook = StaticHook(evaluation)
+    if every > 1:
+        return hook.bind(call_every(every))
+
+    return hook
 
 
 def static_hook_class(

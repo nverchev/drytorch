@@ -50,17 +50,16 @@ def test_automatic_names(
         new_learning_schema = dataclasses.replace(
             standard_learning_schema, base_lr=lr
         )
-
+        early_stopping = hooks.EarlyStoppingCallback[Any, Any]()
         trainer = Trainer(
             linear_model_copy,
             name='MyTrainer',
             loader=training_loder,
             learning_schema=new_learning_schema,
             loss=square_loss_calc,
+            val_loader=val_loader,
+            post_epoch_hooks=[early_stopping],
         )
-        trainer.add_validation(val_loader)
-        early_stopping = hooks.EarlyStoppingCallback[Any, Any]()
-        trainer.post_epoch_hooks.register(early_stopping)
         trainer.train(10)
         results[linear_model_copy.name] = early_stopping.monitor.best_value
         registering.unregister_model(linear_model_copy)
@@ -83,18 +82,18 @@ def test_iterative_pruning(
         new_learning_schema = dataclasses.replace(
             standard_learning_schema, base_lr=lr
         )
+        prune_callback = hooks.PruneCallback[Any, Any](
+            benchmark_values, best_is='lower'
+        )
         trainer = Trainer(
             model=trial_model,
             name='MyTrainer',
             loader=training_loder,
             learning_schema=new_learning_schema,
             loss=square_loss_calc,
+            val_loader=val_loader,
+            post_epoch_hooks=[prune_callback],
         )
-        trainer.add_validation(val_loader)
-        prune_callback = hooks.PruneCallback[Any, Any](
-            benchmark_values, best_is='lower'
-        )
-        trainer.post_epoch_hooks.register(prune_callback)
         trainer.train(4)
         if lr == 0.001:  # first trial has no thresholds
             first_trial_len = len(prune_callback.trial_values)

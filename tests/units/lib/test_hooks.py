@@ -13,7 +13,7 @@ from drytorch.lib.hooks import (
     CallEvery,
     EarlyStoppingCallback,
     Hook,
-    HookRegistry,
+    HookChain,
     MetricExtractor,
     MetricMonitor,
     PruneCallback,
@@ -21,6 +21,7 @@ from drytorch.lib.hooks import (
     RestartScheduleOnPlateau,
     StaticHook,
     call_every,
+    evaluation_hook,
     get_last,
     saving_hook,
     static_hook_class,
@@ -41,29 +42,28 @@ class _TestClass:
         return
 
 
-class TestHookRegistry:
-    """Tests for HookRegistry class."""
+class TestHookChain:
+    """Tests for HookChain class."""
 
-    @pytest.fixture
-    def registry(self) -> HookRegistry[Any]:
-        """Set up the instance."""
-        return HookRegistry()
+    def test_execute_in_order(self, mocker) -> None:
+        """Test the hooks are executed in the given order."""
+        calls: list[int] = []
+        chain = HookChain(
+            [lambda _: calls.append(1), lambda _: calls.append(2)]
+        )
 
-    def test_register_single_hook(self, mocker, registry) -> None:
-        """Test that a single hook can be registered and executed."""
-        mock_hook = mocker.MagicMock()
-        registry.register(mock_hook)
-        registry.execute(mocker.MagicMock())  # Pass any instance
-        mock_hook.assert_called_once()
+        chain.execute(mocker.Mock())
 
-    def test_register_all_hooks(self, mocker, registry) -> None:
-        """Test that multiple hooks can be registered and executed in order."""
-        mock_hook1 = mocker.MagicMock()
-        mock_hook2 = mocker.MagicMock()
-        registry.register_all([mock_hook1, mock_hook2])
-        registry.execute(mocker.MagicMock())
-        mock_hook1.assert_called_once()
-        mock_hook2.assert_called_once()
+        assert calls == [1, 2]
+
+    def test_hooks_copied(self, mocker) -> None:
+        """Test changing the given hooks does not change the chain."""
+        hook_list = [mocker.Mock()]
+        chain = HookChain(hook_list)
+
+        hook_list.append(mocker.Mock())
+
+        assert len(chain.hooks) == 1
 
 
 def test_saving_hook(mock_trainer) -> None:
@@ -174,6 +174,25 @@ class TestCallEvery:
         """Test a non-positive interval or a negative start raise."""
         with pytest.raises(ValueError):
             CallEvery(mocker.Mock(), interval=interval, start=start)
+
+
+def test_evaluation_hook(mocker, mock_trainer) -> None:
+    """Test the evaluation runs every given number of epochs."""
+    evaluation = mocker.Mock()
+    hook = evaluation_hook(evaluation, every=2)
+
+    for epoch in (1, 2, 3):
+        mock_trainer.model.epoch = epoch
+        hook(mock_trainer)
+
+    evaluation.assert_called_once()
+
+
+@pytest.mark.parametrize('every', [0, -1])
+def test_evaluation_hook_not_positive(mocker, every) -> None:
+    """Test a non-positive every raises ValueError."""
+    with pytest.raises(ValueError):
+        evaluation_hook(mocker.Mock(), every=every)
 
 
 class TestMetricExtractor:

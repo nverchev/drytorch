@@ -1,4 +1,4 @@
-## [0.1.0] - 08-09-2026
+## [0.1.0] - 14-09-2026
 
 ## [BREAKING CHANGES]
 - protocol attributes `batch_size`, `dataset`, `sampler`, `mixed_precision`, `checkpoint` and `learning_schema` are read-only properties; implementations store them as `<name>_`
@@ -9,6 +9,9 @@
 - removed `ModelCaller`; `ModelRunner` is the base class of the runners
 - runners register as actors of their model when created instead of when first called
 - `Hook.parameters` and `StaticHook.parameters` are read-only mappings copied at creation; `TrainerHook` subclasses implement `_get_name` and `_get_parameters`
+- `Trainer` takes `val_loader`, `val_name`, `validate_every`, `pre_epoch_hooks` and `post_epoch_hooks` at creation, or collects them with `Trainer.builder`; `Trainer.add_validation` is removed
+- `Trainer.pre_epoch_hooks` and `Trainer.post_epoch_hooks` are `HookChain`; `TrainerProtocol.validation` is a read-only property
+- removed `HookRegistry`; hooks are passed to `Trainer` or added to `TrainerBuilder`
 
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
@@ -19,6 +22,7 @@
 - added `__repr__` to `AbstractScheduler`
 - added `PauseExperimentEvent` and `ContinueExperimentEvent` to test workflows
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
+- added `HookChain`, `TrainerBuilder` and `hooks.evaluation_hook`
 
 ## Changed
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds

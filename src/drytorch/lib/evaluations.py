@@ -31,7 +31,7 @@ class EvaluationMixin(p.MonitorProtocol):
     def __call__(self, store_outputs: bool = False) -> None:
         """Set the model in evaluation mode and PyTorch in inference mode."""
         self.model.module.eval()
-        super().__call__(store_outputs)  # type: ignore
+        super().__call__(store_outputs)
         return
 
 

@@ -5,7 +5,7 @@ from collections.abc import Generator
 import pytest
 
 from drytorch.lib.gradient_ops import HistClipper
-from drytorch.lib.hooks import EarlyStoppingCallback, HookRegistry
+from drytorch.lib.hooks import EarlyStoppingCallback, HookChain
 from drytorch.lib.schedulers import ExponentialScheduler, warmup
 from drytorch.utils.averages import get_trailing_mean
 from drytorch.utils.repr_utils import recursive_repr
@@ -56,8 +56,8 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
             'name': 'MSE',
             'named_fn': {'MSE': 'mse'},
         },
-        'post_epoch_hooks': 'HookRegistry',
-        'pre_epoch_hooks': 'HookRegistry',
+        'post_epoch_hooks': 'HookChain',
+        'pre_epoch_hooks': 'HookChain',
     }
 
     identity_trainer.model.exec_module = identity_trainer.model.module
@@ -65,12 +65,11 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
 
 
 def test_hook_repr() -> None:
-    """Test the representation of a hook registry."""
-    registry = HookRegistry()
-    registry.register(EarlyStoppingCallback(filter_fn=get_trailing_mean(9)))
+    """Test the representation of a hook chain."""
+    chain = HookChain([EarlyStoppingCallback(filter_fn=get_trailing_mean(9))])
     expected = {
-        'class': 'HookRegistry',
-        'hooks': [
+        'class': 'HookChain',
+        'hooks': (
             {
                 'class': 'EarlyStoppingCallback',
                 'monitor': {
@@ -85,10 +84,10 @@ def test_hook_repr() -> None:
                     },
                 },
                 'start_from_epoch': 2,
-            }
-        ],
+            },
+        ),
     }
-    assert recursive_repr(registry) == expected
+    assert recursive_repr(chain) == expected
 
 
 def test_gradient_op_repr() -> None:
