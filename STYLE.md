@@ -43,7 +43,17 @@ formatting, linting and typing; their rules are not repeated here.
 - Private attributes (`_attr`) are internal: not documented, not recorded.
 - A container the class changes is private, exposed by a read-only property
   (`Mapping`, `Sequence`).
-- No properties for configuration.
+- No properties for configuration, except for protocol attributes.
+- Protocols declare attributes as abstract read-only properties; the class
+  stores the value in a public `Final` attribute with a trailing underscore
+  (`batch_size_`), and the property returns it.
+
+  The trailing-underscore attribute is the one public attribute not listed
+  under `Attributes:`: it is recorded in the metadata, and the property
+  carries the docstring. Classes inheriting a protocol cannot assign its
+  properties. Revisit when `ReadOnly` attributes (PEP 767, proposed) are
+  available: they would replace both the property and the trailing-underscore
+  attribute.
 
 ## Naming
 - Modules: `-ing` form for base logic, plural for a class and its
@@ -71,7 +81,7 @@ formatting, linting and typing; their rules are not repeated here.
 - An explicit `return` at the end of every function.
 
 ## Docstrings
-- Class docstrings list public attributes under `Attributes:`.
+- Class docstrings list every public attribute under `Attributes:`.
 - Argument descriptions start in lowercase.
 - `__init__`: `"""Initialize."""` plus `Args:`.
 - Overrides get a docstring only when their behaviour differs.

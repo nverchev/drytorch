@@ -22,7 +22,7 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
     """Test Trainer, Model, DataLoader, and objective basic repr."""
     expected = {
         'class': 'Trainer',
-        'learning_schema': {
+        'learning_schema_': {
             'class': 'LearningSchema',
             'gradient_op': 'NoOp',
             'base_lr': 0.1,
@@ -32,10 +32,10 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
         },
         'loader': {
             'class': 'DataLoader',
-            'batch_size': 4,
-            'dataset': {'class': 'IdentityDataset', 'len_epoch': 64},
+            'batch_size_': 4,
+            'dataset_': {'class': 'IdentityDataset', 'len_epoch': 64},
             'dataset_len': 64,
-            'sampler': {
+            'sampler_': {
                 'class': 'RandomSampler',
                 'data_source': 'range(0, 64)',
                 'replacement': False,
@@ -43,10 +43,10 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
         },
         'model': {
             'class': 'Model',
-            'checkpoint': 'LocalCheckpoint',
+            'checkpoint_': 'LocalCheckpoint',
             'epoch': 0,
             'exec_module': {'class': 'Linear', 'training': True},
-            'mixed_precision': False,
+            'mixed_precision_': False,
         },
         'objective': {
             'class': 'Loss',

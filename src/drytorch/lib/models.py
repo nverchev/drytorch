@@ -50,16 +50,14 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     Attributes:
         exec_module: :class:`torch.nn.Module` used for execution.
         epoch: the number of epochs the model has been trained so far.
-        mixed_precision: whether to use mixed precision computing.
-        checkpoint: checkpoint manager.
     """
 
     _name = repr_utils.DefaultName()
 
     exec_module: Final[torch.nn.Module]
     epoch: int
-    mixed_precision: Final[bool]
-    checkpoint: Final[p.CheckpointProtocol]
+    mixed_precision_: Final[bool]
+    checkpoint_: Final[p.CheckpointProtocol]
     _device: torch.device
     _compile: bool
     _distribute: bool
@@ -94,7 +92,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._device = self._default_device() if device is None else device
         self._compile = torch_compile
         self._distribute = distribute
-        self.mixed_precision = mixed_precision
+        self.mixed_precision_ = mixed_precision
         torch_module = self._validate_module(module)
         self.exec_module = self.prepare_module(torch_module)
         self._name = name
@@ -104,8 +102,8 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         if checkpoint is None:
             checkpoint = checkpoints.LocalCheckpoint()
 
-        self.checkpoint = checkpoint
-        self.checkpoint.bind_model(self)
+        self.checkpoint_ = checkpoint
+        self.checkpoint_.bind_model(self)
         return
 
     def __call__(self, inputs: Input) -> Output:
@@ -143,6 +141,16 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     def name(self) -> str:
         """The name of the model."""
         return self._name
+
+    @property
+    @override
+    def checkpoint(self) -> p.CheckpointProtocol:
+        return self.checkpoint_
+
+    @property
+    @override
+    def mixed_precision(self) -> bool:
+        return self.mixed_precision_
 
     def prepare_module(self, module: torch.nn.Module) -> torch.nn.Module:
         """Compile and distribute the module."""

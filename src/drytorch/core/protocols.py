@@ -60,17 +60,22 @@ _Output = TypeVar('_Output', bound=OutputType)
 
 
 class LoaderProtocol(Protocol[_Data_co]):
-    """Protocol loading and batching a dataset.
+    """Protocol loading and batching a dataset."""
 
-    Attributes:
-        batch_size: the batch size.
-        dataset: the dataset to load.
-        sampler: the sampler used to select the samples.
-    """
+    @property
+    @abc.abstractmethod
+    def batch_size(self) -> int | None:
+        """The batch size."""
 
-    batch_size: int | None
-    dataset: data.Dataset[Any]
-    sampler: torch.utils.data.Sampler[Any] | Iterable[Any]
+    @property
+    @abc.abstractmethod
+    def dataset(self) -> data.Dataset[Any]:
+        """The dataset to load."""
+
+    @property
+    @abc.abstractmethod
+    def sampler(self) -> torch.utils.data.Sampler[Any] | Iterable[Any]:
+        """The sampler used to select the samples."""
 
     def __iter__(self) -> Iterator[_Data_co]:
         """Return an iterator over the dataset in batches."""
@@ -93,13 +98,19 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
     Attributes:
         epoch: the number of epochs the model has been trained so far.
-        checkpoint: the object responsible for saving and loading the model.
-        mixed_precision: whether to use mixed precision computing.
     """
 
     epoch: int
-    checkpoint: CheckpointProtocol
-    mixed_precision: bool
+
+    @property
+    @abc.abstractmethod
+    def checkpoint(self) -> CheckpointProtocol:
+        """The object responsible for saving and loading the model."""
+
+    @property
+    @abc.abstractmethod
+    def mixed_precision(self) -> bool:
+        """Whether to use mixed precision computing."""
 
     @abc.abstractmethod
     def __call__(self, /, inputs: _Input_contra) -> _Output_co:
@@ -280,15 +291,18 @@ class TrainerProtocol(
 
     Attributes:
         model: the model to train.
-        learning_schema: contains optimizer settings and scheduling.
         objective: determines the optimization's criterion.
         validation: class that validates the model,
     """
 
     model: ModelProtocol[_Input, _Output]
-    learning_schema: LearningProtocol
     objective: LossProtocol[_Output, _Target]
     validation: MonitorProtocol | None
+
+    @property
+    @abc.abstractmethod
+    def learning_schema(self) -> LearningProtocol:
+        """Optimizer settings and scheduling."""
 
     @property
     def terminated(self) -> bool:

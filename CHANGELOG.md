@@ -1,6 +1,7 @@
 ## [0.1.0] - 08-09-2026
 
 ## [BREAKING CHANGES]
+- protocol attributes `batch_size`, `dataset`, `sampler`, `mixed_precision`, `checkpoint` and `learning_schema` are read-only properties; implementations store them as `<name>_`
 - replaced `AbstractAggregator` and `TorchAverager` with `Aggregator`, a container merging accumulators by name; `reduce` and `all_reduce` are removed, and the accumulators are reduced by their owner
 - `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
 - `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators

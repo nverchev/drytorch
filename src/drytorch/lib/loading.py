@@ -137,16 +137,13 @@ class DataLoader(p.LoaderProtocol[Data]):
     This class wraps PyTorch's DataLoader with additional functionalities.
 
     Attributes:
-        batch_size: number of samples per batch.
-        dataset: the dataset to load data from.
         dataset_len: length of the dataset.
-        sampler: the sampling strategy for the dataset.
     """
 
-    batch_size: Final[int | None]
-    dataset: Final[data.Dataset[Data]]
+    batch_size_: Final[int | None]
+    dataset_: Final[data.Dataset[Data]]
     dataset_len: Final[int]
-    sampler: Final[data.Sampler | Iterable]
+    sampler_: Final[data.Sampler | Iterable]
     _pin_memory: bool
     _n_workers: int
     _distributed: bool
@@ -171,16 +168,31 @@ class DataLoader(p.LoaderProtocol[Data]):
             n_workers: number of subprocesses for data loading.
 
         """
-        self.batch_size = batch_size
-        self.dataset = dataset
+        self.batch_size_ = batch_size
+        self.dataset_ = dataset
         self.dataset_len = validate_dataset_length(dataset)
         acc_flag = torch.accelerator.is_available()
         self._pin_memory = acc_flag if pin_memory is None else pin_memory
         self._n_workers = n_workers
         self._distributed = dist.is_available() and dist.is_initialized()
         self._user_sampler = sampler
-        self.sampler = self._init_sampler() if sampler is None else sampler
+        self.sampler_ = self._init_sampler() if sampler is None else sampler
         return
+
+    @property
+    @override
+    def batch_size(self) -> int | None:
+        return self.batch_size_
+
+    @property
+    @override
+    def dataset(self) -> data.Dataset[Data]:
+        return self.dataset_
+
+    @property
+    @override
+    def sampler(self) -> data.Sampler | Iterable:
+        return self.sampler_
 
     @override
     def __iter__(self) -> Iterator[Data]:

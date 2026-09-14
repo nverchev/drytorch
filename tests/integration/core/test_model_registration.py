@@ -72,7 +72,7 @@ class TestModelRegistration:
             metadata = run.metadata_manager.named_metadata['_Actor']
 
         assert isinstance(metadata, dict)
-        assert metadata['model']['checkpoint'] == {
+        assert metadata['model']['checkpoint_'] == {
             'class': 'LocalCheckpoint',
             'par_dir': repr(custom_par_dir),
         }
@@ -86,4 +86,4 @@ class TestModelRegistration:
             metadata = run.metadata_manager.named_metadata['_Actor']
 
         assert isinstance(metadata, dict)
-        assert metadata['model']['checkpoint'] == 'LocalCheckpoint'
+        assert metadata['model']['checkpoint_'] == 'LocalCheckpoint'

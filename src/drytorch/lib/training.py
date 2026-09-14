@@ -199,11 +199,10 @@ class Trainer(
         model: the model to train.
         loader: provides inputs and targets in batches.
         objective: determines the optimization's criterion.
-        learning_schema: contains optimizer settings and scheduling.
         validation: class that validates the model,
     """
 
-    learning_schema: Final[p.LearningProtocol]
+    learning_schema_: Final[p.LearningProtocol]
     validation: p.MonitorProtocol | None
     _model_optimizer: Final[ModelOptimizer]
     pre_epoch_hooks: Final[hooks.HookRegistry[Trainer[Input, Target, Output]]]
@@ -230,7 +229,7 @@ class Trainer(
             learning_schema: contains optimizer settings and scheduling.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
-        self.learning_schema = learning_schema
+        self.learning_schema_ = learning_schema
         self.validation = None
         self._model_optimizer = ModelOptimizer(model, learning_schema)
         self.pre_epoch_hooks = hooks.HookRegistry[
@@ -241,6 +240,11 @@ class Trainer(
         ]()
         self._terminated = False
         return
+
+    @property
+    @override
+    def learning_schema(self) -> p.LearningProtocol:
+        return self.learning_schema_
 
     @property
     @override
