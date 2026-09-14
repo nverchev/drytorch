@@ -206,19 +206,19 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         n_samples = loading.validate_dataset_length(self.loader.dataset)
         self._check_divisibility(n_samples)
         n_processes = dist.get_world_size() if self._is_distributed else 1
-        pbar = log_events.IterateBatchEvent(
+        batch_event = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), n_samples
         )
         for batch in self._get_batches():
             outputs = self._run_batch(batch)
             metrics = self._compute_metrics()
-            pbar.update(metrics, n_processes)
+            batch_event.update(metrics, n_processes)
             if store_outputs:
                 self._store(outputs)
 
         if self._is_distributed:
             self._sync()
-            pbar.update(self._compute_metrics(), 0)  # trigger sync
+            batch_event.refresh(self._compute_metrics())
             self._gather_stored_outputs()
 
         return

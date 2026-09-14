@@ -141,8 +141,8 @@ class TestModelRunner:
         run_batch = mocker.patch.object(runner, '_run_batch')
         run_batch.return_value = [self.mock_output]
         _store = mocker.patch.object(runner, '_store')
-        mock_pbar = mocker.Mock()
-        self.mock_iterate_batch.return_value = mock_pbar
+        mock_batch_event = mocker.Mock()
+        self.mock_iterate_batch.return_value = mock_batch_event
 
         # Reset the objective mock to avoid counting the initialization call
         runner._run_epoch(store_outputs=False)
@@ -150,8 +150,32 @@ class TestModelRunner:
 
         self.mock_iterate_batch.assert_called_once()
         assert run_batch.call_count == 2
-        assert mock_pbar.update.call_count == 2
+        assert mock_batch_event.update.call_count == 2
         _store.assert_not_called()
+
+    def test_run_epoch_distributed_refreshes_metrics(
+        self, mocker, runner
+    ) -> None:
+        """Test distributed epoch run refreshes metrics after sync."""
+        runner._is_distributed = True
+        mocker.patch('torch.distributed.get_world_size', return_value=2)
+        get_batch = mocker.patch.object(runner, '_get_batches')
+        get_batch.return_value = [(self.mock_input, self.mock_target)]
+        mocker.patch.object(
+            runner, '_run_batch', return_value=[self.mock_output]
+        )
+        mocker.patch.object(runner, '_sync')
+        mocker.patch.object(runner, '_gather_stored_outputs')
+        mocker.patch.object(
+            runner, '_compute_metrics', return_value={'loss': 0.1}
+        )
+        mock_batch_event = mocker.Mock()
+        self.mock_iterate_batch.return_value = mock_batch_event
+
+        runner._run_epoch(store_outputs=False)
+
+        mock_batch_event.update.assert_called_once_with({'loss': 0.1}, 2)
+        mock_batch_event.refresh.assert_called_once_with({'loss': 0.1})
 
     def test_run_epoch_with_storing_outputs(self, mocker, runner) -> None:
         """Test epoch run with storing outputs."""

@@ -18,6 +18,7 @@
 
 ## Changed
 - immutable `Experiment.tags`, `ModelOptimizer.base_lr`, `LearningSchema.base_lr`, `LearningSchema.optimizer_defaults`, `MetadataManager.named_metadata`, `EventDispatcher.named_trackers`, and transform scheduler parameters
+- added `IterateBatchEvent.refresh` to update metrics without advancing progress and documented callback ordering and mutability
 - `LocalCheckpoint.par_dir` is public for metadata recording
 - `MetadataDumper.dump` is public for dumping metadata
 - marked non-reassigned configuration attributes as `Final` across `Model`, `DataLoader`, `Permutation`, `Sliced`, `GradNormClipper`, `Run`, `Experiment`, `RunRegistry`, `AveragedModel`, `torchmetrics` and `torcheval` wrappers, and transform schedulers

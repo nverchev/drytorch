@@ -131,7 +131,13 @@ class EndTrainingEvent(Event):
 
 @dataclasses.dataclass(frozen=True)
 class IterateBatchEvent(Event):
-    """Event logged to create during batch iteration.
+    """Event logged during batch iteration.
+
+    Unlike other events that serve strictly as immutable records,
+    push_updates is intentionally mutable to allow trackers to register
+    update callbacks. Trackers add their callbacks while the event is being
+    published; this works because publication is synchronous and completes
+    before the first iteration update.
 
     Attributes:
         source_name: the object calling the iteration.
@@ -158,6 +164,18 @@ class IterateBatchEvent(Event):
         """
         for update in self.push_updates:
             update(metrics, n_processes)
+
+        return
+
+    def refresh(self, metrics: Mapping[str, Any]) -> None:
+        """Refresh displayed metrics without advancing iteration progress.
+
+        Args:
+            metrics: calculated values by metric name.
+        """
+        for update in self.push_updates:
+            update(metrics, 0)
+
         return
 
 
