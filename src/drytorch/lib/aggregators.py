@@ -19,7 +19,7 @@ _T_contra = TypeVar('_T_contra', contravariant=True)
 _R_co = TypeVar('_R_co', covariant=True)
 
 
-class AbstractAccumulator(Generic[_T_contra, _R_co], metaclass=abc.ABCMeta):
+class AbstractAccumulator(abc.ABC, Generic[_T_contra, _R_co]):
     """Stateful aggregation container."""
 
     @classmethod

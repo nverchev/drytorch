@@ -142,7 +142,7 @@ class MetadataManager:
             return repr_utils.CreatedAtMixin().created_at
 
 
-class Tracker(metaclass=abc.ABCMeta):
+class Tracker(abc.ABC):
     """Abstract base class for tracking events with priority ordering."""
 
     _current: ClassVar[Self | None] = None

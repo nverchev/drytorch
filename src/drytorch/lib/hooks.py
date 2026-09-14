@@ -93,8 +93,8 @@ class HookRegistry(Generic[_T]):
 
 
 class TrainerHook(
+    abc.ABC,
     Generic[Input, Target, Output],
-    metaclass=abc.ABCMeta,
 ):
     """Compose control flow on side effects while keeping track of parameters.
 
@@ -717,9 +717,7 @@ class PruneCallback(Generic[Output, Target]):
         return
 
 
-class ChangeSchedulerOnPlateauCallback(
-    Generic[Output, Target], metaclass=abc.ABCMeta
-):
+class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
     """Change the learning rate schedule when a metric has stopped improving.
 
     Attributes:

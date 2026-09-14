@@ -503,7 +503,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self._pause_experiment(self.experiment, self._id)
         return
 
-    def start(self: Self) -> None:
+    def start(self) -> None:
         """Start the experiment scope."""
         if self.status not in ('created', 'paused'):
             warnings.warn(self._STATUS_WARNINGS[self.status](), stacklevel=1)

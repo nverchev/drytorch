@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from typing import Any, Final, Self, TypedDict, TypeVar, cast
+from typing import Any, Final, TypedDict, TypeVar, cast
 
 import torch
 
@@ -380,7 +380,7 @@ class Trainer(
         log_events.EndTrainingEvent(self.name)
         return
 
-    def train_until(self: Self, epoch: int) -> None:
+    def train_until(self, epoch: int) -> None:
         """Train the module until the specified epoch.
 
         Args:

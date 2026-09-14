@@ -24,6 +24,7 @@
 - `LocalCheckpoint.par_dir` is public for metadata recording
 - `MetadataDumper.dump` is public for dumping metadata
 - declared `Final` attributes at class level across models, runners, schedulers, trainers, objectives, checkpoints, hooks, loaders, trackers, and exception classes
+- unified abstract classes on `abc.ABC` and removed redundant `self: Self` method annotations
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites

@@ -52,9 +52,7 @@ class SupportsSync(Protocol):
         """Sync across all processes."""
 
 
-class ModelCaller(
-    repr_utils.CreatedAtMixin, Generic[Input, Output], metaclass=abc.ABCMeta
-):
+class ModelCaller(repr_utils.CreatedAtMixin, abc.ABC, Generic[Input, Output]):
     """Base class that calls a model.
 
     Attributes:

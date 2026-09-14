@@ -46,7 +46,7 @@ Target = TypeVar('Target', bound=p.TargetType, contravariant=True)
 Tensor = torch.Tensor
 
 
-class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
+class Objective(p.ObjectiveProtocol[Output, Target], abc.ABC):
     """Abstract base class for metrics or losses."""
 
     def __init__(self) -> None:
@@ -58,7 +58,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         return
 
     @override
-    def compute(self: Self) -> dict[str, Tensor]:
+    def compute(self) -> dict[str, Tensor]:
         """Return the aggregated objective value(s).
 
         Despite the name, which follows common practice, this method caches
@@ -78,9 +78,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         return dict(self._cached_values)
 
     @override
-    def update(
-        self: Self, outputs: Output, targets: Target
-    ) -> dict[str, Tensor]:
+    def update(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
         """Updates the objective's internal state with new outputs and targets.
 
         Args:
@@ -100,16 +98,14 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         return results
 
     @override
-    def reset(self: Self) -> None:
+    def reset(self) -> None:
         """Resets the internal state of the instance."""
         self._aggregator.clear()
         self._cached_values.clear()
         return
 
     @abc.abstractmethod
-    def calculate(
-        self: Self, outputs: Output, targets: Target
-    ) -> dict[str, Tensor]:
+    def calculate(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
         """Method responsible for the calculations.
 
         Args:
@@ -145,7 +141,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         self._cached_values.clear()
         return
 
-    def sync(self: Self) -> None:
+    def sync(self) -> None:
         """Synchronize metric states across processes."""
         self._aggregator.sync()
         self._cached_values.clear()
@@ -167,7 +163,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
 
         return result
 
-    def _compute(self: Self) -> dict[str, Tensor]:
+    def _compute(self) -> dict[str, Tensor]:
         """Computes the objective value(s)."""
         return {
             key: acc.reduce()
@@ -182,7 +178,7 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
         """Returns the accumulator class."""
 
 
-class AverageObjective(Objective[Output, Target], metaclass=abc.ABCMeta):
+class AverageObjective(Objective[Output, Target], abc.ABC):
     """Class defining the default aggregation."""
 
     @classmethod
@@ -306,7 +302,7 @@ class Metric(MetricCollection[Output, Target]):
 class LossBase(
     MetricCollection[Output, Target],
     p.LossProtocol[Output, Target],
-    metaclass=abc.ABCMeta,
+    abc.ABC,
 ):
     """Collection of metrics, one of which serves as a loss.
 
@@ -664,9 +660,7 @@ class CompositionalLoss(
         return
 
     @override
-    def calculate(
-        self: Self, outputs: Output, targets: Target
-    ) -> dict[str, Tensor]:
+    def calculate(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
         """Calculates the loss and all associated metric values.
 
         Args:
@@ -782,7 +776,7 @@ class JoinMetrics(p.ObjectiveProtocol[Output, Target]):
         return
 
     @override
-    def compute(self: Self) -> dict[str, torch.Tensor]:
+    def compute(self) -> dict[str, torch.Tensor]:
         """Return the aggregated values of both metrics.
 
         Returns:
@@ -797,7 +791,7 @@ class JoinMetrics(p.ObjectiveProtocol[Output, Target]):
         self.metric_b.reset()
         return
 
-    def sync(self: Self) -> None:
+    def sync(self) -> None:
         """Synchronize metric states across processes."""
         self.metric_a.sync()
         self.metric_b.sync()
@@ -805,7 +799,7 @@ class JoinMetrics(p.ObjectiveProtocol[Output, Target]):
 
     @override
     def update(
-        self: Self, outputs: Output, targets: Target
+        self, outputs: Output, targets: Target
     ) -> dict[str, torch.Tensor]:
         """Update both metrics with new outputs and targets.
 
