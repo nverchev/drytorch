@@ -37,15 +37,19 @@ class MetadataManager:
     """Class that handles and generates metadata.
 
     Attributes:
-        metadata_dict: set to keep track of already registered names.
+        named_metadata: mapping of registered names to their metadata.
     """
-
-    metadata_dict: dict[str, Any]
 
     def __init__(self) -> None:
         """Initialize."""
         super().__init__()
-        self.metadata_dict: Final = dict[str, Any]()
+        self._named_metadata = dict[str, Any]()
+        return
+
+    @property
+    def named_metadata(self) -> Mapping[str, Any]:
+        """Mapping of registered names to their metadata."""
+        return self._named_metadata
 
     def register_actor(
         self, actor: Any, model: p.ModelProtocol[Any, Any]
@@ -98,15 +102,15 @@ class MetadataManager:
         return
 
     def _register_metadata(self, name: str, metadata: Any) -> None:
-        if name in self.metadata_dict:
+        if name in self._named_metadata:
             raise exceptions.NameAlreadyRegisteredError(name)
 
-        self.metadata_dict[name] = metadata
+        self._named_metadata[name] = metadata
         return
 
     def _unregister_metadata(self, name: str) -> None:
-        if name in self.metadata_dict:
-            del self.metadata_dict[name]
+        if name in self._named_metadata:
+            del self._named_metadata[name]
 
         return
 
@@ -221,11 +225,10 @@ class EventDispatcher:
 
     Attributes:
         exp_name: name of the current experiment.
-        named_trackers: a dictionary of trackers, indexed by their names.
+        named_trackers: a mapping of trackers, indexed by their names.
     """
 
-    exp_name: str
-    named_trackers: dict[str, Tracker]
+    exp_name: Final[str]
 
     def __init__(self, exp_name) -> None:
         """Initialize.
@@ -233,13 +236,18 @@ class EventDispatcher:
         Args:
             exp_name: name of the current experiment.
         """
-        self.exp_name: Final = str(exp_name)
-        self.named_trackers: Final = dict[str, Tracker]()
+        self.exp_name = str(exp_name)
+        self._named_trackers = dict[str, Tracker]()
         return
+
+    @property
+    def named_trackers(self) -> Mapping[str, Tracker]:
+        """A mapping of trackers, indexed by their names."""
+        return self._named_trackers
 
     def clean_up(self) -> None:
         """Clean up all registered trackers."""
-        for name, tracker in self.named_trackers.items():
+        for name, tracker in self._named_trackers.items():
             self._clean_up_tracker(name, tracker)
 
         return
@@ -255,7 +263,7 @@ class EventDispatcher:
             SystemExit: if a tracker raises SystemExit.
         """
         to_be_removed = list[str]()
-        for name, tracker in self.named_trackers.items():
+        for name, tracker in self._named_trackers.items():
             try:
                 tracker.notify(event)
             except (KeyboardInterrupt, SystemExit) as se:
@@ -268,7 +276,7 @@ class EventDispatcher:
                 to_be_removed.append(name)
 
         for name in to_be_removed:
-            self._clean_up_tracker(name, self.named_trackers[name])
+            self._clean_up_tracker(name, self._named_trackers[name])
             self.remove(name)
 
         return
@@ -294,10 +302,10 @@ class EventDispatcher:
         Raises:
             TrackerAlreadyRegisteredError: if the tracker is already registered.
         """
-        if name in self.named_trackers:
+        if name in self._named_trackers:
             raise exceptions.TrackerAlreadyRegisteredError(name, self.exp_name)
 
-        self.named_trackers[name] = tracker
+        self._named_trackers[name] = tracker
         return
 
     def subscribe(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
@@ -329,14 +337,14 @@ class EventDispatcher:
             TrackerNotActiveError: if the tracker is not registered.
         """
         try:
-            self.named_trackers.pop(tracker_name)
+            self._named_trackers.pop(tracker_name)
         except KeyError as ke:
             raise exceptions.TrackerNotUsedError(tracker_name) from ke
         return
 
     def remove_all(self) -> None:
         """Remove all trackers from the dispatcher."""
-        for tracker_name in list(self.named_trackers):
+        for tracker_name in list(self._named_trackers):
             self.remove(tracker_name)
 
         return

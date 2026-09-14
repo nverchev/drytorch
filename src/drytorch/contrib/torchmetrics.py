@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import torch
 
@@ -40,7 +40,7 @@ def from_torchmetrics(
         name = 'Loss'
 
         def __init__(self, _metric: metric.CompositionalMetric) -> None:
-            self.metric = _metric
+            self.metric: Final = _metric
             self.metric.sync_on_compute = False
             self.metric.dist_sync_on_step = False
             self._leaf_metrics = _get_leaf_metrics(self.metric)

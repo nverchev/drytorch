@@ -69,7 +69,7 @@ class TestModelRegistration:
             model = Model(torch.nn.Linear(1, 1), checkpoint=checkpoint)
             actor = _Actor(model)
             registering.register_actor(actor, model)
-            metadata = run.metadata_manager.metadata_dict['_Actor']
+            metadata = run.metadata_manager.named_metadata['_Actor']
 
         assert isinstance(metadata, dict)
         assert metadata['model']['checkpoint'] == {
@@ -83,7 +83,7 @@ class TestModelRegistration:
             model = Model(torch.nn.Linear(1, 1))
             actor = _Actor(model)
             registering.register_actor(actor, model)
-            metadata = run.metadata_manager.metadata_dict['_Actor']
+            metadata = run.metadata_manager.named_metadata['_Actor']
 
         assert isinstance(metadata, dict)
         assert metadata['model']['checkpoint'] == 'LocalCheckpoint'

@@ -31,6 +31,7 @@ Input = TypeVar('Input', bound=p.InputType, contravariant=True)
 Output = TypeVar('Output', bound=p.OutputType, covariant=True)
 Tensor = torch.Tensor
 
+
 _ParamList = tuple[Tensor, ...] | list[Tensor]
 _MultiAvgFn = Callable[[_ParamList, _ParamList, Tensor | int], None]
 
@@ -248,7 +249,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
     """
 
     average_name: ClassVar[str] = 'averaged_model'
-    exec_averaged_module: torch.optim.swa_utils.AveragedModel
+    exec_averaged_module: Final[torch.optim.swa_utils.AveragedModel]
     _inference_averaged_module: torch.nn.Module
 
     def __init__(
@@ -342,7 +343,6 @@ class SWAModel(AveragedModel[Input, Output]):
     """
 
     average_name = 'swa_model'
-    exec_averaged_module: torch.optim.swa_utils.AveragedModel
 
     def __init__(
         self,
@@ -412,7 +412,6 @@ class EMAModel(AveragedModel[Input, Output]):
     """
 
     average_name = 'ema_model'
-    exec_averaged_module: torch.optim.swa_utils.AveragedModel
     decay: float
 
     def __init__(

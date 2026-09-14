@@ -61,8 +61,8 @@ class RunRegistry:
         file_path: path to the JSON file.
     """
 
-    file_path: pathlib.Path
-    lock_path: pathlib.Path
+    file_path: Final[pathlib.Path]
+    lock_path: Final[pathlib.Path]
 
     def __init__(self, path: pathlib.Path):
         """Initialize.
