@@ -10,7 +10,9 @@ from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib import objectives, schedulers
 from drytorch.lib.hooks import (
+    CallEvery,
     EarlyStoppingCallback,
+    Hook,
     HookRegistry,
     MetricExtractor,
     MetricMonitor,
@@ -124,6 +126,54 @@ def test_call_every(mocker, mock_trainer) -> None:
     mock_trainer.terminate_training('This is a test.')
     hook(mock_trainer)
     mock_hook.assert_called_once_with(mock_trainer)
+
+
+@pytest.mark.parametrize('hook_cls', [Hook, StaticHook])
+def test_parameters_copied(mocker, hook_cls) -> None:
+    """Test changing the given parameters does not change the hook."""
+    parameters = {'key': 1}
+    hook = hook_cls(mocker.Mock(), parameters=parameters)
+
+    parameters['key'] = 2
+
+    assert hook.parameters == {'key': 1}
+
+
+class TestHook:
+    """Tests for the Hook class."""
+
+    def test_default_name(self, mocker) -> None:
+        """Test the base hook name defaults to the class name."""
+        hook = Hook(mocker.Mock())
+
+        assert hook.base_hook_name == 'Hook'
+
+    def test_bind_merges_parameters(self, mocker) -> None:
+        """Test binding merges the parameters and keeps the base name."""
+        hook = Hook(mocker.Mock(), base_hook_name='base', parameters={'a': 1})
+
+        bound = hook.bind(call_every(interval=2, start=1))
+
+        assert bound.parameters == {'a': 1, 'interval': 2, 'start': 1}
+        assert bound.base_hook_name == 'base'
+
+
+class TestCallEvery:
+    """Tests for the CallEvery class."""
+
+    def test_parameters(self, mocker) -> None:
+        """Test interval and start are added to the parameters."""
+        hook = CallEvery(
+            mocker.Mock(), parameters={'a': 1}, interval=2, start=3
+        )
+
+        assert hook.parameters == {'a': 1, 'interval': 2, 'start': 3}
+
+    @pytest.mark.parametrize(('interval', 'start'), [(0, 0), (1, -1)])
+    def test_invalid_arguments(self, mocker, interval, start) -> None:
+        """Test a non-positive interval or a negative start raise."""
+        with pytest.raises(ValueError):
+            CallEvery(mocker.Mock(), interval=interval, start=start)
 
 
 class TestMetricExtractor:

@@ -99,13 +99,8 @@ class TrainerHook(
 ):
     """Compose control flow on side effects while keeping track of parameters.
 
-    Args:
-        parameters: metadata associated with the hook
-        base_hook_name: name of the base hook for representation
+    Subclasses provide the name and parameters used for representation.
     """
-
-    parameters: dict[str, Any]
-    base_hook_name: str
 
     @abc.abstractmethod
     def __call__(
@@ -135,27 +130,42 @@ class TrainerHook(
             the transformed Hook.
         """
         next_hook = f(self.__call__)
-        parameters = self.parameters | next_hook.parameters
+        parameters = {
+            **self._get_parameters(),
+            **next_hook._get_parameters(),
+        }
         return Hook(
             wrapped=next_hook.__call__,
             parameters=parameters,
-            base_hook_name=self.base_hook_name,
+            base_hook_name=self._get_name(),
         )
+
+    @abc.abstractmethod
+    def _get_name(self) -> str:
+        """Return the name of the base hook for representation."""
+
+    @abc.abstractmethod
+    def _get_parameters(self) -> Mapping[str, Any]:
+        """Return the metadata associated with the hook."""
 
 
 class Hook(TrainerHook[Input, Target, Output]):
     """Wrapper for callable taking a Trainer as input.
 
     Attributes:
-        parameters: metadata associated with the hook.
         base_hook_name: name of the base hook for representation.
+        parameters: metadata associated with the hook.
     """
+
+    base_hook_name: Final[str]
+    parameters: Final[Mapping[str, Any]]
+    _wrapped: Final[Callable[[p.TrainerProtocol[Input, Target, Output]], None]]
 
     def __init__(
         self,
         wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
         base_hook_name: str | None = None,
-        parameters: dict[str, Any] | None = None,
+        parameters: Mapping[str, Any] | None = None,
     ):
         """Initialize.
 
@@ -166,8 +176,8 @@ class Hook(TrainerHook[Input, Target, Output]):
             parameters: metadata associated with the hook.
         """
         self._wrapped = wrapped
-        self.parameters = parameters or {}
         self.base_hook_name = base_hook_name or self.__class__.__name__
+        self.parameters = {} if parameters is None else dict(parameters)
         return
 
     def __call__(
@@ -182,20 +192,32 @@ class Hook(TrainerHook[Input, Target, Output]):
         self._wrapped(trainer)
         return
 
+    @override
+    def _get_name(self) -> str:
+        return self.base_hook_name
+
+    @override
+    def _get_parameters(self) -> Mapping[str, Any]:
+        return self.parameters
+
 
 class StaticHook(TrainerHook[Any, Any, Any]):
     """Ignoring arguments and execute a wrapped function.
 
     Attributes:
-        parameters: metadata associated with the hook.
         base_hook_name: name of the base hook for representation.
+        parameters: metadata associated with the hook.
     """
+
+    base_hook_name: Final[str]
+    parameters: Final[Mapping[str, Any]]
+    _wrapped: Final[Callable[[], None]]
 
     def __init__(
         self,
         wrapped: Callable[[], None],
         base_hook_name: str | None = None,
-        parameters: dict[str, Any] | None = None,
+        parameters: Mapping[str, Any] | None = None,
     ):
         """Initialize.
 
@@ -206,8 +228,8 @@ class StaticHook(TrainerHook[Any, Any, Any]):
             parameters: metadata associated with the hook.
         """
         self._wrapped = wrapped
-        self.parameters = parameters or {}
         self.base_hook_name = base_hook_name or self.__class__.__name__
+        self.parameters = {} if parameters is None else dict(parameters)
         return
 
     def __call__(
@@ -222,18 +244,32 @@ class StaticHook(TrainerHook[Any, Any, Any]):
         self._wrapped()
         return
 
+    @override
+    def _get_name(self) -> str:
+        return self.base_hook_name
+
+    @override
+    def _get_parameters(self) -> Mapping[str, Any]:
+        return self.parameters
+
 
 class CallEvery(Hook[Input, Target, Output]):
     """Metadata-aware wrapper for periodic execution.
 
     Attributes:
+        base_hook_name: name of the base hook for representation.
         parameters: metadata associated with the hook.
+        interval: the frequency of calling the function.
+        start: the epoch to start calling the function.
     """
+
+    interval: Final[int]
+    start: Final[int]
 
     def __init__(
         self,
         wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
-        parameters: dict[str, Any] | None = None,
+        parameters: Mapping[str, Any] | None = None,
         interval: int = 1,
         start: int = 0,
     ):
@@ -244,18 +280,24 @@ class CallEvery(Hook[Input, Target, Output]):
             parameters: metadata associated with the hook.
             interval: the frequency of calling the function.
             start: the epoch to start calling the function.
+
+        Raises:
+            ValueError: if interval is not positive or start is negative.
         """
-        super().__init__(wrapped, '', parameters)
         if interval <= 0:
             raise ValueError(f'interval must be positive, got {interval}')
 
         if start < 0:
             raise ValueError(f'start must be non-negative, got {start}')
 
-        self.start = start
+        all_parameters = {
+            **({} if parameters is None else parameters),
+            'interval': interval,
+            'start': start,
+        }
+        super().__init__(wrapped, '', all_parameters)
         self.interval = interval
-        self.parameters['interval'] = interval
-        self.parameters['start'] = start
+        self.start = start
         return
 
     def __call__(

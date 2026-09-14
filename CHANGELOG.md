@@ -8,6 +8,7 @@
 - `AbstractAccumulator.merge` takes `other: Any`; subclasses annotate `other` with their own class
 - removed `ModelCaller`; `ModelRunner` is the base class of the runners
 - runners register as actors of their model when created instead of when first called
+- `Hook.parameters` and `StaticHook.parameters` are read-only mappings copied at creation; `TrainerHook` subclasses implement `_get_name` and `_get_parameters`
 
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
