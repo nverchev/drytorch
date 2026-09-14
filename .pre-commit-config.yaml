@@ -43,7 +43,7 @@ repos:
         files: '\.ipynb$'
 
   - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.38.2
+    rev: 1.39.10
     hooks:
       - id: basedpyright
         exclude: ^tests/
