@@ -38,9 +38,10 @@ def from_torchmetrics(
         """
 
         name = 'Loss'
+        metric: Final[metric.CompositionalMetric]
 
         def __init__(self, _metric: metric.CompositionalMetric) -> None:
-            self.metric: Final = _metric
+            self.metric = _metric
             self.metric.sync_on_compute = False
             self.metric.dist_sync_on_step = False
             self._leaf_metrics = _get_leaf_metrics(self.metric)

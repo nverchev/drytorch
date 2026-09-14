@@ -56,10 +56,10 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     _name = repr_utils.DefaultName()
 
-    exec_module: torch.nn.Module
+    exec_module: Final[torch.nn.Module]
     epoch: int
-    mixed_precision: bool
-    checkpoint: p.CheckpointProtocol
+    mixed_precision: Final[bool]
+    checkpoint: Final[p.CheckpointProtocol]
     _device: torch.device
     _compile: bool
     _distribute: bool
@@ -94,9 +94,9 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._device = self._default_device() if device is None else device
         self._compile = torch_compile
         self._distribute = distribute
-        self.mixed_precision: Final = mixed_precision
+        self.mixed_precision = mixed_precision
         torch_module = self._validate_module(module)
-        self.exec_module: Final = self.prepare_module(torch_module)
+        self.exec_module = self.prepare_module(torch_module)
         self._name = name
         self.epoch = 0
         self._registered = False
@@ -104,7 +104,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         if checkpoint is None:
             checkpoint = checkpoints.LocalCheckpoint()
 
-        self.checkpoint: Final = checkpoint
+        self.checkpoint = checkpoint
         self.checkpoint.bind_model(self)
         return
 
@@ -343,6 +343,7 @@ class SWAModel(AveragedModel[Input, Output]):
     """
 
     average_name = 'swa_model'
+    start_epoch: Final[int]
 
     def __init__(
         self,
@@ -370,7 +371,7 @@ class SWAModel(AveragedModel[Input, Output]):
             torch_compile: whether to compile the module with torch.compile.
             distribute: whether to wrap the module for ddp training.
         """
-        self.start_epoch: Final = start_epoch
+        self.start_epoch = start_epoch
         super().__init__(
             torch_module,
             name,
@@ -412,7 +413,7 @@ class EMAModel(AveragedModel[Input, Output]):
     """
 
     average_name = 'ema_model'
-    decay: float
+    decay: Final[float]
 
     def __init__(
         self,
@@ -440,7 +441,7 @@ class EMAModel(AveragedModel[Input, Output]):
             distribute: whether to wrap the module for ddp training.
             decay: the exponential decay rate for the moving average.
         """
-        self.decay: Final = decay
+        self.decay = decay
         super().__init__(
             torch_module,
             name,

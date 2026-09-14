@@ -112,6 +112,10 @@ class ComposedScheduler(AbstractScheduler):
         parameters: merged parameters from all composed schedulers.
     """
 
+    base_scheduler_name: Final[str]
+    parameters: Final[Mapping[str, Any]]
+    _logic: Final[_SchedulingLogic]
+
     def __init__(
         self,
         base_scheduler: str,
@@ -125,9 +129,9 @@ class ComposedScheduler(AbstractScheduler):
             parameters: merged parameters from all composed schedulers.
             logic: the composed scheduling callable.
         """
-        self.base_scheduler_name: Final[str] = base_scheduler
-        self.parameters: Final[Mapping[str, Any]] = dict(parameters)
-        self._logic: Final = logic
+        self.base_scheduler_name = base_scheduler
+        self.parameters = dict(parameters)
+        self._logic = logic
         return
 
     @override
@@ -152,6 +156,10 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
         base_scheduler_name: name of the base scheduler for representation.
     """
 
+    base_scheduler_name: Final[str]
+    parameters: Final[Mapping[str, Any]]
+    logic: Final[_SchedulingLogic]
+
     def __init__(
         self,
         logic: _SchedulingLogic,
@@ -163,11 +171,9 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
             logic: callable to calculate the scheduling.
             parameters: metadata associated with the scheduler.
         """
-        self.base_scheduler_name: Final[str] = self.__class__.__name__
-        self.parameters: Final[Mapping[str, Any]] = (
-            {} if parameters is None else dict(parameters)
-        )
-        self.logic: Final = logic
+        self.base_scheduler_name = self.__class__.__name__
+        self.parameters = {} if parameters is None else dict(parameters)
+        self.logic = logic
         return
 
     @override
@@ -201,6 +207,8 @@ class RescaleScheduler(TransformScheduler):
         base_scheduler_name: name of the base scheduler for representation.
     """
 
+    factor: Final[float]
+
     def __init__(self, logic: _SchedulingLogic, factor: float):
         """Initialize.
 
@@ -212,7 +220,7 @@ class RescaleScheduler(TransformScheduler):
             raise ValueError('factor must be positive.')
 
         super().__init__(logic, {'factor': factor})
-        self.factor: Final = factor
+        self.factor = factor
         return
 
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -230,6 +238,10 @@ class RestartScheduler(TransformScheduler):
         parameters: metadata associated with the scheduler.
         base_scheduler_name: name of the base scheduler for representation.
     """
+
+    restart_interval: Final[int]
+    restart_fraction: Final[float]
+    max_restart: Final[int | None]
 
     def __init__(
         self,
@@ -261,9 +273,9 @@ class RestartScheduler(TransformScheduler):
             'max_restart': max_restart,
         }
         super().__init__(logic, parameters)
-        self.restart_interval: Final = restart_interval
-        self.restart_fraction: Final = restart_fraction
-        self.max_restart: Final = max_restart
+        self.restart_interval = restart_interval
+        self.restart_fraction = restart_fraction
+        self.max_restart = max_restart
         return
 
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -289,6 +301,8 @@ class WarmupScheduler(TransformScheduler):
         base_scheduler_name: name of the base scheduler for representation.
     """
 
+    warmup_steps: Final[int]
+
     def __init__(self, logic: _SchedulingLogic, warmup_steps: int):
         """Initialize.
 
@@ -300,7 +314,7 @@ class WarmupScheduler(TransformScheduler):
             raise ValueError('warmup_steps must be non-negative.')
 
         super().__init__(logic, {'warmup_steps': warmup_steps})
-        self.warmup_steps: Final = warmup_steps
+        self.warmup_steps = warmup_steps
         return
 
     def _compute(self, base_lr: float, epoch: int) -> float:

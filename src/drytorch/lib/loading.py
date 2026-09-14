@@ -37,8 +37,8 @@ class Sliced(Sequence[_T]):
         slice: the slice to use.
     """
 
-    seq: Sequence[_T]
-    slice: slice
+    seq: Final[Sequence[_T]]
+    slice: Final[slice]
     _range: range
     _sliced: Sequence[_T]
 
@@ -49,8 +49,8 @@ class Sliced(Sequence[_T]):
             seq: the sequence to keep reference to.
             slice_: the slice to use.
         """
-        self.seq: Final = seq
-        self.slice: Final = slice_
+        self.seq = seq
+        self.slice = slice_
         # take advantage of range implementation
         self._range = range(len(self.seq))[slice_]
         self._sliced = self.seq[slice_]
@@ -92,8 +92,8 @@ class Permutation(Sequence[int]):
         seed: seed for the random generator.
     """
 
-    size: int
-    seed: int
+    size: Final[int]
+    seed: Final[int]
     _new_indices: list[int]
 
     def __init__(self, size: int, seed: int | None):
@@ -103,11 +103,11 @@ class Permutation(Sequence[int]):
             size: the length of the permutation.
             seed: seed for the random generator.
         """
-        self.size: Final = size
+        self.size = size
         if seed is None:
             seed = int(random.default_rng().integers(2**32))
 
-        self.seed: Final = seed
+        self.seed = seed
         rng = random.default_rng(self.seed)
         self._new_indices = rng.permutation(self.size).tolist()
 
@@ -142,10 +142,10 @@ class DataLoader(p.LoaderProtocol[Data]):
         sampler: the sampling strategy for the dataset.
     """
 
-    batch_size: int | None
-    dataset: data.Dataset[Data]
-    dataset_len: int
-    sampler: data.Sampler | Iterable
+    batch_size: Final[int | None]
+    dataset: Final[data.Dataset[Data]]
+    dataset_len: Final[int]
+    sampler: Final[data.Sampler | Iterable]
     _pin_memory: bool
     _n_workers: int
     _distributed: bool
@@ -170,17 +170,15 @@ class DataLoader(p.LoaderProtocol[Data]):
             n_workers: number of subprocesses for data loading.
 
         """
-        self.batch_size: Final = batch_size
-        self.dataset: Final = dataset
-        self.dataset_len: Final = validate_dataset_length(dataset)
+        self.batch_size = batch_size
+        self.dataset = dataset
+        self.dataset_len = validate_dataset_length(dataset)
         acc_flag = torch.accelerator.is_available()
         self._pin_memory = acc_flag if pin_memory is None else pin_memory
         self._n_workers = n_workers
         self._distributed = dist.is_available() and dist.is_initialized()
         self._user_sampler = sampler
-        self.sampler: Final = (
-            self._init_sampler() if sampler is None else sampler
-        )
+        self.sampler = self._init_sampler() if sampler is None else sampler
         return
 
     @override

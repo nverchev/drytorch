@@ -30,15 +30,15 @@ def from_torcheval(
     """
 
     class _TorchEvalWithSync(p.ObjectiveProtocol[_Tensor, _Tensor]):
-        metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
-        name: str
+        metric: Final[metrics.Metric[_Tensor | dict[str, _Tensor]]]
+        name: Final[str]
 
         def __init__(
             self, _metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
         ) -> None:
-            self.metric: Final = _metric
+            self.metric = _metric
             name_str = name if name is not None else _metric.__class__.__name__
-            self.name: Final = name_str
+            self.name = name_str
             self._synced_value: _Tensor | dict[str, _Tensor] | None = None
             return
 

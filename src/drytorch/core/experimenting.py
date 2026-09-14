@@ -161,11 +161,10 @@ class Experiment(Generic[_T_co]):
     run_file: ClassVar[str] = 'runs.json'
     _name = repr_utils.DefaultName()
     __current: ClassVar[Experiment[Any] | None] = None
-
-    par_dir: pathlib.Path
-    __config: _T_co
-    tags: Sequence[str]
-    trackers: tracking.EventDispatcher
+    par_dir: Final[pathlib.Path]
+    __config: Final[_T_co]
+    tags: Final[Sequence[str]]
+    trackers: Final[tracking.EventDispatcher]
     _registry: RunRegistry
     _active_run: Run[_T_co] | None
     _paused_runs: dict[str, Run[_T_co]]
@@ -187,11 +186,11 @@ class Experiment(Generic[_T_co]):
             tags: Descriptors for the experiment (e.g., ``"lr=0.01"``).
         """
         _validate_chars(name)
-        self.__config: Final = config
+        self.__config = config
         self._name = name
-        self.par_dir: Final = pathlib.Path(par_dir)
-        self.tags: Final = tuple(tags) if tags else ()
-        self.trackers: Final = tracking.EventDispatcher(self.name)
+        self.par_dir = pathlib.Path(par_dir)
+        self.tags = tuple(tags) if tags else ()
+        self.trackers = tracking.EventDispatcher(self.name)
         self.trackers.subscribe(**tracking.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
         self._registry = RunRegistry(run_file)
@@ -419,12 +418,12 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         'failed': exceptions.RunAlreadyFailedWarning,
     }
 
-    _experiment: Experiment[_T_co]
-    _id: str
-    resumed: bool
-    record: bool
+    _experiment: Final[Experiment[_T_co]]
+    _id: Final[str]
+    resumed: Final[bool]
+    record: Final[bool]
     status: RunStatus
-    metadata_manager: tracking.MetadataManager
+    metadata_manager: Final[tracking.MetadataManager]
     _finalizer: weakref.finalize[..., Self] | None
 
     def __init__(
@@ -443,12 +442,12 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             record: record the run in the registry.
         """
         super().__init__()
-        self._experiment: Final = experiment
-        self._id: Final = run_id
-        self.resumed: Final = resumed
-        self.record: Final = record
+        self._experiment = experiment
+        self._id = run_id
+        self.resumed = resumed
+        self.record = record
         self.status = 'created'
-        self.metadata_manager: Final = tracking.MetadataManager()
+        self.metadata_manager = tracking.MetadataManager()
         self._finalizer = None
         return
 

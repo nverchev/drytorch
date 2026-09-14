@@ -65,9 +65,9 @@ class CheckpointPathManager:
     """
 
     folder_name: ClassVar[str] = 'checkpoints'
-    _model: p.ModelProtocol[Any, Any]
-    run_dir: pathlib.Path
-    model_dir: pathlib.Path
+    _model: Final[p.ModelProtocol[Any, Any]]
+    run_dir: Final[pathlib.Path]
+    model_dir: Final[pathlib.Path]
 
     def __init__(
         self,
@@ -80,11 +80,9 @@ class CheckpointPathManager:
             model: the model whose paths are to be managed.
             run_dir: the directory for experiment data.
         """
-        self._model: Final = model
-        self.run_dir: Final = (
-            run_dir if run_dir is not None else self._get_run_dir()
-        )
-        self.model_dir: Final = self.run_dir / self._model.name
+        self._model = model
+        self.run_dir = run_dir if run_dir is not None else self._get_run_dir()
+        self.model_dir = self.run_dir / self._model.name
         return
 
     @property
@@ -263,7 +261,7 @@ class LocalCheckpoint(AbstractCheckpoint):
         par_dir: parent directory for experiment data.
     """
 
-    par_dir: pathlib.Path | None
+    par_dir: Final[pathlib.Path | None]
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
@@ -272,7 +270,7 @@ class LocalCheckpoint(AbstractCheckpoint):
             par_dir: parent directory for experiment data.
         """
         super().__init__()
-        self.par_dir: Final = par_dir
+        self.par_dir = par_dir
         self._paths: CheckpointPathManager | None = None
         return
 

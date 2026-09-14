@@ -39,8 +39,8 @@ class ModelOptimizer:
     It supports different learning rates to separate parameters' groups.
     """
 
-    _model: p.ModelProtocol
-    _module: torch.nn.Module
+    _model: Final[p.ModelProtocol]
+    _module: Final[torch.nn.Module]
     _lr: float | Mapping[str, float]
     _params_lr: list[_OptParams]
     _scheduler: p.SchedulerProtocol
@@ -60,8 +60,8 @@ class ModelOptimizer:
             model: the model to be optimized.
             learning_schema: the learning scheme for the optimizer.
         """
-        self._model: Final = model
-        self._module: Final = model.module
+        self._model = model
+        self._module = model.module
         self._lr = {}
         self._params_lr = []
         self.base_lr = learning_schema.base_lr
@@ -203,6 +203,13 @@ class Trainer(
         validation: class that validates the model,
     """
 
+    learning_schema: Final[p.LearningProtocol]
+    validation: p.MonitorProtocol | None
+    _model_optimizer: Final[ModelOptimizer]
+    pre_epoch_hooks: Final[hooks.HookRegistry[Trainer[Input, Target, Output]]]
+    post_epoch_hooks: Final[hooks.HookRegistry[Trainer[Input, Target, Output]]]
+    _terminated: bool
+
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
@@ -223,13 +230,13 @@ class Trainer(
             learning_schema: contains optimizer settings and scheduling.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
-        self.learning_schema: Final = learning_schema
-        self.validation: p.MonitorProtocol | None = None
-        self._model_optimizer: Final = ModelOptimizer(model, learning_schema)
-        self.pre_epoch_hooks: Final = hooks.HookRegistry[
+        self.learning_schema = learning_schema
+        self.validation = None
+        self._model_optimizer = ModelOptimizer(model, learning_schema)
+        self.pre_epoch_hooks = hooks.HookRegistry[
             Trainer[Input, Target, Output]
         ]()
-        self.post_epoch_hooks: Final = hooks.HookRegistry[
+        self.post_epoch_hooks = hooks.HookRegistry[
             Trainer[Input, Target, Output]
         ]()
         self._terminated = False

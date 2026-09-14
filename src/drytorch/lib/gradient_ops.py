@@ -103,7 +103,7 @@ class GradNormClipper(ClipOperation):
         threshold: Maximum norm value of the clipped gradients.
     """
 
-    threshold: float
+    threshold: Final[float]
 
     def __init__(self, threshold: float = 1) -> None:
         """Initialize.
@@ -113,7 +113,7 @@ class GradNormClipper(ClipOperation):
         """
         super().__init__()
         _validate_threshold(threshold)
-        self.threshold: Final = threshold
+        self.threshold = threshold
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -129,7 +129,7 @@ class GradValueClipper(ClipOperation):
             threshold: Maximum absolute value of the clipped gradients.
     """
 
-    threshold: float
+    threshold: Final[float]
 
     def __init__(self, threshold: float = 1) -> None:
         """Initialize.
@@ -139,7 +139,7 @@ class GradValueClipper(ClipOperation):
         """
         super().__init__()
         _validate_threshold(threshold)
-        self.threshold: Final = threshold
+        self.threshold = threshold
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -253,9 +253,9 @@ class EMACriterion(ClippingCriterion):
         clipping_function: function to determine clipping behavior.
     """
 
-    alpha: float
-    r_thresh: float
-    clipping_function: ClipFunction
+    alpha: Final[float]
+    r_thresh: Final[float]
+    clipping_function: Final[ClipFunction]
     _mu_t: float
 
     def __init__(
@@ -271,9 +271,9 @@ class EMACriterion(ClippingCriterion):
             r_thresh: ratio threshold between current_norm and mean_norm.
             clipping_function: function to determine clipping behavior.
         """
-        self.alpha: Final = alpha
-        self.r_thresh: Final = r_thresh
-        self.clipping_function: Final = clipping_function
+        self.alpha = alpha
+        self.r_thresh = r_thresh
+        self.clipping_function = clipping_function
         self._mu_t = 0.0
         _validate_threshold(r_thresh)
         return
@@ -323,9 +323,9 @@ class ZStatCriterion(ClippingCriterion):
             clipping_function: function to determine clipping behavior.
     """
 
-    alpha: float
-    z_thresh: float
-    clipping_function: ClipFunction
+    alpha: Final[float]
+    z_thresh: Final[float]
+    clipping_function: Final[ClipFunction]
     _mu_t: float
     _v_t: float
     _eps = 1e-8
@@ -343,9 +343,9 @@ class ZStatCriterion(ClippingCriterion):
             z_thresh: threshold for the Z-score.
             clipping_function: function to determine clipping behavior.
         """
-        self.alpha: Final = alpha
-        self.z_thresh: Final = z_thresh
-        self.clipping_function: Final = clipping_function
+        self.alpha = alpha
+        self.z_thresh = z_thresh
+        self.clipping_function = clipping_function
         self._mu_t = 0.0
         self._v_t = 1.0
         _validate_threshold(z_thresh)
@@ -402,7 +402,7 @@ class StatsCollector:
             active: whether the collector is currently in use.
     """
 
-    max_samples: int
+    max_samples: Final[int]
     _data: list[float]
     active: bool
 
@@ -412,7 +412,7 @@ class StatsCollector:
         Args:
             max_samples: the number of collected samples for completion.
         """
-        self.max_samples: Final = max_samples
+        self.max_samples = max_samples
         self._data = []
         self.active = True
         return
@@ -472,10 +472,10 @@ class HistClipper(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
 
-    criterion: ClippingCriterion
-    warmup_clip_strategy: GradientOpProtocol
-    n_warmup_steps: int
-    _warmup_handler: StatsCollector
+    criterion: Final[ClippingCriterion]
+    warmup_clip_strategy: Final[GradientOpProtocol]
+    n_warmup_steps: Final[int]
+    _warmup_handler: Final[StatsCollector]
 
     def __init__(
         self,
@@ -497,10 +497,10 @@ class HistClipper(ClipOperation):
         if warmup_clip_strategy is None:
             warmup_clip_strategy = GradNormClipper()
 
-        self.criterion: Final = criterion
-        self.warmup_clip_strategy: Final = warmup_clip_strategy
-        self.n_warmup_steps: Final = n_warmup_steps
-        self._warmup_handler: Final = StatsCollector(n_warmup_steps)
+        self.criterion = criterion
+        self.warmup_clip_strategy = warmup_clip_strategy
+        self.n_warmup_steps = n_warmup_steps
+        self._warmup_handler = StatsCollector(n_warmup_steps)
         return
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -555,9 +555,9 @@ class ParamHistClipper(ClipOperation):
         n_warmup_steps: the number of warmup steps to collect initial stats.
     """
 
-    criterion: ClippingCriterion
-    n_warmup_steps: int
-    warmup_clip_strategy: GradientOpProtocol
+    criterion: Final[ClippingCriterion]
+    n_warmup_steps: Final[int]
+    warmup_clip_strategy: Final[GradientOpProtocol]
     _dict_criterion: defaultdict[int, ClippingCriterion]
     _dict_warmup_handler: defaultdict[int, StatsCollector]
 
@@ -581,9 +581,9 @@ class ParamHistClipper(ClipOperation):
         if warmup_clip_strategy is None:
             warmup_clip_strategy = GradNormClipper()
 
-        self.criterion: Final = criterion
-        self.n_warmup_steps: Final = n_warmup_steps
-        self.warmup_clip_strategy: Final = warmup_clip_strategy
+        self.criterion = criterion
+        self.n_warmup_steps = n_warmup_steps
+        self.warmup_clip_strategy = warmup_clip_strategy
         self._dict_criterion = defaultdict(lambda: copy.copy(criterion))
         self._dict_warmup_handler = defaultdict(
             lambda: StatsCollector(n_warmup_steps)

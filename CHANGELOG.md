@@ -23,7 +23,7 @@
 - `ModelRunner.outputs_list` is exposed as a read-only `Final[Sequence[Output]]` backed by private `_outputs_list`
 - `LocalCheckpoint.par_dir` is public for metadata recording
 - `MetadataDumper.dump` is public for dumping metadata
-- marked non-reassigned configuration attributes as `Final` across `Model`, `DataLoader`, `Permutation`, `Sliced`, `GradNormClipper`, `Run`, `Experiment`, `RunRegistry`, `AveragedModel`, `torchmetrics` and `torcheval` wrappers, and transform schedulers
+- declared `Final` attributes at class level across models, runners, schedulers, trainers, objectives, checkpoints, hooks, loaders, trackers, and exception classes
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites

@@ -41,9 +41,9 @@ class TrialCallback(Generic[_Output, _Target]):
         reported: Dictionary mapping epochs to reported values.
     """
 
-    monitor: hooks.MetricMonitor
-    trial: optuna.Trial
-    reported: dict[int, float]
+    monitor: Final[hooks.MetricMonitor]
+    trial: Final[optuna.Trial]
+    reported: Final[dict[int, float]]
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class TrialCallback(Generic[_Output, _Target]):
             monitor: Evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
         """
-        self.monitor: Final = hooks.MetricMonitor(
+        self.monitor = hooks.MetricMonitor(
             metric=metric,
             monitor=monitor,
             filter_fn=filter_fn,
         )
-        self.trial: Final = trial
-        self.reported: Final = dict[int, float]()
+        self.trial = trial
+        self.reported = dict[int, float]()
         return
 
     def __call__(

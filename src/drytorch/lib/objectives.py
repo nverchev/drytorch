@@ -206,8 +206,8 @@ class MetricCollection(AverageObjective[Output, Target]):
         named_fn: dictionary of named functions returning a single value.
     """
 
-    fn: list[Callable[[Output, Target], dict[str, Tensor]]]
-    named_fn: dict[str, Callable[[Output, Target], Tensor]]
+    fn: Final[list[Callable[[Output, Target], dict[str, Tensor]]]]
+    named_fn: Final[dict[str, Callable[[Output, Target], Tensor]]]
 
     def __init__(
         self,
@@ -221,8 +221,8 @@ class MetricCollection(AverageObjective[Output, Target]):
             **named_fn: dictionary of named functions returning a single value.
         """
         super().__init__()
-        self.fn: Final = list(fn)
-        self.named_fn: Final = named_fn
+        self.fn = list(fn)
+        self.named_fn = named_fn
         return
 
     @override
@@ -277,9 +277,9 @@ class Metric(MetricCollection[Output, Target]):
         higher_is_better: True if higher values indicate better performance.
     """
 
-    fun: Callable[[Output, Target], Tensor]
-    name: str
-    higher_is_better: bool | None
+    fun: Final[Callable[[Output, Target], Tensor]]
+    name: Final[str]
+    higher_is_better: Final[bool | None]
 
     def __init__(
         self,
@@ -297,9 +297,9 @@ class Metric(MetricCollection[Output, Target]):
                 False if lower values are better, None if unspecified.
         """
         super().__init__(**{name: fn})
-        self.fun: Final = fn
-        self.name: Final = name
-        self.higher_is_better: Final = higher_is_better
+        self.fun = fn
+        self.name = name
+        self.higher_is_better = higher_is_better
         return
 
 
@@ -317,10 +317,10 @@ class LossBase(
         criterion: logic extracting a loss value from computed value.
     """
 
-    name: str
-    higher_is_better: bool
-    formula: str
-    criterion: Callable[[dict[str, Tensor]], Tensor]
+    name: Final[str]
+    higher_is_better: Final[bool]
+    formula: Final[str]
+    criterion: Final[Callable[[dict[str, Tensor]], Tensor]]
 
     def __init__(
         self,
@@ -342,11 +342,11 @@ class LossBase(
             *fn: functions returning multiple named metric values.
             **named_fn: dictionary of named functions returning a single value.
         """
-        self.name: Final = name
-        self.higher_is_better: Final = higher_is_better
-        self.formula: Final = formula
+        self.name = name
+        self.higher_is_better = higher_is_better
+        self.formula = formula
         super().__init__(*fn, **named_fn)
-        self.criterion: Final = criterion
+        self.criterion = criterion
         return
 
     @override
@@ -729,6 +729,8 @@ class Loss(CompositionalLoss[Output, Target]):
 class DictLoss(CompositionalLoss[Output, Target]):
     """Subclass for losses whose function also returns auxiliary metrics."""
 
+    fun: Final[Callable[[Output, Target], dict[str, Tensor]]]
+
     def __init__(
         self,
         fn: Callable[[Output, Target], dict[str, Tensor]],
@@ -751,7 +753,7 @@ class DictLoss(CompositionalLoss[Output, Target]):
             higher_is_better=higher_is_better,
             formula=f'[{name}]',
         )
-        self.fun: Final = fn
+        self.fun = fn
         return
 
 
@@ -877,10 +879,10 @@ class MetricTracker(Generic[Output, Target]):
 
     metric_name: str | None
     best_is: Literal['auto', 'higher', 'lower']
-    filter_fn: Callable[[Sequence[float]], float]
-    min_delta: float
-    patience: int
-    history: list[float]
+    filter_fn: Final[Callable[[Sequence[float]], float]]
+    min_delta: Final[float]
+    patience: Final[int]
+    history: Final[list[float]]
     _patience_countdown: int
     _best_value: float | None
 
@@ -903,11 +905,11 @@ class MetricTracker(Generic[Output, Target]):
         """
         self.metric_name = metric_name
         self.best_is = best_is
-        self.filter_fn: Final = filter_fn
-        self.min_delta: Final = min_delta
+        self.filter_fn = filter_fn
+        self.min_delta = min_delta
         self._validate_patience(patience)
-        self.patience: Final = patience
-        self.history: Final = list[float]()
+        self.patience = patience
+        self.history = list[float]()
         self._patience_countdown = patience
         self._best_value = None
         return

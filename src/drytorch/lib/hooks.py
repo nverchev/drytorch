@@ -358,7 +358,7 @@ class MetricExtractor:
         optional_monitor: evaluation protocol to monitor.
     """
 
-    metric_spec: p.ObjectiveProtocol[Any, Any] | str | None
+    metric_spec: Final[p.ObjectiveProtocol[Any, Any] | str | None]
     optional_monitor: p.MonitorProtocol | None
     _resolved_metric: p.ObjectiveProtocol[Any, Any] | None
     _resolved_metric_name: str | None
@@ -374,7 +374,7 @@ class MetricExtractor:
             metric: name of the metric to monitor or metric calculator instance.
             monitor: evaluation protocol to monitor.
         """
-        self.metric_spec: Final = metric
+        self.metric_spec = metric
         self.optional_monitor = monitor
         self._resolved_metric = None
         self._resolved_metric_name = None
@@ -485,7 +485,7 @@ class MetricMonitor(Generic[Output, Target]):
         extractor: handles metric extraction from protocols.
     """
 
-    extractor: MetricExtractor
+    extractor: Final[MetricExtractor]
     metric_tracker: objectives.MetricTracker[Output, Target]
 
     def __init__(
@@ -508,7 +508,7 @@ class MetricMonitor(Generic[Output, Target]):
                 Default 'auto' will determine this from initial measurements.
             filter_fn: function to aggregate recent metric values.
         """
-        self.extractor: Final = MetricExtractor(metric=metric, monitor=monitor)
+        self.extractor = MetricExtractor(metric=metric, monitor=monitor)
         initial_metric_name = None
         if isinstance(metric, str):
             initial_metric_name = metric
@@ -583,8 +583,8 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         start_from_epoch: epoch to start monitoring from.
     """
 
-    monitor: MetricMonitor[Output, Target]
-    start_from_epoch: int
+    monitor: Final[MetricMonitor[Output, Target]]
+    start_from_epoch: Final[int]
 
     def __init__(
         self,
@@ -611,7 +611,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
-        self.monitor: Final = MetricMonitor(
+        self.monitor = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -619,7 +619,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.start_from_epoch: Final = start_from_epoch
+        self.start_from_epoch = start_from_epoch
         return
 
     def __call__(
@@ -653,8 +653,8 @@ class PruneCallback(Generic[Output, Target]):
         thresholds: dictionary mapping epochs to pruning thresholds.
     """
 
-    monitor: MetricMonitor[Output, Target]
-    thresholds: Mapping[int, float | None]
+    monitor: Final[MetricMonitor[Output, Target]]
+    thresholds: Final[Mapping[int, float | None]]
     trial_values: dict[int, float]
 
     def __init__(
@@ -681,14 +681,14 @@ class PruneCallback(Generic[Output, Target]):
             values. Default
                 gets the last value.
         """
-        self.monitor: Final = MetricMonitor(
+        self.monitor = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.thresholds: Final = thresholds
+        self.thresholds = thresholds
         self.trial_values = {}
         return
 
@@ -727,8 +727,8 @@ class ChangeSchedulerOnPlateauCallback(
         cooldown: number of calls to skip after changing the schedule.
     """
 
-    monitor: MetricMonitor[Output, Target]
-    cooldown: int
+    monitor: Final[MetricMonitor[Output, Target]]
+    cooldown: Final[int]
     _cooldown_counter: int
 
     def __init__(
@@ -756,7 +756,7 @@ class ChangeSchedulerOnPlateauCallback(
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
-        self.monitor: Final = MetricMonitor(
+        self.monitor = MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -764,7 +764,7 @@ class ChangeSchedulerOnPlateauCallback(
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.cooldown: Final = cooldown
+        self.cooldown = cooldown
         self._cooldown_counter = 0
         return
 
@@ -817,7 +817,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         factor: factor by which to reduce the learning rate.
     """
 
-    factor: float
+    factor: Final[float]
     _n_reductions: int
 
     def __init__(
@@ -856,7 +856,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
             filter_fn=filter_fn,
             cooldown=cooldown,
         )
-        self.factor: Final = factor
+        self.factor = factor
         self._n_reductions = 0
         return
 

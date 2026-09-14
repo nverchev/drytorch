@@ -202,8 +202,8 @@ class MemoryMetrics(tracking.Tracker):
         model_dict: all metrics recorded in this session.
     """
 
-    _metric_loader: MetricLoader | None
-    model_dict: dict[str, SourcedMetrics]
+    _metric_loader: Final[MetricLoader | None]
+    model_dict: Final[dict[str, SourcedMetrics]]
 
     def __init__(self, metric_loader: MetricLoader | None = None) -> None:
         """Initialize.
@@ -212,8 +212,8 @@ class MemoryMetrics(tracking.Tracker):
             metric_loader: object to load the metrics.
         """
         super().__init__()
-        self._metric_loader: Final = metric_loader
-        self.model_dict: Final = dict[str, SourcedMetrics]()
+        self._metric_loader = metric_loader
+        self.model_dict = dict[str, SourcedMetrics]()
         return
 
     @functools.singledispatchmethod
@@ -255,9 +255,9 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         _start: epoch from which to start plotting.
     """
 
-    _model_names: Iterable[str]
-    _source_names: Iterable[str]
-    _metric_names: Iterable[str]
+    _model_names: Final[Iterable[str]]
+    _source_names: Final[Iterable[str]]
+    _metric_names: Final[Iterable[str]]
     _start: int
 
     def __init__(
@@ -284,9 +284,9 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
             its entirety.
         """
         super().__init__(metric_loader)
-        self._model_names: Final = model_names
-        self._source_names: Final = source_names
-        self._metric_names: Final = metric_names
+        self._model_names = model_names
+        self._source_names = source_names
+        self._metric_names = metric_names
         self._start = start
         return
 

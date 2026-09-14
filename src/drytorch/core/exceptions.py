@@ -137,6 +137,9 @@ class AccumulatorMismatchError(DryTorchError):
 
     _template = 'Cannot merge states accumulated with {} and {}.'
 
+    accumulator_cls: Final[type]
+    other_accumulator_cls: Final[type]
+
     def __init__(
         self,
         accumulator_cls: type,
@@ -148,8 +151,8 @@ class AccumulatorMismatchError(DryTorchError):
             accumulator_cls: the accumulator class of the current objective.
             other_accumulator_cls: the accumulator class of the other objective.
         """
-        self.accumulator_cls: Final = accumulator_cls
-        self.other_accumulator_cls: Final = other_accumulator_cls
+        self.accumulator_cls = accumulator_cls
+        self.other_accumulator_cls = other_accumulator_cls
         super().__init__(
             accumulator_cls.__name__, other_accumulator_cls.__name__
         )
@@ -168,13 +171,15 @@ class ComputedMetricsTypeError(DryTorchError):
         'Expected computed metrics as a Mapping[str, Tensor] or Tensor. Got {}.'
     )
 
+    computed_metrics_type: Final[type]
+
     def __init__(self, computed_metrics_type: type) -> None:
         """Initialize.
 
         Args:
             computed_metrics_type: the actual type of the computed metrics.
         """
-        self.computed_metrics_type: Final = computed_metrics_type
+        self.computed_metrics_type = computed_metrics_type
         super().__init__(computed_metrics_type.__name__)
 
 
@@ -183,13 +188,15 @@ class ConvergenceError(DryTorchError):
 
     _template = 'The module did not converge (criterion is {}).'
 
+    criterion: Final[float]
+
     def __init__(self, criterion: float) -> None:
         """Initialize.
 
         Args:
             criterion: the convergence criterion that was not met.
         """
-        self.criterion: Final = criterion
+        self.criterion = criterion
         super().__init__(criterion)
 
 
@@ -204,6 +211,10 @@ class DeviceMismatchError(DryTorchError):
 
     _template = 'Metric {} is stored on {} but expected on {}.'
 
+    metric_name: Final[str]
+    metric_device: Final[torch.device]
+    target_device: Final[torch.device]
+
     def __init__(
         self,
         metric_name: str,
@@ -217,9 +228,9 @@ class DeviceMismatchError(DryTorchError):
             metric_device: the device of the output tensor.
             target_device: the device of the model.
         """
-        self.metric_name: Final = metric_name
-        self.metric_device: Final = metric_device
-        self.target_device: Final = target_device
+        self.metric_name = metric_name
+        self.metric_device = metric_device
+        self.target_device = target_device
         super().__init__(metric_name, metric_device, target_device)
 
 
@@ -228,6 +239,8 @@ class EpochNotFoundError(DryTorchError):
 
     _template = 'No checkpoints for epoch {} found in {}.'
 
+    model_directory: Final[pathlib.Path]
+
     def __init__(self, epoch: int, checkpoint_directory: pathlib.Path) -> None:
         """Initialize.
 
@@ -235,7 +248,7 @@ class EpochNotFoundError(DryTorchError):
             epoch: the epoch that was not found.
             checkpoint_directory: the directory path where no model was found.
         """
-        self.model_directory: Final = checkpoint_directory
+        self.model_directory = checkpoint_directory
         super().__init__(epoch, checkpoint_directory)
 
 
@@ -244,6 +257,9 @@ class FuncNotApplicableError(DryTorchError):
 
     _template = 'Cannot apply function {} on type {}.'
 
+    func_name: Final[str]
+    type_name: Final[str]
+
     def __init__(self, func_name: str, type_name: str) -> None:
         """Initialize.
 
@@ -251,8 +267,8 @@ class FuncNotApplicableError(DryTorchError):
             func_name: the name of the function that cannot be applied.
             type_name: the name of the type that doesn't support the function.
         """
-        self.func_name: Final = func_name
-        self.type_name: Final = type_name
+        self.func_name = func_name
+        self.type_name = type_name
         super().__init__(func_name, type_name)
 
 
@@ -273,13 +289,15 @@ class LossNotScalarError(DryTorchError):
 
     _template = 'Loss must be a scalar but got Tensor of shape {}.'
 
+    size: Final[torch.Size]
+
     def __init__(self, size: torch.Size) -> None:
         """Initialize.
 
         Args:
             size: the actual size of the non-scalar loss tensor.
         """
-        self.size: Final = size
+        self.size = size
         super().__init__(size)
 
 
@@ -288,6 +306,9 @@ class MetricNotFoundError(DryTorchError):
 
     _template = 'No metric {}found in {}.'
 
+    source_name: Final[str]
+    metric_name: Final[str]
+
     def __init__(self, source_name: str, metric_name: str) -> None:
         """Initialize.
 
@@ -295,8 +316,8 @@ class MetricNotFoundError(DryTorchError):
             source_name: the name of the source where the metric was not found.
             metric_name: the name of the metric that was not found.
         """
-        self.source_name: Final = source_name
-        self.metric_name: Final = metric_name + ' ' if metric_name else ''
+        self.source_name = source_name
+        self.metric_name = metric_name + ' ' if metric_name else ''
         super().__init__(self.metric_name, source_name)
 
 
@@ -304,6 +325,10 @@ class MissingParamError(DryTorchError):
     """Raised when parameter groups are missing required parameters."""
 
     _template = 'Parameter groups in input learning rate miss parameters {}.'
+
+    module_names: Final[Sequence[str]]
+    lr_param_groups: Final[Sequence[str]]
+    missing: Final[set[str]]
 
     def __init__(
         self, module_names: Sequence[str], lr_param_groups: Sequence[str]
@@ -314,9 +339,9 @@ class MissingParamError(DryTorchError):
             module_names: names of modules that should have parameters.
             lr_param_groups: group names in parameter learning rate config.
         """
-        self.module_names: Final[Sequence[str]] = module_names
-        self.lr_param_groups: Final[Sequence[str]] = lr_param_groups
-        self.missing: Final = set(module_names) - set(lr_param_groups)
+        self.module_names = module_names
+        self.lr_param_groups = lr_param_groups
+        self.missing = set(module_names) - set(lr_param_groups)
         super().__init__(self.missing)
 
 
@@ -327,6 +352,10 @@ class ModuleAlreadyRegisteredError(DryTorchError):
         'Module from model {} is already registered in experiment {} run {}.'
     )
 
+    model_name: Final[str]
+    exp_name: Final[str]
+    run_id: Final[str]
+
     def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
         """Initialize.
 
@@ -335,9 +364,9 @@ class ModuleAlreadyRegisteredError(DryTorchError):
             exp_name: the name of the current experiment.
             run_id: the current run's id.
         """
-        self.model_name: Final = model_name
-        self.exp_name: Final = exp_name
-        self.run_id: Final = run_id
+        self.model_name = model_name
+        self.exp_name = exp_name
+        self.run_id = run_id
         super().__init__(model_name, exp_name, run_id)
 
 
@@ -346,13 +375,15 @@ class ModelAlreadyBoundError(DryTorchError):
 
     _template = 'Checkpoint is already bound to model {}.'
 
+    model_name: Final[str]
+
     def __init__(self, model_name: str) -> None:
         """Initialize.
 
         Args:
             model_name: the name of the model already bound.
         """
-        self.model_name: Final = model_name
+        self.model_name = model_name
         super().__init__(model_name)
 
 
@@ -360,6 +391,12 @@ class ModuleFromAnotherRunError(DryTorchError):
     """Error raised when using a model registered to a different run."""
 
     _template = 'Model {} belongs to run {} - {}, but active run is {} - {}.'
+
+    model_name: Final[str]
+    owner_exp_name: Final[str]
+    owner_run_id: Final[str]
+    current_exp_name: Final[str]
+    current_run_id: Final[str]
 
     def __init__(
         self,
@@ -378,11 +415,11 @@ class ModuleFromAnotherRunError(DryTorchError):
             current_exp_name: the active experiment name.
             current_run_id: the active run id.
         """
-        self.model_name: Final = model_name
-        self.owner_exp_name: Final = owner_exp_name
-        self.owner_run_id: Final = owner_run_id
-        self.current_exp_name: Final = current_exp_name
-        self.current_run_id: Final = current_run_id
+        self.model_name = model_name
+        self.owner_exp_name = owner_exp_name
+        self.owner_run_id = owner_run_id
+        self.current_exp_name = current_exp_name
+        self.current_run_id = current_run_id
         super().__init__(
             model_name,
             owner_exp_name,
@@ -399,6 +436,10 @@ class ModuleNotRegisteredError(DryTorchError):
         'Module from model {} is not registered in the current run {} - {}.'
     )
 
+    model_name: Final[str]
+    exp_name: Final[str]
+    run_id: Final[str]
+
     def __init__(self, model_name: str, exp_name: str, run_id: str) -> None:
         """Initialize.
 
@@ -407,9 +448,9 @@ class ModuleNotRegisteredError(DryTorchError):
             exp_name: the name of the current experiment.
             run_id: the current run's id.
         """
-        self.model_name: Final = model_name
-        self.exp_name: Final = exp_name
-        self.run_id: Final = run_id
+        self.model_name = model_name
+        self.exp_name = exp_name
+        self.run_id = run_id
         super().__init__(model_name, exp_name, run_id)
 
 
@@ -426,13 +467,15 @@ class ModelNotFoundError(DryTorchError):
 
     _template = 'No saved module found in {}.'
 
+    checkpoint_directory: Final[pathlib.Path]
+
     def __init__(self, checkpoint_directory: pathlib.Path) -> None:
         """Initialize.
 
         Args:
             checkpoint_directory: the directory path where no model was found.
         """
-        self.checkpoint_directory: Final = checkpoint_directory
+        self.checkpoint_directory = checkpoint_directory
         super().__init__(checkpoint_directory)
 
 
@@ -457,13 +500,15 @@ class NamedTupleOnlyError(DryTorchError):
         'The only accepted subtypes of tuple are namedtuple classes. Got {}.'
     )
 
+    tuple_type: Final[str]
+
     def __init__(self, tuple_type: str) -> None:
         """Initialize.
 
         Args:
             tuple_type: the actual type of the tuple that was provided.
         """
-        self.tuple_type: Final = tuple_type
+        self.tuple_type = tuple_type
         super().__init__(tuple_type)
 
 
@@ -472,6 +517,9 @@ class NestedScopeError(DryTorchError):
 
     _template = 'Cannot start Experiment {} within Experiment {} scope.'
 
+    current_exp_name: Final[str]
+    new_exp_name: Final[str]
+
     def __init__(self, current_exp_name: str, new_exp_name: str) -> None:
         """Initialize.
 
@@ -479,8 +527,8 @@ class NestedScopeError(DryTorchError):
             current_exp_name: the name of the currently active experiment.
             new_exp_name: the name of the experiment that cannot be started.
         """
-        self.current_exp_name: Final = current_exp_name
-        self.new_exp_name: Final = new_exp_name
+        self.current_exp_name = current_exp_name
+        self.new_exp_name = new_exp_name
         super().__init__(new_exp_name, current_exp_name)
 
 
@@ -488,6 +536,8 @@ class NoActiveExperimentError(DryTorchError):
     """Raised when no experiment is currently active."""
 
     _template = 'No experiment {}has been started.'
+
+    experiment_class: Final[type | None]
 
     def __init__(
         self,
@@ -500,7 +550,7 @@ class NoActiveExperimentError(DryTorchError):
             experiment_name: specifies experiment's name.
             experiment_class: specifies experiment's name.
         """
-        self.experiment_class: Final = experiment_class
+        self.experiment_class = experiment_class
         if experiment_name is not None:
             specify_string = f'named {experiment_name} '
         elif experiment_class is not None:
@@ -516,13 +566,15 @@ class OptimizerAlreadyBoundError(DryTorchError):
 
     _template = 'Checkpoint for model {} is already bound to an optimizer.'
 
+    model_name: Final[str]
+
     def __init__(self, model_name: str) -> None:
         """Initialize.
 
         Args:
             model_name: the name of the model the checkpoint is managing.
         """
-        self.model_name: Final = model_name
+        self.model_name = model_name
         super().__init__(model_name)
 
 
@@ -539,13 +591,15 @@ class RepeatedMetricsError(DryTorchError):
 
     _template = 'Repeated metrics when merging: {}.'
 
+    duplicated: Final[Sequence[str]]
+
     def __init__(self, duplicated: Sequence[str]) -> None:
         """Initialize.
 
         Args:
             duplicated: the metric names that are repeated.
         """
-        self.duplicated: Final[Sequence[str]] = duplicated
+        self.duplicated = duplicated
         super().__init__(duplicated)
 
 
@@ -554,6 +608,8 @@ class TrackerAlreadyRegisteredError(DryTorchError):
 
     _template = 'Tracker {} already registered in experiment {}.'
 
+    tracker_name: Final[str]
+
     def __init__(self, tracker_name: str, exp_name: str) -> None:
         """Initialize.
 
@@ -561,7 +617,7 @@ class TrackerAlreadyRegisteredError(DryTorchError):
             tracker_name: the name of the tracker that is already registered.
             exp_name: the name of the experiment where to register the tracker.
         """
-        self.tracker_name: Final = tracker_name
+        self.tracker_name = tracker_name
         super().__init__(tracker_name, exp_name)
 
 
@@ -570,13 +626,15 @@ class TrackerNotUsedError(DryTorchError):
 
     _template = 'Tracker {} has not been used in the active experiment'
 
+    tracker_name: Final[str]
+
     def __init__(self, tracker_name: str) -> None:
         """Initialize.
 
         Args:
             tracker_name: the name of the tracker that is not registered.
         """
-        self.tracker_name: Final = tracker_name
+        self.tracker_name = tracker_name
         super().__init__(tracker_name)
 
 
@@ -585,13 +643,15 @@ class CannotStoreOutputWarning(DryTorchWarning):
 
     _template = 'Impossible to store output because the following error.\n{}'
 
+    error: Final[BaseException]
+
     def __init__(self, error: BaseException) -> None:
         """Initialize.
 
         Args:
             error: the error that prevented output storage.
         """
-        self.error: Final = error
+        self.error = error
         super().__init__(str(error))
 
 
@@ -600,13 +660,15 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
 
     _template = 'The ``compute`` method of {} was called before its updating.'
 
+    calculator: Final[Any]
+
     def __init__(self, calculator: Any) -> None:
         """Initialize.
 
         Args:
             calculator: the calculator object that was computed before updating.
         """
-        self.calculator: Final = calculator
+        self.calculator = calculator
         super().__init__(calculator.__class__.__name__)
 
 
@@ -619,6 +681,10 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
         'Some samples will be evaluated twice, and metrics may not be reliable.'
     )
 
+    actor: Final[str]
+    dataset_size: Final[int]
+    num_processes: Final[int]
+
     def __init__(self, name: str, len_dataset: int, n_processes: int) -> None:
         """Initialize.
 
@@ -627,9 +693,9 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
             len_dataset: the size of the dataset.
             n_processes: the number of processes used in distributed processing.
         """
-        self.actor: Final = name
-        self.dataset_size: Final = len_dataset
-        self.num_processes: Final = n_processes
+        self.actor = name
+        self.dataset_size = len_dataset
+        self.num_processes = n_processes
         super().__init__(name, len_dataset, n_processes)
 
 
@@ -638,13 +704,15 @@ class DistributedStorageWarning(DryTorchWarning):
 
     _template = 'The storage of the distributed model is not synchronized:\n{}.'
 
+    error: Final[BaseException]
+
     def __init__(self, error: BaseException) -> None:
         """Initialize.
 
         Args:
             error: the error that occurred while synchronizing the storage.
         """
-        self.error: Final = error
+        self.error = error
         super().__init__(str(error))
 
 
@@ -653,13 +721,15 @@ class ExperimentalFeatureWarning(DryTorchWarning):
 
     _template = '{} is an experimental feature and may change in the future.'
 
+    feature: Final[str]
+
     def __init__(self, feature: str) -> None:
         """Initialize.
 
         Args:
             feature: the experimental feature that was used.
         """
-        self.feature: Final = feature
+        self.feature = feature
         super().__init__(feature)
 
 
@@ -670,13 +740,15 @@ class FailedOptionalImportWarning(DryTorchWarning):
         'Failed to import optional dependency {}. Install for better support.'
     )
 
+    package_name: Final[str]
+
     def __init__(self, package_name: str) -> None:
         """Initialize.
 
         Args:
             package_name: the name of the package that failed to import.
         """
-        self.package_name: Final = package_name
+        self.package_name = package_name
         super().__init__(package_name)
 
 
@@ -697,13 +769,15 @@ class NotExistingRunWarning(DryTorchWarning):
 
     _template = 'Run with id {} not found. Starting a new one.'
 
+    run_id: Final[str]
+
     def __init__(self, run_id: str) -> None:
         """Initialize.
 
         Args:
             run_id: the id of the run that was not found.
         """
-        self.run_id: Final = run_id
+        self.run_id = run_id
         super().__init__(run_id)
 
 
@@ -714,6 +788,9 @@ class ObjectiveSyncWarning(DryTorchWarning):
         'Objective synchronization encountered issue: {}. Recommend to: {} .'
     )
 
+    issue: Final[str]
+    recommend: Final[str]
+
     def __init__(self, issue: str, recommend: str) -> None:
         """Initialize.
 
@@ -721,8 +798,8 @@ class ObjectiveSyncWarning(DryTorchWarning):
             issue: the issue that was encountered with the objective.
             recommend: the recommended action to fix the issue.
         """
-        self.issue: Final = issue
-        self.recommend: Final = recommend
+        self.issue = issue
+        self.recommend = recommend
         super().__init__(issue, recommend)
 
 
@@ -731,13 +808,15 @@ class OptimizerNotLoadedWarning(DryTorchWarning):
 
     _template = 'The optimizer has not been correctly loaded:\n{}'
 
+    error: Final[BaseException]
+
     def __init__(self, error: BaseException) -> None:
         """Initialize.
 
         Args:
             error: the error that occurred while loading the optimizer.
         """
-        self.error: Final = error
+        self.error = error
         super().__init__(error)
 
 
@@ -746,6 +825,9 @@ class PastEpochWarning(DryTorchWarning):
 
     _template = 'Training until epoch {} stopped: current epoch is already {}.'
 
+    selected_epoch: Final[int]
+    current_epoch: Final[int]
+
     def __init__(self, selected_epoch: int, current_epoch: int) -> None:
         """Initialize.
 
@@ -753,8 +835,8 @@ class PastEpochWarning(DryTorchWarning):
             selected_epoch: the epoch that training was requested until.
             current_epoch: the current epoch number.
         """
-        self.selected_epoch: Final = selected_epoch
-        self.current_epoch: Final = current_epoch
+        self.selected_epoch = selected_epoch
+        self.current_epoch = current_epoch
         super().__init__(selected_epoch, current_epoch)
 
 
@@ -773,6 +855,9 @@ class RunAlreadyRecordedError(DryTorchError):
         'Run {} already recorded in experiment {}. Use resume=True to resume.'
     )
 
+    run_id: Final[str]
+    exp_name: Final[str]
+
     def __init__(self, run_id: str, exp_name: str) -> None:
         """Initialize.
 
@@ -780,8 +865,8 @@ class RunAlreadyRecordedError(DryTorchError):
             run_id: the id of the run that is already recorded.
             exp_name: the name of the experiment where to record the run.
         """
-        self.run_id: Final = run_id
-        self.exp_name: Final = exp_name
+        self.run_id = run_id
+        self.exp_name = exp_name
         super().__init__(run_id, exp_name)
 
 
@@ -820,13 +905,15 @@ class RunNotRecordedError(DryTorchError):
 
     _template = 'Run with id {} is not recorded.'
 
+    run_id: Final[str]
+
     def __init__(self, run_id: str) -> None:
         """Constructor.
 
         Args:
             run_id: the id of the run that is not registered.
         """
-        self.run_id: Final = run_id
+        self.run_id = run_id
         super().__init__(run_id)
 
 
@@ -837,6 +924,9 @@ class RunStillPausedError(DryTorchError):
         'Run {} is paused in experiment {}. Call start() on the paused run.'
     )
 
+    run_id: Final[str]
+    exp_name: Final[str]
+
     def __init__(self, run_id: str, exp_name: str) -> None:
         """Initialize.
 
@@ -844,8 +934,8 @@ class RunStillPausedError(DryTorchError):
             run_id: the id of the run that is currently paused.
             exp_name: the name of the experiment owning the run.
         """
-        self.run_id: Final = run_id
-        self.exp_name: Final = exp_name
+        self.run_id = run_id
+        self.exp_name = exp_name
         super().__init__(run_id, exp_name)
 
 
@@ -862,6 +952,9 @@ class TrackerExceptionWarning(DryTorchWarning):
         'Tracker {} encountered the following error and was skipped:\n{}'
     )
 
+    subscriber_name: Final[str]
+    error: Final[BaseException]
+
     def __init__(self, subscriber_name: str, error: BaseException) -> None:
         """Constructor.
 
@@ -869,7 +962,7 @@ class TrackerExceptionWarning(DryTorchWarning):
             subscriber_name: the name of the tracker that encountered the error.
             error: the error that occurred in the tracker.
         """
-        self.subscriber_name: Final = subscriber_name
-        self.error: Final = error
+        self.subscriber_name = subscriber_name
+        self.error = error
         formatted_traceback: Final = traceback.format_exc()
         super().__init__(subscriber_name, formatted_traceback)

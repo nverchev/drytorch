@@ -63,7 +63,7 @@ class ModelCaller(
 
     _name = repr_utils.DefaultName()
 
-    model: p.ModelProtocol[Input, Output]
+    model: Final[p.ModelProtocol[Input, Output]]
 
     def __init__(
         self, model: p.ModelProtocol[Input, Output], name: str = ''
@@ -76,7 +76,7 @@ class ModelCaller(
                 Defaults to class name plus eventual counter.
         """
         super().__init__()
-        self.model: Final = model
+        self.model = model
         self._name = name
         return
 
@@ -107,7 +107,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
     max_stored_output: ClassVar[int] = sys.maxsize
 
-    loader: p.LoaderProtocol[tuple[Input, Target]]
+    loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
+    outputs_list: Final[Sequence[Output]]
     _outputs_list: list[Output]
     _cached_metrics: Mapping[str, float]
     _is_distributed: bool
@@ -131,9 +132,9 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
         """
         super().__init__(model, name)
-        self.loader: Final = loader
+        self.loader = loader
         self._outputs_list = list[Output]()
-        self.outputs_list: Final[Sequence[Output]] = self._outputs_list
+        self.outputs_list = self._outputs_list
         self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
         self._world_size = dist.get_world_size() if self._is_distributed else 1
@@ -288,7 +289,7 @@ class ModelRunnerWithObjective(
         outputs_list: sequence of optionally stored outputs.
     """
 
-    objective: _Objective_co
+    objective: Final[_Objective_co]
     _checked_metric_device: bool
 
     def __init__(
@@ -310,7 +311,7 @@ class ModelRunnerWithObjective(
 
         """
         super().__init__(model, loader=loader, name=name)
-        self.objective: Final = copy.deepcopy(objective)
+        self.objective = copy.deepcopy(objective)
         if self._is_distributed:
             if getattr(self.objective, 'sync_on_compute', False):
                 issue = 'sync_on_compute=True will cause overhead'
