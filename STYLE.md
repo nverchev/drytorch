@@ -66,6 +66,8 @@ formatting, linting and typing; their rules are not repeated here.
 - Empty collections are literals; the type comes from the class-body or
   variable annotation.
 - A blank line after every indented block.
+- A blank line before a full-line comment, except at the start of a block or
+  right after a docstring.
 - An explicit `return` at the end of every function.
 
 ## Docstrings
@@ -106,9 +108,29 @@ formatting, linting and typing; their rules are not repeated here.
   and handlers named `_`, each ending with `return super().notify(event)`.
 
 ## Tests
+- The other sections apply loosely to tests.
+- pytest only, no `unittest`: mocks come from `pytest-mock` (`mocker.Mock`,
+  `mocker.patch`, `mocker.create_autospec`); scoped fixtures use
+  `class_mocker` or `module_mocker`.
+- A `TestClassName` class for each class under test; a module-level
+  `test_*` function for each function.
+- The object under test is a fixture inside its test class; an autouse
+  `setup` fixture stores shared mocks on `self`.
+- Mocks of drytorch objects come from their protocol
+  (`mocker.create_autospec(SomeProtocol, instance=True)`) and are shared
+  through `conftest.py`.
+- `tests/units` tests one module with mocks; `tests/integration` combines
+  real components; `tests/functional` runs whole workflows. Each level has
+  its own `conftest.py`.
+- Unit test files mirror the source: `tests/units/<package>/test_<module>.py`.
 - Arrange, act, assert, with all assertions at the end.
-- A docstring for every test and fixture.
-- Tests grouped in `TestClassName` classes; mocks through `mocker`.
+- Each test checks one behaviour; several assertions are fine when together
+  they describe it.
+- Test docstrings start with "Test"; fixture docstrings say what they
+  provide.
+- `tmp_path` for files; `pytest.raises` and `pytest.warns` for errors and
+  warnings; `pytest.mark.parametrize` for input variations.
+- Skipped tests state their reason.
 
 ## Changelog and commits
 - Changelog sections: `[BREAKING CHANGES]`, `Added`, `Changed`, `Fixed`;

@@ -1,7 +1,5 @@
 """Tests for the "models" module."""
 
-import unittest.mock
-
 import torch
 
 from ...simple_classes import MLP, TorchData, TorchTuple
@@ -146,13 +144,11 @@ class TestEMAModel:
     """Tests for the EMAModel wrapper."""
 
     @pytest.fixture(scope='class')
-    def ema_model(self) -> EMAModel[TorchTuple, TorchData]:
+    def ema_model(self, class_mocker) -> EMAModel[TorchTuple, TorchData]:
         """Fixture for the EMA model."""
-        # Using a class-scoped fixture means we can't easily use mocker fixture.
-        # Instead we patch torch.compile manually.
-        with unittest.mock.patch('torch.compile', side_effect=lambda x: x):
-            cpu = torch.device('cpu')
-            return EMAModel(MLP(), name='ema_model', decay=0.9, device=cpu)
+        class_mocker.patch('torch.compile', side_effect=lambda x: x)
+        cpu = torch.device('cpu')
+        return EMAModel(MLP(), name='ema_model', decay=0.9, device=cpu)
 
     def test_init(self, ema_model) -> None:
         """Test class initialization."""
