@@ -18,7 +18,7 @@ formatting, linting and typing; their rules are not repeated here.
   code does not make clear.
 - Other libraries' behaviour (for example, `torch.compile`) is not
   documented; users read those libraries' docs.
-- This applies to docstrings, changelog entries and commit messages.
+- This applies to docstrings and changelog entries.
 
 ## Typing
 - Avoid inline suppressions (`# type: ignore`, `# pyright: ignore`,
@@ -147,3 +147,4 @@ formatting, linting and typing; their rules are not repeated here.
   one lowercase line per entry, code names in backticks.
 - Commit prefixes: `feat:`, `fix:`, `created:`, `refactor:`, `chore:`,
   `docs:`, `test:`, `project:` (project settings); one topic per commit.
+- Commit messages are a single line; the diff holds the details.
