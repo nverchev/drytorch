@@ -180,10 +180,10 @@ class Experiment(Generic[_T_co]):
         """Initialize.
 
         Args:
-            config: Configuration for the experiment.
-            name: The name of the experiment (defaults to class name).
-            par_dir: Parent directory for experiment data.
-            tags: Descriptors for the experiment (e.g., ``"lr=0.01"``).
+            config: configuration for the experiment.
+            name: the name of the experiment (defaults to class name).
+            par_dir: parent directory for experiment data.
+            tags: descriptors for the experiment (e.g., ``"lr=0.01"``).
         """
         _validate_chars(name)
         self.__config = config

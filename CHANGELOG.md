@@ -18,6 +18,8 @@
 
 ## Changed
 - enforced explicit returns at the end of all functions and methods
+- renamed `DistributedDatasetNotDivisibleWarning` attribute `num_processes` to `n_processes`
+- normalized all docstring argument descriptions to start in lowercase and `__init__` docstrings to `"""Initialize."""`
 - immutable `Experiment.tags`, `ModelOptimizer.base_lr`, `LearningSchema.base_lr`, `LearningSchema.optimizer_defaults`, `MetadataManager.named_metadata`, `EventDispatcher.named_trackers`, `checkpoints.SAFE_GLOBALS`, and transform scheduler parameters
 - added `IterateBatchEvent.refresh` to update metrics without advancing progress and documented callback ordering and mutability
 - widened parameter types: `extend_default_trackers` accepts `Iterable[Tracker]`, and `MissingParamError`/`RepeatedMetricsError` accept `Sequence[str]`

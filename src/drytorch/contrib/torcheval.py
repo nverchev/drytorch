@@ -28,8 +28,8 @@ def from_torcheval(
     """Returns a wrapper of a Metric from torcheval with a sync method.
 
     Args:
-        torch_eval: The torcheval metric to wrap.
-        name: Optional name for the metric. Defaults to the class name.
+        torch_eval: the torcheval metric to wrap.
+        name: optional name for the metric. Defaults to the class name.
 
     Raises:
         exceptions.ComputedMetricsTypeError: If the metric computes to an

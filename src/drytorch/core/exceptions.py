@@ -711,7 +711,7 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
 
     actor: Final[str]
     dataset_size: Final[int]
-    num_processes: Final[int]
+    n_processes: Final[int]
 
     def __init__(self, name: str, len_dataset: int, n_processes: int) -> None:
         """Initialize.
@@ -723,7 +723,7 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
         """
         self.actor = name
         self.dataset_size = len_dataset
-        self.num_processes = n_processes
+        self.n_processes = n_processes
         super().__init__(name, len_dataset, n_processes)
         return
 
@@ -945,7 +945,7 @@ class RunNotRecordedError(DryTorchError):
     run_id: Final[str]
 
     def __init__(self, run_id: str) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             run_id: the id of the run that is not registered.
@@ -995,7 +995,7 @@ class TrackerExceptionWarning(DryTorchWarning):
     error: Final[BaseException]
 
     def __init__(self, subscriber_name: str, error: BaseException) -> None:
-        """Constructor.
+        """Initialize.
 
         Args:
             subscriber_name: the name of the tracker that encountered the error.

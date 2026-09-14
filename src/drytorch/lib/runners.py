@@ -141,7 +141,8 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
         """Single pass on the dataset.
 
         Args:
-            store_outputs: whether to store model outputs. Defaults to False.
+            store_outputs: whether to store model outputs. Defaults to
+                ``False``.
         """
         super().__call__()
         self._run_epoch(store_outputs)

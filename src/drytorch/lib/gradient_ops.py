@@ -112,7 +112,7 @@ class GradNormClipper(ClipOperation):
         """Initialize.
 
         Args:
-            threshold: Maximum norm value of the clipped gradients.
+            threshold: maximum norm value of the clipped gradients.
         """
         super().__init__()
         _validate_threshold(threshold)
@@ -138,7 +138,7 @@ class GradValueClipper(ClipOperation):
         """Initialize.
 
         Args:
-            threshold: Maximum absolute value of the clipped gradients.
+            threshold: maximum absolute value of the clipped gradients.
         """
         super().__init__()
         _validate_threshold(threshold)
@@ -214,7 +214,7 @@ class ClippingCriterion(abc.ABC):
         """Calculate the clipping threshold based on current statistics.
 
         Args:
-            value: Current gradient norm or value.
+            value: current gradient norm or value.
 
         Returns:
             The value to clip gradients to.
@@ -597,7 +597,7 @@ class ParamHistClipper(ClipOperation):
         """Apply global gradient clipping.
 
         Args:
-            params: Model parameters to clip.
+            params: model parameters to clip.
 
         Side Effects:
             Modifies gradients in-place if clipping is applied.

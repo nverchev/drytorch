@@ -36,9 +36,9 @@ class TrialCallback(Generic[_Output, _Target]):
     """Implements pruning logic for training models.
 
     Attributes:
-        monitor: Monitor instance
-        trial: Optuna trial.
-        reported: Dictionary mapping epochs to reported values.
+        monitor: monitor instance.
+        trial: ``optuna`` trial.
+        reported: dictionary mapping epochs to reported values.
     """
 
     monitor: Final[hooks.MetricMonitor]
@@ -55,11 +55,11 @@ class TrialCallback(Generic[_Output, _Target]):
         """Initialize.
 
         Args:
-            trial: Optuna trial
+            trial: ``optuna`` trial.
             filter_fn: function to aggregate recent metric values.
-            metric: Name of metric to monitor or metric calculator instance.
+            metric: name of metric to monitor or metric calculator instance.
                     Defaults to the first metric found.
-            monitor: Evaluation protocol to monitor. Defaults to validation
+            monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
         """
         self.monitor = hooks.MetricMonitor(
@@ -78,7 +78,7 @@ class TrialCallback(Generic[_Output, _Target]):
         """Evaluate whether training should be stopped early.
 
         Args:
-            instance: Trainer instance to evaluate.
+            instance: trainer instance to evaluate.
 
         Raises:
             optuna.TrialPruned: if the trial should be pruned.
@@ -220,7 +220,7 @@ def get_final_value(
     FrozenTrial.
 
     Args:
-        trial: the completed Optuna trial to evaluate.
+        trial: the completed ``optuna`` trial to evaluate.
         filter_fn: function to aggregate the trial's intermediate values.
             Defaults to min or max depending on the study direction.
 

@@ -48,7 +48,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     """Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
-        exec_module: Pytorch module used for execution.
+        exec_module: :class:`torch.nn.Module` used for execution.
         epoch: the number of epochs the model has been trained so far.
         mixed_precision: whether to use mixed precision computing.
         checkpoint: checkpoint manager.
@@ -81,7 +81,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         each process and that the device for the process is already set.
 
         Args:
-            module: Pytorch module with type annotations.
+            module: :class:`torch.nn.Module` with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
                 Default uses the accelerator if available, cpu otherwise.
@@ -269,13 +269,13 @@ class AveragedModel(Model[Input, Output], abc.ABC):
         """Initialize.
 
         Args:
-            torch_module: Pytorch module with type annotations.
+            torch_module: :class:`torch.nn.Module` with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
-                Defaults to False.
+                Defaults to ``False``.
             torch_compile: whether to compile the module with torch.compile.
             distribute: whether to wrap the module for ddp training.
         """
@@ -363,14 +363,14 @@ class SWAModel(AveragedModel[Input, Output]):
         """Initialize.
 
         Args:
-            torch_module: Pytorch module with type annotations.
+            torch_module: :class:`torch.nn.Module` with type annotations.
             start_epoch: the epoch at which to start averaging.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
-                Defaults to False.
+                Defaults to ``False``.
             torch_compile: whether to compile the module with torch.compile.
             distribute: whether to wrap the module for ddp training.
         """
@@ -433,13 +433,13 @@ class EMAModel(AveragedModel[Input, Output]):
         """Initialize.
 
         Args:
-            torch_module: Pytorch module with type annotations.
+            torch_module: :class:`torch.nn.Module` with type annotations.
             name: the name of the model. Default uses the class name.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             checkpoint: class that saves the state and optionally the optimizer.
             mixed_precision: whether to use mixed precision computing.
-                Defaults to False.
+                Defaults to ``False``.
             torch_compile: whether to compile the module with torch.compile.
             distribute: whether to wrap the module for ddp training.
             decay: the exponential decay rate for the moving average.

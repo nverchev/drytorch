@@ -394,7 +394,7 @@ class MetricExtractor:
         """Extract and return the metric value from the instance.
 
         Args:
-            instance: Trainer instance to extract from.
+            instance: trainer instance to extract from.
             tracker: objectives.MetricTracker to potentially update metric name.
 
         Returns:
@@ -561,7 +561,7 @@ class MetricMonitor(Generic[Output, Target]):
         """Register a new metric value from a monitored evaluation.
 
         Args:
-            instance: Trainer instance to extract metric from.
+            instance: trainer instance to extract metric from.
 
         Raises:
             MetricNotFoundError: if the specified metric is not found.
@@ -631,7 +631,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         """Evaluate whether training should be stopped early.
 
         Args:
-            instance: Trainer instance to evaluate.
+            instance: trainer instance to evaluate.
         """
         self.monitor.record_metric_value(instance)
         epoch = instance.model.epoch
@@ -775,7 +775,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
         """Check if there is a plateau and reduce the learning rate if needed.
 
         Args:
-            instance: Trainer instance to evaluate.
+            instance: trainer instance to evaluate.
         """
         self.monitor.record_metric_value(instance)
         epoch = instance.model.epoch

@@ -194,7 +194,7 @@ class MetricCollection(AverageObjective[Output, Target]):
 
     Because :class:`AverageObjective` aggregates values across batches,
     the provided functions should ideally return unreduced ``(B,)`` tensors
-    (where `B` is the batch size) rather than pre-reduced scalars. This
+    (where ``B`` is the batch size) rather than pre-reduced scalars. This
     ensures the final average correctly weights each batch by its size.
 
     Attributes:
@@ -270,7 +270,7 @@ class Metric(MetricCollection[Output, Target]):
     Attributes:
         fun: the callable that computes the metric value.
         name: identifier for the metric.
-        higher_is_better: True if higher values indicate better performance.
+        higher_is_better: ``True`` if higher values indicate better performance.
     """
 
     fun: Final[Callable[[Output, Target], Tensor]]
@@ -289,8 +289,9 @@ class Metric(MetricCollection[Output, Target]):
         Args:
             fn: the callable that computes the metric value.
             name: identifier for the metric.
-            higher_is_better: True if higher values indicate better performance,
-                False if lower values are better, None if unspecified.
+            higher_is_better: ``True`` if higher values indicate better
+                performance, ``False`` if lower values are better, ``None`` if
+                unspecified.
         """
         super().__init__(**{name: fn})
         self.fun = fn
@@ -308,7 +309,7 @@ class LossBase(
 
     Attributes:
         name: identifier for the loss.
-        higher_is_better: True if higher values indicate better performance.
+        higher_is_better: ``True`` if higher values indicate better performance.
         formula: string representation of the loss formula.
         criterion: logic extracting a loss value from computed value.
     """
@@ -332,8 +333,8 @@ class LossBase(
         Args:
             criterion: logic extracting a loss value from computed value.
             name: identifier for the loss.
-            higher_is_better: True if higher values indicate better performance,
-                False if lower values are better.
+            higher_is_better: ``True`` if higher values indicate better
+                performance, ``False`` if lower values are better.
             formula: string representation of the loss formula.
             *fn: functions returning multiple named metric values.
             **named_fn: dictionary of named functions returning a single value.
@@ -644,8 +645,8 @@ class CompositionalLoss(
             *fn: functions returning multiple named metric values.
             criterion: function extracting a loss value from metric functions.
             name: identifier for the loss.
-            higher_is_better: True if higher values indicate better performance,
-                False if lower values are better.
+            higher_is_better: ``True`` if higher values indicate better
+                performance, ``False`` if lower values are better.
             formula: string representation of the loss formula.
             **named_fn: dictionary of named metric functions.
         """
@@ -754,8 +755,8 @@ class DictLoss(CompositionalLoss[Output, Target]):
 class JoinMetrics(p.ObjectiveProtocol[Output, Target]):
     """Wrapper that joins two metrics.
 
-    Preferably, use :py:meth:`MetricCollection.__or__` when both classes are
-    :py:meth:`MetricCollection`.
+    Preferably, use :meth:`MetricCollection.__or__` when both classes are
+    :class:`MetricCollection`.
     """
 
     def __init__(
@@ -818,8 +819,8 @@ class JoinMetrics(p.ObjectiveProtocol[Output, Target]):
 class JoinLossMetrics(JoinMetrics, p.LossProtocol[Output, Target]):
     """Loss resulting from adding an extra metric to a loss.
 
-    Preferably, use :py:meth:`LossBase.watch` when the metric is a
-    :py:meth:`MetricCollection`.
+    Preferably, use :meth:`LossBase.watch` when the metric is a
+    :class:`MetricCollection`.
     """
 
     def __init__(
@@ -1035,8 +1036,8 @@ def check_device(
     """Check the metrics returned by the calculator are on the given device.
 
     Args:
-        calculator: An ObjectiveProtocol instance to check.
-        device: The device to check against.
+        calculator: an objective to check.
+        device: the device to check against.
     """
     metrics = calculator.compute()
     if isinstance(metrics, Mapping):
@@ -1057,7 +1058,7 @@ def compute_metrics(
     """Compute and represent the metrics as a mapping of named values.
 
     Args:
-        calculator: An ObjectiveProtocol instance from which to compute metrics.
+        calculator: an objective from which to compute metrics.
 
     Returns:
         A mapping of metric names to their float values.

@@ -344,9 +344,8 @@ def recursive_repr(
     Numbers are returned as they are or converted to built-in types.
 
     Args:
-        obj: The object to represent
-        depth: Maximum recursion depth allowed (defaults to MAX_DEPTH)
-        _visited: Set of object IDs already visited (for cycle detection)
+        obj: the object to represent.
+        depth: maximum recursion depth allowed (defaults to MAX_DEPTH).
 
     Returns:
         A readable representation of the object

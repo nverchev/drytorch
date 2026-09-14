@@ -530,7 +530,7 @@ def restart(
     Args:
         restart_interval: number of epochs between restarts.
         restart_fraction: fraction to use when restarting.
-        max_restart: Maximum number of restarts before deactivating.
+        max_restart: maximum number of restarts before deactivating.
 
     Returns:
         A decorator that adds restarting to the scheduling logic.

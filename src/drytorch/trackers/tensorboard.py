@@ -61,7 +61,7 @@ class TensorBoard(base_classes.Dumper):
         Args:
             par_dir: the parent directory for the tracker data. Default uses
                 the same of the current experiment.
-            start_server: if True, start a local TensorBoard server.
+            start_server: if ``True``, start a local TensorBoard server.
             max_queue_size: see tensorboard.SummaryWriter docs.
             flush_secs: tensorboard.SummaryWriter docs.
         """

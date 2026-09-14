@@ -50,8 +50,8 @@ class HydraLink(base_classes.Dumper):
         Args:
             par_dir: the parent directory for the tracker data. Default uses
                 the same of the current experiment.
-            copy_hydra: if True, copy the hydra folder content at the end of the
-                experiment's scope, replacing the link folder.
+            copy_hydra: if ``True``, copy the hydra folder content at the end
+                of the experiment's scope, replacing the link folder.
             hydra_dir: the directory where hydra saves the run.
 
         Raises:
