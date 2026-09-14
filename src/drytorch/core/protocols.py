@@ -179,9 +179,9 @@ class LearningProtocol(Protocol):
     """
 
     optimizer_cls: type[torch.optim.Optimizer]
-    base_lr: float | dict[str, float]
+    base_lr: float | Mapping[str, float]
     scheduler: SchedulerProtocol
-    optimizer_defaults: dict[str, Any]
+    optimizer_defaults: Mapping[str, Any]
     gradient_op: GradientOpProtocol
 
 

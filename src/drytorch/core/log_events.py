@@ -72,7 +72,7 @@ class ActorRegistrationEvent(Event):
     actor_ts: datetime.datetime
     model_name: str
     model_ts: datetime.datetime
-    metadata: dict[str, Any]
+    metadata: Mapping[str, Any] | str
 
 
 @dataclasses.dataclass(frozen=True)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from collections.abc import Mapping
 from typing import Any
 
 import torch
@@ -34,9 +35,11 @@ class LearningSchema(p.LearningProtocol):
     """
 
     optimizer_cls: type[torch.optim.Optimizer]
-    base_lr: float | dict[str, float]
+    base_lr: float | Mapping[str, float]
     scheduler: p.SchedulerProtocol = _default_scheduler
-    optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
+    optimizer_defaults: Mapping[str, Any] = dataclasses.field(
+        default_factory=dict
+    )
     gradient_op: p.GradientOpProtocol = _default_grad_op
 
     @classmethod

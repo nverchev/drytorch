@@ -17,9 +17,10 @@
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 
 ## Changed
-- copied mutable arguments and exposed read-only types for `Experiment.tags`, `StartExperimentEvent.tags`, and `ModelOptimizer.base_lr`
+- immutable `Experiment.tags`, `ModelOptimizer.base_lr`, `LearningSchema.base_lr`, and `LearningSchema.optimizer_defaults`
 - `LocalCheckpoint.par_dir` is public for metadata recording
-- marked non-reassigned configuration attributes as Final across Model, DataLoader, Permutation, Sliced, GradNormClipper, Run, Experiment, and torcheval wrapper
+- `MetadataDumper.dump` is public for dumping metadata
+- marked non-reassigned configuration attributes as `Final` across `Model`, `DataLoader`, `Permutation`, `Sliced`, `GradNormClipper`, `Run`, `Experiment`, and `torcheval` wrapper
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
@@ -35,11 +36,13 @@
 - `optuna.suggest_overrides` now uses full parameter names for repeated values to prevent collisions
 - removed preferential dataclass apply branch in `apply`
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
-- renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml` with a backwards-compatible alias
+- renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml`
 - consolidated integration tracker tests into one module per tracker
 - moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
 
 ## Fixed
+- typed actor metadata in `extract_metadata` and
+  `ActorRegistrationEvent.metadata` as `Mapping[str, Any] | str`
 - `recursive_apply` falls back to type name for callables that are not functions
 - `MatPlotter` creates figures with `plt.figure()` for managed pyplot interactive display
 - `MatPlotter` clears and rebuilds layout grid when new metrics appear mid-run

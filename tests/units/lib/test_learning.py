@@ -2,6 +2,9 @@
 
 import dataclasses
 
+from collections.abc import Mapping
+from typing import Any
+
 import torch
 
 import pytest
@@ -141,3 +144,17 @@ class TestLearningScheme:
             'decoupled_weight_decay': True,
         }
         assert scheme.scheduler == mock_scheduler
+
+    def test_mapping_containers(self) -> None:
+        """Test that base_lr and optimizer_defaults accept Mapping."""
+        base_lr: Mapping[str, float] = {'linear': 0.01}
+        optimizer_defaults: Mapping[str, Any] = {'weight_decay': 1e-4}
+
+        scheme = LearningSchema(
+            optimizer_cls=torch.optim.Adam,
+            base_lr=base_lr,
+            optimizer_defaults=optimizer_defaults,
+        )
+
+        assert scheme.base_lr == {'linear': 0.01}
+        assert scheme.optimizer_defaults == {'weight_decay': 1e-4}

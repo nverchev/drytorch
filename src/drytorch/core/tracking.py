@@ -12,6 +12,7 @@ import functools
 import warnings
 
 from abc import abstractmethod
+from collections.abc import Mapping
 from typing import Any, ClassVar, Final, Self
 
 from drytorch.core import exceptions, log_events
@@ -110,7 +111,7 @@ class MetadataManager:
         return
 
     @staticmethod
-    def extract_metadata(obj: Any) -> dict[str, Any]:
+    def extract_metadata(obj: Any) -> Mapping[str, Any] | str:
         """Wrapper of recursive_repr that catches RecursionError.
 
         To change the maximum number of documented items in an obj,

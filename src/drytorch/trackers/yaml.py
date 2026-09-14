@@ -9,7 +9,7 @@ Attributes:
 import functools
 import pathlib
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import yaml
@@ -68,7 +68,7 @@ class MetadataDumper(base_classes.Dumper):
         run_dir = self._get_run_dir()
         repr_config = repr_utils.recursive_repr(event.config, depth=1000)
         model_with_ts = 'config_' + event.run_ts.strftime(TS_FMT) + '.yaml'
-        self._dump(repr_config, run_dir / model_with_ts)
+        self.dump(repr_config, run_dir / model_with_ts)
         return
 
     @notify.register
@@ -76,7 +76,7 @@ class MetadataDumper(base_classes.Dumper):
         run_dir = self._get_run_dir()
         name_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
         file = self._file_path(run_dir, name_with_ts, 'architecture')
-        self._dump(event.architecture_repr, file)
+        self.dump(event.architecture_repr, file)
         return super().notify(event)
 
     @notify.register
@@ -85,11 +85,20 @@ class MetadataDumper(base_classes.Dumper):
         model_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
         actor_with_ts = event.actor_name + '_' + event.actor_ts.strftime(TS_FMT)
         file = self._file_path(run_dir, model_with_ts, actor_with_ts)
-        self._dump(event.metadata, file)
+        self.dump(event.metadata, file)
         return super().notify(event)
 
     @staticmethod
-    def _dump(metadata: dict[str, Any] | str, file_path: pathlib.Path) -> None:
+    def dump(
+        metadata: Mapping[str, Any] | str,
+        file_path: pathlib.Path,
+    ) -> None:
+        """Dump metadata to a YAML file.
+
+        Args:
+            metadata: metadata to dump.
+            file_path: destination path for the YAML file.
+        """
         with file_path.open('w') as metadata_file:
             yaml.dump(metadata, metadata_file, Dumper=DryTorchDumper)
 

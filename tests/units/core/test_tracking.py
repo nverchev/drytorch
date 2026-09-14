@@ -3,6 +3,8 @@
 import dataclasses
 import functools
 
+from collections.abc import Generator
+
 import pytest
 
 from drytorch.core import exceptions, log_events
@@ -15,9 +17,11 @@ from drytorch.core.tracking import (
 
 
 @pytest.fixture(autouse=True, scope='module')
-def remove_trackers() -> None:
+def remove_trackers() -> Generator[None, None, None]:
     """Remove trackers."""
     remove_all_default_trackers()
+    yield
+    log_events.Event.set_auto_publish(None)
     return
 
 
@@ -130,6 +134,14 @@ class TestMetadataManager:
         )
         with pytest.warns(exceptions.RecursionWarning):
             _ = manager.extract_metadata(mock_obj)
+
+    def test_extract_metadata_empty_object(self, manager) -> None:
+        """Test extract_metadata on empty object returns class name string."""
+
+        class _Empty:
+            pass
+
+        assert manager.extract_metadata(_Empty()) == '_Empty'
 
 
 class TestTracker:
