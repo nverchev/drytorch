@@ -51,8 +51,7 @@ class Sliced(Sequence[_T]):
         """
         self.seq = seq
         self.slice = slice_
-        # take advantage of range implementation
-        self._range = range(len(self.seq))[slice_]
+        self._range = range(len(self.seq))[slice_]  # using range implementation
         self._sliced = self.seq[slice_]
         return
 
