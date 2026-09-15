@@ -95,7 +95,9 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
     Implementations register with
     :func:`~drytorch.core.registering.register_model` when created, which
-    emits :class:`~drytorch.core.log_events.ModelRegistrationEvent`.
+    emits :class:`~drytorch.core.log_events.ModelRegistrationEvent`;
+    ``increment_epoch`` emits
+    :class:`~drytorch.core.log_events.IncrementEpochEvent`.
 
     Attributes:
         epoch: the number of epochs the model has been trained so far.
@@ -316,7 +318,7 @@ class TrainerProtocol(
     @property
     @abc.abstractmethod
     def learning_schema(self) -> LearningProtocol:
-        """Optimizer settings and scheduling."""
+        """Optimizer settings and scheduling given at creation."""
 
     @property
     def terminated(self) -> bool:
@@ -345,15 +347,14 @@ class TrainerProtocol(
 
     def update_learning_rate(
         self,
-        base_lr: float | None,
-        scheduler: SchedulerProtocol | None,
+        base_lr: float | Mapping[str, float] | None = None,
+        scheduler: SchedulerProtocol | None = None,
     ) -> None:
         """Update the learning rate(s).
 
-        It updates the learning rates for each parameter's group in the
-        optimizer based on input learning rate and scheduler.
-
         Args:
-            base_lr: the initial learning rate.
-            scheduler: scheduler for the learning rate.
+            base_lr: initial learning rates for named parameters or global
+                value. Default keeps the original learning rates.
+            scheduler: scheduler for the learning rates. Default keeps the
+                original scheduler.
         """

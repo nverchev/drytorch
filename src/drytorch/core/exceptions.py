@@ -19,6 +19,7 @@ __all__ = [
     'ConvergenceError',
     'DatasetHasNoLengthError',
     'DeviceMismatchError',
+    'DirectionNotResolvedError',
     'DistributedDatasetNotDivisibleWarning',
     'DistributedStorageWarning',
     'DryTorchError',
@@ -239,6 +240,12 @@ class DeviceMismatchError(DryTorchError):
         self.target_device = target_device
         super().__init__(metric_name, metric_device, target_device)
         return
+
+
+class DirectionNotResolvedError(DryTorchError):
+    """Raised when accessing the direction of a metric before it is known."""
+
+    _template = 'The direction of the monitored metric is not resolved yet.'
 
 
 class EpochNotFoundError(DryTorchError):

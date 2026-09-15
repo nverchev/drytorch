@@ -7,6 +7,7 @@ from ...simple_classes import MLP, TorchData, TorchTuple
 import pytest
 
 from drytorch import Model
+from drytorch.core import log_events
 from drytorch.lib.models import EMAModel, SWAModel
 
 
@@ -42,10 +43,14 @@ class TestModel:
         cpu = torch.device('cpu')
         return Model(MLP(), name='mlp_model', device=cpu, torch_compile=False)
 
-    def test_model_increment_epoch(self, complex_model: Model) -> None:
-        """Test Model's increment_epoch method increases the epoch count."""
+    def test_model_increment_epoch(self, mocker, complex_model: Model) -> None:
+        """Test increment_epoch advances the epoch and emits an event."""
+        mock_event = mocker.patch.object(log_events, 'IncrementEpochEvent')
+
         complex_model.increment_epoch()
+
         assert complex_model.epoch == 1
+        mock_event.assert_called_once_with(model_name='mlp_model', epoch=1)
 
     def test_no_dist(self, complex_model: Model) -> None:
         """Test module is exec_module outside distributed settings."""

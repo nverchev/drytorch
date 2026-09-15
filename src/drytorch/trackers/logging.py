@@ -114,6 +114,13 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
+    def _(self, event: log_events.IncrementEpochEvent) -> None:
+        msg = 'Incremented %(model_name)s to epoch %(epoch)d'
+        log_args = {'model_name': event.model_name, 'epoch': event.epoch}
+        logger.log(INFO_LEVELS.internal, msg, log_args)
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.SaveModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,

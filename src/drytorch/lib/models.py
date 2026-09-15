@@ -14,8 +14,8 @@ from torch import distributed as dist
 from torch.nn import parallel
 from typing_extensions import override
 
+from drytorch.core import log_events, registering
 from drytorch.core import protocols as p
-from drytorch.core import registering
 from drytorch.lib import checkpoints
 from drytorch.utils import repr_utils
 
@@ -175,8 +175,13 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         return module
 
     def increment_epoch(self) -> None:
-        """Increment the epoch by 1."""
+        """Increment the epoch by 1.
+
+        Side Effects:
+            Emits :class:`~drytorch.core.log_events.IncrementEpochEvent`.
+        """
         self.epoch += 1
+        log_events.IncrementEpochEvent(model_name=self.name, epoch=self.epoch)
         return
 
     def load_state(self, epoch: int = -1) -> None:

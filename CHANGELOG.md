@@ -16,6 +16,7 @@
 - `JoinedMetrics` takes any number of objectives following `ObjectiveProtocol`; its `update` returns `None` and `compute` raises `RepeatedMetricsError` on repeated names; `JoinedLoss` takes any `LossProtocol`
 - `MetricCollection.fn` and `MetricCollection.named_fn` are read-only
 
+- `MetricTracker.metric_name` and `history` are read-only, `best_is` is `Final` and `best_value` has no setter; `resolved_best_is` is the direction in use, and `resolve_metric_name` and `resolve_best_is` set the name and the direction while they are unknown
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
@@ -29,6 +30,8 @@
 - added `registering.RegisteringMeta`, the metaclass registering runners as actors of their model once created
 - added `objectives.join`, which joins objectives into one of the same kind as the first
 
+- added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
+- added `DirectionNotResolvedError`, raised by `MetricTracker.resolved_best_is` before the direction is known
 ## Changed
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
 - enforced explicit returns at the end of all functions and methods
@@ -59,6 +62,9 @@
 - consolidated integration tracker tests into one module per tracker
 - moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
 
+- `TrainerProtocol.update_learning_rate` accepts learning rates by module name and defaults both arguments to `None`, like `Trainer`
+- `MetricMonitor.metric_tracker` and `MetricExtractor.optional_monitor` are `Final`; `MetricMonitor.history` is a `Sequence`
+- `MetricMonitor` takes an automatic `best_is` from the monitored metric when the metric states its direction, so the direction is recorded
 ## Removed
 - removed `ModelCaller`; `ModelRunner` is the base class of the runners
 - removed `HookRegistry`; hooks are passed to `Trainer` or added to `TrainerBuilder`
@@ -70,6 +76,7 @@
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 
 ## Fixed
+- `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
 - combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function
 - loss formulas keep the parentheses of grouped terms
 - multiplying or dividing a loss by a negative number flips its direction

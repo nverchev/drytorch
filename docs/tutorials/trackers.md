@@ -176,6 +176,7 @@ Below is an overview of all built‑in events.
 * **ModelRegistrationEvent** — emitted when a model is instantiated. Contains a timestamp and a string representation of the architecture.
 * **SaveModelEvent** — emitted when a checkpoint is saved (name, definition, location, epoch).
 * **LoadModelEvent** — emitted when a model is loaded.
+* **IncrementEpochEvent** — emitted when the epoch of a model is incremented.
 
 ##### Actor / Source Registration
 

@@ -120,6 +120,19 @@ class TestBuiltinLogger:
         tracker.notify(end_training_mock_event)
         assert 'Training ended' in self.stream.getvalue()
 
+    def test_increment_epoch_event(
+        self,
+        tracker,
+        increment_epoch_mock_event,
+    ) -> None:
+        """Test handling of IncrementEpoch event."""
+        increment_epoch_mock_event.model_name = 'my_model'
+        increment_epoch_mock_event.epoch = 3
+
+        tracker.notify(increment_epoch_mock_event)
+
+        assert 'Incremented my_model to epoch 3' in self.stream.getvalue()
+
     def test_start_epoch_event_with_final_epoch(
         self,
         tracker,

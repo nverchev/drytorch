@@ -98,6 +98,9 @@ class TestTrainer:
         self.terminated_event = mocker.patch(
             'drytorch.core.log_events.TerminatedTrainingEvent'
         )
+        self.learning_rate_event = mocker.patch(
+            'drytorch.core.log_events.LearningRateEvent'
+        )
         return
 
     @pytest.fixture()
@@ -122,6 +125,24 @@ class TestTrainer:
     def trainer(self, create_trainer) -> Trainer:
         """Set up a Trainer instance with mock components."""
         return create_trainer()
+
+    def test_update_learning_rate(self, trainer) -> None:
+        """Test the learning rate is updated and the event is emitted."""
+        trainer.update_learning_rate(base_lr=0.01)
+
+        update = self.model_optimizer.return_value.update_learning_rate
+        update.assert_called_once_with(0.01, None)
+        self.learning_rate_event.assert_called_once()
+
+    def test_failed_update_learning_rate_emits_no_event(self, trainer) -> None:
+        """Test a failed learning rate update emits no event."""
+        update = self.model_optimizer.return_value.update_learning_rate
+        update.side_effect = exceptions.MissingParamError(['module'], ['other'])
+
+        with pytest.raises(exceptions.MissingParamError):
+            trainer.update_learning_rate(base_lr={'other': 0.01})
+
+        self.learning_rate_event.assert_not_called()
 
     def test_loss_not_a_scalar(self, mocker, trainer) -> None:
         """Test that convergence error correctly terminates training."""

@@ -430,6 +430,13 @@ class TestMetricMonitor:
             filter_fn=get_last,
         )
 
+    def test_init_takes_best_is_from_metric(self) -> None:
+        """Test an automatic direction comes from the metric when known."""
+        MetricMonitor(metric='accuracy')
+
+        call = self.mock_metric_tracker_cls.call_args
+        assert call.kwargs['best_is'] == 'higher'
+
     def test_record_extractor_and_tracker_calls(self, mocker) -> None:
         """Test that record_metric_value calls the necessary methods."""
         instance = mocker.Mock()

@@ -19,6 +19,7 @@ __all__ = [
     'EndTestEvent',
     'EndTrainingEvent',
     'Event',
+    'IncrementEpochEvent',
     'IterateBatchEvent',
     'LearningRateEvent',
     'LoadModelEvent',
@@ -127,6 +128,19 @@ class EndTrainingEvent(Event):
     """
 
     source_name: str
+
+
+@dataclasses.dataclass(frozen=True)
+class IncrementEpochEvent(Event):
+    """Event logged when the epoch of a model is incremented.
+
+    Attributes:
+        model_name: the name of the model.
+        epoch: the new epoch.
+    """
+
+    model_name: str
+    epoch: int
 
 
 @dataclasses.dataclass(frozen=True)

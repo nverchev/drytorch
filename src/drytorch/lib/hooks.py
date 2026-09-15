@@ -418,7 +418,7 @@ class MetricExtractor:
     """
 
     metric_spec: Final[p.ObjectiveProtocol[Any, Any] | str | None]
-    optional_monitor: p.MonitorProtocol | None
+    optional_monitor: Final[p.MonitorProtocol | None]
     _resolved_metric: p.ObjectiveProtocol[Any, Any] | None
     _resolved_metric_name: str | None
 
@@ -467,7 +467,7 @@ class MetricExtractor:
             metric_name, metric = self._resolve_metric(monitor)
             self._resolved_metric_name = metric_name
             self._resolved_metric = metric
-            tracker.metric_name = metric_name
+            tracker.resolve_metric_name(metric_name)
 
         last_metrics = monitor.computed_metrics
         if metric_name not in last_metrics:
@@ -475,7 +475,7 @@ class MetricExtractor:
 
         return last_metrics[metric_name]
 
-    def get_metric_best_is(self) -> Literal['auto', 'higher', 'lower'] | None:
+    def get_metric_best_is(self) -> Literal['higher', 'lower'] | None:
         """Get the best_is preference from the metric if available.
 
         Returns:
@@ -533,7 +533,7 @@ class MetricExtractor:
     @staticmethod
     def _get_metric_best_is(
         metric: p.ObjectiveProtocol[Output, Target] | str | None,
-    ) -> Literal['auto', 'higher', 'lower'] | None:
+    ) -> Literal['higher', 'lower'] | None:
         higher_is_better = getattr(metric, 'higher_is_better', None)
         if higher_is_better is None:
             return None
@@ -550,7 +550,7 @@ class MetricMonitor(Generic[Output, Target]):
     """
 
     extractor: Final[MetricExtractor]
-    metric_tracker: objectives.MetricTracker[Output, Target]
+    metric_tracker: Final[objectives.MetricTracker[Output, Target]]
 
     def __init__(
         self,
@@ -569,10 +569,14 @@ class MetricMonitor(Generic[Output, Target]):
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
-                Default 'auto' will determine this from initial measurements.
+                Default 'auto' takes it from the metric when it states its
+                direction, from initial measurements otherwise.
             filter_fn: function to aggregate recent metric values.
         """
         self.extractor = MetricExtractor(metric=metric, monitor=monitor)
+        if best_is == 'auto':
+            best_is = self.extractor.get_metric_best_is() or 'auto'
+
         initial_metric_name = None
         if isinstance(metric, str):
             initial_metric_name = metric
@@ -602,7 +606,7 @@ class MetricMonitor(Generic[Output, Target]):
         return self.metric_tracker.filtered_value
 
     @property
-    def history(self) -> list[float]:
+    def history(self) -> Sequence[float]:
         """Get the metric history."""
         return self.metric_tracker.history
 
@@ -651,10 +655,9 @@ class MetricMonitor(Generic[Output, Target]):
         value = self.extractor.extract_metric_value(
             instance, self.metric_tracker
         )
-        if self.metric_tracker.best_is == 'auto':
-            best_is = self.extractor.get_metric_best_is()
-            if best_is is not None:
-                self.metric_tracker.best_is = best_is
+        best_is = self.extractor.get_metric_best_is()
+        if best_is is not None:
+            self.metric_tracker.resolve_best_is(best_is)
 
         self.metric_tracker.add_value(value)
         return
@@ -691,7 +694,8 @@ class EarlyStoppingCallback(Generic[Output, Target]):
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of calls to wait before stopping.
             best_is: whether higher or lower metric values are better.
-                Default 'auto' will determine this from initial measurements.
+                Default 'auto' takes it from the metric when it states its
+                direction, from initial measurements otherwise.
             filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
@@ -762,7 +766,8 @@ class PruneCallback(Generic[Output, Target]):
                 if available, trainer instance otherwise.
             min_delta: minimum absolute change to qualify as an improvement.
             best_is: whether higher or lower metric values are better.
-                Default 'auto' will determine this from initial measurements.
+                Default 'auto' takes it from the metric when it states its
+                direction, from initial measurements otherwise.
             filter_fn: function to aggregate the intermediate results
             values. Default
                 gets the last value.
@@ -835,7 +840,8 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
-                Default 'auto' will determine this from initial measurements.
+                Default 'auto' takes it from the metric when it states its
+                direction, from initial measurements otherwise.
             filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
@@ -925,7 +931,8 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
-                Default 'auto' will determine this from initial measurements.
+                Default 'auto' takes it from the metric when it states its
+                direction, from initial measurements otherwise.
             filter_fn: function to aggregate recent metric values. Default
                 gets the last value.
             cooldown: calls to skip after changing the schedule.

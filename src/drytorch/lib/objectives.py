@@ -862,20 +862,20 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
     Therefore, it does not follow the library conventions for a tracker.
 
     Attributes:
-        metric_name: the name of the metric to monitor.
+        best_is: whether higher or lower values are better, or ``'auto'`` to
+            resolve it at runtime.
         min_delta: the minimum change required to qualify as an improvement.
         patience: number of checks to wait before triggering callback.
-        best_is: whether higher or lower values are better.
         filter_fn: function to aggregate recent metric values.
-        history: logs of the recorded metrics.
     """
 
-    metric_name: str | None
-    best_is: Literal['auto', 'higher', 'lower']
+    best_is: Final[Literal['auto', 'higher', 'lower']]
     filter_fn: Final[Callable[[Sequence[float]], float]]
     min_delta: Final[float]
     patience: Final[int]
-    history: Final[list[float]]
+    _metric_name: str | None
+    _resolved_best_is: Literal['higher', 'lower'] | None
+    _history: Final[list[float]]
     _patience_countdown: int
     _best_value: float | None
 
@@ -896,13 +896,14 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
             best_is: whether higher or lower metric values are better.
             filter_fn: function to aggregate recent metric values.
         """
-        self.metric_name = metric_name
+        self._metric_name = metric_name
         self.best_is = best_is
+        self._resolved_best_is = None if best_is == 'auto' else best_is
         self.filter_fn = filter_fn
         self.min_delta = min_delta
         self._validate_patience(patience)
         self.patience = patience
-        self.history = []
+        self._history = []
         self._patience_countdown = patience
         self._best_value = None
         return
@@ -919,17 +920,11 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
         """
         if self._best_value is None:
             try:
-                self._best_value = self.history[0]
+                self._best_value = self._history[0]
             except IndexError as ie:
                 raise exceptions.ResultNotAvailableError() from ie
 
         return self._best_value
-
-    @best_value.setter
-    def best_value(self, value: float) -> None:
-        """Set the best result value."""
-        self._best_value = value
-        return
 
     @property
     def filtered_value(self) -> float:
@@ -946,13 +941,35 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
 
         return self.filter_fn(self.history)
 
+    @property
+    def history(self) -> Sequence[float]:
+        """The recorded metric values."""
+        return self._history
+
+    @property
+    def metric_name(self) -> str | None:
+        """The name of the monitored metric, once known."""
+        return self._metric_name
+
+    @property
+    def resolved_best_is(self) -> Literal['higher', 'lower']:
+        """The direction in use: ``best_is``, or the one resolved at runtime.
+
+        Raises:
+            DirectionNotResolvedError: if the direction is not known yet.
+        """
+        if self._resolved_best_is is None:
+            raise exceptions.DirectionNotResolvedError()
+
+        return self._resolved_best_is
+
     def add_value(self, value: float) -> None:
         """Add a new metric value to the history.
 
         Args:
             value: the metric value to add.
         """
-        self.history.append(value)
+        self._history.append(value)
         return
 
     def is_better(self, value: float, reference: float) -> bool:
@@ -971,19 +988,19 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
         if value != value:  # check for NaN
             return False
 
-        if self.best_is == 'auto':
+        if self._resolved_best_is is None:
             if len(self.history) < 2:
                 return True
             if self.history[0] > self.history[1]:
-                self.best_is = 'lower'
+                self._resolved_best_is = 'lower'
             else:
-                self.best_is = 'higher'
+                self._resolved_best_is = 'higher'
 
             msg = 'Monitoring {} assuming {} is best.'
-            msg = msg.format(self.metric_name, self.best_is)
+            msg = msg.format(self.metric_name, self._resolved_best_is)
             warnings.warn(msg, stacklevel=2)
 
-        if self.best_is == 'lower':
+        if self._resolved_best_is == 'lower':
             return reference - self.min_delta > value
 
         return reference + self.min_delta < value
@@ -1004,7 +1021,7 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
         aggregated_value = self.filtered_value
 
         if self.is_better(aggregated_value, self.best_value):
-            self.best_value = aggregated_value
+            self._best_value = aggregated_value
             self._patience_countdown = self.patience
             return True
 
@@ -1022,6 +1039,28 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
     def reset_patience(self) -> None:
         """Reset patience countdown to the maximum."""
         self._patience_countdown = self.patience
+        return
+
+    def resolve_best_is(self, best_is: Literal['higher', 'lower']) -> None:
+        """Set the direction if it is still automatic.
+
+        Args:
+            best_is: whether higher or lower values are better.
+        """
+        if self._resolved_best_is is None:
+            self._resolved_best_is = best_is
+
+        return
+
+    def resolve_metric_name(self, metric_name: str) -> None:
+        """Set the metric name if it is not known yet.
+
+        Args:
+            metric_name: the name of the monitored metric.
+        """
+        if self._metric_name is None:
+            self._metric_name = metric_name
+
         return
 
     @staticmethod

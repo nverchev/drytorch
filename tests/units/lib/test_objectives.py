@@ -630,6 +630,27 @@ class TestMetricTracker:
         assert tracker_auto.patience == 2
         assert len(tracker_auto.history) == 0
 
+    def test_resolve_best_is(self, tracker_auto) -> None:
+        """Test the direction is set only while it is automatic."""
+        tracker_auto.resolve_best_is('higher')
+        tracker_auto.resolve_best_is('lower')
+
+        assert tracker_auto.resolved_best_is == 'higher'
+        assert tracker_auto.best_is == 'auto'
+
+    def test_resolved_best_is_not_resolved(self, tracker_auto) -> None:
+        """Test the direction raises before it is resolved."""
+        with pytest.raises(exceptions.DirectionNotResolvedError):
+            _ = tracker_auto.resolved_best_is
+
+    def test_resolve_metric_name(self) -> None:
+        """Test the metric name is set only while it is unknown."""
+        tracker = MetricTracker()
+        tracker.resolve_metric_name('first')
+        tracker.resolve_metric_name('second')
+
+        assert tracker.metric_name == 'first'
+
     def test_negative_patience(self) -> None:
         """Test invalid patience."""
         with pytest.raises(ValueError):
@@ -704,14 +725,14 @@ class TestMetricTracker:
         tracker_auto.add_value(1.0)
         tracker_auto.add_value(2.0)
         assert tracker_auto.is_improving() is True
-        assert tracker_auto.best_is == 'higher'
+        assert tracker_auto.resolved_best_is == 'higher'
 
     def test_auto_best_is_determination_lower(self, tracker_auto) -> None:
         """Test auto-determination when values are decreasing."""
         tracker_auto.add_value(2.0)
         tracker_auto.add_value(1.0)
         assert tracker_auto.is_improving() is True
-        assert tracker_auto.best_is == 'lower'
+        assert tracker_auto.resolved_best_is == 'lower'
 
     def test_improvement_with_tolerance(self, tracker_higher_is_better) -> None:
         """Test improvement detection considering min_delta."""

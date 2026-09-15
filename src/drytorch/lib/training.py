@@ -397,20 +397,21 @@ class Trainer(
     @override
     def update_learning_rate(
         self,
-        base_lr: float | dict[str, float] | None = None,
+        base_lr: float | Mapping[str, float] | None = None,
         scheduler: p.SchedulerProtocol | None = None,
     ) -> None:
         """Update the learning rate(s).
-
-        It updates the learning rates for each parameter's group in the
-        optimizer based on input learning rate(s) and scheduler.
 
         Args:
             base_lr: initial learning rates for named parameters or global
                 value. Default keeps the original learning rates.
             scheduler: scheduler for the learning rates. Default keeps the
                 original scheduler.
+
+        Raises:
+            MissingParamError: if ``base_lr`` misses parameters of the module.
         """
+        self._model_optimizer.update_learning_rate(base_lr, scheduler)
         scheduler_name = None if scheduler is None else repr(scheduler)
         log_events.LearningRateEvent(
             model_name=self.model.name,
@@ -419,7 +420,6 @@ class Trainer(
             base_lr=base_lr,
             scheduler_name=scheduler_name,
         )
-        self._model_optimizer.update_learning_rate(base_lr, scheduler)
         return
 
     def _create_validation(

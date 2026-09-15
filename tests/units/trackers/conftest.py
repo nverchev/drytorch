@@ -171,6 +171,17 @@ def end_epoch_mock_event(
 
 
 @pytest.fixture
+def increment_epoch_mock_event(
+    mocker, example_model_name
+) -> log_events.IncrementEpochEvent:
+    """Mock IncrementEpoch event instance."""
+    mock = mocker.create_autospec(log_events.IncrementEpochEvent)
+    mock.model_name = example_model_name
+    mock.epoch = 3
+    return mock
+
+
+@pytest.fixture
 def iterate_batch_mock_event(
     mocker,
     example_source_name,
