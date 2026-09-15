@@ -37,9 +37,15 @@ def benchmark_values() -> MutableMapping[int, float | None]:
 
 
 def test_automatic_names(
-    standard_learning_schema, square_loss_calc, linear_model, identity_loader
+    mocker,
+    standard_learning_schema,
+    square_loss_calc,
+    linear_model,
+    identity_loader,
 ) -> None:
     """Test the creation of models in a loop with automatic names."""
+    # models created by earlier tests advance the shared name counters
+    mocker.patch.object(Model._name, '_prefixes', {})
     results = dict[str, float]()
     module = linear_model.module
     registering.unregister_model(linear_model)
