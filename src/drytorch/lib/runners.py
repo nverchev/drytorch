@@ -1,24 +1,19 @@
 """Module containing classes that run a model."""
 
-import abc
 import copy
 import sys
 import warnings
 
 from collections.abc import Iterator, Mapping, Sequence
 from typing import (
-    TYPE_CHECKING,
     Any,
     ClassVar,
     Final,
     Generic,
-    Protocol,
     TypeVar,
-    runtime_checkable,
 )
 
 import torch
-import typing_extensions
 
 from torch import distributed as dist
 from torch.utils import data
@@ -28,12 +23,6 @@ from drytorch.core import exceptions, log_events, registering
 from drytorch.core import protocols as p
 from drytorch.lib import loading, objectives
 from drytorch.utils import apply_ops, repr_utils
-
-
-if TYPE_CHECKING:
-    from typing import _ProtocolMeta
-else:  # typing_extensions metaclass subclasses the typing one
-    _ProtocolMeta = type(typing_extensions.Protocol)
 
 
 __all__ = [
@@ -49,34 +38,12 @@ Output = TypeVar('Output', bound=p.OutputType)
 _Objective_co = TypeVar(
     '_Objective_co', bound=p.LossProtocol[Any, Any], covariant=True
 )
-_T = TypeVar('_T')
-
-
-@runtime_checkable
-class SupportsSync(Protocol):
-    """Protocol for objects that support syncing."""
-
-    def sync(self) -> None:
-        """Sync across all processes."""
-
-
-class _RegisteringMeta(_ProtocolMeta, abc.ABCMeta):
-    """Metaclass registering a runner once its initialization is complete.
-
-    It derives from the protocol metaclass, so runners can inherit protocols.
-    """
-
-    def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
-        """Create the runner, then register it as an actor of its model."""
-        instance = type.__call__(cls, *args, **kwargs)
-        registering.register_actor(instance, instance.model)
-        return instance
 
 
 class ModelRunner(
     repr_utils.CreatedAtMixin,
     Generic[Input, Target, Output],
-    metaclass=_RegisteringMeta,
+    metaclass=registering.RegisteringMeta,
 ):
     """Run a model on a dataset.
 
@@ -359,7 +326,7 @@ class ModelRunnerWithObjective(
 
     @override
     def _sync(self) -> None:
-        if isinstance(self.objective, SupportsSync):
+        if isinstance(self.objective, p.SyncProtocol):
             self.objective.sync()
         else:
             issue = 'metrics not synchronized (averaged) across processes'

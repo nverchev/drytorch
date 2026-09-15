@@ -23,6 +23,7 @@
 - added `PauseExperimentEvent` and `ContinueExperimentEvent` to test workflows
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 - added `HookChain`, `TrainerBuilder` and `hooks.evaluation_hook`
+- added `registering.RegisteringMeta`, the metaclass registering runners as actors of their model once created
 
 ## Changed
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
@@ -38,6 +39,7 @@
 - declared `Final` attributes at class level across models, runners, schedulers, trainers, objectives, checkpoints, hooks, loaders, trackers, and exception classes
 - unified abstract classes on `abc.ABC` and removed redundant `self: Self` method annotations
 - `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
+- moved `SupportsSync` from `runners` to `protocols` as `SyncProtocol`
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation

@@ -32,6 +32,7 @@ __all__ = [
     'ObjectiveProtocol',
     'OutputType',
     'SchedulerProtocol',
+    'SyncProtocol',
     'TargetType',
     'Tensors',
     'TrainerProtocol',
@@ -246,6 +247,14 @@ class LossProtocol(ObjectiveProtocol[_Output_contra, _Target_contra], Protocol):
         Returns:
             The computed loss.
         """
+
+
+@runtime_checkable
+class SyncProtocol(Protocol):
+    """Protocol for objects that synchronize their state across processes."""
+
+    def sync(self) -> None:
+        """Synchronize the state across processes."""
 
 
 class MonitorProtocol(Protocol):

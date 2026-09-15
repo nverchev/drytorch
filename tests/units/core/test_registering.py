@@ -2,12 +2,20 @@
 
 import weakref
 
+from typing import Any, Protocol
+
+import typing_extensions
+
+from typing_extensions import override
+
 import pytest
 
 from drytorch.core import exceptions
+from drytorch.core import protocols as p
 from drytorch.core.registering import (
     ALL_ACTORS,
     ALL_MODULES,
+    RegisteringMeta,
     _Owner,
     register_actor,
     register_model,
@@ -92,3 +100,107 @@ def test_unregister_actor(mock_run) -> None:
     unregister_actor(caller)
     manager.unregister_actor.assert_called_once_with(caller)
     assert not any(caller in actors for actors in ALL_ACTORS.values())
+
+
+class _TypingProtocol(Protocol):
+    """Protocol from typing."""
+
+    def first(self) -> None:
+        """First method."""
+
+
+class _ExtensionsProtocol(typing_extensions.Protocol):
+    """Protocol from typing_extensions."""
+
+    def second(self) -> None:
+        """Second method."""
+
+
+class _Actor(metaclass=RegisteringMeta):
+    """Actor of a model."""
+
+    model: p.ModelProtocol[Any, Any]
+
+    def __init__(self, model: p.ModelProtocol[Any, Any]) -> None:
+        """Initialize."""
+        self.model = model
+        return
+
+
+class _ExtendedActor(_Actor):
+    """Actor setting an attribute after the parent initialization."""
+
+    extra: str
+
+    def __init__(self, model: p.ModelProtocol[Any, Any]) -> None:
+        """Initialize."""
+        super().__init__(model)
+        self.extra = 'extra'
+        return
+
+
+class _InheritedActor(_ExtendedActor):
+    """Actor without its own initialization."""
+
+
+class _FailingActor(_Actor):
+    """Actor whose initialization fails after the parent initialization."""
+
+    def __init__(self, model: p.ModelProtocol[Any, Any]) -> None:
+        """Initialize."""
+        super().__init__(model)
+        raise ValueError('failing initialization')
+
+
+class _ProtocolActor(_Actor, _TypingProtocol, _ExtensionsProtocol):
+    """Actor inheriting protocols from typing and typing_extensions."""
+
+    @override
+    def first(self) -> None:
+        return
+
+    @override
+    def second(self) -> None:
+        return
+
+
+class TestRegisteringMeta:
+    """Tests for the metaclass registering the actors."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker) -> None:
+        """Set up the tests."""
+        self.registered_attributes: list[set[str]] = []
+        self.mock_register_actor = mocker.patch(
+            'drytorch.core.registering.register_actor',
+            side_effect=lambda actor, _: self.registered_attributes.append(
+                set(vars(actor))
+            ),
+        )
+        return
+
+    def test_registers_after_subclass_init(self, mock_model) -> None:
+        """Test the actor registers once, after the subclass initialization."""
+        actor = _ExtendedActor(mock_model)
+
+        self.mock_register_actor.assert_called_once_with(actor, mock_model)
+        assert 'extra' in self.registered_attributes[0]
+
+    def test_registers_inherited_init(self, mock_model) -> None:
+        """Test a subclass without initialization registers once."""
+        actor = _InheritedActor(mock_model)
+
+        self.mock_register_actor.assert_called_once_with(actor, mock_model)
+
+    def test_failed_init_does_not_register(self, mock_model) -> None:
+        """Test an actor is not registered when its initialization fails."""
+        with pytest.raises(ValueError):
+            _FailingActor(mock_model)
+
+        self.mock_register_actor.assert_not_called()
+
+    def test_protocol_inheritance(self, mock_model) -> None:
+        """Test an actor inheriting typing and typing_extensions protocols."""
+        actor = _ProtocolActor(mock_model)
+
+        self.mock_register_actor.assert_called_once_with(actor, mock_model)

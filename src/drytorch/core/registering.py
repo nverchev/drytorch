@@ -1,33 +1,71 @@
-"""Module registering models and records when they are called.
+"""Module registering models and their actors in the current run.
 
-Actors and models are registered in global variables that keep track of the
-experiments at the time of calling. The experiment must be the same. Then the
-Experiment class is called to create the log events.
+An actor, such as a runner, registers when created, so it must be created in
+the run that registered its model.
 
 Attributes:
-    ALL_MODULES: A dictionary that maps module references to experiments.
+    ALL_MODULES: maps each registered module to the run that owns it.
+    ALL_ACTORS: maps each registered module to the actors acting on it.
 """
 
+import abc
 import dataclasses
 import weakref
 
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar
 
 import torch
+import typing_extensions
 
 from drytorch.core import exceptions, experimenting
 from drytorch.core import protocols as p
 
 
+if TYPE_CHECKING:
+    from typing import _ProtocolMeta
+else:  # typing_extensions metaclass subclasses the typing one
+    _ProtocolMeta = type(typing_extensions.Protocol)
+
+
 __all__ = [
     'ALL_ACTORS',
     'ALL_MODULES',
+    'RegisteringMeta',
     'check_current_run',
     'register_actor',
     'register_model',
     'unregister_actor',
     'unregister_model',
 ]
+
+
+class _ActorProtocol(Protocol):
+    @property
+    def model(self) -> p.ModelProtocol[Any, Any]: ...
+
+
+_T = TypeVar('_T', bound=_ActorProtocol)
+
+
+class RegisteringMeta(_ProtocolMeta, abc.ABCMeta):
+    """Metaclass registering an actor after initialization."""
+
+    def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
+        """Actor instantiation.
+
+        Args:
+            *args: the positional arguments of the class constructor.
+            **kwargs: the keyword arguments of the class constructor.
+
+        Returns:
+            The instance.
+
+        Side Effects:
+            Registers the instance as an actor of its model.
+        """
+        instance: _T = type.__call__(cls, *args, **kwargs)
+        register_actor(instance, instance.model)
+        return instance
 
 
 @dataclasses.dataclass(frozen=True)

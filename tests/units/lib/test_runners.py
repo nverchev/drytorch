@@ -1,11 +1,5 @@
 """Tests for the "runners" module."""
 
-from typing import Protocol
-
-import typing_extensions
-
-from typing_extensions import override
-
 import pytest
 
 from drytorch.core import exceptions
@@ -21,103 +15,6 @@ def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
     module_mocker.patch('drytorch.core.registering.register_actor')
     return
-
-
-class _TypingProtocol(Protocol):
-    """Protocol from typing."""
-
-    def first(self) -> None:
-        """First method."""
-
-
-class _ExtensionsProtocol(typing_extensions.Protocol):
-    """Protocol from typing_extensions."""
-
-    def second(self) -> None:
-        """Second method."""
-
-
-class _ExtendedRunner(ModelRunner):
-    """Runner setting an attribute after the parent initialization."""
-
-    extra: str
-
-    def __init__(self, model, loader) -> None:
-        """Initialize."""
-        super().__init__(model, loader=loader)
-        self.extra = 'extra'
-        return
-
-
-class _InheritedRunner(_ExtendedRunner):
-    """Runner without its own initialization."""
-
-
-class _FailingRunner(ModelRunner):
-    """Runner whose initialization fails after the parent initialization."""
-
-    def __init__(self, model, loader) -> None:
-        """Initialize."""
-        super().__init__(model, loader=loader)
-        raise ValueError('failing initialization')
-
-
-class _ProtocolRunner(ModelRunner, _TypingProtocol, _ExtensionsProtocol):
-    """Runner inheriting protocols from typing and typing_extensions."""
-
-    @override
-    def first(self) -> None:
-        return
-
-    @override
-    def second(self) -> None:
-        return
-
-
-class TestRegisteringMeta:
-    """Tests for the metaclass registering the runners."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, mocker) -> None:
-        """Set up the tests."""
-        self.registered_attributes: list[set[str]] = []
-        self.mock_register_actor = mocker.patch(
-            'drytorch.core.registering.register_actor',
-            side_effect=lambda actor, _: self.registered_attributes.append(
-                set(vars(actor))
-            ),
-        )
-        return
-
-    def test_registers_after_subclass_init(
-        self, mock_model, mock_loader
-    ) -> None:
-        """Test the runner registers once, after the subclass initialization."""
-        runner = _ExtendedRunner(mock_model, mock_loader)
-
-        self.mock_register_actor.assert_called_once_with(runner, mock_model)
-        assert 'extra' in self.registered_attributes[0]
-
-    def test_registers_inherited_init(self, mock_model, mock_loader) -> None:
-        """Test a subclass without initialization registers once."""
-        runner = _InheritedRunner(mock_model, mock_loader)
-
-        self.mock_register_actor.assert_called_once_with(runner, mock_model)
-
-    def test_failed_init_does_not_register(
-        self, mock_model, mock_loader
-    ) -> None:
-        """Test a runner is not registered when its initialization fails."""
-        with pytest.raises(ValueError):
-            _FailingRunner(mock_model, mock_loader)
-
-        self.mock_register_actor.assert_not_called()
-
-    def test_protocol_inheritance(self, mock_model, mock_loader) -> None:
-        """Test a runner inheriting typing and typing_extensions protocols."""
-        runner = _ProtocolRunner(mock_model, loader=mock_loader)
-
-        self.mock_register_actor.assert_called_once_with(runner, mock_model)
 
 
 class TestModelRunner:
