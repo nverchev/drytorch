@@ -86,11 +86,7 @@ class CreatedAtMixin:
 
 
 class DefaultName:
-    """Add a counter to a prefix.
-
-    Attributes:
-        _prefixes: dictionary mapping prefixes to their counters.
-    """
+    """Add a counter to a prefix."""
 
     _prefixes: dict[str, itertools.count[int]]
 

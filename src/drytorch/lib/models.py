@@ -256,6 +256,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
     Use the averaged model when in inference mode.
 
     Attributes:
+        average_name: name identifier for the averaged model.
         exec_averaged_module: the averaged module.
     """
 

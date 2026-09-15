@@ -47,9 +47,6 @@ class Dumper(tracking.Tracker):
     Attributes:
         folder_name: name of the folder containing the output.
         user_par_dir: parent directory for the tracker data.
-        _par_dir: parent directory set by experiment.
-        _exp_name: experiment name set by experiment.
-        _run_id: run identifier set by experiment.
     """
 
     folder_name: ClassVar[str] = 'tracker'
@@ -261,14 +258,7 @@ class MemoryMetrics(tracking.Tracker):
 
 
 class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
-    """Abstract class for plotting trajectory from sources.
-
-    Attributes:
-        _model_names: names of the models to plot.
-        _source_names: names of the sources to plot.
-        _metric_names: names of the metrics to plot.
-        _start: epoch from which to start plotting.
-    """
+    """Abstract class for plotting trajectory from sources."""
 
     _model_names: Final[Iterable[str]]
     _source_names: Final[Iterable[str]]

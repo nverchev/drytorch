@@ -321,9 +321,9 @@ class ZStatCriterion(ClippingCriterion):
     https://arxiv.org/pdf/2504.02507.
 
     Attributes:
-            alpha: exponential moving average decay factor (0 < alpha < 1).
-            z_thresh: Z-score threshold between !z_score| and z_thresh.
-            clipping_function: function to determine clipping behavior.
+        alpha: exponential moving average decay factor (0 < alpha < 1).
+        z_thresh: Z-score threshold between |z_score| and z_thresh.
+        clipping_function: function to determine clipping behavior.
     """
 
     alpha: Final[float]
@@ -410,7 +410,7 @@ class StatsCollector:
     active: bool
 
     def __init__(self, max_samples: int):
-        """Initialize warmup handler.
+        """Initialize.
 
         Args:
             max_samples: the number of collected samples for completion.

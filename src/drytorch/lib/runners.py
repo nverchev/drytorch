@@ -51,6 +51,7 @@ class ModelRunner(
     created during the run that registered the model.
 
     Attributes:
+        max_stored_output: maximum number of batch outputs stored in memory.
         model: the model to run.
         loader: the loader providing inputs and targets in batches.
         outputs_list: sequence of optionally stored outputs.

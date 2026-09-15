@@ -65,6 +65,7 @@ class Tags:
     Attributes:
         row_id: the unique id for the table.
         experiment_id: the id for the experiment.
+        experiment: the entry for the experiment for the tag.
         text: a tag for the experiment.
     """
 

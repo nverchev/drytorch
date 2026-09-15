@@ -42,7 +42,7 @@ class DryTorchDumper(yaml.Dumper):
 class MetadataDumper(base_classes.Dumper):
     """Tracker that dumps metadata in a YAML file.
 
-    Class Attributes:
+    Attributes:
         folder_name: name for the folder that contains metadata.
     """
 

@@ -120,12 +120,10 @@ class EpochBar:
 class TrainingBar:
     """Create a bar for the training progress.
 
-    Class Attributes:
+    Attributes:
         fmt: the formatting of the bar.
         desc: the name for the iteration.
         color: the color of the bar.
-
-    Attributes:
         pbar: the wrapped tqdm bar.
     """
 

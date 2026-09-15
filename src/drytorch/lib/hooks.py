@@ -736,6 +736,7 @@ class PruneCallback(Generic[Output, Target]):
     Attributes:
         monitor: monitor instance.
         thresholds: dictionary mapping epochs to pruning thresholds.
+        trial_values: dictionary mapping epochs to recorded metric values.
     """
 
     monitor: Final[MetricMonitor[Output, Target]]

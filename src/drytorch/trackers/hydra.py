@@ -28,6 +28,7 @@ class HydraLink(base_classes.Dumper):
     """Link current Hydra metadata to the experiment.
 
     Attributes:
+        folder_name: name of the folder containing the hydra metadata.
         hydra_dir: the directory where hydra saves the run.
 
     Note:
@@ -79,7 +80,7 @@ class HydraLink(base_classes.Dumper):
 
     @override
     def clean_up(self) -> None:
-        try:
+        try:  # replace the symlink with a copy
             run_dir = self._get_run_dir(mkdir=False)
             if self._copy_hydra and run_dir.is_symlink():
                 run_dir.unlink()

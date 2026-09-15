@@ -46,7 +46,14 @@ RunStatus = Literal['created', 'running', 'completed', 'failed', 'paused']
 
 @dataclasses.dataclass
 class RunMetadata:
-    """Metadata for a run."""
+    """Metadata for a run.
+
+    Attributes:
+        id: unique identifier for the run.
+        status: status of the run.
+        timestamp: run creation timestamp.
+        commit: git commit hash associated with the run, if available.
+    """
 
     id: str
     status: RunStatus
@@ -59,6 +66,7 @@ class RunRegistry:
 
     Attributes:
         file_path: path to the JSON file.
+        lock_path: path to the lock file for file operations.
     """
 
     file_path: Final[pathlib.Path]

@@ -60,8 +60,10 @@ torch.serialization.add_safe_globals(list(SAFE_GLOBALS))
 class CheckpointPathManager:
     """Manage paths for the experiment.
 
-    Class Attributes:
+    Attributes:
         folder_name: name of the folder where the checkpoints are stored.
+        run_dir: the directory for experiment data.
+        model_dir: the directory for model checkpoints.
     """
 
     folder_name: ClassVar[str] = 'checkpoints'
