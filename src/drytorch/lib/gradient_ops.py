@@ -6,7 +6,7 @@ import copy
 import math
 
 from collections.abc import Callable, Iterable
-from typing import Final, TypeAlias
+from typing import ClassVar, Final, TypeAlias
 
 import torch
 
@@ -326,12 +326,13 @@ class ZStatCriterion(ClippingCriterion):
         clipping_function: function to determine clipping behavior.
     """
 
+    _eps: ClassVar[float] = 1e-8
+
     alpha: Final[float]
     z_thresh: Final[float]
     clipping_function: Final[ClipFunction]
     _mu_t: float
     _v_t: float
-    _eps = 1e-8
 
     def __init__(
         self,
@@ -406,8 +407,8 @@ class StatsCollector:
     """
 
     max_samples: Final[int]
-    _data: list[float]
     active: bool
+    _data: list[float]
 
     def __init__(self, max_samples: int):
         """Initialize.
@@ -419,10 +420,6 @@ class StatsCollector:
         self._data = []
         self.active = True
         return
-
-    def __len__(self) -> int:
-        """Return the number of collected warmup samples."""
-        return len(self._data)
 
     @property
     def mean(self) -> float:
@@ -441,6 +438,10 @@ class StatsCollector:
         mean_val = self.mean
         variance_sum = sum((x - mean_val) ** 2 for x in self._data)
         return variance_sum / (len(self._data) - 1)
+
+    def __len__(self) -> int:
+        """Return the number of collected warmup samples."""
+        return len(self._data)
 
     def is_complete(self) -> bool:
         """Check if the collection is complete."""

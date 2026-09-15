@@ -26,13 +26,6 @@ from torch import _tensor_str
 from typing_extensions import override
 
 
-__all__ = [
-    'INCLUDE_PROPERTIES',
-    'MAX_DEPTH',
-    'MAX_REPR_SIZE',
-    'recursive_repr',
-]
-
 if TYPE_CHECKING:
     import numpy.typing as npt
 
@@ -51,6 +44,14 @@ else:
     GenericDict = dict
     GenericSet = set
     GenericTuple = tuple
+
+
+__all__ = [
+    'INCLUDE_PROPERTIES',
+    'MAX_DEPTH',
+    'MAX_REPR_SIZE',
+    'recursive_repr',
+]
 
 MAX_DEPTH: int = 10
 MAX_REPR_SIZE: int = 10

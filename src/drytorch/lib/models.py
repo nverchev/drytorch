@@ -118,19 +118,20 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         ):
             return module(inputs)
 
-    def __del__(self):
-        """Unregister from the registry when deleted/garbage-collected."""
-        try:
-            self.unregister()
-        except AttributeError:  # may happen during instantiation
-            pass
-
-        return
+    @property
+    @override
+    def checkpoint(self) -> p.CheckpointProtocol:
+        return self.checkpoint_
 
     @property
     def device(self) -> torch.device:
         """The device where the weights are stored."""
         return self._device
+
+    @property
+    @override
+    def mixed_precision(self) -> bool:
+        return self.mixed_precision_
 
     @property
     def module(self) -> torch.nn.Module:
@@ -142,15 +143,14 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         """The name of the model."""
         return self._name
 
-    @property
-    @override
-    def checkpoint(self) -> p.CheckpointProtocol:
-        return self.checkpoint_
+    def __del__(self):
+        """Unregister from the registry when deleted/garbage-collected."""
+        try:
+            self.unregister()
+        except AttributeError:  # may happen during instantiation
+            pass
 
-    @property
-    @override
-    def mixed_precision(self) -> bool:
-        return self.mixed_precision_
+        return
 
     def prepare_module(self, module: torch.nn.Module) -> torch.nn.Module:
         """Compile and distribute the module."""
@@ -203,6 +203,14 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._registered = False
         return
 
+    def post_batch_update(self) -> None:
+        """Update the model after processing a batch of data."""
+        return
+
+    def post_epoch_update(self) -> None:
+        """Update the model after processing an epoch of data."""
+        return
+
     def _get_inference_module(self) -> torch.nn.Module:
         """Return the module used in inference mode."""
         return self._unwrap_ddp()
@@ -222,14 +230,6 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
             module = module._orig_mod
 
         return module
-
-    def post_batch_update(self) -> None:
-        """Update the model after processing a batch of data."""
-        return
-
-    def post_epoch_update(self) -> None:
-        """Update the model after processing an epoch of data."""
-        return
 
     @staticmethod
     def _default_device() -> torch.device:
@@ -466,10 +466,10 @@ class EMAModel(AveragedModel[Input, Output]):
         return
 
     @override
-    def _get_multi_avg_fn(self) -> _MultiAvgFn:
-        return torch.optim.swa_utils.get_ema_multi_avg_fn(decay=self.decay)
-
-    @override
     def post_batch_update(self) -> None:
         self._update_parameters()
         return
+
+    @override
+    def _get_multi_avg_fn(self) -> _MultiAvgFn:
+        return torch.optim.swa_utils.get_ema_multi_avg_fn(decay=self.decay)

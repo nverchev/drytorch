@@ -52,8 +52,8 @@ class Dumper(tracking.Tracker):
     folder_name: ClassVar[str] = 'tracker'
 
     user_par_dir: pathlib.Path | None
-    _par_dir: pathlib.Path | None
     _exp_name: str | None
+    _par_dir: pathlib.Path | None
     _run_id: str | None
     _stashed_state: dict[str, tuple[pathlib.Path, str, str]]
 
@@ -66,11 +66,23 @@ class Dumper(tracking.Tracker):
         """
         super().__init__()
         self.user_par_dir = par_dir
-        self._par_dir = None
         self._exp_name = None
+        self._par_dir = None
         self._run_id = None
         self._stashed_state = {}
         return
+
+    @property
+    def exp_name(self) -> str:
+        """Return the name of the experiment.
+
+        Raises:
+            AccessOutsideScopeError: when the name id not available.
+        """
+        if self._exp_name is None:
+            raise exceptions.AccessOutsideScopeError()
+
+        return self._exp_name
 
     @property
     def par_dir(self) -> pathlib.Path:
@@ -99,18 +111,6 @@ class Dumper(tracking.Tracker):
             raise exceptions.AccessOutsideScopeError()
 
         return self._run_id
-
-    @property
-    def exp_name(self) -> str:
-        """Return the name of the experiment.
-
-        Raises:
-            AccessOutsideScopeError: when the name id not available.
-        """
-        if self._exp_name is None:
-            raise exceptions.AccessOutsideScopeError()
-
-        return self._exp_name
 
     @override
     def clean_up(self) -> None:
@@ -214,8 +214,8 @@ class MemoryMetrics(tracking.Tracker):
         model_dict: all metrics recorded in this session.
     """
 
-    _metric_loader: Final[MetricLoader | None]
     model_dict: Final[dict[str, SourcedMetrics]]
+    _metric_loader: Final[MetricLoader | None]
 
     def __init__(self, metric_loader: MetricLoader | None = None) -> None:
         """Initialize.

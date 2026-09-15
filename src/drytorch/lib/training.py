@@ -79,15 +79,6 @@ class ModelOptimizer:
         )
         return
 
-    @override
-    def __repr__(self) -> str:
-        desc = '{}(module={}, optimizer={})'
-        return desc.format(
-            self.__class__.__name__,
-            self._model.name,
-            self._optimizer.__class__.__name__,
-        )
-
     @property
     def base_lr(self) -> float | Mapping[str, float]:
         """Learning rate(s) for the module parameters.
@@ -116,6 +107,15 @@ class ModelOptimizer:
                 raise exceptions.MissingParamError(module_names, list(lr))
 
         return
+
+    @override
+    def __repr__(self) -> str:
+        desc = '{}(module={}, optimizer={})'
+        return desc.format(
+            self.__class__.__name__,
+            self._model.name,
+            self._optimizer.__class__.__name__,
+        )
 
     def get_opt_params(self) -> list[_OptParams]:
         """Actual learning rates for each parameter updated according.
@@ -271,51 +271,6 @@ class Trainer(
         self._terminated = False
         return
 
-    @property
-    @override
-    def learning_schema(self) -> p.LearningProtocol:
-        return self.learning_schema_
-
-    @property
-    @override
-    def terminated(self) -> bool:
-        return self._terminated
-
-    @property
-    @override
-    def validation(self) -> p.MonitorProtocol | None:
-        return self.validation_
-
-    @staticmethod
-    def builder(
-        model: p.ModelProtocol[Input, Output],
-        name: str = '',
-        *,
-        loader: p.LoaderProtocol[tuple[Input, Target]],
-        loss: p.LossProtocol[Output, Target],
-        learning_schema: p.LearningProtocol,
-    ) -> TrainerBuilder[Input, Target, Output]:
-        """Collect the validation and the hooks before creating a trainer.
-
-        Args:
-            model: the model containing the weights to evaluate.
-            name: the base name for the object for logging purposes.
-                Defaults to class name plus eventual counter.
-            loader: provides inputs and targets in batches.
-            loss: determines the optimization's criterion.
-            learning_schema: contains optimizer settings and scheduling.
-
-        Returns:
-            A builder for a trainer with these settings.
-        """
-        return TrainerBuilder(
-            model,
-            name,
-            loader=loader,
-            loss=loss,
-            learning_schema=learning_schema,
-        )
-
     @override
     def __call__(self, store_outputs: bool = False) -> None:
         """Train the module for one epoch.
@@ -342,6 +297,21 @@ class Trainer(
 
         self.model.post_epoch_update()
         return
+
+    @property
+    @override
+    def learning_schema(self) -> p.LearningProtocol:
+        return self.learning_schema_
+
+    @property
+    @override
+    def terminated(self) -> bool:
+        return self._terminated
+
+    @property
+    @override
+    def validation(self) -> p.MonitorProtocol | None:
+        return self.validation_
 
     @override
     def load_checkpoint(self, epoch: int = -1) -> None:
@@ -452,6 +422,18 @@ class Trainer(
         self._model_optimizer.update_learning_rate(base_lr, scheduler)
         return
 
+    def _create_validation(
+        self,
+        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None,
+        val_name: str,
+    ) -> evaluations.Validation[Input, Target, Output] | None:
+        if val_loader is None:
+            return None
+
+        return evaluations.Validation(
+            self.model, name=val_name, loader=val_loader, metric=self.objective
+        )
+
     @override
     def _run_backward(self, outputs: Output, targets: Target) -> None:
         # replace super call
@@ -470,16 +452,34 @@ class Trainer(
         self.model.post_batch_update()
         return
 
-    def _create_validation(
-        self,
-        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None,
-        val_name: str,
-    ) -> evaluations.Validation[Input, Target, Output] | None:
-        if val_loader is None:
-            return None
+    @staticmethod
+    def builder(
+        model: p.ModelProtocol[Input, Output],
+        name: str = '',
+        *,
+        loader: p.LoaderProtocol[tuple[Input, Target]],
+        loss: p.LossProtocol[Output, Target],
+        learning_schema: p.LearningProtocol,
+    ) -> TrainerBuilder[Input, Target, Output]:
+        """Collect the validation and the hooks before creating a trainer.
 
-        return evaluations.Validation(
-            self.model, name=val_name, loader=val_loader, metric=self.objective
+        Args:
+            model: the model containing the weights to evaluate.
+            name: the base name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
+            loader: provides inputs and targets in batches.
+            loss: determines the optimization's criterion.
+            learning_schema: contains optimizer settings and scheduling.
+
+        Returns:
+            A builder for a trainer with these settings.
+        """
+        return TrainerBuilder(
+            model,
+            name,
+            loader=loader,
+            loss=loss,
+            learning_schema=learning_schema,
         )
 
 

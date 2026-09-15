@@ -67,9 +67,9 @@ class CheckpointPathManager:
     """
 
     folder_name: ClassVar[str] = 'checkpoints'
-    _model: Final[p.ModelProtocol[Any, Any]]
     run_dir: Final[pathlib.Path]
     model_dir: Final[pathlib.Path]
+    _model: Final[p.ModelProtocol[Any, Any]]
 
     def __init__(
         self,

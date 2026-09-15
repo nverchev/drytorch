@@ -140,6 +140,31 @@ class ModelRunner(
     def _compute_metrics(self) -> Mapping[str, float]:
         return {}
 
+    def _gather_stored_outputs(self) -> None:
+        if not self._outputs_list:
+            return
+
+        rank = dist.get_rank()
+        try:
+            if rank == 0:
+                dist_outputs: list[list[Output]] = [
+                    [] for _ in range(self._world_size)
+                ]
+                dist.gather_object(self._outputs_list, dist_outputs, dst=0)
+                self._outputs_list.clear()
+                for gathered_tuple in zip(*dist_outputs, strict=True):
+                    self._outputs_list.extend(gathered_tuple)
+            else:
+                dist.gather_object(self._outputs_list, None, dst=0)
+                self._outputs_list.clear()
+
+        except Exception as err:
+            warnings.warn(
+                exceptions.DistributedStorageWarning(err), stacklevel=2
+            )
+
+        return
+
     def _get_batches(self) -> Iterator[tuple[Input, Target]]:
         if self._is_distributed:
             if isinstance(self.loader.sampler, data.DistributedSampler):
@@ -214,34 +239,7 @@ class ModelRunner(
         return
 
     def _sync(self) -> None:
-        """Synchronize objective across processes."""
         return None
-
-    def _gather_stored_outputs(self) -> None:
-        """Gather outputs from all processes to rank 0."""
-        if not self._outputs_list:
-            return
-
-        rank = dist.get_rank()
-        try:
-            if rank == 0:
-                dist_outputs: list[list[Output]] = [
-                    [] for _ in range(self._world_size)
-                ]
-                dist.gather_object(self._outputs_list, dist_outputs, dst=0)
-                self._outputs_list.clear()
-                for gathered_tuple in zip(*dist_outputs, strict=True):
-                    self._outputs_list.extend(gathered_tuple)
-            else:
-                dist.gather_object(self._outputs_list, None, dst=0)
-                self._outputs_list.clear()
-
-        except Exception as err:
-            warnings.warn(
-                exceptions.DistributedStorageWarning(err), stacklevel=2
-            )
-
-        return
 
 
 class ModelRunnerWithObjective(

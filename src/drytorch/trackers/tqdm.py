@@ -15,14 +15,15 @@ from typing_extensions import override
 from drytorch.core import log_events, tracking
 
 
+if TYPE_CHECKING:
+    from _typeshed import SupportsWrite
+
+
 __all__ = [
     'EpochBar',
     'TqdmLogger',
     'TrainingBar',
 ]
-
-if TYPE_CHECKING:
-    from _typeshed import SupportsWrite
 
 
 class EpochBar:

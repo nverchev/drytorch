@@ -93,6 +93,37 @@ class LearningSchema(p.LearningProtocol):
         )
 
     @classmethod
+    def r_adam(
+        cls,
+        base_lr: float = 1e-3,
+        betas: tuple[float, float] = (0.9, 0.999),
+        weight_decay: float = 0.0,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
+        gradient_op: p.GradientOpProtocol = _default_grad_op,
+    ) -> LearningSchema:
+        """Convenience method for the RAdam optimizer.
+
+        Args:
+            base_lr: initial learning rate.
+            betas: coefficients used for computing running averages.
+            weight_decay: weight decay (L2 penalty).
+            scheduler: modifies the learning rate given the current epoch.
+            gradient_op: modifies parameters' after backward propagation.
+        """
+        wd_flag = bool(weight_decay)
+        return cls(
+            optimizer_cls=torch.optim.RAdam,
+            base_lr=base_lr,
+            scheduler=scheduler,
+            optimizer_defaults={
+                'betas': betas,
+                'weight_decay': weight_decay,
+                'decoupled_weight_decay': wd_flag,
+            },
+            gradient_op=gradient_op,
+        )
+
+    @classmethod
     def sgd(
         cls,
         base_lr: float = 0.01,
@@ -123,37 +154,6 @@ class LearningSchema(p.LearningProtocol):
                 'weight_decay': weight_decay,
                 'dampening': dampening,
                 'nesterov': nesterov,
-            },
-            gradient_op=gradient_op,
-        )
-
-    @classmethod
-    def r_adam(
-        cls,
-        base_lr: float = 1e-3,
-        betas: tuple[float, float] = (0.9, 0.999),
-        weight_decay: float = 0.0,
-        scheduler: p.SchedulerProtocol = _default_scheduler,
-        gradient_op: p.GradientOpProtocol = _default_grad_op,
-    ) -> LearningSchema:
-        """Convenience method for the RAdam optimizer.
-
-        Args:
-            base_lr: initial learning rate.
-            betas: coefficients used for computing running averages.
-            weight_decay: weight decay (L2 penalty).
-            scheduler: modifies the learning rate given the current epoch.
-            gradient_op: modifies parameters' after backward propagation.
-        """
-        wd_flag = bool(weight_decay)
-        return cls(
-            optimizer_cls=torch.optim.RAdam,
-            base_lr=base_lr,
-            scheduler=scheduler,
-            optimizer_defaults={
-                'betas': betas,
-                'weight_decay': weight_decay,
-                'decoupled_weight_decay': wd_flag,
             },
             gradient_op=gradient_op,
         )

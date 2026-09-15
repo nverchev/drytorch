@@ -170,12 +170,12 @@ class Experiment(Generic[_T_co]):
     _name = repr_utils.DefaultName()
     __current: ClassVar[Experiment[Any] | None] = None
     par_dir: Final[pathlib.Path]
-    __config: Final[_T_co]
     tags: Final[Sequence[str]]
     trackers: Final[tracking.EventDispatcher]
-    _registry: RunRegistry
     _active_run: Run[_T_co] | None
     _paused_runs: dict[str, Run[_T_co]]
+    _registry: RunRegistry
+    __config: Final[_T_co]
 
     def __init__(
         self,
@@ -207,9 +207,9 @@ class Experiment(Generic[_T_co]):
         return
 
     @property
-    def paused_runs(self) -> Mapping[str, Run[_T_co]]:
-        """A snapshot of runs paused in this session."""
-        return dict(self._paused_runs)
+    def config(self) -> _T_co:
+        """Experiment configuration."""
+        return self.__config
 
     @property
     def name(self) -> str:
@@ -217,9 +217,25 @@ class Experiment(Generic[_T_co]):
         return self._name
 
     @property
-    def config(self) -> _T_co:
-        """Experiment configuration."""
-        return self.__config
+    def paused_runs(self) -> Mapping[str, Run[_T_co]]:
+        """A snapshot of runs paused in this session."""
+        return dict(self._paused_runs)
+
+    @property
+    def run(self) -> Run[_T_co]:
+        """Get the current run.
+
+        Raises:
+            NoActiveExperimentError: if no run is currently active.
+        """
+        if self._active_run is None:
+            raise exceptions.NoActiveExperimentError(self.name)
+
+        return self._active_run
+
+    @override
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(name={self.name})'
 
     def create_run(
         self,
@@ -315,37 +331,10 @@ class Experiment(Generic[_T_co]):
 
         return True
 
-    @staticmethod
-    def _make_run_id(run_id: str | None) -> str:
-        """Return the id, or a timestamp; worker processes append their PID."""
-        final_id = run_id or _timestamp()
-        if not _is_distributed():  # keep the same ID for distributed runs
-            if multiprocessing.current_process().name != 'MainProcess':
-                final_id = f'{final_id}_{multiprocessing.current_process().pid}'
-
-        return final_id
-
-    @property
-    def run(self) -> Run[_T_co]:
-        """Get the current run.
-
-        Raises:
-            NoActiveExperimentError: if no run is currently active.
-        """
-        if self._active_run is None:
-            raise exceptions.NoActiveExperimentError(self.name)
-
-        return self._active_run
-
     @classmethod
     def get_config(cls) -> _T_co:
         """Retrieve the configuration of the current experiment."""
         return cls.get_current().__config
-
-    @classmethod
-    def has_current(cls) -> bool:
-        """Check whether there is an active experiment."""
-        return Experiment.__current is not None
 
     @classmethod
     def get_current(cls) -> Self:
@@ -362,6 +351,11 @@ class Experiment(Generic[_T_co]):
             raise exceptions.NoActiveExperimentError(experiment_class=cls)
 
         return current
+
+    @classmethod
+    def has_current(cls) -> bool:
+        """Check whether there is an active experiment."""
+        return Experiment.__current is not None
 
     @staticmethod
     def set_current(experiment: Experiment[Any]) -> None:
@@ -401,9 +395,15 @@ class Experiment(Generic[_T_co]):
 
         return result.stdout.strip()
 
-    @override
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(name={self.name})'
+    @staticmethod
+    def _make_run_id(run_id: str | None) -> str:
+        """Return the id, or a timestamp; worker processes append their PID."""
+        final_id = run_id or _timestamp()
+        if not _is_distributed():  # keep the same ID for distributed runs
+            if multiprocessing.current_process().name != 'MainProcess':
+                final_id = f'{final_id}_{multiprocessing.current_process().pid}'
+
+        return final_id
 
 
 class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
@@ -426,13 +426,13 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         'failed': exceptions.RunAlreadyFailedWarning,
     }
 
-    _experiment: Final[Experiment[_T_co]]
-    _id: Final[str]
-    resumed: Final[bool]
-    record: Final[bool]
-    status: RunStatus
     metadata_manager: Final[tracking.MetadataManager]
+    record: Final[bool]
+    resumed: Final[bool]
+    status: RunStatus
+    _experiment: Final[Experiment[_T_co]]
     _finalizer: weakref.finalize[..., Self] | None
+    _id: Final[str]
 
     def __init__(
         self,
@@ -492,6 +492,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         self.stop()
         return
+
+    @override
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(id={self.id}, status={self.status})'
 
     def is_active(self) -> bool:
         """Check if the run is currently active."""
@@ -583,12 +587,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _teardown(experiment: Experiment[Any]) -> None:
-        """Common cleanup for pause and stop."""
-        log_events.Event.set_auto_publish(None)
-        experiment._active_run = None
-        Experiment._clear_current()
-        gc.collect()
+    def _pause_experiment(experiment: Experiment[Any], run_id: str) -> None:
+        """Cleanup on pause without holding reference to a Run instance."""
+        log_events.PauseExperimentEvent(experiment.name, run_id)
+        Run._teardown(experiment)
         return
 
     @staticmethod
@@ -611,15 +613,13 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _pause_experiment(experiment: Experiment[Any], run_id: str) -> None:
-        """Cleanup on pause without holding reference to a Run instance."""
-        log_events.PauseExperimentEvent(experiment.name, run_id)
-        Run._teardown(experiment)
+    def _teardown(experiment: Experiment[Any]) -> None:
+        """Common cleanup for pause and stop."""
+        log_events.Event.set_auto_publish(None)
+        experiment._active_run = None
+        Experiment._clear_current()
+        gc.collect()
         return
-
-    @override
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(id={self.id}, status={self.status})'
 
 
 def _is_distributed() -> bool:
