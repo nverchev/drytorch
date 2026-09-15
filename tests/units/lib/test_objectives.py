@@ -10,17 +10,17 @@ from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib.aggregators import TorchMeanAccumulator
 from drytorch.lib.objectives import (
-    CompositionalLoss,
     DictLoss,
-    JoinLossMetrics,
-    JoinMetrics,
+    JoinedLoss,
+    JoinedMetrics,
     Loss,
+    LossWithMetrics,
     Metric,
     MetricCollection,
     MetricTracker,
     check_device,
     compute_metrics,
-    dict_apply,
+    join,
 )
 
 
@@ -158,12 +158,21 @@ class TestMetricCollection:
         with pytest.raises(exceptions.AccumulatorMismatchError):
             metrics.merge_state(other)
 
-    def test_or_repeated_metrics(self, metric_fun_1) -> None:
-        """Test it raises RepeatedMetricsError if collections share keys."""
+    def test_or_repeated_metrics(self, metric_1, metric_fun_1) -> None:
+        """Test it raises RepeatedMetricsError for a name with two functions."""
         col1 = MetricCollection(**metric_fun_1)
-        col2 = MetricCollection(**metric_fun_1)
+        col2 = MetricCollection(**{metric_1: lambda x, y: y})
+
         with pytest.raises(exceptions.RepeatedMetricsError):
-            col1 | col2
+            _ = col1 | col2
+
+    def test_or_same_function(self, metric_fun_1) -> None:
+        """Test joining a collection with itself keeps one copy."""
+        collection = MetricCollection(**metric_fun_1)
+
+        joined = collection | collection
+
+        assert joined.named_fn == collection.named_fn
 
     def test_or(self, metric_1, metric_2, metrics) -> None:
         """Test | works as a union operator."""
@@ -254,8 +263,8 @@ class TestMetric:
         assert combined_metrics.compute() == expected
 
 
-class TestCompositionalLoss:
-    """Tests for CompositionalLoss."""
+class TestLossWithMetrics:
+    """Tests for LossWithMetrics."""
 
     @pytest.fixture(scope='class')
     def example_metric_results(
@@ -268,34 +277,32 @@ class TestCompositionalLoss:
         }
 
     @pytest.fixture(scope='class')
-    def loss_1(self, metric_1, metric_fun_1) -> CompositionalLoss:
+    def loss_1(self, metric_1, metric_fun_1) -> LossWithMetrics:
         """Set up a base instance (as defined by the Loss subclass)."""
         # formula corresponds to what the formula components should look like
-        return CompositionalLoss(
+        return LossWithMetrics(
             criterion=lambda x: x[metric_1],
             formula=f'[{metric_1}]',
-            higher_is_better=False,
             **metric_fun_1,
         )
 
     @pytest.fixture(scope='class')
-    def loss_2(self, metric_2, metric_fun_2) -> CompositionalLoss:
+    def loss_2(self, metric_2, metric_fun_2) -> LossWithMetrics:
         """Set up a second base instance (as defined by the Loss subclass)."""
-        return CompositionalLoss(
+        return LossWithMetrics(
             criterion=lambda x: x[metric_2],
             formula=f'[{metric_2}]',
-            higher_is_better=False,
             **metric_fun_2,
         )
 
     @pytest.fixture(scope='class')
-    def composed_loss_1(self, loss_1) -> CompositionalLoss:
-        """Set up a CompositionalLoss instance with simple arguments."""
+    def composed_loss_1(self, loss_1) -> LossWithMetrics:
+        """Set up a LossWithMetrics instance with simple arguments."""
         return 2 * loss_1
 
     @pytest.fixture(scope='class')
-    def composed_loss_2(self, loss_2) -> CompositionalLoss:
-        """Set up a CompositionalLoss instance with simple arguments."""
+    def composed_loss_2(self, loss_2) -> LossWithMetrics:
+        """Set up a LossWithMetrics instance with simple arguments."""
         return 3 * loss_2
 
     def test_calculate(self, metric_1, composed_loss_1) -> None:
@@ -315,7 +322,7 @@ class TestCompositionalLoss:
         """Test negation of a loss."""
         neg_loss = -composed_loss_1
         assert neg_loss.criterion(example_metric_results) == -2
-        assert neg_loss.formula == '(-(2 x [Metric_1]))'
+        assert neg_loss.formula == '-(2 x [Metric_1])'
 
     def test_add_losses(
         self, composed_loss_1, composed_loss_2, example_metric_results
@@ -323,7 +330,7 @@ class TestCompositionalLoss:
         """Test addition of two losses."""
         combined_loss = composed_loss_1 + composed_loss_2
         assert combined_loss.criterion(example_metric_results) == 2 + 6
-        assert combined_loss.formula == '(2 x [Metric_1] + 3 x [Metric_2])'
+        assert combined_loss.formula == '2 x [Metric_1] + 3 x [Metric_2]'
 
     def test_subtract_losses(
         self, composed_loss_1, composed_loss_2, example_metric_results
@@ -331,7 +338,45 @@ class TestCompositionalLoss:
         """Test subtraction of two losses."""
         combined_loss = composed_loss_1 - -composed_loss_2
         assert combined_loss.criterion(example_metric_results) == 2 + 6
-        assert combined_loss.formula == '(2 x [Metric_1] - (-(3 x [Metric_2])))'
+        assert combined_loss.formula == '2 x [Metric_1] - -(3 x [Metric_2])'
+
+    def test_subtract_losses_same_direction(
+        self, composed_loss_1, composed_loss_2
+    ) -> None:
+        """Test subtracting a loss with the same direction raises."""
+        with pytest.raises(ValueError):
+            _ = composed_loss_1 - composed_loss_2
+
+    def test_add_losses_opposite_direction(
+        self, composed_loss_1, composed_loss_2
+    ) -> None:
+        """Test adding a loss with the opposite direction raises."""
+        with pytest.raises(ValueError):
+            _ = composed_loss_1 + -composed_loss_2
+
+    def test_direction_flips(self, composed_loss_1) -> None:
+        """Test operations reversing the order of values flip the direction."""
+        flipped = (
+            -composed_loss_1,
+            composed_loss_1**-1,
+            -2 * composed_loss_1,
+            composed_loss_1 / -2,
+            3 - composed_loss_1,
+            3 / composed_loss_1,
+        )
+
+        assert all(loss.higher_is_better for loss in flipped)
+
+    def test_direction_kept(self, composed_loss_1) -> None:
+        """Test operations keeping the order of values keep the direction."""
+        kept = (
+            composed_loss_1**2,
+            2 * composed_loss_1,
+            composed_loss_1 - 3,
+            -3 / composed_loss_1,
+        )
+
+        assert not any(loss.higher_is_better for loss in kept)
 
     def test_multiply_losses(
         self, composed_loss_1, composed_loss_2, example_metric_results
@@ -339,7 +384,7 @@ class TestCompositionalLoss:
         """Test multiplication of two losses."""
         combined_loss = composed_loss_1 * composed_loss_2
         assert combined_loss.criterion(example_metric_results) == 2 * 6
-        assert combined_loss.formula == '(2 x [Metric_1]) x (3 x [Metric_2])'
+        assert combined_loss.formula == '2 x [Metric_1] x 3 x [Metric_2]'
 
     def test_divide_losses(
         self, composed_loss_1, composed_loss_2, example_metric_results
@@ -347,8 +392,76 @@ class TestCompositionalLoss:
         """Test division of two losses."""
         combined_loss = composed_loss_1 / -composed_loss_2
         assert combined_loss.criterion(example_metric_results) == 2 / -6
-        expected = '(2 x [Metric_1]) x (1 / (-(3 x [Metric_2])))'
+        expected = '2 x [Metric_1] / -(3 x [Metric_2])'
         assert combined_loss.formula == expected
+
+    def test_combine_repeated_name(self) -> None:
+        """Test combining losses whose metrics share a name raises."""
+        first = Loss(lambda x, y: (x - y).abs(), name='L')
+        second = Loss(lambda x, y: (x - y) ** 2, name='L')
+
+        with pytest.raises(exceptions.RepeatedMetricsError):
+            _ = first + second
+
+    def test_combine_same_metric(self) -> None:
+        """Test a loss can be combined with a loss sharing its metric."""
+        loss = Loss(lambda x, y: (x - y).abs(), name='L')
+
+        combined = loss + 2 * loss
+
+        assert combined.forward(torch.tensor(3.0), torch.tensor(1.0)) == 6.0
+
+    def test_formula_keeps_groups(self) -> None:
+        """Test the formula of a product of sums keeps its parentheses."""
+        l1, l2, l3, l4 = (
+            Loss(lambda x, y: x, name=f'L{i}') for i in range(1, 5)
+        )
+
+        product = (l1 + l2) * (l3 + l4)
+
+        assert product.formula == '([L1] + [L2]) x ([L3] + [L4])'
+        assert (product + l1).formula == '([L1] + [L2]) x ([L3] + [L4]) + [L1]'
+
+    def test_formula_parentheses_where_needed(self) -> None:
+        """Test the formula has parentheses only where the order needs them."""
+        a = Loss(lambda x, y: x, name='A')
+        b = Loss(lambda x, y: x * y, name='B')
+        c = Loss(lambda x, y: x + y, name='C', higher_is_better=True)
+        d = Loss(lambda x, y: x - y, name='D', higher_is_better=True)
+
+        formulas = [
+            (a + b).formula,
+            (a - (c + d)).formula,
+            (-(a + b)).formula,
+            ((a + b) ** 2).formula,
+            ((-a) ** 2).formula,
+            (-(a**2)).formula,
+            (a * b + a).formula,
+        ]
+
+        assert formulas == [
+            '[A] + [B]',
+            '[A] - ([C] + [D])',
+            '-([A] + [B])',
+            '([A] + [B])^2',
+            '(-[A])^2',
+            '-[A]^2',
+            '[A] x [B] + [A]',
+        ]
+
+    def test_loss_value_wins_name_clash(self) -> None:
+        """Test the loss value is reported when a metric shares its name."""
+        squared = Loss(lambda x, y: (x - y).abs(), name='Loss') ** 2
+
+        values = squared.calculate(torch.tensor(3.0), torch.tensor(1.0))
+
+        assert values['Loss'] == torch.tensor(4.0)
+
+    def test_default_formula(self) -> None:
+        """Test the default formula is the loss name in brackets."""
+        loss = LossWithMetrics(criterion=lambda x: x['A'], A=lambda x, y: x)
+
+        assert loss.formula == '[Loss]'
 
 
 class TestLoss:
@@ -374,76 +487,61 @@ class TestLoss:
         """Test addition by float."""
         combined_loss = loss_1 + 3
         assert combined_loss.criterion(example_metric_results) == 2 + 3
-        assert combined_loss.formula == '(3 + [Metric_1])'
+        assert combined_loss.formula == '[Metric_1] + 3'
 
     def test_subtract_float(self, loss_1, example_metric_results) -> None:
         """Test subtraction by float."""
         combined_loss = loss_1 - 3
         assert combined_loss.criterion(example_metric_results) == 2 - 3
-        assert combined_loss.formula == '(-3 + [Metric_1])'
+        assert combined_loss.formula == '[Metric_1] - 3'
 
     def test_multiply_float(self, loss_1, example_metric_results) -> None:
         """Test multiplication by float."""
         combined_loss = loss_1 * 3
         assert combined_loss.criterion(example_metric_results) == 2 * 3
-        assert combined_loss.formula == '(3 x [Metric_1])'
+        assert combined_loss.formula == '[Metric_1] x 3'
 
     def test_divide_float(self, loss_1, example_metric_results) -> None:
         """Test division by float."""
         combined_loss = loss_1 / 3
         assert combined_loss.criterion(example_metric_results) == 2 / 3
-        assert combined_loss.formula == '(0.3333333333333333 x [Metric_1])'
+        assert combined_loss.formula == '[Metric_1] / 3'
 
     def test_float_add(self, loss_1, example_metric_results) -> None:
         """Test addition to float."""
         combined_loss = 3 + loss_1
         assert combined_loss.criterion(example_metric_results) == 3 + 2
-        assert combined_loss.formula == '(3 + [Metric_1])'
+        assert combined_loss.formula == '3 + [Metric_1]'
 
     def test_float_subtract(self, loss_1, example_metric_results) -> None:
         """Test subtraction to float."""
         combined_loss = 3 - loss_1
         assert combined_loss.criterion(example_metric_results) == 3 - 2
-        assert combined_loss.formula == '(3 - [Metric_1])'
+        assert combined_loss.formula == '3 - [Metric_1]'
 
     def test_float_multiply(self, loss_1, example_metric_results) -> None:
         """Test multiplication to float."""
         combined_loss = 3 * loss_1
         assert combined_loss.criterion(example_metric_results) == 3 * 2
-        assert combined_loss.formula == '(3 x [Metric_1])'
+        assert combined_loss.formula == '3 x [Metric_1]'
 
     def test_float_divide(self, loss_1, example_metric_results) -> None:
         """Test division to float."""
         combined_loss = 3 / loss_1
         assert combined_loss.criterion(example_metric_results) == 3 / 2
-        assert combined_loss.formula == '(3 x (1 / [Metric_1]))'
+        assert combined_loss.formula == '3 / [Metric_1]'
 
     def test_positive_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by positive float."""
         combined_loss = loss_1**2
         assert combined_loss.criterion(example_metric_results) == 2**2
-        assert combined_loss.formula == '([Metric_1]^2)'
+        assert combined_loss.formula == '[Metric_1]^2'
 
     def test_negative_exp(self, loss_1, example_metric_results) -> None:
         """Test exponentiation by negative float."""
         combined_loss = loss_1**-2
         assert combined_loss.criterion(example_metric_results) == 2 ** (-2)
-        assert combined_loss.formula == '(1 / [Metric_1]^2)'
-
-    def test_watch(self, loss_1, metric) -> None:
-        """Test watch includes another Objective's metrics in the output."""
-        loss_1.watch(metric)
-        assert metric.named_fn.items() <= loss_1.named_fn.items()
-
-    def test_watch_includes_fn(self, loss_1, multi_fn) -> None:
-        """Test watch extends multi-output functions from another collection."""
-        mc = MetricCollection(multi_fn)
-        loss_1.watch(mc)
-        assert multi_fn in loss_1.fn
-
-        result = loss_1.calculate(torch.tensor(3.0), torch.tensor(1.0))
-        assert 'primary' in result
-        assert 'auxiliary' in result
+        assert combined_loss.formula == '[Metric_1]^-2'
 
 
 class TestDictLoss:
@@ -678,22 +776,16 @@ class TestMetricTracker:
         assert tracker_higher_is_better.is_improving()
 
 
-class TestJoinMetrics:
-    """Tests for JoinMetrics."""
+class TestJoinedMetrics:
+    """Tests for JoinedMetrics."""
 
     @pytest.fixture(scope='class')
-    def joined(self, metric_fun_1, metric_fun_2) -> JoinMetrics:
-        """Set up a JoinMetrics instance from two MetricCollections."""
-        return JoinMetrics(
+    def joined(self, metric_fun_1, metric_fun_2) -> JoinedMetrics:
+        """Set up a JoinedMetrics instance from two MetricCollections."""
+        return JoinedMetrics(
             MetricCollection(**metric_fun_1),
             MetricCollection(**metric_fun_2),
         )
-
-    def test_update(self, metric_1, metric_2, joined) -> None:
-        """Test it returns the merged calculated values on update."""
-        result = joined.update(torch.tensor(1), torch.tensor(0))
-        expected = {metric_1: torch.tensor(1), metric_2: torch.tensor(0)}
-        assert result == expected
 
     def test_update_compute_and_reset(self, metric_1, metric_2, joined) -> None:
         """Test it stores, reduces, and resets metrics from both objectives."""
@@ -714,21 +806,59 @@ class TestJoinMetrics:
         assert computed_reset == {}
         assert computed_after == expected_after
 
+    def test_single_value_named_after_class(
+        self, mocker, metric_1, metric_fun_1
+    ) -> None:
+        """Test a single computed value is named after its objective class."""
+        other = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
+        other.compute.return_value = torch.tensor(2.0)
+        joined = JoinedMetrics(MetricCollection(**metric_fun_1), other)
 
-class TestJoinLossMetrics:
-    """Tests for JoinLossMetrics."""
+        joined.update(torch.tensor(1), torch.tensor(0))
+        computed = joined.compute()
+
+        assert computed == {
+            metric_1: torch.tensor(1),
+            other.__class__.__name__: torch.tensor(2.0),
+        }
+
+    def test_repeated_names(self, metric_fun_1) -> None:
+        """Test compute raises RepeatedMetricsError for shared names."""
+        joined = JoinedMetrics(
+            MetricCollection(**metric_fun_1), MetricCollection(**metric_fun_1)
+        )
+        joined.update(torch.tensor(1), torch.tensor(0))
+
+        with pytest.raises(exceptions.RepeatedMetricsError):
+            joined.compute()
+
+    def test_sync(self, mocker, metric_fun_1) -> None:
+        """Test sync syncs the objectives supporting it and warns otherwise."""
+        syncing = MetricCollection(**metric_fun_1)
+        mock_sync = mocker.patch.object(syncing, 'sync')
+        not_syncing = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
+        joined = JoinedMetrics(syncing, not_syncing)
+
+        with pytest.warns(exceptions.ObjectiveSyncWarning):
+            joined.sync()
+
+        mock_sync.assert_called_once()
+
+
+class TestJoinedLoss:
+    """Tests for JoinedLoss."""
 
     @pytest.fixture(scope='class')
     def loss_metric(self) -> str:
         """Name of the loss metric."""
         return 'Loss'
 
-    @pytest.fixture(scope='class')
-    def joined(self, loss_metric, metric_fun_2) -> JoinLossMetrics:
-        """Set up a JoinLossMetrics from a Loss and a MetricCollection."""
+    @pytest.fixture
+    def joined(self, loss_metric, metric_fun_2) -> JoinedLoss:
+        """Set up a JoinedLoss from a Loss and a MetricCollection."""
         loss = Loss(lambda x, y: (x - y).abs(), name=loss_metric)
         metric = MetricCollection(**metric_fun_2)
-        return JoinLossMetrics(loss, metric)
+        return JoinedLoss(loss, metric)
 
     def test_forward(self, joined) -> None:
         """Test it returns the loss value unchanged."""
@@ -736,11 +866,14 @@ class TestJoinLossMetrics:
         targets = torch.tensor(1.0)
         assert joined.forward(outputs, targets) == torch.tensor(2.0)
 
-    def test_update(self, loss_metric, metric_2, joined) -> None:
-        """Test it returns the merged calculated values on update."""
-        result = joined.update(torch.tensor(3.0), torch.tensor(1.0))
+    def test_forward_updates_metrics(
+        self, loss_metric, metric_2, joined
+    ) -> None:
+        """Test forward also updates the joined metrics."""
+        joined.forward(torch.tensor(3.0), torch.tensor(1.0))
+
         expected = {loss_metric: torch.tensor(2.0), metric_2: torch.tensor(1.0)}
-        assert result == expected
+        assert joined.compute() == expected
 
     def test_update_compute_and_reset(
         self, loss_metric, metric_2, joined
@@ -760,6 +893,98 @@ class TestJoinLossMetrics:
         joined.update(torch.tensor(3.0), torch.tensor(1.0))
         expected = {loss_metric: torch.tensor(2.0), metric_2: torch.tensor(1.0)}
         assert joined.compute() == expected
+
+    def test_name(self, loss_metric, joined) -> None:
+        """Test the name is the name of the loss."""
+        assert joined.name == loss_metric
+
+    def test_name_without_attribute(self, mocker) -> None:
+        """Test the name is the loss class name when the loss has none."""
+        loss = mocker.create_autospec(p.LossProtocol, instance=True)
+
+        joined = JoinedLoss(loss)
+
+        assert joined.name == loss.__class__.__name__
+
+
+def test_join_merges_collections(metric_fun_1, metric_fun_2) -> None:
+    """Test join merges metric collections into one collection."""
+    first = MetricCollection(**metric_fun_1)
+    second = MetricCollection(**metric_fun_2)
+
+    joined = join(first, second)
+
+    assert type(joined) is MetricCollection
+    assert joined.named_fn == dict(first.named_fn) | dict(second.named_fn)
+
+
+def test_join_later_loss_as_metrics(metric_fun_2) -> None:
+    """Test a loss after the first objective joins as its metrics."""
+    loss = 2 * Loss(lambda x, y: (x - y).abs(), name='Abs')
+
+    joined = join(MetricCollection(**metric_fun_2), loss)
+
+    assert type(joined) is MetricCollection
+    assert set(joined.named_fn) == {'Abs', *metric_fun_2}
+
+
+def test_join_wraps_other_objectives(mocker, metric_fun_1) -> None:
+    """Test join wraps objectives that are not collections."""
+    other = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
+
+    joined = join(MetricCollection(**metric_fun_1), other)
+
+    assert isinstance(joined, JoinedMetrics)
+
+
+def test_join_repeated_names(metric_1, metric_fun_1) -> None:
+    """Test join raises RepeatedMetricsError for a name with two functions."""
+    other = MetricCollection(**{metric_1: lambda x, y: y})
+
+    with pytest.raises(exceptions.RepeatedMetricsError):
+        join(MetricCollection(**metric_fun_1), other)
+
+
+def test_join_loss_first(metric_fun_2) -> None:
+    """Test a loss first gives a new loss with the added metrics."""
+    loss = Loss(lambda x, y: (x - y).abs(), name='Abs')
+    original_named_fn = dict(loss.named_fn)
+    metric = MetricCollection(**metric_fun_2)
+
+    joined = join(loss, metric)
+
+    assert isinstance(joined, LossWithMetrics)
+    assert metric.named_fn.items() <= joined.named_fn.items()
+    assert loss.named_fn == original_named_fn
+    assert (joined.name, joined.formula) == (loss.name, loss.formula)
+
+
+def test_join_loss_first_wraps_other_objectives(mocker) -> None:
+    """Test a loss first wraps objectives that are not collections."""
+    loss = Loss(lambda x, y: (x - y).abs(), name='Abs')
+    other = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
+
+    joined = join(loss, other)
+
+    assert isinstance(joined, JoinedLoss)
+
+
+def test_join_other_loss_first(mocker, metric_fun_1) -> None:
+    """Test any objective following the loss protocol first gives a loss."""
+    other_loss = mocker.create_autospec(p.LossProtocol, instance=True)
+
+    joined = join(other_loss, MetricCollection(**metric_fun_1))
+
+    assert isinstance(joined, JoinedLoss)
+
+
+def test_join_loss_first_repeated_name() -> None:
+    """Test a loss first raises RepeatedMetricsError for the loss name."""
+    loss = Loss(lambda x, y: (x - y).abs(), name='Abs')
+    metric = Metric(lambda x, y: x, name='Abs')
+
+    with pytest.raises(exceptions.RepeatedMetricsError):
+        join(loss, metric)
 
 
 def test_check_device_passes(mocker):
@@ -783,22 +1008,6 @@ def test_check_device_fails(mocker) -> None:
 
     with pytest.raises(exceptions.DeviceMismatchError):
         check_device(mock_calculator, torch.device('cpu'))
-
-
-def test_dict_apply(mocker) -> None:
-    """Test it applies each function in the dict to outputs and targets."""
-    mock_fun1 = mocker.MagicMock(return_value=torch.tensor(0.5))
-    mock_fun2 = mocker.MagicMock(return_value=torch.tensor(0.8))
-    dict_fun = {'fun1': mock_fun1, 'fun2': mock_fun2}
-
-    mock_outputs = mocker.MagicMock()
-    mock_targets = mocker.MagicMock()
-
-    result = dict_apply(dict_fun, mock_outputs, mock_targets)
-
-    assert result == {'fun1': torch.tensor(0.5), 'fun2': torch.tensor(0.8)}
-    mock_fun1.assert_called_once_with(mock_outputs, mock_targets)
-    mock_fun2.assert_called_once_with(mock_outputs, mock_targets)
 
 
 @pytest.mark.parametrize(

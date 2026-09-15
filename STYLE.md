@@ -152,8 +152,9 @@ formatting, linting and typing; their rules are not repeated here.
 - Skipped tests state their reason.
 
 ## Changelog and commits
-- Changelog sections: `[BREAKING CHANGES]`, `Added`, `Changed`, `Fixed`;
-  one lowercase line per entry, code names in backticks.
+- Changelog sections: `[BREAKING CHANGES]`, `Added`, `Changed`, `Removed`,
+  `Fixed`; one lowercase line per entry, code names in backticks. A removal
+  goes under `Removed` only, even when it breaks the API.
 - Commit prefixes: `feat:`, `fix:`, `created:`, `refactor:`, `chore:`,
   `docs:`, `test:`, `project:` (project settings); one topic per commit.
 - Commit messages are a single line; the diff holds the details.

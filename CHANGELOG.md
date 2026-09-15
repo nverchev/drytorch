@@ -6,12 +6,15 @@
 - `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
 - `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators
 - `AbstractAccumulator.merge` takes `other: Any`; subclasses annotate `other` with their own class
-- removed `ModelCaller`; `ModelRunner` is the base class of the runners
 - runners register as actors of their model when created instead of when first called
 - `Hook.parameters` and `StaticHook.parameters` are read-only mappings copied at creation; `TrainerHook` subclasses implement `_get_name` and `_get_parameters`
 - `Trainer` takes `val_loader`, `val_name`, `validate_every`, `pre_epoch_hooks` and `post_epoch_hooks` at creation, or collects them with `Trainer.builder`; `Trainer.add_validation` is removed
 - `Trainer.pre_epoch_hooks` and `Trainer.post_epoch_hooks` are `HookChain`; `TrainerProtocol.validation` is a read-only property
-- removed `HookRegistry`; hooks are passed to `Trainer` or added to `TrainerBuilder`
+- merged `CompositionalLoss` into `LossBase` and renamed it `LossWithMetrics`, which is not abstract
+- renamed `JoinMetrics` to `JoinedMetrics` and `JoinLossMetrics` to `JoinedLoss`
+- replaced `LossBase.watch` with the function `join`, which returns a new loss instead of changing the original
+- `JoinedMetrics` takes any number of objectives following `ObjectiveProtocol`; its `update` returns `None` and `compute` raises `RepeatedMetricsError` on repeated names; `JoinedLoss` takes any `LossProtocol`
+- `MetricCollection.fn` and `MetricCollection.named_fn` are read-only
 
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
@@ -24,6 +27,7 @@
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
 - added `HookChain`, `TrainerBuilder` and `hooks.evaluation_hook`
 - added `registering.RegisteringMeta`, the metaclass registering runners as actors of their model once created
+- added `objectives.join`, which joins objectives into one of the same kind as the first
 
 ## Changed
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
@@ -38,8 +42,10 @@
 - `MetadataDumper.dump` is public for dumping metadata
 - declared `Final` attributes at class level across models, runners, schedulers, trainers, objectives, checkpoints, hooks, loaders, trackers, and exception classes
 - unified abstract classes on `abc.ABC` and removed redundant `self: Self` method annotations
-- `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if the two collections share metric names
+- `MetricCollection` merging operations (`|`) now raise `RepeatedMetricsError` if a metric name maps to different functions
+- `MetricCollection` and its subclasses are invariant in `Output` and `Target`
 - moved `SupportsSync` from `runners` to `protocols` as `SyncProtocol`
+- loss formulas follow the written operations (`[A] - 3`, `[A] / [B]`, `[A]^-2`) and use parentheses only where needed
 - `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation
@@ -48,17 +54,28 @@
 - `CheckpointPathManager` evaluates `run_dir` and `model_dir` statically at initialization
 - abstracted check for active experiment run ownership to `registering.check_current_run`
 - re-architected global `ALL_MODULES` and `ALL_ACTORS` registries to use `WeakKeyDictionary` and `WeakSet` to prevent memory leaks while preserving cross-run safeguards
-- removed the `Experiment.run` setter to prevent lifecycle state bypasses
-- removed unused `Averager` and `MeanAccumulator` aggregators
-- removed unused `min_delta` and `best_is` arguments from `optuna.TrialCallback`
 - `optuna.suggest_overrides` now uses full parameter names for repeated values to prevent collisions
-- removed preferential dataclass apply branch in `apply`
-- removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 - renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml`
 - consolidated integration tracker tests into one module per tracker
 - moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
 
+## Removed
+- removed `ModelCaller`; `ModelRunner` is the base class of the runners
+- removed `HookRegistry`; hooks are passed to `Trainer` or added to `TrainerBuilder`
+- removed the unused `fun` attribute from `Metric` and `DictLoss`
+- removed the `Experiment.run` setter to prevent lifecycle state bypasses
+- removed unused `Averager` and `MeanAccumulator` aggregators
+- removed unused `min_delta` and `best_is` arguments from `optuna.TrialCallback`
+- removed preferential dataclass apply branch in `apply`
+- removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
+
 ## Fixed
+- combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function
+- loss formulas keep the parentheses of grouped terms
+- multiplying or dividing a loss by a negative number flips its direction
+- a composed loss reports its own value when a metric has the same name
+- `LossWithMetrics` without a formula records its name in brackets instead of `()`
+- `JoinedLoss.forward` also updates the joined metrics, which training never updated
 - typed actor metadata in `extract_metadata` and `ActorRegistrationEvent.metadata` as `Mapping[str, Any] | str`
 - `recursive_apply` falls back to type name for callables that are not functions
 - `MatPlotter` creates figures with `plt.figure()` for managed pyplot interactive display
