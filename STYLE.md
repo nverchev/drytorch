@@ -11,6 +11,7 @@ formatting, linting and typing; their rules are not repeated here.
   statically.
 - `lib` depends on protocols; implementations carry the protocol's duties
   (for example, emitting events).
+- Protocols are necessary conditions for the framework, abstract classes are sufficient conditions with recommended behavior.
 
 ## Writing
 - One line when a quick look at the code makes the rest clear.
@@ -41,6 +42,10 @@ formatting, linting and typing; their rules are not repeated here.
 - Attributes and module-level constants that are never reassigned are
   `Final`; in trackers, only where reassignment would cause errors.
 - Private attributes (`_attr`) are internal: not documented, not recorded.
+- Alphabetical order is weakly preferred for attributes: public attributes,
+  then class attributes, then private attributes. Their order across docstrings
+  (no private attributes there), class-body declarations, and instantiation in
+  `__init__` should be as consistent with each other as possible.
 - A container the class changes is private, exposed by a read-only property
   (`Mapping`, `Sequence`).
 - No properties for configuration, except for protocol attributes.
@@ -54,6 +59,8 @@ formatting, linting and typing; their rules are not repeated here.
   properties. Revisit when `ReadOnly` attributes (PEP 767, proposed) are
   available: they would replace both the property and the trailing-underscore
   attribute.
+- Dataclasses match protocols structurally, without inheriting them: a
+  dataclass field cannot override a protocol property.
 
 ## Naming
 - Modules: `-ing` form for base logic, plural for a class and its
