@@ -118,7 +118,11 @@ class ModelOptimizer:
         return
 
     def get_opt_params(self) -> list[_OptParams]:
-        """Actual learning rates for each parameter updated according."""
+        """Actual learning rates for each parameter updated according.
+
+        Returns:
+            The parameter groups with their scheduled learning rates.
+        """
         return [
             _OptParams(params=g['params'], lr=self.get_scheduled_lr(g['lr']))
             for g in self._params_lr
@@ -129,6 +133,9 @@ class ModelOptimizer:
 
         Args:
             lr: base learning rate.
+
+        Returns:
+            The scheduled learning rate.
         """
         return self._scheduler(lr, self._model.epoch)
 
@@ -297,6 +304,9 @@ class Trainer(
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
             learning_schema: contains optimizer settings and scheduling.
+
+        Returns:
+            A builder for a trainer with these settings.
         """
         return TrainerBuilder(
             model,
@@ -312,6 +322,10 @@ class Trainer(
 
         Args:
             store_outputs: whether to store model outputs.
+
+        Raises:
+            ConvergenceError: if the loss is infinite or NaN, after terminating
+                the training.
         """
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
@@ -561,7 +575,11 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         return
 
     def build(self) -> Trainer[Input, Target, Output]:
-        """Create the trainer with the collected validation and hooks."""
+        """Create the trainer with the collected validation and hooks.
+
+        Returns:
+            The trainer.
+        """
         return Trainer(
             self._model,
             self._name,

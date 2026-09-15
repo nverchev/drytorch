@@ -81,10 +81,7 @@ class TrainerHook(
     abc.ABC,
     Generic[Input, Target, Output],
 ):
-    """Compose control flow on side effects while keeping track of parameters.
-
-    Subclasses provide the name and parameters used for representation.
-    """
+    """Compose control flow on side effects while tracking parameters."""
 
     @abc.abstractmethod
     def __call__(
@@ -288,7 +285,11 @@ class CallEvery(Hook[Input, Target, Output]):
         self,
         trainer: p.TrainerProtocol[Input, Target, Output],
     ) -> None:
-        """Optionally, calling wrapped callable."""
+        """Optionally, calling wrapped callable.
+
+        Args:
+            trainer: the trainer to pass to the wrapped function.
+        """
         epoch = trainer.model.epoch
         if epoch < self.start:
             return
@@ -336,6 +337,9 @@ def evaluation_hook(
         evaluation: the evaluation to run, for example a validation.
         every: the number of epochs between evaluations.
 
+    Returns:
+        The hook running the evaluation.
+
     Raises:
         ValueError: if every is not strictly positive.
     """
@@ -359,6 +363,9 @@ def static_hook_class(
 
     Returns:
         A class that can be instantiated in the same way to have a static hook.
+
+    Raises:
+        TypeError: if ``cls`` is not a class.
     """
     if not isinstance(cls, type):
         raise TypeError(f'Input must be a class, got {type(cls)}')
@@ -469,7 +476,12 @@ class MetricExtractor:
         return last_metrics[metric_name]
 
     def get_metric_best_is(self) -> Literal['auto', 'higher', 'lower'] | None:
-        """Get the best_is preference from the metric if available."""
+        """Get the best_is preference from the metric if available.
+
+        Returns:
+            ``'higher'`` or ``'lower'`` if the metric states its direction,
+            ``None`` otherwise.
+        """
         if self._resolved_metric is not None:
             return self._get_metric_best_is(self._resolved_metric)
 
@@ -595,15 +607,34 @@ class MetricMonitor(Generic[Output, Target]):
         return self.metric_tracker.history
 
     def is_better(self, value: float, reference: float) -> bool:
-        """Check whether to be patient."""
+        """Check whether a value is better than a reference.
+
+        Args:
+            value: the value to compare.
+            reference: the value to compare against.
+
+        Returns:
+            ``True`` if ``value`` is better than ``reference``.
+        """
         return self.metric_tracker.is_better(value, reference)
 
     def is_improving(self) -> bool:
-        """Determine if the model performance is improving."""
+        """Determine if the model performance is improving.
+
+        Returns:
+            ``True`` if the performance is improving.
+
+        Side Effects:
+            Reduces the patience countdown when there is no improvement.
+        """
         return self.metric_tracker.is_improving()
 
     def is_patient(self) -> bool:
-        """Check whether to be patient."""
+        """Check whether to be patient.
+
+        Returns:
+            ``True`` while the patience has not run out.
+        """
         return self.metric_tracker.is_patient()
 
     def record_metric_value(

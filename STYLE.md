@@ -82,9 +82,15 @@ formatting, linting and typing; their rules are not repeated here.
 
 ## Docstrings
 - Class docstrings list every public attribute under `Attributes:`.
+- Public functions and methods document their arguments (`Args:`), return
+  value (`Returns:`), errors (`Raises:`) and side effects
+  (`Side Effects:`); the one-line rule in Writing applies to the
+  description, not to these sections.
 - Argument descriptions start in lowercase.
 - `__init__`: `"""Initialize."""` plus `Args:`.
 - Overrides get a docstring only when their behaviour differs.
+- Private functions and methods (`_name`) get no docstring, except abstract
+  ones that subclasses implement; a comment where the logic needs one.
 
 ## Sphinx
 - Every module defines `__all__` after the imports: Sphinx documents the
