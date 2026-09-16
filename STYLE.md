@@ -29,6 +29,9 @@ tutorial's paired `.md` and `.ipynb` in sync.
   `getattr` or `hasattr`: the check narrows the type for the checker.
   `getattr` is for dynamic names and Python internals (`__dict__`,
   `__slots__`, `__len__`).
+- Write simple types in public signatures in full, so a preview shows what
+  to pass without opening the source: `Callable[[Output, Target], Tensor]`,
+  not an alias or a callable protocol.
 
 ## Attributes
 - Prefer immutable objects for experiment settings.
@@ -51,15 +54,14 @@ tutorial's paired `.md` and `.ipynb` in sync.
 - Optional behaviour of an object the library does not own is its own small
   protocol, checked with `isinstance`; a protocol used by one module only
   stays private to it.
-- Callable types used in several places: a callable protocol with
-  positional-only parameters, not `TypeAlias`.
 - Protocols declare attributes as abstract read-only properties; a `Final`
   attribute satisfies them, so implementations keep plain names.
 - Classes match protocols structurally and never inherit them: inheriting
   makes the protocol's properties unassignable and its members abstract.
-  `tests/units/core/test_protocols.py` and
-  `tests/integration/core/test_protocol_conformance.py` check that the
-  implementations match; basedpyright checks the first one.
+  `tests/units/core/test_protocols.py`,
+  `tests/integration/lib/test_protocol_implementations.py` and
+  `tests/functional/contrib/test_metrics_compatibility.py` check that the
+  implementations match; basedpyright checks all three.
 
 ## Naming
 - Modules: `-ing` form for base logic, plural for a class and its
