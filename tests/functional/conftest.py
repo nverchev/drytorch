@@ -45,9 +45,10 @@ def linear_model() -> Model[TorchTuple, TorchData]:
 
 
 @pytest.fixture
-def swa_model() -> SWAModel[TorchTuple, TorchData]:
+def swa_model(request) -> SWAModel[TorchTuple, TorchData]:
     """Instantiate a simple model."""
-    return SWAModel(Linear(1, 1), name='swa_linear', start_epoch=6)
+    start_epoch = getattr(request, 'param', 6)
+    return SWAModel(Linear(1, 1), name='swa_linear', start_epoch=start_epoch)
 
 
 @pytest.fixture

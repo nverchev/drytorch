@@ -13,7 +13,8 @@ import pytest
 
 from drytorch.core import protocols as p
 from drytorch.lib.checkpoints import LocalCheckpoint
-from drytorch.lib.evaluations import Diagnostic, Test, Validation
+from drytorch.lib.evaluations import Diagnostic, Validation
+from drytorch.lib.evaluations import Test as _Test
 from drytorch.lib.gradient_ops import HistClipper, NoOp
 from drytorch.lib.learning import LearningSchema
 from drytorch.lib.loading import DataLoader
@@ -57,7 +58,7 @@ _objective_monitor: type[p.ObjectiveMonitorProtocol] = ModelRunnerWithLogs
 _scheduler: type[p.SchedulerProtocol] = ConstantScheduler
 _swa_model: type[p.ModelProtocol[Any, Any]] = SWAModel
 _sync: type[p.SyncProtocol] = MetricCollection
-_test: type[p.MonitorProtocol] = Test
+_test: type[p.MonitorProtocol] = _Test
 _trainer: type[p.TrainerProtocol[Any, Any, Any]] = Trainer
 _transformed: type[p.SchedulerProtocol] = ExponentialScheduler
 _validation: type[p.MonitorProtocol] = Validation
