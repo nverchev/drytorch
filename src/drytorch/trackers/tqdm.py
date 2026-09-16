@@ -212,32 +212,9 @@ class TqdmLogger(tracking.Tracker):
         self._training_bar = None
         return
 
-    @override
-    def clean_up(self) -> None:
-        self._clean_epoch_bar()
-        self._clean_training_bar()
-        return super().clean_up()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.IterateBatchEvent) -> None:
-        self._clean_epoch_bar()
-        desc = event.source_name.rjust(15)
-        leave = self._leave and self._training_bar is None
-        self._epoch_bar = EpochBar(
-            event.batch_size,
-            event.n_iter,
-            event.dataset_size,
-            leave=leave,
-            file=self._file,
-            desc=desc,
-            position=0 if self._training_bar is None else 1,
-        )
-        event.push_updates.append(self._epoch_bar.update)
         return super().notify(event)
 
     @notify.register
@@ -259,12 +236,24 @@ class TqdmLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndEpochEvent) -> None:
+    def _(self, event: log_events.IterateBatchEvent) -> None:
         self._clean_epoch_bar()
+        desc = event.source_name.rjust(15)
+        leave = self._leave and self._training_bar is None
+        self._epoch_bar = EpochBar(
+            event.batch_size,
+            event.n_iter,
+            event.dataset_size,
+            leave=leave,
+            file=self._file,
+            desc=desc,
+            position=0 if self._training_bar is None else 1,
+        )
+        event.push_updates.append(self._epoch_bar.update)
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndTestEvent) -> None:
+    def _(self, event: log_events.EndEpochEvent) -> None:
         self._clean_epoch_bar()
         return super().notify(event)
 
@@ -285,14 +274,16 @@ class TqdmLogger(tracking.Tracker):
         self._clean_training_bar()
         return super().notify(event)
 
-    def _clean_training_bar(self) -> None:
-        if self._training_bar is not None:
-            if not self._training_bar.pbar.disable:
-                self._training_bar.pbar.close()
+    @notify.register
+    def _(self, event: log_events.EndTestEvent) -> None:
+        self._clean_epoch_bar()
+        return super().notify(event)
 
-            self._training_bar = None
-
-        return
+    @override
+    def clean_up(self) -> None:
+        self._clean_epoch_bar()
+        self._clean_training_bar()
+        return super().clean_up()
 
     def _clean_epoch_bar(self) -> None:
         if self._epoch_bar is not None:
@@ -300,5 +291,14 @@ class TqdmLogger(tracking.Tracker):
                 self._epoch_bar.pbar.close()
 
             self._epoch_bar = None
+
+        return
+
+    def _clean_training_bar(self) -> None:
+        if self._training_bar is not None:
+            if not self._training_bar.pbar.disable:
+                self._training_bar.pbar.close()
+
+            self._training_bar = None
 
         return

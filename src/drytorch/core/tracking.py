@@ -173,13 +173,6 @@ class Tracker(abc.ABC):
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        _not_used = event
-        self._reset_current()
-        self.clean_up()
-        return
-
-    @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         _not_used = event
         self._reset_current()
@@ -189,6 +182,13 @@ class Tracker(abc.ABC):
     def _(self, event: log_events.ContinueExperimentEvent) -> None:
         _not_used = event
         self._set_current(self)
+        return
+
+    @notify.register
+    def _(self, event: log_events.StopExperimentEvent) -> None:
+        _not_used = event
+        self._reset_current()
+        self.clean_up()
         return
 
     def clean_up(self) -> None:
@@ -291,6 +291,47 @@ class EventDispatcher:
 
         return
 
+    def remove(self, tracker_name: str) -> None:
+        """Remove a tracker by name from the dispatcher.
+
+        Args:
+            tracker_name: name of the tracker to remove.
+
+        Raises:
+            TrackerNotActiveError: if the tracker is not registered.
+        """
+        try:
+            self._named_trackers.pop(tracker_name)
+        except KeyError as ke:
+            raise exceptions.TrackerNotUsedError(tracker_name) from ke
+        return
+
+    def remove_all(self) -> None:
+        """Remove all trackers from the dispatcher."""
+        for tracker_name in list(self._named_trackers):
+            self.remove(tracker_name)
+
+        return
+
+    def subscribe(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
+        """Subscribe trackers to the dispatcher.
+
+        Args:
+            trackers: trackers to register with their class names.
+            named_trackers: trackers to register with custom names.
+
+        Raises:
+            TrackerAlreadyRegisteredError: if a tracker is already registered.
+        """
+        for tracker in trackers:
+            name = tracker.__class__.__name__
+            self._subscribe_tracker(name, tracker)
+
+        for name, tracker in named_trackers.items():
+            self._subscribe_tracker(name, tracker)
+
+        return
+
     def _clean_up_tracker(self, name: str, tracker: Tracker) -> None:
         try:
             tracker._reset_current()
@@ -316,47 +357,6 @@ class EventDispatcher:
             raise exceptions.TrackerAlreadyRegisteredError(name, self.exp_name)
 
         self._named_trackers[name] = tracker
-        return
-
-    def subscribe(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
-        """Subscribe trackers to the dispatcher.
-
-        Args:
-            trackers: trackers to register with their class names.
-            named_trackers: trackers to register with custom names.
-
-        Raises:
-            TrackerAlreadyRegisteredError: if a tracker is already registered.
-        """
-        for tracker in trackers:
-            name = tracker.__class__.__name__
-            self._subscribe_tracker(name, tracker)
-
-        for name, tracker in named_trackers.items():
-            self._subscribe_tracker(name, tracker)
-
-        return
-
-    def remove(self, tracker_name: str) -> None:
-        """Remove a tracker by name from the dispatcher.
-
-        Args:
-            tracker_name: name of the tracker to remove.
-
-        Raises:
-            TrackerNotActiveError: if the tracker is not registered.
-        """
-        try:
-            self._named_trackers.pop(tracker_name)
-        except KeyError as ke:
-            raise exceptions.TrackerNotUsedError(tracker_name) from ke
-        return
-
-    def remove_all(self) -> None:
-        """Remove all trackers from the dispatcher."""
-        for tracker_name in list(self._named_trackers):
-            self.remove(tracker_name)
-
         return
 
 

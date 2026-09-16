@@ -52,6 +52,13 @@ class AbstractScheduler(abc.ABC):
 
         return self._compute(base_lr, epoch)
 
+    def __repr__(self) -> str:
+        """Generic representation of the scheduler."""
+        params_dict = self._get_parameters()
+        params_list = [f'{k}={v}' for k, v in params_dict.items()]
+        params = ', '.join(params_list)
+        return f'{self._get_name()}({params})'
+
     def bind(
         self,
         f: Callable[[_SchedulingLogic], AbstractScheduler],
@@ -75,14 +82,6 @@ class AbstractScheduler(abc.ABC):
         )
 
     @abc.abstractmethod
-    def _get_name(self) -> str:
-        """Name of the base scheduler for representation."""
-
-    @abc.abstractmethod
-    def _get_parameters(self) -> Mapping[str, Any]:
-        """Metadata associated with the scheduler."""
-
-    @abc.abstractmethod
     def _compute(self, base_lr: float, epoch: int) -> float:
         """Compute the scheduled value.
 
@@ -94,12 +93,13 @@ class AbstractScheduler(abc.ABC):
             the value for learning rate to use.
         """
 
-    def __repr__(self) -> str:
-        """Generic representation of the scheduler."""
-        params_dict = self._get_parameters()
-        params_list = [f'{k}={v}' for k, v in params_dict.items()]
-        params = ', '.join(params_list)
-        return f'{self._get_name()}({params})'
+    @abc.abstractmethod
+    def _get_name(self) -> str:
+        """Name of the base scheduler for representation."""
+
+    @abc.abstractmethod
+    def _get_parameters(self) -> Mapping[str, Any]:
+        """Metadata associated with the scheduler."""
 
 
 class ComposedScheduler(AbstractScheduler):
@@ -133,16 +133,16 @@ class ComposedScheduler(AbstractScheduler):
         return
 
     @override
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        return self._logic(base_lr, epoch)
+
+    @override
     def _get_name(self) -> str:
         return self.base_scheduler_name
 
     @override
     def _get_parameters(self) -> Mapping[str, Any]:
         return self.parameters
-
-    @override
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        return self._logic(base_lr, epoch)
 
 
 class TransformScheduler(AbstractScheduler, abc.ABC):
@@ -174,14 +174,6 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
         self.parameters = {} if parameters is None else dict(parameters)
         return
 
-    @override
-    def _get_name(self) -> str:
-        return self.base_scheduler_name
-
-    @override
-    def _get_parameters(self) -> Mapping[str, Any]:
-        return self.parameters
-
     @abc.abstractmethod
     def _compute(self, base_lr: float, epoch: int) -> float:
         """Compute the scheduled value.
@@ -193,6 +185,14 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
         Returns:
             the value for learning rate to use.
         """
+
+    @override
+    def _get_name(self) -> str:
+        return self.base_scheduler_name
+
+    @override
+    def _get_parameters(self) -> Mapping[str, Any]:
+        return self.parameters
 
 
 class RescaleScheduler(TransformScheduler):

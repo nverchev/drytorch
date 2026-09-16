@@ -246,19 +246,6 @@ class SQLConnection(base_classes.MetricLoader):
 
         return self._run
 
-    @override
-    def clean_up(self) -> None:
-        self._run = None
-        self._sources.clear()
-        return super().clean_up()
-
-    @override
-    def close(self) -> None:
-        self._sql_stashed_runs.clear()
-        self._sql_stashed_sources.clear()
-        self.engine.dispose()
-        return super().close()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -287,25 +274,6 @@ class SQLConnection(base_classes.MetricLoader):
             session.add(self._run)
             session.commit()
 
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.PauseExperimentEvent) -> None:
-        if self._run is not None:
-            self._sql_stashed_runs[event.run_id] = self._run
-            self._sql_stashed_sources[event.run_id] = self._sources
-            self._run = None
-            self._sources = {}
-
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.ContinueExperimentEvent) -> None:
-        if event.run_id not in self._sql_stashed_runs:
-            raise exceptions.NoStashedStateError(self, event.run_id)
-
-        self._run = self._sql_stashed_runs.pop(event.run_id)
-        self._sources = self._sql_stashed_sources.pop(event.run_id)
         return super().notify(event)
 
     @notify.register
@@ -348,6 +316,38 @@ class SQLConnection(base_classes.MetricLoader):
 
             session.commit()
         return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        if self._run is not None:
+            self._sql_stashed_runs[event.run_id] = self._run
+            self._sql_stashed_sources[event.run_id] = self._sources
+            self._run = None
+            self._sources = {}
+
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if event.run_id not in self._sql_stashed_runs:
+            raise exceptions.NoStashedStateError(self, event.run_id)
+
+        self._run = self._sql_stashed_runs.pop(event.run_id)
+        self._sources = self._sql_stashed_sources.pop(event.run_id)
+        return super().notify(event)
+
+    @override
+    def clean_up(self) -> None:
+        self._run = None
+        self._sources.clear()
+        return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        self._sql_stashed_runs.clear()
+        self._sql_stashed_sources.clear()
+        self.engine.dispose()
+        return super().close()
 
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
         with self.session_factory() as session:

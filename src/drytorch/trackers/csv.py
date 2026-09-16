@@ -80,25 +80,6 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.PauseExperimentEvent) -> None:
-        self._csv_stashed_state[event.run_id] = (
-            self._resume_run,
-            self._active_sources,
-        )
-        self._active_sources = {}
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.ContinueExperimentEvent) -> None:
-        if event.run_id not in self._csv_stashed_state:
-            raise exceptions.NoStashedStateError(self, event.run_id)
-
-        self._resume_run, self._active_sources = self._csv_stashed_state.pop(
-            event.run_id
-        )
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
         run_dir = self._get_run_dir()
         file_address = self._file_path(
@@ -152,6 +133,36 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
                 ]
             )
         return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        self._csv_stashed_state[event.run_id] = (
+            self._resume_run,
+            self._active_sources,
+        )
+        self._active_sources = {}
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if event.run_id not in self._csv_stashed_state:
+            raise exceptions.NoStashedStateError(self, event.run_id)
+
+        self._resume_run, self._active_sources = self._csv_stashed_state.pop(
+            event.run_id
+        )
+        return super().notify(event)
+
+    @override
+    def clean_up(self) -> None:
+        self._resume_run = False
+        self._active_sources.clear()
+        return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        self._csv_stashed_state.clear()
+        return super().close()
 
     def read_csv(
         self,
@@ -208,17 +219,6 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
             return epochs, named_metric_values
 
-    @override
-    def clean_up(self) -> None:
-        self._resume_run = False
-        self._active_sources.clear()
-        return super().clean_up()
-
-    @override
-    def close(self) -> None:
-        self._csv_stashed_state.clear()
-        return super().close()
-
     def _find_sources(self, model_name: str) -> set[str]:
         path = self._get_run_dir() / model_name
         named_sources = {file.stem for file in path.glob('*.csv')}
@@ -227,16 +227,6 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             raise exceptions.TrackerError(self, msg)
 
         return named_sources
-
-    @staticmethod
-    def _file_path(
-        run_dir: pathlib.Path,
-        model_name: str,
-        source_name: str,
-    ) -> pathlib.Path:
-        model_path = run_dir / model_name
-        model_path.mkdir(exist_ok=True)
-        return model_path / f'{source_name}.csv'
 
     def _load_metrics(
         self, model_name: str, max_epoch: int = -1
@@ -254,3 +244,13 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             out[source] = self.read_csv(model_name, source, max_epoch)
 
         return out
+
+    @staticmethod
+    def _file_path(
+        run_dir: pathlib.Path,
+        model_name: str,
+        source_name: str,
+    ) -> pathlib.Path:
+        model_path = run_dir / model_name
+        model_path.mkdir(exist_ok=True)
+        return model_path / f'{source_name}.csv'

@@ -87,11 +87,11 @@ class CheckpointProtocol(Protocol):
     def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""
 
-    def save(self) -> None:
-        """Save the model and optimizer state dictionaries."""
-
     def load(self, epoch: int = -1) -> None:
         """Load the model and optimizer state dictionaries."""
+
+    def save(self) -> None:
+        """Save the model and optimizer state dictionaries."""
 
 
 class GradientOpProtocol(Protocol):
@@ -184,23 +184,23 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
     epoch: int
 
+    @abc.abstractmethod
+    def __call__(self, /, inputs: _Input_contra) -> _Output_co:
+        """Call the module forward method."""
+
     @property
     @abc.abstractmethod
     def checkpoint(self) -> CheckpointProtocol:
         """The object responsible for saving and loading the model."""
 
     @property
+    def device(self) -> torch.device:
+        """The device where the weights are stored."""
+
+    @property
     @abc.abstractmethod
     def mixed_precision(self) -> bool:
         """Whether to use mixed precision computing."""
-
-    @abc.abstractmethod
-    def __call__(self, /, inputs: _Input_contra) -> _Output_co:
-        """Call the module forward method."""
-
-    @property
-    def device(self) -> torch.device:
-        """The device where the weights are stored."""
 
     @property
     def module(self) -> torch.nn.Module:
@@ -241,6 +241,10 @@ class MonitorProtocol(Protocol):
         """
 
     @property
+    def computed_metrics(self) -> Mapping[str, float]:
+        """Computed metric values."""
+
+    @property
     @abc.abstractmethod
     def model(self) -> ModelProtocol[Any, Any]:
         """The model to evaluate."""
@@ -248,10 +252,6 @@ class MonitorProtocol(Protocol):
     @property
     def name(self) -> str:
         """The name of the monitor."""
-
-    @property
-    def computed_metrics(self) -> Mapping[str, float]:
-        """Computed metric values."""
 
 
 @runtime_checkable

@@ -29,11 +29,6 @@ _R_co = TypeVar('_R_co', covariant=True)
 class AbstractAccumulator(abc.ABC, Generic[_T_contra, _R_co]):
     """Stateful aggregation container."""
 
-    @classmethod
-    @abc.abstractmethod
-    def from_value(cls, value: _T_contra) -> Self:
-        """Create an accumulator from raw value."""
-
     @abc.abstractmethod
     def merge(self, other: Any) -> None:
         """Merge another accumulator into this one.
@@ -49,6 +44,11 @@ class AbstractAccumulator(abc.ABC, Generic[_T_contra, _R_co]):
     @abc.abstractmethod
     def sync(self) -> None:
         """Synchronize state across distributed processes."""
+
+    @classmethod
+    @abc.abstractmethod
+    def from_value(cls, value: _T_contra) -> Self:
+        """Create an accumulator from raw value."""
 
 
 _A = TypeVar('_A', bound=AbstractAccumulator[Any, Any])
@@ -79,28 +79,9 @@ class Aggregator(Generic[_A]):
         """Return the accumulators by name."""
         return self._accumulators
 
-    def __add__(self, other: Mapping[str, _A]) -> Self:
-        """Return a new aggregator with the named accumulators merged."""
-        result = copy.deepcopy(self)
-        result += other
-        return result
-
     def __bool__(self) -> bool:
         """Return True if any accumulators are stored."""
         return bool(self.accumulators)
-
-    def __iadd__(self, other: Mapping[str, _A]) -> Self:
-        """Merge the named accumulators into this aggregator.
-
-        Accumulators with a name not yet stored are copied.
-        """
-        for key, acc in other.items():
-            if key in self._accumulators:
-                self._accumulators[key].merge(acc)
-            else:
-                self._accumulators[key] = copy.deepcopy(acc)
-
-        return self
 
     def __repr__(self) -> str:
         """Return representation of the aggregator."""
@@ -124,6 +105,25 @@ class Aggregator(Generic[_A]):
 
         return
 
+    def __add__(self, other: Mapping[str, _A]) -> Self:
+        """Return a new aggregator with the named accumulators merged."""
+        result = copy.deepcopy(self)
+        result += other
+        return result
+
+    def __iadd__(self, other: Mapping[str, _A]) -> Self:
+        """Merge the named accumulators into this aggregator.
+
+        Accumulators with a name not yet stored are copied.
+        """
+        for key, acc in other.items():
+            if key in self._accumulators:
+                self._accumulators[key].merge(acc)
+            else:
+                self._accumulators[key] = copy.deepcopy(acc)
+
+        return self
+
 
 @dataclasses.dataclass(slots=True)
 class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
@@ -136,14 +136,6 @@ class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
 
     count: int
     total: torch.Tensor
-
-    @classmethod
-    @override
-    def from_value(cls, value: torch.Tensor) -> TorchMeanAccumulator:
-        return cls(
-            count=value.numel(),
-            total=value.detach().sum(),
-        )
 
     @override
     def merge(self, other: TorchMeanAccumulator) -> None:
@@ -168,3 +160,11 @@ class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
             self.count = int(count_tensor.item())
 
         return
+
+    @classmethod
+    @override
+    def from_value(cls, value: torch.Tensor) -> TorchMeanAccumulator:
+        return cls(
+            count=value.numel(),
+            total=value.detach().sum(),
+        )

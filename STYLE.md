@@ -102,7 +102,8 @@ Python requires it (dataclass fields with defaults after those without).
   descriptors), instance attributes (public, then private), `__init__`,
   `__call__`, properties (each setter after its property), other special
   methods, public methods, operators (`__add__`, `__or__`), private methods,
-  static and class methods (public before private).
+  static and class methods (public before private). In trackers, `notify` and
+  its registered handlers are placed as the first method after properties.
 - `@override` does not move a member out of its group.
 - Arguments: positional first, then keyword; parameters inherited from a base
   class precede the ones the subclass adds.
@@ -176,6 +177,18 @@ Python requires it (dataclass fields with defaults after those without).
   exception.
 - Trackers handle events with a `functools.singledispatchmethod` `notify`
   and handlers named `_`, each ending with `return super().notify(event)`.
+  `notify` and its handlers are placed first after properties.
+- Events follow the chronological workflow order:
+  `StartExperimentEvent`, `ModelRegistrationEvent`, `LoadModelEvent`,
+  `ActorRegistrationEvent`, `StartTrainingEvent`, `StartEpochEvent`,
+  `IterateBatchEvent`, `MetricEvent`, `EndEpochEvent`,
+  `IncrementEpochEvent`, `LearningRateEvent`, `SaveModelEvent`,
+  `PauseExperimentEvent`, `ContinueExperimentEvent`,
+  `TerminatedTrainingEvent`, `EndTrainingEvent`, `StartTestEvent`,
+  `EndTestEvent`, `StopExperimentEvent`.
+- This workflow order defines the order of event classes in
+  `core/log_events.py` and the order of `@notify.register` handlers in
+  trackers.
 
 ## Tests
 - The other sections apply loosely to tests.

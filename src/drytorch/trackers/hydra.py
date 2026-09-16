@@ -78,19 +78,6 @@ class HydraLink(base_classes.Dumper):
         self._copy_hydra = copy_hydra
         return
 
-    @override
-    def clean_up(self) -> None:
-        try:  # replace the symlink with a copy
-            run_dir = self._get_run_dir(mkdir=False)
-            if self._copy_hydra and run_dir.is_symlink():
-                run_dir.unlink()
-                shutil.copytree(self.hydra_dir, run_dir)
-
-        except exceptions.AccessOutsideScopeError:
-            pass
-
-        return super().clean_up()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -114,3 +101,16 @@ class HydraLink(base_classes.Dumper):
                 break
 
         return
+
+    @override
+    def clean_up(self) -> None:
+        try:  # replace the symlink with a copy
+            run_dir = self._get_run_dir(mkdir=False)
+            if self._copy_hydra and run_dir.is_symlink():
+                run_dir.unlink()
+                shutil.copytree(self.hydra_dir, run_dir)
+
+        except exceptions.AccessOutsideScopeError:
+            pass
+
+        return super().clean_up()

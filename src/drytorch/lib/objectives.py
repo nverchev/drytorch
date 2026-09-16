@@ -85,6 +85,22 @@ class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
         self._cached_values: dict[str, Tensor] = {}
         return
 
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Deep copy magic method.
+
+        Args:
+            memo: dictionary of already copied objects.
+
+        Returns:
+            A deep copy of the object.
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        for k, v in self.__dict__.items():
+            setattr(result, k, copy.deepcopy(v, memo))
+
+        return result
+
     def compute(self) -> dict[str, Tensor]:
         """Return the aggregated objective value(s).
 
@@ -179,22 +195,6 @@ class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
         self._aggregator.sync()
         self._cached_values.clear()
         return
-
-    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
-        """Deep copy magic method.
-
-        Args:
-            memo: dictionary of already copied objects.
-
-        Returns:
-            A deep copy of the object.
-        """
-        cls = self.__class__
-        result = cls.__new__(cls)
-        for k, v in self.__dict__.items():
-            setattr(result, k, copy.deepcopy(v, memo))
-
-        return result
 
     def _compute(self) -> dict[str, Tensor]:
         """Computes the objective value(s)."""
@@ -373,6 +373,10 @@ class LossWithMetrics(
         super().__init__(*fn, **named_fn)
         self.criterion = criterion
         return
+
+    def __repr__(self):
+        """Return the class name with the formula."""
+        return f'{self.__class__.__name__}({self.formula})'
 
     @override
     def calculate(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
@@ -583,10 +587,6 @@ class LossWithMetrics(
             formula=f'{_parenthesize(self.formula, _TERM)}^{other}',
             **self.named_fn,
         )
-
-    def __repr__(self):
-        """Return the class name with the formula."""
-        return f'{self.__class__.__name__}({self.formula})'
 
     def _combine(
         self,

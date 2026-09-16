@@ -145,6 +145,28 @@ class AbstractCheckpoint(abc.ABC):
         """The registered optimizer for the model."""
         return self._optimizer
 
+    def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
+        """Bind the model to manage."""
+        if self._model is not None and self._model is not model:
+            raise exceptions.ModelAlreadyBoundError(self._model.name)
+
+        self._model = model
+        self.bind_module('model', model.module)
+        return
+
+    def bind_module(self, name: str, module: torch.nn.Module) -> None:
+        """Bind a module connected to the model."""
+        self._modules[name] = module
+        return
+
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        """Bind the optimizer connected to the model."""
+        if self._optimizer is not None and self._optimizer is not optimizer:
+            raise exceptions.OptimizerAlreadyBoundError(self.model.name)
+
+        self._optimizer = optimizer
+        return
+
     def load(self, epoch: int = -1) -> None:
         """Load the model and optimizer state dictionaries.
 
@@ -182,28 +204,6 @@ class AbstractCheckpoint(abc.ABC):
         self._model = None
         self._optimizer = None
         self._modules.clear()
-        return
-
-    def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
-        """Bind the model to manage."""
-        if self._model is not None and self._model is not model:
-            raise exceptions.ModelAlreadyBoundError(self._model.name)
-
-        self._model = model
-        self.bind_module('model', model.module)
-        return
-
-    def bind_module(self, name: str, module: torch.nn.Module) -> None:
-        """Bind a module connected to the model."""
-        self._modules[name] = module
-        return
-
-    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
-        """Bind the optimizer connected to the model."""
-        if self._optimizer is not None and self._optimizer is not optimizer:
-            raise exceptions.OptimizerAlreadyBoundError(self.model.name)
-
-        self._optimizer = optimizer
         return
 
     def save(self) -> None:
@@ -290,15 +290,15 @@ class LocalCheckpoint(AbstractCheckpoint):
         return self._paths
 
     @override
-    def save(self) -> None:
-        self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
-        super().save()
-        return
-
-    @override
     def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
         super().bind_model(model)
         self._paths = CheckpointPathManager(model, self.par_dir)
+        return
+
+    @override
+    def save(self) -> None:
+        self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
+        super().save()
         return
 
     @override
@@ -310,6 +310,24 @@ class LocalCheckpoint(AbstractCheckpoint):
             raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)
 
         return
+
+    def _get_last_saved_epoch(self) -> int:
+        model_directory = self.paths.model_dir
+        if model_directory.exists():
+            all_epochs: list[pathlib.Path] = [
+                d for d in model_directory.iterdir() if d.is_dir()
+            ]
+        else:
+            all_epochs = []
+
+        if not all_epochs:
+            raise exceptions.ModelNotFoundError(model_directory)
+
+        last_epoch_dir = max(all_epochs, key=self._get_epoch)
+        return self._get_epoch(last_epoch_dir)
+
+    def _get_location(self) -> str:
+        return str(self.paths.epoch_dir)
 
     @override
     def _load_module(
@@ -358,24 +376,6 @@ class LocalCheckpoint(AbstractCheckpoint):
                 self.paths.get_optimizer_state_path(),
             )
         return
-
-    def _get_last_saved_epoch(self) -> int:
-        model_directory = self.paths.model_dir
-        if model_directory.exists():
-            all_epochs: list[pathlib.Path] = [
-                d for d in model_directory.iterdir() if d.is_dir()
-            ]
-        else:
-            all_epochs = []
-
-        if not all_epochs:
-            raise exceptions.ModelNotFoundError(model_directory)
-
-        last_epoch_dir = max(all_epochs, key=self._get_epoch)
-        return self._get_epoch(last_epoch_dir)
-
-    def _get_location(self) -> str:
-        return str(self.paths.epoch_dir)
 
     @staticmethod
     def _get_epoch(directory: pathlib.Path) -> int:

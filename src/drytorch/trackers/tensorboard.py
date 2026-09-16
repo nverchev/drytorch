@@ -90,33 +90,6 @@ class TensorBoard(base_classes.Dumper):
 
         return self._writer
 
-    def _terminate_server(self) -> None:
-        if self._process is not None:
-            self._process.terminate()
-            self._process.wait()
-            self._process = None
-            self._current_logdir = None
-            self._port = None
-
-        return
-
-    @override
-    def clean_up(self) -> None:
-        if self._writer is not None:
-            self.writer.close()
-
-        self._writer = None
-        return super().clean_up()
-
-    @override
-    def close(self) -> None:
-        for writer in self._stashed_writers.values():
-            writer.close()
-
-        self._stashed_writers.clear()
-        self._terminate_server()
-        return super().close()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -140,6 +113,14 @@ class TensorBoard(base_classes.Dumper):
         return
 
     @notify.register
+    def _(self, event: log_events.MetricEvent) -> None:
+        for name, value in event.metrics.items():
+            full_name = f'{event.model_name}/{event.source_name}-{name}'
+            self.writer.add_scalar(full_name, value, global_step=event.epoch)
+
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         if self._writer is not None:
             self.writer.flush()
@@ -156,13 +137,22 @@ class TensorBoard(base_classes.Dumper):
         self._writer = self._stashed_writers.pop(event.run_id)
         return super().notify(event)
 
-    @notify.register
-    def _(self, event: log_events.MetricEvent) -> None:
-        for name, value in event.metrics.items():
-            full_name = f'{event.model_name}/{event.source_name}-{name}'
-            self.writer.add_scalar(full_name, value, global_step=event.epoch)
+    @override
+    def clean_up(self) -> None:
+        if self._writer is not None:
+            self.writer.close()
 
-        return super().notify(event)
+        self._writer = None
+        return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        for writer in self._stashed_writers.values():
+            writer.close()
+
+        self._stashed_writers.clear()
+        self._terminate_server()
+        return super().close()
 
     def _start_tensorboard(self, logdir: pathlib.Path) -> None:
         """Start a TensorBoard server and open it in the default browser."""
@@ -209,6 +199,16 @@ class TensorBoard(base_classes.Dumper):
             raise exceptions.TrackerError(self, msg) from ose
 
         self._current_logdir = logdir
+        return
+
+    def _terminate_server(self) -> None:
+        if self._process is not None:
+            self._process.terminate()
+            self._process.wait()
+            self._process = None
+            self._current_logdir = None
+            self._port = None
+
         return
 
     @staticmethod

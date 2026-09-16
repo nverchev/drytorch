@@ -112,20 +112,6 @@ class Dumper(tracking.Tracker):
 
         return self._run_id
 
-    @override
-    def clean_up(self) -> None:
-        """Remove experimental data from the tracker."""
-        self._par_dir = None
-        self._exp_name = None
-        self._run_id = None
-        return super().clean_up()
-
-    @override
-    def close(self) -> None:
-        """Release tracker state, including any paused state."""
-        self._stashed_state.clear()
-        return super().close()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -157,6 +143,20 @@ class Dumper(tracking.Tracker):
             event.run_id
         )
         return super().notify(event)
+
+    @override
+    def clean_up(self) -> None:
+        """Remove experimental data from the tracker."""
+        self._par_dir = None
+        self._exp_name = None
+        self._run_id = None
+        return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        """Release tracker state, including any paused state."""
+        self._stashed_state.clear()
+        return super().close()
 
     def _get_exp_dir(self) -> pathlib.Path:
         exp_dir = self.par_dir / self.folder_name / self.exp_name
@@ -234,6 +234,17 @@ class MemoryMetrics(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
+    def _(self, event: log_events.LoadModelEvent) -> None:
+        if self._metric_loader is None:
+            return super().notify(event)
+
+        metrics = self._metric_loader.load_metrics(
+            event.model_name, event.epoch
+        )
+        self.model_dict[event.model_name] = metrics
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
         sourced_metrics = self.model_dict.setdefault(event.model_name, {})
         epochs, logs_dict = sourced_metrics.setdefault(
@@ -243,17 +254,6 @@ class MemoryMetrics(tracking.Tracker):
         for metric_name, metric_value in event.metrics.items():
             logs_dict.setdefault(metric_name, []).append(metric_value)
 
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.LoadModelEvent) -> None:
-        if self._metric_loader is None:
-            return super().notify(event)
-
-        metrics = self._metric_loader.load_metrics(
-            event.model_name, event.epoch
-        )
-        self.model_dict[event.model_name] = metrics
         return super().notify(event)
 
 
