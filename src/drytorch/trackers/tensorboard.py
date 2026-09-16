@@ -36,7 +36,7 @@ class TensorBoard(base_classes.Dumper):
     """
 
     base_port: ClassVar[int] = 6006
-    folder_name = 'tensorboard'
+    folder_name: ClassVar[str] = 'tensorboard'
     instance_count: ClassVar[int] = 0
 
     _current_logdir: pathlib.Path | None

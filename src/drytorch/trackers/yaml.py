@@ -10,7 +10,7 @@ import functools
 import pathlib
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, ClassVar
 
 import yaml
 
@@ -46,7 +46,7 @@ class MetadataDumper(base_classes.Dumper):
         folder_name: name for the folder that contains metadata.
     """
 
-    folder_name = 'metadata'
+    folder_name: ClassVar[str] = 'metadata'
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.

@@ -32,7 +32,7 @@ class WandbWarning(exceptions.DryTorchWarning):
 class Wandb(Dumper):
     """Tracker that wraps a run for the wandb library."""
 
-    folder_name = 'wandb'
+    folder_name: ClassVar[str] = 'wandb'
     _default_settings: ClassVar[wandb_settings.Settings] = (
         wandb_settings.Settings()
     )

@@ -363,7 +363,7 @@ class SWAModel(AveragedModel[Input, Output]):
         start_epoch: the epoch at which to start averaging.
     """
 
-    average_name = 'swa_model'
+    average_name: ClassVar[str] = 'swa_model'
     start_epoch: Final[int]
 
     def __init__(
@@ -433,7 +433,7 @@ class EMAModel(AveragedModel[Input, Output]):
         exec_averaged_module: the averaged module.
     """
 
-    average_name = 'ema_model'
+    average_name: ClassVar[str] = 'ema_model'
     decay: Final[float]
 
     def __init__(

@@ -41,7 +41,7 @@ class DryTorchDialect(csv.Dialect):
 class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     """Dump metrics into a CSV file."""
 
-    folder_name = 'csv_metrics'
+    folder_name: ClassVar[str] = 'csv_metrics'
     _base_headers: ClassVar[tuple[str, ...]] = ('Model', 'Source', 'Epoch')
     _default_dialect: ClassVar[csv.Dialect] = DryTorchDialect()
 
