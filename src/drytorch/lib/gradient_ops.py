@@ -323,7 +323,7 @@ class ZStatCriterion(ClippingCriterion):
     Attributes:
         alpha: exponential moving average decay factor (0 < alpha < 1).
         clipping_function: function to determine clipping behavior.
-        z_thresh: Z-score threshold between |z_score| and z_thresh.
+        z_thresh: the Z-score above which values are clipped.
     """
 
     _eps: ClassVar[float] = 1e-8
@@ -344,7 +344,7 @@ class ZStatCriterion(ClippingCriterion):
 
         Args:
             alpha: exponential moving average decay factor (0 < alpha < 1).
-            z_thresh: threshold for the Z-score.
+            z_thresh: the Z-score above which values are clipped.
             clipping_function: function to determine clipping behavior.
         """
         self.alpha = alpha
