@@ -1,4 +1,4 @@
-"""Module containing utilies to ensure compatibility with torchmetrics."""
+"""Utilities to ensure compatibility with torchmetrics."""
 
 from __future__ import annotations
 
@@ -37,8 +37,9 @@ def from_torchmetrics(
         Note that this CompositionalMetric can be used as loss.
         """
 
-        name = 'Loss'
         metric: Final[metric.CompositionalMetric]
+        name = 'Loss'
+        _leaf_metrics: list[metric.Metric]
 
         def __init__(self, _metric: metric.CompositionalMetric) -> None:
             self.metric = _metric

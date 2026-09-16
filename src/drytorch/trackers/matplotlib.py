@@ -33,20 +33,20 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
 
     def __init__(
         self,
+        metric_loader: base_classes.MetricLoader | None = None,
+        metric_names: Iterable[str] = (),
         model_names: Iterable[str] = (),
         source_names: Iterable[str] = (),
-        metric_names: Iterable[str] = (),
-        metric_loader: base_classes.MetricLoader | None = None,
         start: int = 1,
         palette: str = 'tab10',
     ) -> None:
         """Initialize.
 
         Args:
+            metric_loader: a tracker that can load metrics from a previous run.
+            metric_names: the names of the metrics to plot. Defaults to all.
             model_names: the names of the models to plot. Defaults to all.
             source_names: the names of the sources to plot. Defaults to all.
-            metric_names: the names of the metrics to plot. Defaults to all.
-            metric_loader: a tracker that can load metrics from a previous run.
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
             palette: colormap name to use for source colors (default: 'tab10').
@@ -55,7 +55,11 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
             ValueError: if palette is not a valid colormap name.
         """
         super().__init__(
-            model_names, source_names, metric_names, start, metric_loader
+            metric_loader=metric_loader,
+            metric_names=metric_names,
+            model_names=model_names,
+            source_names=source_names,
+            start=start,
         )
         self._model_figure = {}
         self._cmap = self._get_cmap(palette)

@@ -1,4 +1,4 @@
-"""Module containing schedulers for the learning rates."""
+"""Schedulers for the learning rates."""
 
 from __future__ import annotations
 
@@ -151,14 +151,14 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
     """Base class for scheduler transformations.
 
     Attributes:
+        base_scheduler_name: name of the base scheduler for representation.
         logic: callable to calculate the scheduling.
         parameters: metadata associated with the scheduler.
-        base_scheduler_name: name of the base scheduler for representation.
     """
 
     base_scheduler_name: Final[str]
-    parameters: Final[Mapping[str, Any]]
     logic: Final[_SchedulingLogic]
+    parameters: Final[Mapping[str, Any]]
 
     def __init__(
         self,
@@ -172,8 +172,8 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
             parameters: metadata associated with the scheduler.
         """
         self.base_scheduler_name = self.__class__.__name__
-        self.parameters = {} if parameters is None else dict(parameters)
         self.logic = logic
+        self.parameters = {} if parameters is None else dict(parameters)
         return
 
     @override
@@ -201,10 +201,10 @@ class RescaleScheduler(TransformScheduler):
     """Scheduler adding scaling to existing logic.
 
     Attributes:
-        logic: callable to calculate the scheduling.
-        factor: factor to multiply the output by.
-        parameters: metadata associated with the scheduler.
         base_scheduler_name: name of the base scheduler for representation.
+        factor: factor to multiply the output by.
+        logic: callable to calculate the scheduling.
+        parameters: metadata associated with the scheduler.
     """
 
     factor: Final[float]
@@ -231,17 +231,17 @@ class RestartScheduler(TransformScheduler):
     """Scheduler adding periodic restarts to existing logic.
 
     Attributes:
+        base_scheduler_name: name of the base scheduler for representation.
         logic: callable to calculate the scheduling.
-        restart_interval: number of epochs between restarts.
-        restart_fraction: fraction to use when restarting.
         max_restart: maximum number of restarts before deactivating.
         parameters: metadata associated with the scheduler.
-        base_scheduler_name: name of the base scheduler for representation.
+        restart_fraction: fraction to use when restarting.
+        restart_interval: number of epochs between restarts.
     """
 
-    restart_interval: Final[int]
-    restart_fraction: Final[float]
     max_restart: Final[int | None]
+    restart_fraction: Final[float]
+    restart_interval: Final[int]
 
     def __init__(
         self,
@@ -273,9 +273,9 @@ class RestartScheduler(TransformScheduler):
             'max_restart': max_restart,
         }
         super().__init__(logic, parameters)
-        self.restart_interval = restart_interval
-        self.restart_fraction = restart_fraction
         self.max_restart = max_restart
+        self.restart_fraction = restart_fraction
+        self.restart_interval = restart_interval
         return
 
     def _compute(self, base_lr: float, epoch: int) -> float:
@@ -295,10 +295,10 @@ class WarmupScheduler(TransformScheduler):
     """Scheduler adding warmup to existing logic.
 
     Attributes:
-        logic: callable to calculate the scheduling.
-        warmup_steps: number of warmup steps.
-        parameters: metadata associated with the scheduler.
         base_scheduler_name: name of the base scheduler for representation.
+        logic: callable to calculate the scheduling.
+        parameters: metadata associated with the scheduler.
+        warmup_steps: number of warmup steps.
     """
 
     warmup_steps: Final[int]
@@ -368,13 +368,13 @@ class PolynomialScheduler(BaseScheduler):
 
     Attributes:
         max_epochs: maximum number of epochs.
-        power: polynomial power.
         min_decay: minimum fraction of the initial learning rate.
+        power: polynomial power.
     """
 
     max_epochs: int = 1000
-    power: float = 1.0
     min_decay: float = 0.0
+    power: float = 1.0
 
     def __post_init__(self):
         """Input Validation."""
@@ -478,12 +478,12 @@ class StepScheduler(BaseScheduler):
     Reduces learning rate by a factor at specified milestones.
 
     Attributes:
-        milestones: iterable of epochs at which to reduce the learning rate.
         gamma: factor by which to reduce learning rate.
+        milestones: iterable of epochs at which to reduce the learning rate.
     """
 
-    milestones: Iterable[int] = dataclasses.field(default_factory=lambda: [200])
     gamma: float = 0.1
+    milestones: Iterable[int] = dataclasses.field(default_factory=lambda: [200])
 
     def __post_init__(self):
         """Input Validation."""

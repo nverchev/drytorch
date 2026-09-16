@@ -1,4 +1,4 @@
-"""Module containing classes and functions to average samples."""
+"""Classes and functions to average samples."""
 
 from __future__ import annotations
 

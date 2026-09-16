@@ -1,4 +1,4 @@
-"""Init file for the drytorch package.
+"""Package initialization and default tracker setup.
 
 It automatically initializes some trackers with sets of settings (modes) that
 work well together. The mode can be set as an environmental variable

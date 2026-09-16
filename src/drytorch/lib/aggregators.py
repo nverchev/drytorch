@@ -1,4 +1,4 @@
-"""Module containing accumulators and a container merging them by name."""
+"""Accumulators and a container merging them by name."""
 
 from __future__ import annotations
 
@@ -130,19 +130,19 @@ class TorchMeanAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
     """Accumulator computing arithmetic mean for tensors.
 
     Attributes:
-        total: sum of all values.
         count: number of values.
+        total: sum of all values.
     """
 
-    total: torch.Tensor
     count: int
+    total: torch.Tensor
 
     @classmethod
     @override
     def from_value(cls, value: torch.Tensor) -> TorchMeanAccumulator:
         return cls(
-            total=value.detach().sum(),
             count=value.numel(),
+            total=value.detach().sum(),
         )
 
     @override

@@ -1,4 +1,4 @@
-"""Module containing a TensorBoard tracker."""
+"""TensorBoard tracker."""
 
 import functools
 import importlib.util
@@ -35,47 +35,47 @@ class TensorBoard(base_classes.Dumper):
         instance_count: counter for TensorBoard instances started.
     """
 
-    folder_name = 'tensorboard'
     base_port: ClassVar[int] = 6006
+    folder_name = 'tensorboard'
     instance_count: ClassVar[int] = 0
 
-    _writer: tensorboard.SummaryWriter | None
-    _process: subprocess.Popen | None
     _current_logdir: pathlib.Path | None
-    _port: int | None
-    _instance_number: int
-    _start_server: bool
-    _max_queue_size: int
     _flush_secs: int
+    _instance_number: int
+    _max_queue_size: int
+    _port: int | None
+    _process: subprocess.Popen | None
+    _start_server: bool
     _stashed_writers: dict[str, tensorboard.SummaryWriter]
+    _writer: tensorboard.SummaryWriter | None
 
     def __init__(
         self,
         par_dir: pathlib.Path | None = None,
-        start_server: bool = True,
-        max_queue_size: int = 10,
         flush_secs: int = 120,
+        max_queue_size: int = 10,
+        start_server: bool = True,
     ) -> None:
         """Initialize.
 
         Args:
             par_dir: the parent directory for the tracker data. Default uses
                 the same of the current experiment.
-            start_server: if ``True``, start a local TensorBoard server.
-            max_queue_size: see tensorboard.SummaryWriter docs.
             flush_secs: tensorboard.SummaryWriter docs.
+            max_queue_size: see tensorboard.SummaryWriter docs.
+            start_server: if ``True``, start a local TensorBoard server.
         """
         super().__init__(par_dir)
-        self._writer = None
-        self._process = None
         self._current_logdir = None
-        self._port = None
+        self._flush_secs = flush_secs
         self.__class__.instance_count += 1
         self._instance_number = self.__class__.instance_count
-        self._start_server = start_server
         self._max_queue_size = max_queue_size
-        self._flush_secs = flush_secs
+        self._port = None
+        self._process = None
+        self._start_server = start_server
         self._stashed_writers = {}
+        self._writer = None
         return
 
     @property

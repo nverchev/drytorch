@@ -1,4 +1,4 @@
-"""Module containing YAML options and dumper.
+"""YAML options and dumper.
 
 Attributes:
     MAX_LENGTH_PLAIN_REPR: Maximum length for sequences in plain style.

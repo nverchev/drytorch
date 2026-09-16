@@ -1,4 +1,4 @@
-"""Module containing sqlalchemy Table classes and a tracker to track metrics."""
+"""SQLAlchemy Table classes and a tracker to track metrics."""
 
 from __future__ import annotations
 

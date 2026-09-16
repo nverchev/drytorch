@@ -33,6 +33,7 @@
 - added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
 - added `DirectionNotResolvedError`, raised by `MetricTracker.resolved_best_is` before the direction is known
 ## Changed
+- ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
 - enforced explicit returns at the end of all functions and methods
 - renamed `DistributedDatasetNotDivisibleWarning` attribute `num_processes` to `n_processes`

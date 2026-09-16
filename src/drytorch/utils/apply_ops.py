@@ -1,4 +1,4 @@
-"""Module containing functions for nested containers."""
+"""Functions for nested containers."""
 
 import copy
 

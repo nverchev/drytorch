@@ -1,4 +1,4 @@
-"""Module containing the Experiment and Run class."""
+"""Experiment and Run classes."""
 
 from __future__ import annotations
 
@@ -157,12 +157,11 @@ class Experiment(Generic[_T_co]):
     type annotations.
 
     Attributes:
-        folder_name: name of the hidden folder storing experiment metadata.
-        run_file: filename storing the registry of run IDs for this experiment.
-        previous_runs: a list of all previous runs created by this class.
         par_dir: parent directory for experiment data.
         tags: descriptors for the experiment.
         trackers: dispatcher for publishing events.
+        folder_name: name of the hidden folder storing experiment metadata.
+        run_file: filename storing the registry of run IDs for this experiment.
     """
 
     folder_name: ClassVar[str] = '.drytorch'
@@ -240,16 +239,16 @@ class Experiment(Generic[_T_co]):
     def create_run(
         self,
         *,
-        run_id: str | None = None,
-        resume: bool = False,
         record: bool = True,
+        resume: bool = False,
+        run_id: str | None = None,
     ) -> Run[_T_co]:
         """Convenience constructor for a Run using this experiment.
 
         Args:
-            run_id: identifier of the run; defaults to timestamp.
-            resume: resume the selected run if run_id is set, else the last run.
             record: record the run in the registry.
+            resume: resume the selected run if run_id is set, else the last run.
+            run_id: identifier of the run; defaults to timestamp.
 
         Returns:
             The created run object.
@@ -410,10 +409,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     """Execution lifecycle for a single run of an Experiment.
 
     Attributes:
-        status: Current status of the run.
-        resumed: whether the run was resumed.
         metadata_manager: Manager for run metadata.
         record: whether to record the run in the registry.
+        resumed: whether the run was resumed.
+        status: Current status of the run.
     """
 
     _STATUS_WARNINGS: ClassVar[
@@ -438,25 +437,25 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self,
         experiment: Experiment[_T_co],
         run_id: str,
-        resumed: bool = False,
         record: bool = True,
+        resumed: bool = False,
     ) -> None:
         """Initialize.
 
         Args:
             experiment: the experiment this run belongs to.
             run_id: identifier of the run.
-            resumed: whether the run was resumed.
             record: record the run in the registry.
+            resumed: whether the run was resumed.
         """
         super().__init__()
-        self._experiment = experiment
-        self._id = run_id
-        self.resumed = resumed
-        self.record = record
-        self.status = 'created'
         self.metadata_manager = tracking.MetadataManager()
+        self.record = record
+        self.resumed = resumed
+        self.status = 'created'
+        self._experiment = experiment
         self._finalizer = None
+        self._id = run_id
         return
 
     @property

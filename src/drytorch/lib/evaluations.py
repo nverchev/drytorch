@@ -1,4 +1,4 @@
-"""Module containing classes for the evaluation of a model."""
+"""Classes for the evaluation of a model."""
 
 from typing import Any, TypeVar
 
@@ -42,8 +42,8 @@ class Diagnostic(
     """Evaluate the model on inference mode without logging the metrics.
 
     Attributes:
-        model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
+        model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
         outputs_list: sequence of optionally stored outputs.
     """
@@ -58,8 +58,8 @@ class Validation(
     It could be used for testing (see subclass) or validating a model.
 
     Attributes:
-        model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
+        model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
         outputs_list: sequence of optionally stored outputs.
     """
@@ -90,8 +90,8 @@ class Test(Validation[Input, Target, Output]):
     """Evaluate model performance on a test dataset.
 
     Attributes:
-        model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
+        model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
         outputs_list: sequence of optionally stored outputs.
     """

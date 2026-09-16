@@ -1,4 +1,4 @@
-"""Module containing custom logging configurations for the 'drytorch' logger.
+"""Custom logging configurations for the 'drytorch' logger.
 
 It defines and implements a formatter that formats log messages according to
 the levels defined in the INFO_LEVELS variable. By default, it prints to

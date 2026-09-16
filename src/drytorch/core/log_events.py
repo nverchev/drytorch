@@ -1,4 +1,4 @@
-"""Classes containing logging event classes."""
+"""Logging event classes."""
 
 from __future__ import annotations
 

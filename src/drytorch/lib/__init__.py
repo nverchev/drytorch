@@ -1,1 +1,1 @@
-"""Contains library implementations."""
+"""Library implementations."""

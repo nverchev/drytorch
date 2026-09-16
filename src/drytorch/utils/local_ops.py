@@ -1,4 +1,4 @@
-"""Module for managing local experiment folders."""
+"""Functions for managing local experiment folders."""
 
 import pathlib
 import shutil

@@ -1,4 +1,4 @@
-"""Module containing classes for wrapping a torch module and its optimizer."""
+"""Classes for wrapping a torch module and its optimizer."""
 
 from __future__ import annotations
 
@@ -48,18 +48,18 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
     """Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
-        exec_module: :class:`torch.nn.Module` used for execution.
         epoch: the number of epochs the model has been trained so far.
+        exec_module: :class:`torch.nn.Module` used for execution.
     """
 
     _name = repr_utils.DefaultName()
 
-    exec_module: Final[torch.nn.Module]
-    epoch: int
-    mixed_precision_: Final[bool]
     checkpoint_: Final[p.CheckpointProtocol]
-    _device: torch.device
+    epoch: int
+    exec_module: Final[torch.nn.Module]
+    mixed_precision_: Final[bool]
     _compile: bool
+    _device: torch.device
     _distribute: bool
     _registered: bool
 
@@ -425,8 +425,8 @@ class EMAModel(AveragedModel[Input, Output]):
     Use the averaged model when in inference mode.
 
     Attributes:
-        exec_averaged_module: the averaged module.
         decay: the exponential decay rate for the moving average.
+        exec_averaged_module: the averaged module.
     """
 
     average_name = 'ema_model'

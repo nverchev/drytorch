@@ -1,4 +1,4 @@
-"""Module containing hooks and callbacks for a Trainer."""
+"""Hooks and callbacks for a Trainer."""
 
 from __future__ import annotations
 
@@ -239,8 +239,8 @@ class CallEvery(Hook[Input, Target, Output]):
 
     Attributes:
         base_hook_name: name of the base hook for representation.
-        parameters: metadata associated with the hook.
         interval: the frequency of calling the function.
+        parameters: metadata associated with the hook.
         start: the epoch to start calling the function.
     """
 
@@ -492,8 +492,10 @@ class MetricExtractor:
     ) -> tuple[str, p.ObjectiveProtocol[Any, Any] | None]:
         if isinstance(self.metric_spec, p.ObjectiveProtocol):
             metric = self.metric_spec
+        elif isinstance(monitor, p.ObjectiveMonitorProtocol):
+            metric = monitor.objective
         else:
-            metric = getattr(monitor, 'objective', None)
+            metric = None
 
         metric_name = None if metric is None else self._get_metric_name(metric)
         if isinstance(self.metric_spec, str):
@@ -525,8 +527,8 @@ class MetricExtractor:
         if isinstance(metric, str):
             return metric
 
-        if name := getattr(metric, 'name', False):
-            return str(name)
+        if isinstance(metric, p.NamedProtocol) and metric.name:
+            return str(metric.name)
 
         return metric.__class__.__name__
 
@@ -534,7 +536,11 @@ class MetricExtractor:
     def _get_metric_best_is(
         metric: p.ObjectiveProtocol[Output, Target] | str | None,
     ) -> Literal['higher', 'lower'] | None:
-        higher_is_better = getattr(metric, 'higher_is_better', None)
+        if isinstance(metric, p.HigherIsBetterProtocol):
+            higher_is_better = metric.higher_is_better
+        else:
+            higher_is_better = None
+
         if higher_is_better is None:
             return None
 
@@ -545,8 +551,8 @@ class MetricMonitor(Generic[Output, Target]):
     """Handle metric monitoring and alerts when performance stops increasing.
 
     Attributes:
-        metric_tracker: handles metric value tracking and improvement detection.
         extractor: handles metric extraction from protocols.
+        metric_tracker: handles metric value tracking and improvement detection.
     """
 
     extractor: Final[MetricExtractor]
@@ -812,12 +818,12 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
     """Change the learning rate schedule when a metric has stopped improving.
 
     Attributes:
-        monitor: monitor instance.
         cooldown: number of calls to skip after changing the schedule.
+        monitor: monitor instance.
     """
 
-    monitor: Final[MetricMonitor[Output, Target]]
     cooldown: Final[int]
+    monitor: Final[MetricMonitor[Output, Target]]
     _cooldown_counter: int
 
     def __init__(
@@ -846,6 +852,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
+        self.cooldown = cooldown
         self.monitor = MetricMonitor(
             metric=metric,
             monitor=monitor,
@@ -854,7 +861,6 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
             best_is=best_is,
             filter_fn=filter_fn,
         )
-        self.cooldown = cooldown
         self._cooldown_counter = 0
         return
 
@@ -902,9 +908,9 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
     """Reduce the learning rate when a metric has stopped improving.
 
     Attributes:
-        monitor: monitor instance.
         cooldown: number of calls to skip after changing the schedule.
         factor: factor by which to reduce the learning rate.
+        monitor: monitor instance.
     """
 
     factor: Final[float]
@@ -975,8 +981,8 @@ class RestartScheduleOnPlateau(
     """Restart the scheduling after plateauing.
 
     Attributes:
-        monitor: monitor instance.
         cooldown: number of calls to skip after changing the schedule.
+        monitor: monitor instance.
     """
 
     def get_scheduler(

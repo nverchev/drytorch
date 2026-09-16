@@ -1,4 +1,4 @@
-"""Module containing utilities to extract readable representations.
+"""Utilities to extract readable representations.
 
 Attributes:
     MAX_DEPTH: Max number of recursions when representing an object.

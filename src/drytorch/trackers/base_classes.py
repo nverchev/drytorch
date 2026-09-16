@@ -1,4 +1,4 @@
-"""Module containing abstract classes for trackers."""
+"""Abstract classes for trackers."""
 
 from __future__ import annotations
 
@@ -260,28 +260,28 @@ class MemoryMetrics(tracking.Tracker):
 class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     """Abstract class for plotting trajectory from sources."""
 
+    _metric_names: Final[Iterable[str]]
     _model_names: Final[Iterable[str]]
     _source_names: Final[Iterable[str]]
-    _metric_names: Final[Iterable[str]]
     _start: int
 
     def __init__(
         self,
+        metric_loader: MetricLoader | None = None,
+        metric_names: Iterable[str] = (),
         model_names: Iterable[str] = (),
         source_names: Iterable[str] = (),
-        metric_names: Iterable[str] = (),
         start: int = 1,
-        metric_loader: MetricLoader | None = None,
     ) -> None:
         """Initialize.
 
         Args:
+            metric_loader: a tracker that can load metrics from a previous run.
+            metric_names: the names of the metrics to plot. Defaults to all.
             model_names: the names of the models to plot. Defaults to all.
             source_names: the names of the sources to plot. Defaults to all.
-            metric_names: the names of the metrics to plot. Defaults to all.
             start: if positive, the epoch from which to start plotting;
                 if negative, the last number of epochs. Defaults to all.
-            metric_loader: a tracker that can load metrics from a previous run.
 
         Note:
             start_epoch allows you to exclude the initial epochs from the graph.
@@ -289,9 +289,9 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
             its entirety.
         """
         super().__init__(metric_loader)
+        self._metric_names = metric_names
         self._model_names = model_names
         self._source_names = source_names
-        self._metric_names = metric_names
         self._start = start
         return
 
@@ -319,16 +319,16 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
     def plot(
         self,
         model_name: str,
-        source_names: Iterable[str] = (),
         metric_names: Iterable[str] = (),
+        source_names: Iterable[str] = (),
         start_epoch: int = 1,
     ) -> list[Plot]:
         """Plot the learning curves.
 
         Args:
             model_name: the name of the model to plot.
-            source_names: the names of the sources to plot. Defaults to all.
             metric_names: the metric to plot. Defaults to all.
+            source_names: the names of the sources to plot. Defaults to all.
             start_epoch: the epoch from which to start plotting.
 
         Returns:

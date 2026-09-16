@@ -1,4 +1,4 @@
-"""Module containing classes nad utilities for batching a dateset."""
+"""Classes and utilities for batching a dataset."""
 
 from __future__ import annotations
 
@@ -88,12 +88,12 @@ class Permutation(Sequence[int]):
     """Sliceable pseudo-random permutation.
 
     Attributes:
-        size: the length of the permutation.
         seed: seed for the random generator.
+        size: the length of the permutation.
     """
 
-    size: Final[int]
     seed: Final[int]
+    size: Final[int]
     _new_indices: list[int]
 
     def __init__(self, size: int, seed: int | None) -> None:
@@ -103,11 +103,11 @@ class Permutation(Sequence[int]):
             size: the length of the permutation.
             seed: seed for the random generator.
         """
-        self.size = size
         if seed is None:
-            seed = int(random.default_rng().integers(2**32))
+            seed = int(torch.randint(0, 1000000, (1,)).item())
 
         self.seed = seed
+        self.size = size
         rng = random.default_rng(self.seed)
         self._new_indices = rng.permutation(self.size).tolist()
         return
@@ -144,9 +144,9 @@ class DataLoader(p.LoaderProtocol[Data]):
     dataset_: Final[data.Dataset[Data]]
     dataset_len: Final[int]
     sampler_: Final[data.Sampler | Iterable]
-    _pin_memory: bool
-    _n_workers: int
     _distributed: bool
+    _n_workers: int
+    _pin_memory: bool
     _user_sampler: data.Sampler | Iterable | None
 
     def __init__(
@@ -384,7 +384,7 @@ def take_from_dataset(
 ) -> Data:
     """Sample a batch of elements from a dataset and transfers them to a device.
 
-    Arguments:
+    Args:
         dataset: the dataset where to sample from.
         n_samples: the number of samples to take.
         preserve_order: take samples in order or randomly otherwise.

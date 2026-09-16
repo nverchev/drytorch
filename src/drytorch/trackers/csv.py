@@ -1,4 +1,4 @@
-"""Module containing a tracker that dumps metrics in a CSV file."""
+"""Tracker that dumps metrics in a CSV file."""
 
 import csv
 import functools
@@ -42,13 +42,13 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     """Dump metrics into a CSV file."""
 
     folder_name = 'csv_metrics'
-    _default_dialect: ClassVar[csv.Dialect] = DryTorchDialect()
     _base_headers: ClassVar[tuple[str, ...]] = ('Model', 'Source', 'Epoch')
+    _default_dialect: ClassVar[csv.Dialect] = DryTorchDialect()
 
     _active_sources: dict[str, tuple[str, ...]]
+    _csv_stashed_state: dict[str, tuple[bool, dict[str, tuple[str, ...]]]]
     _dialect: csv.Dialect
     _resume_run: bool
-    _csv_stashed_state: dict[str, tuple[bool, dict[str, tuple[str, ...]]]]
 
     def __init__(
         self,
@@ -64,9 +64,9 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         """
         super().__init__(par_dir)
         self._active_sources = {}
+        self._csv_stashed_state = {}
         self._dialect = dialect
         self._resume_run = False
-        self._csv_stashed_state = {}
         return
 
     @functools.singledispatchmethod

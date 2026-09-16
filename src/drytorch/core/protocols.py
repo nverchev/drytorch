@@ -1,8 +1,9 @@
-"""Module containing internal protocols."""
+"""Internal protocols."""
 
 from __future__ import annotations
 
 import abc
+import datetime
 
 from collections.abc import Iterable, Iterator, Mapping, MutableSequence
 from typing import (
@@ -22,13 +23,17 @@ from torch.utils import data
 
 __all__ = [
     'CheckpointProtocol',
+    'CreatedAtProtocol',
     'GradientOpProtocol',
+    'HigherIsBetterProtocol',
     'InputType',
     'LearningProtocol',
     'LoaderProtocol',
     'LossProtocol',
     'ModelProtocol',
     'MonitorProtocol',
+    'NamedProtocol',
+    'ObjectiveMonitorProtocol',
     'ObjectiveProtocol',
     'OutputType',
     'SchedulerProtocol',
@@ -58,6 +63,62 @@ _Output_contra = TypeVar('_Output_contra', bound=OutputType, contravariant=True)
 _Input = TypeVar('_Input', bound=InputType)
 _Target = TypeVar('_Target', bound=TargetType)
 _Output = TypeVar('_Output', bound=OutputType)
+
+
+# ---------------------------------------------------------------------------
+# Component protocols
+# ---------------------------------------------------------------------------
+
+
+class CheckpointProtocol(Protocol):
+    """Protocol that stores and loads weight for a ModelProtocol class.
+
+    Implementations check that the model belongs to the current run
+    (:func:`~drytorch.core.registering.check_current_run`) and emit
+    :class:`~drytorch.core.log_events.SaveModelEvent` on ``save`` and
+    :class:`~drytorch.core.log_events.LoadModelEvent` on ``load``.
+    """
+
+    def bind_model(self, model: ModelProtocol[Any, Any]) -> None:
+        """Bind the model to manage."""
+
+    def bind_module(self, name: str, module: torch.nn.Module) -> None:
+        """Bind a module connected to the model."""
+
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        """Bind the optimizer connected to the model."""
+
+    def save(self) -> None:
+        """Save the model and optimizer state dictionaries."""
+
+    def load(self, epoch: int = -1) -> None:
+        """Load the model and optimizer state dictionaries."""
+
+
+class GradientOpProtocol(Protocol):
+    """Abstract base class for gradient operations."""
+
+    @abc.abstractmethod
+    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+        """Apply the gradient operation to the given parameters."""
+
+
+class LearningProtocol(Protocol):
+    """Protocol with specifications for the learning algorithm.
+
+    Attributes:
+        base_lr: initial learning rates for named parameters or global value.
+        gradient_op: operations on the model gradients.
+        optimizer_cls: the optimizer class to bind to the module.
+        optimizer_defaults: optional arguments for the optimizer.
+        scheduler: modifies the learning rate given the current epoch.
+    """
+
+    base_lr: float | Mapping[str, float]
+    gradient_op: GradientOpProtocol
+    optimizer_cls: type[torch.optim.Optimizer]
+    optimizer_defaults: Mapping[str, Any]
+    scheduler: SchedulerProtocol
 
 
 class LoaderProtocol(Protocol[_Data_co]):
@@ -144,69 +205,35 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         """Update the model after processing an epoch of data."""
 
 
-class CheckpointProtocol(Protocol):
-    """Protocol that stores and loads weight for a ModelProtocol class.
+class MonitorProtocol(Protocol):
+    """Protocol for a class that validates a model.
 
-    Implementations check that the model belongs to the current run
-    (:func:`~drytorch.core.registering.check_current_run`) and emit
-    :class:`~drytorch.core.log_events.SaveModelEvent` on ``save`` and
-    :class:`~drytorch.core.log_events.LoadModelEvent` on ``load``.
-    """
-
-    def bind_model(self, model: ModelProtocol[Any, Any]) -> None:
-        """Bind the model to manage."""
-
-    def bind_module(self, name: str, module: torch.nn.Module) -> None:
-        """Bind a module connected to the model."""
-
-    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
-        """Bind the optimizer connected to the model."""
-
-    def save(self) -> None:
-        """Save the model and optimizer state dictionaries."""
-
-    def load(self, epoch: int = -1) -> None:
-        """Load the model and optimizer state dictionaries."""
-
-
-class SchedulerProtocol(Protocol):
-    """Protocol of a scheduler for the learning rate."""
-
-    def __call__(self, base_lr: float, epoch: int) -> float:
-        """Modify the learning rate according to a schedule.
-
-        Args:
-            base_lr: initial learning rate.
-            epoch: the current epoch.
-
-        Returns:
-            The scheduled value for the learning rate.
-        """
-
-
-class GradientOpProtocol(Protocol):
-    """Abstract base class for gradient operations."""
-
-    @abc.abstractmethod
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
-        """Apply the gradient operation to the given parameters."""
-
-
-class LearningProtocol(Protocol):
-    """Protocol with specifications for the learning algorithm.
+    Implementations register as actors of their model with
+    :func:`~drytorch.core.registering.register_actor`, which emits
+    :class:`~drytorch.core.log_events.ActorRegistrationEvent`. Each pass
+    over the data emits :class:`~drytorch.core.log_events.IterateBatchEvent`
+    and then :class:`~drytorch.core.log_events.MetricEvent`.
 
     Attributes:
-        optimizer_cls: the optimizer class to bind to the module.
-        base_lr: initial learning rates for named parameters or global value.
-        optimizer_defaults: optional arguments for the optimizer.
-        scheduler: modifies the learning rate given the current epoch.
+        model: the model to evaluate.
     """
 
-    optimizer_cls: type[torch.optim.Optimizer]
-    base_lr: float | Mapping[str, float]
-    scheduler: SchedulerProtocol
-    optimizer_defaults: Mapping[str, Any]
-    gradient_op: GradientOpProtocol
+    model: ModelProtocol[Any, Any]
+
+    def __call__(self, store_outputs: bool = False) -> None:
+        """Run the model on the data once.
+
+        Args:
+            store_outputs: whether to store the model outputs.
+        """
+
+    @property
+    def name(self) -> str:
+        """The name of the monitor."""
+
+    @property
+    def computed_metrics(self) -> Mapping[str, float]:
+        """Computed metric values."""
 
 
 @runtime_checkable
@@ -251,43 +278,27 @@ class LossProtocol(ObjectiveProtocol[_Output_contra, _Target_contra], Protocol):
         """
 
 
+class SchedulerProtocol(Protocol):
+    """Protocol of a scheduler for the learning rate."""
+
+    def __call__(self, base_lr: float, epoch: int) -> float:
+        """Modify the learning rate according to a schedule.
+
+        Args:
+            base_lr: initial learning rate.
+            epoch: the current epoch.
+
+        Returns:
+            The scheduled value for the learning rate.
+        """
+
+
 @runtime_checkable
 class SyncProtocol(Protocol):
     """Protocol for objects that synchronize their state across processes."""
 
     def sync(self) -> None:
         """Synchronize the state across processes."""
-
-
-class MonitorProtocol(Protocol):
-    """Protocol for a class that validates a model.
-
-    Implementations register as actors of their model with
-    :func:`~drytorch.core.registering.register_actor`, which emits
-    :class:`~drytorch.core.log_events.ActorRegistrationEvent`. Each pass
-    over the data emits :class:`~drytorch.core.log_events.IterateBatchEvent`
-    and then :class:`~drytorch.core.log_events.MetricEvent`.
-
-    Attributes:
-        model: the model to evaluate.
-    """
-
-    model: ModelProtocol[Any, Any]
-
-    def __call__(self, store_outputs: bool = False) -> None:
-        """Run the model on the data once.
-
-        Args:
-            store_outputs: whether to store the model outputs.
-        """
-
-    @property
-    def name(self) -> str:
-        """The name of the monitor."""
-
-    @property
-    def computed_metrics(self) -> Mapping[str, float]:
-        """Computed metric values."""
 
 
 @runtime_checkable
@@ -358,3 +369,48 @@ class TrainerProtocol(
             scheduler: scheduler for the learning rates. Default keeps the
                 original scheduler.
         """
+
+
+# ---------------------------------------------------------------------------
+# Contract protocols
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class CreatedAtProtocol(Protocol):
+    """Protocol for objects exposing a creation timestamp."""
+
+    @property
+    @abc.abstractmethod
+    def created_at(self) -> datetime.datetime:
+        """The creation timestamp of the object."""
+
+
+@runtime_checkable
+class HigherIsBetterProtocol(Protocol):
+    """Protocol for metrics exposing whether higher values are better."""
+
+    @property
+    @abc.abstractmethod
+    def higher_is_better(self) -> bool | None:
+        """Flag whether higher metric values are better."""
+
+
+@runtime_checkable
+class NamedProtocol(Protocol):
+    """Protocol for objects exposing a name."""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """The name of the object."""
+
+
+@runtime_checkable
+class ObjectiveMonitorProtocol(Protocol):
+    """Protocol for monitors exposing an objective."""
+
+    @property
+    @abc.abstractmethod
+    def objective(self) -> ObjectiveProtocol[Any, Any]:
+        """The objective of the monitor."""

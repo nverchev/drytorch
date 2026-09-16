@@ -1,4 +1,4 @@
-"""Module containing a tracker calling Weights and Biases."""
+"""Tracker calling Weights and Biases."""
 
 import copy
 import functools
@@ -32,14 +32,15 @@ class WandbWarning(exceptions.DryTorchWarning):
 class Wandb(Dumper):
     """Tracker that wraps a run for the wandb library."""
 
+    folder_name = 'wandb'
     _default_settings: ClassVar[wandb_settings.Settings] = (
         wandb_settings.Settings()
     )
-    folder_name = 'wandb'
 
-    _settings: wandb_settings.Settings
-    _run: wandb_run.Run | None
     _defined_metrics: set[str]
+    _explicit_run_id: str | None
+    _run: wandb_run.Run | None
+    _settings: wandb_settings.Settings
     _stashed_runs: dict[str, tuple[wandb_run.Run, set[str]]]
 
     def __init__(
@@ -55,6 +56,7 @@ class Wandb(Dumper):
             settings: settings object from wandb containing all init arguments.
         """
         super().__init__(par_dir)
+        self._defined_metrics = set()
         self._settings = copy.copy(settings)
         if self._settings.reinit not in ('create_new', 'default', True):
             msg = "Forcing reinit='create_new' to support paused runs."
@@ -62,9 +64,7 @@ class Wandb(Dumper):
 
         self._settings.reinit = 'create_new'
         self._explicit_run_id = self._settings.run_id
-
         self._run = None
-        self._defined_metrics = set()
         self._stashed_runs = {}
         return
 

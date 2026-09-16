@@ -1,4 +1,4 @@
-"""Module containing a plotter class using plotly."""
+"""Plotter class using plotly."""
 
 import plotly.graph_objs as go
 

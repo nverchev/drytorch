@@ -1,4 +1,4 @@
-"""Module containing classes with learning algorithm's specifications."""
+"""Classes with learning algorithm specifications."""
 
 from __future__ import annotations
 
@@ -128,8 +128,8 @@ class LearningSchema(p.LearningProtocol):
         cls,
         base_lr: float = 0.01,
         momentum: float = 0.0,
-        weight_decay: float = 0.0,
         dampening: float = 0.0,
+        weight_decay: float = 0.0,
         nesterov: bool = False,
         scheduler: p.SchedulerProtocol = _default_scheduler,
         gradient_op: p.GradientOpProtocol = _default_grad_op,

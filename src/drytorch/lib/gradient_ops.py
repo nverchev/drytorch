@@ -1,4 +1,4 @@
-"""Module containing gradient operations."""
+"""Gradient operations."""
 
 import abc
 import collections
@@ -252,13 +252,13 @@ class EMACriterion(ClippingCriterion):
 
     Attributes:
         alpha: exponential moving average decay factor.
-        r_thresh: ratio threshold between current_norm and mean_norm.
         clipping_function: function to determine clipping behavior.
+        r_thresh: ratio threshold between current_norm and mean_norm.
     """
 
     alpha: Final[float]
-    r_thresh: Final[float]
     clipping_function: Final[ClipFunction]
+    r_thresh: Final[float]
     _mu_t: float
 
     def __init__(
@@ -275,8 +275,8 @@ class EMACriterion(ClippingCriterion):
             clipping_function: function to determine clipping behavior.
         """
         self.alpha = alpha
-        self.r_thresh = r_thresh
         self.clipping_function = clipping_function
+        self.r_thresh = r_thresh
         self._mu_t = 0.0
         _validate_threshold(r_thresh)
         return
@@ -322,15 +322,15 @@ class ZStatCriterion(ClippingCriterion):
 
     Attributes:
         alpha: exponential moving average decay factor (0 < alpha < 1).
-        z_thresh: Z-score threshold between |z_score| and z_thresh.
         clipping_function: function to determine clipping behavior.
+        z_thresh: Z-score threshold between |z_score| and z_thresh.
     """
 
     _eps: ClassVar[float] = 1e-8
 
     alpha: Final[float]
-    z_thresh: Final[float]
     clipping_function: Final[ClipFunction]
+    z_thresh: Final[float]
     _mu_t: float
     _v_t: float
 
@@ -348,8 +348,8 @@ class ZStatCriterion(ClippingCriterion):
             clipping_function: function to determine clipping behavior.
         """
         self.alpha = alpha
-        self.z_thresh = z_thresh
         self.clipping_function = clipping_function
+        self.z_thresh = z_thresh
         self._mu_t = 0.0
         self._v_t = 1.0
         _validate_threshold(z_thresh)
@@ -402,12 +402,12 @@ class StatsCollector:
     """Initialize.
 
     Attributes:
-            max_samples: the number of collected samples for completion.
-            active: whether the collector is currently in use.
+        active: whether the collector is currently in use.
+        max_samples: the number of collected samples for completion.
     """
 
-    max_samples: Final[int]
     active: bool
+    max_samples: Final[int]
     _data: list[float]
 
     def __init__(self, max_samples: int):
@@ -416,9 +416,9 @@ class StatsCollector:
         Args:
             max_samples: the number of collected samples for completion.
         """
+        self.active = True
         self.max_samples = max_samples
         self._data = []
-        self.active = True
         return
 
     @property
@@ -472,13 +472,13 @@ class HistClipper(ClipOperation):
 
     Attributes:
         criterion: the clipping criterion to determine when and how to clip.
-        warmup_clip_strategy: the clipping strategy used during warmup.
         n_warmup_steps: the number of warmup steps to collect initial stats.
+        warmup_clip_strategy: the clipping strategy used during warmup.
     """
 
     criterion: Final[ClippingCriterion]
-    warmup_clip_strategy: Final[p.GradientOpProtocol]
     n_warmup_steps: Final[int]
+    warmup_clip_strategy: Final[p.GradientOpProtocol]
     _warmup_handler: Final[StatsCollector]
 
     def __init__(
@@ -502,8 +502,8 @@ class HistClipper(ClipOperation):
             warmup_clip_strategy = GradNormClipper()
 
         self.criterion = criterion
-        self.warmup_clip_strategy = warmup_clip_strategy
         self.n_warmup_steps = n_warmup_steps
+        self.warmup_clip_strategy = warmup_clip_strategy
         self._warmup_handler = StatsCollector(n_warmup_steps)
         return
 
@@ -555,8 +555,8 @@ class ParamHistClipper(ClipOperation):
 
     Attributes:
         criterion: the clipping criterion to determine when and how to clip.
-        warmup_clip_strategy: the clipping strategy used during warmup.
         n_warmup_steps: the number of warmup steps to collect initial stats.
+        warmup_clip_strategy: the clipping strategy used during warmup.
     """
 
     criterion: Final[ClippingCriterion]

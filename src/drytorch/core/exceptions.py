@@ -1,4 +1,4 @@
-"""Module containing internal exceptions for the drytorch package."""
+"""Internal exceptions for the drytorch package."""
 
 import pathlib
 import traceback
@@ -69,6 +69,11 @@ __all__ = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Base classes
+# ---------------------------------------------------------------------------
+
+
 class DryTorchError(Exception):
     """Base exception class for all drytorch package exceptions."""
 
@@ -116,18 +121,9 @@ class TrackerError(DryTorchError):
         return
 
 
-class NoStashedStateError(TrackerError):
-    """Exception raised when trying to continue a run with no stashed state."""
-
-    def __init__(self, tracker: Any, run_id: str) -> None:
-        """Initialize.
-
-        Args:
-            tracker: the tracker object that encountered the error.
-            run_id: the identifier of the run.
-        """
-        super().__init__(tracker, f'No stashed state found for run {run_id!r}.')
-        return
+# ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
 
 
 class AccessOutsideScopeError(DryTorchError):
@@ -267,6 +263,19 @@ class EpochNotFoundError(DryTorchError):
         return
 
 
+class FolderAlreadyExistsError(DryTorchError):
+    """Raised when a folder already exists and cannot be overwritten."""
+
+    def __init__(self, path: pathlib.Path | str) -> None:
+        """Initialize the error.
+
+        Args:
+            path: the path to the folder that already exists.
+        """
+        super().__init__(f'Target directory already exists: {path}')
+        return
+
+
 class FuncNotApplicableError(DryTorchError):
     """Raised when a function cannot be applied to a specific type."""
 
@@ -285,19 +294,6 @@ class FuncNotApplicableError(DryTorchError):
         self.func_name = func_name
         self.type_name = type_name
         super().__init__(func_name, type_name)
-        return
-
-
-class FolderAlreadyExistsError(DryTorchError):
-    """Raised when a folder already exists and cannot be overwritten."""
-
-    def __init__(self, path: pathlib.Path | str) -> None:
-        """Initialize the error.
-
-        Args:
-            path: the path to the folder that already exists.
-        """
-        super().__init__(f'Target directory already exists: {path}')
         return
 
 
@@ -365,6 +361,50 @@ class MissingParamError(DryTorchError):
         return
 
 
+class ModelAlreadyBoundError(DryTorchError):
+    """Error raised when binding a second model to a checkpoint."""
+
+    _template = 'Checkpoint is already bound to model {}.'
+
+    model_name: Final[str]
+
+    def __init__(self, model_name: str) -> None:
+        """Initialize.
+
+        Args:
+            model_name: the name of the model already bound.
+        """
+        self.model_name = model_name
+        super().__init__(model_name)
+        return
+
+
+class ModelDeviceMismatchError(DryTorchError):
+    """Raised when the metrics device does not match the model device."""
+
+    _template = (
+        "In multiprocessing, parameters' and outputs' device type must match."
+    )
+
+
+class ModelNotFoundError(DryTorchError):
+    """Raised when no saved model is found in the checkpoint directory."""
+
+    _template = 'No saved module found in {}.'
+
+    checkpoint_directory: Final[pathlib.Path]
+
+    def __init__(self, checkpoint_directory: pathlib.Path) -> None:
+        """Initialize.
+
+        Args:
+            checkpoint_directory: the directory path where no model was found.
+        """
+        self.checkpoint_directory = checkpoint_directory
+        super().__init__(checkpoint_directory)
+        return
+
+
 class ModuleAlreadyRegisteredError(DryTorchError):
     """Raised when trying to access a model that has already been registered."""
 
@@ -388,24 +428,6 @@ class ModuleAlreadyRegisteredError(DryTorchError):
         self.exp_name = exp_name
         self.run_id = run_id
         super().__init__(model_name, exp_name, run_id)
-        return
-
-
-class ModelAlreadyBoundError(DryTorchError):
-    """Error raised when binding a second model to a checkpoint."""
-
-    _template = 'Checkpoint is already bound to model {}.'
-
-    model_name: Final[str]
-
-    def __init__(self, model_name: str) -> None:
-        """Initialize.
-
-        Args:
-            model_name: the name of the model already bound.
-        """
-        self.model_name = model_name
-        super().__init__(model_name)
         return
 
 
@@ -475,32 +497,6 @@ class ModuleNotRegisteredError(DryTorchError):
         self.exp_name = exp_name
         self.run_id = run_id
         super().__init__(model_name, exp_name, run_id)
-        return
-
-
-class ModelDeviceMismatchError(DryTorchError):
-    """Raised when the metrics device does not match the model device."""
-
-    _template = (
-        "In multiprocessing, parameters' and outputs' device type must match."
-    )
-
-
-class ModelNotFoundError(DryTorchError):
-    """Raised when no saved model is found in the checkpoint directory."""
-
-    _template = 'No saved module found in {}.'
-
-    checkpoint_directory: Final[pathlib.Path]
-
-    def __init__(self, checkpoint_directory: pathlib.Path) -> None:
-        """Initialize.
-
-        Args:
-            checkpoint_directory: the directory path where no model was found.
-        """
-        self.checkpoint_directory = checkpoint_directory
-        super().__init__(checkpoint_directory)
         return
 
 
@@ -590,6 +586,20 @@ class NoActiveExperimentError(DryTorchError):
         return
 
 
+class NoStashedStateError(TrackerError):
+    """Exception raised when trying to continue a run with no stashed state."""
+
+    def __init__(self, tracker: Any, run_id: str) -> None:
+        """Initialize.
+
+        Args:
+            tracker: the tracker object that encountered the error.
+            run_id: the identifier of the run.
+        """
+        super().__init__(tracker, f'No stashed state found for run {run_id!r}.')
+        return
+
+
 class OptimizerAlreadyBoundError(DryTorchError):
     """Error raised when binding a second optimizer to a checkpoint."""
 
@@ -608,14 +618,6 @@ class OptimizerAlreadyBoundError(DryTorchError):
         return
 
 
-class ResultNotAvailableError(DryTorchError):
-    """Raised when trying to access a result before the hook has been called."""
-
-    _template = (
-        'The result will be available only after the hook has been called.'
-    )
-
-
 class RepeatedMetricsError(DryTorchError):
     """Exception raised when merging metrics with duplicated names."""
 
@@ -631,6 +633,78 @@ class RepeatedMetricsError(DryTorchError):
         """
         self.duplicated = duplicated
         super().__init__(duplicated)
+        return
+
+
+class ResultNotAvailableError(DryTorchError):
+    """Raised when trying to access a result before the hook has been called."""
+
+    _template = (
+        'The result will be available only after the hook has been called.'
+    )
+
+
+class RunAlreadyRecordedError(DryTorchError):
+    """Error raised when attempting to record a run multiple times."""
+
+    _template = (
+        'Run {} already recorded in experiment {}. Use resume=True to resume.'
+    )
+
+    run_id: Final[str]
+    exp_name: Final[str]
+
+    def __init__(self, run_id: str, exp_name: str) -> None:
+        """Initialize.
+
+        Args:
+            run_id: the id of the run that is already recorded.
+            exp_name: the name of the experiment where to record the run.
+        """
+        self.run_id = run_id
+        self.exp_name = exp_name
+        super().__init__(run_id, exp_name)
+        return
+
+
+class RunNotRecordedError(DryTorchError):
+    """Raised when attempting to update a run that is not registered."""
+
+    _template = 'Run with id {} is not recorded.'
+
+    run_id: Final[str]
+
+    def __init__(self, run_id: str) -> None:
+        """Initialize.
+
+        Args:
+            run_id: the id of the run that is not registered.
+        """
+        self.run_id = run_id
+        super().__init__(run_id)
+        return
+
+
+class RunStillPausedError(DryTorchError):
+    """Error raised when resuming a run that is paused in this session."""
+
+    _template = (
+        'Run {} is paused in experiment {}. Call start() on the paused run.'
+    )
+
+    run_id: Final[str]
+    exp_name: Final[str]
+
+    def __init__(self, run_id: str, exp_name: str) -> None:
+        """Initialize.
+
+        Args:
+            run_id: the id of the run that is currently paused.
+            exp_name: the name of the experiment owning the run.
+        """
+        self.run_id = run_id
+        self.exp_name = exp_name
+        super().__init__(run_id, exp_name)
         return
 
 
@@ -669,6 +743,11 @@ class TrackerNotUsedError(DryTorchError):
         self.tracker_name = tracker_name
         super().__init__(tracker_name)
         return
+
+
+# ---------------------------------------------------------------------------
+# Warnings
+# ---------------------------------------------------------------------------
 
 
 class CannotStoreOutputWarning(DryTorchWarning):
@@ -891,33 +970,22 @@ class RecursionWarning(DryTorchWarning):
     )
 
 
-class RunAlreadyRecordedError(DryTorchError):
-    """Error raised when attempting to record a run multiple times."""
-
-    _template = (
-        'Run {} already recorded in experiment {}. Use resume=True to resume.'
-    )
-
-    run_id: Final[str]
-    exp_name: Final[str]
-
-    def __init__(self, run_id: str, exp_name: str) -> None:
-        """Initialize.
-
-        Args:
-            run_id: the id of the run that is already recorded.
-            exp_name: the name of the experiment where to record the run.
-        """
-        self.run_id = run_id
-        self.exp_name = exp_name
-        super().__init__(run_id, exp_name)
-        return
-
-
 class RunAlreadyCompletedWarning(DryTorchWarning):
     """Warning raised when a run is stopped after completion."""
 
     _template = 'Run instance is already completed.'
+
+
+class RunAlreadyFailedWarning(DryTorchWarning):
+    """Warning raised when a failed run is started or paused."""
+
+    _template = 'Run instance has failed.'
+
+
+class RunAlreadyPausedWarning(DryTorchWarning):
+    """Warning raised when a run is paused when already paused."""
+
+    _template = 'Run instance is already paused.'
 
 
 class RunAlreadyRunningWarning(DryTorchWarning):
@@ -930,59 +998,6 @@ class RunNotStartedWarning(DryTorchWarning):
     """Warning raised when a run is stopped before being started."""
 
     _template = 'Run instance is not active.'
-
-
-class RunAlreadyPausedWarning(DryTorchWarning):
-    """Warning raised when a run is paused when already paused."""
-
-    _template = 'Run instance is already paused.'
-
-
-class RunAlreadyFailedWarning(DryTorchWarning):
-    """Warning raised when a failed run is started or paused."""
-
-    _template = 'Run instance has failed.'
-
-
-class RunNotRecordedError(DryTorchError):
-    """Raised when attempting to update a run that is not registered."""
-
-    _template = 'Run with id {} is not recorded.'
-
-    run_id: Final[str]
-
-    def __init__(self, run_id: str) -> None:
-        """Initialize.
-
-        Args:
-            run_id: the id of the run that is not registered.
-        """
-        self.run_id = run_id
-        super().__init__(run_id)
-        return
-
-
-class RunStillPausedError(DryTorchError):
-    """Error raised when resuming a run that is paused in this session."""
-
-    _template = (
-        'Run {} is paused in experiment {}. Call start() on the paused run.'
-    )
-
-    run_id: Final[str]
-    exp_name: Final[str]
-
-    def __init__(self, run_id: str, exp_name: str) -> None:
-        """Initialize.
-
-        Args:
-            run_id: the id of the run that is currently paused.
-            exp_name: the name of the experiment owning the run.
-        """
-        self.run_id = run_id
-        self.exp_name = exp_name
-        super().__init__(run_id, exp_name)
-        return
 
 
 class TerminatedTrainingWarning(DryTorchWarning):

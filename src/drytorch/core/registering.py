@@ -1,4 +1,4 @@
-"""Module registering models and their actors in the current run.
+"""Registration of models and their actors in the current run.
 
 An actor, such as a runner, registers when created, so it must be created in
 the run that registered its model.
@@ -40,8 +40,12 @@ __all__ = [
 
 
 class _ActorProtocol(Protocol):
+    """Protocol for an object acting on a model."""
+
     @property
-    def model(self) -> p.ModelProtocol[Any, Any]: ...
+    @abc.abstractmethod
+    def model(self) -> p.ModelProtocol[Any, Any]:
+        """The model that the actor acts on."""
 
 
 _T = TypeVar('_T', bound=_ActorProtocol)
@@ -119,7 +123,11 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
             model.name, owner.exp_name, owner.run_id
         )
 
-    ALL_MODULES[module] = _Owner(weakref.ref(run), run.experiment.name, run.id)
+    ALL_MODULES[module] = _Owner(
+        exp_name=run.experiment.name,
+        run=weakref.ref(run),
+        run_id=run.id,
+    )
     run.metadata_manager.register_model(model)
     return
 

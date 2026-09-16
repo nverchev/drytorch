@@ -1,4 +1,4 @@
-"""Module for coordinating logging of metadata, internal messages and metrics.
+"""Coordination of metadata, message, and metric tracking.
 
 Attributes:
     DEFAULT_TRACKERS: named trackers registered to experiments by default.
@@ -61,7 +61,11 @@ class MetadataManager:
             actor: the object acting on the model.
             model: the model that is called.
         """
-        actor_name = getattr(actor, 'name', '') or actor.__class__.__name__
+        if isinstance(actor, p.NamedProtocol) and actor.name:
+            actor_name = actor.name
+        else:
+            actor_name = actor.__class__.__name__
+
         actor_version = self._get_ts(actor)
         model_version = self._get_ts(model)
         metadata = self.extract_metadata(actor)
@@ -89,7 +93,11 @@ class MetadataManager:
         Args:
             actor: the object actin on the model.
         """
-        caller_name = getattr(actor, 'name', '') or actor.__class__.__name__
+        if isinstance(actor, p.NamedProtocol) and actor.name:
+            caller_name = actor.name
+        else:
+            caller_name = actor.__class__.__name__
+
         self._unregister_metadata(caller_name)
         return
 
@@ -136,11 +144,11 @@ class MetadataManager:
 
     @staticmethod
     def _get_ts(x: Any) -> datetime.datetime:
-        possible_version = getattr(x, 'created_at', None)
-        if isinstance(possible_version, datetime.datetime):
-            return possible_version
-        else:
-            return repr_utils.CreatedAtMixin().created_at
+        if isinstance(x, p.CreatedAtProtocol):
+            if isinstance(x.created_at, datetime.datetime):
+                return x.created_at
+
+        return repr_utils.CreatedAtMixin().created_at
 
 
 class Tracker(abc.ABC):

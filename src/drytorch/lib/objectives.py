@@ -1,4 +1,4 @@
-"""Module containing classes to create and combine loss and metrics.
+"""Classes to create and combine loss and metrics.
 
 The interface is similar to https://github.com/Lightning-AI/torchmetrics,
 with stricter typing and simpler construction. MetricCollection and
@@ -830,7 +830,11 @@ class JoinedLoss(
         """
         super().__init__(loss, *objectives)
         self.loss = loss
-        self.name = getattr(loss, 'name', loss.__class__.__name__)
+        if isinstance(loss, p.NamedProtocol) and loss.name:
+            self.name = loss.name
+        else:
+            self.name = loss.__class__.__name__
+
         return
 
     @override

@@ -1,4 +1,4 @@
-"""Module containing classes to save the model state and its optimizer state.
+"""Classes to save the model state and its optimizer state.
 
 Attributes:
     SAFE_GLOBALS: types registered as safe for torch serialization.
@@ -62,13 +62,13 @@ class CheckpointPathManager:
 
     Attributes:
         folder_name: name of the folder where the checkpoints are stored.
-        run_dir: the directory for experiment data.
         model_dir: the directory for model checkpoints.
+        run_dir: the directory for experiment data.
     """
 
     folder_name: ClassVar[str] = 'checkpoints'
-    run_dir: Final[pathlib.Path]
     model_dir: Final[pathlib.Path]
+    run_dir: Final[pathlib.Path]
     _model: Final[p.ModelProtocol[Any, Any]]
 
     def __init__(
@@ -82,9 +82,10 @@ class CheckpointPathManager:
             model: the model whose paths are to be managed.
             run_dir: the directory for experiment data.
         """
+        run_dir_path = run_dir if run_dir is not None else self._get_run_dir()
+        self.model_dir = run_dir_path / model.name
+        self.run_dir = run_dir_path
         self._model = model
-        self.run_dir = run_dir if run_dir is not None else self._get_run_dir()
-        self.model_dir = self.run_dir / self._model.name
         return
 
     @property
@@ -117,14 +118,14 @@ class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
     """Abstract class that stores and loads weight for a ModelProtocol class."""
 
     _model: p.ModelProtocol[Any, Any] | None
-    _optimizer: torch.optim.Optimizer | None
     _modules: dict[str, Any]
+    _optimizer: torch.optim.Optimizer | None
 
     def __init__(self) -> None:
         """Initialize."""
         self._model = None
-        self._optimizer = None
         self._modules = {}
+        self._optimizer = None
         return
 
     @property

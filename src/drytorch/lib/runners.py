@@ -1,5 +1,6 @@
-"""Module containing classes that run a model."""
+"""Classes to run a model."""
 
+import abc
 import copy
 import sys
 import warnings
@@ -10,7 +11,9 @@ from typing import (
     ClassVar,
     Final,
     Generic,
+    Protocol,
     TypeVar,
+    runtime_checkable,
 )
 
 import torch
@@ -51,9 +54,9 @@ class ModelRunner(
     created during the run that registered the model.
 
     Attributes:
+        loader: the loader providing inputs and targets in batches.
         max_stored_output: maximum number of batch outputs stored in memory.
         model: the model to run.
-        loader: the loader providing inputs and targets in batches.
         outputs_list: sequence of optionally stored outputs.
     """
 
@@ -61,13 +64,13 @@ class ModelRunner(
 
     _name = repr_utils.DefaultName()
 
-    model: Final[p.ModelProtocol[Input, Output]]
     loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
-    _outputs_list: Final[list[Output]]
+    model: Final[p.ModelProtocol[Input, Output]]
     _cached_metrics: Mapping[str, float]
     _is_distributed: bool
-    _world_size: int
     _max_stored_process: int
+    _outputs_list: Final[list[Output]]
+    _world_size: int
 
     def __init__(
         self,
@@ -86,14 +89,14 @@ class ModelRunner(
 
         """
         super().__init__()
+        self.loader = loader
         self.model = model
         self._name = name
-        self.loader = loader
-        self._outputs_list = []
         self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
         self._world_size = dist.get_world_size() if self._is_distributed else 1
         self._max_stored_process = self.max_stored_output // self._world_size
+        self._outputs_list = []
         return
 
     def __call__(self, store_outputs: bool = False) -> None:
@@ -190,7 +193,11 @@ class ModelRunner(
 
     def _run_epoch(self, store_outputs: bool):
         if self._is_distributed:
-            exec_module = getattr(self.model, 'exec_module', None)
+            if isinstance(self.model, _ExecModuleProtocol):
+                exec_module = self.model.exec_module
+            else:
+                exec_module = None
+
             if exec_module is not None and not isinstance(
                 exec_module, torch.nn.parallel.DistributedDataParallel
             ):
@@ -250,8 +257,8 @@ class ModelRunnerWithObjective(
     """Run a model on a dataset, calculating the value of an objective function.
 
     Attributes:
-        model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
+        model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
         outputs_list: sequence of optionally stored outputs.
     """
@@ -280,20 +287,23 @@ class ModelRunnerWithObjective(
         super().__init__(model, loader=loader, name=name)
         self.objective = copy.deepcopy(objective)
         if self._is_distributed:
-            if getattr(self.objective, 'sync_on_compute', False):
-                issue = 'sync_on_compute=True will cause overhead'
-                recommend = 'set sync_on_compute to False'
-                warnings.warn(
-                    exceptions.ObjectiveSyncWarning(issue, recommend),
-                    stacklevel=2,
-                )
-            if getattr(self.objective, 'dist_sync_on_step', False):
-                issue = 'dist_sync_on_step=True will cause overhead'
-                recommend = 'set dist_sync_on_step to False'
-                warnings.warn(
-                    exceptions.ObjectiveSyncWarning(issue, recommend),
-                    stacklevel=2,
-                )
+            if isinstance(self.objective, _SyncOnComputeProtocol):
+                if self.objective.sync_on_compute:
+                    issue = 'sync_on_compute=True will cause overhead'
+                    recommend = 'set sync_on_compute to False'
+                    warnings.warn(
+                        exceptions.ObjectiveSyncWarning(issue, recommend),
+                        stacklevel=2,
+                    )
+
+            if isinstance(self.objective, _DistSyncOnStepProtocol):
+                if self.objective.dist_sync_on_step:
+                    issue = 'dist_sync_on_step=True will cause overhead'
+                    recommend = 'set dist_sync_on_step to False'
+                    warnings.warn(
+                        exceptions.ObjectiveSyncWarning(issue, recommend),
+                        stacklevel=2,
+                    )
 
         self.objective.reset()
         self._checked_metric_device = False
@@ -344,8 +354,8 @@ class ModelRunnerWithLogs(
     """Run a model on a dataset and log the value of an objective function.
 
     Attributes:
-        model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
+        model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
         outputs_list: sequence of optionally stored outputs.
     """
@@ -359,3 +369,38 @@ class ModelRunnerWithLogs(
             metrics=self._compute_metrics(),
         )
         return
+
+
+# ---------------------------------------------------------------------------
+# Private protocols
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class _DistSyncOnStepProtocol(Protocol):
+    """Protocol for objectives exposing a dist_sync_on_step flag."""
+
+    @property
+    @abc.abstractmethod
+    def dist_sync_on_step(self) -> bool:
+        """Flag whether to sync on step."""
+
+
+@runtime_checkable
+class _ExecModuleProtocol(Protocol):
+    """Protocol for models exposing an execution module."""
+
+    @property
+    @abc.abstractmethod
+    def exec_module(self) -> torch.nn.Module:
+        """The executed module."""
+
+
+@runtime_checkable
+class _SyncOnComputeProtocol(Protocol):
+    """Protocol for objectives exposing a sync_on_compute flag."""
+
+    @property
+    @abc.abstractmethod
+    def sync_on_compute(self) -> bool:
+        """Flag whether to sync on compute."""

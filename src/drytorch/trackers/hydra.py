@@ -1,4 +1,4 @@
-"""Module containing the HydraLink tracker."""
+"""HydraLink tracker for Hydra configuration integration."""
 
 import functools
 import pathlib

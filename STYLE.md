@@ -3,6 +3,8 @@
 Recommendations for writing drytorch code: follow them unless there is a good
 reason not to. Ruff (`ruff.toml`) and basedpyright (standard mode) enforce
 formatting, linting and typing; their rules are not repeated here.
+`.pre-commit-config.yaml` runs them, and jupytext, which keeps each
+tutorial's paired `.md` and `.ipynb` in sync.
 
 ## Principles
 - An experiment is correct if it is well documented: configuration that
@@ -11,15 +13,8 @@ formatting, linting and typing; their rules are not repeated here.
   statically.
 - `lib` depends on protocols; implementations carry the protocol's duties
   (for example, emitting events).
-- Protocols are necessary conditions for the framework, abstract classes are sufficient conditions with recommended behavior.
-
-## Writing
-- One line when a quick look at the code makes the rest clear.
-- A paragraph after the first line only for important behaviour that the
-  code does not make clear.
-- Other libraries' behaviour (for example, `torch.compile`) is not
-  documented; users read those libraries' docs.
-- This applies to docstrings and changelog entries.
+- Protocols are necessary conditions for the framework, abstract classes are
+  sufficient conditions with recommended behavior.
 
 ## Typing
 - Avoid inline suppressions (`# type: ignore`, `# pyright: ignore`,
@@ -30,24 +25,34 @@ formatting, linting and typing; their rules are not repeated here.
   type variable is invariant.
 - `Self` for return types; as a parameter only in merge-like methods.
 - Mark overrides with `@override` from `typing_extensions`.
-- Abstract classes inherit `abc.ABC`.
-- Callable types used in several places: a callable protocol with
-  positional-only parameters, not `TypeAlias`.
+- Narrow an unknown type with a runtime-checkable protocol check, not with
+  `getattr` or `hasattr`: the check narrows the type for the checker.
+  `getattr` is for dynamic names and Python internals (`__dict__`,
+  `__slots__`, `__len__`).
 
 ## Attributes
 - Prefer immutable objects for experiment settings.
 - Declare every instance attribute in the class body; `__init__` only
   assigns.
 - Configuration is public and `Final` in the class body: `attr: Final[T]`.
-- Attributes and module-level constants that are never reassigned are
-  `Final`; in trackers, only where reassignment would cause errors.
+  Other attributes and module-level constants are `Final` when never
+  reassigned; in trackers, only where reassignment would cause errors.
 - Private attributes (`_attr`) are internal: not documented, not recorded.
-- Alphabetical order is weakly preferred for attributes: public attributes,
-  then class attributes, then private attributes. Their order across docstrings
-  (no private attributes there), class-body declarations, and instantiation in
-  `__init__` should be as consistent with each other as possible.
 - A container the class changes is private, exposed by a read-only property
   (`Mapping`, `Sequence`).
+
+## Protocols
+- Protocols end in `Protocol` and are minimal: they declare only what the
+  code using them needs.
+- Abstract classes inherit `abc.ABC`.
+- Protocol members carry a docstring and no body; `...` is only for private
+  abstract methods and for `@overload` stubs, which the implementation
+  documents.
+- Optional behaviour of an object the library does not own is its own small
+  protocol, checked with `isinstance`; a protocol used by one module only
+  stays private to it.
+- Callable types used in several places: a callable protocol with
+  positional-only parameters, not `TypeAlias`.
 - No properties for configuration, except for protocol attributes.
 - Protocols declare attributes as abstract read-only properties; the class
   stores the value in a public `Final` attribute with a trailing underscore
@@ -68,7 +73,6 @@ formatting, linting and typing; their rules are not repeated here.
 - Counts: `n_*`.
 - Boolean flags are plain words (`record`, `distribute`), without `should_`
   or `is_`.
-- Protocols end in `Protocol`.
 - Default names come from `repr_utils.DefaultName`, exposed by a read-only
   `name` property; recorded objects add `repr_utils.CreatedAtMixin` for
   their timestamp.
@@ -85,9 +89,57 @@ formatting, linting and typing; their rules are not repeated here.
 - A blank line after every indented block.
 - A blank line before a full-line comment, except at the start of a block or
   right after a docstring.
+- No other blank lines in a function body.
 - An explicit `return` at the end of every function.
+- Parameters an override does not use are consumed with `_not_used = ...`.
+- Avoid parentheses to break expressions across lines, reserving them
+  exceptionally for long strings: rephrase with statements instead (for
+  example an `if`/`else` clause). Parentheses that contain a single line
+  are fine.
 
-## Docstrings
+## Order
+A preferred order for equivalent code. Break it when a name must be defined
+first (a helper used in a class body, the bound of a type variable) or when
+Python requires it (dataclass fields with defaults after those without).
+- Modules: docstring, imports, `TYPE_CHECKING` block, `__all__`, type
+  variables and aliases, constants, public classes, public functions,
+  private classes and functions.
+- Classes: docstring, class variables (public, then private, including
+  descriptors), instance attributes (public, then private), `__init__`,
+  `__call__`, properties (each setter after its property), other special
+  methods, public methods, operators (`__add__`, `__or__`), private methods,
+  static and class methods (public before private).
+- `@override` does not move a member out of its group.
+- Arguments: positional first, then keyword; parameters inherited from a base
+  class precede the ones the subclass adds.
+- Alphabetical order is weakly preferred within a group, for members and for
+  arguments alike. An order of use (`update`, `compute`, `reset`) is also
+  fine, and a subclass keeps the order of its base class or protocol.
+- Items that belong together form their own group, separated by a commented
+  header banner:
+  ```python
+  # ---------------------------------------------------------------------------
+  # Title
+  # ---------------------------------------------------------------------------
+  ```
+  and ordered alphabetically within each group: in `core/exceptions.py`,
+  warnings follow errors; in `core/protocols.py`, contract protocols follow
+  component protocols; in `lib/runners.py`, private protocols follow runners.
+- The class body, `__init__` and the docstring list attributes and arguments
+  in the same order; docstrings list no private attributes.
+- Test modules: docstring, imports, constants, module fixtures, private
+  helper classes and functions, test classes, test functions.
+- Test classes: fixtures first, starting with `setup`, then the tests.
+
+## Writing
+- One line when a quick look at the code makes the rest clear.
+- A paragraph after the first line only for important behaviour that the
+  code does not make clear.
+- Other libraries' behaviour (for example, `torch.compile`) is not
+  documented; users read those libraries' docs.
+- This applies to docstrings and changelog entries.
+
+## Docstrings and Sphinx
 - Class docstrings list every public attribute under `Attributes:`.
 - Public functions and methods document their arguments (`Args:`), return
   value (`Returns:`), errors (`Raises:`) and side effects
@@ -98,11 +150,6 @@ formatting, linting and typing; their rules are not repeated here.
 - Overrides get a docstring only when their behaviour differs.
 - Private functions and methods (`_name`) get no docstring, except abstract
   ones that subclasses implement; a comment where the logic needs one.
-
-## Sphinx
-- Every module defines `__all__` after the imports: Sphinx documents the
-  classes and functions it lists.
-- A module docstring's first line is its summary in the API tables.
 - Docstrings are reStructuredText, not Markdown.
 - Code in docstrings uses double backticks (``` ``name`` ```); single
   backticks render as italic text.
@@ -112,6 +159,10 @@ formatting, linting and typing; their rules are not repeated here.
 - External objects link through intersphinx: ``:class:`torch.nn.Module` ``.
 - Types are not repeated in docstrings; Sphinx takes them from the
   annotations.
+- Every module defines `__all__` after the imports: Sphinx documents the
+  classes and functions it lists.
+- A module docstring's first line is its summary in the API tables: it names
+  the contents without a prefix such as "Module containing".
 
 ## Errors
 - Arguments that break the signature or the documented rules: built-in
@@ -121,6 +172,8 @@ formatting, linting and typing; their rules are not repeated here.
 - Library errors and warnings live in `core/exceptions.py`, subclass
   `DryTorchError` or `DryTorchWarning`, and use `_template`.
 - Warnings: `warnings.warn(exceptions.SomeWarning(...), stacklevel=...)`.
+- Optional dependencies are imported inside `try`/`except (ImportError,
+  ModuleNotFoundError)`, warning with `FailedOptionalImportWarning`.
 
 ## Events
 - Events are frozen dataclasses in `core/log_events.py`, published on
@@ -142,13 +195,21 @@ formatting, linting and typing; their rules are not repeated here.
 - Mocks of drytorch objects come from their protocol
   (`mocker.create_autospec(SomeProtocol, instance=True)`) and are shared
   through `conftest.py`.
+- Shared fixtures are named by what they provide: `example_*` for values, in
+  the package-scoped `tests/conftest.py`, and `mock_*` for protocol mocks, in
+  the `conftest.py` of their level.
+- A test module that needs an optional dependency imports it at the top and
+  skips itself: `pytest.skip('<name> not available', allow_module_level=True)`
+  in the `except ImportError` branch.
 - `tests/units` tests one module with mocks; `tests/integration` combines
   real components; `tests/functional` runs whole workflows. Each level has
   its own `conftest.py`.
 - Unit test files mirror the source:
   `tests/units/<package>/test_<module>.py` (except `contrib`, tested under
   integration).
-- Arrange, act, assert, with all assertions at the end.
+- Arrange, act, assert, with all assertions at the end: a blank line after
+  arranging and a blank line after acting, besides the blank lines that
+  Layout allows.
 - Each test checks one behaviour; several assertions are fine when together
   they describe it.
 - Fixture docstrings say what they provide; private fixtures (`_fixture`)

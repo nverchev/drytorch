@@ -1,4 +1,4 @@
-"""Module containing classes for training a model."""
+"""Classes for training a model."""
 
 from __future__ import annotations
 
@@ -40,15 +40,14 @@ class ModelOptimizer:
     It supports different learning rates to separate parameters' groups.
     """
 
+    _gradient_op: p.GradientOpProtocol
+    _lr: float | Mapping[str, float]
     _model: Final[p.ModelProtocol]
     _module: Final[torch.nn.Module]
-    _lr: float | Mapping[str, float]
-    _params_lr: list[_OptParams]
-    _scheduler: p.SchedulerProtocol
     _optimizer: torch.optim.Optimizer
-    _gradient_op: p.GradientOpProtocol
-    _checkpoint: p.CheckpointProtocol
+    _params_lr: list[_OptParams]
     _scaler: amp.grad_scaler.GradScaler
+    _scheduler: p.SchedulerProtocol
 
     def __init__(
         self,
@@ -61,17 +60,17 @@ class ModelOptimizer:
             model: the model to be optimized.
             learning_schema: the learning scheme for the optimizer.
         """
+        self._gradient_op = learning_schema.gradient_op
         self._model = model
         self._module = model.module
         self._lr = {}
         self._params_lr = []
-        self.base_lr = learning_schema.base_lr
         self._scheduler = learning_schema.scheduler
+        self.base_lr = learning_schema.base_lr
         self._optimizer = learning_schema.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_schema.optimizer_defaults,
         )
-        self._gradient_op = learning_schema.gradient_op
         self._model.checkpoint.bind_optimizer(self._optimizer)
         self._scaler = amp.grad_scaler.GradScaler(
             model.device.type,
@@ -204,17 +203,17 @@ class Trainer(
     """Implement the standard Pytorch training loop.
 
     Attributes:
-        model: the model to train.
         loader: provides inputs and targets in batches.
+        model: the model to train.
         objective: determines the optimization's criterion.
-        pre_epoch_hooks: hooks executed before each epoch.
         post_epoch_hooks: hooks executed after each epoch, validation first.
+        pre_epoch_hooks: hooks executed before each epoch.
     """
 
+    post_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
+    pre_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
     learning_schema_: Final[p.LearningProtocol]
     validation_: Final[evaluations.Validation[Input, Target, Output] | None]
-    pre_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
-    post_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
     _model_optimizer: Final[ModelOptimizer]
     _terminated: bool
 
@@ -223,18 +222,18 @@ class Trainer(
         model: p.ModelProtocol[Input, Output],
         name: str = '',
         *,
+        learning_schema: p.LearningProtocol,
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
-        learning_schema: p.LearningProtocol,
-        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None = None,
-        val_name: str = '',
-        validate_every: int = 1,
-        pre_epoch_hooks: Sequence[
-            Callable[[Trainer[Input, Target, Output]], None]
-        ] = (),
         post_epoch_hooks: Sequence[
             Callable[[Trainer[Input, Target, Output]], None]
         ] = (),
+        pre_epoch_hooks: Sequence[
+            Callable[[Trainer[Input, Target, Output]], None]
+        ] = (),
+        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None = None,
+        val_name: str = '',
+        validate_every: int = 1,
     ) -> None:
         """Initialize.
 
@@ -242,24 +241,22 @@ class Trainer(
             model: the model containing the weights to evaluate.
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
+            learning_schema: contains optimizer settings and scheduling.
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
-            learning_schema: contains optimizer settings and scheduling.
+            post_epoch_hooks: hooks executed after each epoch and validation.
+            pre_epoch_hooks: hooks executed before each epoch.
             val_loader: the loader for validation with the same metrics as
                 for training. Default does not validate.
             val_name: the name for the validation.
             validate_every: the number of epochs between validations.
-            pre_epoch_hooks: hooks executed before each epoch.
-            post_epoch_hooks: hooks executed after each epoch and validation.
 
         Raises:
             ValueError: if validate_every is not strictly positive when
                 val_loader is given.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
-        self.learning_schema_ = learning_schema
         self.validation_ = self._create_validation(val_loader, val_name)
-        self.pre_epoch_hooks = hooks.HookChain(pre_epoch_hooks)
         if self.validation_ is None:
             post_epoch_chain = hooks.HookChain(post_epoch_hooks)
         else:
@@ -267,6 +264,8 @@ class Trainer(
             post_epoch_chain = hooks.HookChain([val_hook, *post_epoch_hooks])
 
         self.post_epoch_hooks = post_epoch_chain
+        self.pre_epoch_hooks = hooks.HookChain(pre_epoch_hooks)
+        self.learning_schema_ = learning_schema
         self._model_optimizer = ModelOptimizer(model, learning_schema)
         self._terminated = False
         return
@@ -457,9 +456,9 @@ class Trainer(
         model: p.ModelProtocol[Input, Output],
         name: str = '',
         *,
+        learning_schema: p.LearningProtocol,
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
-        learning_schema: p.LearningProtocol,
     ) -> TrainerBuilder[Input, Target, Output]:
         """Collect the validation and the hooks before creating a trainer.
 
@@ -467,9 +466,9 @@ class Trainer(
             model: the model containing the weights to evaluate.
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
+            learning_schema: contains optimizer settings and scheduling.
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
-            learning_schema: contains optimizer settings and scheduling.
 
         Returns:
             A builder for a trainer with these settings.
@@ -477,24 +476,24 @@ class Trainer(
         return TrainerBuilder(
             model,
             name,
+            learning_schema=learning_schema,
             loader=loader,
             loss=loss,
-            learning_schema=learning_schema,
         )
 
 
 class TrainerBuilder(Generic[Input, Target, Output]):
     """Collect the validation and the hooks before creating a trainer."""
 
-    _model: Final[p.ModelProtocol[Input, Output]]
-    _name: Final[str]
+    _learning_schema: Final[p.LearningProtocol]
     _loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
     _loss: Final[p.LossProtocol[Output, Target]]
-    _learning_schema: Final[p.LearningProtocol]
-    _pre_epoch_hooks: Final[
+    _model: Final[p.ModelProtocol[Input, Output]]
+    _name: Final[str]
+    _post_epoch_hooks: Final[
         list[Callable[[Trainer[Input, Target, Output]], None]]
     ]
-    _post_epoch_hooks: Final[
+    _pre_epoch_hooks: Final[
         list[Callable[[Trainer[Input, Target, Output]], None]]
     ]
     _val_loader: p.LoaderProtocol[tuple[Input, Target]] | None
@@ -506,9 +505,9 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         model: p.ModelProtocol[Input, Output],
         name: str = '',
         *,
+        learning_schema: p.LearningProtocol,
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
-        learning_schema: p.LearningProtocol,
     ) -> None:
         """Initialize.
 
@@ -516,20 +515,20 @@ class TrainerBuilder(Generic[Input, Target, Output]):
             model: the model containing the weights to evaluate.
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
+            learning_schema: contains optimizer settings and scheduling.
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
-            learning_schema: contains optimizer settings and scheduling.
         """
-        self._model = model
-        self._name = name
+        self._learning_schema = learning_schema
         self._loader = loader
         self._loss = loss
-        self._learning_schema = learning_schema
+        self._model = model
+        self._name = name
+        self._post_epoch_hooks = []
+        self._pre_epoch_hooks = []
         self._val_loader = None
         self._val_name = ''
         self._validate_every = 1
-        self._pre_epoch_hooks = []
-        self._post_epoch_hooks = []
         return
 
     def add_post_epoch_hook(
