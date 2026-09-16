@@ -377,7 +377,7 @@ class TestStatsCollector:
     def test_reset(self, stats_collector: StatsCollector) -> None:
         """Test reset method."""
         stats_collector.append(1.0)
-        stats_collector.active = False
+        stats_collector._active = False
         stats_collector.reset()
         assert not len(stats_collector)
         assert stats_collector.active is True
@@ -439,7 +439,7 @@ class TestHistClipping:
     def test_call_after_warmup(self, grad_clipping, example_parameters) -> None:
         """Test behavior after the warmup phase, with and without clipping."""
         # skip warm up
-        grad_clipping._warmup_handler.active = False
+        grad_clipping._warmup_handler._active = False
         self.mock_should_clip.return_value = False
         grad_clipping(example_parameters)
         self.mock_get_clip_value.assert_not_called()
@@ -527,7 +527,7 @@ class TestParamHistClipping:
             # manually initialize state since we no longer use defaultdict
             grad_clipping._dict_warmup_handler[param_id] = StatsCollector(20)
             grad_clipping._dict_criterion[param_id] = grad_clipping.criterion
-            grad_clipping._dict_warmup_handler[param_id].active = False
+            grad_clipping._dict_warmup_handler[param_id]._active = False
 
         self.mock_should_clip.return_value = False
         grad_clipping(list_params)

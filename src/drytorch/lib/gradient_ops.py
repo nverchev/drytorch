@@ -399,15 +399,15 @@ class ZStatCriterion(ClippingCriterion):
 
 
 class StatsCollector:
-    """Initialize.
+    """Collect samples until a maximum number is reached.
 
     Attributes:
         active: whether the collector is currently in use.
         max_samples: the number of collected samples for completion.
     """
 
-    active: bool
     max_samples: Final[int]
+    _active: bool
     _data: list[float]
 
     def __init__(self, max_samples: int):
@@ -416,10 +416,15 @@ class StatsCollector:
         Args:
             max_samples: the number of collected samples for completion.
         """
-        self.active = True
         self.max_samples = max_samples
+        self._active = True
         self._data = []
         return
+
+    @property
+    def active(self) -> bool:
+        """Whether the collector is currently in use."""
+        return self._active
 
     @property
     def mean(self) -> float:
@@ -447,7 +452,7 @@ class StatsCollector:
         """Check if the collection is complete."""
         completed = len(self) >= self.max_samples
         if completed:
-            self.active = False
+            self._active = False
 
         return completed
 
@@ -461,7 +466,7 @@ class StatsCollector:
     def reset(self) -> None:
         """Reset the collection."""
         self._data.clear()
-        self.active = True
+        self._active = True
         return
 
 

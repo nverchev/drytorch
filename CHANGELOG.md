@@ -21,6 +21,7 @@
 - `Model.epoch` and `ModelProtocol.epoch` are read-only; `CheckpointProtocol.load` returns the loaded epoch, which `Model.load_state` sets
 - `ModelProtocol` requires `bind_optimizer`, `load_state` and `save_state`; `ModelOptimizer` and `Trainer` bind, load and save through the model
 - `CheckpointPathManager.epoch_dir` is replaced by `get_epoch_dir`; `get_model_state_path` and `get_optimizer_state_path` take the epoch
+- `ModelOptimizer.base_lr` and `StatsCollector.active` are read-only; `ModelOptimizer.update_learning_rate` sets the learning rates
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources

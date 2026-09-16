@@ -66,7 +66,7 @@ class ModelOptimizer:
         self._lr = {}
         self._params_lr = []
         self._scheduler = learning_schema.scheduler
-        self.base_lr = learning_schema.base_lr
+        self._set_base_lr(learning_schema.base_lr)
         self._optimizer = learning_schema.optimizer_cls(
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_schema.optimizer_defaults,
@@ -80,32 +80,8 @@ class ModelOptimizer:
 
     @property
     def base_lr(self) -> float | Mapping[str, float]:
-        """Learning rate(s) for the module parameters.
-
-        Raises:
-            MissingParamError: if parameters are missing from the dictionary.
-        """
+        """Learning rate(s) for the module parameters."""
         return self._lr
-
-    @base_lr.setter
-    def base_lr(self, lr: float | Mapping[str, float]) -> None:
-        self._lr = dict(lr) if isinstance(lr, Mapping) else lr
-        if isinstance(lr, float | int):
-            self._params_lr = [
-                {'params': self._module.parameters(), 'lr': lr},
-            ]
-        else:
-            self._params_lr = [
-                {'params': getattr(self._module, k).parameters(), 'lr': v}
-                for k, v in lr.items()
-            ]
-            if not self._params_lr_contains_all_params():
-                module_names: list[str] = [
-                    named_elem[0] for named_elem in self._module.named_modules()
-                ]
-                raise exceptions.MissingParamError(module_names, list(lr))
-
-        return
 
     @override
     def __repr__(self) -> str:
@@ -153,12 +129,15 @@ class ModelOptimizer:
                 value. Default keeps the original learning rates.
             scheduler: scheduler for the learning rates. Default keeps the
                 original scheduler.
+
+        Raises:
+            MissingParamError: if parameters are missing from the dictionary.
         """
         if scheduler is not None:
             self._scheduler = scheduler
 
         if base_lr is not None:
-            self.base_lr = base_lr
+            self._set_base_lr(base_lr)
 
         for g, up_g in zip(
             self._optimizer.param_groups, self.get_opt_params(), strict=False
@@ -187,6 +166,25 @@ class ModelOptimizer:
         )
         total_params_model = self._count_params(self._module.parameters())
         return total_params_lr == total_params_model
+
+    def _set_base_lr(self, lr: float | Mapping[str, float]) -> None:
+        self._lr = dict(lr) if isinstance(lr, Mapping) else lr
+        if isinstance(lr, float | int):
+            self._params_lr = [
+                {'params': self._module.parameters(), 'lr': lr},
+            ]
+        else:
+            self._params_lr = [
+                {'params': getattr(self._module, k).parameters(), 'lr': v}
+                for k, v in lr.items()
+            ]
+            if not self._params_lr_contains_all_params():
+                module_names: list[str] = [
+                    named_elem[0] for named_elem in self._module.named_modules()
+                ]
+                raise exceptions.MissingParamError(module_names, list(lr))
+
+        return
 
     @staticmethod
     def _count_params(params: Iterator[Any]) -> int:
