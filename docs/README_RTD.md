@@ -11,6 +11,7 @@ Don't Repeat Yourself (DRY) principles: replicable, documented, reusable.
 
 * **Reproducibility:** experimental isolation to prevent unintended dependencies, data leakage, and misconfiguration.
 * **Modularity:** flexible protocols preserving type inference in custom implementations.
+* **Type Checking:** support for type checkers (such as basedpyright) for static detection of incompatible components.
 * **Decoupled Tracking:** execution independent of tracking events (logging, plotting, and storing metadata).
 * **Optional Dependencies:** support for external libraries (Hydra, W&B, TensorBoard, etc.) but minimal requirements.
 * **Self-Documentation:** automatic metadata extraction and standardization.

@@ -570,9 +570,10 @@ typical ML workflow. Below, we briefly summarize the main functionalities:
   each epoch and can save/load checkpoints (including module and optimizer
   states).
 
-**Note:** If the type annotations of the DataLoader, Model, and Loss/Metric are
-incompatible, the type checker will raise an error when instantiating the
-`Trainer` or `Test` classes.
+**Note:** DRYTorch supports type checkers, such as `basedpyright`, and we
+recommend using one: if the type annotations of the DataLoader, Model, and
+Loss/Metric are incompatible, the type checker reports an error when
+instantiating the `Trainer` or `Test` classes.
 
 ### Train the model
 We perform a basic training cycle using the library implementations.
