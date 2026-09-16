@@ -12,8 +12,6 @@ import numpy as np
 
 from typing_extensions import override
 
-from drytorch.core import protocols as p
-
 
 __all__ = [
     'AbstractScheduler',
@@ -33,7 +31,7 @@ __all__ = [
 _SchedulingLogic: TypeAlias = Callable[[float, int], float]
 
 
-class AbstractScheduler(p.SchedulerProtocol, abc.ABC):
+class AbstractScheduler(abc.ABC):
     """Abstract class for the scheduler."""
 
     def __call__(self, base_lr: float, epoch: int) -> float:

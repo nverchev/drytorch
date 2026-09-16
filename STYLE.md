@@ -53,19 +53,13 @@ tutorial's paired `.md` and `.ipynb` in sync.
   stays private to it.
 - Callable types used in several places: a callable protocol with
   positional-only parameters, not `TypeAlias`.
-- No properties for configuration, except for protocol attributes.
-- Protocols declare attributes as abstract read-only properties; the class
-  stores the value in a public `Final` attribute with a trailing underscore
-  (`batch_size_`), and the property returns it.
-
-  The trailing-underscore attribute is the one public attribute not listed
-  under `Attributes:`: it is recorded in the metadata, and the property
-  carries the docstring. Classes inheriting a protocol cannot assign its
-  properties. Revisit when `ReadOnly` attributes (PEP 767, proposed) are
-  available: they would replace both the property and the trailing-underscore
-  attribute.
-- Dataclasses match protocols structurally, without inheriting them: a
-  dataclass field cannot override a protocol property.
+- Protocols declare attributes as abstract read-only properties; a `Final`
+  attribute satisfies them, so implementations keep plain names.
+- Classes match protocols structurally and never inherit them: inheriting
+  makes the protocol's properties unassignable and its members abstract.
+  `tests/units/core/test_protocols.py` and
+  `tests/integration/core/test_protocol_conformance.py` check that the
+  implementations match; basedpyright checks the first one.
 
 ## Naming
 - Modules: `-ing` form for base logic, plural for a class and its

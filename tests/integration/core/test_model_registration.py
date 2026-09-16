@@ -74,7 +74,7 @@ class TestModelRegistration:
             metadata = run.metadata_manager.named_metadata['_Actor']
 
         assert isinstance(metadata, dict)
-        assert metadata['model']['checkpoint_'] == {
+        assert metadata['model']['checkpoint'] == {
             'class': 'LocalCheckpoint',
             'par_dir': repr(custom_par_dir),
         }
@@ -88,7 +88,7 @@ class TestModelRegistration:
             metadata = run.metadata_manager.named_metadata['_Actor']
 
         assert isinstance(metadata, dict)
-        assert metadata['model']['checkpoint_'] == 'LocalCheckpoint'
+        assert metadata['model']['checkpoint'] == 'LocalCheckpoint'
 
     def test_runner_registers_when_created(self, experiment) -> None:
         """Test a runner registers as an actor of its model when created."""

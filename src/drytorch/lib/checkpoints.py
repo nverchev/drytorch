@@ -114,7 +114,7 @@ class CheckpointPathManager:
             return exp_dir / day / time if sep else exp_dir / exp.run.id
 
 
-class AbstractCheckpoint(p.CheckpointProtocol, abc.ABC):
+class AbstractCheckpoint(abc.ABC):
     """Abstract class that stores and loads weight for a ModelProtocol class."""
 
     _model: p.ModelProtocol[Any, Any] | None

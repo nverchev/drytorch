@@ -23,7 +23,7 @@ _default_grad_op: p.GradientOpProtocol = gradient_ops.NoOp()
 
 
 @dataclasses.dataclass(frozen=True)
-class LearningSchema(p.LearningProtocol):
+class LearningSchema:
     """Class with specifications for the learning algorithm.
 
     Attributes:

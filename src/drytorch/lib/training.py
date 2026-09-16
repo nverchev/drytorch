@@ -198,22 +198,23 @@ class Trainer(
     runners.ModelRunnerWithLogs[
         Input, Target, Output, p.LossProtocol[Output, Target]
     ],
-    p.TrainerProtocol[Input, Target, Output],
 ):
     """Implement the standard Pytorch training loop.
 
     Attributes:
+        learning_schema: optimizer settings and scheduling given at creation.
         loader: provides inputs and targets in batches.
         model: the model to train.
         objective: determines the optimization's criterion.
         post_epoch_hooks: hooks executed after each epoch, validation first.
         pre_epoch_hooks: hooks executed before each epoch.
+        validation: the validation run during training, if any.
     """
 
+    learning_schema: Final[p.LearningProtocol]
     post_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
     pre_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
-    learning_schema_: Final[p.LearningProtocol]
-    validation_: Final[evaluations.Validation[Input, Target, Output] | None]
+    validation: Final[evaluations.Validation[Input, Target, Output] | None]
     _model_optimizer: Final[ModelOptimizer]
     _terminated: bool
 
@@ -256,16 +257,16 @@ class Trainer(
                 val_loader is given.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
-        self.validation_ = self._create_validation(val_loader, val_name)
-        if self.validation_ is None:
+        self.validation = self._create_validation(val_loader, val_name)
+        if self.validation is None:
             post_epoch_chain = hooks.HookChain(post_epoch_hooks)
         else:
-            val_hook = hooks.evaluation_hook(self.validation_, validate_every)
+            val_hook = hooks.evaluation_hook(self.validation, validate_every)
             post_epoch_chain = hooks.HookChain([val_hook, *post_epoch_hooks])
 
         self.post_epoch_hooks = post_epoch_chain
         self.pre_epoch_hooks = hooks.HookChain(pre_epoch_hooks)
-        self.learning_schema_ = learning_schema
+        self.learning_schema = learning_schema
         self._model_optimizer = ModelOptimizer(model, learning_schema)
         self._terminated = False
         return
@@ -298,21 +299,10 @@ class Trainer(
         return
 
     @property
-    @override
-    def learning_schema(self) -> p.LearningProtocol:
-        return self.learning_schema_
-
-    @property
-    @override
     def terminated(self) -> bool:
+        """If true, this trainer should not be used for training anymore."""
         return self._terminated
 
-    @property
-    @override
-    def validation(self) -> p.MonitorProtocol | None:
-        return self.validation_
-
-    @override
     def load_checkpoint(self, epoch: int = -1) -> None:
         """Load model and optimizer state from a checkpoint.
 
@@ -323,13 +313,20 @@ class Trainer(
         self.model.checkpoint.load(epoch=epoch)
         return
 
-    @override
     def save_checkpoint(self) -> None:
+        """Save model and optimizer state in a checkpoint."""
         self.model.checkpoint.save()
         return
 
-    @override
     def terminate_training(self, reason: str) -> None:
+        """Prevent the trainer from continuing the training.
+
+        Args:
+            reason: why the training was terminated.
+
+        Side Effects:
+            Emits :class:`~drytorch.core.log_events.TerminatedTrainingEvent`.
+        """
         self._terminated = True
         log_events.TerminatedTrainingEvent(
             source_name=self.name,
@@ -339,8 +336,12 @@ class Trainer(
         )
         return
 
-    @override
     def train(self, n_epochs: int) -> None:
+        """Train the module for the specified number of epochs.
+
+        Args:
+            n_epochs: the number of epochs for which train the module.
+        """
         if self.terminated:
             warnings.warn(exceptions.TerminatedTrainingWarning(), stacklevel=1)
             return
@@ -393,7 +394,6 @@ class Trainer(
             )
         return
 
-    @override
     def update_learning_rate(
         self,
         base_lr: float | Mapping[str, float] | None = None,

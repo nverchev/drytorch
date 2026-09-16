@@ -31,7 +31,7 @@ def from_torchmetrics(
             configuration has its own class name.
     """
 
-    class _TorchMetricCompositionalMetric(p.LossProtocol[_Tensor, _Tensor]):
+    class _TorchMetricCompositionalMetric:
         """Wrapper of Compositional Metric reporting internal calculations.
 
         Note that this CompositionalMetric can be used as loss.

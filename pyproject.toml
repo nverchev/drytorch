@@ -120,7 +120,12 @@ log_cli = true
 log_cli_level = "WARNING"
 
 [tool.basedpyright]
-include = ["src"]
+include = [
+    "src",
+    "tests/functional/contrib/test_metrics_compatibility.py",
+    "tests/integration/lib/test_protocol_implementations.py",
+    "tests/units/core/test_protocols.py",
+]
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"

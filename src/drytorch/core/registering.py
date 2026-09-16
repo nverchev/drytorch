@@ -12,19 +12,12 @@ import abc
 import dataclasses
 import weakref
 
-from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar
+from typing import Any, Final, TypeVar
 
 import torch
-import typing_extensions
 
 from drytorch.core import exceptions, experimenting
 from drytorch.core import protocols as p
-
-
-if TYPE_CHECKING:
-    from typing import _ProtocolMeta
-else:  # typing_extensions metaclass subclasses the typing one
-    _ProtocolMeta = type(typing_extensions.Protocol)
 
 
 __all__ = [
@@ -39,19 +32,10 @@ __all__ = [
 ]
 
 
-class _ActorProtocol(Protocol):
-    """Protocol for an object acting on a model."""
-
-    @property
-    @abc.abstractmethod
-    def model(self) -> p.ModelProtocol[Any, Any]:
-        """The model that the actor acts on."""
+_T = TypeVar('_T', bound=p.ActorProtocol)
 
 
-_T = TypeVar('_T', bound=_ActorProtocol)
-
-
-class RegisteringMeta(_ProtocolMeta, abc.ABCMeta):
+class RegisteringMeta(abc.ABCMeta):
     """Metaclass registering an actor after initialization."""
 
     def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:

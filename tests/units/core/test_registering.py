@@ -2,11 +2,7 @@
 
 import weakref
 
-from typing import Any, Protocol
-
-import typing_extensions
-
-from typing_extensions import override
+from typing import Any
 
 import pytest
 
@@ -102,20 +98,6 @@ def test_unregister_actor(mock_run) -> None:
     assert not any(caller in actors for actors in ALL_ACTORS.values())
 
 
-class _TypingProtocol(Protocol):
-    """Protocol from typing."""
-
-    def first(self) -> None:
-        """First method."""
-
-
-class _ExtensionsProtocol(typing_extensions.Protocol):
-    """Protocol from typing_extensions."""
-
-    def second(self) -> None:
-        """Second method."""
-
-
 class _Actor(metaclass=RegisteringMeta):
     """Actor of a model."""
 
@@ -152,18 +134,6 @@ class _FailingActor(_Actor):
         raise ValueError('failing initialization')
 
 
-class _ProtocolActor(_Actor, _TypingProtocol, _ExtensionsProtocol):
-    """Actor inheriting protocols from typing and typing_extensions."""
-
-    @override
-    def first(self) -> None:
-        return
-
-    @override
-    def second(self) -> None:
-        return
-
-
 class TestRegisteringMeta:
     """Tests for the metaclass registering the actors."""
 
@@ -198,9 +168,3 @@ class TestRegisteringMeta:
             _FailingActor(mock_model)
 
         self.mock_register_actor.assert_not_called()
-
-    def test_protocol_inheritance(self, mock_model) -> None:
-        """Test an actor inheriting typing and typing_extensions protocols."""
-        actor = _ProtocolActor(mock_model)
-
-        self.mock_register_actor.assert_called_once_with(actor, mock_model)

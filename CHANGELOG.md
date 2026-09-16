@@ -17,6 +17,8 @@
 - `MetricCollection.fn` and `MetricCollection.named_fn` are read-only
 
 - `MetricTracker.metric_name` and `history` are read-only, `best_is` is `Final` and `best_value` has no setter; `resolved_best_is` is the direction in use, and `resolve_metric_name` and `resolve_best_is` set the name and the direction while they are unknown
+- library classes match protocols structurally instead of inheriting them; `Model.checkpoint`, `Model.mixed_precision`, `DataLoader.batch_size`, `DataLoader.dataset`, `DataLoader.sampler`, `Trainer.learning_schema` and `Trainer.validation` are plain `Final` attributes again
+- `MonitorProtocol.model`, `TrainerProtocol.model` and the attributes of `LearningProtocol` are read-only properties
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
@@ -32,6 +34,7 @@
 
 - added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
 - added `DirectionNotResolvedError`, raised by `MetricTracker.resolved_best_is` before the direction is known
+- moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
 ## Changed
 - ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
@@ -66,6 +69,7 @@
 - `TrainerProtocol.update_learning_rate` accepts learning rates by module name and defaults both arguments to `None`, like `Trainer`
 - `MetricMonitor.metric_tracker` and `MetricExtractor.optional_monitor` are `Final`; `MetricMonitor.history` is a `Sequence`
 - `MetricMonitor` takes an automatic `best_is` from the monitored metric when the metric states its direction, so the direction is recorded
+- `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 ## Removed
 - removed `ModelCaller`; `ModelRunner` is the base class of the runners
 - removed `HookRegistry`; hooks are passed to `Trainer` or added to `TrainerBuilder`
@@ -76,6 +80,7 @@
 - removed preferential dataclass apply branch in `apply`
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 
+- removed `TrainerProtocol.objective`, which no code used
 ## Fixed
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
 - combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function

@@ -36,7 +36,7 @@ def from_torcheval(
             invalid type.
     """
 
-    class _TorchEvalWithSync(p.ObjectiveProtocol[_Tensor, _Tensor]):
+    class _TorchEvalWithSync:
         metric: Final[metrics.Metric[_Tensor | dict[str, _Tensor]]]
         name: Final[str]
         _synced_value: _Tensor | dict[str, _Tensor] | None

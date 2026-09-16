@@ -43,7 +43,7 @@ def _validate_threshold(threshold: float) -> None:
     return
 
 
-class NoOp(p.GradientOpProtocol):
+class NoOp:
     """Placeholder performing no gradient action."""
 
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
@@ -51,7 +51,7 @@ class NoOp(p.GradientOpProtocol):
         return
 
 
-class GradParamNormalizer(p.GradientOpProtocol):
+class GradParamNormalizer:
     """Strategy that normalizes each parameter's gradient to unit norm."""
 
     _eps = 1e-8
@@ -69,7 +69,7 @@ class GradParamNormalizer(p.GradientOpProtocol):
         return
 
 
-class GradZScoreNormalizer(p.GradientOpProtocol):
+class GradZScoreNormalizer:
     """Gradient normalizing strategy using Z-score normalization."""
 
     _eps = 1e-8
@@ -91,7 +91,7 @@ class GradZScoreNormalizer(p.GradientOpProtocol):
         return
 
 
-class ClipOperation(p.GradientOpProtocol, abc.ABC):
+class ClipOperation(abc.ABC):
     """Abstract base class for gradient operations."""
 
     @abc.abstractmethod

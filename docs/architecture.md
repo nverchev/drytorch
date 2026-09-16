@@ -66,11 +66,11 @@ direction TB
     }
 
     class LearningProtocol {
-        optimizer_cls: type[torch.optim.Optimizer]
-        base_lr: float | Mapping[str, float]
-        scheduler: SchedulerProtocol
-        optimizer_defaults: Mapping[str, Any]
-        gradient_op: GradientOpProtocol
+        +base_lr: float | Mapping[str, float]
+        +gradient_op: GradientOpProtocol
+        +optimizer_cls: type[torch.optim.Optimizer]
+        +optimizer_defaults: Mapping[str, Any]
+        +scheduler: SchedulerProtocol
     }
 
     class ObjectiveProtocol["ObjectiveProtocol[Output, Target]"] {
@@ -84,15 +84,14 @@ direction TB
     }
 
     class MonitorProtocol {
-        model: ModelProtocol
+        +model: ModelProtocol
         +name: str
         +computed_metrics: Mapping[str, float]
         +__call__(store_outputs: bool)
     }
 
     class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {
-        model: ModelProtocol[Input, Output]
-        objective: LossProtocol[Output, Target]
+        +model: ModelProtocol[Input, Output]
         +learning_schema: LearningProtocol
         +validation: MonitorProtocol | None
         +terminated: bool

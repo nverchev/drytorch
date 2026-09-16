@@ -22,6 +22,7 @@ from torch.utils import data
 
 
 __all__ = [
+    'ActorProtocol',
     'CheckpointProtocol',
     'CreatedAtProtocol',
     'GradientOpProtocol',
@@ -31,6 +32,7 @@ __all__ = [
     'LoaderProtocol',
     'LossProtocol',
     'ModelProtocol',
+    'ModuleProtocol',
     'MonitorProtocol',
     'NamedProtocol',
     'ObjectiveMonitorProtocol',
@@ -55,14 +57,11 @@ _Data_co = TypeVar(
     '_Data_co', bound=tuple[InputType, TargetType], covariant=True
 )
 _Output_co = TypeVar('_Output_co', bound=OutputType, covariant=True)
+_Target_co = TypeVar('_Target_co', bound=TargetType, covariant=True)
 
 _Input_contra = TypeVar('_Input_contra', bound=InputType, contravariant=True)
 _Target_contra = TypeVar('_Target_contra', bound=TargetType, contravariant=True)
 _Output_contra = TypeVar('_Output_contra', bound=OutputType, contravariant=True)
-
-_Input = TypeVar('_Input', bound=InputType)
-_Target = TypeVar('_Target', bound=TargetType)
-_Output = TypeVar('_Output', bound=OutputType)
 
 
 # ---------------------------------------------------------------------------
@@ -104,21 +103,32 @@ class GradientOpProtocol(Protocol):
 
 
 class LearningProtocol(Protocol):
-    """Protocol with specifications for the learning algorithm.
+    """Protocol with specifications for the learning algorithm."""
 
-    Attributes:
-        base_lr: initial learning rates for named parameters or global value.
-        gradient_op: operations on the model gradients.
-        optimizer_cls: the optimizer class to bind to the module.
-        optimizer_defaults: optional arguments for the optimizer.
-        scheduler: modifies the learning rate given the current epoch.
-    """
+    @property
+    @abc.abstractmethod
+    def base_lr(self) -> float | Mapping[str, float]:
+        """Initial learning rates for named parameters or global value."""
 
-    base_lr: float | Mapping[str, float]
-    gradient_op: GradientOpProtocol
-    optimizer_cls: type[torch.optim.Optimizer]
-    optimizer_defaults: Mapping[str, Any]
-    scheduler: SchedulerProtocol
+    @property
+    @abc.abstractmethod
+    def gradient_op(self) -> GradientOpProtocol:
+        """Operations on the model gradients."""
+
+    @property
+    @abc.abstractmethod
+    def optimizer_cls(self) -> type[torch.optim.Optimizer]:
+        """The optimizer class to bind to the module."""
+
+    @property
+    @abc.abstractmethod
+    def optimizer_defaults(self) -> Mapping[str, Any]:
+        """Optional arguments for the optimizer."""
+
+    @property
+    @abc.abstractmethod
+    def scheduler(self) -> SchedulerProtocol:
+        """Modifies the learning rate given the current epoch."""
 
 
 class LoaderProtocol(Protocol[_Data_co]):
@@ -148,6 +158,14 @@ class LoaderProtocol(Protocol[_Data_co]):
         In distributed training, this is the total batch count across the entire
         world size, not just the number of batches yielded by the local process.
         """
+
+
+class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
+    """Protocol for a PyTorch module with type annotations."""
+
+    @abc.abstractmethod
+    def forward(self, inputs: _Input_contra, /) -> _Output_co:
+        """Forward run of the network."""
 
 
 @runtime_checkable
@@ -213,12 +231,7 @@ class MonitorProtocol(Protocol):
     :class:`~drytorch.core.log_events.ActorRegistrationEvent`. Each pass
     over the data emits :class:`~drytorch.core.log_events.IterateBatchEvent`
     and then :class:`~drytorch.core.log_events.MetricEvent`.
-
-    Attributes:
-        model: the model to evaluate.
     """
-
-    model: ModelProtocol[Any, Any]
 
     def __call__(self, store_outputs: bool = False) -> None:
         """Run the model on the data once.
@@ -226,6 +239,11 @@ class MonitorProtocol(Protocol):
         Args:
             store_outputs: whether to store the model outputs.
         """
+
+    @property
+    @abc.abstractmethod
+    def model(self) -> ModelProtocol[Any, Any]:
+        """The model to evaluate."""
 
     @property
     def name(self) -> str:
@@ -304,7 +322,7 @@ class SyncProtocol(Protocol):
 @runtime_checkable
 class TrainerProtocol(
     MonitorProtocol,
-    Protocol[_Input, _Target, _Output],
+    Protocol[_Input_contra, _Target_co, _Output_co],
 ):
     """Protocol for a class that train a model.
 
@@ -318,18 +336,17 @@ class TrainerProtocol(
     ``update_learning_rate`` emits
     :class:`~drytorch.core.log_events.LearningRateEvent`.
 
-    Attributes:
-        model: the model to train.
-        objective: determines the optimization's criterion.
     """
-
-    model: ModelProtocol[_Input, _Output]
-    objective: LossProtocol[_Output, _Target]
 
     @property
     @abc.abstractmethod
     def learning_schema(self) -> LearningProtocol:
         """Optimizer settings and scheduling given at creation."""
+
+    @property
+    @abc.abstractmethod
+    def model(self) -> ModelProtocol[_Input_contra, _Output_co]:
+        """The model to train."""
 
     @property
     def terminated(self) -> bool:
@@ -374,6 +391,16 @@ class TrainerProtocol(
 # ---------------------------------------------------------------------------
 # Contract protocols
 # ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class ActorProtocol(Protocol):
+    """Protocol for an object acting on a model."""
+
+    @property
+    @abc.abstractmethod
+    def model(self) -> ModelProtocol[Any, Any]:
+        """The model that the actor acts on."""
 
 
 @runtime_checkable

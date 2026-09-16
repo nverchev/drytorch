@@ -24,7 +24,7 @@ Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
 
 
-class EvaluationMixin(p.MonitorProtocol):
+class EvaluationMixin(runners.ModelRunner[Input, Target, Output]):
     """Mixin for running inference in eval mode without gradients."""
 
     @torch.inference_mode()
@@ -36,7 +36,7 @@ class EvaluationMixin(p.MonitorProtocol):
 
 
 class Diagnostic(
-    EvaluationMixin,
+    EvaluationMixin[Input, Target, Output],
     runners.ModelRunnerWithLogs[Input, Target, Output, Any],
 ):
     """Evaluate the model on inference mode without logging the metrics.
@@ -50,7 +50,7 @@ class Diagnostic(
 
 
 class Validation(
-    EvaluationMixin,
+    EvaluationMixin[Input, Target, Output],
     runners.ModelRunnerWithLogs[Input, Target, Output, Any],
 ):
     """Evaluate model on inference mode.

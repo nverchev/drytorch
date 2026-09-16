@@ -6,7 +6,7 @@ import abc
 import typing
 
 from collections.abc import Callable
-from typing import ClassVar, Final, Protocol, TypeVar, cast
+from typing import ClassVar, Final, Generic, TypeVar, cast
 
 import torch
 
@@ -36,28 +36,22 @@ _ParamList = tuple[Tensor, ...] | list[Tensor]
 _MultiAvgFn = Callable[[_ParamList, _ParamList, Tensor | int], None]
 
 
-class ModuleProtocol(Protocol[Input, Output]):
-    """Protocol for a PyTorch module with type annotations."""
-
-    @abc.abstractmethod
-    def forward(self, inputs: Input, /) -> Output:
-        """Forward run of the network."""
-
-
-class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
+class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     """Wrapper for a torch.nn.Module class with extra information.
 
     Attributes:
+        checkpoint: saves and loads the state of the model.
         epoch: the number of epochs the model has been trained so far.
         exec_module: :class:`torch.nn.Module` used for execution.
+        mixed_precision: whether to use mixed precision computing.
     """
 
     _name = repr_utils.DefaultName()
 
-    checkpoint_: Final[p.CheckpointProtocol]
+    checkpoint: Final[p.CheckpointProtocol]
     epoch: int
     exec_module: Final[torch.nn.Module]
-    mixed_precision_: Final[bool]
+    mixed_precision: Final[bool]
     _compile: bool
     _device: torch.device
     _distribute: bool
@@ -65,7 +59,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     def __init__(
         self,
-        module: ModuleProtocol[Input, Output],
+        module: p.ModuleProtocol[Input, Output],
         name: str = '',
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
@@ -92,7 +86,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         self._device = self._default_device() if device is None else device
         self._compile = torch_compile
         self._distribute = distribute
-        self.mixed_precision_ = mixed_precision
+        self.mixed_precision = mixed_precision
         torch_module = self._validate_module(module)
         self.exec_module = self.prepare_module(torch_module)
         self._name = name
@@ -102,8 +96,8 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
         if checkpoint is None:
             checkpoint = checkpoints.LocalCheckpoint()
 
-        self.checkpoint_ = checkpoint
-        self.checkpoint_.bind_model(self)
+        self.checkpoint = checkpoint
+        self.checkpoint.bind_model(self)
         return
 
     def __call__(self, inputs: Input) -> Output:
@@ -119,19 +113,9 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
             return module(inputs)
 
     @property
-    @override
-    def checkpoint(self) -> p.CheckpointProtocol:
-        return self.checkpoint_
-
-    @property
     def device(self) -> torch.device:
         """The device where the weights are stored."""
         return self._device
-
-    @property
-    @override
-    def mixed_precision(self) -> bool:
-        return self.mixed_precision_
 
     @property
     def module(self) -> torch.nn.Module:
@@ -247,7 +231,7 @@ class Model(repr_utils.CreatedAtMixin, p.ModelProtocol[Input, Output]):
 
     @staticmethod
     def _validate_module(
-        torch_model: ModuleProtocol,
+        torch_model: p.ModuleProtocol,
     ) -> torch.nn.Module:
         if not isinstance(torch_model, torch.nn.Module):
             raise TypeError('torch_module must be a torch.nn.Module subclass')
@@ -271,7 +255,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
 
     def __init__(
         self,
-        torch_module: ModuleProtocol[Input, Output],
+        torch_module: p.ModuleProtocol[Input, Output],
         /,
         name: str = '',
         device: torch.device | None = None,
@@ -364,7 +348,7 @@ class SWAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        torch_module: ModuleProtocol[Input, Output],
+        torch_module: p.ModuleProtocol[Input, Output],
         /,
         start_epoch: int,
         name: str = '',
@@ -434,7 +418,7 @@ class EMAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        torch_module: ModuleProtocol[Input, Output],
+        torch_module: p.ModuleProtocol[Input, Output],
         /,
         name: str = '',
         device: torch.device | None = None,

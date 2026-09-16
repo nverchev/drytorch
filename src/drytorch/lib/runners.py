@@ -251,7 +251,6 @@ class ModelRunner(
 
 class ModelRunnerWithObjective(
     ModelRunner[Input, Target, Output],
-    p.MonitorProtocol,
     Generic[Input, Target, Output, _Objective_co],
 ):
     """Run a model on a dataset, calculating the value of an objective function.

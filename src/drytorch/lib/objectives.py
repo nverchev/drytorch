@@ -74,7 +74,7 @@ _OPERATORS: Final[dict[str, tuple[int, Callable[[Tensor, Tensor], Tensor]]]] = {
 }
 
 
-class Objective(p.ObjectiveProtocol[_Output_contra, _Target_contra], abc.ABC):
+class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
     """Abstract base class for metrics or losses."""
 
     def __init__(self) -> None:
@@ -85,7 +85,6 @@ class Objective(p.ObjectiveProtocol[_Output_contra, _Target_contra], abc.ABC):
         self._cached_values: dict[str, Tensor] = {}
         return
 
-    @override
     def compute(self) -> dict[str, Tensor]:
         """Return the aggregated objective value(s).
 
@@ -105,7 +104,6 @@ class Objective(p.ObjectiveProtocol[_Output_contra, _Target_contra], abc.ABC):
 
         return dict(self._cached_values)
 
-    @override
     def update(
         self, outputs: _Output_contra, targets: _Target_contra
     ) -> dict[str, Tensor]:
@@ -127,7 +125,6 @@ class Objective(p.ObjectiveProtocol[_Output_contra, _Target_contra], abc.ABC):
         self._cached_values.clear()
         return results
 
-    @override
     def reset(self) -> None:
         """Resets the internal state of the instance."""
         self._aggregator.clear()
@@ -334,7 +331,6 @@ class Metric(MetricCollection[Output, Target]):
 
 class LossWithMetrics(
     MetricCollection[Output, Target],
-    p.LossProtocol[Output, Target],
 ):
     """Collection of metrics, one of which serves as a loss.
 
@@ -394,7 +390,6 @@ class LossWithMetrics(
         all_metrics.pop(self.name, None)  # the loss value wins a name clash
         return {self.name: loss_value} | all_metrics
 
-    @override
     def forward(self, outputs: Output, targets: Target) -> Tensor:
         """Performs a forward pass, updates metrics, and computes the loss.
 
@@ -719,7 +714,7 @@ class DictLoss(LossWithMetrics[Output, Target]):
         return
 
 
-class JoinedMetrics(p.ObjectiveProtocol[_Output_contra, _Target_contra]):
+class JoinedMetrics(Generic[_Output_contra, _Target_contra]):
     """Objective joining objectives of any kind.
 
     Attributes:
@@ -742,7 +737,6 @@ class JoinedMetrics(p.ObjectiveProtocol[_Output_contra, _Target_contra]):
         self.objectives = objectives
         return
 
-    @override
     def compute(self) -> dict[str, Tensor]:
         """Return the computed values of all the objectives.
 
@@ -764,7 +758,6 @@ class JoinedMetrics(p.ObjectiveProtocol[_Output_contra, _Target_contra]):
 
         return computed
 
-    @override
     def reset(self) -> None:
         """Reset the state of all the objectives."""
         for objective in self.objectives:
@@ -787,7 +780,6 @@ class JoinedMetrics(p.ObjectiveProtocol[_Output_contra, _Target_contra]):
 
         return
 
-    @override
     def update(self, outputs: _Output_contra, targets: _Target_contra) -> None:
         """Update all the objectives with new outputs and targets.
 
@@ -803,7 +795,6 @@ class JoinedMetrics(p.ObjectiveProtocol[_Output_contra, _Target_contra]):
 
 class JoinedLoss(
     JoinedMetrics[_Output_contra, _Target_contra],
-    p.LossProtocol[_Output_contra, _Target_contra],
 ):
     """Loss joining a loss with objectives of any kind.
 
@@ -837,7 +828,6 @@ class JoinedLoss(
 
         return
 
-    @override
     def forward(
         self, outputs: _Output_contra, targets: _Target_contra, /
     ) -> Tensor:
