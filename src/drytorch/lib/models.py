@@ -41,7 +41,6 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
     Attributes:
         checkpoint: saves and loads the state of the model.
-        epoch: the number of epochs the model has been trained so far.
         exec_module: :class:`torch.nn.Module` used for execution.
         mixed_precision: whether to use mixed precision computing.
     """
@@ -49,11 +48,11 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     _name = repr_utils.DefaultName()
 
     checkpoint: Final[p.CheckpointProtocol]
-    epoch: int
     exec_module: Final[torch.nn.Module]
     mixed_precision: Final[bool]
     _compile: bool
     _device: torch.device
+    _epoch: int
     _distribute: bool
     _registered: bool
 
@@ -90,7 +89,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
         torch_module = self._validate_module(module)
         self.exec_module = self.prepare_module(torch_module)
         self._name = name
-        self.epoch = 0
+        self._epoch = 0
         self._registered = False
         self.register()
         if checkpoint is None:
@@ -116,6 +115,11 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     def device(self) -> torch.device:
         """The device where the weights are stored."""
         return self._device
+
+    @property
+    def epoch(self) -> int:
+        """The number of epochs the model has been trained so far."""
+        return self._epoch
 
     @property
     def module(self) -> torch.nn.Module:
@@ -158,19 +162,35 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
         return module
 
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        """Bind the optimizer whose state is saved with the model.
+
+        Args:
+            optimizer: the optimizer updating the model parameters.
+
+        Raises:
+            OptimizerAlreadyBoundError: if another optimizer is bound.
+        """
+        self.checkpoint.bind_optimizer(optimizer)
+        return
+
     def increment_epoch(self) -> None:
         """Increment the epoch by 1.
 
         Side Effects:
             Emits :class:`~drytorch.core.log_events.IncrementEpochEvent`.
         """
-        self.epoch += 1
+        self._epoch += 1
         log_events.IncrementEpochEvent(model_name=self.name, epoch=self.epoch)
         return
 
     def load_state(self, epoch: int = -1) -> None:
-        """Load the weights and epoch of the model."""
-        self.checkpoint.load(epoch=epoch)
+        """Load the weights, the optimizer state and the epoch of the model.
+
+        Args:
+            epoch: the epoch to load. Default loads the last saved epoch.
+        """
+        self._epoch = self.checkpoint.load(epoch=epoch)
         return
 
     def register(self) -> None:

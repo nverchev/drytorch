@@ -1,7 +1,7 @@
 ## [0.1.0] - 14-09-2026
 
 ## [BREAKING CHANGES]
-- protocol attributes `batch_size`, `dataset`, `sampler`, `mixed_precision`, `checkpoint` and `learning_schema` are read-only properties; implementations store them as `<name>_`
+- protocol attributes are read-only properties: `batch_size`, `dataset`, `sampler`, `mixed_precision`, `learning_schema`, `model` in `MonitorProtocol` and `TrainerProtocol`, and the attributes of `LearningProtocol`
 - replaced `AbstractAggregator` and `TorchAverager` with `Aggregator`, a container merging accumulators by name; `reduce` and `all_reduce` are removed, and the accumulators are reduced by their owner
 - `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
 - `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators
@@ -17,8 +17,10 @@
 - `MetricCollection.fn` and `MetricCollection.named_fn` are read-only
 
 - `MetricTracker.metric_name` and `history` are read-only, `best_is` is `Final` and `best_value` has no setter; `resolved_best_is` is the direction in use, and `resolve_metric_name` and `resolve_best_is` set the name and the direction while they are unknown
-- library classes match protocols structurally instead of inheriting them; `Model.checkpoint`, `Model.mixed_precision`, `DataLoader.batch_size`, `DataLoader.dataset`, `DataLoader.sampler`, `Trainer.learning_schema` and `Trainer.validation` are plain `Final` attributes again
-- `MonitorProtocol.model`, `TrainerProtocol.model` and the attributes of `LearningProtocol` are read-only properties
+- library classes match protocols structurally instead of inheriting them
+- `Model.epoch` and `ModelProtocol.epoch` are read-only; `CheckpointProtocol.load` returns the loaded epoch, which `Model.load_state` sets
+- `ModelProtocol` requires `bind_optimizer`, `load_state` and `save_state`; `ModelOptimizer` and `Trainer` bind, load and save through the model
+- `CheckpointPathManager.epoch_dir` is replaced by `get_epoch_dir`; `get_model_state_path` and `get_optimizer_state_path` take the epoch
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
@@ -81,6 +83,7 @@
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 
 - removed `TrainerProtocol.objective`, which no code used
+- removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 ## Fixed
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
 - combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function
@@ -175,6 +178,7 @@
 - fixed a bug where `check_current_run` would incorrectly report the current active run's metadata instead of the model's actual owning run
 - fixed `ReduceLROnPlateau` so that learning rate reductions correctly accumulate via composition instead of resetting
 - fixed order dependence in tests unit -> integration
+- a failed checkpoint load keeps the epoch of the model
 
 
 ## [0.1.0rc11] - 31-07-2026

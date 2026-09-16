@@ -138,7 +138,7 @@ class TestDistributedDataLoader:
         model = Model(
             nn.Linear(1, 1), name='linear', device=torch.device('cpu')
         )
-        model.epoch = 5
+        model._epoch = 5
         runner = ModelRunner(model, loader=loader)
         runner()
 

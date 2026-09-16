@@ -37,16 +37,18 @@ direction TB
     }
 
     class ModelProtocol["ModelProtocol[Input, Output]"] {
-        epoch: int
+        +epoch: int
         +module: torch.nn.Module
         +device: torch.device
-        +checkpoint: CheckpointProtocol
         +mixed_precision: bool
         +name: str
         +__call__(inputs: Input) Output
+        +bind_optimizer(optimizer: Optimizer)
         +increment_epoch()
+        +load_state(epoch: int)
         +post_batch_update()
         +post_epoch_update()
+        +save_state()
     }
 
     class CheckpointProtocol {

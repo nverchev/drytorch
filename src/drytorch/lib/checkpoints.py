@@ -88,19 +88,41 @@ class CheckpointPathManager:
         self._model = model
         return
 
-    @property
-    def epoch_dir(self) -> pathlib.Path:
-        """Directory for a checkpoint at the current epoch."""
-        epoch_directory = self.model_dir / f'epoch_{self._model.epoch}'
-        return epoch_directory
+    def get_epoch_dir(self, epoch: int) -> pathlib.Path:
+        """Get the directory for a checkpoint at an epoch.
 
-    def get_model_state_path(self, module_name: str) -> pathlib.Path:
-        """Get the name of the file with the model state."""
-        return self.epoch_dir / f'{module_name}_state.pt'
+        Args:
+            epoch: the epoch of the checkpoint.
 
-    def get_optimizer_state_path(self) -> pathlib.Path:
-        """Get the name of the file with the optimizer state."""
-        return self.epoch_dir / 'optimizer_state.pt'
+        Returns:
+            The directory of the checkpoint.
+        """
+        return self.model_dir / f'epoch_{epoch}'
+
+    def get_model_state_path(
+        self, module_name: str, epoch: int
+    ) -> pathlib.Path:
+        """Get the name of the file with the model state.
+
+        Args:
+            module_name: the name of the module.
+            epoch: the epoch of the checkpoint.
+
+        Returns:
+            The path of the file.
+        """
+        return self.get_epoch_dir(epoch) / f'{module_name}_state.pt'
+
+    def get_optimizer_state_path(self, epoch: int) -> pathlib.Path:
+        """Get the name of the file with the optimizer state.
+
+        Args:
+            epoch: the epoch of the checkpoint.
+
+        Returns:
+            The path of the file.
+        """
+        return self.get_epoch_dir(epoch) / 'optimizer_state.pt'
 
     @classmethod
     def _get_run_dir(cls) -> pathlib.Path:
@@ -167,11 +189,14 @@ class AbstractCheckpoint(abc.ABC):
         self._optimizer = optimizer
         return
 
-    def load(self, epoch: int = -1) -> None:
+    def load(self, epoch: int = -1) -> int:
         """Load the model and optimizer state dictionaries.
 
         Args:
             epoch: epoch to load.
+
+        Returns:
+            The loaded epoch.
 
         Raises:
             ModelNotFoundError: if the model location does not exist.
@@ -185,7 +210,7 @@ class AbstractCheckpoint(abc.ABC):
             else:
                 dist.barrier()
 
-        self._update_epoch(epoch)
+        epoch = self._resolve_epoch(epoch)
         self._check_location(epoch)
         for name, module in self._modules.items():
             self._load_module(name, module, epoch)
@@ -194,10 +219,10 @@ class AbstractCheckpoint(abc.ABC):
         log_events.LoadModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
-            location=self._get_location(),
-            epoch=self.model.epoch,
+            location=self._get_location(epoch),
+            epoch=epoch,
         )
-        return
+        return epoch
 
     def remove_model(self) -> None:
         """Remove registered model."""
@@ -209,20 +234,21 @@ class AbstractCheckpoint(abc.ABC):
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
         registering.check_current_run(self.model)
+        epoch = self.model.epoch
         is_main_process = not (
             dist.is_available() and dist.is_initialized() and dist.get_rank()
         )
         if is_main_process:
             for name, module in self._modules.items():
-                self._save_module(name, module)
+                self._save_module(name, module, epoch)
 
-            self._save_optimizer()
+            self._save_optimizer(epoch)
 
         log_events.SaveModelEvent(
             model_name=self.model.name,
             definition=self._get_definition(),
-            location=self._get_location(),
-            epoch=self.model.epoch,
+            location=self._get_location(epoch),
+            epoch=epoch,
         )
         return
 
@@ -236,7 +262,7 @@ class AbstractCheckpoint(abc.ABC):
     def _get_last_saved_epoch(self) -> int: ...
 
     @abc.abstractmethod
-    def _get_location(self) -> str: ...
+    def _get_location(self, epoch: int) -> str: ...
 
     @abc.abstractmethod
     def _load_module(
@@ -247,18 +273,18 @@ class AbstractCheckpoint(abc.ABC):
     def _load_optimizer(self, epoch: int) -> None: ...
 
     @abc.abstractmethod
-    def _save_module(self, name: str, module: torch.nn.Module) -> None: ...
+    def _save_module(
+        self, name: str, module: torch.nn.Module, epoch: int
+    ) -> None: ...
 
     @abc.abstractmethod
-    def _save_optimizer(self) -> None: ...
+    def _save_optimizer(self, epoch: int) -> None: ...
 
-    def _update_epoch(self, epoch: int) -> None:
+    def _resolve_epoch(self, epoch: int) -> int:
         if epoch < -1:
             raise ValueError('Epoch must be larger than -1.')
 
-        epoch = epoch if epoch >= 0 else self._get_last_saved_epoch()
-        self.model.epoch = epoch
-        return
+        return epoch if epoch >= 0 else self._get_last_saved_epoch()
 
 
 class LocalCheckpoint(AbstractCheckpoint):
@@ -297,7 +323,9 @@ class LocalCheckpoint(AbstractCheckpoint):
 
     @override
     def save(self) -> None:
-        self.paths.epoch_dir.mkdir(exist_ok=True, parents=True)
+        self.paths.get_epoch_dir(self.model.epoch).mkdir(
+            exist_ok=True, parents=True
+        )
         super().save()
         return
 
@@ -306,7 +334,7 @@ class LocalCheckpoint(AbstractCheckpoint):
         if not self.paths.model_dir.exists():
             raise exceptions.ModelNotFoundError(self.paths.run_dir)
 
-        if not self.paths.epoch_dir.exists():
+        if not self.paths.get_epoch_dir(epoch).exists():
             raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)
 
         return
@@ -326,15 +354,15 @@ class LocalCheckpoint(AbstractCheckpoint):
         last_epoch_dir = max(all_epochs, key=self._get_epoch)
         return self._get_epoch(last_epoch_dir)
 
-    def _get_location(self) -> str:
-        return str(self.paths.epoch_dir)
+    def _get_location(self, epoch: int) -> str:
+        return str(self.paths.get_epoch_dir(epoch))
 
     @override
     def _load_module(
         self, name: str, module: torch.nn.Module, epoch: int = -1
     ) -> None:
         state_dict = torch.load(
-            self.paths.get_model_state_path(name),
+            self.paths.get_model_state_path(name, epoch),
             map_location=self.model.device,
             weights_only=True,
         )
@@ -346,13 +374,13 @@ class LocalCheckpoint(AbstractCheckpoint):
         if not self.paths.model_dir.exists():
             raise exceptions.ModelNotFoundError(self.paths.run_dir)
 
-        if not self.paths.epoch_dir.exists():
+        if not self.paths.get_epoch_dir(epoch).exists():
             raise exceptions.EpochNotFoundError(epoch, self.paths.model_dir)
         if self.optimizer is not None:
             try:
                 self.optimizer.load_state_dict(
                     torch.load(
-                        self.paths.get_optimizer_state_path(),
+                        self.paths.get_optimizer_state_path(epoch),
                         map_location=self.model.device,
                         weights_only=True,
                     ),
@@ -364,16 +392,20 @@ class LocalCheckpoint(AbstractCheckpoint):
         return
 
     @override
-    def _save_module(self, name: str, module: torch.nn.Module) -> None:
-        torch.save(module.state_dict(), self.paths.get_model_state_path(name))
+    def _save_module(
+        self, name: str, module: torch.nn.Module, epoch: int
+    ) -> None:
+        torch.save(
+            module.state_dict(), self.paths.get_model_state_path(name, epoch)
+        )
         return
 
     @override
-    def _save_optimizer(self) -> None:
+    def _save_optimizer(self, epoch: int) -> None:
         if self.optimizer is not None:
             torch.save(
                 self.optimizer.state_dict(),
-                self.paths.get_optimizer_state_path(),
+                self.paths.get_optimizer_state_path(epoch),
             )
         return
 

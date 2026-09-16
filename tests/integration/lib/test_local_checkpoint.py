@@ -91,11 +91,11 @@ def test_separate_module_state_save_and_load(run):
 def test_optimizer_save_and_load(linear_model, standard_learning_schema):
     """Test saving and loading the model's and the optimizer's states."""
     optimizer = torch.optim.SGD(linear_model.module.parameters(), lr=0.1)
-    linear_model.checkpoint.bind_optimizer(optimizer)
+    linear_model.bind_optimizer(optimizer)
     param_list = [param.clone() for param in linear_model.module.parameters()]
     optim_groups = optimizer.param_groups[0].copy()
 
-    linear_model.checkpoint.save()
+    linear_model.save_state()
 
     # change param values
     for param in linear_model.module.parameters():
@@ -115,7 +115,7 @@ def test_optimizer_save_and_load(linear_model, standard_learning_schema):
         assert param != old_param
     assert optimizer.param_groups[0]['lr'] != optim_groups['lr']
 
-    linear_model.checkpoint.load()
+    linear_model.load_state()
 
     # check original params and epoch
     assert linear_model.epoch < incremented_epoch

@@ -71,7 +71,7 @@ class ModelOptimizer:
             params=cast(Iterable[dict[str, Any]], self.get_opt_params()),
             **learning_schema.optimizer_defaults,
         )
-        self._model.checkpoint.bind_optimizer(self._optimizer)
+        self._model.bind_optimizer(self._optimizer)
         self._scaler = amp.grad_scaler.GradScaler(
             model.device.type,
             enabled=model.mixed_precision,
@@ -310,12 +310,12 @@ class Trainer(
             epoch: the epoch from which to load the checkpoint.
                 Defaults to the last saved epoch.
         """
-        self.model.checkpoint.load(epoch=epoch)
+        self.model.load_state(epoch=epoch)
         return
 
     def save_checkpoint(self) -> None:
         """Save model and optimizer state in a checkpoint."""
-        self.model.checkpoint.save()
+        self.model.save_state()
         return
 
     def terminate_training(self, reason: str) -> None:

@@ -41,7 +41,7 @@ class TestTrialCallbackAsk:
 
     def test_reported(self, trial_callback, identity_trainer) -> None:
         """Test reported values."""
-        identity_trainer.model.epoch = 3
+        identity_trainer.model._epoch = 3
         identity_trainer.objective.update(
             TorchData(torch.ones(2)), torch.zeros(2)
         )
@@ -64,7 +64,7 @@ class TestTrialCallbackObjective:
         """Create a TrialCallback instance for testing."""
 
         def _objective(trial: optuna.Trial) -> float:
-            identity_trainer.model.epoch = 3
+            identity_trainer.model._epoch = 3
             identity_trainer.objective.update(
                 TorchData(torch.ones(2)), torch.zeros(2)
             )

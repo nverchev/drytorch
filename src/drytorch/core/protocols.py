@@ -87,8 +87,17 @@ class CheckpointProtocol(Protocol):
     def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""
 
-    def load(self, epoch: int = -1) -> None:
-        """Load the model and optimizer state dictionaries."""
+    def load(self, epoch: int = -1) -> int:
+        """Load the model and optimizer state dictionaries.
+
+        :meth:`ModelProtocol.load_state` also restores the epoch of the model.
+
+        Args:
+            epoch: the epoch to load. Default loads the last saved epoch.
+
+        Returns:
+            The loaded epoch.
+        """
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
@@ -178,11 +187,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     ``increment_epoch`` emits
     :class:`~drytorch.core.log_events.IncrementEpochEvent`.
 
-    Attributes:
-        epoch: the number of epochs the model has been trained so far.
     """
-
-    epoch: int
 
     @abc.abstractmethod
     def __call__(self, /, inputs: _Input_contra) -> _Output_co:
@@ -190,8 +195,8 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
     @property
     @abc.abstractmethod
-    def checkpoint(self) -> CheckpointProtocol:
-        """The object responsible for saving and loading the model."""
+    def epoch(self) -> int:
+        """The number of epochs the model has been trained so far."""
 
     @property
     def device(self) -> torch.device:
@@ -211,8 +216,24 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         """The name of the model."""
 
     @abc.abstractmethod
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        """Bind the optimizer whose state is saved with the model.
+
+        Args:
+            optimizer: the optimizer updating the model parameters.
+        """
+
+    @abc.abstractmethod
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
+
+    @abc.abstractmethod
+    def load_state(self, epoch: int = -1) -> None:
+        """Load the weights, the optimizer state and the epoch.
+
+        Args:
+            epoch: the epoch to load. Default loads the last saved epoch.
+        """
 
     @abc.abstractmethod
     def post_batch_update(self) -> None:
@@ -221,6 +242,10 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     @abc.abstractmethod
     def post_epoch_update(self) -> None:
         """Update the model after processing an epoch of data."""
+
+    @abc.abstractmethod
+    def save_state(self) -> None:
+        """Save the weights, the optimizer state and the epoch."""
 
 
 class MonitorProtocol(Protocol):

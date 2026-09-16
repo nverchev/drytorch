@@ -52,6 +52,14 @@ class TestModel:
         assert complex_model.epoch == 1
         mock_event.assert_called_once_with(model_name='mlp_model', epoch=1)
 
+    def test_load_state_sets_epoch(self, mocker, complex_model: Model) -> None:
+        """Test load_state sets the epoch the checkpoint reports."""
+        mocker.patch.object(complex_model.checkpoint, 'load', return_value=7)
+
+        complex_model.load_state()
+
+        assert complex_model.epoch == 7
+
     def test_no_dist(self, complex_model: Model) -> None:
         """Test module is exec_module outside distributed settings."""
         assert complex_model.module is complex_model.exec_module
@@ -66,7 +74,7 @@ class TestSWAModel:
         mocker.patch('torch.compile', side_effect=lambda x: x)
         cpu = torch.device('cpu')
         model = SWAModel(MLP(), name='swa_model', start_epoch=2, device=cpu)
-        model.epoch = 2
+        model._epoch = 2
         return model
 
     def test_init(self, swa_model) -> None:
@@ -92,7 +100,7 @@ class TestSWAModel:
 
     def test_update_parameters_no_start(self, swa_model) -> None:
         """No averaging should occur if start_epoch is not reached yet."""
-        swa_model.epoch = 0
+        swa_model._epoch = 0
         initial = [p.clone() for p in swa_model.averaged_module.parameters()]
         for p in swa_model.module.parameters():
             p.data.zero_()
@@ -134,7 +142,7 @@ class TestSWAModel:
         self, swa_model, mocker
     ) -> None:
         """Forward should use averaged model in inference mode."""
-        swa_model.epoch = swa_model.start_epoch - 1
+        swa_model._epoch = swa_model.start_epoch - 1
         spy = mocker.spy(swa_model.module, 'forward')
 
         x = torch.randn(1, 1)

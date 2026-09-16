@@ -20,10 +20,10 @@ class TestPathManager:
 
     def test_paths(self, manager):
         """Test that the paths have the correct name."""
-        epoch_dir = manager.epoch_dir
+        epoch_dir = manager.get_epoch_dir(3)
         paths = [
-            manager.get_model_state_path('model'),
-            manager.get_optimizer_state_path(),
+            manager.get_model_state_path('model', 3),
+            manager.get_optimizer_state_path(3),
         ]
         expected_paths = [
             epoch_dir / 'model_state.pt',
@@ -124,6 +124,14 @@ class TestLocalCheckpoint:
 
         self.mock_load_event.assert_not_called()
 
+    def test_load_returns_epoch(self, checkpoint) -> None:
+        """Test load returns the loaded epoch."""
+        checkpoint.save()
+
+        epoch = checkpoint.load()
+
+        assert epoch == checkpoint.model.epoch
+
     def test_get_last_saved_epoch(self, checkpoint, mock_model) -> None:
         """Test it recovers the epoch of the longest trained model."""
         checkpoint.save()
@@ -143,7 +151,7 @@ class TestLocalCheckpoint:
 
     def test_save_multiple_modules(self, checkpoint, mock_model) -> None:
         """Test it saves multiple modules."""
-        epoch_dir = checkpoint.paths.epoch_dir
+        epoch_dir = checkpoint.paths.get_epoch_dir(mock_model.epoch)
         aux_module = torch.nn.Linear(10, 5)
         checkpoint.bind_model(mock_model)
         checkpoint.bind_module('aux', aux_module)

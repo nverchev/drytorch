@@ -44,7 +44,6 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
         'model': {
             'class': 'Model',
             'checkpoint': 'LocalCheckpoint',
-            'epoch': 0,
             'exec_module': {'class': 'Linear', 'training': True},
             'mixed_precision': False,
         },

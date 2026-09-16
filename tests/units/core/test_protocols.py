@@ -31,8 +31,9 @@ class _Checkpoint:
     def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
         """Bind the optimizer connected to the model."""
 
-    def load(self, epoch: int = -1) -> None:
+    def load(self, epoch: int = -1) -> int:
         """Load the model and optimizer state dictionaries."""
+        return epoch
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
@@ -53,7 +54,7 @@ class _Model:
         """Initialize."""
         self.checkpoint: p.CheckpointProtocol = _Checkpoint()
         self.device = torch.device('cpu')
-        self.epoch = 0
+        self._epoch = 0
         self.mixed_precision = False
         self.module = module
         self.name = 'model'
@@ -62,15 +63,31 @@ class _Model:
         """Call the module forward method."""
         return self.module(inputs)
 
+    @property
+    def epoch(self) -> int:
+        """The number of epochs the model has been trained so far."""
+        return self._epoch
+
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        """Bind the optimizer whose state is saved with the model."""
+
     def increment_epoch(self) -> None:
         """Increment the epoch by 1."""
-        self.epoch += 1
+        self._epoch += 1
+
+    def load_state(self, epoch: int = -1) -> None:
+        """Load the weights, the optimizer state and the epoch."""
+        self._epoch = self.checkpoint.load(epoch=epoch)
 
     def post_batch_update(self) -> None:
         """Update the model after processing a batch of data."""
 
     def post_epoch_update(self) -> None:
         """Update the model after processing an epoch of data."""
+
+    def save_state(self) -> None:
+        """Save the weights, the optimizer state and the epoch."""
+        self.checkpoint.save()
 
 
 class _Loader:
