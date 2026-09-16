@@ -201,6 +201,24 @@ class TestTrainer:
                 val_loader=mocker.Mock(), validate_every=validate_every
             )
 
+    def test_loss_higher_is_better(self, create_trainer, mock_loss) -> None:
+        """Test a loss that is better when higher raises ValueError."""
+        mock_loss.higher_is_better = True
+
+        with pytest.raises(ValueError):
+            create_trainer()
+
+    @pytest.mark.parametrize('higher_is_better', [False, None])
+    def test_loss_lower_is_better(
+        self, create_trainer, mock_loss, higher_is_better
+    ) -> None:
+        """Test a loss that is not better when higher is accepted."""
+        mock_loss.higher_is_better = higher_is_better
+
+        trainer = create_trainer()
+
+        assert trainer.objective is mock_loss
+
     def test_builder(
         self, mock_model, mock_learning_schema, mock_loss, mock_loader
     ) -> None:

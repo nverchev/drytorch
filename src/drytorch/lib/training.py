@@ -251,10 +251,11 @@ class Trainer(
             validate_every: the number of epochs between validations.
 
         Raises:
-            ValueError: if validate_every is not strictly positive when
-                val_loader is given.
+            ValueError: if the loss is better when higher or validate_every
+                is not positive.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
+        self._check_loss_direction()
         self.validation = self._create_validation(val_loader, val_name)
         if self.validation is None:
             post_epoch_chain = hooks.HookChain(post_epoch_hooks)
@@ -417,6 +418,14 @@ class Trainer(
             base_lr=base_lr,
             scheduler_name=scheduler_name,
         )
+        return
+
+    def _check_loss_direction(self) -> None:
+        loss = self.objective
+        if isinstance(loss, p.HigherIsBetterProtocol) and loss.higher_is_better:
+            msg = 'The loss is better when higher; negate it to minimize it.'
+            raise ValueError(msg)
+
         return
 
     def _create_validation(
