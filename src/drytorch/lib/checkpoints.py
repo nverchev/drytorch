@@ -295,6 +295,7 @@ class LocalCheckpoint(AbstractCheckpoint):
     """
 
     par_dir: Final[pathlib.Path | None]
+    _paths: CheckpointPathManager | None
 
     def __init__(self, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
@@ -304,7 +305,7 @@ class LocalCheckpoint(AbstractCheckpoint):
         """
         super().__init__()
         self.par_dir = par_dir
-        self._paths: CheckpointPathManager | None = None
+        self._paths = None
         return
 
     @property

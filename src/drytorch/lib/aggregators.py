@@ -98,23 +98,13 @@ class Aggregator(Generic[_A]):
         """Return stored metric names."""
         return list(self.accumulators.keys())
 
-    def sync(self) -> None:
-        """Synchronize the accumulators across distributed processes."""
-        for acc in self.accumulators.values():
-            acc.sync()
-
-        return
-
-    def __add__(self, other: Mapping[str, _A]) -> Self:
-        """Return a new aggregator with the named accumulators merged."""
-        result = copy.deepcopy(self)
-        result += other
-        return result
-
-    def __iadd__(self, other: Mapping[str, _A]) -> Self:
+    def merge(self, other: Mapping[str, _A]) -> None:
         """Merge the named accumulators into this aggregator.
 
         Accumulators with a name not yet stored are copied.
+
+        Args:
+            other: the accumulators to merge by name.
         """
         for key, acc in other.items():
             if key in self._accumulators:
@@ -122,7 +112,14 @@ class Aggregator(Generic[_A]):
             else:
                 self._accumulators[key] = copy.deepcopy(acc)
 
-        return self
+        return
+
+    def sync(self) -> None:
+        """Synchronize the accumulators across distributed processes."""
+        for acc in self.accumulators.values():
+            acc.sync()
+
+        return
 
 
 @dataclasses.dataclass(slots=True)

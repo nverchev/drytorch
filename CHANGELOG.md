@@ -2,7 +2,7 @@
 
 ## [BREAKING CHANGES]
 - protocol attributes are read-only properties: `batch_size`, `dataset`, `sampler`, `mixed_precision`, `learning_schema`, `model` in `MonitorProtocol` and `TrainerProtocol`, and the attributes of `LearningProtocol`
-- replaced `AbstractAggregator` and `TorchAverager` with `Aggregator`, a container merging accumulators by name; `reduce` and `all_reduce` are removed, and the accumulators are reduced by their owner
+- replaced `AbstractAggregator` and `TorchAverager` with `Aggregator`, a container whose `merge` combines accumulators by name; `reduce` and `all_reduce` are removed, and the accumulators are reduced by their owner
 - `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
 - `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators
 - `AbstractAccumulator.merge` takes `other: Any`; subclasses annotate `other` with their own class

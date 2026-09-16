@@ -51,7 +51,7 @@ class TestDistributedAggregator:
         rank = dist.get_rank()
         aggregator = Aggregator[TorchMeanAccumulator]()
         tensor = torch.tensor([1.0 + rank * 2, 2.0 + rank * 2])
-        aggregator += {'my_metric': TorchMeanAccumulator.from_value(tensor)}
+        aggregator.merge({'my_metric': TorchMeanAccumulator.from_value(tensor)})
         aggregator.sync()
         accumulator = aggregator.accumulators['my_metric']
         return {
@@ -69,6 +69,6 @@ class TestDistributedAggregator:
         else:
             tensor = torch.tensor([3.0, 4.0, 5.0])  # sum=12, count=3
 
-        aggregator += {'test': TorchMeanAccumulator.from_value(tensor)}
+        aggregator.merge({'test': TorchMeanAccumulator.from_value(tensor)})
         aggregator.sync()
         return {'average': aggregator.accumulators['test'].reduce().item()}

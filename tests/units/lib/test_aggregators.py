@@ -63,56 +63,42 @@ class TestAggregator:
         assert aggregator.accumulators['metric1'].total == 2.0
         assert aggregator.accumulators['metric2'].total == 4.0
 
-    def test_iadd_merges_stored_name(
+    def test_merge_stored_name(
         self, aggregator: Aggregator[TorchMeanAccumulator]
     ) -> None:
-        """Test adding an accumulator with a stored name merges it."""
+        """Test merging an accumulator with a stored name merges it."""
         new = TorchMeanAccumulator.from_value(torch.tensor(6.0))
 
-        aggregator += {'metric1': new}
+        aggregator.merge({'metric1': new})
 
         assert aggregator.accumulators['metric1'].total == 8.0
         assert aggregator.accumulators['metric1'].count == 2
 
-    def test_iadd_copies_new_name(
+    def test_merge_copies_new_name(
         self, aggregator: Aggregator[TorchMeanAccumulator]
     ) -> None:
-        """Test adding an accumulator with a new name stores a copy."""
+        """Test merging an accumulator with a new name stores a copy."""
         new = TorchMeanAccumulator.from_value(torch.tensor(6.0))
 
-        aggregator += {'metric3': new}
+        aggregator.merge({'metric3': new})
 
         assert aggregator.accumulators['metric3'] is not new
         assert aggregator.accumulators['metric3'].total == 6.0
 
-    def test_iadd_other_accumulators(
+    def test_merge_other_accumulators(
         self, aggregator: Aggregator[TorchMeanAccumulator]
     ) -> None:
-        """Test adding another aggregator's accumulators merges them by name."""
+        """Test merging another aggregator's accumulators matches names."""
         other = Aggregator(
             metric2=TorchMeanAccumulator.from_value(torch.tensor(2.0)),
             metric3=TorchMeanAccumulator.from_value(torch.tensor(1.0)),
         )
 
-        aggregator += other.accumulators
+        aggregator.merge(other.accumulators)
 
         assert aggregator.keys() == ['metric1', 'metric2', 'metric3']
         assert aggregator.accumulators['metric2'].total == 6.0
         assert aggregator.accumulators['metric2'].count == 2
-
-    def test_add_returns_new_aggregator(
-        self, aggregator: Aggregator[TorchMeanAccumulator]
-    ) -> None:
-        """Test addition returns a new aggregator and leaves operands as is."""
-        other = Aggregator(
-            metric1=TorchMeanAccumulator.from_value(torch.tensor(6.0))
-        )
-
-        result = aggregator + other.accumulators
-
-        assert result.accumulators['metric1'].total == 8.0
-        assert aggregator.accumulators['metric1'].total == 2.0
-        assert other.accumulators['metric1'].total == 6.0
 
     def test_bool(self, aggregator: Aggregator[TorchMeanAccumulator]) -> None:
         """Test an aggregator is true only when it stores accumulators."""

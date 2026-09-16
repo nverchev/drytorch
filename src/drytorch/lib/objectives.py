@@ -77,12 +77,15 @@ _OPERATORS: Final[dict[str, tuple[int, Callable[[Tensor, Tensor], Tensor]]]] = {
 class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
     """Abstract base class for metrics or losses."""
 
+    _aggregator: Final[
+        aggregators.Aggregator[aggregators.AbstractAccumulator[Tensor, Tensor]]
+    ]
+    _cached_values: dict[str, Tensor]
+
     def __init__(self) -> None:
         """Initialize."""
-        self._aggregator = aggregators.Aggregator[
-            aggregators.AbstractAccumulator[Tensor, Tensor]
-        ]()
-        self._cached_values: dict[str, Tensor] = {}
+        self._aggregator = aggregators.Aggregator()
+        self._cached_values = {}
         return
 
     def __deepcopy__(self, memo: dict[int, Any]) -> Self:
@@ -134,10 +137,12 @@ class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
         """
         results = self.calculate(outputs, targets)
         accumulator_cls = self._get_accumulator_cls()
-        self._aggregator += {
-            key: accumulator_cls.from_value(value)
-            for key, value in results.items()
-        }
+        self._aggregator.merge(
+            {
+                key: accumulator_cls.from_value(value)
+                for key, value in results.items()
+            }
+        )
         self._cached_values.clear()
         return results
 
@@ -186,7 +191,7 @@ class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
                 accumulator_cls, other_accumulator_cls
             )
 
-        self._aggregator += other._aggregator.accumulators
+        self._aggregator.merge(other._aggregator.accumulators)
         self._cached_values.clear()
         return
 

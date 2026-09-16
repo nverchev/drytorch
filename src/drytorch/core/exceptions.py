@@ -109,6 +109,8 @@ class TrackerError(DryTorchError):
 
     _template = '[{}] {}'
 
+    tracker: Final[Any]
+
     def __init__(self, tracker: Any, tracker_msg: str) -> None:
         """Initialize.
 
