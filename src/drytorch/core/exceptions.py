@@ -270,7 +270,7 @@ class FolderAlreadyExistsError(DryTorchError):
     """Raised when a folder already exists and cannot be overwritten."""
 
     def __init__(self, path: pathlib.Path | str) -> None:
-        """Initialize the error.
+        """Initialize.
 
         Args:
             path: the path to the folder that already exists.
