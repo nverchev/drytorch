@@ -7,7 +7,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.19.1
 kernelspec:
-  display_name: Python 3
+  display_name: .venv
   language: python
   name: python3
 ---
@@ -35,7 +35,7 @@ A **tracker** is an object responsible for **logging and plotting**. It:
 * Does **not** intervene in the training, evaluation, or inference logic.
 * Does **not** alter the behavior of other trackers. Trackers are completely independent.
 
-```{code-cell} ipython2
+```{code-cell} ipython3
 :tags: [skip-execution]
 
 ! uv pip install drytorch
@@ -45,7 +45,7 @@ A **tracker** is an object responsible for **logging and plotting**. It:
 
 DRYTorch default trackers are subscribed to every experiment upon instantiation.
 In standard mode, these are:
-- `trackers.builtin_logging.BuiltinLogger` - handles the "drytorch" logger from the standard library
+- `trackers.logging.BuiltinLogger` - handles the "drytorch" logger from the standard library
 - `trackers.tqdm.TqdmLogger` - for progress bars (when `tqdm` is available)
 - `trackers.yaml.MetadataDumper` - to dump metadata (when `PyAML` is available)
 
@@ -61,7 +61,7 @@ Available initialization modes:
 
 You can change the mode by assigning a mode to a `DRYTORCH_INIT_MODE` environment variable or reinitializing the trackers with `init_trackers`.
 
-```{code-cell} ipython2
+```{code-cell} ipython3
 from drytorch import Experiment, init_trackers
 
 
@@ -93,7 +93,6 @@ Available optional trackers include:
 * `trackers.plotly.PlotlyPlotter` — plots metrics and returns a `plotly` figure.
 * `trackers.sqlalchemy.SQLConnection` — creates a full SQL database for structured logging.
 * `trackers.tensorboard.TensorBoard` — launches a TensorBoard server and logs metrics.
-* `trackers.visdom.VisdomPlotter` — launches a Visdom server and logs metrics.
 * `trackers.wandb.Wandb` — logs metrics and configuration to Weights & Biases.
 
 Many of these trackers offer additional customization parameters. For example,
@@ -106,7 +105,7 @@ Several optional trackers act as **dumpers**, meaning they store metadata direct
 > tensorboard --logdir <par_dir>/tensorboard
 > ```
 
-`trackers.plotly.PlotlyPlotter`, `trackers.matplotlib.MatPlotter` and `trackers.visdom.VisdomPlotter` are instead **plotters**.
+`trackers.plotly.PlotlyPlotter` and `trackers.matplotlib.MatPlotter` are instead **plotters**.
 Plotters implement the `plot_metric` method, keep track of the metrics during the current session and can also load metrics from a previous session when initialized with a `MetricLoader`.
 DryTorch offers two `MetricLoader`s out of the box: `trackers.sqlalchemy.SQLConnection` and `trackers.csv.CSVDumper` .
 
@@ -119,7 +118,7 @@ my_experiment.trackers.subscribe(my_tracker)
 
 Otherwise, use `drytorch.extend_default_trackers` to add a tracker to every experiment by default.
 
-```{code-cell} ipython2
+```{code-cell} ipython3
 import pathlib
 
 from drytorch import extend_default_trackers
@@ -134,7 +133,7 @@ extend_default_trackers([csv_dumper])
 Trackers are designed to not be passed directly to the implementation of the experiment itself.
 To allow more flexibility, DRYTorch allows you to call the subscribed tracker from everywhere during the experimental run using the tracker class  `get_current` method.
 
-```{code-cell} ipython2
+```{code-cell} ipython3
 csv_dumper_experiment = Experiment(
     None, name='ExperimentWithCSVDumper', par_dir='experiments'
 )
@@ -204,7 +203,7 @@ Below is an overview of all built‑in events.
 These events form the backbone of the DRYTorch logging and tracker ecosystem and are automatically published upon creation.
 
 ### The Tracker class
-To write custom tracker it is necessary to subclass the `core.track.Tracker` class and override its `notify` method.
+To write custom tracker it is necessary to subclass the `core.tracking.Tracker` class and override its `notify` method.
 You can also overwrite the `clean_up` method, which is called when
 the experiment stops running, provided that:
 ```python
@@ -221,7 +220,7 @@ def _(self, event: log_events.StopExperimentEvent) -> None:
 ```
 calls the `super().notify` method, which is also always recommended.
 
-```{code-cell} ipython2
+```{code-cell} ipython3
 import functools
 import pprint
 

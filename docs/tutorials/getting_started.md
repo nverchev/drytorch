@@ -48,9 +48,9 @@ from io import BytesIO
 import numpy as np
 
 
-url = 'https://raw.githubusercontent.com/nverchev/drytorch/main/docs/tutorials/data/flower.npy'
-
-with urllib.request.urlopen(url) as response:
+with urllib.request.urlopen(
+    'https://raw.githubusercontent.com/nverchev/drytorch/main/docs/tutorials/data/flower.npy'
+) as response:
     data_bytes = response.read()
 
 flower_np = np.load(BytesIO(data_bytes))
