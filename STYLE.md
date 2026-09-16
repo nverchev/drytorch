@@ -136,7 +136,7 @@ Python requires it (dataclass fields with defaults after those without).
   documented; users read those libraries' docs.
 - This applies to docstrings and changelog entries.
 
-## Docstrings and Sphinx
+## Docstrings
 - Class docstrings list every public attribute under `Attributes:`.
   Properties are methods: their own docstring documents them.
 - Public functions and methods document their arguments (`Args:`), return
@@ -148,19 +148,26 @@ Python requires it (dataclass fields with defaults after those without).
 - Overrides get a docstring only when their behaviour differs.
 - Private functions and methods (`_name`) get no docstring, except abstract
   ones that subclasses implement; a comment where the logic needs one.
-- Docstrings are reStructuredText, not Markdown.
-- Code in docstrings uses double backticks (``` ``name`` ```); single
-  backticks render as italic text.
-- Link other objects with roles: `:class:`, `:func:`, `:meth:`, `:attr:`,
-  `:mod:`, `:exc:`, without the `py:` prefix.
-- `~` shows only the last name: ``:class:`~drytorch.lib.objectives.Metric` ``.
-- External objects link through intersphinx: ``:class:`torch.nn.Module` ``.
 - Types are not repeated in docstrings; Sphinx takes them from the
   annotations.
-- Every module defines `__all__` after the imports: Sphinx documents the
-  classes and functions it lists.
 - A module docstring's first line is its summary in the API tables: it names
   the contents without a prefix such as "Module containing".
+- Docstrings are reStructuredText, not Markdown: code uses double backticks
+  (``` ``name`` ```), since single backticks render as italic text.
+- Link other objects with roles (`:class:`, `:func:`, `:meth:`, `:attr:`,
+  `:mod:`, `:exc:`), without the `py:` prefix; `~` shows only the last name
+  (``:class:`~drytorch.lib.objectives.Metric` ``), and external objects link
+  through intersphinx (``:class:`torch.nn.Module` ``).
+
+## Documentation
+- The API pages list what each module's `__all__` names, so every module
+  defines it after the imports. Package `__init__.py` files, which hold only
+  a docstring, do not.
+- Tutorials are MyST `.md` files paired with notebooks: edit the `.md`, then
+  run `jupytext --sync`; do not edit the `.ipynb`.
+- Build as Read the Docs does, after `uv sync --all-extras`:
+  `DRYTORCH_INIT_MODE=minimal uv run sphinx-build -b html docs docs/_build/html`.
+  The notebooks run during the build; `-D nb_execution_mode=off` skips them.
 
 ## Errors
 - Arguments that break the signature or the documented rules: built-in
