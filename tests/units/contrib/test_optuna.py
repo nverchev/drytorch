@@ -20,7 +20,9 @@ class TestTrialCallback:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests."""
-        self.mock_monitor = mocker.patch('drytorch.lib.hooks.MetricMonitor')
+        self.mock_monitor = mocker.patch(
+            'drytorch.lib.monitoring.MetricMonitor'
+        )
         self.mock_monitor_instance = self.mock_monitor.return_value
         self.mock_monitor_instance.filtered_value = 0.5
         self.mock_monitor_instance.metric_name = 'val_loss'

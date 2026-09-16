@@ -11,7 +11,7 @@ import optuna
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib import hooks
+from drytorch.lib import monitoring
 
 
 __all__ = [
@@ -40,14 +40,14 @@ class TrialCallback(Generic[_Output, _Target]):
         trial: ``optuna`` trial.
     """
 
-    monitor: Final[hooks.MetricMonitor]
+    monitor: Final[monitoring.MetricMonitor]
     reported: Final[dict[int, float]]
     trial: Final[optuna.Trial]
 
     def __init__(
         self,
         trial: optuna.Trial,
-        filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
+        filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
         metric: p.ObjectiveProtocol[_Output, _Target] | str | None = None,
         monitor: p.MonitorProtocol | None = None,
     ) -> None:
@@ -61,7 +61,7 @@ class TrialCallback(Generic[_Output, _Target]):
             monitor: evaluation protocol to monitor. Defaults to validation
                 if available, trainer instance otherwise.
         """
-        self.monitor = hooks.MetricMonitor(
+        self.monitor = monitoring.MetricMonitor(
             metric=metric,
             monitor=monitor,
             filter_fn=filter_fn,

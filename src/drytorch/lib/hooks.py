@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import abc
 import functools
-import operator
 
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Final, Generic, Literal, ParamSpec, TypeVar, cast
 
 from typing_extensions import override
 
-from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib import objectives, schedulers
+from drytorch.lib import monitoring, schedulers
 from drytorch.lib.schedulers import RestartScheduler
 
 
@@ -23,8 +21,6 @@ __all__ = [
     'EarlyStoppingCallback',
     'Hook',
     'HookChain',
-    'MetricExtractor',
-    'MetricMonitor',
     'PruneCallback',
     'ReduceLROnPlateau',
     'RestartScheduleOnPlateau',
@@ -42,7 +38,6 @@ _Q = ParamSpec('_Q')
 Input = TypeVar('Input', bound=p.InputType)
 Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
-get_last: Final = operator.itemgetter(-1)
 
 
 class HookChain(Generic[_T_contra]):
@@ -406,269 +401,6 @@ def saving_hook(trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
     return
 
 
-class MetricExtractor:
-    """Handle extraction of metrics from trainer/validation protocols.
-
-    This class is responsible for interfacing with trainer and validation
-    protocols to extract metric values.
-
-    Attributes:
-        metric_spec: the metric specification (name or protocol instance).
-        optional_monitor: evaluation protocol to monitor.
-    """
-
-    metric_spec: Final[p.ObjectiveProtocol[Any, Any] | str | None]
-    optional_monitor: Final[p.MonitorProtocol | None]
-    _resolved_metric: p.ObjectiveProtocol[Any, Any] | None
-    _resolved_metric_name: str | None
-
-    def __init__(
-        self,
-        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
-    ) -> None:
-        """Initialize.
-
-        Args:
-            metric: name of the metric to monitor or metric calculator instance.
-            monitor: evaluation protocol to monitor.
-        """
-        self.metric_spec = metric
-        self.optional_monitor = monitor
-        self._resolved_metric = None
-        self._resolved_metric_name = None
-        return
-
-    @property
-    def metric_name(self) -> str | None:
-        """Get the resolved metric name."""
-        return self._resolved_metric_name
-
-    def extract_metric_value(
-        self,
-        instance: p.TrainerProtocol[Input, Target, Output],
-        tracker: objectives.MetricTracker[Output, Target],
-    ) -> float:
-        """Extract and return the metric value from the instance.
-
-        Args:
-            instance: trainer instance to extract from.
-            tracker: objectives.MetricTracker to potentially update metric name.
-
-        Returns:
-            The extracted metric value.
-
-        Raises:
-            MetricNotFoundError: if the specified metric is not found.
-        """
-        monitor = self._get_monitor(instance)
-        metric_name = self._resolved_metric_name
-        if metric_name is None:
-            metric_name, metric = self._resolve_metric(monitor)
-            self._resolved_metric_name = metric_name
-            self._resolved_metric = metric
-            tracker.resolve_metric_name(metric_name)
-
-        last_metrics = monitor.computed_metrics
-        if metric_name not in last_metrics:
-            raise exceptions.MetricNotFoundError(monitor.name, metric_name)
-
-        return last_metrics[metric_name]
-
-    def get_metric_best_is(self) -> Literal['higher', 'lower'] | None:
-        """Get the best_is preference from the metric if available.
-
-        Returns:
-            ``'higher'`` or ``'lower'`` if the metric states its direction,
-            ``None`` otherwise.
-        """
-        if self._resolved_metric is not None:
-            return self._get_metric_best_is(self._resolved_metric)
-
-        return self._get_metric_best_is(self.metric_spec)
-
-    def _resolve_metric(
-        self, monitor: p.MonitorProtocol
-    ) -> tuple[str, p.ObjectiveProtocol[Any, Any] | None]:
-        if isinstance(self.metric_spec, p.ObjectiveProtocol):
-            metric = self.metric_spec
-        elif isinstance(monitor, p.ObjectiveMonitorProtocol):
-            metric = monitor.objective
-        else:
-            metric = None
-
-        metric_name = None if metric is None else self._get_metric_name(metric)
-        if isinstance(self.metric_spec, str):
-            name = self.metric_spec
-        elif metric_name is not None:
-            name = metric_name
-        else:
-            name = next(iter(monitor.computed_metrics))
-
-        # the objective describes the monitored value only when names agree
-        resolved_metric = metric if name == metric_name else None
-        return name, resolved_metric
-
-    def _get_monitor(
-        self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> p.MonitorProtocol:
-        if self.optional_monitor is None:
-            if instance.validation is None:
-                return instance
-
-            return instance.validation
-
-        return self.optional_monitor
-
-    @staticmethod
-    def _get_metric_name(
-        metric: p.ObjectiveProtocol[Output, Target] | str,
-    ) -> str:
-        if isinstance(metric, str):
-            return metric
-
-        if isinstance(metric, p.NamedProtocol) and metric.name:
-            return str(metric.name)
-
-        return metric.__class__.__name__
-
-    @staticmethod
-    def _get_metric_best_is(
-        metric: p.ObjectiveProtocol[Output, Target] | str | None,
-    ) -> Literal['higher', 'lower'] | None:
-        if isinstance(metric, p.HigherIsBetterProtocol):
-            higher_is_better = metric.higher_is_better
-        else:
-            higher_is_better = None
-
-        if higher_is_better is None:
-            return None
-
-        return 'higher' if higher_is_better else 'lower'
-
-
-class MetricMonitor(Generic[Output, Target]):
-    """Handle metric monitoring and alerts when performance stops increasing.
-
-    Attributes:
-        extractor: handles metric extraction from protocols.
-        metric_tracker: handles metric value tracking and improvement detection.
-    """
-
-    extractor: Final[MetricExtractor]
-    metric_tracker: Final[objectives.MetricTracker[Output, Target]]
-
-    def __init__(
-        self,
-        metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-    ) -> None:
-        """Initialize.
-
-        Args:
-            metric: name of the metric to monitor or metric calculator instance.
-            monitor: evaluation protocol to monitor.
-            min_delta: minimum absolute change to qualify as an improvement.
-            patience: number of checks to wait before triggering callback.
-            best_is: whether higher or lower metric values are better.
-                Default 'auto' takes it from the metric when it states its
-                direction, from initial measurements otherwise.
-            filter_fn: function to aggregate recent metric values.
-        """
-        self.extractor = MetricExtractor(metric=metric, monitor=monitor)
-        if best_is == 'auto':
-            best_is = self.extractor.get_metric_best_is() or 'auto'
-
-        initial_metric_name = None
-        if isinstance(metric, str):
-            initial_metric_name = metric
-
-        self.metric_tracker = objectives.MetricTracker(
-            metric_name=initial_metric_name,
-            min_delta=min_delta,
-            patience=patience,
-            best_is=best_is,
-            filter_fn=filter_fn,
-        )
-        return
-
-    @property
-    def metric_name(self) -> str | None:
-        """Get the metric name being monitored."""
-        return self.extractor.metric_name or self.metric_tracker.metric_name
-
-    @property
-    def best_value(self) -> float:
-        """Get the best result observed so far."""
-        return self.metric_tracker.best_value
-
-    @property
-    def filtered_value(self) -> float:
-        """Get the current filtered value."""
-        return self.metric_tracker.filtered_value
-
-    @property
-    def history(self) -> Sequence[float]:
-        """Get the metric history."""
-        return self.metric_tracker.history
-
-    def is_better(self, value: float, reference: float) -> bool:
-        """Check whether a value is better than a reference.
-
-        Args:
-            value: the value to compare.
-            reference: the value to compare against.
-
-        Returns:
-            ``True`` if ``value`` is better than ``reference``.
-        """
-        return self.metric_tracker.is_better(value, reference)
-
-    def is_improving(self) -> bool:
-        """Determine if the model performance is improving.
-
-        Returns:
-            ``True`` if the performance is improving.
-
-        Side Effects:
-            Reduces the patience countdown when there is no improvement.
-        """
-        return self.metric_tracker.is_improving()
-
-    def is_patient(self) -> bool:
-        """Check whether to be patient.
-
-        Returns:
-            ``True`` while the patience has not run out.
-        """
-        return self.metric_tracker.is_patient()
-
-    def record_metric_value(
-        self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> None:
-        """Register a new metric value from a monitored evaluation.
-
-        Args:
-            instance: trainer instance to extract metric from.
-
-        Raises:
-            MetricNotFoundError: if the specified metric is not found.
-        """
-        value = self.extractor.extract_metric_value(
-            instance, self.metric_tracker
-        )
-        best_is = self.extractor.get_metric_best_is()
-        if best_is is not None:
-            self.metric_tracker.resolve_best_is(best_is)
-
-        self.metric_tracker.add_value(value)
-        return
-
-
 class EarlyStoppingCallback(Generic[Output, Target]):
     """Implement early stopping logic for training models.
 
@@ -677,7 +409,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         start_from_epoch: epoch to start monitoring from.
     """
 
-    monitor: Final[MetricMonitor[Output, Target]]
+    monitor: Final[monitoring.MetricMonitor[Output, Target]]
     start_from_epoch: Final[int]
 
     def __init__(
@@ -687,7 +419,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         min_delta: float = 1e-8,
         patience: int = 10,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
         start_from_epoch: int = 2,
     ) -> None:
         """Initialize.
@@ -706,7 +438,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
-        self.monitor = MetricMonitor(
+        self.monitor = monitoring.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -749,7 +481,7 @@ class PruneCallback(Generic[Output, Target]):
         trial_values: dictionary mapping epochs to recorded metric values.
     """
 
-    monitor: Final[MetricMonitor[Output, Target]]
+    monitor: Final[monitoring.MetricMonitor[Output, Target]]
     thresholds: Final[Mapping[int, float | None]]
     trial_values: dict[int, float]
 
@@ -760,7 +492,7 @@ class PruneCallback(Generic[Output, Target]):
         monitor: p.MonitorProtocol | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
     ) -> None:
         """Initialize.
 
@@ -778,7 +510,7 @@ class PruneCallback(Generic[Output, Target]):
             values. Default
                 gets the last value.
         """
-        self.monitor = MetricMonitor(
+        self.monitor = monitoring.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -823,7 +555,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
     """
 
     cooldown: Final[int]
-    monitor: Final[MetricMonitor[Output, Target]]
+    monitor: Final[monitoring.MetricMonitor[Output, Target]]
     _cooldown_counter: int
 
     def __init__(
@@ -833,7 +565,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
         min_delta: float = 1e-8,
         patience: int = 0,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
         cooldown: int = 0,
     ) -> None:
         """Initialize.
@@ -853,7 +585,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
             cooldown: calls to skip after changing the schedule.
         """
         self.cooldown = cooldown
-        self.monitor = MetricMonitor(
+        self.monitor = monitoring.MetricMonitor(
             metric=metric,
             monitor=monitor,
             min_delta=min_delta,
@@ -923,7 +655,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         min_delta: float = 1e-8,
         patience: int = 0,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
+        filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
         factor: float = 0.1,
         cooldown: int = 0,
     ) -> None:

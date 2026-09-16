@@ -23,6 +23,7 @@
 - `CheckpointPathManager.epoch_dir` is replaced by `get_epoch_dir`; `get_model_state_path` and `get_optimizer_state_path` take the epoch
 - `ModelOptimizer.base_lr` and `StatsCollector.active` are read-only; `ModelOptimizer.update_learning_rate` sets the learning rates
 - `Trainer` raises `ValueError` when the loss is better when higher
+- moved `MetricTracker` from `lib.objectives`, and `MetricExtractor`, `MetricMonitor` and `get_last` from `lib.hooks`, to the new `lib.monitoring`
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
