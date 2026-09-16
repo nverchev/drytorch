@@ -36,6 +36,7 @@
 
 - added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
 - added `DirectionNotResolvedError`, raised by `MetricTracker.resolved_best_is` before the direction is known
+- added `DirectionGuessedWarning`, emitted when `MetricTracker` guesses the direction from the first values
 - moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
 ## Changed
 - ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups

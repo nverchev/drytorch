@@ -501,6 +501,7 @@ class TestEarlyStoppingCallback:
         """Set up a test instance."""
         return EarlyStoppingCallback(
             metric=example_loss_name,
+            best_is='higher',
             patience=2,
         )
 
@@ -512,8 +513,6 @@ class TestEarlyStoppingCallback:
 
     def test_stops_on_plateau(self, mock_trainer, callback) -> None:
         """Test training stops after a plateau."""
-        objective = mock_trainer.validation.objective  # type: ignore
-        objective.higher_is_better = True
         for _ in range(callback.monitor.metric_tracker.patience + 1):
             callback(mock_trainer)
         mock_trainer.terminate_training.assert_called_once()  # type: ignore
@@ -556,7 +555,11 @@ class TestReduceLROnPlateau:
     def callback(self, example_loss_name) -> ReduceLROnPlateau:
         """Set up a test instance."""
         return ReduceLROnPlateau(
-            metric=example_loss_name, patience=2, factor=0.01, cooldown=1
+            metric=example_loss_name,
+            best_is='higher',
+            cooldown=1,
+            factor=0.01,
+            patience=2,
         )
 
     def test_reduces_lr_and_respects_cooldown(
@@ -583,7 +586,7 @@ class TestRestartScheduleOnPlateau:
     def callback(self, example_loss_name) -> RestartScheduleOnPlateau:
         """Set up a test instance."""
         return RestartScheduleOnPlateau(
-            metric=example_loss_name, patience=2, cooldown=1
+            metric=example_loss_name, best_is='higher', cooldown=1, patience=2
         )
 
     def test_restarts_schedule_on_plateau(

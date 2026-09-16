@@ -720,19 +720,22 @@ class TestMetricTracker:
         tracker_lower_is_better.add_value(2.0)
         assert tracker_lower_is_better.is_improving() is False
 
-    def test_auto_best_is_determination_higher(self, tracker_auto) -> None:
-        """Test auto-determination when values are increasing."""
-        tracker_auto.add_value(1.0)
-        tracker_auto.add_value(2.0)
-        assert tracker_auto.is_improving() is True
-        assert tracker_auto.resolved_best_is == 'higher'
+    @pytest.mark.parametrize(
+        ('first', 'second', 'expected'),
+        [(1.0, 2.0, 'higher'), (2.0, 1.0, 'lower')],
+    )
+    def test_auto_best_is_determination(
+        self, tracker_auto, first, second, expected
+    ) -> None:
+        """Test the direction is guessed from the first two values."""
+        tracker_auto.add_value(first)
+        tracker_auto.add_value(second)
 
-    def test_auto_best_is_determination_lower(self, tracker_auto) -> None:
-        """Test auto-determination when values are decreasing."""
-        tracker_auto.add_value(2.0)
-        tracker_auto.add_value(1.0)
-        assert tracker_auto.is_improving() is True
-        assert tracker_auto.resolved_best_is == 'lower'
+        with pytest.warns(exceptions.DirectionGuessedWarning):
+            improving = tracker_auto.is_improving()
+
+        assert improving is True
+        assert tracker_auto.resolved_best_is == expected
 
     def test_improvement_with_tolerance(self, tracker_higher_is_better) -> None:
         """Test improvement detection considering min_delta."""

@@ -983,6 +983,10 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
 
         Returns:
             True if value is a potential improvement, False otherwise.
+
+        Side Effects:
+            An unresolved direction is guessed from the first two values,
+            emitting :class:`~drytorch.core.exceptions.DirectionGuessedWarning`.
         """
         if value != value:  # check for NaN
             return False
@@ -990,14 +994,18 @@ class MetricTracker(Generic[_Output_contra, _Target_contra]):
         if self._resolved_best_is is None:
             if len(self.history) < 2:
                 return True
+
             if self.history[0] > self.history[1]:
                 self._resolved_best_is = 'lower'
             else:
                 self._resolved_best_is = 'higher'
 
-            msg = 'Monitoring {} assuming {} is best.'
-            msg = msg.format(self.metric_name, self._resolved_best_is)
-            warnings.warn(msg, stacklevel=2)
+            warnings.warn(
+                exceptions.DirectionGuessedWarning(
+                    self._resolved_best_is, self.metric_name
+                ),
+                stacklevel=2,
+            )
 
         if self._resolved_best_is == 'lower':
             return reference - self.min_delta > value

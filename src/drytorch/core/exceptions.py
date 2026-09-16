@@ -19,6 +19,7 @@ __all__ = [
     'ConvergenceError',
     'DatasetHasNoLengthError',
     'DeviceMismatchError',
+    'DirectionGuessedWarning',
     'DirectionNotResolvedError',
     'DistributedDatasetNotDivisibleWarning',
     'DistributedStorageWarning',
@@ -785,6 +786,27 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         """
         self.calculator = calculator
         super().__init__(calculator.__class__.__name__)
+        return
+
+
+class DirectionGuessedWarning(DryTorchWarning):
+    """Warning raised when the direction of a metric is guessed from values."""
+
+    _template = 'Monitoring {} assuming {} is best.'
+
+    best_is: Final[str]
+    metric_name: Final[str | None]
+
+    def __init__(self, best_is: str, metric_name: str | None) -> None:
+        """Initialize.
+
+        Args:
+            best_is: the guessed direction.
+            metric_name: the name of the monitored metric.
+        """
+        self.best_is = best_is
+        self.metric_name = metric_name
+        super().__init__(metric_name, best_is)
         return
 
 
