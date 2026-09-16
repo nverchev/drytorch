@@ -6,5 +6,5 @@ Tutorials
 
    tutorials/getting_started.md
    tutorials/experiments_and_runs.md
-   tutorials/metrics_and_losses.md
+   tutorials/objectives.md
    tutorials/trackers.md

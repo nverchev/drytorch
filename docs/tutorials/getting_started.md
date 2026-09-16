@@ -661,7 +661,7 @@ To set up and clean up the distributed environment, see the [official tutorial]
 (https://pytorch.org/tutorials/intermediate/ddp_tutorial.html).
 
  To see how to extend distributed support to metrics from `torchmetrics` and
- `torcheval`, see the `metrics_and_losses` tutorial.
+ `torcheval`, see the `objectives` tutorial.
 
 ```python
 def train_and_eval() -> None:

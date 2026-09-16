@@ -12,9 +12,9 @@ kernelspec:
   name: python3
 ---
 
-# Metrics and Losses
+# Objectives
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/metrics_and_losses.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nverchev/drytorch/blob/main/docs/tutorials/objectives.ipynb)
 
 DRYTorch helps you **standardize and document** your model's metrics and loss.
 
@@ -124,7 +124,7 @@ if not imported_metric.compute() == expected_metrics_from_torchmetrics:
 DRYTorch objective classes act as wrappers around **user-defined** metric and loss callables.
 
 
-These callables must accept model outputs and targets as arguments and return a scalar PyTorch Tensor for an aggregated mini-batch value or a vector of batched values (recommended for more precise averaging across batches of varying sizes). The abstract `Objective` class handles **calling the logic, documenting, and correctly aggregating** the results across batches.
+These callables accept model outputs and targets and return one value per sample: a tensor of shape `(B,)`, where `B` is the batch size. The objective averages over all samples, so a batch counts as many times as it has samples. A callable can also return a scalar for the whole batch, but then every batch counts the same, including a smaller last batch. The abstract `Objective` class handles **calling the logic, documenting, and correctly aggregating** the results across batches.
 
 
 ### The Metric and MetricCollection classes
@@ -139,7 +139,7 @@ from drytorch.lib.objectives import Metric
 
 
 def mae_loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    """Returns batched Meas Absolute Error (MAE) values."""
+    """Returns batched Mean Absolute Error (MAE) values."""
     return torch.abs(outputs - targets).flatten(1).mean(1)
 
 
