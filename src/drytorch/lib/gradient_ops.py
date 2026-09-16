@@ -402,7 +402,6 @@ class StatsCollector:
     """Collect samples until a maximum number is reached.
 
     Attributes:
-        active: whether the collector is currently in use.
         max_samples: the number of collected samples for completion.
     """
 

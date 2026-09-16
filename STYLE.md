@@ -138,6 +138,7 @@ Python requires it (dataclass fields with defaults after those without).
 
 ## Docstrings and Sphinx
 - Class docstrings list every public attribute under `Attributes:`.
+  Properties are methods: their own docstring documents them.
 - Public functions and methods document their arguments (`Args:`), return
   value (`Returns:`), errors (`Raises:`) and side effects
   (`Side Effects:`); the one-line rule in Writing applies to the

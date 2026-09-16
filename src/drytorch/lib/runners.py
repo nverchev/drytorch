@@ -57,7 +57,6 @@ class ModelRunner(
         loader: the loader providing inputs and targets in batches.
         max_stored_output: maximum number of batch outputs stored in memory.
         model: the model to run.
-        outputs_list: sequence of optionally stored outputs.
     """
 
     max_stored_output: ClassVar[int] = sys.maxsize
@@ -259,7 +258,6 @@ class ModelRunnerWithObjective(
         loader: provides inputs and targets in batches.
         model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
-        outputs_list: sequence of optionally stored outputs.
     """
 
     objective: Final[_Objective_co]
@@ -356,7 +354,6 @@ class ModelRunnerWithLogs(
         loader: provides inputs and targets in batches.
         model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
-        outputs_list: sequence of optionally stored outputs.
     """
 
     def _run_epoch(self, store_outputs: bool):

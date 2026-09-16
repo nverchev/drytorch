@@ -45,7 +45,6 @@ class Diagnostic(
         loader: provides inputs and targets in batches.
         model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
-        outputs_list: sequence of optionally stored outputs.
     """
 
 
@@ -61,7 +60,6 @@ class Validation(
         loader: provides inputs and targets in batches.
         model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
-        outputs_list: sequence of optionally stored outputs.
     """
 
     def __init__(
@@ -93,7 +91,6 @@ class Test(Validation[Input, Target, Output]):
         loader: provides inputs and targets in batches.
         model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
-        outputs_list: sequence of optionally stored outputs.
     """
 
     @override

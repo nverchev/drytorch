@@ -33,11 +33,7 @@ DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
 
 class MetadataManager:
-    """Class that handles and generates metadata.
-
-    Attributes:
-        named_metadata: mapping of registered names to their metadata.
-    """
+    """Class that handles and generates metadata."""
 
     _named_metadata: Final[dict[str, Any]]
 
@@ -234,7 +230,6 @@ class EventDispatcher:
 
     Attributes:
         exp_name: name of the current experiment.
-        named_trackers: a mapping of trackers, indexed by their names.
     """
 
     exp_name: Final[str]

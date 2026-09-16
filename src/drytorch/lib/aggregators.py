@@ -55,11 +55,7 @@ _A = TypeVar('_A', bound=AbstractAccumulator[Any, Any])
 
 
 class Aggregator(Generic[_A]):
-    """Container merging named accumulators of the same type.
-
-    Attributes:
-        accumulators: the accumulators by name.
-    """
+    """Container merging named accumulators of the same type."""
 
     __slots__ = ('_accumulators',)
 
