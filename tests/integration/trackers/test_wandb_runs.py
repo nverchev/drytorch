@@ -16,7 +16,7 @@ from drytorch.trackers.wandb import Wandb
 
 
 class TestWandbPauseContinue:
-    """Tests Wandb run restoration across interleaved runs."""
+    """Tests ``Wandb`` run restoration across interleaved runs."""
 
     @pytest.fixture
     def tracker(self, tmp_path: pathlib.Path) -> Wandb:
@@ -45,7 +45,6 @@ class TestWandbPauseContinue:
         example_source_name: str,
     ) -> None:
         """Verify Wandb run restoration and metric persistence."""
-        # Trigger
         tracker.notify(start_experiment_event)
         run_a_instance = tracker.run
         tracker.notify(metrics_event_a1)
@@ -63,7 +62,6 @@ class TestWandbPauseContinue:
         tracker.notify(stop_experiment_event)
         tracker.close()
 
-        # Assert
         metric_key = f'{example_model_name}/{example_source_name}-loss'
         assert run_a_resumed_instance is run_a_instance
         assert run_b_instance is not run_a_instance

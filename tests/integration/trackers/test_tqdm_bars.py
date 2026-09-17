@@ -70,7 +70,7 @@ def event_workflow(
 
 
 class TestTqdmLoggerFullCycle:
-    """Complete TqdmLogger session and tests it afterward."""
+    """Complete ``TqdmLogger`` session and tests it afterward."""
 
     @pytest.fixture(autouse=True)
     def setup(self, monkeypatch) -> Generator[None, None, None]:
@@ -88,8 +88,8 @@ class TestTqdmLoggerFullCycle:
 
     def test_tqdm_logger_with_training_bar_output(
         self, event_workflow, example_named_metrics, string_stream
-    ):
-        """Test TqdmLogger with double bar produces the expected output."""
+    ) -> None:
+        """Test ``TqdmLogger`` with double bar produces the expected output."""
         trackers = [TqdmLogger(file=string_stream, enable_training_bar=True)]
 
         _notify_workflow(event_workflow, trackers, example_named_metrics)
@@ -99,7 +99,7 @@ class TestTqdmLoggerFullCycle:
 
 
 class TestTqdmLoggerPauseContinue:
-    """Tests TqdmLogger bar lifecycle and isolation across interleaved runs."""
+    """Test bar lifecycle and run isolation in ``TqdmLogger``."""
 
     @pytest.fixture
     def tracker(self, string_stream: io.StringIO) -> TqdmLogger:
@@ -116,8 +116,7 @@ class TestTqdmLoggerPauseContinue:
         stop_experiment_event: log_events.StopExperimentEvent,
         stop_experiment_event_b: log_events.StopExperimentEvent,
     ) -> None:
-        """Verify TqdmLogger closes bars on pause and isolates runs."""
-        # Trigger
+        """Verify ``TqdmLogger`` closes bars on pause and isolates runs."""
         tracker.notify(start_training_event)
         tracker.notify(iterate_batch_event)
         bar_a_training = tracker._training_bar
@@ -142,7 +141,6 @@ class TestTqdmLoggerPauseContinue:
         final_training_bar = tracker._training_bar
         final_epoch_bar = tracker._epoch_bar
 
-        # Assert
         assert bar_a_training is not None
         assert bar_a_epoch is not None
         assert training_bar_after_pause is None

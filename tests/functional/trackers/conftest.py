@@ -18,7 +18,7 @@ def allow_event_creation_outside_scope() -> None:
     return
 
 
-@pytest.fixture()
+@pytest.fixture
 def start_experiment_event(
     tmp_path,
     example_exp_name,

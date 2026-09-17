@@ -1,4 +1,4 @@
-"""Tests for the "tensorboard" module."""
+"""Tests for the ``tensorboard`` module."""
 
 import copy
 import importlib.util
@@ -19,7 +19,7 @@ from drytorch.trackers.tensorboard import TensorBoard
 
 
 class TestTensorBoard:
-    """Tests for the TensorBoard tracker."""
+    """Tests for the ``TensorBoard`` tracker."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
@@ -52,11 +52,12 @@ class TestTensorBoard:
         tracker.close()
         return
 
-    def test_clean_up_retains_server(self, tracker_started):
+    def test_clean_up_retains_server(self, tracker_started) -> None:
         """Test clean_up closes writer but retains server process."""
         process = tracker_started._process
-        assert process is not None
         tracker_started.clean_up()
+
+        assert process is not None
         assert tracker_started._writer is None
         assert tracker_started._process is process
         process.terminate.assert_not_called()
@@ -78,6 +79,7 @@ class TestTensorBoard:
 
         writer = tracker.writer
         tracker.notify(stop_experiment_mock_event)
+
         writer.close.assert_called_once()
         assert tracker._writer is None
 
@@ -87,6 +89,7 @@ class TestTensorBoard:
         """Test there is one call for each metrics and no immediate flush."""
         tracker_started.notify(epoch_metrics_mock_event)
         n_metrics = len(epoch_metrics_mock_event.metrics)
+
         assert tracker_started.writer.add_scalar.call_count == n_metrics
         tracker_started.writer.flush.assert_not_called()
 
@@ -97,12 +100,13 @@ class TestTensorBoard:
         with pytest.raises(exceptions.AccessOutsideScopeError):
             tracker.notify(epoch_metrics_mock_event)
 
-    def test_tensorboard_launch_fails_on_port_conflict(self, mocker, tmp_path):
+    def test_tensorboard_launch_fails_on_port_conflict(self, mocker) -> None:
         """Test error is raised if no free ports are available."""
         port_available_mock = mocker.patch.object(
             TensorBoard, '_port_available'
         )
         port_available_mock.return_value = False
+
         with pytest.raises(exceptions.TrackerError):
             TensorBoard._find_free_port(start=6006, max_tries=100)
 
@@ -117,8 +121,10 @@ class TestTensorBoard:
         tracker.notify(start_experiment_mock_event)
         writer = tracker.writer
         tracker.notify(pause_experiment_mock_event)
-        writer.flush.assert_called_once()
         tracker.notify(continue_experiment_mock_event)
+
+        writer.flush.assert_called_once()
+        assert tracker.writer is writer
 
     def test_pause_start_stop_continue_keeps_state(
         self,
@@ -130,11 +136,11 @@ class TestTensorBoard:
     ) -> None:
         """Test that concurrent runs do not corrupt stashed state."""
         tracker.notify(start_experiment_mock_event)
+        writer = tracker.writer
         tracker.notify(pause_experiment_mock_event)
 
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
-
         tracker.notify(start_2)
 
         stop_2 = copy.copy(stop_experiment_mock_event)
@@ -142,6 +148,8 @@ class TestTensorBoard:
         tracker.notify(stop_2)
 
         tracker.notify(continue_experiment_mock_event)
+
+        assert tracker.writer is writer
 
     def test_continue_without_stash_raises_error(
         self, tracker, continue_experiment_mock_event
@@ -158,8 +166,13 @@ class TestTensorBoard:
     ) -> None:
         """Test that close unconditionally releases stashed resources."""
         tracker.notify(start_experiment_mock_event)
+        writer = tracker.writer
         tracker.notify(pause_experiment_mock_event)
+
         tracker.close()
+
+        writer.close.assert_called_once()
+        assert tracker._stashed_writers == {}
 
     def test_tensorboard_launch_fails_on_os_error(
         self,
@@ -168,6 +181,7 @@ class TestTensorBoard:
     ) -> None:
         """Test TrackerError is raised when Popen fails with OSError."""
         self.mock_popen.side_effect = PermissionError('Permission denied')
+
         with pytest.raises(
             exceptions.TrackerError, match='TensorBoard failed to start'
         ):
@@ -181,9 +195,7 @@ class TestTensorBoard:
     ) -> None:
         """Test server process is reused across runs serving the same logdir."""
         tracker.notify(start_experiment_mock_event)
-        assert self.mock_popen.call_count == 1
         initial_process = tracker._process
-
         tracker.notify(stop_experiment_mock_event)
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
@@ -202,13 +214,12 @@ class TestTensorBoard:
         start_experiment_mock_event.par_dir = tmp_path / 'dir1'
         tracker.notify(start_experiment_mock_event)
         initial_process = tracker._process
-        assert initial_process is not None
-
         start_diff_dir = copy.copy(start_experiment_mock_event)
         start_diff_dir.par_dir = tmp_path / 'dir2'
         start_diff_dir.run_id = 'diff_run'
         tracker.notify(start_diff_dir)
 
+        assert initial_process is not None
         initial_process.terminate.assert_called_once()  # type: ignore[attr-defined]
         initial_process.wait.assert_called_once()  # type: ignore[attr-defined]
         assert self.mock_popen.call_count == 2
@@ -221,8 +232,9 @@ class TestTensorBoard:
         """Test close terminates running server process."""
         tracker.notify(start_experiment_mock_event)
         process = tracker._process
-        assert process is not None
         tracker.close()
+
+        assert process is not None
         process.terminate.assert_called_once()  # type: ignore[attr-defined]
         process.wait.assert_called_once()  # type: ignore[attr-defined]
         assert tracker._process is None

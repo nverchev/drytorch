@@ -1,4 +1,4 @@
-"""Tests for the "apply_ops" module."""
+"""Tests for the ``apply_ops`` module."""
 
 import dataclasses
 
@@ -79,6 +79,7 @@ class InitFalseDataClass(_BaseTestClass):
     def __post_init__(self):
         """Construct a second field."""
         self.t2 = self.t1 + 1
+        return
 
 
 @dataclasses.dataclass
@@ -92,6 +93,7 @@ class InitVarDataClass(_BaseTestClass):
     def __post_init__(self, offset: int) -> None:
         """Construct a second field."""
         self.t2 = self.t1 + offset
+        return
 
 
 @dataclasses.dataclass
@@ -102,6 +104,7 @@ class DataClassWithInit(_BaseTestClass):
         """Initialize."""
         self.t1 = t1
         self.t2 = t2
+        return
 
 
 class ObjectWithDict(_BaseTestClass):
@@ -111,6 +114,7 @@ class ObjectWithDict(_BaseTestClass):
         """Constructor."""
         self.t1 = t1
         self.t2 = t2
+        return
 
 
 class ObjectWithSlots(_BaseTestClass):
@@ -122,6 +126,7 @@ class ObjectWithSlots(_BaseTestClass):
         """Constructor."""
         self.t1 = t1
         self.t2 = t2
+        return
 
 
 class _BaseWithSlot:
@@ -191,9 +196,11 @@ def test_recursive_apply() -> None:
         _TorchTuple(torch.tensor(1.0), torch.tensor(2.0)),
     ]
     new_dict_data = {'list': new_tuple_data}
+
     out = recursive_apply(
         obj=new_dict_data, expected_type=expected_type, func=_times_two
     )
+
     expected = {
         'list': [
             torch.tensor(2.0),
@@ -285,7 +292,9 @@ def test_recursive_to() -> None:
         torch.tensor(1.0), [torch.tensor(1.0), torch.tensor(2.0)]
     )
     device = torch.device('meta')
+
     list_data = apply_to(list_data, device=device)
+
     assert list_data[0].device == device
     assert list_data[1][0].device == device
     assert list_data[1][1].device == device
@@ -358,8 +367,10 @@ def test_recursive_apply_unsupported_types_still_raise() -> None:
 
     with pytest.raises(exceptions.FuncNotApplicableError) as exc_none:
         recursive_apply(none_leaf, torch.Tensor, _times_two)
+
     with pytest.raises(exceptions.FuncNotApplicableError) as exc_set:
         recursive_apply(set_leaf, torch.Tensor, _times_two)
+
     with pytest.raises(exceptions.FuncNotApplicableError) as exc_obj:
         recursive_apply(obj_leaf, torch.Tensor, _times_two)
 

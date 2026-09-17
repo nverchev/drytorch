@@ -1,14 +1,12 @@
-"""Tests for the "models" module."""
+"""Tests for the ``models`` module."""
 
 import torch
 
-from ...simple_classes import MLP, TorchData, TorchTuple
-
 import pytest
 
-from drytorch import Model
 from drytorch.core import log_events
-from drytorch.lib.models import EMAModel, SWAModel
+from drytorch.lib.models import EMAModel, Model, SWAModel
+from tests.simple_classes import MLP, TorchData, TorchTuple
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -22,7 +20,7 @@ class TestModel:
     """Tests for the Model wrapper."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker):
+    def setup(self, mocker) -> None:
         """Set up torch.autocast mocks."""
         self.mock_autocast = mocker.patch('torch.autocast')
         self.mock_context = mocker.Mock()
@@ -119,8 +117,8 @@ class TestSWAModel:
     ) -> None:
         """Forward should use the base model outside inference mode."""
         spy = mocker.spy(swa_model.module, 'forward')
-
         x = torch.randn(1, 1)
+
         swa_model(TorchTuple(x))
 
         assert spy.called
@@ -130,7 +128,6 @@ class TestSWAModel:
     ) -> None:
         """Forward should use averaged model in inference mode."""
         spy = mocker.spy(swa_model.averaged_module, 'forward')
-
         x = torch.randn(1, 1)
 
         with torch.inference_mode():
@@ -144,7 +141,6 @@ class TestSWAModel:
         """Forward should use averaged model in inference mode."""
         swa_model._epoch = swa_model.start_epoch - 1
         spy = mocker.spy(swa_model.module, 'forward')
-
         x = torch.randn(1, 1)
 
         with torch.inference_mode():
@@ -166,6 +162,7 @@ class TestEMAModel:
     def test_init(self, ema_model) -> None:
         """Test class initialization."""
         fn = ema_model._get_multi_avg_fn()
+
         assert callable(fn)
         assert ema_model.decay == 0.9
 
@@ -188,8 +185,8 @@ class TestEMAModel:
     ) -> None:
         """Forward should use averaged model in inference mode."""
         spy = mocker.spy(ema_model.averaged_module, 'forward')
-
         x = torch.randn(1, 1)
+
         with torch.inference_mode():
             ema_model(TorchTuple(x))
 
@@ -201,8 +198,8 @@ class TestEMAModel:
         model = EMAModel(
             MLP(), name='ema_mixed', device=cpu, mixed_precision=True
         )
-
         x = torch.randn(1, 1)
+
         with torch.inference_mode():
             outputs = model(TorchTuple(x))
 

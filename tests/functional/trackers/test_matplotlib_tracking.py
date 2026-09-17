@@ -16,7 +16,7 @@ from drytorch.trackers.matplotlib import MatPlotter
 
 
 class TestMatPlotterFullCycle:
-    """Complete MatPlotter session and manual verification."""
+    """Complete ``MatPlotter`` session and manual verification."""
 
     @pytest.mark.skipif(
         'LIVE_PLOT' not in os.environ,

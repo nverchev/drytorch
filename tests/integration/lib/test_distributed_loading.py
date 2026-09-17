@@ -3,7 +3,6 @@
 import torch
 import torch.distributed as dist
 
-from ..conftest import DistributedWorker, RunningWorker
 from torch import nn
 from torch.utils import data
 from typing_extensions import override
@@ -13,6 +12,7 @@ import pytest
 from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
 from drytorch.lib.runners import ModelRunner
+from tests.integration.conftest import DistributedWorker, RunningWorker
 
 
 class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -48,6 +48,7 @@ class TestDistributedDataLoader:
             self._assert_sampler_init, world_size=world_size
         )
         exit_codes, _ = worker.process(dataset)
+
         assert all(exit_code == 0 for exit_code in exit_codes)
 
     def test_distributed_data_partitioning(self, world_size, dataset) -> None:

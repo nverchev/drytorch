@@ -1,4 +1,4 @@
-"""Tests for the "csv" module."""
+"""Tests for the ``csv`` module."""
 
 import copy
 import csv
@@ -9,12 +9,11 @@ from collections.abc import Generator
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.exceptions import TrackerError
 from drytorch.trackers.csv import CSVDumper
 
 
 class TestCsvDumper:
-    """Tests for the HydraLink tracker with actual Hydra integration."""
+    """Tests for the CSVDumper class."""
 
     @pytest.fixture
     def tracker(self, tmp_path) -> CSVDumper:
@@ -53,11 +52,13 @@ class TestCsvDumper:
     ) -> None:
         """Test file is created."""
         tracker_started.notify(epoch_metrics_mock_event)
+
         csv_path = tracker_started._file_path(
             tracker_started._get_run_dir(),
             epoch_metrics_mock_event.model_name,
             epoch_metrics_mock_event.source_name,
         )
+
         assert csv_path.exists()
 
     def test_resume_with_header_mismatch(
@@ -78,7 +79,7 @@ class TestCsvDumper:
             f.write('"Model","Source","Epoch","DifferentMetric"\n')
             f.write('"model","source",1,0.1\n')
 
-        with pytest.raises(TrackerError, match='Headers'):
+        with pytest.raises(exceptions.TrackerError, match='Headers'):
             tracker_started_with_resume.notify(epoch_metrics_mock_event)
 
     def test_read_csv(
@@ -93,6 +94,7 @@ class TestCsvDumper:
                 epoch_metrics_mock_event.source_name,
                 max_epoch=2,
             )
+
         assert epochs == [1, 2]
         for metric, value in metric_dict.items():
             assert example_named_metrics[metric] == value[0] == value[1]
@@ -110,7 +112,7 @@ class TestCsvDumper:
         assert source_name in tracker_started_with_resume._load_metrics(
             model_name
         )
-        with pytest.raises(TrackerError):
+        with pytest.raises(exceptions.TrackerError):
             _ = tracker_started_with_resume._load_metrics('wrong_name')
 
     def test_pause_stashes_and_continue_restores(
@@ -123,7 +125,10 @@ class TestCsvDumper:
         """Test that pause stashes state and continue restores it."""
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
+
         tracker.notify(continue_experiment_mock_event)
+
+        assert len(tracker._csv_stashed_state) == 0
 
     def test_pause_start_stop_continue_keeps_state(
         self,
@@ -139,7 +144,6 @@ class TestCsvDumper:
 
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
-
         tracker.notify(start_2)
 
         stop_2 = copy.copy(stop_experiment_mock_event)
@@ -147,6 +151,8 @@ class TestCsvDumper:
         tracker.notify(stop_2)
 
         tracker.notify(continue_experiment_mock_event)
+
+        assert len(tracker._csv_stashed_state) == 0
 
     def test_continue_without_stash_raises_error(
         self, tracker, continue_experiment_mock_event
@@ -164,7 +170,9 @@ class TestCsvDumper:
         """Test that close unconditionally releases stashed resources."""
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
+
         tracker.close()
+
         assert tracker._csv_stashed_state == {}
 
     def test_second_run_writes_header_after_clean_up(
@@ -197,6 +205,7 @@ class TestCsvDumper:
         )
         with csv_path.open(newline='') as f:
             header_row = next(csv.reader(f))
+
         assert header_row == [
             *tracker._base_headers,
             *epoch_metrics_mock_event.metrics,
@@ -270,7 +279,7 @@ class TestCsvDumper:
 
         # Trigger
         tracker_started.notify(event_1)
-        with pytest.raises(TrackerError) as exc_info:
+        with pytest.raises(exceptions.TrackerError) as exc_info:
             tracker_started.notify(event_2)
 
         # Assert
@@ -292,7 +301,7 @@ class TestCsvDumper:
             f.write('"model","source",1,1.0\n')
 
         # Trigger
-        with pytest.raises(TrackerError) as exc_info:
+        with pytest.raises(exceptions.TrackerError) as exc_info:
             tracker_started.read_csv(model_name, source_name)
 
         # Assert

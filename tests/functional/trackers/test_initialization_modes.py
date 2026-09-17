@@ -61,7 +61,9 @@ def setup(
     return
 
 
-def test_standard_mode(example_named_metrics, event_workflow, string_stream):
+def test_standard_mode(
+    example_named_metrics, event_workflow, string_stream
+) -> None:
     """Test standard mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.epoch)
     trackers = list[tracking.Tracker]()
@@ -77,7 +79,7 @@ def test_standard_mode(example_named_metrics, event_workflow, string_stream):
 
 def test_standard_mode_no_tqdm(
     example_named_metrics, event_workflow, string_stream
-):
+) -> None:
     """Test standard mode on a typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.metrics)
     trackers = list[tracking.Tracker]()
@@ -90,7 +92,9 @@ def test_standard_mode_no_tqdm(
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_hydra_mode(example_named_metrics, event_workflow, string_stream):
+def test_hydra_mode(
+    example_named_metrics, event_workflow, string_stream
+) -> None:
     """Test hydra mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.metrics)
     trackers = list[tracking.Tracker]()
@@ -106,7 +110,9 @@ def test_hydra_mode(example_named_metrics, event_workflow, string_stream):
     assert _get_cleaned_value(string_stream) == expected
 
 
-def test_minimal_mode(example_named_metrics, event_workflow, string_stream):
+def test_minimal_mode(
+    example_named_metrics, event_workflow, string_stream
+) -> None:
     """Test minimal mode on a typical workflow."""
     set_verbosity(INFO_LEVELS.training)
     trackers = list[tracking.Tracker]()
@@ -123,7 +129,7 @@ def test_minimal_mode(example_named_metrics, event_workflow, string_stream):
 
 def test_minimal_mode_no_tqdm(
     example_named_metrics, event_workflow, string_stream
-):
+) -> None:
     """Test minimal mode on a typical workflow when tqdm is not available."""
     set_verbosity(INFO_LEVELS.epoch)
     set_formatter('progress')
@@ -184,5 +190,6 @@ def _remove_up(text: str) -> str:
     for line, next_line in itertools.pairwise(text_split):
         if '\x1b[A\r' not in next_line:
             new_split.append(line)
+
     new_split.append(text_split[-1])
     return '\n'.join(new_split)

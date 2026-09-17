@@ -4,8 +4,6 @@ from collections.abc import Sequence
 
 import torch
 
-from ...simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
-from ..conftest import DistributedWorker, RunningWorker
 from torch import nn
 
 import pytest
@@ -19,6 +17,8 @@ from drytorch import (
 )
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
+from tests.integration.conftest import DistributedWorker, RunningWorker
+from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 
 
 WORLD_SIZE = 2

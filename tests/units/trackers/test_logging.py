@@ -1,9 +1,10 @@
-"""Tests for the "logging" module."""
+"""Tests for the ``logging`` module."""
 
 import logging
 import sys
 
 from collections.abc import Generator
+from typing import Literal
 
 import pytest
 
@@ -110,7 +111,9 @@ class TestBuiltinLogger:
         load_model_mock_event.definition = 'weights'
         load_model_mock_event.location = 'folder'
         load_model_mock_event.epoch = 3
+
         tracker.notify(load_model_mock_event)
+
         expected = 'Loaded my_model weights at epoch 3'
         assert expected in self.stream.getvalue()
 
@@ -121,7 +124,9 @@ class TestBuiltinLogger:
     ) -> None:
         """Tests handling of StartTraining event."""
         start_training_mock_event.model_name = 'my_model'
+
         tracker.notify(start_training_mock_event)
+
         expected = 'Training my_model started'
         assert expected in self.stream.getvalue()
 
@@ -133,7 +138,9 @@ class TestBuiltinLogger:
         """Test handling of StartEpoch event with final epoch specified."""
         start_epoch_mock_event.epoch = 4
         start_epoch_mock_event.end_epoch = 10
+
         tracker.notify(start_epoch_mock_event)
+
         expected = '====> Epoch  4/10:'
         assert expected in self.stream.getvalue()
 
@@ -143,7 +150,9 @@ class TestBuiltinLogger:
         """Test handling of StartEpoch event without final epoch specified."""
         start_epoch_mock_event.epoch = 12
         start_epoch_mock_event.end_epoch = None
+
         tracker.notify(start_epoch_mock_event)
+
         assert '====> Epoch 12:' in self.stream.getvalue()
 
     def test_increment_epoch_event(
@@ -167,7 +176,9 @@ class TestBuiltinLogger:
         """Test handling of the FinalMetrics event."""
         epoch_metrics_mock_event.source_name = 'test_source'
         epoch_metrics_mock_event.metrics = {'loss': 1.2, 'accuracy': 0.81}
+
         tracker.notify(epoch_metrics_mock_event)
+
         expected = 'test_source:    loss=1.200000e+00   accuracy=8.100000e-01\n'
         assert self.stream.getvalue().expandtabs(4).endswith(expected)
 
@@ -183,7 +194,9 @@ class TestBuiltinLogger:
             'a': 2.0,
             'a_value': 3.0,
         }
+
         tracker.notify(epoch_metrics_mock_event)
+
         output = self.stream.getvalue()
         assert 'Val:' in output
         assert 'desc=1.000000e+00' in output
@@ -201,12 +214,15 @@ class TestBuiltinLogger:
         update_learning_rate_mock_event.epoch = 10
         update_learning_rate_mock_event.scheduler_name = None
         update_learning_rate_mock_event.base_lr = None
+
         tracker.notify(update_learning_rate_mock_event)
         output_optimizer = self.stream.getvalue()
         update_message = 'Updated my_model optimizer at epoch 10'
+
         update_learning_rate_mock_event.base_lr = 0.001
         tracker.notify(update_learning_rate_mock_event)
         output_learning = self.stream.getvalue()
+
         update_learning_rate_mock_event.scheduler_name = 'my_scheduler'
         update_learning_rate_mock_event.base_lr = None
         tracker.notify(update_learning_rate_mock_event)
@@ -229,7 +245,9 @@ class TestBuiltinLogger:
         save_model_mock_event.model_name = 'my_model'
         save_model_mock_event.definition = 'weights'
         save_model_mock_event.location = 'folder'
+
         tracker.notify(save_model_mock_event)
+
         expected = 'Saved my_model weights in: folder'
         assert expected in self.stream.getvalue()
 
@@ -243,7 +261,9 @@ class TestBuiltinLogger:
         terminated_training_mock_event.model_name = 'my_model'
         terminated_training_mock_event.epoch = 10
         terminated_training_mock_event.reason = 'Test terminate'
+
         tracker.notify(terminated_training_mock_event)
+
         expected = 'Training my_model terminated at epoch 10. '
         expected += 'Reason: Test terminate'
         output = self.stream.getvalue()
@@ -256,12 +276,15 @@ class TestBuiltinLogger:
     ) -> None:
         """Test handling of EndTraining event."""
         tracker.notify(end_training_mock_event)
+
         assert 'Training ended' in self.stream.getvalue()
 
     def test_test_event(self, tracker, start_test_mock_event) -> None:
         """Test handling of Test event."""
         start_test_mock_event.model_name = 'my_model'
+
         tracker.notify(start_test_mock_event)
+
         assert 'Testing my_model started' in self.stream.getvalue()
 
     def test_pause_experiment_event(
@@ -271,6 +294,7 @@ class TestBuiltinLogger:
     ) -> None:
         """Test handling of the PauseExperiment event."""
         tracker.notify(pause_experiment_mock_event)
+
         expected = (
             f'Experiment: {pause_experiment_mock_event.exp_name} - '
             f'Pausing run: {pause_experiment_mock_event.run_id}'
@@ -284,6 +308,7 @@ class TestBuiltinLogger:
     ) -> None:
         """Test handling of the ContinueExperiment event."""
         tracker.notify(continue_experiment_mock_event)
+
         expected = (
             f'Experiment: {continue_experiment_mock_event.exp_name} - '
             f'Continuing run: {continue_experiment_mock_event.run_id}'
@@ -302,7 +327,9 @@ class TestDryTorchFilter:
     def test_filter(self, dry_filter, example_record) -> None:
         """Set up the instance."""
         assert dry_filter.filter(example_record)
+
         example_record.name = 'testing_drytorch'
+
         assert not dry_filter.filter(example_record)
 
 
@@ -317,13 +344,16 @@ class TestDryTorchFormatter:
     def test_format_experiment_level(self, formatter, example_record) -> None:
         """Test formatting at experiment level."""
         example_record.levelno = INFO_LEVELS.experiment
+
         formatted = formatter.format(example_record)
+
         assert formatted.endswith('Test message\n')
         assert formatted.startswith('\r[')  # Check for timestamp
 
     def test_format_other_level(self, formatter, example_record) -> None:
         """Test formatting at epoch level."""
         formatted = formatter.format(example_record)
+
         assert formatted == '\rTest message\n'
 
     def test_uses_time(self, formatter) -> None:
@@ -338,6 +368,7 @@ class TestDryTorchFormatter:
             example_record.exc_info = sys.exc_info()
 
         formatted = formatter.format(example_record)
+
         assert 'Test message' in formatted
         assert 'ValueError: Test error' in formatted
 
@@ -353,19 +384,24 @@ class TestProgressFormatter:
     def test_format_metric_level(self, formatter, example_record) -> None:
         """Test formatting at metric level."""
         example_record.levelno = INFO_LEVELS.epoch
+
         formatted = formatter.format(example_record)
+
         assert formatted.endswith('...\r')
 
     def test_format_epoch_level(self, formatter, example_record) -> None:
         """Test formatting at epoch level."""
         example_record.levelno = INFO_LEVELS.model_state
+
         formatted = formatter.format(example_record)
+
         assert formatted.endswith('\r')
 
 
 def test_disable_default_handler(logger) -> None:
     """Test disabling  default handler."""
     disable_default_handler()
+
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.NullHandler)
 
@@ -374,13 +410,16 @@ def test_disable_propagation(logger, root_logger, string_stream) -> None:
     """Test disabling log propagation."""
     disable_default_handler()
     disable_propagation()
+
     logger.error('test error 3')
+
     assert not string_stream.getvalue()
 
 
 def test_enable_default_handler(logger) -> None:
     """Test enabling default handler."""
     enable_default_handler()
+
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], logging.StreamHandler)
 
@@ -388,7 +427,9 @@ def test_enable_default_handler(logger) -> None:
 def test_enable_propagation(logger, root_logger, string_stream) -> None:
     """Test enabling log propagation."""
     enable_propagation(False)
+
     logger.error('test error 1')
+
     assert string_stream.getvalue() == 'test error 1\ntest error 1\n'
 
 
@@ -397,23 +438,35 @@ def test_enable_propagation_with_deduplication(
 ) -> None:
     """Test enabling log propagation while deduplicating output."""
     enable_propagation()
+
     logger.error('test error 1')
+
     assert string_stream.getvalue() == 'test error 1\n'
 
 
 def test_set_verbosity(logger) -> None:
     """Test setting verbosity level."""
     set_verbosity(INFO_LEVELS.test)
+
     assert INFO_LEVELS.test == get_verbosity()
 
 
-def test_set_formatter_style(stream_handler, logger) -> None:
+@pytest.mark.parametrize(
+    ('style', 'expected_cls'),
+    [
+        ('drytorch', DryTorchFormatter),
+        ('progress', ProgressFormatter),
+    ],
+)
+def test_set_formatter_style(
+    stream_handler, logger, style: Literal['drytorch', 'progress'], expected_cls
+) -> None:
     """Test setting formatter style."""
     logger.addHandler(stream_handler)
-    set_formatter(style='drytorch')
-    assert isinstance(stream_handler.formatter, DryTorchFormatter)
-    set_formatter(style='progress')
-    assert isinstance(stream_handler.formatter, ProgressFormatter)
+
+    set_formatter(style=style)
+
+    assert isinstance(stream_handler.formatter, expected_cls)
 
 
 @pytest.mark.parametrize('disable_handler', [False, True])

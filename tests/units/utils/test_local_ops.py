@@ -1,17 +1,23 @@
-"""Tests for the local_ops module."""
+"""Tests for the ``local_ops`` module."""
 
 import pathlib
 
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.utils import local_ops
+from drytorch.utils.local_ops import (
+    _get_experiment_folders,
+    clone_experiment_data,
+    delete_experiment_data,
+    rename_experiment_data,
+)
 
 
 def test_get_experiment_folders(tmp_path: pathlib.Path) -> None:
     """Test get_experiment_folders finds the folders of an experiment."""
     trackers = ['.drytorch', 'checkpoints', 'csv_metrics']
     exp_name = 'test_exp'
+
     for t in trackers:
         d = tmp_path / t / exp_name
         d.mkdir(parents=True)
@@ -20,9 +26,10 @@ def test_get_experiment_folders(tmp_path: pathlib.Path) -> None:
     (tmp_path / 'checkpoints' / 'other_exp').mkdir()
     (tmp_path / 'loose_file.txt').write_text('not a tracker folder')
 
-    folders = local_ops._get_experiment_folders(tmp_path, exp_name)
+    folders = _get_experiment_folders(tmp_path, exp_name)
 
     expected = {tmp_path / t / exp_name for t in trackers}
+
     assert set(folders) == expected
 
 
@@ -33,9 +40,10 @@ def test_invalid_experiment_names_are_rejected(
     exp_name = 'valid_name'
     (tmp_path / 'checkpoints' / exp_name).mkdir(parents=True)
     errors = []
+
     for invalid in ('', '.', '..', 'nested/name', 'nested\\name'):
         try:
-            local_ops.delete_experiment_data(tmp_path, invalid)
+            delete_experiment_data(tmp_path, invalid)
         except ValueError:
             errors.append(invalid)
 
@@ -48,6 +56,7 @@ def test_rename_stops_before_touching_data(tmp_path: pathlib.Path) -> None:
     trackers = ['.drytorch', 'checkpoints']
     exp_name = 'old_name'
     new_name = 'new_name'
+
     for t in trackers:
         d = tmp_path / t / exp_name
         d.mkdir(parents=True)
@@ -56,7 +65,7 @@ def test_rename_stops_before_touching_data(tmp_path: pathlib.Path) -> None:
     (tmp_path / 'checkpoints' / new_name).mkdir()
 
     with pytest.raises(exceptions.FolderAlreadyExistsError):
-        local_ops.rename_experiment_data(tmp_path, exp_name, new_name)
+        rename_experiment_data(tmp_path, exp_name, new_name)
 
     for t in trackers:
         assert (tmp_path / t / exp_name / 'file.txt').read_text() == 'content'
@@ -73,7 +82,7 @@ def test_delete_experiment_data(tmp_path: pathlib.Path) -> None:
         d = tmp_path / t / exp_name
         d.mkdir(parents=True)
 
-    local_ops.delete_experiment_data(tmp_path, exp_name)
+    delete_experiment_data(tmp_path, exp_name)
 
     for t in trackers:
         assert not (tmp_path / t / exp_name).exists()
@@ -90,7 +99,7 @@ def test_rename_experiment_data(tmp_path: pathlib.Path) -> None:
         d.mkdir(parents=True)
         (d / 'file.txt').write_text('content')
 
-    local_ops.rename_experiment_data(tmp_path, exp_name, new_name)
+    rename_experiment_data(tmp_path, exp_name, new_name)
 
     for t in trackers:
         assert not (tmp_path / t / exp_name).exists()
@@ -108,7 +117,7 @@ def test_clone_experiment_data(tmp_path: pathlib.Path) -> None:
         d.mkdir(parents=True)
         (d / 'file.txt').write_text('content')
 
-    local_ops.clone_experiment_data(tmp_path, exp_name, clone_name)
+    clone_experiment_data(tmp_path, exp_name, clone_name)
 
     for t in trackers:
         assert (tmp_path / t / exp_name / 'file.txt').read_text() == 'content'

@@ -34,7 +34,7 @@ class TestModelRegistration:
         return Experiment(config=None, name='RegistrationExp', par_dir=tmp_path)
 
     def test_model_outside_run(self) -> None:
-        """Test Model raises NoActiveExperimentError outside a run."""
+        """Test ``Model`` raises ``NoActiveExperimentError`` outside a run."""
         module = torch.nn.Linear(1, 1)
 
         with pytest.raises(exceptions.NoActiveExperimentError):

@@ -115,7 +115,7 @@ def mock_trainer(
         return_value=example_named_metrics
     )
 
-    def _terminate_training(reason: str):
+    def _terminate_training(reason: str) -> None:
         mock.terminated = True
         _unused = reason
 

@@ -1,49 +1,10 @@
-"""Tests for the "aggregators" module."""
+"""Tests for the ``aggregators`` module."""
 
 import torch
 
 import pytest
 
 from drytorch.lib.aggregators import Aggregator, TorchMeanAccumulator
-
-
-class TestTorchMeanAccumulator:
-    """Tests for TorchMeanAccumulator."""
-
-    def test_from_value(self) -> None:
-        """Test the accumulator stores the sum and the number of elements."""
-        acc = TorchMeanAccumulator.from_value(torch.ones((2, 2)))
-
-        assert torch.is_tensor(acc.total)
-        assert acc.total.item() == 4.0
-        assert acc.count == 4
-
-    def test_merge(self) -> None:
-        """Test merging adds totals and counts."""
-        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 2.0]))
-        other = TorchMeanAccumulator.from_value(torch.tensor([3.0]))
-
-        acc.merge(other)
-
-        assert acc.total.item() == 6.0
-        assert acc.count == 3
-
-    def test_reduce(self) -> None:
-        """Test reduce returns the mean."""
-        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 2.0, 6.0]))
-
-        result = acc.reduce()
-
-        assert result.item() == 3.0
-
-    def test_sync_without_distributed(self) -> None:
-        """Test sync leaves the state unchanged when not distributed."""
-        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 3.0]))
-
-        acc.sync()
-
-        assert acc.total.item() == 4.0
-        assert acc.count == 2
 
 
 class TestAggregator:
@@ -121,3 +82,42 @@ class TestAggregator:
 
         assert aggregator.accumulators['metric1'].total == 2.0
         assert aggregator.accumulators['metric1'].count == 1
+
+
+class TestTorchMeanAccumulator:
+    """Tests for TorchMeanAccumulator."""
+
+    def test_from_value(self) -> None:
+        """Test the accumulator stores the sum and the number of elements."""
+        acc = TorchMeanAccumulator.from_value(torch.ones((2, 2)))
+
+        assert torch.is_tensor(acc.total)
+        assert acc.total.item() == 4.0
+        assert acc.count == 4
+
+    def test_merge(self) -> None:
+        """Test merging adds totals and counts."""
+        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 2.0]))
+        other = TorchMeanAccumulator.from_value(torch.tensor([3.0]))
+
+        acc.merge(other)
+
+        assert acc.total.item() == 6.0
+        assert acc.count == 3
+
+    def test_reduce(self) -> None:
+        """Test reduce returns the mean."""
+        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 2.0, 6.0]))
+
+        result = acc.reduce()
+
+        assert result.item() == 3.0
+
+    def test_sync_without_distributed(self) -> None:
+        """Test sync leaves the state unchanged when not distributed."""
+        acc = TorchMeanAccumulator.from_value(torch.tensor([1.0, 3.0]))
+
+        acc.sync()
+
+        assert acc.total.item() == 4.0
+        assert acc.count == 2

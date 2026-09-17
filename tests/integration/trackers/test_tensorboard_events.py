@@ -20,7 +20,7 @@ from drytorch.trackers.tensorboard import TensorBoard
 
 
 class TestTensorBoardPauseContinue:
-    """Tests TensorBoard state isolation across interleaved runs."""
+    """Tests ``TensorBoard`` state isolation across interleaved runs."""
 
     @pytest.fixture
     def tracker(self, tmp_path: pathlib.Path) -> TensorBoard:
@@ -36,13 +36,12 @@ class TestTensorBoardPauseContinue:
         example_model_name: str,
         example_source_name: str,
     ) -> None:
-        """Verify TensorBoard writer stashing with interleaved runs."""
-        # Trigger
+        """Verify ``TensorBoard`` writer stashing with interleaved runs."""
         for event in interleaved_workflow:
             tracker.notify(event)
+
         tracker.close()
 
-        # Assert
         dir_a = run_a_dir(TensorBoard.folder_name)
         dir_b = run_b_dir(TensorBoard.folder_name)
 

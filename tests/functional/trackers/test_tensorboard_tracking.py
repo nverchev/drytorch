@@ -22,7 +22,7 @@ from drytorch.trackers.tensorboard import TensorBoard
 
 @pytest.mark.filterwarnings('ignore::UserWarning:tensorboard.*')
 class TestTensorBoardFullCycle:
-    """Complete TensorBoard session and tests it afterward."""
+    """Complete ``TensorBoard`` session and tests it afterward."""
 
     @pytest.fixture
     def setup(

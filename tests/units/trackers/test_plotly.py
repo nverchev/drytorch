@@ -16,7 +16,7 @@ from drytorch.trackers.plotly import PlotlyPlotter
 
 
 class TestPlotlyPlotter:
-    """Tests for the PlotlyPlotter class."""
+    """Tests for the ``PlotlyPlotter`` class."""
 
     @pytest.fixture
     def tracker(self) -> PlotlyPlotter:
@@ -31,19 +31,16 @@ class TestPlotlyPlotter:
         example_model_name: str,
         mocker,
     ) -> None:
-        """Test plot_metric with a single datapoint."""
-        # Prepare
+        """Test plotting with a single datapoint."""
         mock_show = mocker.patch.object(go.Figure, 'show')
         model_name = example_model_name
         data = np.array([[1, 0.8]])
         sourced_array = {example_source_name: data}
 
-        # Trigger
         fig = tracker._plot_metric(
             model_name, example_loss_name, **sourced_array
         )
 
-        # Assert
         assert fig.data[0].marker.symbol == 'diamond'
         assert fig.data[0].marker.size == 20
         mock_show.assert_not_called()
@@ -56,19 +53,16 @@ class TestPlotlyPlotter:
         example_model_name: str,
         mocker,
     ) -> None:
-        """Test plot_metric with multiple points."""
-        # Prepare
+        """Test plotting with multiple points."""
         mock_show = mocker.patch.object(go.Figure, 'show')
         model_name = example_model_name
         multi_points = np.array([[1, 0.7], [2, 0.8], [3, 0.85]])
         sourced_array = {example_source_name: multi_points}
 
-        # Trigger
         fig = tracker._plot_metric(
             model_name, example_loss_name, **sourced_array
         )
 
-        # Assert
         assert fig.data[0].marker.symbol is None
         assert len(fig.data[0].x) == 3
         mock_show.assert_not_called()
@@ -80,8 +74,7 @@ class TestPlotlyPlotter:
         example_source_name: str,
         mocker,
     ) -> None:
-        """Verify that plot() renders each returned figure."""
-        # Prepare
+        """Verify each returned figure is rendered."""
         mock_show = mocker.patch.object(go.Figure, 'show')
         metric_event = log_events.MetricEvent(
             model_name=example_model_name,
@@ -95,12 +88,10 @@ class TestPlotlyPlotter:
             epoch=1,
         )
 
-        # Trigger
         tracker.notify(metric_event)
         tracker.notify(end_epoch_event)
         figures = tracker.plot(example_model_name)
 
-        # Assert
         assert len(figures) == 2
         assert mock_show.call_count == len(figures)
 
@@ -112,7 +103,6 @@ class TestPlotlyPlotter:
         mocker,
     ) -> None:
         """Verify training events neither render nor build figures."""
-        # Prepare
         mock_show = mocker.patch.object(go.Figure, 'show')
         mock_init = mocker.patch.object(
             go.Figure, '__init__', return_value=None
@@ -129,10 +119,8 @@ class TestPlotlyPlotter:
             epoch=1,
         )
 
-        # Trigger
         tracker.notify(metric_event)
         tracker.notify(end_epoch_event)
 
-        # Assert
         mock_show.assert_not_called()
         mock_init.assert_not_called()

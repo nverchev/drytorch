@@ -31,7 +31,7 @@ from drytorch.trackers.yaml import (
 from drytorch.utils import repr_utils
 
 
-def test_short_repr():
+def test_short_repr() -> None:
     """Test short_repr function."""
     assert has_short_repr('a' * MAX_LENGTH_SHORT_REPR) is True
     assert has_short_repr('a' * (MAX_LENGTH_SHORT_REPR + 1)) is False
@@ -41,7 +41,7 @@ def test_short_repr():
     assert has_short_repr(34) is True  # true for not a Sized object
 
 
-def test_literal_string():
+def test_literal_string() -> None:
     """Test YAML representers for correct serialization."""
     str_value = 'test'
     lit_str = repr_utils.LiteralStr(str_value)
@@ -49,42 +49,42 @@ def test_literal_string():
     assert yaml_output == yaml.dump(str_value, default_style='|')
 
 
-def test_short_sequence():
+def test_short_sequence() -> None:
     """Test sequence representation logic."""
     short_seq = ('a', 'b')
     yaml_output = yaml.dump(short_seq, Dumper=DryTorchDumper)
     assert yaml_output.strip() == '[a, b]'  # Flow style
 
 
-def test_long_sequence():
+def test_long_sequence() -> None:
     """Test sequence representation logic."""
     long_seq = ['a'] * (MAX_LENGTH_PLAIN_REPR + 1)
     yaml_output = yaml.dump(long_seq, Dumper=DryTorchDumper)
     assert '- ' in yaml_output  # Block style for long sequences
 
 
-def test_long_element():
+def test_long_element() -> None:
     """Test sequence representation logic."""
     long_element = ('a' * (MAX_LENGTH_SHORT_REPR + 1),)
     yaml_output = yaml.dump(long_element, Dumper=DryTorchDumper)
     assert '- ' in yaml_output  # Block style for long elements
 
 
-def test_represent_omitted():
+def test_represent_omitted() -> None:
     """Test correct representation of omitted values."""
     omitted = repr_utils.Omitted(5)
     yaml_string = yaml.dump(omitted, Dumper=DryTorchDumper)
     assert yaml_string == '!Omitted\nomitted_elements: 5\n'
 
 
-def test_represent_unknown_omitted():
+def test_represent_unknown_omitted() -> None:
     """Test correct representation of an unknown number of omitted values."""
     omitted = repr_utils.Omitted()
     yaml_string = yaml.dump(omitted, Dumper=DryTorchDumper)
     assert yaml_string == '!Omitted\nomitted_elements: .nan\n'
 
 
-def test_represent_list_with_omitted():
+def test_represent_list_with_omitted() -> None:
     """Test the correct representation of omitted values inside a list."""
     yaml_string = yaml.dump(
         [2, repr_utils.Omitted(5), 3], Dumper=DryTorchDumper
@@ -93,7 +93,7 @@ def test_represent_list_with_omitted():
 
 
 @given(text(characters(codec='ascii', exclude_categories=['Cc', 'Cs'])))
-def test_literal_str_yaml_representation(string):
+def test_literal_str_yaml_representation(string) -> None:
     """Test LiteralStr is represented with the pipe style."""
     # pipe style incompatible with trailing spaces or empty strings
     stripped = string.strip()
@@ -104,7 +104,7 @@ def test_literal_str_yaml_representation(string):
 
 
 class TestMetadataDumperPauseContinue:
-    """Tests MetadataDumper metadata routing across interleaved runs."""
+    """Tests ``MetadataDumper`` metadata routing across interleaved runs."""
 
     @pytest.fixture
     def tracker(self, tmp_path: pathlib.Path) -> MetadataDumper:
@@ -125,8 +125,7 @@ class TestMetadataDumperPauseContinue:
         run_a_dir: Callable[[str], pathlib.Path],
         run_b_dir: Callable[[str], pathlib.Path],
     ) -> None:
-        """Verify MetadataDumper routes metadata to correct run directory."""
-        # Trigger
+        """Verify ``MetadataDumper`` routes metadata correctly."""
         tracker.notify(start_experiment_event)
         tracker.notify(model_registration_event)
         tracker.notify(pause_experiment_event)
@@ -140,7 +139,6 @@ class TestMetadataDumperPauseContinue:
         tracker.notify(stop_experiment_event)
         tracker.close()
 
-        # Assert
         dir_a = run_a_dir(MetadataDumper.folder_name)
         dir_b = run_b_dir(MetadataDumper.folder_name)
 
@@ -152,6 +150,7 @@ class TestMetadataDumperPauseContinue:
 
         with config_a_file.open() as f:
             config_a_content = yaml.safe_load(f)
+
         with config_b_file.open() as f:
             config_b_content = yaml.safe_load(f)
 

@@ -1,4 +1,4 @@
-"""Tests for the "hooks" module."""
+"""Tests for the ``hooks`` module."""
 
 import pickle
 
@@ -19,10 +19,6 @@ from drytorch.lib.hooks import (
     saving_hook,
     static_hook_class,
 )
-
-
-Accuracy = 'Accuracy'
-Criterion = 'Loss'
 
 
 class _TestClass:
@@ -67,7 +63,9 @@ class TestHookChain:
 def test_saving_hook(mock_trainer) -> None:
     """Test that saving_hook calls save_checkpoint on the instance."""
     hook = saving_hook
+
     hook(mock_trainer)
+
     mock_trainer.save_checkpoint.assert_called_once()
 
 
@@ -75,7 +73,9 @@ def test_static_hook(mocker) -> None:
     """Test that static_hook wraps a void callable."""
     mock_callable = mocker.MagicMock()
     hook = StaticHook(mock_callable)
+
     hook(mocker.MagicMock())
+
     mock_callable.assert_called_once()
 
 
@@ -86,6 +86,7 @@ def test_static_class(mocker, mock_trainer) -> None:
     mocker.patch.object(_TestClass, '__call__', mock_event)
 
     hook(mock_trainer)
+
     mock_event.assert_called_once()
 
 
@@ -98,31 +99,32 @@ def test_static_hook_pickleable(mocker, mock_trainer) -> None:
     reconstructed_hook = pickle.loads(pickle.dumps(original_hook))  # noqa: S301
 
     reconstructed_hook(mock_trainer)
+
     mock_event.assert_called_once()
 
 
-def test_call_every(mocker, mock_trainer) -> None:
-    """Test call_every executes the hook based on interval and trainer state."""
+@pytest.mark.parametrize(
+    ('epoch', 'called'), [(0, False), (4, False), (6, True)]
+)
+def test_call_every(mocker, mock_trainer, epoch, called) -> None:
+    """Test call_every executes the hook based on interval."""
     mock_hook = mocker.MagicMock()
     hook = call_every(start=3, interval=3)(mock_hook)
+    mock_trainer.model.epoch = epoch
 
-    mock_hook.reset_mock()
-    mock_trainer.model.epoch = 0
     hook(mock_trainer)
-    mock_hook.assert_not_called()
 
-    mock_hook.reset_mock()
-    mock_trainer.model.epoch = 4
-    hook(mock_trainer)
-    mock_hook.assert_not_called()
+    assert mock_hook.called is called
 
-    mock_trainer.model.epoch = 6
-    hook(mock_trainer)
-    mock_hook.assert_called_once_with(mock_trainer)
 
-    mock_hook.reset_mock()
+def test_call_every_terminated(mocker, mock_trainer) -> None:
+    """Test call_every executes the hook on terminated trainer."""
+    mock_hook = mocker.MagicMock()
+    hook = call_every(start=3, interval=3)(mock_hook)
     mock_trainer.terminate_training('This is a test.')
+
     hook(mock_trainer)
+
     mock_hook.assert_called_once_with(mock_trainer)
 
 
@@ -231,14 +233,17 @@ class TestEarlyStoppingCallback:
     def test_early_epoch_no_stop(self, mock_trainer, callback) -> None:
         """Test training continues if not enough epochs passed."""
         mock_trainer.model.epoch = 1
+
         callback(mock_trainer)
-        mock_trainer.terminate_training.assert_not_called()  # type: ignore
+
+        mock_trainer.terminate_training.assert_not_called()
 
     def test_stops_on_plateau(self, mock_trainer, callback) -> None:
         """Test training stops after a plateau."""
         for _ in range(callback.monitor.metric_tracker.patience + 1):
             callback(mock_trainer)
-        mock_trainer.terminate_training.assert_called_once()  # type: ignore
+
+        mock_trainer.terminate_training.assert_called_once()
 
 
 class TestPruneCallback:
@@ -261,14 +266,18 @@ class TestPruneCallback:
     def test_no_pruning_before_threshold(self, mock_trainer, callback) -> None:
         """Test no pruning before the defined epoch."""
         mock_trainer.model.epoch = 2
+
         callback(mock_trainer)
-        mock_trainer.terminate_training.assert_not_called()  # type: ignore
+
+        mock_trainer.terminate_training.assert_not_called()
 
     def test_prunes_at_threshold(self, mock_trainer, callback) -> None:
         """Test pruning occurs when the threshold condition is met."""
         mock_trainer.model.epoch = 5
+
         callback(mock_trainer)
-        mock_trainer.terminate_training.assert_called_once()  # type: ignore
+
+        mock_trainer.terminate_training.assert_called_once()
 
 
 class TestReduceLROnPlateau:
@@ -285,10 +294,8 @@ class TestReduceLROnPlateau:
             patience=2,
         )
 
-    def test_reduces_lr_and_respects_cooldown(
-        self, mocker, mock_trainer, callback
-    ) -> None:
-        """Test LR reduction and cooldown enforcement."""
+    def test_reduces_lr(self, mocker, mock_trainer, callback) -> None:
+        """Test LR reduction after plateau patience is reached."""
         scheduler = schedulers.ConstantScheduler()
         mock_trainer.learning_schema = mocker.Mock
         mock_trainer.learning_schema.scheduler = scheduler
@@ -296,10 +303,20 @@ class TestReduceLROnPlateau:
         for _ in range(callback.monitor.metric_tracker.patience + 1):
             callback(mock_trainer)
 
-        mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
+        mock_trainer.update_learning_rate.assert_called_once()
+
+    def test_respects_cooldown(self, mocker, mock_trainer, callback) -> None:
+        """Test LR update is suppressed during cooldown."""
+        scheduler = schedulers.ConstantScheduler()
+        mock_trainer.learning_schema = mocker.Mock
+        mock_trainer.learning_schema.scheduler = scheduler
+
+        for _ in range(callback.monitor.metric_tracker.patience + 1):
+            callback(mock_trainer)
 
         callback(mock_trainer)
-        mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
+
+        mock_trainer.update_learning_rate.assert_called_once()
 
 
 class TestRestartScheduleOnPlateau:
@@ -323,6 +340,7 @@ class TestRestartScheduleOnPlateau:
         for _ in range(callback.monitor.metric_tracker.patience + 2):
             callback(mock_trainer)
 
-        mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
-        args = mock_trainer.update_learning_rate.call_args  # type: ignore
+        args = mock_trainer.update_learning_rate.call_args
+
+        mock_trainer.update_learning_rate.assert_called_once()
         assert isinstance(args[1]['scheduler'], schedulers.AbstractScheduler)

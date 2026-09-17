@@ -1,4 +1,4 @@
-"""Test for the "experimenting" module."""
+"""Tests for the ``experimenting`` module."""
 
 import importlib.metadata
 import json
@@ -719,11 +719,26 @@ class TestRun:
                 sessions=[RunSession('now', None, '0.1.0')],
             )
         ]
+
         with pytest.raises(exceptions.RunStillPausedError):
             experiment.create_run(resume=True)
 
+    def test_resume_unparked_after_stop(self, experiment) -> None:
+        """Test create_run(resume=True) succeeds once the run has stopped."""
+        run = experiment.create_run(run_id='parked')
+        run.start()
+        run.pause()
+        self.patch_load.return_value = [
+            RunMetadata(
+                id='parked',
+                status='paused',
+                sessions=[RunSession('now', None, '0.1.0')],
+            )
+        ]
         run.stop()
+
         run_resumed = experiment.create_run(resume=True)
+
         assert run_resumed.id == 'parked'
 
     def test_resume_abandoned_registry_entry(self, experiment, mocker) -> None:

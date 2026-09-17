@@ -1,4 +1,4 @@
-"""Tests for the "tqdm" module."""
+"""Tests for the ``tqdm`` module."""
 
 import importlib.util
 
@@ -41,7 +41,9 @@ class TestEpochBar:
         """Test a single update of the progress bar."""
         bar.update(example_named_metrics, 1)
         bar.pbar.refresh()
+
         output = self.stream.getvalue()
+
         for metric_name, value in example_named_metrics.items():
             assert metric_name in output
             assert f'{value:.3e}' in output
@@ -52,6 +54,7 @@ class TestEpochBar:
         """Test multiple processes update of the progress bar."""
         bar.update(example_named_metrics, 3)
         bar.pbar.refresh()
+
         assert bar._epoch_seen == bar._batch_size * 3
 
     def test_complete_epoch(self, bar, example_named_metrics) -> None:
@@ -63,7 +66,7 @@ class TestEpochBar:
 
 
 class TestTrainingBar:
-    """Tests for the EpochBar class."""
+    """Tests for the TrainingBar class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, string_stream) -> None:
@@ -89,8 +92,11 @@ class TestTrainingBar:
     def test_update(self, bar) -> None:
         """Test updating the training progress bar."""
         current_epoch = 5
+
         bar.update(current_epoch)
+
         output = self.stream.getvalue()
+
         assert f'Epoch: {current_epoch} / {bar._end_epoch}' in output
 
 
@@ -113,10 +119,12 @@ class TestTqdmLogger:
         """Set up the instance."""
         return TqdmLogger(enable_training_bar=True, file=self.stream)
 
-    def test_cleanup(self, mocker, tracker):
+    def test_cleanup(self, mocker, tracker) -> None:
         """Test correct clean up."""
         mock_super = mocker.patch('drytorch.core.tracking.Tracker.clean_up')
+
         tracker.clean_up()
+
         assert tracker._training_bar is None
         assert tracker._epoch_bar is None
         mock_super.assert_called_once()
@@ -128,6 +136,7 @@ class TestTqdmLogger:
     ) -> None:
         """Test handling of the StartTraining event."""
         tracker_with_double_bar.notify(start_training_mock_event)
+
         assert tracker_with_double_bar._training_bar is not None
 
     def test_start_epoch_event(
@@ -139,7 +148,9 @@ class TestTqdmLogger:
         """Test handling of StartEpoch event with active training bar."""
         tracker_with_double_bar.notify(start_training_mock_event)
         tracker_with_double_bar.notify(start_epoch_mock_event)
+
         output = self.stream.getvalue()
+
         assert f'Epoch: {start_epoch_mock_event.epoch}' in output
 
     def test_iterate_batch_event(
@@ -149,9 +160,13 @@ class TestTqdmLogger:
     ) -> None:
         """Test handling of the IterateBatch event."""
         tracker.notify(iterate_batch_mock_event)
+
         assert len(iterate_batch_mock_event.push_updates) == 1
+
         iterate_batch_mock_event.push_updates[0]({'loss': 0.5}, 1)
+
         output = self.stream.getvalue()
+
         assert iterate_batch_mock_event.source_name in output
 
     def test_iterate_batch_closes_previous_bar(
@@ -165,6 +180,7 @@ class TestTqdmLogger:
         assert first_bar is not None
 
         tracker.notify(iterate_batch_mock_event)
+
         assert tracker._epoch_bar is not first_bar
         assert first_bar.pbar not in getattr(
             first_bar.pbar, '_instances', set()
@@ -180,7 +196,9 @@ class TestTqdmLogger:
         """Test handling of TerminatedTraining event cleans up both bars."""
         tracker_with_double_bar.notify(start_training_mock_event)
         tracker_with_double_bar.notify(start_epoch_mock_event)
+
         tracker_with_double_bar.notify(terminated_training_mock_event)
+
         assert tracker_with_double_bar._training_bar is None
         assert tracker_with_double_bar._epoch_bar is None
 
@@ -200,6 +218,7 @@ class TestTqdmLogger:
         assert epoch_bar is not None
 
         tracker_with_double_bar.notify(pause_experiment_mock_event)
+
         assert tracker_with_double_bar._training_bar is None
         assert tracker_with_double_bar._epoch_bar is None
         assert training_bar.pbar not in getattr(
@@ -217,6 +236,8 @@ class TestTqdmLogger:
     ) -> None:
         """Test handling of ContinueExperiment event."""
         tracker_with_double_bar.notify(pause_experiment_mock_event)
+
         tracker_with_double_bar.notify(continue_experiment_mock_event)
+
         assert tracker_with_double_bar._training_bar is None
         assert tracker_with_double_bar._epoch_bar is None

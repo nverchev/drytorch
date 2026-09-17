@@ -1,4 +1,4 @@
-"""Tests for the "hydra" module."""
+"""Tests for the ``hydra`` module."""
 
 import importlib.util
 
@@ -39,18 +39,24 @@ class TestHydraLink:
 
     def test_cleanup_no_copy(
         self, tracker_no_copy, start_experiment_mock_event
-    ):
+    ) -> None:
         """Test cleanup does not copy the hydra folder."""
         tracker_no_copy.notify(start_experiment_mock_event)
         link = tracker_no_copy._get_run_dir()
+
         tracker_no_copy.clean_up()
+
         assert link.is_symlink()
 
-    def test_cleanup_with_copy(self, tracker, start_experiment_mock_event):
+    def test_cleanup_with_copy(
+        self, tracker, start_experiment_mock_event
+    ) -> None:
         """Test cleanup copies hydra folder."""
         tracker.notify(start_experiment_mock_event)
         link = tracker._get_run_dir()
+
         tracker.clean_up()
+
         assert link.is_dir()
 
     def test_init_with_valid_hydra(self, tracker, tmp_path) -> None:
@@ -62,6 +68,7 @@ class TestHydraLink:
     def test_init_without_hydra_raises_exception(self, tmp_path) -> None:
         """Test initialization fails with a non-existing hydra directory."""
         self.hydra_output_dir.rmdir()
+
         with pytest.raises(exceptions.TrackerError):
             HydraLink(par_dir=tmp_path / 'not_existing')
 
@@ -72,6 +79,7 @@ class TestHydraLink:
     ) -> None:
         """Test start experiment notification creates symlink."""
         tracker.notify(start_experiment_mock_event)
+
         assert tracker._get_run_dir().is_symlink()
         assert tracker._get_run_dir().resolve() == self.hydra_output_dir
 
@@ -83,6 +91,7 @@ class TestHydraLink:
             'hydra.core.hydra_config.HydraConfig.get',
             side_effect=ValueError('HydraConfig was not set'),
         )
+
         with pytest.raises(
             exceptions.TrackerError, match='Hydra has not started'
         ):
@@ -95,11 +104,11 @@ class TestHydraLink:
         t1 = HydraLink(par_dir=tmp_path)
         t1.notify(start_experiment_mock_event)
         link1 = t1._get_run_dir()
-        assert link1.is_symlink()
-
         t2 = HydraLink(par_dir=tmp_path)
         t2.notify(start_experiment_mock_event)
         link2 = t2._get_run_dir()
+
+        assert link1.is_symlink()
         assert link2.is_symlink()
         assert link2 != link1
         assert link2.name == f'{link1.name}_1'
@@ -113,11 +122,11 @@ class TestHydraLink:
         t1.notify(start_experiment_mock_event)
         dir1 = t1._get_run_dir()
         t1.clean_up()
-        assert dir1.is_dir()
-        assert not dir1.is_symlink()
-
         t2 = HydraLink(par_dir=tmp_path)
         t2.notify(start_experiment_mock_event)
         link2 = t2._get_run_dir()
+
+        assert dir1.is_dir()
+        assert not dir1.is_symlink()
         assert link2.is_symlink()
         assert link2.name == f'{dir1.name}_1'

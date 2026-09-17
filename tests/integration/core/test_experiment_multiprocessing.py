@@ -4,16 +4,15 @@ import multiprocessing
 import pathlib
 import warnings
 
-from ..conftest import RunningWorker
-
 import drytorch
 
 from drytorch.core.exceptions import RunAlreadyCompletedWarning
 from drytorch.core.experimenting import Experiment, RunStatus
+from tests.integration.conftest import RunningWorker
 
 
 class TestExperimentMultiprocessing:
-    """Test multiprocessing safety for Experiment and RunRegistry."""
+    """Test multiprocessing safety for ``Experiment`` and ``RunRegistry``."""
 
     def test_multiprocessing_ids(self, tmp_path, example_run_id) -> None:
         """Test parallel creation results in unique IDs due to PID suffix."""
@@ -100,17 +99,17 @@ class TestExperimentMultiprocessing:
         assert resumed_id == example_run_id
 
     @staticmethod
-    def _get_run_id():
+    def _get_run_id() -> str:
         """Worker function to create a run (module-level for pickling)."""
         return Experiment.get_current().run.id
 
     @staticmethod
-    def _update_status(status: RunStatus):
+    def _update_status(status: RunStatus) -> None:
         """Update the run status (module-level for pickling)."""
         run = Experiment.get_current().run
         run.status = status
         run._update_registry()
-        return None
+        return
 
     @staticmethod
     def _resume(par_dir: pathlib.Path, name: str, run_id: str) -> str:

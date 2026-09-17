@@ -27,7 +27,7 @@ from drytorch.trackers.sqlalchemy import (
 
 
 class TestSQLConnection:
-    """Tests for the SQLConnection tracker."""
+    """Tests for the ``SQLConnection`` tracker."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
@@ -94,10 +94,8 @@ class TestSQLConnection:
 
     def test_cleanup(self, tracker_started) -> None:
         """Test correct cleaning up."""
-        # Trigger
         tracker_started.clean_up()
 
-        # Assert
         assert self.mock_engine.dispose.call_count == 0
         assert tracker_started._run is None
         assert tracker_started._sources == {}
@@ -207,6 +205,7 @@ class TestSQLConnection:
         mock_query.__iter__.return_value = mock_list.__iter__()
         self.mock_context.query.return_value = mock_query
         epochs, metrics = tracker_started._get_run_metrics([], -1)
+
         assert epochs == [1, 2]
         assert metrics['test_model'] == [2, 3]
         assert metrics['test_model_2'] == [4, 5]
@@ -230,8 +229,10 @@ class TestSQLConnection:
         mock_query.where.return_value = mock_query
         mock_query.__iter__.return_value = mock_list.__iter__()
         self.mock_context.query.return_value = mock_query
+
         with pytest.raises(exceptions.TrackerError) as err:
             _ = tracker_started._get_run_metrics([], -1)
+
         assert err.match('test_model')
         assert err.match('test_model_2')
 
@@ -299,6 +300,7 @@ class TestSQLConnection:
         mock_query.__iter__.return_value = [].__iter__()
         self.mock_context.query.return_value = mock_query
         self.mock_context.merge.return_value = mock_run
+
         with pytest.raises(exceptions.TrackerError):
             tracker_started._find_sources('test_model')
 
@@ -334,8 +336,13 @@ class TestSQLConnection:
     ) -> None:
         """Test that pause stashes state and continue restores it."""
         tracker.notify(start_experiment_mock_event)
+        original_run = tracker._run
+
         tracker.notify(pause_experiment_mock_event)
+        assert tracker._run is None
+
         tracker.notify(continue_experiment_mock_event)
+        assert tracker._run == original_run
 
     def test_pause_start_stop_continue_keeps_state(
         self,
@@ -347,6 +354,7 @@ class TestSQLConnection:
     ) -> None:
         """Test that concurrent runs do not corrupt stashed state."""
         tracker.notify(start_experiment_mock_event)
+        original_run = tracker._run
         tracker.notify(pause_experiment_mock_event)
 
         start_2 = copy.copy(start_experiment_mock_event)
@@ -359,6 +367,7 @@ class TestSQLConnection:
         tracker.notify(stop_2)
 
         tracker.notify(continue_experiment_mock_event)
+        assert tracker._run == original_run
 
     def test_continue_without_stash_raises_error(
         self, tracker, continue_experiment_mock_event
@@ -374,14 +383,11 @@ class TestSQLConnection:
         pause_experiment_mock_event,
     ) -> None:
         """Test that close unconditionally releases stashed resources."""
-        # Prepare
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
 
-        # Trigger
         tracker.close()
 
-        # Assert
         assert self.mock_engine.dispose.call_count == 1
         assert tracker._sql_stashed_runs == {}
         assert tracker._sql_stashed_sources == {}
@@ -393,17 +399,14 @@ class TestSQLConnection:
         start_experiment_mock_event,
     ) -> None:
         """Test StartExperimentEvent reuses existing experiment and tags."""
-        # Prepare
         existing_tag = mocker.Mock(text='tag1')
         mock_where = self.mock_context.query.return_value.where.return_value
         mock_where.first.return_value = self.exp
         self.exp.tags = [existing_tag]
         start_experiment_mock_event.tags = ['tag1', 'tag2']
 
-        # Trigger
         tracker.notify(start_experiment_mock_event)
 
-        # Assert
         self.Experiment.assert_not_called()
         self.Run.assert_called_once_with(
             start_experiment_mock_event.run_id,
@@ -423,7 +426,6 @@ class TestSQLConnectionInMemory:
         stop_experiment_mock_event,
     ) -> None:
         """Test that in-memory SQLite database survives between runs."""
-        # Prepare
         engine = sqlalchemy.create_engine('sqlite://')
         tracker = SQLConnection(engine=engine)
         start_experiment_mock_event.tags = ['tag1', 'tag2']
@@ -438,12 +440,10 @@ class TestSQLConnectionInMemory:
             start_event_2.run_id = 'run2'
             start_event_2.tags = ['tag2', 'tag3']
 
-        # Trigger
         tracker.notify(start_experiment_mock_event)
         tracker.notify(stop_experiment_mock_event)
         tracker.notify(start_event_2)
 
-        # Assert
         with tracker.session_factory() as session:
             experiments = session.query(Experiment).all()
             runs = session.query(Run).all()

@@ -18,7 +18,7 @@ def start_experiment(run) -> Generator[None, None, None]:
     return
 
 
-def test_repr_trainer(identity_trainer, mocker) -> None:
+def test_repr_trainer(identity_trainer) -> None:
     """Test Trainer, Model, DataLoader, and objective basic repr."""
     expected = {
         'class': 'Trainer',
@@ -60,6 +60,7 @@ def test_repr_trainer(identity_trainer, mocker) -> None:
     }
 
     identity_trainer.model.exec_module = identity_trainer.model.module
+
     assert recursive_repr(identity_trainer) == expected
 
 
@@ -86,6 +87,7 @@ def test_hook_repr() -> None:
             },
         ),
     }
+
     assert recursive_repr(chain) == expected
 
 
@@ -114,4 +116,5 @@ def test_scheduler_repr() -> None:
         'parameters': {'exp_decay': 0.975, 'min_decay': 0.0, 'warmup_steps': 2},
     }
     scheduler = ExponentialScheduler().bind(warmup(2))
+
     assert recursive_repr(scheduler) == expected

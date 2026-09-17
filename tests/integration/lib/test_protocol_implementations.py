@@ -7,8 +7,6 @@ match the protocol. The tests check the protocols that are runtime-checkable.
 from collections.abc import Generator
 from typing import Any
 
-from ...simple_classes import MLP, Linear, TorchData, TorchTuple
-
 import pytest
 
 from drytorch.core import protocols as p
@@ -31,6 +29,7 @@ from drytorch.lib.objectives import (
 from drytorch.lib.runners import ModelRunner, ModelRunnerWithLogs
 from drytorch.lib.schedulers import ConstantScheduler, ExponentialScheduler
 from drytorch.lib.training import Trainer
+from tests.simple_classes import MLP, Linear, TorchData, TorchTuple
 
 
 _actor: type[p.ActorProtocol] = ModelRunner

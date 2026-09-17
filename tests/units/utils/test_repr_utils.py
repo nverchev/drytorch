@@ -1,7 +1,8 @@
-"""Tests for the "repr_utils" module."""
+"""Tests for the ``repr_utils`` module."""
 
 import dataclasses
 import datetime
+import time
 
 from collections.abc import Generator
 from typing import NoReturn
@@ -11,8 +12,7 @@ import torch
 
 import pytest
 
-import drytorch.utils.repr_utils
-
+from drytorch.utils import repr_utils
 from drytorch.utils.repr_utils import (
     MAX_REPR_SIZE as ORIG_MAX_REPR,
 )
@@ -27,16 +27,37 @@ from drytorch.utils.repr_utils import (
 )
 
 
+@pytest.fixture
+def patch_max_repr_size() -> Generator[None, None, None]:
+    """Temporarily override MAX_REPR_SIZE and restore it after."""
+    repr_utils.MAX_REPR_SIZE = 2
+    try:
+        yield
+    finally:
+        repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
+
+
+@pytest.fixture
+def _class_with_property() -> Generator['_ClassWithProperty', None, None]:
+    repr_utils.INCLUDE_PROPERTIES = True
+    try:
+        yield _ClassWithProperty()
+    finally:
+        repr_utils.INCLUDE_PROPERTIES = False
+
+
 class _NamedClass:
     name = DefaultName()
 
     def __init__(self) -> None:
         self.name = ''
+        return
 
 
 class _NamedSubClass(_NamedClass):
     def __init__(self) -> None:
         super().__init__()
+        return
 
 
 class _ClassWithAttributes:
@@ -78,6 +99,7 @@ class _SelfReferential:
     def __init__(self) -> None:
         self.name = 'self_ref'
         self.self_ref: _SelfReferential = self
+        return
 
 
 class _MutuallyReferential:
@@ -86,6 +108,7 @@ class _MutuallyReferential:
     def __init__(self, other: '_MutuallyReferential | None' = None) -> None:
         self.name = 'mutual'
         self.partner = other
+        return
 
 
 class _SharedChild:
@@ -93,6 +116,7 @@ class _SharedChild:
 
     def __init__(self) -> None:
         self.value = 42
+        return
 
 
 class _DiamondParent:
@@ -101,25 +125,7 @@ class _DiamondParent:
     def __init__(self, child: _SharedChild) -> None:
         self.left = child
         self.right = child
-
-
-@pytest.fixture
-def patch_max_repr_size() -> Generator[None, None, None]:
-    """Temporarily override MAX_REPR_SIZE and restore it after."""
-    drytorch.utils.repr_utils.MAX_REPR_SIZE = 2
-    try:
-        yield
-    finally:
-        drytorch.utils.repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
-
-
-@pytest.fixture
-def _class_with_property() -> Generator[_ClassWithProperty, None, None]:
-    drytorch.utils.repr_utils.INCLUDE_PROPERTIES = True
-    try:
-        yield _ClassWithProperty()
-    finally:
-        drytorch.utils.repr_utils.INCLUDE_PROPERTIES = False
+        return
 
 
 class TestCreatedAtMixin:
@@ -282,16 +288,18 @@ def get_repr_data():
 @pytest.mark.parametrize(['obj', 'max_size', 'expected'], get_repr_data())
 def test_recursive_repr(obj: object, max_size: int, expected: object) -> None:
     """Test the recursive_repr function with various data types."""
-    drytorch.utils.repr_utils.MAX_REPR_SIZE = max_size
+    repr_utils.MAX_REPR_SIZE = max_size
     try:
         assert recursive_repr(obj) == expected
     finally:
-        drytorch.utils.repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
+        repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
 
 
 def test_property_repr(_class_with_property) -> None:
     """Test the recursive_repr function with various data types."""
-    assert recursive_repr(_class_with_property) == {
+    result = recursive_repr(_class_with_property)
+
+    assert result == {
         'class': '_ClassWithProperty',
         'int_property': 2,
         'fail_property': 'Failed',
@@ -300,9 +308,11 @@ def test_property_repr(_class_with_property) -> None:
 
 def test_limit_size() -> None:
     """Test limit_size function limits the size of iterable and adds Omitted."""
-    drytorch.utils.repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
+    repr_utils.MAX_REPR_SIZE = ORIG_MAX_REPR
     long_list = list(range(20))
+
     result = _limit_size(long_list)
+
     assert len(result) == 11  # limited size
     assert isinstance(result[5], Omitted)
     assert result[:5] == [0, 1, 2, 3, 4]
@@ -311,12 +321,12 @@ def test_limit_size() -> None:
 
 def test_has_own_repr() -> None:
     """Test has_own_repr function to check if __repr__ has been overridden."""
-    assert _has_own_repr(_NamedClass()) is False
 
     class _CustomReprClass:
         def __repr__(self):
             return 'Custom Representation'
 
+    assert _has_own_repr(_NamedClass()) is False
     assert _has_own_repr(_CustomReprClass()) is True
 
 
@@ -330,7 +340,9 @@ def test_pandas_print_options(patch_max_repr_size) -> None:
         '    A  B\n0   0  0\n.. .. ..\n4   4  4\n\n[5 rows x 2 columns]'
     )
 
-    assert recursive_repr(df) == expected_df_repr
+    result = recursive_repr(df)
+
+    assert result == expected_df_repr
     assert pd.get_option('display.max_rows') == original_max_rows
     assert pd.get_option('display.max_columns') == original_max_columns
 
@@ -338,7 +350,9 @@ def test_pandas_print_options(patch_max_repr_size) -> None:
 def test_direct_self_reference_terminates() -> None:
     """A direct a.ref = a cycle must not recurse infinitely or blow up."""
     obj = _SelfReferential()
+
     result = recursive_repr(obj)
+
     assert result == {
         'class': '_SelfReferential',
         'name': 'self_ref',
@@ -359,6 +373,7 @@ def test_indirect_cycle_terminates() -> None:
     a.partner = b
 
     result = recursive_repr(a)
+
     assert result['class'] == '_MutuallyReferential'
     assert result['partner']['class'] == '_MutuallyReferential'
     assert 'duplicated' in result['partner']['partner']
@@ -366,14 +381,14 @@ def test_indirect_cycle_terminates() -> None:
 
 def test_cycle_returns_promptly(recwarn) -> None:
     """Cycle detection returns quickly, doesn't hang."""
-    import time
-
+    _not_used = recwarn
     a = _MutuallyReferential()
     b = _MutuallyReferential(other=a)
     a.partner = b
 
     start = time.perf_counter()
     recursive_repr(a)
+
     assert time.perf_counter() - start < 1.0
 
 
@@ -383,6 +398,7 @@ def test_shared_non_cyclic_reference_is_only_expanded_once() -> None:
     parent = _DiamondParent(child)
 
     result = recursive_repr(parent)
+
     assert result['left'] == {'class': '_SharedChild', 'value': 42}
     assert 'duplicated' in result['right']
 
@@ -393,6 +409,7 @@ def test_max_depth_still_bounds_acyclic_structures() -> None:
     class _Nested:
         def __init__(self, child: '_Nested | None') -> None:
             self.child = child
+            return
 
     deep = None
     for _ in range(15):
@@ -404,7 +421,8 @@ def test_max_depth_still_bounds_acyclic_structures() -> None:
     while isinstance(node, dict) and 'child' in node:
         node = node['child']
         depths += 1
-    assert depths <= drytorch.utils.repr_utils.MAX_DEPTH
+
+    assert depths <= repr_utils.MAX_DEPTH
     assert isinstance(node, (str, dict))
 
 

@@ -1,4 +1,4 @@
-"""Tests for the "yaml" module."""
+"""Tests for the ``yaml`` module."""
 
 import importlib.util
 
@@ -63,7 +63,9 @@ class TestMetadataDumper:
         """Test notification of a model registration event."""
         self.mock_dump.assert_called_once()
         self.mock_dump.reset_mock()
+
         tracker_started.notify(model_registration_mock_event)
+
         self.mock_dump.assert_called_once()
         _, kwargs = self.mock_dump.call_args
         assert kwargs.get('Dumper') is DryTorchDumper
@@ -74,7 +76,9 @@ class TestMetadataDumper:
         """Test notification of a source registration event."""
         self.mock_dump.assert_called_once()
         self.mock_dump.reset_mock()
+
         tracker_started.notify(actor_registration_mock_event)
+
         # metadata dumped in the metadata folder and in the archive folder
         self.mock_dump.assert_called_once()
         _, kwargs = self.mock_dump.call_args
@@ -87,17 +91,19 @@ class TestYamlSerialization:
     def test_global_pyyaml_unaffected(self) -> None:
         """Test that importing drytorch does not mutate global PyYAML."""
         dumped_tuple = yaml.dump({'t': (1, 2)})
-        assert '!!python/tuple' in dumped_tuple
         dumped_set = yaml.dump({'s': {1, 2}})
+
+        assert '!!python/tuple' in dumped_tuple
         assert '!!set' in dumped_set
 
     def test_dynamic_length_constants(self, monkeypatch) -> None:
         """Test changing length constants affects serialization dynamically."""
         monkeypatch.setattr(yaml_tracker, 'MAX_LENGTH_PLAIN_REPR', 1)
-        dumped = yaml.dump(['a', 'b'], Dumper=DryTorchDumper)
-        assert '- a\n- b' in dumped
-
         monkeypatch.setattr(yaml_tracker, 'MAX_LENGTH_SHORT_REPR', 2)
+
+        dumped = yaml.dump(['a', 'b'], Dumper=DryTorchDumper)
+
+        assert '- a\n- b' in dumped
         assert has_short_repr('abc') is False
         assert has_short_repr('ab') is True
 
@@ -107,10 +113,10 @@ class TestYamlSerialization:
             {'tags': {'delta', 'gamma', 'alpha', 'beta'}},
             Dumper=DryTorchDumper,
         )
-        assert '[alpha, beta, delta, gamma]' in dumped
-
         dumped_frozen = yaml.dump(
             {'tags': frozenset(['delta', 'gamma', 'alpha', 'beta'])},
             Dumper=DryTorchDumper,
         )
+
+        assert '[alpha, beta, delta, gamma]' in dumped
         assert '[alpha, beta, delta, gamma]' in dumped_frozen

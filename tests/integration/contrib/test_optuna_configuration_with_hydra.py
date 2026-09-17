@@ -106,6 +106,7 @@ class TestSuggestOverridesWithHydra:
                 config_name=config_name,
                 overrides=overrides,
             )
+
         assert dict_cfg.model.type in {'cnn', 'mlp'}
         assert 16 <= dict_cfg.batch_size <= 256
         for dropout in dict_cfg.dropouts:

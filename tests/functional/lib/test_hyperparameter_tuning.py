@@ -6,8 +6,6 @@ import gc
 from collections.abc import Generator, MutableMapping
 from typing import Any
 
-from ...simple_classes import Linear
-
 import pytest
 
 from drytorch import Trainer
@@ -15,6 +13,7 @@ from drytorch.core import registering
 from drytorch.core.experimenting import Run
 from drytorch.lib import hooks
 from drytorch.lib.models import Model
+from tests.simple_classes import Linear
 
 
 # pytorch dynamo deprecation warnings for torch==2.10 under Python 3.14+

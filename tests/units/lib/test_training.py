@@ -1,17 +1,15 @@
-"""Tests for the "training" module."""
+"""Tests for the ``training`` module."""
 
 from collections.abc import Callable
 from typing import Any
 
 import torch
 
-from ...simple_classes import MLP
-
 import pytest
 
-from drytorch import Trainer
 from drytorch.core import exceptions
-from drytorch.lib.training import ModelOptimizer, TrainerBuilder
+from drytorch.lib.training import ModelOptimizer, Trainer, TrainerBuilder
+from tests.simple_classes import MLP
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -72,7 +70,7 @@ class TestTrainer:
     """Tests for Trainer."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker):
+    def setup(self, mocker) -> None:
         """Set up the test class."""
         self.model_optimizer = mocker.patch(
             'drytorch.lib.training.ModelOptimizer'
@@ -150,6 +148,7 @@ class TestTrainer:
         loss_value.requires_grad = True
         mock = mocker.MagicMock(return_value=loss_value)
         trainer.objective.forward = mock
+
         with pytest.raises(exceptions.LossNotScalarError):
             trainer.train(1)
 
@@ -273,8 +272,10 @@ class TestTrainer:
     def test_terminate_training(self, trainer) -> None:
         """Test that terminated correctly stop training."""
         trainer.terminate_training(reason='This is a test.')
+
         with pytest.warns(exceptions.TerminatedTrainingWarning):
             trainer()
+
         self.terminated_event.assert_called_once()
 
     def test_train_until(self, mocker, trainer) -> None:
@@ -282,7 +283,9 @@ class TestTrainer:
         trainer.model.epoch = 2
         mock_train = mocker.MagicMock()
         trainer.train = mock_train
+
         trainer.train_until(4)
+
         mock_train.assert_called_once_with(2)
 
     def test_past_epoch_warning(self, trainer) -> None:

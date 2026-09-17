@@ -26,7 +26,7 @@ def example_run_id(example_run_ts) -> str:
 
 
 @pytest.fixture(scope='package')
-def example_tags(request) -> list[str]:
+def example_tags() -> list[str]:
     """Yields either a tag or None."""
     return ['test_tag']
 

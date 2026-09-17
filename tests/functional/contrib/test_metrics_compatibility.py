@@ -1,9 +1,4 @@
-"""Tests that third-party metrics match the objective protocols.
-
-This is what keeps the library usable with the metrics of torchmetrics and
-torcheval. basedpyright checks the assignments below and the tests check the
-protocols at runtime.
-"""
+"""Tests that third-party metrics match the objective protocols."""
 
 from typing import TYPE_CHECKING, Any
 

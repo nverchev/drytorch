@@ -27,7 +27,7 @@ class TorchData:
 class IdentityDataset(data.Dataset[tuple[TorchTuple, torch.Tensor]]):
     """Simple dataset class to learn the identity function."""
 
-    def __init__(self, len_epoch=64):
+    def __init__(self, len_epoch: int = 64) -> None:
         """Initialize.
 
         Args:
@@ -53,7 +53,7 @@ class Linear(torch.nn.Module):
         linear: PyTorch linear layer.
     """
 
-    def __init__(self, in_features: int, out_features: int):
+    def __init__(self, in_features: int, out_features: int) -> None:
         """Initialize.
 
         Args:
@@ -67,7 +67,7 @@ class Linear(torch.nn.Module):
         return
 
     def forward(self, inputs: TorchTuple) -> TorchData:
-        """Initialize.
+        """Forward pass.
 
         Args:
             inputs: structured input
@@ -81,7 +81,7 @@ class Linear(torch.nn.Module):
 class MLP(torch.nn.Module):
     """Example of a multi-layer perceptron."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize layers."""
         super().__init__()
         self.linear = torch.nn.Linear(1, 2)

@@ -1,4 +1,4 @@
-"""Tests for the "objectives" module."""
+"""Tests for the ``objectives`` module."""
 
 from collections.abc import Callable
 
@@ -8,7 +8,7 @@ import pytest
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib.aggregators import TorchMeanAccumulator
+from drytorch.lib import aggregators
 from drytorch.lib.objectives import (
     DictLoss,
     JoinedLoss,
@@ -87,7 +87,6 @@ class TestMetricCollection:
         expected = {metric_1: torch.tensor(1), metric_2: torch.tensor(0)}
 
         assert metrics.calculate(simple_outputs, simple_targets) == expected
-        return
 
     def test_update_compute_and_reset(
         self, metric_1, metric_2, metrics
@@ -143,12 +142,14 @@ class TestMetricCollection:
     def test_merge_state_different_accumulators(self, metric_fun_1) -> None:
         """Test merging objectives with different accumulators raises."""
 
-        class OtherAccumulator(TorchMeanAccumulator):
+        class OtherAccumulator(aggregators.TorchMeanAccumulator):
             pass
 
         class OtherCollection(MetricCollection):
             @classmethod
-            def _get_accumulator_cls(cls) -> type[TorchMeanAccumulator]:
+            def _get_accumulator_cls(
+                cls,
+            ) -> type[aggregators.TorchMeanAccumulator]:
                 return OtherAccumulator
 
         metrics = MetricCollection(**metric_fun_1)
@@ -239,7 +240,6 @@ class TestMetric:
         expected = {metric_1: torch.tensor(1)}
 
         assert metric.calculate(simple_outputs, simple_targets) == expected
-        return
 
     def test_or(self, metric_1, metric) -> None:
         """Test | works as a union operator."""
@@ -808,8 +808,8 @@ def test_join_loss_first_repeated_name() -> None:
         join(loss, metric)
 
 
-def test_check_device_passes(mocker):
-    """Test that check_device passes when metrics are on the correct device."""
+def test_check_device_passes(mocker) -> None:
+    """Test check passes when metrics are on the correct device."""
     device = torch.device('cpu')
     mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
     mock_calculator.compute.return_value = {
@@ -817,11 +817,13 @@ def test_check_device_passes(mocker):
         'accuracy': torch.tensor([0.95], device=device),
     }
 
-    check_device(mock_calculator, device)  # Should not raise
+    check_device(mock_calculator, device)
+
+    mock_calculator.compute.assert_called_once()
 
 
 def test_check_device_fails(mocker) -> None:
-    """Test check_device raises errors when metrics are on the wrong device."""
+    """Test check raises error when metrics are on the wrong device."""
     mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
     mock_calculator.compute.return_value = {
         'loss': torch.tensor([0.5], device='meta'),
@@ -848,8 +850,8 @@ def test_check_device_fails(mocker) -> None:
         ),
     ],
 )
-def test_repr_metrics(mocker, compute_return, class_name, expected):
-    """Test the repr_metrics function with various compute return values."""
+def test_repr_metrics(mocker, compute_return, class_name, expected) -> None:
+    """Test metric representation with various compute return values."""
     mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
     mock_calculator.compute.return_value = compute_return
 
@@ -858,11 +860,12 @@ def test_repr_metrics(mocker, compute_return, class_name, expected):
 
     # Call the function and assert the result
     result = compute_metrics(mock_calculator)
+
     assert result == expected
 
 
-def test_repr_metrics_fail(mocker):
-    """Test the repr_metrics function fails with no return."""
+def test_repr_metrics_fail(mocker) -> None:
+    """Test metric representation fails with invalid return."""
     mock_calculator = mocker.MagicMock(spec=p.ObjectiveProtocol)
 
     with pytest.raises(exceptions.ComputedMetricsTypeError):

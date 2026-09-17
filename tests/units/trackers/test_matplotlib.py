@@ -1,4 +1,4 @@
-"""Tests for the "matplotlib" module."""
+"""Tests for the ``matplotlib`` module."""
 
 import importlib.util
 
@@ -54,6 +54,7 @@ class TestMatPlotter:
         self.plt_mock.close = mocker.Mock()
         self.mock_fig = mock_fig
         self.mock_ax = mock_ax
+        return
 
     @pytest.fixture
     def data(self) -> np.ndarray:
@@ -95,9 +96,11 @@ class TestMatPlotter:
     def test_source_colors_continuous_colormap(self) -> None:
         """Test continuous colormap spreads colors across multiple sources."""
         plotter = MatPlotter(palette='viridis')
+
         c0 = plotter._get_source_color('source_0')
         c1 = plotter._get_source_color('source_1')
         c2 = plotter._get_source_color('source_2')
+
         assert c0 != c1
         assert c1 != c2
         assert c0 != c2
@@ -118,6 +121,7 @@ class TestMatPlotter:
         """Test continuous colormaps assign distinct colors beyond 8 sources."""
         plotter = MatPlotter(palette='viridis')
         colors_seen = set()
+
         for i in range(16):
             c = plotter._get_source_color(f'source_{i}')
             colors_seen.add(c)
@@ -139,6 +143,7 @@ class TestMatPlotter:
         """Test layout preparation with multiple metrics."""
         model_name = example_model_name
         metric_names = ['accuracy', 'loss', 'f1_score']
+
         tracker._prepare_layout(model_name, metric_names)
 
         # should create 2x2 grid (math.ceil(sqrt(3)) = 2)
@@ -148,7 +153,6 @@ class TestMatPlotter:
             ((2, 2, 3),),  # third subplot
         ]
         assert self.mock_fig.add_subplot.call_count == 3
-
         for i, call_args in enumerate(self.mock_fig.add_subplot.call_args_list):
             assert call_args == expected_calls[i]
 
@@ -157,9 +161,11 @@ class TestMatPlotter:
     ) -> None:
         """Test layout preparation is skipped if metrics already exist."""
         self.plt_mock.figure.reset_mock()
+
         tracker_with_layout._prepare_layout(
             example_model_name, [example_loss_name]
         )
+
         self.plt_mock.figure.assert_not_called()
 
     def test_prepare_layout_rebuilds_when_new_metric_appears(
@@ -168,9 +174,11 @@ class TestMatPlotter:
         """Test layout is cleared and rebuilt when a new metric appears."""
         self.mock_fig.clear.reset_mock()
         self.mock_fig.add_subplot.reset_mock()
+
         tracker_with_layout._prepare_layout(
             example_model_name, [example_loss_name, 'accuracy']
         )
+
         self.mock_fig.clear.assert_called_once()
         assert self.mock_fig.add_subplot.call_count == 2
 
@@ -201,6 +209,7 @@ class TestMatPlotter:
     ) -> None:
         """Test display_plot redraws canvas once."""
         tracker_with_layout._display_plot(example_model_name, [])
+
         self.mock_fig.canvas.draw.assert_called_once()
         self.mock_fig.canvas.flush_events.assert_called_once()
 
@@ -250,6 +259,7 @@ class TestMatPlotter:
         mock_line.get_label.return_value = example_source_name
         mock_line.set_xdata = mock_line.set_ydata = lambda x: None
         self.mock_ax.get_lines.return_value = [mock_line]
+
         _ = tracker_with_layout._plot_metric(
             example_model_name, example_loss_name, **sourced_array
         )

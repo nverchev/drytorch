@@ -106,6 +106,7 @@ class TestFromTorchMetrics:
         """Test that reset properly resets the underlying metrics."""
         metric.update(mock_outputs, mock_targets)
         pre_reset_result = metric.compute()
+
         assert pre_reset_result['BinaryAccuracy'] == 0.5
 
         metric.reset()
@@ -113,6 +114,7 @@ class TestFromTorchMetrics:
         # all correct prediction
         metric.update(mock_targets, mock_targets)
         post_reset_result = metric.compute()
+
         assert post_reset_result['BinaryAccuracy'] == 1
 
     def test_duplicate_metrics_raises_error(self) -> None:

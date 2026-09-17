@@ -26,6 +26,7 @@ def test_convergence(linear_model, identity_trainer) -> None:
     """Test trainer convergence to 1."""
     identity_trainer.train(10)
     linear_weight = next(linear_model.module.parameters())
+
     assert torch.isclose(linear_weight, torch.tensor(1.0), atol=0.1)
 
 

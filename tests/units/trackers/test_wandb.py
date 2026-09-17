@@ -16,7 +16,7 @@ from drytorch.trackers.wandb import Wandb, WandbWarning
 
 
 class TestWandb:
-    """Tests for the Wandb tracker."""
+    """Tests for the ``Wandb`` tracker."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
@@ -48,6 +48,7 @@ class TestWandb:
     def test_cleanup(self, tracker_started) -> None:
         """Test correct cleaning up."""
         tracker_started.clean_up()
+
         self.init_mock.return_value.finish.assert_called_once()
         assert tracker_started._run is None
 
@@ -92,6 +93,7 @@ class TestWandb:
             for name, value in example_named_metrics.items()
         }
         step_dict = {f'Progress/{model_name}': epoch_metrics_mock_event.epoch}
+
         log_mock.assert_called_once_with(expected_metrics | step_dict)
 
     def test_notify_metrics_outside_scope(
@@ -204,6 +206,7 @@ class TestWandb:
     ) -> None:
         """Test that concurrent runs do not corrupt stashed state."""
         tracker.notify(start_experiment_mock_event)
+        run = tracker.run
         tracker.notify(pause_experiment_mock_event)
 
         start_2 = copy.copy(start_experiment_mock_event)
@@ -216,6 +219,7 @@ class TestWandb:
         tracker.notify(stop_2)
 
         tracker.notify(continue_experiment_mock_event)
+        assert tracker.run is run
 
     def test_continue_without_stash_raises_error(
         self, tracker, continue_experiment_mock_event
@@ -232,5 +236,10 @@ class TestWandb:
     ) -> None:
         """Test that close unconditionally releases stashed resources."""
         tracker.notify(start_experiment_mock_event)
+        run = tracker.run
         tracker.notify(pause_experiment_mock_event)
+
         tracker.close()
+
+        run.finish.assert_called_once()
+        assert tracker._stashed_runs == {}

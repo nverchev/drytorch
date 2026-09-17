@@ -14,7 +14,7 @@ from drytorch.trackers.plotly import PlotlyPlotter
 
 
 class TestPlotlyPlotterFullCycle:
-    """Manual verification for PlotlyPlotter."""
+    """Manual verification for ``PlotlyPlotter``."""
 
     @pytest.mark.skipif(
         'LIVE_PLOT' not in os.environ,
@@ -26,15 +26,13 @@ class TestPlotlyPlotterFullCycle:
         plotting_workflow: tuple[log_events.Event, ...],
     ) -> None:
         """Render plotly figures interactively when LIVE_PLOT is set."""
-        # Prepare
         plotter = PlotlyPlotter()
 
-        # Trigger
         for event in plotting_workflow:
             plotter.notify(event)
+
         figures = plotter.plot(example_model_name)
         plotter.clean_up()
         plotter.close()
 
-        # Assert
         assert len(figures) == 3

@@ -29,12 +29,11 @@ class TestCSVDumperPauseContinue:
         example_source_name: str,
     ) -> None:
         """Verify that CSVDumper keeps run A and B metrics isolated."""
-        # Trigger
         for event in interleaved_workflow:
             tracker.notify(event)
+
         tracker.close()
 
-        # Assert
         dir_a = run_a_dir(CSVDumper.folder_name)
         dir_b = run_b_dir(CSVDumper.folder_name)
 
@@ -43,6 +42,7 @@ class TestCSVDumperPauseContinue:
 
         with csv_a.open(newline='') as f:
             rows_a = list(csv.reader(f))
+
         with csv_b.open(newline='') as f:
             rows_b = list(csv.reader(f))
 

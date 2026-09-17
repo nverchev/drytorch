@@ -1,4 +1,4 @@
-"""Tests for the "evaluations" module."""
+"""Tests for the ``evaluations`` module."""
 
 import pytest
 
@@ -37,7 +37,9 @@ class TestDiagnostic:
         """Test __call__ method sets the model to eval mode and runs epoch."""
         mock = mocker.Mock()
         mock_model.module = mock
+
         diagnostic(store_outputs=True)
+
         self.mock_super_call.assert_called_once()
         mock.eval.assert_called_once()
 

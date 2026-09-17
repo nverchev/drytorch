@@ -43,6 +43,7 @@ def test_early_stopping(square_loss_calc, create_trainer) -> None:
     )
     trainer = create_trainer(post_epoch_hooks=[hook])
     trainer.train(4)
+
     # 2 epochs of patience and terminate at 3 or 4
     assert trainer.model.epoch in {3, 4}
 
@@ -68,6 +69,7 @@ def test_early_stopping_on_val(
     builder.add_post_epoch_hook(hook)
     trainer = builder.build()
     trainer.train(4)
+
     # 5 epochs of patience and terminate at 3
     assert trainer.model.epoch == 3
 
@@ -81,6 +83,7 @@ def test_pruning_callback(square_loss_calc, create_trainer) -> None:
     )
     trainer = create_trainer(post_epoch_hooks=[hook])
     trainer.train(4)
+
     # stop at epoch 3 because the loss is always greater than 0
     assert trainer.model.epoch == 3
 
@@ -111,6 +114,7 @@ def test_restart_schedule_on_plateau(square_loss_calc, create_trainer) -> None:
     initial_lr = trainer._model_optimizer.base_lr
     trainer.update_learning_rate(scheduler=exp_scheduler)
     trainer.train(5)
-    # training should complete with schedule restarts
     final_lr = trainer._model_optimizer.get_scheduled_lr(initial_lr)
+
+    # training should complete with schedule restarts
     assert not final_lr == pytest.approx(exp_scheduler(initial_lr, 4))

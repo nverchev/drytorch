@@ -35,7 +35,7 @@ expected_out = expected_path_folder / 'hydra_out_file.txt'
 
 
 class TestHydraFullCycle:
-    """Complete HydraLink session and tests it afterward."""
+    """Complete ``HydraLink`` session and tests it afterward."""
 
     # TODO: full_cycle fixture's scope should be changed to "class"
     @pytest.fixture(autouse=True)
@@ -80,9 +80,11 @@ class TestHydraFullCycle:
                 for event in events:
                     for tracker in trackers:
                         tracker.notify(event)
+
                 return
 
             _app()
+
         return
 
     def test_console_logging(self, capsys) -> None:
@@ -95,7 +97,7 @@ class TestHydraFullCycle:
 
         assert hydra_out_cleaned == expected_file_out.strip()
 
-    def test_log_file(self, start_experiment_event) -> None:
+    def test_log_file(self) -> None:
         """Test HydraLink creates file log with expected format."""
         file_name = pathlib.Path(__file__).name
         log_file = self.hydra_dir / file_name

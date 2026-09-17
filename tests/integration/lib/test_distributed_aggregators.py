@@ -1,18 +1,17 @@
-"""Tests for Aggregator with distributed processes."""
+"""Tests for ``Aggregator`` with distributed processes."""
 
 import torch
 import torch.distributed as dist
 
-from ..conftest import DistributedWorker
-
 import pytest
 
 from drytorch.lib.aggregators import Aggregator, TorchMeanAccumulator
+from tests.integration.conftest import DistributedWorker
 
 
 @pytest.mark.skipif(not dist.is_available(), reason='Distributed not available')
 class TestDistributedAggregator:
-    """Tests for Aggregator with distributed processes."""
+    """Tests for ``Aggregator`` with distributed processes."""
 
     @pytest.fixture
     def world_size(self) -> int:

@@ -16,8 +16,8 @@ from drytorch.utils import repr_utils
 TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 
 
-class TestSQLConnectionFullCycle:
-    """Complete SQLConnection session and tests it afterward."""
+class TestMetadataDumperFullCycle:
+    """Complete ``MetadataDumper`` session and tests it afterward."""
 
     @pytest.fixture
     def tracker(self, tmp_path) -> MetadataDumper:
@@ -26,7 +26,7 @@ class TestSQLConnectionFullCycle:
 
     def test_config_metadata(
         self, tracker, start_experiment_event, example_run_ts, example_config
-    ):
+    ) -> None:
         """Test correct dumping off config metadata."""
         tracker.notify(start_experiment_event)
         example_run_ts_str = example_run_ts.strftime(TS_FMT)
@@ -44,7 +44,7 @@ class TestSQLConnectionFullCycle:
         example_model_name,
         example_model_ts,
         example_architecure_repr,
-    ):
+    ) -> None:
         """Test correct dumping of metadata from the model."""
         tracker.notify(start_experiment_event)
         example_model_ts_str = example_model_ts.strftime(TS_FMT)
@@ -67,7 +67,7 @@ class TestSQLConnectionFullCycle:
         example_source_name,
         example_source_ts,
         example_metadata,
-    ):
+    ) -> None:
         """Test correct dumping of metadata from the caller."""
         tracker.notify(start_experiment_event)
         example_model_ts_str = example_model_ts.strftime(TS_FMT)

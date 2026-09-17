@@ -1,4 +1,4 @@
-"""Tests for the "base_classes" module."""
+"""Tests for the ``base_classes`` module."""
 
 import copy
 import functools
@@ -51,7 +51,7 @@ def example_sourced_metrics(
 
 
 class _ConcreteMetricLoader(MetricLoader):
-    def __init__(self, sourced_metrics: SourcedMetrics):
+    def __init__(self, sourced_metrics: SourcedMetrics) -> None:
         super().__init__()
         self.sourced_metrics = sourced_metrics
 
@@ -60,6 +60,7 @@ class _ConcreteMetricLoader(MetricLoader):
     ) -> SourcedMetrics:
         if model_name == 'wrong_name':
             return {}
+
         return self.sourced_metrics
 
     @functools.singledispatchmethod
@@ -115,6 +116,7 @@ class TestDumper:
     ) -> None:
         """Test par_dir property inside scope."""
         exp_par_dir = start_experiment_mock_event.par_dir
+
         if par_dir is None:
             assert tracker_started.par_dir == exp_par_dir
         else:
@@ -130,7 +132,11 @@ class TestDumper:
         """Test that pause stashes state and continue restores it."""
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
+
         tracker.notify(continue_experiment_mock_event)
+
+        assert tracker._run_id == start_experiment_mock_event.run_id
+        assert len(tracker._stashed_state) == 0
 
     def test_pause_start_stop_continue_keeps_state(
         self,
@@ -146,7 +152,6 @@ class TestDumper:
 
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
-
         tracker.notify(start_2)
 
         stop_2 = copy.copy(stop_experiment_mock_event)
@@ -154,6 +159,8 @@ class TestDumper:
         tracker.notify(stop_2)
 
         tracker.notify(continue_experiment_mock_event)
+
+        assert tracker._run_id == start_experiment_mock_event.run_id
 
     def test_continue_without_stash_raises_error(
         self, tracker, continue_experiment_mock_event

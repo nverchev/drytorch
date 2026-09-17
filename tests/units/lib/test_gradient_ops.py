@@ -1,4 +1,4 @@
-"""Tests for the "gradient_ops" module."""
+"""Tests for the ``gradient_ops`` module."""
 
 from collections.abc import Iterable
 
@@ -67,6 +67,7 @@ class TestGradNormalizer:
     ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
+
         assert not tensor_zero_grad.grad.any()
         assert tensor_random_grad.grad.norm(2).item() == pytest.approx(1.0)
 
@@ -84,10 +85,11 @@ class TestGradZScoreNormalizer:
     ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
-        assert not tensor_zero_grad.grad.any()
 
         mean = tensor_random_grad.grad.mean().item()
         var = tensor_random_grad.grad.var(unbiased=True).item()
+
+        assert not tensor_zero_grad.grad.any()
         assert mean == pytest.approx(0.0, abs=1e-6)
         assert var == pytest.approx(1.0, abs=1e-6)
 
@@ -115,7 +117,9 @@ class TestGradNormClipper:
     ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
+
         norm = tensor_random_grad.grad.norm().item()
+
         assert norm == pytest.approx(threshold, abs=1e-6)
 
 
@@ -142,7 +146,9 @@ class TestGradValueClipper:
     ) -> None:
         """Test call functionality."""
         grad_op(example_parameters)
+
         max_value = torch.max(torch.abs(tensor_random_grad.grad)).item()
+
         assert max_value == pytest.approx(threshold, abs=1e-6)
 
 
@@ -214,17 +220,21 @@ class TestEMACriterion:
     def test_update(self, ema_criterion: EMACriterion) -> None:
         """Test update of mu_t."""
         ema_criterion.update(10.0)  # mu_t = 0.5 * 0 + 0.5 * 10 = 5.0
+
         assert ema_criterion._mu_t == 5.0
 
     def test_set_statistics(self, ema_criterion: EMACriterion) -> None:
         """Test setting initial statistics."""
         ema_criterion.set_statistics(mean=100.0)
+
         assert ema_criterion._mu_t == 100.0
 
     def test_reset(self, ema_criterion: EMACriterion) -> None:
         """Test resetting the criterion."""
         ema_criterion._mu_t = 50.0
+
         ema_criterion.reset()
+
         assert ema_criterion._mu_t == 0.0
 
 
@@ -515,6 +525,7 @@ class TestParamHistClipping:
         assert self.mock_set_statistics.call_count == len(list_params)
         for handler in grad_clipping._dict_warmup_handler.values():
             assert not handler.active
+
         assert self.mock_should_clip.call_count == len(list_params)
 
     def test_call_after_warmup(self, grad_clipping, example_parameters) -> None:

@@ -1,4 +1,4 @@
-"""Test reporting on optuna trial's performance."""
+"""Test reporting on ``optuna`` trial's performance."""
 
 from collections.abc import Generator
 
@@ -46,7 +46,9 @@ class TestTrialCallbackAsk:
             TorchData(torch.ones(2)), torch.zeros(2)
         )
         identity_trainer._compute_metrics()
+
         trial_callback(identity_trainer)
+
         # here you can tell a result with trial.study.tell(trial, {your_result})
         assert trial_callback.reported == {3: 1}
 
@@ -56,12 +58,12 @@ class TestTrialCallbackObjective:
 
     @pytest.fixture
     def study(self) -> optuna.Study:
-        """Create a TrialCallback instance for testing."""
+        """Create a Study instance for testing."""
         return optuna.create_study(direction='minimize')
 
     @pytest.fixture(autouse=True)
     def optimize(self, study, identity_trainer) -> None:
-        """Create a TrialCallback instance for testing."""
+        """Optimize study for testing."""
 
         def _objective(trial: optuna.Trial) -> float:
             identity_trainer.model._epoch = 3

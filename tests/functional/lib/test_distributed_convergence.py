@@ -2,9 +2,6 @@
 
 import torch
 
-from ...simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
-from ..conftest import DistributedWorker, RunningWorker
-
 import pytest
 
 from drytorch import (
@@ -14,6 +11,8 @@ from drytorch import (
     Model,
     Trainer,
 )
+from tests.functional.conftest import DistributedWorker, RunningWorker
+from tests.simple_classes import IdentityDataset, Linear, TorchData, TorchTuple
 
 
 WORLD_SIZE = 2
@@ -49,6 +48,7 @@ def assert_convergence() -> None:
     trainer.train(2)
     final_loss = trainer.computed_metrics
     metric_name = trainer.objective.name
+
     assert final_loss[metric_name] < initial_loss[metric_name]
 
 
@@ -60,4 +60,5 @@ def test_ddp_convergence(example_run_id, tmp_path, world_size) -> None:
     )
     worker = DistributedWorker(running_worker, world_size=world_size)
     exit_codes, _ = worker.process()
+
     assert all(exit_code == 0 for exit_code in exit_codes)

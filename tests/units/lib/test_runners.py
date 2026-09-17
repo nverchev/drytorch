@@ -1,4 +1,4 @@
-"""Tests for the "runners" module."""
+"""Tests for the ``runners`` module."""
 
 import pytest
 
@@ -85,6 +85,7 @@ class TestModelRunner:
         """Test batch generation applies operations to the device."""
         batches = list(runner._get_batches())
         loaded = list(mock_loader)
+
         assert len(batches) == len(loaded)
         for batch in loaded:
             self.mock_apply_to.assert_any_call(batch, runner.model.device)
@@ -96,7 +97,9 @@ class TestModelRunner:
             runner, '_run_forward', return_value=self.mock_output
         )
         bwd = mocker.patch.object(runner, '_run_backward')
+
         result = runner._run_batch(mock_batch)
+
         assert result == self.mock_output
         fwd.assert_called_once_with(self.mock_input)
         bwd.assert_called_once_with(self.mock_output, self.mock_target)
@@ -105,7 +108,9 @@ class TestModelRunner:
         """Test forward pass."""
         mock_model.return_value = self.mock_output
         runner.mixed_precision = False
+
         result = runner._run_forward(self.mock_input)
+
         assert result == self.mock_output
         mock_model.assert_called_once()
 
@@ -121,8 +126,8 @@ class TestModelRunner:
 
         # Reset the objective mock to avoid counting the initialization call
         runner._run_epoch(store_outputs=False)
-        assert runner.outputs_list == []
 
+        assert runner.outputs_list == []
         self.mock_iterate_batch.assert_called_once()
         assert run_batch.call_count == 2
         assert mock_batch_event.update.call_count == 2
@@ -159,7 +164,9 @@ class TestModelRunner:
         run_batch = mocker.patch.object(runner, '_run_batch')
         run_batch.return_value = [self.mock_output]
         _store = mocker.patch.object(runner, '_store')
+
         runner._run_epoch(store_outputs=True)
+
         _store.assert_called_once_with([self.mock_output])
 
     def test_outputs_list_cleared_on_epoch_run(self, mocker, runner) -> None:
@@ -170,13 +177,17 @@ class TestModelRunner:
         run_batch = mocker.patch.object(runner, '_run_batch')
         run_batch.return_value = [self.mock_output]
         _store = mocker.patch.object(runner, '_store')
+
         runner._run_epoch(store_outputs=False)
+
         assert runner.outputs_list == []
 
     def test_store_outputs(self, runner) -> None:
         """Test outputs are correctly stored if store_outputs = True."""
         test_object = object()
+
         runner._store(test_object)
+
         self.mock_apply_ops.assert_called_once_with(test_object)
         assert runner.outputs_list == [self.mock_output]
 
@@ -202,7 +213,7 @@ class TestModelRunner:
 
 
 class TestModelRunnerWithObjective:
-    """Tests for the ModelRunner class."""
+    """Tests for the ModelRunnerWithObjective class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker, mock_loss) -> None:
@@ -219,7 +230,6 @@ class TestModelRunnerWithObjective:
             'drytorch.lib.runners.ModelRunner.__init__', new=_mock_init
         )
         mocker.patch('drytorch.lib.runners.ModelRunner._run_epoch')
-        mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
         mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
         self.mock_repr_metrics = mocker.patch(
             'drytorch.lib.objectives.compute_metrics',
@@ -249,6 +259,7 @@ class TestModelRunnerWithObjective:
     def test_run_backward(self, runner) -> None:
         """Test backward pass updates the objective."""
         runner._run_backward(self.mock_output, self.mock_target)
+
         runner.objective.update.assert_called_once_with(
             self.mock_output, self.mock_target
         )
@@ -256,12 +267,14 @@ class TestModelRunnerWithObjective:
     def test_objective_reset_on_epoch_run(self, runner) -> None:
         """Test that the objective is reset at the start of each epoch."""
         runner.objective.reset.reset_mock()
+
         runner._run_epoch(store_outputs=False)
+
         runner.objective.reset.assert_called_once()
 
 
 class TestModelRunnerWithLogs:
-    """Tests for the ModelRunner class."""
+    """Tests for the ModelRunnerWithLogs class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker, example_named_metrics) -> None:
@@ -291,6 +304,7 @@ class TestModelRunnerWithLogs:
     ) -> None:
         """Test epoch run logs metrics."""
         runner._run_epoch(False)
+
         self.mock_log_events_metrics.assert_called_once_with(
             model_name=runner.model.name,
             source_name=runner.name,

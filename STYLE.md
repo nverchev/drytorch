@@ -201,14 +201,32 @@ Python requires it (dataclass fields with defaults after those without).
   trackers.
 
 ## Tests
-- The other sections apply loosely to tests.
+- The other sections apply to tests as in `src`; only differences and
+  test-specific practices are noted below.
 - pytest only, no `unittest`: mocks come from `pytest-mock` (`mocker.Mock`,
   `mocker.patch`, `mocker.create_autospec`); scoped fixtures use
   `class_mocker` or `module_mocker`.
+- Unlike `src`'s module-only imports, tests import tested objects from the
+  tested module directly, and other library modules as whole modules
+  (for example, `from drytorch.lib.checkpoints import LocalCheckpoint`,
+  but `from drytorch.lib import models`).
+- Shared test utilities outside `conftest.py` (such as `tests.simple_classes`)
+  are imported using absolute imports (`from tests.simple_classes import ...`),
+  which sort into the trailing import section after library imports.
+- Unit tests test one module and mock all other library modules;
+  `tests/integration` combines real components; `tests/functional` runs whole
+  workflows. Each level has its own `conftest.py`.
 - A `TestClassName` class for each class under test; a module-level
-  `test_*` function for each function.
+  `test_*` function for each function. Mimic original file order and banner
+  headers when grouping related classes and functions.
 - The object under test is a fixture inside its test class; an autouse
-  `setup` fixture stores shared mocks on `self`.
+  `setup` fixture stores shared mocks on `self`. Exceptions: constructor
+  argument validation and parametrized initialization variations instantiate
+  the object directly within the test.
+- Protocols are tested for structural matching and runtime checkability in
+  `tests/units/core/test_protocols.py`,
+  `tests/integration/lib/test_protocol_implementations.py` and
+  `tests/functional/contrib/test_metrics_compatibility.py`.
 - Mocks of drytorch objects come from their protocol
   (`mocker.create_autospec(SomeProtocol, instance=True)`) and are shared
   through `conftest.py`.
@@ -218,19 +236,20 @@ Python requires it (dataclass fields with defaults after those without).
 - A test module that needs an optional dependency imports it at the top and
   skips itself: `pytest.skip('<name> not available', allow_module_level=True)`
   in the `except ImportError` branch.
-- `tests/units` tests one module with mocks; `tests/integration` combines
-  real components; `tests/functional` runs whole workflows. Each level has
-  its own `conftest.py`.
 - Unit test files mirror the source:
   `tests/units/<package>/test_<module>.py` (except `contrib`, tested under
   integration).
+- Tests end with an assertion (keyword `assert`, `pytest.raises`,
+  `pytest.warns`, or mock assertion methods) instead of `return`; only fixtures
+  and helper utilities follow the explicit `return` rule.
 - Arrange, act, assert, with all assertions at the end: a blank line after
-  arranging and a blank line after acting, besides the blank lines that
-  Layout allows.
+  arranging and a blank line after acting (an exception to the "no other blank
+  lines in a function body" rule).
 - Each test checks one behaviour; several assertions are fine when together
   they describe it.
-- Fixture docstrings say what they provide; private fixtures (`_fixture`)
-  need no docstring.
+- Test docstrings describe the expected behaviour without mentioning the
+  tested function name (already obvious from context); fixture docstrings say
+  what they provide (private fixtures need no docstring).
 - `tmp_path` and `tmp_path_factory` for files; `pytest.raises` and
   `pytest.warns` for errors and warnings; `pytest.mark.parametrize` for input
   variations.
