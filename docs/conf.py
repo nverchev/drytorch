@@ -149,6 +149,26 @@ def customize_signature(
     return signature, return_annotation
 
 
+def highlight_cells_as_ipython(app: Sphinx, doctree: nodes.document) -> None:
+    """Highlight notebook code cells with the IPython lexer.
+
+    Without execution, cells use the Python lexer, which rejects shell
+    commands such as ``! uv pip install``.
+    """
+    for block in doctree.findall(nodes.literal_block):
+        parent = block.parent
+        if not isinstance(parent, nodes.Element):
+            continue
+
+        if 'cell_input' not in parent['classes']:
+            continue
+
+        if block.get('language') == 'python':
+            block['language'] = 'ipython3'
+
+    return
+
+
 def insert_init_parameters(
     app: Sphinx,
     what: str,
@@ -258,4 +278,5 @@ def setup(app: Sphinx) -> None:
     app.connect('autodoc-process-docstring', insert_init_parameters)
     app.connect('autodoc-process-signature', customize_signature)
     app.connect('autodoc-skip-member', skip_undefined_attributes)
+    app.connect('doctree-read', highlight_cells_as_ipython)
     app.connect('doctree-read', show_signature_roles)

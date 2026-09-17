@@ -14,8 +14,8 @@ subtype relationships.
 
 The following diagram maps the dependencies between the core interfaces using UML-style notation:
 
-- **Refinement (<|–):** Indicates one protocol extends or refines another (e.g.,
-  an inheritance relationship).
+- **Generalization (<|–):** one protocol extends another and inherits its
+  members.
 
 - **Structural Association (–>):** Represents a structural requirement and is often implemented using Dependency Injection.
 
@@ -24,39 +24,22 @@ The following diagram maps the dependencies between the core interfaces using UM
 - **Members:** those marked with `+` are methods or read-only properties; the
   others are attributes that implementations may reassign.
 
+- **Events:** names in «guillemets» are events. Among the attributes, they
+  are emitted when an instance is created; after a method, by the method.
+
 ```mermaid
 
 classDiagram
 direction TB
-    class LoaderProtocol["LoaderProtocol[Input, Target]"] {
-        +batch_size: int | None
-        +sampler: torch.utils.data.Sampler | Iterable
-        +dataset: torch.utils.data.Dataset
-        +__iter__() Iterator[Input, Target]
-        +__len__() int
+
+    class ObjectiveProtocol["ObjectiveProtocol[Output, Target]"] {
+        +update(outputs: Output, targets: Target)
+        +compute() Mapping[str, torch.Tensor] | torch.Tensor | None
+        +reset()
     }
 
-    class ModelProtocol["ModelProtocol[Input, Output]"] {
-        +epoch: int
-        +module: torch.nn.Module
-        +device: torch.device
-        +mixed_precision: bool
-        +name: str
-        +__call__(inputs: Input) Output
-        +bind_optimizer(optimizer: Optimizer)
-        +increment_epoch()
-        +load_state(epoch: int)
-        +post_batch_update()
-        +post_epoch_update()
-        +save_state()
-    }
-
-    class CheckpointProtocol {
-        +bind_model(model: ModelProtocol)
-        +bind_module(name: str, module: torch.nn.Module)
-        +bind_optimizer(optimizer: Optimizer)
-        +save()
-        +load(epoch: int)
+    class LossProtocol["LossProtocol[Output, Target]"] {
+        +forward(outputs: Output, targets: Target) torch.Tensor
     }
 
     class SchedulerProtocol {
@@ -75,21 +58,46 @@ direction TB
         +scheduler: SchedulerProtocol
     }
 
-    class ObjectiveProtocol["ObjectiveProtocol[Output, Target]"] {
-        +update(outputs: Output, targets: Target)
-        +compute() Mapping[str, torch.Tensor] | torch.Tensor | None
-        +reset()
+
+    class LoaderProtocol["LoaderProtocol[Input, Target]"] {
+        +batch_size: int | None
+        +sampler: torch.utils.data.Sampler | Iterable
+        +dataset: torch.utils.data.Dataset
+        +__iter__() Iterator[Input, Target]
+        +__len__() int
     }
 
-    class LossProtocol["LossProtocol[Output, Target]"] {
-        +forward(outputs: Output, targets: Target) torch.Tensor
+    class ModelProtocol["ModelProtocol[Input, Output]"] {
+        «ModelRegistrationEvent»
+        +epoch: int
+        +module: torch.nn.Module
+        +device: torch.device
+        +mixed_precision: bool
+        +name: str
+        +__call__(inputs: Input) Output
+        +bind_optimizer(optimizer: Optimizer)
+        +increment_epoch() «IncrementEpochEvent»
+        +load_state(epoch: int)
+        +post_batch_update()
+        +post_epoch_update()
+        +save_state()
     }
+
+    class CheckpointProtocol {
+        +bind_model(model: ModelProtocol)
+        +bind_module(name: str, module: torch.nn.Module)
+        +bind_optimizer(optimizer: Optimizer)
+        +save() «SaveModelEvent»
+        +load(epoch: int) int «LoadModelEvent»
+    }
+
 
     class MonitorProtocol {
+        «ActorRegistrationEvent»
         +model: ModelProtocol
         +name: str
         +computed_metrics: Mapping[str, float]
-        +__call__(store_outputs: bool)
+        +__call__(store_outputs: bool) «IterateBatchEvent» «MetricEvent»
     }
 
     class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {
@@ -99,23 +107,23 @@ direction TB
         +terminated: bool
         +save_checkpoint()
         +load_checkpoint(epoch: int)
-        +terminate_training(reason: str)
-        +train(n_epochs: int)
-        +update_learning_rate(base_lr, scheduler)
+        +terminate_training(reason: str) «TerminatedTrainingEvent»
+        +train(n_epochs: int) «StartTrainingEvent» «StartEpochEvent» «EndEpochEvent» «EndTrainingEvent»
+        +update_learning_rate(base_lr, scheduler) «LearningRateEvent»
     }
 
-    CheckpointProtocol <--> ModelProtocol : binds to / save
+    MonitorProtocol ..> LoaderProtocol : supports
+    TrainerProtocol ..> LoaderProtocol : supports
     LearningProtocol --> GradientOpProtocol : contains
     LearningProtocol --> SchedulerProtocol : contains
-    MonitorProtocol ..> LoaderProtocol : supports
+    CheckpointProtocol --> ModelProtocol : binds to
     MonitorProtocol --> ModelProtocol : evaluates
     MonitorProtocol ..> ObjectiveProtocol : according to
     TrainerProtocol --> LearningProtocol :  implements
-    TrainerProtocol ..> LoaderProtocol : supports
     TrainerProtocol --> LossProtocol : minimizes
     TrainerProtocol --> ModelProtocol : updates
     TrainerProtocol --> MonitorProtocol : validated by
-    MonitorProtocol <|-- TrainerProtocol : refines
-    ObjectiveProtocol <|-- LossProtocol : refines
+    MonitorProtocol <|-- TrainerProtocol : extends
+    ObjectiveProtocol <|-- LossProtocol : extends
 
 ```
