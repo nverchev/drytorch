@@ -92,6 +92,7 @@
 - removed `TrainerProtocol.objective`, which no code used
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 ## Fixed
+- `Hook` and `StaticHook` are named after the wrapped callable instead of their class, so `saving_hook` is recorded as `saving_hook`
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
 - the wrapper from `from_torchmetrics` reports its value under its name, `Loss`, so monitoring it without naming the metric works
 - combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function

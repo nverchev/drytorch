@@ -124,6 +124,10 @@ class TrainerHook(
     def _get_parameters(self) -> Mapping[str, Any]:
         """Return the metadata associated with the hook."""
 
+    @staticmethod
+    def _get_callable_name(wrapped: Callable[..., Any]) -> str:
+        return getattr(wrapped, '__name__', wrapped.__class__.__name__)
+
 
 class Hook(TrainerHook[Input, Target, Output]):
     """Wrapper for callable taking a Trainer as input.
@@ -148,11 +152,15 @@ class Hook(TrainerHook[Input, Target, Output]):
         Args:
             wrapped: the function to be conditionally called.
             base_hook_name: name of the base hook for representation.
-                Defaults to the class name.
+                Defaults to the name of the wrapped callable.
             parameters: metadata associated with the hook.
         """
         self._wrapped = wrapped
-        self.base_hook_name = base_hook_name or self.__class__.__name__
+        if base_hook_name:
+            self.base_hook_name = base_hook_name
+        else:
+            self.base_hook_name = self._get_callable_name(wrapped)
+
         self.parameters = {} if parameters is None else dict(parameters)
         return
 
@@ -200,11 +208,15 @@ class StaticHook(TrainerHook[Any, Any, Any]):
         Args:
             wrapped: the function to be wrapped and called statically.
             base_hook_name: name of the base hook for representation.
-                Defaults to the class name.
+                Defaults to the name of the wrapped callable.
             parameters: metadata associated with the hook.
         """
         self._wrapped = wrapped
-        self.base_hook_name = base_hook_name or self.__class__.__name__
+        if base_hook_name:
+            self.base_hook_name = base_hook_name
+        else:
+            self.base_hook_name = self._get_callable_name(wrapped)
+
         self.parameters = {} if parameters is None else dict(parameters)
         return
 

@@ -35,6 +35,11 @@ class _TestClass:
         return
 
 
+def _record_trainer(trainer) -> None:
+    _not_used = trainer
+    return
+
+
 class TestHookChain:
     """Tests for HookChain class."""
 
@@ -135,11 +140,24 @@ def test_parameters_copied(mocker, hook_cls) -> None:
 class TestHook:
     """Tests for the Hook class."""
 
-    def test_default_name(self, mocker) -> None:
-        """Test the base hook name defaults to the class name."""
+    def test_default_name(self) -> None:
+        """Test the base hook name defaults to the function name."""
+        hook = Hook(_record_trainer)
+
+        assert hook.base_hook_name == '_record_trainer'
+
+    def test_default_name_callable_object(self, mocker) -> None:
+        """Test the base hook name defaults to the class of the callable."""
         hook = Hook(mocker.Mock())
 
-        assert hook.base_hook_name == 'Hook'
+        assert hook.base_hook_name == 'Mock'
+
+    def test_saving_hook_name(self) -> None:
+        """Test the saving hook is named after its function."""
+        bound = saving_hook.bind(call_every(interval=2))
+
+        assert saving_hook.base_hook_name == 'saving_hook'
+        assert bound.base_hook_name == 'saving_hook'
 
     def test_bind_merges_parameters(self, mocker) -> None:
         """Test binding merges the parameters and keeps the base name."""
@@ -149,6 +167,16 @@ class TestHook:
 
         assert bound.parameters == {'a': 1, 'interval': 2, 'start': 1}
         assert bound.base_hook_name == 'base'
+
+
+class TestStaticHook:
+    """Tests for the StaticHook class."""
+
+    def test_default_name(self) -> None:
+        """Test the base hook name defaults to the class of the callable."""
+        hook = StaticHook(_TestClass('text'))
+
+        assert hook.base_hook_name == '_TestClass'
 
 
 class TestCallEvery:
