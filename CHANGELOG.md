@@ -43,6 +43,7 @@
 - added `higher_is_better` to `from_torcheval`, stated by the wrapped metric
 - the wrapper from `from_torchmetrics` keeps the direction of the composed metric
 - moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
+- the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 ## Changed
 - ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds

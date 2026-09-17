@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import gc
+import importlib.metadata
 import json
 import multiprocessing
 import pathlib
@@ -45,20 +46,33 @@ RunStatus = Literal['created', 'running', 'completed', 'failed', 'paused']
 
 
 @dataclasses.dataclass
+class RunSession:
+    """A start or resumption of a run.
+
+    Attributes:
+        timestamp: when the session started.
+        commit: git commit hash of the code, if available.
+        drytorch_version: the drytorch version in use.
+    """
+
+    timestamp: str
+    commit: str | None
+    drytorch_version: str
+
+
+@dataclasses.dataclass
 class RunMetadata:
     """Metadata for a run.
 
     Attributes:
         id: unique identifier for the run.
         status: status of the run.
-        timestamp: run creation timestamp.
-        commit: git commit hash associated with the run, if available.
+        sessions: the start of the run and each resumption, in order.
     """
 
     id: str
     status: RunStatus
-    timestamp: str
-    commit: str | None
+    sessions: list[RunSession] = dataclasses.field(default_factory=list)
 
 
 class RunRegistry:
@@ -94,34 +108,56 @@ class RunRegistry:
         except (FileNotFoundError, json.JSONDecodeError):
             return []
 
-        run_data: list[RunMetadata] = []
+        recorded_metadata: list[RunMetadata] = []
         for item in data:
-            run_data.append(RunMetadata(**item))
+            sessions = [RunSession(**s) for s in item.get('sessions', [])]
+            metadata = RunMetadata(item['id'], item['status'], sessions)
+            recorded_metadata.append(metadata)
 
-        return run_data
+        return recorded_metadata
+
+    def add_session(self, run_id: str, session: RunSession) -> None:
+        """Record a start or resumption of a run.
+
+        Args:
+            run_id: the id of the run.
+            session: the new session.
+
+        Raises:
+            RunNotRecordedError: if the run is not in the registry.
+        """
+        with filelock.FileLock(self.lock_path):
+            recorded_metadata = self.load_all()
+            for metadata in recorded_metadata:
+                if metadata.id == run_id:
+                    metadata.sessions.append(session)
+                    break
+            else:
+                raise exceptions.RunNotRecordedError(run_id)
+
+            self._save(recorded_metadata)
+
+        return
 
     def register_new_run(self, run_metadata: RunMetadata) -> None:
         """Register a new run, ensuring a unique ID.
 
         Args:
-            run_metadata: the metadata for the run (id will be updated).
+            run_metadata: the metadata of the new run.
 
         Raises:
             RunAlreadyRecordedError: if the run ID is already registered.
         """
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         with filelock.FileLock(self.lock_path):
-            run_data = self.load_all()
-            if any(r.id == run_metadata.id for r in run_data):
+            recorded_metadata = self.load_all()
+            if any(m.id == run_metadata.id for m in recorded_metadata):
                 raise exceptions.RunAlreadyRecordedError(
                     run_metadata.id, self.file_path.parent.name
                 )
 
-            run_data.append(run_metadata)
-
-            # Convert to dicts for JSON serialization
-            serialized_data = [dataclasses.asdict(r) for r in run_data]
-            self.file_path.write_text(json.dumps(serialized_data, indent=2))
+            recorded_metadata.append(run_metadata)
+            self._save(recorded_metadata)
 
         return
 
@@ -131,19 +167,26 @@ class RunRegistry:
         Args:
             run_id: the id of the run to update.
             status: the new status.
+
+        Raises:
+            RunNotRecordedError: if the run is not in the registry.
         """
         with filelock.FileLock(self.lock_path):
-            run_data = self.load_all()
-            for run in run_data:
-                if run.id == run_id:
-                    run.status = status
+            recorded_metadata = self.load_all()
+            for metadata in recorded_metadata:
+                if metadata.id == run_id:
+                    metadata.status = status
                     break
             else:
                 raise exceptions.RunNotRecordedError(run_id)
 
-            # Convert to dicts for JSON serialization
-            serialized_data = [dataclasses.asdict(r) for r in run_data]
-            self.file_path.write_text(json.dumps(serialized_data, indent=2))
+            self._save(recorded_metadata)
+
+        return
+
+    def _save(self, recorded_metadata: list[RunMetadata]) -> None:
+        serialized = [dataclasses.asdict(m) for m in recorded_metadata]
+        self.file_path.write_text(json.dumps(serialized, indent=2))
         return
 
 
@@ -263,34 +306,37 @@ class Experiment(Generic[_T_co]):
                 raise exceptions.RunStillPausedError(run_id, self.name)
 
         record = record and _is_main_process()
-        runs_data = self._registry.load_all()
+        recorded_metadata = self._registry.load_all()
         if resume:
-            return self._handle_resume_logic(run_id, runs_data, record)
+            return self._handle_resume_logic(run_id, recorded_metadata, record)
 
-        if runs_data and run_id in [r.id for r in runs_data]:
+        if run_id in [m.id for m in recorded_metadata]:
             raise exceptions.RunAlreadyRecordedError(run_id, self.name)
 
         return self._create_new_run(run_id, record)
 
     def _handle_resume_logic(
-        self, run_id: str | None, runs_data: list[RunMetadata], record: bool
+        self,
+        run_id: str | None,
+        recorded_metadata: list[RunMetadata],
+        record: bool,
     ) -> Run[_T_co]:
         """Handle resume logic for existing runs."""
-        if not runs_data:
+        if not recorded_metadata:
             warnings.warn(exceptions.NoPreviousRunsWarning(), stacklevel=2)
             return self._create_new_run(run_id, record)
 
         if run_id is None:
-            run_id = runs_data[-1].id
+            run_id = recorded_metadata[-1].id
         else:
-            matching_runs = [r for r in runs_data if r.id == run_id]
-            if not matching_runs:
+            matching_metadata = [m for m in recorded_metadata if m.id == run_id]
+            if not matching_metadata:
                 warnings.warn(
                     exceptions.NotExistingRunWarning(run_id), stacklevel=1
                 )
                 return self._create_new_run(run_id, record)
 
-            if len(matching_runs) > 1:
+            if len(matching_metadata) > 1:
                 msg = f'Multiple runs with id {run_id} found in the registry.'
                 raise RuntimeError(msg)
 
@@ -317,14 +363,9 @@ class Experiment(Generic[_T_co]):
 
     def _try_register(self, run_id: str) -> bool:
         """Record a new run; return False if its id is already recorded."""
-        run_data = RunMetadata(
-            id=run_id,
-            status='created',
-            timestamp=_timestamp(),
-            commit=self._get_last_commit_hash(),
-        )
+        run_metadata = RunMetadata(id=run_id, status='created')
         try:
-            self._registry.register_new_run(run_data)
+            self._registry.register_new_run(run_metadata)
         except exceptions.RunAlreadyRecordedError:
             return False
 
@@ -374,25 +415,6 @@ class Experiment(Generic[_T_co]):
         """Clear the active experiment."""
         Experiment.__current = None
         return
-
-    @staticmethod
-    def _get_last_commit_hash() -> str | None:
-        """Get the last commit hash if available otherwise None."""
-        git = shutil.which('git')
-        if git is None:
-            return None
-
-        try:
-            result = subprocess.run(  # noqa: S603
-                [git, 'rev-parse', 'HEAD'],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-        except subprocess.CalledProcessError:
-            return None
-
-        return result.stdout.strip()
 
     @staticmethod
     def _make_run_id(run_id: str | None) -> str:
@@ -525,6 +547,9 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self.status = 'running'
         if self.record:
             self._update_registry()
+            if not continuing:
+                registry = self._experiment._registry
+                registry.add_session(self._id, _new_session())
 
         self._experiment._active_run = self
         if self._experiment._paused_runs.get(self._id) is self:
@@ -621,6 +646,24 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
 
+def _get_last_commit_hash() -> str | None:
+    git = shutil.which('git')
+    if git is None:
+        return None
+
+    try:
+        result = subprocess.run(  # noqa: S603
+            [git, 'rev-parse', 'HEAD'],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        return None
+
+    return result.stdout.strip()
+
+
 def _is_distributed() -> bool:
     """Whether this process belongs to an initialized distributed group."""
     return dist.is_available() and dist.is_initialized()
@@ -629,6 +672,14 @@ def _is_distributed() -> bool:
 def _is_main_process() -> bool:
     """Whether this process is not distributed or has rank 0."""
     return not _is_distributed() or dist.get_rank() == 0
+
+
+def _new_session() -> RunSession:
+    return RunSession(
+        timestamp=_timestamp(),
+        commit=_get_last_commit_hash(),
+        drytorch_version=importlib.metadata.version('drytorch'),
+    )
 
 
 def _timestamp() -> str:
