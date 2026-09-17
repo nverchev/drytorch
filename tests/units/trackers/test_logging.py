@@ -100,6 +100,20 @@ class TestBuiltinLogger:
         """Set up the instance."""
         return BuiltinLogger()
 
+    def test_load_model_event(
+        self,
+        tracker,
+        load_model_mock_event,
+    ) -> None:
+        """Test handling of the LoadModel event."""
+        load_model_mock_event.model_name = 'my_model'
+        load_model_mock_event.definition = 'weights'
+        load_model_mock_event.location = 'folder'
+        load_model_mock_event.epoch = 3
+        tracker.notify(load_model_mock_event)
+        expected = 'Loaded my_model weights at epoch 3'
+        assert expected in self.stream.getvalue()
+
     def test_start_training_event(
         self,
         tracker,
@@ -110,28 +124,6 @@ class TestBuiltinLogger:
         tracker.notify(start_training_mock_event)
         expected = 'Training my_model started'
         assert expected in self.stream.getvalue()
-
-    def test_end_training_event(
-        self,
-        tracker,
-        end_training_mock_event,
-    ) -> None:
-        """Test handling of EndTraining event."""
-        tracker.notify(end_training_mock_event)
-        assert 'Training ended' in self.stream.getvalue()
-
-    def test_increment_epoch_event(
-        self,
-        tracker,
-        increment_epoch_mock_event,
-    ) -> None:
-        """Test handling of IncrementEpoch event."""
-        increment_epoch_mock_event.model_name = 'my_model'
-        increment_epoch_mock_event.epoch = 3
-
-        tracker.notify(increment_epoch_mock_event)
-
-        assert 'Incremented my_model to epoch 3' in self.stream.getvalue()
 
     def test_start_epoch_event_with_final_epoch(
         self,
@@ -154,38 +146,18 @@ class TestBuiltinLogger:
         tracker.notify(start_epoch_mock_event)
         assert '====> Epoch 12:' in self.stream.getvalue()
 
-    def test_save_model_event(
+    def test_increment_epoch_event(
         self,
         tracker,
-        save_model_mock_event,
+        increment_epoch_mock_event,
     ) -> None:
-        """Test handling of SaveModel event."""
-        save_model_mock_event.model_name = 'my_model'
-        save_model_mock_event.definition = 'weights'
-        save_model_mock_event.location = 'folder'
-        tracker.notify(save_model_mock_event)
-        expected = 'Saved my_model weights in: folder'
-        assert expected in self.stream.getvalue()
+        """Test handling of IncrementEpoch event."""
+        increment_epoch_mock_event.model_name = 'my_model'
+        increment_epoch_mock_event.epoch = 3
 
-    def test_load_model_event(
-        self,
-        tracker,
-        load_model_mock_event,
-    ) -> None:
-        """Test handling of the LoadModel event."""
-        load_model_mock_event.model_name = 'my_model'
-        load_model_mock_event.definition = 'weights'
-        load_model_mock_event.location = 'folder'
-        load_model_mock_event.epoch = 3
-        tracker.notify(load_model_mock_event)
-        expected = 'Loaded my_model weights at epoch 3'
-        assert expected in self.stream.getvalue()
+        tracker.notify(increment_epoch_mock_event)
 
-    def test_test_event(self, tracker, start_test_mock_event) -> None:
-        """Test handling of Test event."""
-        start_test_mock_event.model_name = 'my_model'
-        tracker.notify(start_test_mock_event)
-        assert 'Testing my_model started' in self.stream.getvalue()
+        assert 'Incremented my_model to epoch 3' in self.stream.getvalue()
 
     def test_final_metrics_event(
         self,
@@ -218,22 +190,6 @@ class TestBuiltinLogger:
         assert 'a=2.000000e+00' in output
         assert 'a_value=3.000000e+00' in output
 
-    def test_terminated_training_event(
-        self,
-        tracker,
-        terminated_training_mock_event,
-    ) -> None:
-        """Test handling of TerminatedTraining event."""
-        terminated_training_mock_event.source_name = 'my_source'
-        terminated_training_mock_event.model_name = 'my_model'
-        terminated_training_mock_event.epoch = 10
-        terminated_training_mock_event.reason = 'Test terminate'
-        tracker.notify(terminated_training_mock_event)
-        expected = 'Training my_model terminated at epoch 10. '
-        expected += 'Reason: Test terminate'
-        output = self.stream.getvalue()
-        assert expected in output
-
     def test_update_learning_rate_event(
         self,
         tracker,
@@ -263,6 +219,50 @@ class TestBuiltinLogger:
         assert output_optimizer == expected_optimizer
         assert output_learning == output_optimizer + expected_learning
         assert output_scheduler == output_learning + expected_scheduler
+
+    def test_save_model_event(
+        self,
+        tracker,
+        save_model_mock_event,
+    ) -> None:
+        """Test handling of SaveModel event."""
+        save_model_mock_event.model_name = 'my_model'
+        save_model_mock_event.definition = 'weights'
+        save_model_mock_event.location = 'folder'
+        tracker.notify(save_model_mock_event)
+        expected = 'Saved my_model weights in: folder'
+        assert expected in self.stream.getvalue()
+
+    def test_terminated_training_event(
+        self,
+        tracker,
+        terminated_training_mock_event,
+    ) -> None:
+        """Test handling of TerminatedTraining event."""
+        terminated_training_mock_event.source_name = 'my_source'
+        terminated_training_mock_event.model_name = 'my_model'
+        terminated_training_mock_event.epoch = 10
+        terminated_training_mock_event.reason = 'Test terminate'
+        tracker.notify(terminated_training_mock_event)
+        expected = 'Training my_model terminated at epoch 10. '
+        expected += 'Reason: Test terminate'
+        output = self.stream.getvalue()
+        assert expected in output
+
+    def test_end_training_event(
+        self,
+        tracker,
+        end_training_mock_event,
+    ) -> None:
+        """Test handling of EndTraining event."""
+        tracker.notify(end_training_mock_event)
+        assert 'Training ended' in self.stream.getvalue()
+
+    def test_test_event(self, tracker, start_test_mock_event) -> None:
+        """Test handling of Test event."""
+        start_test_mock_event.model_name = 'my_model'
+        tracker.notify(start_test_mock_event)
+        assert 'Testing my_model started' in self.stream.getvalue()
 
     def test_pause_experiment_event(
         self,

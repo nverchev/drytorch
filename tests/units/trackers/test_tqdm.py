@@ -121,6 +121,27 @@ class TestTqdmLogger:
         assert tracker._epoch_bar is None
         mock_super.assert_called_once()
 
+    def test_start_training_event(
+        self,
+        tracker_with_double_bar,
+        start_training_mock_event,
+    ) -> None:
+        """Test handling of the StartTraining event."""
+        tracker_with_double_bar.notify(start_training_mock_event)
+        assert tracker_with_double_bar._training_bar is not None
+
+    def test_start_epoch_event(
+        self,
+        tracker_with_double_bar,
+        start_training_mock_event,
+        start_epoch_mock_event,
+    ) -> None:
+        """Test handling of StartEpoch event with active training bar."""
+        tracker_with_double_bar.notify(start_training_mock_event)
+        tracker_with_double_bar.notify(start_epoch_mock_event)
+        output = self.stream.getvalue()
+        assert f'Epoch: {start_epoch_mock_event.epoch}' in output
+
     def test_iterate_batch_event(
         self,
         tracker,
@@ -149,26 +170,19 @@ class TestTqdmLogger:
             first_bar.pbar, '_instances', set()
         )
 
-    def test_start_training_event(
-        self,
-        tracker_with_double_bar,
-        start_training_mock_event,
-    ) -> None:
-        """Test handling of the StartTraining event."""
-        tracker_with_double_bar.notify(start_training_mock_event)
-        assert tracker_with_double_bar._training_bar is not None
-
-    def test_start_epoch_event(
+    def test_terminated_training_event(
         self,
         tracker_with_double_bar,
         start_training_mock_event,
         start_epoch_mock_event,
+        terminated_training_mock_event,
     ) -> None:
-        """Test handling of StartEpoch event with active training bar."""
+        """Test handling of TerminatedTraining event cleans up both bars."""
         tracker_with_double_bar.notify(start_training_mock_event)
         tracker_with_double_bar.notify(start_epoch_mock_event)
-        output = self.stream.getvalue()
-        assert f'Epoch: {start_epoch_mock_event.epoch}' in output
+        tracker_with_double_bar.notify(terminated_training_mock_event)
+        assert tracker_with_double_bar._training_bar is None
+        assert tracker_with_double_bar._epoch_bar is None
 
     def test_pause_experiment_event(
         self,
@@ -204,19 +218,5 @@ class TestTqdmLogger:
         """Test handling of ContinueExperiment event."""
         tracker_with_double_bar.notify(pause_experiment_mock_event)
         tracker_with_double_bar.notify(continue_experiment_mock_event)
-        assert tracker_with_double_bar._training_bar is None
-        assert tracker_with_double_bar._epoch_bar is None
-
-    def test_terminated_training_event(
-        self,
-        tracker_with_double_bar,
-        start_training_mock_event,
-        start_epoch_mock_event,
-        terminated_training_mock_event,
-    ) -> None:
-        """Test handling of TerminatedTraining event cleans up both bars."""
-        tracker_with_double_bar.notify(start_training_mock_event)
-        tracker_with_double_bar.notify(start_epoch_mock_event)
-        tracker_with_double_bar.notify(terminated_training_mock_event)
         assert tracker_with_double_bar._training_bar is None
         assert tracker_with_double_bar._epoch_bar is None

@@ -189,13 +189,13 @@ Python requires it (dataclass fields with defaults after those without).
   and handlers named `_`, each ending with `return super().notify(event)`.
   `notify` and its handlers are placed first after properties.
 - Events follow the chronological workflow order:
-  `StartExperimentEvent`, `ModelRegistrationEvent`, `LoadModelEvent`,
-  `ActorRegistrationEvent`, `StartTrainingEvent`, `StartEpochEvent`,
-  `IterateBatchEvent`, `MetricEvent`, `EndEpochEvent`,
-  `IncrementEpochEvent`, `LearningRateEvent`, `SaveModelEvent`,
-  `PauseExperimentEvent`, `ContinueExperimentEvent`,
-  `TerminatedTrainingEvent`, `EndTrainingEvent`, `StartTestEvent`,
-  `EndTestEvent`, `StopExperimentEvent`.
+  `StartExperimentEvent`, `ModelRegistrationEvent`,
+  `ActorRegistrationEvent`, `LoadModelEvent`, `StartTrainingEvent`,
+  `StartEpochEvent`, `IncrementEpochEvent`, `IterateBatchEvent`,
+  `MetricEvent`, `LearningRateEvent`, `SaveModelEvent`,
+  `TerminatedTrainingEvent`, `EndEpochEvent`, `EndTrainingEvent`,
+  `StartTestEvent`, `EndTestEvent`, `PauseExperimentEvent`,
+  `ContinueExperimentEvent`, `StopExperimentEvent`.
 - This workflow order defines the order of event classes in
   `core/log_events.py` and the order of `@notify.register` handlers in
   trackers.

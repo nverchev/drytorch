@@ -90,6 +90,16 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
+    def _(self, event: log_events.ActorRegistrationEvent) -> None:
+        msg = 'Source %(source_name)s %(model_name)s has been registered'
+        args = {
+            'model_name': event.model_name,
+            'source_name': event.actor_name,
+        }
+        logger.log(INFO_LEVELS.internal, msg, args)
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.LoadModelEvent) -> None:
         logger.log(
             INFO_LEVELS.model_state,
@@ -100,16 +110,6 @@ class BuiltinLogger(tracking.Tracker):
                 'epoch': event.epoch,
             },
         )
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.ActorRegistrationEvent) -> None:
-        msg = 'Source %(source_name)s %(model_name)s has been registered'
-        args = {
-            'model_name': event.model_name,
-            'source_name': event.actor_name,
-        }
-        logger.log(INFO_LEVELS.internal, msg, args)
         return super().notify(event)
 
     @notify.register
@@ -141,6 +141,13 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
+    def _(self, event: log_events.IncrementEpochEvent) -> None:
+        msg = 'Incremented %(model_name)s to epoch %(epoch)d'
+        log_args = {'model_name': event.model_name, 'epoch': event.epoch}
+        logger.log(INFO_LEVELS.internal, msg, log_args)
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
         log_msg_list: list[str] = ['%(desc)s']
         desc = _to_desc(event.source_name)
@@ -151,18 +158,6 @@ class BuiltinLogger(tracking.Tracker):
             log_args[f'value_{i}'] = value
 
         logger.log(INFO_LEVELS.metrics, '\t'.join(log_msg_list), log_args)
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.EndEpochEvent) -> None:
-        logger.log(INFO_LEVELS.internal, 'Epoch completed')
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.IncrementEpochEvent) -> None:
-        msg = 'Incremented %(model_name)s to epoch %(epoch)d'
-        log_args = {'model_name': event.model_name, 'epoch': event.epoch}
-        logger.log(INFO_LEVELS.internal, msg, log_args)
         return super().notify(event)
 
     @notify.register
@@ -201,20 +196,6 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.PauseExperimentEvent) -> None:
-        msg = 'Experiment: %(name)s - Pausing run: %(id)s'
-        args = {'name': event.exp_name, 'id': event.run_id}
-        logger.log(INFO_LEVELS.experiment, msg, args)
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.ContinueExperimentEvent) -> None:
-        msg = 'Experiment: %(name)s - Continuing run: %(id)s'
-        args = {'name': event.exp_name, 'id': event.run_id}
-        logger.log(INFO_LEVELS.experiment, msg, args)
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.TerminatedTrainingEvent) -> None:
         msg = '. '.join(
             [
@@ -228,6 +209,11 @@ class BuiltinLogger(tracking.Tracker):
             'epoch': event.epoch,
         }
         logger.log(INFO_LEVELS.training, msg, log_args)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.EndEpochEvent) -> None:
+        logger.log(INFO_LEVELS.internal, 'Epoch completed')
         return super().notify(event)
 
     @notify.register
@@ -247,6 +233,20 @@ class BuiltinLogger(tracking.Tracker):
     @notify.register
     def _(self, event: log_events.EndTestEvent) -> None:
         logger.log(INFO_LEVELS.internal, 'Test executed without errors')
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        msg = 'Experiment: %(name)s - Pausing run: %(id)s'
+        args = {'name': event.exp_name, 'id': event.run_id}
+        logger.log(INFO_LEVELS.experiment, msg, args)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        msg = 'Experiment: %(name)s - Continuing run: %(id)s'
+        args = {'name': event.exp_name, 'id': event.run_id}
+        logger.log(INFO_LEVELS.experiment, msg, args)
         return super().notify(event)
 
     @notify.register
