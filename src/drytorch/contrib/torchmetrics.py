@@ -25,6 +25,12 @@ def from_torchmetrics(
 ) -> p.LossProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a CompositionalMetric for integration.
 
+    Args:
+        torch_metric: the composed torchmetrics metric to wrap.
+
+    Returns:
+        The wrapped metric, usable as a loss.
+
     Raises:
         RepeatedMetricsError: if two components of the same class are
             present in the composition. Subclass the metric so each
@@ -37,11 +43,13 @@ def from_torchmetrics(
         Note that this CompositionalMetric can be used as loss.
         """
 
+        higher_is_better: Final[bool | None]
         metric: Final[metric.CompositionalMetric]
         name = 'Loss'
         _leaf_metrics: list[metric.Metric]
 
         def __init__(self, _metric: metric.CompositionalMetric) -> None:
+            self.higher_is_better = _metric.higher_is_better
             self.metric = _metric
             self.metric.sync_on_compute = False
             self.metric.dist_sync_on_step = False
@@ -51,9 +59,7 @@ def from_torchmetrics(
 
         def compute(self) -> dict[str, _Tensor]:
             """Output a dictionary of metric values for each component."""
-            dict_output = dict[str, _Tensor](
-                {'Combined Loss': self.metric.compute()}
-            )
+            dict_output = dict[str, _Tensor]({self.name: self.metric.compute()})
             for m in self._leaf_metrics:
                 if isinstance(value := m.compute(), _Tensor):
                     dict_output[m.__class__.__name__] = value

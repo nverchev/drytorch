@@ -55,8 +55,11 @@ class TestFromTorchMetrics:
         """Fixture for mock targets."""
         return torch.tensor([1, 0])
 
-    def test_init(self, metric) -> None:
-        """Test it correctly updates and computes metrics as dictionaries."""
+    def test_init(self, metric, additive_metric) -> None:
+        """Test it stores the metric and its direction and disables syncing."""
+        assert metric.higher_is_better is additive_metric.higher_is_better
+        assert metric.metric is additive_metric
+        assert metric.name == 'Loss'
         assert not metric.metric.dist_sync_on_step
         assert not metric.metric.sync_on_compute
 
@@ -74,7 +77,7 @@ class TestFromTorchMetrics:
 
         # update modifies the state of the input metric
         expected = {
-            'Combined Loss': 2 * metric_a.compute() + metric_b.compute(),
+            'Loss': 2 * metric_a.compute() + metric_b.compute(),
             metric_a.__class__.__name__: metric_a.compute(),
             metric_b.__class__.__name__: metric_b.compute(),
         }

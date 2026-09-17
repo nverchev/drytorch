@@ -34,6 +34,7 @@ else:
 _torcheval_objective: type[p.ObjectiveProtocol[Any, Any]] = (
     metrics.MeanSquaredError
 )
+_torchmetrics_direction: type[p.HigherIsBetterProtocol] = torchmetrics.Metric
 _torchmetrics_loss: type[p.LossProtocol[torch.Tensor, torch.Tensor]] = (
     torchmetrics.MeanSquaredError
 )
@@ -88,11 +89,14 @@ def wrapped_torchmetrics_metric(
     ('fixture_name', 'protocol'),
     [
         ('torcheval_metric', p.ObjectiveProtocol),
+        ('torchmetrics_metric', p.HigherIsBetterProtocol),
         ('torchmetrics_metric', p.LossProtocol),
         ('torchmetrics_metric', p.ObjectiveProtocol),
+        ('wrapped_torcheval_metric', p.HigherIsBetterProtocol),
         ('wrapped_torcheval_metric', p.NamedProtocol),
         ('wrapped_torcheval_metric', p.ObjectiveProtocol),
         ('wrapped_torcheval_metric', p.SyncProtocol),
+        ('wrapped_torchmetrics_metric', p.HigherIsBetterProtocol),
         ('wrapped_torchmetrics_metric', p.LossProtocol),
         ('wrapped_torchmetrics_metric', p.NamedProtocol),
         ('wrapped_torchmetrics_metric', p.ObjectiveProtocol),

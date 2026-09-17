@@ -40,6 +40,8 @@
 - added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
 - added `DirectionNotResolvedError`, raised by `MetricTracker.resolved_best_is` before the direction is known
 - added `DirectionGuessedWarning`, emitted when `MetricTracker` guesses the direction from the first values
+- added `higher_is_better` to `from_torcheval`, stated by the wrapped metric
+- the wrapper from `from_torchmetrics` keeps the direction of the composed metric
 - moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
 ## Changed
 - ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups
@@ -90,6 +92,7 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 ## Fixed
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
+- the wrapper from `from_torchmetrics` reports its value under its name, `Loss`, so monitoring it without naming the metric works
 - combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function
 - loss formulas keep the parentheses of grouped terms
 - multiplying or dividing a loss by a negative number flips its direction
