@@ -10,7 +10,7 @@ import functools
 import pathlib
 
 from collections.abc import Mapping, Sequence
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Final
 
 import yaml
 
@@ -36,7 +36,35 @@ TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 
 
 class DryTorchDumper(yaml.Dumper):
-    """YAML Dumper with custom representers for drytorch."""
+    """Dumper that names anchors after the drytorch notation."""
+
+    _anchor_names: Final[repr_utils.NameCounter]
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize."""
+        super().__init__(*args, **kwargs)
+        self._anchor_names = repr_utils.NameCounter()
+        return
+
+    @override
+    def generate_anchor(self, node: yaml.Node) -> str:
+        """Name the anchor after the class of the represented object."""
+        class_name = self._get_class_name(node)
+        if class_name is None:
+            return super().generate_anchor(node)
+
+        return self._anchor_names.next_name(class_name)
+
+    @staticmethod
+    def _get_class_name(node: yaml.Node) -> str | None:
+        if not isinstance(node, yaml.MappingNode):
+            return None
+
+        for key, value in node.value:
+            if key.value == 'class' and isinstance(value, yaml.ScalarNode):
+                return str(value.value)
+
+        return None
 
 
 class MetadataDumper(base_classes.Dumper):

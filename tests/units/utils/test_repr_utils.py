@@ -348,22 +348,13 @@ def test_pandas_print_options(patch_max_repr_size) -> None:
 
 
 def test_direct_self_reference_terminates() -> None:
-    """A direct a.ref = a cycle must not recurse infinitely or blow up."""
+    """A direct a.ref = a cycle is represented by a reference to itself."""
     obj = _SelfReferential()
 
     result = recursive_repr(obj)
 
-    assert result == {
-        'class': '_SelfReferential',
-        'name': 'self_ref',
-        'self_ref': {
-            'duplicated': {
-                'class': '_SelfReferential',
-                'name': 'self_ref',
-                'self_ref': '_SelfReferential',
-            }
-        },
-    }
+    assert result['class'] == '_SelfReferential'
+    assert result['self_ref'] is result
 
 
 def test_indirect_cycle_terminates() -> None:
@@ -376,7 +367,7 @@ def test_indirect_cycle_terminates() -> None:
 
     assert result['class'] == '_MutuallyReferential'
     assert result['partner']['class'] == '_MutuallyReferential'
-    assert 'duplicated' in result['partner']['partner']
+    assert result['partner']['partner'] is result
 
 
 def test_cycle_returns_promptly(recwarn) -> None:
@@ -392,15 +383,28 @@ def test_cycle_returns_promptly(recwarn) -> None:
     assert time.perf_counter() - start < 1.0
 
 
-def test_shared_non_cyclic_reference_is_only_expanded_once() -> None:
-    """Shared object appears once, then as marker."""
+def test_shared_object_is_represented_once() -> None:
+    """A shared object gives the same representation in both places."""
     child = _SharedChild()
     parent = _DiamondParent(child)
 
     result = recursive_repr(parent)
 
     assert result['left'] == {'class': '_SharedChild', 'value': 42}
-    assert 'duplicated' in result['right']
+    assert result['right'] is result['left']
+
+
+def test_shared_object_expands_where_the_depth_allows() -> None:
+    """An object cut by the depth limit is expanded where there is room."""
+    child = _SharedChild()
+    parent = _DiamondParent(child)
+    nested = _DiamondParent(parent)
+    nested.right = child
+
+    result = recursive_repr(nested, depth=2)
+
+    assert result['left']['left'] == '_SharedChild'
+    assert result['right'] == {'class': '_SharedChild', 'value': 42}
 
 
 def test_max_depth_still_bounds_acyclic_structures() -> None:

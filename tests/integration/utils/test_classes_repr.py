@@ -4,6 +4,7 @@ from collections.abc import Generator
 
 import pytest
 
+from drytorch.lib.evaluations import Validation
 from drytorch.lib.gradient_ops import HistClipper
 from drytorch.lib.hooks import EarlyStoppingCallback, HookChain
 from drytorch.lib.schedulers import ExponentialScheduler, warmup
@@ -62,6 +63,24 @@ def test_repr_trainer(identity_trainer) -> None:
     identity_trainer.model.exec_module = identity_trainer.model.module
 
     assert recursive_repr(identity_trainer) == expected
+
+
+def test_shared_model_is_represented_once(
+    identity_trainer, identity_loader, square_loss_calc
+) -> None:
+    """Test a model used twice is represented once."""
+    validation = Validation(
+        identity_trainer.model,
+        name='SharedValidation',
+        loader=identity_loader,
+        metric=square_loss_calc,
+    )
+
+    recorded = recursive_repr(
+        {'trainer': identity_trainer, 'validation': validation}
+    )
+
+    assert recorded['validation']['model'] is recorded['trainer']['model']
 
 
 def test_hook_repr() -> None:

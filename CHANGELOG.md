@@ -45,6 +45,7 @@
 - moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 ## Changed
+- an object recorded more than once is represented once and referred to afterwards, so the metadata file names it with an anchor such as `&Model` and refers to it with `*Model`
 - ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
 - enforced explicit returns at the end of all functions and methods

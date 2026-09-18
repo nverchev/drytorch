@@ -13,6 +13,7 @@ from drytorch.core import registering
 from drytorch.core.experimenting import Run
 from drytorch.lib import hooks
 from drytorch.lib.models import Model
+from drytorch.utils import repr_utils
 from tests.simple_classes import Linear
 
 
@@ -44,7 +45,7 @@ def test_automatic_names(
 ) -> None:
     """Test the creation of models in a loop with automatic names."""
     # models created by earlier tests advance the shared name counters
-    mocker.patch.object(Model._name, '_prefixes', {})
+    mocker.patch.object(Model._name, '_counter', repr_utils.NameCounter())
     results = dict[str, float]()
     module = linear_model.module
     registering.unregister_model(linear_model)

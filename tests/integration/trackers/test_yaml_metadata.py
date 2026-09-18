@@ -21,6 +21,7 @@ except ImportError:
     raise
 
 from drytorch.core import log_events
+from drytorch.lib.evaluations import Validation
 from drytorch.trackers.yaml import (
     MAX_LENGTH_PLAIN_REPR,
     MAX_LENGTH_SHORT_REPR,
@@ -39,6 +40,61 @@ def test_short_repr() -> None:
     assert has_short_repr(lit_str) is False
     assert has_short_repr([]) is False  # false for other Sized objects
     assert has_short_repr(34) is True  # true for not a Sized object
+
+
+def test_anchor_named_after_the_class() -> None:
+    """Test a repeated object is dumped once, under an anchor."""
+    shared = {'class': 'Model', 'mixed_precision': False}
+    metadata = {'class': 'Trainer', 'model': shared, 'ema': shared}
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert 'model: &Model\n' in yaml_output
+    assert 'ema: *Model\n' in yaml_output
+
+
+def test_anchors_of_the_same_class_are_numbered() -> None:
+    """Test the second object of a class is numbered, as default names are."""
+    first = {'class': 'Model', 'mixed_precision': False}
+    second = {'class': 'Model', 'mixed_precision': True}
+    metadata = {'first': [first, first], 'second': [second, second]}
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert '&Model\n' in yaml_output
+    assert '&Model_1\n' in yaml_output
+
+
+def test_cycle_is_dumped_as_a_reference() -> None:
+    """Test an object referring to itself is dumped with an alias."""
+    metadata: dict[str, object] = {'class': 'Trainer'}
+    metadata['hook'] = {'class': 'Hook', 'trainer': metadata}
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert yaml_output.startswith('&Trainer\n')
+    assert 'trainer: *Trainer\n' in yaml_output
+
+
+def test_dumped_trainer_refers_to_its_model_once(
+    run, identity_trainer, identity_loader, square_loss_calc
+) -> None:
+    """Test a model used by two runners is dumped once, under an anchor."""
+    _not_used = run
+    validation = Validation(
+        identity_trainer.model,
+        name='DumpedValidation',
+        loader=identity_loader,
+        metric=square_loss_calc,
+    )
+    metadata = repr_utils.recursive_repr(
+        {'trainer': identity_trainer, 'validation': validation}
+    )
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert '&Model\n' in yaml_output
+    assert 'model: *Model\n' in yaml_output
 
 
 def test_literal_string() -> None:
