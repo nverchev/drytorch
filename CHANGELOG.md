@@ -1,6 +1,11 @@
 # [0.1.0] - 18-09-2026
 
 ## [BREAKING CHANGES]
+- the trainer binds its hooks when it is created and calls them without arguments; a hook belongs to one trainer and `HookChain.execute` takes no argument
+- hooks are objects implementing `HookProtocol` and never receive the trainer: a hook subclasses `TrainerHook` and reads `self.trainer`, so functions are no longer wrapped into hooks
+- removed `Hook`, `StaticHook`, `static_hook_class` and `saving_hook`, replaced by the `SavingHook` and `EvaluationHook` classes and by writing a `TrainerHook` subclass
+- `CallEvery` wraps a hook and keeps it under `hook`; `call_every` and `evaluation_hook` are removed, and `TrainerBuilder.add_pre_epoch_hook` and `add_post_epoch_hook` take `every` and `start`
+- the monitoring callbacks are `TrainerHook` subclasses and are no longer generic
 - renamed the actor of a model to runner: `ModelRunner` is `Runner`, `ActorProtocol` is `RunnerProtocol`, `register_actor` and `unregister_actor` are `register_runner` and `unregister_runner`, and `ActorRegistrationEvent` is `RunnerRegistrationEvent` with `runner_name` and `runner_ts`
 - renamed `MonitorProtocol` to `SourceProtocol`, after the `source_name` of the events, and merged `ObjectiveMonitorProtocol` into it: a source states the objective computing its metrics and inherits `ActorProtocol`
 - merged `ModelRunnerWithObjective` and `ModelRunnerWithLogs` into `Source`, which computes an objective and emits `MetricEvent`; `ModelRunner` no longer reports metrics
@@ -30,6 +35,7 @@
 - moved `MetricTracker` from `lib.objectives`, and `MetricExtractor`, `MetricMonitor` and `get_last` from `lib.hooks`, to the new `lib.monitoring`
 
 ## Added
+- added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
 - added `AccumulatorMismatchError`

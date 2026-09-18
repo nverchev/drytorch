@@ -47,7 +47,8 @@ class TestTrialCallbackAsk:
         )
         identity_trainer._compute_metrics()
 
-        trial_callback(identity_trainer)
+        trial_callback.bind_trainer(identity_trainer)
+        trial_callback()
 
         # here you can tell a result with trial.study.tell(trial, {your_result})
         assert trial_callback.reported == {3: 1}
@@ -72,7 +73,8 @@ class TestTrialCallbackObjective:
             )
             identity_trainer._compute_metrics()
             trial_callback = TrialCallback(trial=trial)
-            trial_callback(identity_trainer)
+            trial_callback.bind_trainer(identity_trainer)
+            trial_callback()
             return get_final_value(trial)
 
         study.optimize(_objective, n_trials=1)

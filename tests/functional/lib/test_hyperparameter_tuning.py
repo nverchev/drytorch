@@ -4,7 +4,6 @@ import dataclasses
 import gc
 
 from collections.abc import Generator, MutableMapping
-from typing import Any
 
 import pytest
 
@@ -56,7 +55,7 @@ def test_automatic_names(
         new_learning_schema = dataclasses.replace(
             standard_learning_schema, base_lr=lr
         )
-        early_stopping = hooks.EarlyStoppingCallback[Any, Any]()
+        early_stopping = hooks.EarlyStoppingCallback()
         trainer = Trainer(
             linear_model_copy,
             name='MyTrainer',
@@ -88,9 +87,7 @@ def test_iterative_pruning(
         new_learning_schema = dataclasses.replace(
             standard_learning_schema, base_lr=lr
         )
-        prune_callback = hooks.PruneCallback[Any, Any](
-            benchmark_values, best_is='lower'
-        )
+        prune_callback = hooks.PruneCallback(benchmark_values, best_is='lower')
         trainer = Trainer(
             model=trial_model,
             name='MyTrainer',

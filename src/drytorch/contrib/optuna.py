@@ -4,14 +4,16 @@ import collections
 import string
 
 from collections.abc import Callable, Sequence
-from typing import Any, Final, Generic, TypeVar
+from typing import Any, Final, TypeVar
 
 import omegaconf
 import optuna
 
+from typing_extensions import override
+
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib import monitoring
+from drytorch.lib import hooks, monitoring
 
 
 __all__ = [
@@ -31,11 +33,11 @@ class OptunaError(exceptions.DryTorchError):
     _template = 'Optuna: {}'
 
 
-class TrialCallback(Generic[_Output, _Target]):
+class TrialCallback(hooks.TrainerHook):
     """Implements pruning logic for training models.
 
     Attributes:
-        monitor: monitor instance.
+        monitor: follows the metric the callback acts on.
         reported: dictionary mapping epochs to reported values.
         trial: ``optuna`` trial.
     """
@@ -66,31 +68,27 @@ class TrialCallback(Generic[_Output, _Target]):
             source=source,
             filter_fn=filter_fn,
         )
+        super().__init__()
         self.reported = {}
         self.trial = trial
         return
 
-    def __call__(
-        self,
-        instance: p.TrainerProtocol[Any, _Target, _Output],
-    ) -> None:
+    @override
+    def __call__(self) -> None:
         """Evaluate whether training should be stopped early.
-
-        Args:
-            instance: trainer instance to evaluate.
 
         Raises:
             optuna.TrialPruned: if the trial should be pruned.
         """
-        self.monitor.record_metric_value(instance)
-        epoch = instance.model.epoch
+        self.monitor.record_metric_value(self.trainer)
+        epoch = self.trainer.model.epoch
         value = self.monitor.filtered_value
         self.trial.report(value, epoch)
         self.reported[epoch] = value
         if self.trial.should_prune():
             metric_name = self.monitor.metric_name
             msg = f'Optuna pruning while monitoring {metric_name}'
-            instance.terminate_training(msg)
+            self.trainer.terminate_training(msg)
             raise optuna.TrialPruned()
 
         return

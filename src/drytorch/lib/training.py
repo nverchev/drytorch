@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, Final, Generic, TypedDict, TypeVar, cast
 
 import torch
@@ -208,8 +208,8 @@ class Trainer(
     """
 
     learning_schema: Final[p.LearningProtocol]
-    post_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
-    pre_epoch_hooks: Final[hooks.HookChain[Trainer[Input, Target, Output]]]
+    post_epoch_hooks: Final[hooks.HookChain]
+    pre_epoch_hooks: Final[hooks.HookChain]
     validation: Final[evaluations.Validation[Input, Target, Output] | None]
     _model_optimizer: Final[ModelOptimizer]
     _terminated: bool
@@ -222,12 +222,8 @@ class Trainer(
         learning_schema: p.LearningProtocol,
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
-        post_epoch_hooks: Sequence[
-            Callable[[Trainer[Input, Target, Output]], None]
-        ] = (),
-        pre_epoch_hooks: Sequence[
-            Callable[[Trainer[Input, Target, Output]], None]
-        ] = (),
+        post_epoch_hooks: Sequence[p.HookProtocol] = (),
+        pre_epoch_hooks: Sequence[p.HookProtocol] = (),
         val_loader: p.LoaderProtocol[tuple[Input, Target]] | None = None,
         val_name: str = '',
         validate_every: int = 1,
@@ -255,14 +251,23 @@ class Trainer(
         super().__init__(model, loader=loader, objective=loss, name=name)
         self._check_loss_direction()
         self.validation = self._create_validation(val_loader, val_name)
+        if validate_every < 1:
+            msg = f'validate_every must be positive, got {validate_every}'
+            raise ValueError(msg)
+
         if self.validation is None:
             post_epoch_chain = hooks.HookChain(post_epoch_hooks)
         else:
-            val_hook = hooks.evaluation_hook(self.validation, validate_every)
+            val_hook = hooks.EvaluationHook(self.validation)
+            if validate_every > 1:
+                val_hook = hooks.CallEvery(val_hook, interval=validate_every)
+
             post_epoch_chain = hooks.HookChain([val_hook, *post_epoch_hooks])
 
         self.post_epoch_hooks = post_epoch_chain
         self.pre_epoch_hooks = hooks.HookChain(pre_epoch_hooks)
+        self.post_epoch_hooks.bind_trainer(self)
+        self.pre_epoch_hooks.bind_trainer(self)
         self.learning_schema = learning_schema
         self._model_optimizer = ModelOptimizer(model, learning_schema)
         self._terminated = False
@@ -350,7 +355,7 @@ class Trainer(
             end_epoch=final_epoch,
         )
         for _ in range(n_epochs):
-            self.pre_epoch_hooks.execute(self)
+            self.pre_epoch_hooks.execute()
             if self.terminated:
                 return
 
@@ -361,7 +366,7 @@ class Trainer(
                 end_epoch=final_epoch,
             )
             self()
-            self.post_epoch_hooks.execute(self)
+            self.post_epoch_hooks.execute()
             log_events.EndEpochEvent(
                 source_name=self.name,
                 model_name=self.model.name,
@@ -495,12 +500,8 @@ class TrainerBuilder(Generic[Input, Target, Output]):
     _loss: Final[p.LossProtocol[Output, Target]]
     _model: Final[p.ModelProtocol[Input, Output]]
     _name: Final[str]
-    _post_epoch_hooks: Final[
-        list[Callable[[Trainer[Input, Target, Output]], None]]
-    ]
-    _pre_epoch_hooks: Final[
-        list[Callable[[Trainer[Input, Target, Output]], None]]
-    ]
+    _post_epoch_hooks: Final[list[p.HookProtocol]]
+    _pre_epoch_hooks: Final[list[p.HookProtocol]]
     _val_loader: p.LoaderProtocol[tuple[Input, Target]] | None
     _val_name: str
     _validate_every: int
@@ -537,25 +538,29 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         return
 
     def add_post_epoch_hook(
-        self, hook: Callable[[Trainer[Input, Target, Output]], None]
+        self, hook: hooks.TrainerHook, every: int = 1, start: int = 0
     ) -> None:
         """Add a hook to execute after each epoch and validation.
 
         Args:
             hook: the hook to execute after the ones already added.
+            every: the number of epochs between executions.
+            start: the epoch to start executing the hook.
         """
-        self._post_epoch_hooks.append(hook)
+        self._post_epoch_hooks.append(self._schedule(hook, every, start))
         return
 
     def add_pre_epoch_hook(
-        self, hook: Callable[[Trainer[Input, Target, Output]], None]
+        self, hook: hooks.TrainerHook, every: int = 1, start: int = 0
     ) -> None:
         """Add a hook to execute before each epoch.
 
         Args:
             hook: the hook to execute after the ones already added.
+            every: the number of epochs between executions.
+            start: the epoch to start executing the hook.
         """
-        self._pre_epoch_hooks.append(hook)
+        self._pre_epoch_hooks.append(self._schedule(hook, every, start))
         return
 
     def add_validation(
@@ -596,3 +601,12 @@ class TrainerBuilder(Generic[Input, Target, Output]):
             pre_epoch_hooks=self._pre_epoch_hooks,
             post_epoch_hooks=self._post_epoch_hooks,
         )
+
+    @staticmethod
+    def _schedule(
+        hook: hooks.TrainerHook, every: int, start: int
+    ) -> hooks.TrainerHook:
+        if every == 1 and not start:
+            return hook
+
+        return hooks.CallEvery(hook, interval=every, start=start)

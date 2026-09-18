@@ -30,6 +30,8 @@ __all__ = [
     'FailedOptionalImportWarning',
     'FolderAlreadyExistsError',
     'FuncNotApplicableError',
+    'HookAlreadyBoundError',
+    'HookNotBoundError',
     'LossNotScalarError',
     'MetricNotFoundError',
     'MissingParamError',
@@ -245,6 +247,42 @@ class DirectionNotResolvedError(DryTorchError):
     """Raised when accessing the direction of a metric before it is known."""
 
     _template = 'The direction of the monitored metric is not resolved yet.'
+
+
+class HookAlreadyBoundError(DryTorchError):
+    """Raised when a hook bound to a trainer is given to another one."""
+
+    _template = 'Hook {} is already bound to another trainer.'
+
+    hook_name: Final[str]
+
+    def __init__(self, hook_name: str) -> None:
+        """Initialize.
+
+        Args:
+            hook_name: the name of the hook.
+        """
+        self.hook_name = hook_name
+        super().__init__(hook_name)
+        return
+
+
+class HookNotBoundError(DryTorchError):
+    """Raised when a hook is called before a trainer binds it."""
+
+    _template = 'Hook {} is not bound to a trainer.'
+
+    hook_name: Final[str]
+
+    def __init__(self, hook_name: str) -> None:
+        """Initialize.
+
+        Args:
+            hook_name: the name of the hook.
+        """
+        self.hook_name = hook_name
+        super().__init__(hook_name)
+        return
 
 
 class EpochNotFoundError(DryTorchError):

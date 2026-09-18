@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import abc
-import functools
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Final, Generic, Literal, ParamSpec, TypeVar, cast
+from typing import Any, Final, Literal, ParamSpec
 
 from typing_extensions import override
 
+from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib import monitoring, schedulers
 from drytorch.lib.schedulers import RestartScheduler
@@ -19,39 +19,28 @@ __all__ = [
     'CallEvery',
     'ChangeSchedulerOnPlateauCallback',
     'EarlyStoppingCallback',
-    'Hook',
+    'EvaluationHook',
     'HookChain',
     'PruneCallback',
     'ReduceLROnPlateau',
     'RestartScheduleOnPlateau',
-    'StaticHook',
+    'SavingHook',
     'TrainerHook',
-    'call_every',
-    'evaluation_hook',
-    'saving_hook',
-    'static_hook_class',
 ]
 
-_T_contra = TypeVar('_T_contra', contravariant=True)
 _P = ParamSpec('_P')
-_Q = ParamSpec('_Q')
-Input = TypeVar('Input', bound=p.InputType)
-Target = TypeVar('Target', bound=p.TargetType)
-Output = TypeVar('Output', bound=p.OutputType)
 
 
-class HookChain(Generic[_T_contra]):
+class HookChain:
     """Execute a fixed chain of hooks in order.
 
     Attributes:
         hooks: the hooks in order of execution.
     """
 
-    hooks: Final[tuple[Callable[[_T_contra], None], ...]]
+    hooks: Final[tuple[p.HookProtocol, ...]]
 
-    def __init__(
-        self, hooks: Sequence[Callable[[_T_contra], None]] = ()
-    ) -> None:
+    def __init__(self, hooks: Sequence[p.HookProtocol] = ()) -> None:
         """Initialize.
 
         Args:
@@ -60,214 +49,134 @@ class HookChain(Generic[_T_contra]):
         self.hooks = tuple(hooks)
         return
 
-    def execute(self, input_object: _T_contra) -> None:
-        """Execute the hooks in order.
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Bind every hook of the chain to the trainer that calls them.
 
         Args:
-            input_object: the input to pass to each hook.
+            trainer: the trainer calling the hooks.
         """
         for hook in self.hooks:
-            hook(input_object)
+            hook.bind_trainer(trainer)
+
+        return
+
+    def execute(self) -> None:
+        """Execute the hooks in order."""
+        for hook in self.hooks:
+            hook()
 
         return
 
 
-class TrainerHook(
-    abc.ABC,
-    Generic[Input, Target, Output],
-):
-    """Compose control flow on side effects while tracking parameters."""
+class TrainerHook(abc.ABC):
+    """Hook bound to a trainer."""
+
+    _trainer: p.TrainerProtocol[Any, Any, Any] | None
+
+    def __init__(self) -> None:
+        """Initialize."""
+        self._trainer = None
+        return
 
     @abc.abstractmethod
-    def __call__(
-        self,
-        trainer: p.TrainerProtocol[Input, Target, Output],
-    ) -> None:
-        """Execute the call.
+    def __call__(self) -> None:
+        """Execute the hook."""
+
+    @property
+    def trainer(self) -> p.TrainerProtocol[Any, Any, Any]:
+        """The trainer the hook is bound to.
+
+        Raises:
+            HookNotBoundError: if the trainer has not bound the hook yet.
+        """
+        if self._trainer is None:
+            raise exceptions.HookNotBoundError(self._get_name())
+
+        return self._trainer
+
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Bind the hook to the trainer that calls it.
 
         Args:
-            trainer: the trainer to pass to the wrapped function.
+            trainer: the trainer calling the hook.
+
+        Raises:
+            HookAlreadyBoundError: if another trainer already bound the hook.
         """
+        if self._trainer is not None and self._trainer is not trainer:
+            raise exceptions.HookAlreadyBoundError(self._get_name())
 
-    def bind(
-        self,
-        f: Callable[
-            [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
-            Hook[Input, Target, Output],
-        ],
-        /,
-    ) -> Hook[Input, Target, Output]:
-        """Allow transformation of the Hook.
+        self._trainer = trainer
+        return
 
-        Args:
-            f: a function specifying the transformation.
-
-        Returns:
-            the transformed Hook.
-        """
-        next_hook = f(self.__call__)
-        parameters = {
-            **self._get_parameters(),
-            **next_hook._get_parameters(),
-        }
-        return Hook(
-            wrapped=next_hook.__call__,
-            parameters=parameters,
-            base_hook_name=self._get_name(),
-        )
-
-    @abc.abstractmethod
     def _get_name(self) -> str:
-        """Return the name of the base hook for representation."""
+        return self.__class__.__name__
 
-    @abc.abstractmethod
     def _get_parameters(self) -> Mapping[str, Any]:
-        """Return the metadata associated with the hook."""
-
-    @staticmethod
-    def _get_callable_name(wrapped: Callable[..., Any]) -> str:
-        return getattr(wrapped, '__name__', wrapped.__class__.__name__)
+        return {}
 
 
-class Hook(TrainerHook[Input, Target, Output]):
-    """Wrapper for callable taking a Trainer as input.
+class EvaluationHook(TrainerHook):
+    """Run an evaluation during the training.
 
     Attributes:
-        base_hook_name: name of the base hook for representation.
-        parameters: metadata associated with the hook.
+        evaluation: the evaluation to run, for example a validation.
     """
 
-    base_hook_name: Final[str]
-    parameters: Final[Mapping[str, Any]]
-    _wrapped: Final[Callable[[p.TrainerProtocol[Input, Target, Output]], None]]
+    evaluation: Final[p.SourceProtocol]
 
-    def __init__(
-        self,
-        wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
-        base_hook_name: str | None = None,
-        parameters: Mapping[str, Any] | None = None,
-    ):
+    def __init__(self, evaluation: p.SourceProtocol) -> None:
         """Initialize.
 
         Args:
-            wrapped: the function to be conditionally called.
-            base_hook_name: name of the base hook for representation.
-                Defaults to the name of the wrapped callable.
-            parameters: metadata associated with the hook.
+            evaluation: the evaluation to run.
         """
-        self._wrapped = wrapped
-        if base_hook_name:
-            self.base_hook_name = base_hook_name
-        else:
-            self.base_hook_name = self._get_callable_name(wrapped)
-
-        self.parameters = {} if parameters is None else dict(parameters)
-        return
-
-    def __call__(
-        self,
-        trainer: p.TrainerProtocol[Input, Target, Output],
-    ) -> None:
-        """Execute the call.
-
-        Args:
-            trainer: the trainer to pass to the wrapped function.
-        """
-        self._wrapped(trainer)
+        super().__init__()
+        self.evaluation = evaluation
         return
 
     @override
-    def _get_name(self) -> str:
-        return self.base_hook_name
+    def __call__(self) -> None:
+        """Run the evaluation."""
+        self.evaluation()
+        return
+
+
+class SavingHook(TrainerHook):
+    """Save the checkpoint of the model of its trainer."""
 
     @override
-    def _get_parameters(self) -> Mapping[str, Any]:
-        return self.parameters
+    def __call__(self) -> None:
+        """Save the checkpoint."""
+        self.trainer.save_checkpoint()
+        return
 
 
-class StaticHook(TrainerHook[Any, Any, Any]):
-    """Ignoring arguments and execute a wrapped function.
+class CallEvery(TrainerHook):
+    """Call a hook periodically.
 
     Attributes:
-        base_hook_name: name of the base hook for representation.
-        parameters: metadata associated with the hook.
+        hook: the hook to call.
+        interval: the frequency of calling the hook.
+        start: the epoch to start calling the hook.
     """
 
-    base_hook_name: Final[str]
-    parameters: Final[Mapping[str, Any]]
-    _wrapped: Final[Callable[[], None]]
-
-    def __init__(
-        self,
-        wrapped: Callable[[], None],
-        base_hook_name: str | None = None,
-        parameters: Mapping[str, Any] | None = None,
-    ):
-        """Initialize.
-
-        Args:
-            wrapped: the function to be wrapped and called statically.
-            base_hook_name: name of the base hook for representation.
-                Defaults to the name of the wrapped callable.
-            parameters: metadata associated with the hook.
-        """
-        self._wrapped = wrapped
-        if base_hook_name:
-            self.base_hook_name = base_hook_name
-        else:
-            self.base_hook_name = self._get_callable_name(wrapped)
-
-        self.parameters = {} if parameters is None else dict(parameters)
-        return
-
-    def __call__(
-        self,
-        trainer: p.TrainerProtocol[Input, Target, Output],
-    ) -> None:
-        """Execute the call.
-
-        Args:
-            trainer: the trainer to pass to the wrapped function.
-        """
-        self._wrapped()
-        return
-
-    @override
-    def _get_name(self) -> str:
-        return self.base_hook_name
-
-    @override
-    def _get_parameters(self) -> Mapping[str, Any]:
-        return self.parameters
-
-
-class CallEvery(Hook[Input, Target, Output]):
-    """Metadata-aware wrapper for periodic execution.
-
-    Attributes:
-        base_hook_name: name of the base hook for representation.
-        interval: the frequency of calling the function.
-        parameters: metadata associated with the hook.
-        start: the epoch to start calling the function.
-    """
-
+    hook: Final[TrainerHook]
     interval: Final[int]
     start: Final[int]
 
     def __init__(
         self,
-        wrapped: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
-        parameters: Mapping[str, Any] | None = None,
+        hook: TrainerHook,
         interval: int = 1,
         start: int = 0,
-    ):
+    ) -> None:
         """Initialize.
 
         Args:
-            wrapped: the function to be wrapped and called statically.
-            parameters: metadata associated with the hook.
-            interval: the frequency of calling the function.
-            start: the epoch to start calling the function.
+            hook: the hook to call periodically.
+            interval: the frequency of calling the hook.
+            start: the epoch to start calling the hook.
 
         Raises:
             ValueError: if interval is not positive or start is negative.
@@ -278,155 +187,58 @@ class CallEvery(Hook[Input, Target, Output]):
         if start < 0:
             raise ValueError(f'start must be non-negative, got {start}')
 
-        all_parameters = {
-            **({} if parameters is None else parameters),
-            'interval': interval,
-            'start': start,
-        }
-        super().__init__(wrapped, '', all_parameters)
+        super().__init__()
+        self.hook = hook
         self.interval = interval
         self.start = start
         return
 
-    def __call__(
-        self,
-        trainer: p.TrainerProtocol[Input, Target, Output],
-    ) -> None:
-        """Optionally, calling wrapped callable.
-
-        Args:
-            trainer: the trainer to pass to the wrapped function.
-        """
-        epoch = trainer.model.epoch
+    @override
+    def __call__(self) -> None:
+        """Call the hook when the epoch matches, or when training stopped."""
+        epoch = self.trainer.model.epoch
         if epoch < self.start:
             return
 
-        if not (epoch - self.start) % self.interval or trainer.terminated:
-            self._wrapped(trainer)
+        if not (epoch - self.start) % self.interval or self.trainer.terminated:
+            self.hook()
 
         return
 
+    @override
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Bind the wrapped hook as well."""
+        super().bind_trainer(trainer)
+        self.hook.bind_trainer(trainer)
+        return
 
-def call_every(
-    interval: int,
-    start: int = 0,
-) -> Callable[
-    [Callable[[p.TrainerProtocol[Input, Target, Output]], None]],
-    Hook[Input, Target, Output],
-]:
-    """Create a transformer for periodic hook execution.
+    @override
+    def _get_name(self) -> str:
+        return self.hook._get_name()
 
-    Args:
-        interval: the frequency of calling the hook.
-        start: the epoch to start calling the hook.
-
-    Returns:
-        A transformer that adds periodic logic to a callable.
-    """
-
-    def _transformer(
-        func: Callable[[p.TrainerProtocol[Input, Target, Output]], None],
-    ) -> CallEvery[Input, Target, Output]:
-        return CallEvery(wrapped=func, interval=interval, start=start)
-
-    return _transformer
+    @override
+    def _get_parameters(self) -> Mapping[str, Any]:
+        return {
+            **self.hook._get_parameters(),
+            'interval': self.interval,
+            'start': self.start,
+        }
 
 
-def evaluation_hook(
-    evaluation: Callable[[], None], every: int = 1
-) -> TrainerHook[Any, Any, Any]:
-    """Create a hook running an evaluation every given number of epochs.
-
-    With ``every`` above one, the evaluation also runs when training is
-    terminated.
-
-    Args:
-        evaluation: the evaluation to run, for example a validation.
-        every: the number of epochs between evaluations.
-
-    Returns:
-        The hook running the evaluation.
-
-    Raises:
-        ValueError: if every is not strictly positive.
-    """
-    if every < 1:
-        raise ValueError(f'every must be positive. Got {every}.')
-
-    hook = StaticHook(evaluation)
-    if every > 1:
-        return hook.bind(call_every(every))
-
-    return hook
-
-
-def static_hook_class(
-    cls: Callable[_P, Callable[[], None]],
-) -> Callable[_P, StaticHook]:
-    """Class decorator to wrap a callable class into a static hook type.
-
-    Args:
-        cls: a callable class that takes no arguments and returns None.
-
-    Returns:
-        A class that can be instantiated in the same way to have a static hook.
-
-    Raises:
-        TypeError: if ``cls`` is not a class.
-    """
-    if not isinstance(cls, type):
-        raise TypeError(f'Input must be a class, got {type(cls)}')
-
-    @functools.wraps(cls, updated=())
-    class _StaticHookDecorator(StaticHook):
-        @override
-        def __init__(self, *args: _P.args, **kwargs: _P.kwargs) -> None:
-            self._init_args: tuple[Any, ...] = args
-            self._init_kwargs: dict[str, Any] = dict(kwargs)
-            metadata: dict[str, Any] = dict(kwargs)
-            if args:
-                metadata['args'] = args
-
-            super().__init__(cls(*args, **kwargs), cls.__name__, metadata)
-            return
-
-        def __reduce__(
-            self,
-        ) -> tuple[
-            Callable[[type, tuple[Any, ...], dict[str, Any]], StaticHook],
-            tuple[type, tuple[Any, ...], dict[str, Any]],
-        ]:
-            bricks = (cast(type, cls), self._init_args, self._init_kwargs)
-            return _unpickle_static_hook, bricks
-
-    return _StaticHookDecorator
-
-
-@Hook
-def saving_hook(trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
-    """Create a hook that saves the model's checkpoint.
-
-    Args:
-        trainer: the trainer instance.
-    """
-    trainer.save_checkpoint()
-    return
-
-
-class EarlyStoppingCallback(Generic[Output, Target]):
+class EarlyStoppingCallback(TrainerHook):
     """Implement early stopping logic for training models.
 
     Attributes:
-        monitor: monitor instance.
+        monitor: follows the metric the callback acts on.
         start_from_epoch: epoch to start monitoring from.
     """
 
-    monitor: Final[monitoring.MetricMonitor[Output, Target]]
+    monitor: Final[monitoring.MetricMonitor[Any, Any]]
     start_from_epoch: Final[int]
 
     def __init__(
         self,
-        metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
+        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
         source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 10,
@@ -450,6 +262,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
                 gets the last value.
             start_from_epoch: first epoch to start monitoring from.
         """
+        super().__init__()
         self.monitor = monitoring.MetricMonitor(
             metric=metric,
             source=source,
@@ -461,16 +274,11 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         self.start_from_epoch = start_from_epoch
         return
 
-    def __call__(
-        self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> None:
-        """Evaluate whether training should be stopped early.
-
-        Args:
-            instance: trainer instance to evaluate.
-        """
-        self.monitor.record_metric_value(instance)
-        epoch = instance.model.epoch
+    @override
+    def __call__(self) -> None:
+        """Evaluate whether training should be stopped early."""
+        self.monitor.record_metric_value(self.trainer)
+        epoch = self.trainer.model.epoch
         if epoch < self.start_from_epoch:
             return
 
@@ -480,27 +288,27 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         best_result = self.monitor.best_value
         metric_name = self.monitor.metric_name
         msg = f'Training stopped with best result={best_result} {metric_name}'
-        instance.terminate_training(msg)
+        self.trainer.terminate_training(msg)
         return
 
 
-class PruneCallback(Generic[Output, Target]):
+class PruneCallback(TrainerHook):
     """Implement pruning logic for training models.
 
     Attributes:
-        monitor: monitor instance.
+        monitor: follows the metric the callback acts on.
         thresholds: dictionary mapping epochs to pruning thresholds.
         trial_values: dictionary mapping epochs to recorded metric values.
     """
 
-    monitor: Final[monitoring.MetricMonitor[Output, Target]]
+    monitor: Final[monitoring.MetricMonitor[Any, Any]]
     thresholds: Final[Mapping[int, float | None]]
     trial_values: dict[int, float]
 
     def __init__(
         self,
         thresholds: Mapping[int, float | None],
-        metric: str | p.ObjectiveProtocol[Output, Target] | None = None,
+        metric: str | p.ObjectiveProtocol[Any, Any] | None = None,
         source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -522,6 +330,7 @@ class PruneCallback(Generic[Output, Target]):
             values. Default
                 gets the last value.
         """
+        super().__init__()
         self.monitor = monitoring.MetricMonitor(
             metric=metric,
             source=source,
@@ -533,16 +342,11 @@ class PruneCallback(Generic[Output, Target]):
         self.trial_values = {}
         return
 
-    def __call__(
-        self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> None:
-        """Evaluate whether training should be stopped early.
-
-        Args:
-            instance: trainer instance to evaluate.
-        """
-        self.monitor.record_metric_value(instance)
-        epoch = instance.model.epoch
+    @override
+    def __call__(self) -> None:
+        """Evaluate whether training should be stopped early."""
+        self.monitor.record_metric_value(self.trainer)
+        epoch = self.trainer.model.epoch
         if epoch not in self.thresholds:
             return
 
@@ -553,26 +357,26 @@ class PruneCallback(Generic[Output, Target]):
             if not self.monitor.is_better(value, threshold):
                 metric_name = self.monitor.metric_name
                 msg = f'Training stopped at {threshold=} {metric_name}'
-                instance.terminate_training(msg)
+                self.trainer.terminate_training(msg)
 
         return
 
 
-class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
+class ChangeSchedulerOnPlateauCallback(TrainerHook, abc.ABC):
     """Change the learning rate schedule when a metric has stopped improving.
 
     Attributes:
         cooldown: number of calls to skip after changing the schedule.
-        monitor: monitor instance.
+        monitor: follows the metric the callback acts on.
     """
 
     cooldown: Final[int]
-    monitor: Final[monitoring.MetricMonitor[Output, Target]]
+    monitor: Final[monitoring.MetricMonitor[Any, Any]]
     _cooldown_counter: int
 
     def __init__(
         self,
-        metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
+        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
         source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
@@ -596,6 +400,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
                 gets the last value.
             cooldown: calls to skip after changing the schedule.
         """
+        super().__init__()
         self.cooldown = cooldown
         self.monitor = monitoring.MetricMonitor(
             metric=metric,
@@ -608,16 +413,11 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
         self._cooldown_counter = 0
         return
 
-    def __call__(
-        self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> None:
-        """Check if there is a plateau and reduce the learning rate if needed.
-
-        Args:
-            instance: trainer instance to evaluate.
-        """
-        self.monitor.record_metric_value(instance)
-        epoch = instance.model.epoch
+    @override
+    def __call__(self) -> None:
+        """Check if there is a plateau and reduce the learning rate."""
+        self.monitor.record_metric_value(self.trainer)
+        epoch = self.trainer.model.epoch
 
         if self._cooldown_counter > 0:
             self._cooldown_counter -= 1
@@ -627,9 +427,9 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
             return
 
         scheduler = self.get_scheduler(
-            epoch, instance.learning_schema.scheduler
+            epoch, self.trainer.learning_schema.scheduler
         )
-        instance.update_learning_rate(base_lr=None, scheduler=scheduler)
+        self.trainer.update_learning_rate(base_lr=None, scheduler=scheduler)
         self._cooldown_counter = self.cooldown  # start the cooldown period
         return
 
@@ -648,13 +448,13 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
         """
 
 
-class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
+class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback):
     """Reduce the learning rate when a metric has stopped improving.
 
     Attributes:
         cooldown: number of calls to skip after changing the schedule.
         factor: factor by which to reduce the learning rate.
-        monitor: monitor instance.
+        monitor: follows the metric the callback acts on.
     """
 
     factor: Final[float]
@@ -662,7 +462,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
 
     def __init__(
         self,
-        metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
+        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
         source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
@@ -719,14 +519,12 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         )
 
 
-class RestartScheduleOnPlateau(
-    ChangeSchedulerOnPlateauCallback[Output, Target]
-):
+class RestartScheduleOnPlateau(ChangeSchedulerOnPlateauCallback):
     """Restart the scheduling after plateauing.
 
     Attributes:
         cooldown: number of calls to skip after changing the schedule.
-        monitor: monitor instance.
+        monitor: follows the metric the callback acts on.
     """
 
     def get_scheduler(
@@ -742,11 +540,3 @@ class RestartScheduleOnPlateau(
             Modified scheduler.
         """
         return RestartScheduler(scheduler, epoch)
-
-
-def _unpickle_static_hook(
-    cls: type,
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-) -> StaticHook:
-    return static_hook_class(cls)(*args, **kwargs)

@@ -8,6 +8,7 @@ import torch
 import pytest
 
 from drytorch.core import exceptions
+from drytorch.lib import hooks
 from drytorch.lib.training import ModelOptimizer, Trainer, TrainerBuilder
 from tests.simple_classes import MLP
 
@@ -64,6 +65,15 @@ class TestModelOptimizer:
         dict_lr['linear'] = 0.999
 
         assert model_optimizer.base_lr == {'linear': 0.01, 'linear2': 0.001}
+
+
+class _TerminateHook(hooks.TrainerHook):
+    """Hook that terminates the training of the trainer that calls it."""
+
+    def __call__(self) -> None:
+        """Terminate the training."""
+        self.trainer.terminate_training('test termination')
+        return
 
 
 class TestTrainer:
@@ -166,12 +176,12 @@ class TestTrainer:
         mocker.patch(
             'drytorch.lib.evaluations.Validation', return_value=validation
         )
-        post_hook = mocker.Mock(side_effect=lambda _: calls.append('post'))
+        post_hook = mocker.Mock(side_effect=lambda: calls.append('post'))
         trainer = create_trainer(
             val_loader=mocker.Mock(), post_epoch_hooks=[post_hook]
         )
 
-        trainer.post_epoch_hooks.execute(trainer)
+        trainer.post_epoch_hooks.execute()
 
         assert trainer.validation is validation
         assert calls == ['val', 'post']
@@ -186,7 +196,7 @@ class TestTrainer:
 
         for epoch in (1, 2, 3):
             mock_model.epoch = epoch
-            trainer.post_epoch_hooks.execute(trainer)
+            trainer.post_epoch_hooks.execute()
 
         validation.assert_called_once()
 
@@ -233,11 +243,7 @@ class TestTrainer:
 
     def test_post_epoch_hook_terminates_training(self, create_trainer) -> None:
         """Test that post-epoch hook termination prevents end_training_event."""
-
-        def terminate_hook(instance):
-            instance.terminate_training('test termination')
-
-        trainer = create_trainer(post_epoch_hooks=[terminate_hook])
+        trainer = create_trainer(post_epoch_hooks=[_TerminateHook()])
 
         trainer.train(3)
 
@@ -248,11 +254,7 @@ class TestTrainer:
 
     def test_pre_epoch_hook_terminates_training(self, create_trainer) -> None:
         """Test that pre-epoch hook termination prevents end_training_event."""
-
-        def terminate_hook(instance):
-            instance.terminate_training('test termination')
-
-        trainer = create_trainer(pre_epoch_hooks=[terminate_hook])
+        trainer = create_trainer(pre_epoch_hooks=[_TerminateHook()])
 
         trainer.train(3)
 

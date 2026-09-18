@@ -26,6 +26,7 @@ __all__ = [
     'CreatedAtProtocol',
     'GradientOpProtocol',
     'HigherIsBetterProtocol',
+    'HookProtocol',
     'InputType',
     'LearningProtocol',
     'LoaderProtocol',
@@ -108,6 +109,20 @@ class GradientOpProtocol(Protocol):
     @abc.abstractmethod
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Apply the gradient operation to the given parameters."""
+
+
+class HookProtocol(Protocol):
+    """Protocol for an object that a trainer calls during training."""
+
+    def __call__(self) -> None:
+        """Execute the hook."""
+
+    def bind_trainer(self, trainer: TrainerProtocol[Any, Any, Any]) -> None:
+        """Bind the hook to the trainer that calls it.
+
+        Args:
+            trainer: the trainer calling the hook.
+        """
 
 
 class LearningProtocol(Protocol):

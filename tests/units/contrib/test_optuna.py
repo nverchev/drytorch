@@ -65,7 +65,9 @@ class TestTrialCallback:
         """Test that the callback reports the value to the trial."""
         mock_trial.should_prune.return_value = False
 
-        callback(mock_trainer)
+        callback.bind_trainer(mock_trainer)
+
+        callback()
 
         self.mock_monitor_instance.record_metric_value.assert_called_once_with(
             mock_trainer
@@ -76,9 +78,10 @@ class TestTrialCallback:
     def test_pruning(self, mock_trial, callback, mock_trainer) -> None:
         """Test the callback raises TrialPruned if the trial should prune."""
         mock_trial.should_prune.return_value = True
+        callback.bind_trainer(mock_trainer)
 
         with pytest.raises(optuna.TrialPruned):
-            callback(mock_trainer)
+            callback()
 
         call_argument = mock_trainer.terminate_training.call_args[0][0]
 

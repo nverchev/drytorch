@@ -1,39 +1,35 @@
 """Tests for the ``hooks`` module."""
 
-import pickle
-
 import pytest
 
+from drytorch.core import exceptions
 from drytorch.lib import schedulers
 from drytorch.lib.hooks import (
     CallEvery,
     EarlyStoppingCallback,
-    Hook,
+    EvaluationHook,
     HookChain,
     PruneCallback,
     ReduceLROnPlateau,
     RestartScheduleOnPlateau,
-    StaticHook,
-    call_every,
-    evaluation_hook,
-    saving_hook,
-    static_hook_class,
+    SavingHook,
+    TrainerHook,
 )
 
 
-class _TestClass:
-    def __init__(self, text: str, number: int = 1):
-        self.text = text
-        self.number = number
+class _CountingHook(TrainerHook):
+    """Hook counting how many times a trainer called it."""
+
+    def __init__(self) -> None:
+        """Initialize."""
+        super().__init__()
+        self.calls = 0
         return
 
     def __call__(self) -> None:
+        """Count the call."""
+        self.calls += 1
         return
-
-
-def _record_trainer(trainer) -> None:
-    _not_used = trainer
-    return
 
 
 class TestHookChain:
@@ -42,13 +38,22 @@ class TestHookChain:
     def test_execute_in_order(self, mocker) -> None:
         """Test the hooks are executed in the given order."""
         calls: list[int] = []
-        chain = HookChain(
-            [lambda _: calls.append(1), lambda _: calls.append(2)]
-        )
+        first = mocker.Mock(side_effect=lambda: calls.append(1))
+        second = mocker.Mock(side_effect=lambda: calls.append(2))
+        chain = HookChain([first, second])
 
-        chain.execute(mocker.Mock())
+        chain.execute()
 
         assert calls == [1, 2]
+
+    def test_binds_its_hooks(self, mocker, mock_trainer) -> None:
+        """Test binding the chain binds every hook."""
+        hook = mocker.Mock()
+        chain = HookChain([hook])
+
+        chain.bind_trainer(mock_trainer)
+
+        hook.bind_trainer.assert_called_once_with(mock_trainer)
 
     def test_hooks_copied(self, mocker) -> None:
         """Test changing the given hooks does not change the chain."""
@@ -61,136 +66,82 @@ class TestHookChain:
 
 
 def test_saving_hook(mock_trainer) -> None:
-    """Test that saving_hook calls save_checkpoint on the instance."""
-    hook = saving_hook
+    """Test the saving hook saves the checkpoint of its trainer."""
+    hook = SavingHook()
+    hook.bind_trainer(mock_trainer)
 
-    hook(mock_trainer)
+    hook()
 
     mock_trainer.save_checkpoint.assert_called_once()
 
 
-def test_static_hook(mocker) -> None:
-    """Test that static_hook wraps a void callable."""
-    mock_callable = mocker.MagicMock()
-    hook = StaticHook(mock_callable)
+def test_hook_not_bound() -> None:
+    """Test calling a hook before a trainer binds it raises."""
+    hook = SavingHook()
 
-    hook(mocker.MagicMock())
-
-    mock_callable.assert_called_once()
+    with pytest.raises(exceptions.HookNotBoundError):
+        hook()
 
 
-def test_static_class(mocker, mock_trainer) -> None:
-    """Test that static_hook_class creates a callable hook."""
-    mock_event = mocker.MagicMock()
-    hook = static_hook_class(_TestClass)('test')
-    mocker.patch.object(_TestClass, '__call__', mock_event)
+def test_hook_bound_twice(mocker, mock_trainer) -> None:
+    """Test binding a hook to a second trainer raises."""
+    hook = SavingHook()
+    hook.bind_trainer(mock_trainer)
 
-    hook(mock_trainer)
-
-    mock_event.assert_called_once()
+    with pytest.raises(exceptions.HookAlreadyBoundError):
+        hook.bind_trainer(mocker.Mock())
 
 
-def test_static_hook_pickleable(mocker, mock_trainer) -> None:
-    """Test that static_hook_class produces pickleable hooks."""
-    mock_event = mocker.MagicMock()
-    mocker.patch.object(_TestClass, '__call__', mock_event)
+def test_evaluation_hook(mocker, mock_trainer) -> None:
+    """Test the hook runs the evaluation it holds."""
+    evaluation = mocker.Mock()
+    hook = EvaluationHook(evaluation)
+    hook.bind_trainer(mock_trainer)
 
-    original_hook = static_hook_class(_TestClass)('test', number=42)
-    reconstructed_hook = pickle.loads(pickle.dumps(original_hook))  # noqa: S301
+    hook()
 
-    reconstructed_hook(mock_trainer)
-
-    mock_event.assert_called_once()
+    evaluation.assert_called_once()
 
 
 @pytest.mark.parametrize(
     ('epoch', 'called'), [(0, False), (4, False), (6, True)]
 )
-def test_call_every(mocker, mock_trainer, epoch, called) -> None:
-    """Test call_every executes the hook based on interval."""
+def test_periodic_hook(mocker, mock_trainer, epoch, called) -> None:
+    """Test the hook is called on the epochs matching the interval."""
     mock_hook = mocker.MagicMock()
-    hook = call_every(start=3, interval=3)(mock_hook)
+    hook = CallEvery(mock_hook, interval=3, start=3)
     mock_trainer.model.epoch = epoch
+    hook.bind_trainer(mock_trainer)
 
-    hook(mock_trainer)
+    hook()
 
     assert mock_hook.called is called
 
 
-def test_call_every_terminated(mocker, mock_trainer) -> None:
-    """Test call_every executes the hook on terminated trainer."""
+def test_periodic_hook_terminated(mocker, mock_trainer) -> None:
+    """Test the hook is called when the training is terminated."""
     mock_hook = mocker.MagicMock()
-    hook = call_every(start=3, interval=3)(mock_hook)
+    hook = CallEvery(mock_hook, interval=3, start=3)
     mock_trainer.terminate_training('This is a test.')
+    hook.bind_trainer(mock_trainer)
 
-    hook(mock_trainer)
+    hook()
 
-    mock_hook.assert_called_once_with(mock_trainer)
-
-
-@pytest.mark.parametrize('hook_cls', [Hook, StaticHook])
-def test_parameters_copied(mocker, hook_cls) -> None:
-    """Test changing the given parameters does not change the hook."""
-    parameters = {'key': 1}
-    hook = hook_cls(mocker.Mock(), parameters=parameters)
-
-    parameters['key'] = 2
-
-    assert hook.parameters == {'key': 1}
-
-
-class TestHook:
-    """Tests for the Hook class."""
-
-    def test_default_name(self) -> None:
-        """Test the base hook name defaults to the function name."""
-        hook = Hook(_record_trainer)
-
-        assert hook.base_hook_name == '_record_trainer'
-
-    def test_default_name_callable_object(self, mocker) -> None:
-        """Test the base hook name defaults to the class of the callable."""
-        hook = Hook(mocker.Mock())
-
-        assert hook.base_hook_name == 'Mock'
-
-    def test_saving_hook_name(self) -> None:
-        """Test the saving hook is named after its function."""
-        bound = saving_hook.bind(call_every(interval=2))
-
-        assert saving_hook.base_hook_name == 'saving_hook'
-        assert bound.base_hook_name == 'saving_hook'
-
-    def test_bind_merges_parameters(self, mocker) -> None:
-        """Test binding merges the parameters and keeps the base name."""
-        hook = Hook(mocker.Mock(), base_hook_name='base', parameters={'a': 1})
-
-        bound = hook.bind(call_every(interval=2, start=1))
-
-        assert bound.parameters == {'a': 1, 'interval': 2, 'start': 1}
-        assert bound.base_hook_name == 'base'
-
-
-class TestStaticHook:
-    """Tests for the StaticHook class."""
-
-    def test_default_name(self) -> None:
-        """Test the base hook name defaults to the class of the callable."""
-        hook = StaticHook(_TestClass('text'))
-
-        assert hook.base_hook_name == '_TestClass'
+    mock_hook.assert_called_once_with()
 
 
 class TestCallEvery:
     """Tests for the CallEvery class."""
 
-    def test_parameters(self, mocker) -> None:
-        """Test interval and start are added to the parameters."""
-        hook = CallEvery(
-            mocker.Mock(), parameters={'a': 1}, interval=2, start=3
-        )
+    def test_records_the_schedule(self) -> None:
+        """Test the interval and the start are recorded with the hook."""
+        wrapped = _CountingHook()
 
-        assert hook.parameters == {'a': 1, 'interval': 2, 'start': 3}
+        hook = CallEvery(wrapped, interval=2, start=3)
+
+        assert hook.hook is wrapped
+        assert hook._get_name() == '_CountingHook'
+        assert hook._get_parameters() == {'interval': 2, 'start': 3}
 
     @pytest.mark.parametrize(('interval', 'start'), [(0, 0), (1, -1)])
     def test_invalid_arguments(self, mocker, interval, start) -> None:
@@ -199,23 +150,17 @@ class TestCallEvery:
             CallEvery(mocker.Mock(), interval=interval, start=start)
 
 
-def test_evaluation_hook(mocker, mock_trainer) -> None:
-    """Test the evaluation runs every given number of epochs."""
+def test_evaluation_runs_periodically(mocker, mock_trainer) -> None:
+    """Test a scheduled evaluation runs every given number of epochs."""
     evaluation = mocker.Mock()
-    hook = evaluation_hook(evaluation, every=2)
+    hook = CallEvery(EvaluationHook(evaluation), interval=2)
+    hook.bind_trainer(mock_trainer)
 
     for epoch in (1, 2, 3):
         mock_trainer.model.epoch = epoch
-        hook(mock_trainer)
+        hook()
 
     evaluation.assert_called_once()
-
-
-@pytest.mark.parametrize('every', [0, -1])
-def test_evaluation_hook_not_positive(mocker, every) -> None:
-    """Test a non-positive every raises ValueError."""
-    with pytest.raises(ValueError):
-        evaluation_hook(mocker.Mock(), every=every)
 
 
 class TestEarlyStoppingCallback:
@@ -234,14 +179,18 @@ class TestEarlyStoppingCallback:
         """Test training continues if not enough epochs passed."""
         mock_trainer.model.epoch = 1
 
-        callback(mock_trainer)
+        callback.bind_trainer(mock_trainer)
+
+        callback()
 
         mock_trainer.terminate_training.assert_not_called()
 
     def test_stops_on_plateau(self, mock_trainer, callback) -> None:
         """Test training stops after a plateau."""
+        callback.bind_trainer(mock_trainer)
+
         for _ in range(callback.monitor.metric_tracker.patience + 1):
-            callback(mock_trainer)
+            callback()
 
         mock_trainer.terminate_training.assert_called_once()
 
@@ -267,7 +216,9 @@ class TestPruneCallback:
         """Test no pruning before the defined epoch."""
         mock_trainer.model.epoch = 2
 
-        callback(mock_trainer)
+        callback.bind_trainer(mock_trainer)
+
+        callback()
 
         mock_trainer.terminate_training.assert_not_called()
 
@@ -275,7 +226,9 @@ class TestPruneCallback:
         """Test pruning occurs when the threshold condition is met."""
         mock_trainer.model.epoch = 5
 
-        callback(mock_trainer)
+        callback.bind_trainer(mock_trainer)
+
+        callback()
 
         mock_trainer.terminate_training.assert_called_once()
 
@@ -300,8 +253,10 @@ class TestReduceLROnPlateau:
         mock_trainer.learning_schema = mocker.Mock
         mock_trainer.learning_schema.scheduler = scheduler
 
+        callback.bind_trainer(mock_trainer)
+
         for _ in range(callback.monitor.metric_tracker.patience + 1):
-            callback(mock_trainer)
+            callback()
 
         mock_trainer.update_learning_rate.assert_called_once()
 
@@ -311,10 +266,10 @@ class TestReduceLROnPlateau:
         mock_trainer.learning_schema = mocker.Mock
         mock_trainer.learning_schema.scheduler = scheduler
 
-        for _ in range(callback.monitor.metric_tracker.patience + 1):
-            callback(mock_trainer)
+        callback.bind_trainer(mock_trainer)
 
-        callback(mock_trainer)
+        for _ in range(callback.monitor.metric_tracker.patience + 2):
+            callback()
 
         mock_trainer.update_learning_rate.assert_called_once()
 
@@ -337,8 +292,10 @@ class TestRestartScheduleOnPlateau:
         mock_trainer.learning_schema = mocker.Mock
         mock_trainer.learning_schema.scheduler = scheduler
 
+        callback.bind_trainer(mock_trainer)
+
         for _ in range(callback.monitor.metric_tracker.patience + 2):
-            callback(mock_trainer)
+            callback()
 
         args = mock_trainer.update_learning_rate.call_args
 
