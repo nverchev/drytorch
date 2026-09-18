@@ -3,18 +3,18 @@
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.lib.runners import ModelRunner, Source
+from drytorch.lib.runners import Runner, Source
 
 
 @pytest.fixture(autouse=True, scope='module')
 def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
-    module_mocker.patch('drytorch.core.registering.register_actor')
+    module_mocker.patch('drytorch.core.registering.register_runner')
     return
 
 
-class TestModelRunner:
-    """Tests for the ModelRunner class."""
+class TestRunner:
+    """Tests for the Runner class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
@@ -35,15 +35,15 @@ class TestModelRunner:
             'drytorch.lib.objectives.compute_metrics',
             return_value={'loss': 0.1},
         )
-        self.mock_register_actor = mocker.patch(
-            'drytorch.core.registering.register_actor'
+        self.mock_register_runner = mocker.patch(
+            'drytorch.core.registering.register_runner'
         )
         return
 
     @pytest.fixture
-    def runner(self, mock_model, mock_loader) -> ModelRunner:
+    def runner(self, mock_model, mock_loader) -> Runner:
         """Set up a test instance."""
-        return ModelRunner(
+        return Runner(
             mock_model,
             loader=mock_loader,
         )
@@ -56,8 +56,8 @@ class TestModelRunner:
         assert runner.outputs_list is runner._outputs_list
 
     def test_registration_on_creation(self, mock_model, runner) -> None:
-        """Test the runner registers as an actor of its model when created."""
-        self.mock_register_actor.assert_called_once_with(runner, mock_model)
+        """Test the runner registers as a runner of its model when created."""
+        self.mock_register_runner.assert_called_once_with(runner, mock_model)
 
     def test_no_registration_on_call(self, mocker, runner) -> None:
         """Test calling the runner does not register it again."""
@@ -65,11 +65,11 @@ class TestModelRunner:
 
         runner()
 
-        self.mock_register_actor.assert_called_once()
+        self.mock_register_runner.assert_called_once()
 
     def test_name_property(self, mock_model, mock_loader) -> None:
         """Test name property starts with the given name."""
-        runner = ModelRunner(mock_model, 'Runner', loader=mock_loader)
+        runner = Runner(mock_model, 'Runner', loader=mock_loader)
 
         assert runner.name.startswith('Runner')
 
@@ -226,11 +226,9 @@ class TestSource:
         self.mock_metric_event = mocker.patch(
             'drytorch.core.log_events.MetricEvent'
         )
-        mocker.patch(
-            'drytorch.lib.runners.ModelRunner.__init__', new=_mock_init
-        )
-        mocker.patch('drytorch.lib.runners.ModelRunner._run_epoch')
-        mocker.patch('drytorch.lib.runners.ModelRunner._run_backward')
+        mocker.patch('drytorch.lib.runners.Runner.__init__', new=_mock_init)
+        mocker.patch('drytorch.lib.runners.Runner._run_epoch')
+        mocker.patch('drytorch.lib.runners.Runner._run_backward')
         self.mock_repr_metrics = mocker.patch(
             'drytorch.lib.objectives.compute_metrics',
             return_value={'loss': 0.1},

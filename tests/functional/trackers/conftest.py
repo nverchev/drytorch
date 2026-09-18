@@ -50,17 +50,17 @@ def model_registration_event(
 
 
 @pytest.fixture
-def actor_registration_event(
+def runner_registration_event(
     example_source_name,
     example_source_ts,
     example_model_name,
     example_model_ts,
     example_metadata,
-) -> log_events.ActorRegistrationEvent:
+) -> log_events.RunnerRegistrationEvent:
     """Provides a SourceRegistration event instance."""
-    return log_events.ActorRegistrationEvent(
-        actor_name=example_source_name,
-        actor_ts=example_source_ts,
+    return log_events.RunnerRegistrationEvent(
+        runner_name=example_source_name,
+        runner_ts=example_source_ts,
         model_name=example_model_name,
         model_ts=example_model_ts,
         metadata=example_metadata,
@@ -259,7 +259,7 @@ def string_stream() -> Generator[io.StringIO, None, None]:
 def event_workflow(
     start_experiment_event,
     model_registration_event,
-    actor_registration_event,
+    runner_registration_event,
     load_model_event,
     start_training_event,
     start_epoch_event,
@@ -318,7 +318,7 @@ def event_workflow(
     event_tuple = (
         start_experiment_event,
         model_registration_event,
-        actor_registration_event,
+        runner_registration_event,
         load_model_event,
         start_training_event,
         start_epoch_event,

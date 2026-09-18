@@ -190,7 +190,7 @@ Python requires it (dataclass fields with defaults after those without).
   `notify` and its handlers are placed first after properties.
 - Events follow the chronological workflow order:
   `StartExperimentEvent`, `ModelRegistrationEvent`,
-  `ActorRegistrationEvent`, `LoadModelEvent`, `StartTrainingEvent`,
+  `RunnerRegistrationEvent`, `LoadModelEvent`, `StartTrainingEvent`,
   `StartEpochEvent`, `IncrementEpochEvent`, `IterateBatchEvent`,
   `MetricEvent`, `LearningRateEvent`, `SaveModelEvent`,
   `TerminatedTrainingEvent`, `EndEpochEvent`, `EndTrainingEvent`,

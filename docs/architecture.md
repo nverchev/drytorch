@@ -92,10 +92,14 @@ direction TB
     }
 
 
-    class SourceProtocol {
-        «ActorRegistrationEvent»
+    class RunnerProtocol {
+        «RunnerRegistrationEvent»
         +model: ModelProtocol
+    }
+
+    class SourceProtocol {
         +name: str
+        +objective: ObjectiveProtocol
         +computed_metrics: Mapping[str, float]
         +__call__(store_outputs: bool) «IterateBatchEvent» «MetricEvent»
     }
@@ -112,17 +116,17 @@ direction TB
         +update_learning_rate(base_lr, scheduler) «LearningRateEvent»
     }
 
-    SourceProtocol ..> LoaderProtocol : supports
-    TrainerProtocol ..> LoaderProtocol : supports
+    RunnerProtocol ..> LoaderProtocol : supports
     LearningProtocol --> GradientOpProtocol : contains
     LearningProtocol --> SchedulerProtocol : contains
     CheckpointProtocol --> ModelProtocol : binds to
-    SourceProtocol --> ModelProtocol : evaluates
-    SourceProtocol ..> ObjectiveProtocol : according to
+    RunnerProtocol --> ModelProtocol : runs
+    SourceProtocol --> ObjectiveProtocol : computes
     TrainerProtocol --> LearningProtocol :  implements
     TrainerProtocol --> LossProtocol : minimizes
     TrainerProtocol --> ModelProtocol : updates
     TrainerProtocol --> SourceProtocol : validated by
+    RunnerProtocol <|-- SourceProtocol : extends
     SourceProtocol <|-- TrainerProtocol : extends
     ObjectiveProtocol <|-- LossProtocol : extends
 

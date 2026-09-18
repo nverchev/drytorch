@@ -13,10 +13,10 @@ from drytorch.core.experimenting import Experiment
 from drytorch.lib.checkpoints import LocalCheckpoint
 from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
-from drytorch.lib.runners import ModelRunner
+from drytorch.lib.runners import Runner
 
 
-class _Actor:
+class _Registered:
     """Object acting on a model."""
 
     def __init__(self, model: Model | None = None) -> None:
@@ -40,38 +40,38 @@ class TestModelRegistration:
         with pytest.raises(exceptions.NoActiveExperimentError):
             Model(module)
 
-    def test_actor_after_resume(self, experiment) -> None:
+    def test_register_runner_after_resume(self, experiment) -> None:
         """Test a model registered in a run is accepted after resuming it."""
-        actor = _Actor()
+        runner = _Registered()
         with experiment.create_run():
             model = Model(torch.nn.Linear(1, 1))
 
         with experiment.create_run(resume=True):
-            registering.register_actor(actor, model)
+            registering.register_runner(runner, model)
 
-        assert actor in registering.ALL_ACTORS[model.module]
+        assert runner in registering.ALL_RUNNERS[model.module]
 
-    def test_actor_in_new_run(self, experiment) -> None:
+    def test_register_runner_in_new_run(self, experiment) -> None:
         """Test a model from a previous run is rejected in a new run."""
         with experiment.create_run():
             model = Model(torch.nn.Linear(1, 1))
 
         with experiment.create_run():
             with pytest.raises(exceptions.ModuleFromAnotherRunError):
-                registering.register_actor(_Actor(), model)
+                registering.register_runner(_Registered(), model)
 
-    def test_actor_records_checkpoint_par_dir(
+    def test_runner_records_checkpoint_par_dir(
         self, experiment, tmp_path: pathlib.Path
     ) -> None:
-        """Test actor with model records custom checkpoint par_dir."""
+        """Test runner with model records custom checkpoint par_dir."""
         custom_par_dir = tmp_path / 'weights'
         checkpoint = LocalCheckpoint(custom_par_dir)
 
         with experiment.create_run() as run:
             model = Model(torch.nn.Linear(1, 1), checkpoint=checkpoint)
-            actor = _Actor(model)
-            registering.register_actor(actor, model)
-            metadata = run.metadata_manager.named_metadata['_Actor']
+            runner = _Registered(model)
+            registering.register_runner(runner, model)
+            metadata = run.metadata_manager.named_metadata['_Registered']
 
         assert isinstance(metadata, dict)
         assert metadata['model']['checkpoint'] == {
@@ -79,25 +79,25 @@ class TestModelRegistration:
             'par_dir': repr(custom_par_dir),
         }
 
-    def test_actor_records_default_checkpoint(self, experiment) -> None:
-        """Test actor with default checkpoint records class name."""
+    def test_runner_records_default_checkpoint(self, experiment) -> None:
+        """Test runner with default checkpoint records class name."""
         with experiment.create_run() as run:
             model = Model(torch.nn.Linear(1, 1))
-            actor = _Actor(model)
-            registering.register_actor(actor, model)
-            metadata = run.metadata_manager.named_metadata['_Actor']
+            runner = _Registered(model)
+            registering.register_runner(runner, model)
+            metadata = run.metadata_manager.named_metadata['_Registered']
 
         assert isinstance(metadata, dict)
         assert metadata['model']['checkpoint'] == 'LocalCheckpoint'
 
     def test_runner_registers_when_created(self, experiment) -> None:
-        """Test a runner registers as an actor of its model when created."""
+        """Test a runner registers as a runner of its model when created."""
         dataset = torch.utils.data.TensorDataset(torch.ones(4, 1))
         with experiment.create_run():
             model = Model(torch.nn.Linear(1, 1))
-            runner = ModelRunner(model, loader=DataLoader(dataset, 2))
+            runner = Runner(model, loader=DataLoader(dataset, 2))
 
-        assert runner in registering.ALL_ACTORS[model.module]
+        assert runner in registering.ALL_RUNNERS[model.module]
 
     def test_runner_in_new_run(self, experiment) -> None:
         """Test a runner is rejected for a model from a previous run."""
@@ -107,4 +107,4 @@ class TestModelRegistration:
 
         with experiment.create_run():
             with pytest.raises(exceptions.ModuleFromAnotherRunError):
-                ModelRunner(model, loader=DataLoader(dataset, 2))
+                Runner(model, loader=DataLoader(dataset, 2))

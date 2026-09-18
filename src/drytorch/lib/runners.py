@@ -29,7 +29,7 @@ from drytorch.utils import apply_ops, repr_utils
 
 
 __all__ = [
-    'ModelRunner',
+    'Runner',
     'Source',
 ]
 
@@ -42,14 +42,14 @@ _Objective_co = TypeVar(
 )
 
 
-class ModelRunner(
+class Runner(
     repr_utils.CreatedAtMixin,
     Generic[Input, Target, Output],
     metaclass=registering.RegisteringMeta,
 ):
     """Run a model on a dataset.
 
-    The runner registers as an actor of its model once created, so it must be
+    The runner registers as a runner of its model once created, so it must be
     created during the run that registered the model.
 
     Attributes:
@@ -241,7 +241,7 @@ class ModelRunner(
 
 
 class Source(
-    ModelRunner[Input, Target, Output],
+    Runner[Input, Target, Output],
     Generic[Input, Target, Output, _Objective_co],
 ):
     """Run a model on a dataset and publish the value of an objective.

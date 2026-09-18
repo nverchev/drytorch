@@ -197,7 +197,7 @@ from torch.utils.data import Dataset
 from typing_extensions import override
 
 from drytorch.lib.loading import DataLoader
-from drytorch.lib.runners import ModelRunner
+from drytorch.lib.runners import Runner
 
 
 class MyDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -222,7 +222,7 @@ one_dataset: Dataset[tuple[torch.Tensor, torch.Tensor]] = MyDataset()
 
 with second_experiment.create_run(resume=True):  # correctly resuming run
     loader = DataLoader(one_dataset, batch_size=1)
-    runner = ModelRunner(second_model, loader=loader)
+    runner = Runner(second_model, loader=loader)
     runner()
 ```
 
@@ -230,7 +230,7 @@ with second_experiment.create_run(resume=True):  # correctly resuming run
 with second_experiment.create_run():  # new run
     loader = DataLoader(one_dataset, batch_size=1)
     try:
-        ModelRunner(second_model, loader=loader)
+        Runner(second_model, loader=loader)
     except exceptions.ModuleFromAnotherRunError:
         pass
     else:
@@ -298,6 +298,6 @@ Private attributes, that is, attributes that start with an underscore, are ignor
 ```{code-cell} ipython3
 with third_experiment.create_run(resume=True):  # correctly resuming run
     loader = DataLoader(one_dataset, batch_size=1)
-    runner = ModelRunner(third_model, loader=loader)
+    runner = Runner(third_model, loader=loader)
     runner()
 ```

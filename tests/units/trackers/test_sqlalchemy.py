@@ -133,22 +133,22 @@ class TestSQLConnection:
     def test_notify_call_model(
         self,
         tracker_started,
-        actor_registration_mock_event,
+        runner_registration_mock_event,
     ) -> None:
         """Test call model notification creates the source."""
-        tracker_started.notify(actor_registration_mock_event)
+        tracker_started.notify(runner_registration_mock_event)
         self.mock_context.add.assert_called_with(self.source)
         sources = tracker_started._sources
-        assert actor_registration_mock_event.actor_name in sources
+        assert runner_registration_mock_event.runner_name in sources
 
     def test_notify_metrics(
         self,
         tracker_started,
-        actor_registration_mock_event,
+        runner_registration_mock_event,
         epoch_metrics_mock_event,
     ) -> None:
         """Test metrics notification creates log entries."""
-        tracker_started.notify(actor_registration_mock_event)
+        tracker_started.notify(runner_registration_mock_event)
         tracker_started.notify(epoch_metrics_mock_event)
         self.mock_context.merge.assert_called_with(self.source)
         self.mock_context.add.assert_called_with(self.log)
@@ -156,11 +156,11 @@ class TestSQLConnection:
     def test_unknown_source(
         self,
         tracker_started,
-        actor_registration_mock_event,
+        runner_registration_mock_event,
         epoch_metrics_mock_event,
     ) -> None:
         """Test metrics notification from an unknown source raises an error."""
-        tracker_started.notify(actor_registration_mock_event)
+        tracker_started.notify(runner_registration_mock_event)
         epoch_metrics_mock_event.source_name = 'unknown_source'
         with pytest.raises(exceptions.TrackerError):
             tracker_started.notify(epoch_metrics_mock_event)
@@ -259,29 +259,29 @@ class TestSQLConnection:
         tracker.notify(start_experiment_mock_event)
         assert self.Tags.call_count == len(start_experiment_mock_event.tags)
 
-    def test_actor_registration_source_creation(
+    def test_runner_registration_source_creation(
         self,
         tracker_started,
-        actor_registration_mock_event,
+        runner_registration_mock_event,
     ) -> None:
-        """Test ActorRegistrationEvent creates Source correctly."""
-        tracker_started.notify(actor_registration_mock_event)
+        """Test RunnerRegistrationEvent creates Source correctly."""
+        tracker_started.notify(runner_registration_mock_event)
         self.Source.assert_called_once_with(
-            model_name=actor_registration_mock_event.model_name,
-            model_ts=actor_registration_mock_event.model_ts,
-            source_name=actor_registration_mock_event.actor_name,
-            source_ts=actor_registration_mock_event.actor_ts,
+            model_name=runner_registration_mock_event.model_name,
+            model_ts=runner_registration_mock_event.model_ts,
+            source_name=runner_registration_mock_event.runner_name,
+            source_ts=runner_registration_mock_event.runner_ts,
             run=self.mock_context.merge.return_value,
         )
 
     def test_metric_event_log_creation(
         self,
         tracker_started,
-        actor_registration_mock_event,
+        runner_registration_mock_event,
         epoch_metrics_mock_event,
     ) -> None:
         """Test that MetricEvent creates Log entries for each metric."""
-        tracker_started.notify(actor_registration_mock_event)
+        tracker_started.notify(runner_registration_mock_event)
         epoch_metrics_mock_event.metrics = {'metric1': 1.0, 'metric2': 2.0}
         tracker_started.notify(epoch_metrics_mock_event)
         assert self.Log.call_count == len(epoch_metrics_mock_event.metrics)

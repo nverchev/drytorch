@@ -15,7 +15,7 @@ from tests.simple_classes import MLP
 @pytest.fixture(autouse=True, scope='module')
 def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
-    module_mocker.patch('drytorch.core.registering.register_actor')
+    module_mocker.patch('drytorch.core.registering.register_runner')
     return
 
 

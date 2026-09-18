@@ -478,7 +478,7 @@ class ModuleFromAnotherRunError(DryTorchError):
 
 
 class ModuleNotRegisteredError(DryTorchError):
-    """Raised an actor tries to access a module that hasn't been registered."""
+    """Raised a runner tries to access a module that hasn't been registered."""
 
     _template = (
         'Module from model {} is not registered in the current run {} - {}.'
@@ -819,7 +819,7 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
         'Some samples will be evaluated twice, and metrics may not be reliable.'
     )
 
-    actor: Final[str]
+    runner: Final[str]
     dataset_size: Final[int]
     n_processes: Final[int]
 
@@ -827,11 +827,11 @@ class DistributedDatasetNotDivisibleWarning(DryTorchWarning):
         """Initialize.
 
         Args:
-            name: the name of the actor experiencing the issue.
+            name: the name of the runner experiencing the issue.
             len_dataset: the size of the dataset.
             n_processes: the number of processes used in distributed processing.
         """
-        self.actor = name
+        self.runner = name
         self.dataset_size = len_dataset
         self.n_processes = n_processes
         super().__init__(name, len_dataset, n_processes)

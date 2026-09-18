@@ -70,14 +70,14 @@ class TestMetadataDumper:
         _, kwargs = self.mock_dump.call_args
         assert kwargs.get('Dumper') is DryTorchDumper
 
-    def test_notify_actor_registration(
-        self, tracker_started, actor_registration_mock_event
+    def test_notify_runner_registration(
+        self, tracker_started, runner_registration_mock_event
     ) -> None:
         """Test notification of a source registration event."""
         self.mock_dump.assert_called_once()
         self.mock_dump.reset_mock()
 
-        tracker_started.notify(actor_registration_mock_event)
+        tracker_started.notify(runner_registration_mock_event)
 
         # metadata dumped in the metadata folder and in the archive folder
         self.mock_dump.assert_called_once()

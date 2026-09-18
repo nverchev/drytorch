@@ -1,6 +1,7 @@
 # [0.1.0] - 18-09-2026
 
 ## [BREAKING CHANGES]
+- renamed the actor of a model to runner: `ModelRunner` is `Runner`, `ActorProtocol` is `RunnerProtocol`, `register_actor` and `unregister_actor` are `register_runner` and `unregister_runner`, and `ActorRegistrationEvent` is `RunnerRegistrationEvent` with `runner_name` and `runner_ts`
 - renamed `MonitorProtocol` to `SourceProtocol`, after the `source_name` of the events, and merged `ObjectiveMonitorProtocol` into it: a source states the objective computing its metrics and inherits `ActorProtocol`
 - merged `ModelRunnerWithObjective` and `ModelRunnerWithLogs` into `Source`, which computes an objective and emits `MetricEvent`; `ModelRunner` no longer reports metrics
 - the callbacks and `MetricMonitor` take `source` instead of `monitor`

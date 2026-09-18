@@ -177,7 +177,7 @@ class TestMetadataDumperPauseContinue:
         start_experiment_event_b: log_events.StartExperimentEvent,
         stop_experiment_event_b: log_events.StopExperimentEvent,
         model_registration_event: log_events.ModelRegistrationEvent,
-        actor_registration_event: log_events.ActorRegistrationEvent,
+        runner_registration_event: log_events.RunnerRegistrationEvent,
         run_a_dir: Callable[[str], pathlib.Path],
         run_b_dir: Callable[[str], pathlib.Path],
     ) -> None:
@@ -191,7 +191,7 @@ class TestMetadataDumperPauseContinue:
         tracker.notify(stop_experiment_event_b)
 
         tracker.notify(continue_experiment_event)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         tracker.notify(stop_experiment_event)
         tracker.close()
 
@@ -210,9 +210,9 @@ class TestMetadataDumperPauseContinue:
         with config_b_file.open() as f:
             config_b_content = yaml.safe_load(f)
 
-        actor_name = actor_registration_event.actor_name
-        actor_files_a = list(dir_a.rglob(f'*{actor_name}*.yaml'))
-        actor_files_b = list(dir_b.rglob(f'*{actor_name}*.yaml'))
+        runner_name = runner_registration_event.runner_name
+        runner_files_a = list(dir_a.rglob(f'*{runner_name}*.yaml'))
+        runner_files_b = list(dir_b.rglob(f'*{runner_name}*.yaml'))
 
         assert dir_a.exists()
         assert dir_b.exists()
@@ -220,5 +220,5 @@ class TestMetadataDumperPauseContinue:
         assert len(files_b) == 2
         assert config_a_content == start_experiment_event.config
         assert config_b_content == start_experiment_event_b.config
-        assert len(actor_files_a) == 1
-        assert len(actor_files_b) == 0
+        assert len(runner_files_a) == 1
+        assert len(runner_files_b) == 0

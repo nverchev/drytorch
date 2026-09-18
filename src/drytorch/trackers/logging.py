@@ -90,11 +90,11 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.ActorRegistrationEvent) -> None:
-        msg = 'Source %(source_name)s %(model_name)s has been registered'
+    def _(self, event: log_events.RunnerRegistrationEvent) -> None:
+        msg = 'Runner %(runner_name)s %(model_name)s has been registered'
         args = {
             'model_name': event.model_name,
-            'source_name': event.actor_name,
+            'runner_name': event.runner_name,
         }
         logger.log(INFO_LEVELS.internal, msg, args)
         return super().notify(event)

@@ -1,11 +1,11 @@
-"""Registration of models and their actors in the current run.
+"""Registration of models and their runners in the current run.
 
-An actor, such as a runner, registers when created, so it must be created in
+An runner, such as a runner, registers when created, so it must be created in
 the run that registered its model.
 
 Attributes:
     ALL_MODULES: maps each registered module to the run that owns it.
-    ALL_ACTORS: maps each registered module to the actors acting on it.
+    ALL_RUNNERS: maps each registered module to the runners using it.
 """
 
 import abc
@@ -21,25 +21,25 @@ from drytorch.core import protocols as p
 
 
 __all__ = [
-    'ALL_ACTORS',
     'ALL_MODULES',
+    'ALL_RUNNERS',
     'RegisteringMeta',
     'check_current_run',
-    'register_actor',
     'register_model',
-    'unregister_actor',
+    'register_runner',
     'unregister_model',
+    'unregister_runner',
 ]
 
 
-_T = TypeVar('_T', bound=p.ActorProtocol)
+_T = TypeVar('_T', bound=p.RunnerProtocol)
 
 
 class RegisteringMeta(abc.ABCMeta):
-    """Metaclass registering an actor after initialization."""
+    """Metaclass registering a runner after initialization."""
 
     def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
-        """Actor instantiation.
+        """Runner instantiation.
 
         Args:
             *args: the positional arguments of the class constructor.
@@ -49,10 +49,10 @@ class RegisteringMeta(abc.ABCMeta):
             The instance.
 
         Side Effects:
-            Registers the instance as an actor of its model.
+            Registers the instance as a runner of its model.
         """
         instance: _T = type.__call__(cls, *args, **kwargs)
-        register_actor(instance, instance.model)
+        register_runner(instance, instance.model)
         return instance
 
 
@@ -64,7 +64,7 @@ class _Owner:
 
 
 ALL_MODULES: Final = weakref.WeakKeyDictionary[torch.nn.Module, _Owner]()
-ALL_ACTORS: Final = weakref.WeakKeyDictionary[
+ALL_RUNNERS: Final = weakref.WeakKeyDictionary[
     torch.nn.Module, weakref.WeakSet[Any]
 ]()
 
@@ -116,12 +116,12 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
     return
 
 
-def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
-    """Register an actor in the current run.
+def register_runner(runner: Any, model: p.ModelProtocol[Any, Any]) -> None:
+    """Register a runner in the current run.
 
     Args:
-        actor: the object to document.
-        model: the model that the object acts on.
+        runner: the object to document.
+        model: the model that the object runs.
 
     Raises:
         ModuleNotRegisteredError: if the module is not registered in the
@@ -131,23 +131,23 @@ def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     module = model.module
 
-    actors = ALL_ACTORS.setdefault(module, weakref.WeakSet())
-    if actor not in actors:
-        run.metadata_manager.register_actor(actor, model)
-        actors.add(actor)
+    runners = ALL_RUNNERS.setdefault(module, weakref.WeakSet())
+    if runner not in runners:
+        run.metadata_manager.register_runner(runner, model)
+        runners.add(runner)
 
     return
 
 
 def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
-    """Unregister a module and all its actors from the current experiment.
+    """Unregister a module and all its runners from the current experiment.
 
     Args:
         model: the model to register.
     """
     module = model.module
     owner = ALL_MODULES.pop(module, None)
-    ALL_ACTORS.pop(module, None)
+    ALL_RUNNERS.pop(module, None)
     if owner is not None:
         run = owner.run()
         if run is not None:
@@ -156,19 +156,19 @@ def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
     return
 
 
-def unregister_actor(actor: Any) -> None:
-    """Unregister an actor from the current experiment.
+def unregister_runner(runner: Any) -> None:
+    """Unregister a runner from the current experiment.
 
     Args:
-        actor: the object to document.
+        runner: the object to document.
     """
     try:
         run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-        run.metadata_manager.unregister_actor(actor)
+        run.metadata_manager.unregister_runner(runner)
     except exceptions.NoActiveExperimentError:
         pass
 
-    for actor_set in ALL_ACTORS.values():
-        actor_set.discard(actor)
+    for runner_set in ALL_RUNNERS.values():
+        runner_set.discard(runner)
 
     return

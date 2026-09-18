@@ -61,7 +61,7 @@ class TestMetadataDumperFullCycle:
         self,
         tracker,
         start_experiment_event,
-        actor_registration_event,
+        runner_registration_event,
         example_model_name,
         example_model_ts,
         example_source_name,
@@ -77,7 +77,7 @@ class TestMetadataDumperFullCycle:
         address = metadata_path / (
             f'{example_source_name}_{example_source_ts_str}'
         )
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 

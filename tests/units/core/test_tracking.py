@@ -27,8 +27,8 @@ def remove_trackers() -> Generator[None, None, None]:
     return
 
 
-class _SimpleActor:
-    """Simple actor for testing."""
+class _SimpleRunner:
+    """Simple runner for testing."""
 
     name: str = 'mock obj'
 
@@ -84,28 +84,28 @@ class TestMetadataManager:
             'drytorch.core.log_events.ModelRegistrationEvent'
         )
         self.mock_caller_registration_event = mocker.patch(
-            'drytorch.core.log_events.ActorRegistrationEvent'
+            'drytorch.core.log_events.RunnerRegistrationEvent'
         )
         return
 
     @pytest.fixture()
-    def simple_actor(self) -> _SimpleActor:
-        """Set up an actor instance for testing."""
-        return _SimpleActor()
+    def simple_runner(self) -> _SimpleRunner:
+        """Set up a runner instance for testing."""
+        return _SimpleRunner()
 
     @pytest.fixture()
     def manager(self) -> MetadataManager:
         """Set up the MetadataManager for testing."""
         return MetadataManager()
 
-    def test_register_actor(self, mock_model, simple_actor, manager) -> None:
+    def test_register_runner(self, mock_model, simple_runner, manager) -> None:
         """Test recording metadata creates the event."""
-        manager.register_actor(simple_actor, mock_model)
+        manager.register_runner(simple_runner, mock_model)
 
-        assert simple_actor.name in manager.named_metadata
+        assert simple_runner.name in manager.named_metadata
         self.mock_caller_registration_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
-            manager.register_actor(simple_actor, mock_model)
+            manager.register_runner(simple_runner, mock_model)
 
     def test_register_model(self, mock_model, manager) -> None:
         """Test registering a model creates the event."""
@@ -116,19 +116,21 @@ class TestMetadataManager:
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
             manager.register_model(mock_model)
 
-    def test_unregister_actor(self, simple_actor, mock_model, manager) -> None:
-        """Test unregistering an actor removes its name from the used names."""
-        manager.register_actor(simple_actor, mock_model)
+    def test_unregister_runner(
+        self, simple_runner, mock_model, manager
+    ) -> None:
+        """Test unregistering a runner removes its name from the used names."""
+        manager.register_runner(simple_runner, mock_model)
 
-        manager.unregister_actor(simple_actor)
+        manager.unregister_runner(simple_runner)
 
-        assert simple_actor.name not in manager.named_metadata
+        assert simple_runner.name not in manager.named_metadata
 
     def test_unregister_model(self, mock_model, manager) -> None:
         """Test unregistering a model removes its name from the used names."""
         manager.register_model(mock_model)
 
-        manager.unregister_actor(mock_model)
+        manager.unregister_runner(mock_model)
 
         assert mock_model.name not in manager.named_metadata
 

@@ -178,7 +178,7 @@ class _Monitor:
         """Run the model on the data once."""
 
 
-_actor: type[p.ActorProtocol] = _Monitor
+_runner: type[p.RunnerProtocol] = _Monitor
 _checkpoint: type[p.CheckpointProtocol] = _Checkpoint
 _created_at: type[p.CreatedAtProtocol] = _Monitor
 _gradient_op: type[p.GradientOpProtocol] = _GradientOp
@@ -226,7 +226,7 @@ def objective() -> _Objective:
         ('loss', p.ObjectiveProtocol),
         ('model', p.ModelProtocol),
         ('model', p.NamedProtocol),
-        ('monitor', p.ActorProtocol),
+        ('monitor', p.RunnerProtocol),
         ('monitor', p.CreatedAtProtocol),
         ('monitor', p.HigherIsBetterProtocol),
         ('monitor', p.NamedProtocol),

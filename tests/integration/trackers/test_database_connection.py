@@ -35,7 +35,7 @@ def event_workflow(
     model_registration_event,
     load_model_event,
     start_training_event,
-    actor_registration_event,
+    runner_registration_event,
     start_epoch_event,
     iterate_batch_event,
     metrics_event,
@@ -56,7 +56,7 @@ def event_workflow(
         model_registration_event,
         load_model_event,
         start_training_event,
-        actor_registration_event,
+        runner_registration_event,
         start_epoch_event,
         iterate_batch_event,
         metrics_event,
@@ -135,7 +135,7 @@ class TestSQLConnection:
         tracker,
         mocker,
         start_experiment_event,
-        actor_registration_event,
+        runner_registration_event,
     ) -> None:
         """Test that sessions are properly rolled back on errors."""
 
@@ -143,14 +143,14 @@ class TestSQLConnection:
             raise sqlalchemy_exc.IntegrityError('', '', ValueError())
 
         tracker.notify(start_experiment_event)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         mocker.patch.object(
             sqlalchemy.orm.Session,  # type: ignore
             'add',
             side_effect=_raise_integrity_error,
         )
         with pytest.raises(sqlalchemy_exc.IntegrityError):
-            tracker.notify(actor_registration_event)
+            tracker.notify(runner_registration_event)
 
         # verify database state is consistent (no partial commits)
         with tracker.session_factory() as session:
@@ -189,7 +189,7 @@ class TestSQLConnectionPauseContinue:
         stop_experiment_event: log_events.StopExperimentEvent,
         start_experiment_event_b: log_events.StartExperimentEvent,
         stop_experiment_event_b: log_events.StopExperimentEvent,
-        actor_registration_event: log_events.ActorRegistrationEvent,
+        runner_registration_event: log_events.RunnerRegistrationEvent,
         metrics_event_a1: log_events.MetricEvent,
         metrics_event_b: log_events.MetricEvent,
         metrics_event_a2: log_events.MetricEvent,
@@ -199,12 +199,12 @@ class TestSQLConnectionPauseContinue:
         run_a = start_experiment_event.run_id
 
         tracker.notify(start_experiment_event)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         tracker.notify(metrics_event_a1)
         tracker.notify(pause_experiment_event)
 
         tracker.notify(start_experiment_event_b)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         tracker.notify(metrics_event_b)
         tracker.notify(stop_experiment_event_b)
 

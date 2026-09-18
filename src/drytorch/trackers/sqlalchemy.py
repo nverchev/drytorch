@@ -277,19 +277,22 @@ class SQLConnection(base_classes.MetricLoader):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.ActorRegistrationEvent) -> None:
+    def _(self, event: log_events.RunnerRegistrationEvent) -> None:
         with self.session_factory() as session:
             run = session.merge(self.run)
+
+            # every runner gets a row, even when it never logs metrics
             source = Source(
                 model_name=event.model_name,
                 model_ts=event.model_ts,
-                source_name=event.actor_name,
-                source_ts=event.actor_ts,
+                source_name=event.runner_name,
+                source_ts=event.runner_ts,
                 run=run,
             )
             session.add(source)
             session.commit()
-            self._sources[event.actor_name] = source
+            self._sources[event.runner_name] = source
+
         return super().notify(event)
 
     @notify.register

@@ -9,12 +9,12 @@ from drytorch.lib.evaluations import Test as _Test
 @pytest.fixture(autouse=True, scope='module')
 def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
-    module_mocker.patch('drytorch.core.registering.register_actor')
+    module_mocker.patch('drytorch.core.registering.register_runner')
     return
 
 
 class TestDiagnostic:
-    """Tests for the ModelRunner class."""
+    """Tests for the Runner class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker, example_named_metrics) -> None:

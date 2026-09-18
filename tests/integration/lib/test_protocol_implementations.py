@@ -26,13 +26,13 @@ from drytorch.lib.objectives import (
     Metric,
     MetricCollection,
 )
-from drytorch.lib.runners import ModelRunner, Source
+from drytorch.lib.runners import Runner, Source
 from drytorch.lib.schedulers import ConstantScheduler, ExponentialScheduler
 from drytorch.lib.training import Trainer
 from tests.simple_classes import MLP, Linear, TorchData, TorchTuple
 
 
-_actor: type[p.ActorProtocol] = ModelRunner
+_runner: type[p.RunnerProtocol] = Runner
 _checkpoint: type[p.CheckpointProtocol] = LocalCheckpoint
 _clipper: type[p.GradientOpProtocol] = HistClipper
 _created_at: type[p.CreatedAtProtocol] = Model
@@ -73,7 +73,7 @@ def start_experiment(run) -> Generator[None, None, None]:
 @pytest.mark.parametrize(
     ('fixture_name', 'protocol'),
     [
-        ('identity_trainer', p.ActorProtocol),
+        ('identity_trainer', p.RunnerProtocol),
         ('identity_trainer', p.CreatedAtProtocol),
         ('identity_trainer', p.NamedProtocol),
         ('identity_trainer', p.TrainerProtocol),

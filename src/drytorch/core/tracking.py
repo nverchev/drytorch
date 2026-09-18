@@ -48,26 +48,26 @@ class MetadataManager:
         """Mapping of registered names to their metadata."""
         return self._named_metadata
 
-    def register_actor(
-        self, actor: Any, model: p.ModelProtocol[Any, Any]
+    def register_runner(
+        self, runner: Any, model: p.ModelProtocol[Any, Any]
     ) -> None:
-        """Record metadata of an object that acts on a model.
+        """Record metadata of an object that runs a model.
 
         Args:
-            actor: the object acting on the model.
+            runner: the object running the model.
             model: the model that is called.
         """
-        if isinstance(actor, p.NamedProtocol) and actor.name:
-            actor_name = actor.name
+        if isinstance(runner, p.NamedProtocol) and runner.name:
+            runner_name = runner.name
         else:
-            actor_name = actor.__class__.__name__
+            runner_name = runner.__class__.__name__
 
-        actor_version = self._get_ts(actor)
+        runner_version = self._get_ts(runner)
         model_version = self._get_ts(model)
-        metadata = self.extract_metadata(actor)
-        self._register_metadata(actor_name, metadata)
-        log_events.ActorRegistrationEvent(
-            actor_name, actor_version, model.name, model_version, metadata
+        metadata = self.extract_metadata(runner)
+        self._register_metadata(runner_name, metadata)
+        log_events.RunnerRegistrationEvent(
+            runner_name, runner_version, model.name, model_version, metadata
         )
         return
 
@@ -83,16 +83,16 @@ class MetadataManager:
         log_events.ModelRegistrationEvent(model.name, model_version, metadata)
         return
 
-    def unregister_actor(self, actor: Any) -> None:
-        """Unregister an object that acts on a model.
+    def unregister_runner(self, runner: Any) -> None:
+        """Unregister an object that runs a model.
 
         Args:
-            actor: the object actin on the model.
+            runner: the object running the model.
         """
-        if isinstance(actor, p.NamedProtocol) and actor.name:
-            caller_name = actor.name
+        if isinstance(runner, p.NamedProtocol) and runner.name:
+            caller_name = runner.name
         else:
-            caller_name = actor.__class__.__name__
+            caller_name = runner.__class__.__name__
 
         self._unregister_metadata(caller_name)
         return

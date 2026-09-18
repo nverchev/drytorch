@@ -9,14 +9,14 @@ import pytest
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.core.registering import (
-    ALL_ACTORS,
     ALL_MODULES,
+    ALL_RUNNERS,
     RegisteringMeta,
     _Owner,
-    register_actor,
     register_model,
-    unregister_actor,
+    register_runner,
     unregister_model,
+    unregister_runner,
 )
 
 
@@ -35,7 +35,7 @@ class _SimpleCaller:
 
 
 class _Actor(metaclass=RegisteringMeta):
-    """Actor of a model."""
+    """Runner of a model."""
 
     model: p.ModelProtocol[Any, Any]
 
@@ -46,7 +46,7 @@ class _Actor(metaclass=RegisteringMeta):
 
 
 class _ExtendedActor(_Actor):
-    """Actor setting an attribute after the parent initialization."""
+    """Runner setting an attribute after the parent initialization."""
 
     extra: str
 
@@ -58,11 +58,11 @@ class _ExtendedActor(_Actor):
 
 
 class _InheritedActor(_ExtendedActor):
-    """Actor without its own initialization."""
+    """Runner without its own initialization."""
 
 
 class _FailingActor(_Actor):
-    """Actor whose initialization fails after the parent initialization."""
+    """Runner whose initialization fails after the parent initialization."""
 
     def __init__(self, model: p.ModelProtocol[Any, Any]) -> None:
         """Initialize."""
@@ -71,39 +71,39 @@ class _FailingActor(_Actor):
 
 
 class TestRegisteringMeta:
-    """Tests for the metaclass registering the actors."""
+    """Tests for the metaclass registering the runners."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests."""
         self.registered_attributes: list[set[str]] = []
-        self.mock_register_actor = mocker.patch(
-            'drytorch.core.registering.register_actor',
-            side_effect=lambda actor, _: self.registered_attributes.append(
-                set(vars(actor))
+        self.mock_register_runner = mocker.patch(
+            'drytorch.core.registering.register_runner',
+            side_effect=lambda runner, _: self.registered_attributes.append(
+                set(vars(runner))
             ),
         )
         return
 
     def test_registers_after_subclass_init(self, mock_model) -> None:
-        """Test the actor registers once, after the subclass initialization."""
-        actor = _ExtendedActor(mock_model)
+        """Test the runner registers once, after the subclass initialization."""
+        runner = _ExtendedActor(mock_model)
 
-        self.mock_register_actor.assert_called_once_with(actor, mock_model)
+        self.mock_register_runner.assert_called_once_with(runner, mock_model)
         assert 'extra' in self.registered_attributes[0]
 
     def test_registers_inherited_init(self, mock_model) -> None:
         """Test a subclass without initialization registers once."""
-        actor = _InheritedActor(mock_model)
+        runner = _InheritedActor(mock_model)
 
-        self.mock_register_actor.assert_called_once_with(actor, mock_model)
+        self.mock_register_runner.assert_called_once_with(runner, mock_model)
 
     def test_failed_init_does_not_register(self, mock_model) -> None:
-        """Test an actor is not registered when its initialization fails."""
+        """Test a runner is not registered when its initialization fails."""
         with pytest.raises(ValueError):
             _FailingActor(mock_model)
 
-        self.mock_register_actor.assert_not_called()
+        self.mock_register_runner.assert_not_called()
 
 
 def test_register_model(mock_run, mock_model) -> None:
@@ -127,24 +127,24 @@ def test_register_model_with_existing_module(mock_run, mock_model) -> None:
         register_model(mock_model)
 
 
-def test_register_actor(mock_run, mock_model) -> None:
-    """Test a successful actor registration."""
+def test_register_runner(mock_run, mock_model) -> None:
+    """Test a successful runner registration."""
     caller = _SimpleCaller()
     manager = mock_run.metadata_manager
     ALL_MODULES[mock_model.module] = _Owner(
         weakref.ref(mock_run), mock_run.experiment.name, mock_run.id
     )
 
-    register_actor(caller, mock_model)
+    register_runner(caller, mock_model)
 
-    manager.register_actor.assert_called_once_with(caller, mock_model)
-    assert caller in ALL_ACTORS[mock_model.module]
+    manager.register_runner.assert_called_once_with(caller, mock_model)
+    assert caller in ALL_RUNNERS[mock_model.module]
 
 
-def test_register_actor_with_wrong_experiment(
+def test_register_runner_with_wrong_experiment(
     mocker, mock_run, mock_model
 ) -> None:
-    """Test error if registering an actor on a model from another experiment."""
+    """Test error if registering a runner on a model from another experiment."""
     other_experiment = mocker.Mock()
     other_experiment.experiment.name = 'other'
     other_experiment.id = 'other_id'
@@ -153,7 +153,7 @@ def test_register_actor_with_wrong_experiment(
     )
 
     with pytest.raises(exceptions.ModuleFromAnotherRunError):
-        register_actor(_SimpleCaller(), mock_model)
+        register_runner(_SimpleCaller(), mock_model)
 
 
 def test_unregister_model(mock_run, mock_model) -> None:
@@ -169,12 +169,12 @@ def test_unregister_model(mock_run, mock_model) -> None:
     assert mock_model.module not in ALL_MODULES
 
 
-def test_unregister_actor(mock_run) -> None:
-    """Test successful actor unregistration."""
+def test_unregister_runner(mock_run) -> None:
+    """Test successful runner unregistration."""
     caller = _SimpleCaller()
     manager = mock_run.metadata_manager
 
-    unregister_actor(caller)
+    unregister_runner(caller)
 
-    manager.unregister_actor.assert_called_once_with(caller)
-    assert not any(caller in actors for actors in ALL_ACTORS.values())
+    manager.unregister_runner.assert_called_once_with(caller)
+    assert not any(caller in runners for runners in ALL_RUNNERS.values())

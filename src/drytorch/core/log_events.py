@@ -13,7 +13,6 @@ from drytorch.core import exceptions
 
 
 __all__ = [
-    'ActorRegistrationEvent',
     'ContinueExperimentEvent',
     'EndEpochEvent',
     'EndTestEvent',
@@ -26,6 +25,7 @@ __all__ = [
     'MetricEvent',
     'ModelRegistrationEvent',
     'PauseExperimentEvent',
+    'RunnerRegistrationEvent',
     'SaveModelEvent',
     'StartEpochEvent',
     'StartExperimentEvent',
@@ -96,19 +96,19 @@ class ModelRegistrationEvent(Event):
 
 
 @dataclasses.dataclass(frozen=True)
-class ActorRegistrationEvent(Event):
-    """Event logged when a source has been registered.
+class RunnerRegistrationEvent(Event):
+    """Event logged when a runner has been registered.
 
     Attributes:
-        actor_name: the name of the caller.
-        actor_ts: the source's timestamp.
+        runner_name: the name of the runner.
+        runner_ts: the runner's timestamp.
         model_name: the name of the model that was called.
         model_ts: the model's timestamp.
-        metadata: additional metadata about the caller.
+        metadata: additional metadata about the runner.
     """
 
-    actor_name: str
-    actor_ts: datetime.datetime
+    runner_name: str
+    runner_ts: datetime.datetime
     model_name: str
     model_ts: datetime.datetime
     metadata: Mapping[str, Any] | str

@@ -172,11 +172,11 @@ class TestSQLConnectionFullCycle:
     def test_multiple_sources_in_same_run(
         self,
         resumed_tracker,
-        actor_registration_event,
+        runner_registration_event,
     ) -> None:
         """Test multiple log sources are correctly tracked in the same run."""
         second_call_model = dataclasses.replace(
-            actor_registration_event, actor_name='second_source'
+            runner_registration_event, runner_name='second_source'
         )
         resumed_tracker.notify(second_call_model)
 
@@ -220,14 +220,14 @@ class TestSQLConnectionFullCycle:
     def test_load_metrics_with_resumed_sources(
         self,
         resumed_tracker,
-        actor_registration_event,
+        runner_registration_event,
         example_epoch,
         metrics_event,
         start_training_event,
     ) -> None:
         """Test _load_metrics get data from two sources with the same name."""
         model_name = start_training_event.model_name
-        resumed_tracker.notify(actor_registration_event)
+        resumed_tracker.notify(runner_registration_event)
         new_epoch_metrics = dataclasses.replace(metrics_event, epoch=8)
         resumed_tracker.notify(new_epoch_metrics)
 

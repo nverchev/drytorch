@@ -24,7 +24,7 @@ Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
 
 
-class EvaluationMixin(runners.ModelRunner[Input, Target, Output]):
+class EvaluationMixin(runners.Runner[Input, Target, Output]):
     """Mixin for running inference in eval mode without gradients."""
 
     @torch.inference_mode()

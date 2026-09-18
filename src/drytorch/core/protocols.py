@@ -22,7 +22,6 @@ from torch.utils import data
 
 
 __all__ = [
-    'ActorProtocol',
     'CheckpointProtocol',
     'CreatedAtProtocol',
     'GradientOpProtocol',
@@ -36,6 +35,7 @@ __all__ = [
     'NamedProtocol',
     'ObjectiveProtocol',
     'OutputType',
+    'RunnerProtocol',
     'SchedulerProtocol',
     'SourceProtocol',
     'SyncProtocol',
@@ -313,21 +313,26 @@ class SyncProtocol(Protocol):
 
 
 @runtime_checkable
-class ActorProtocol(Protocol):
-    """Protocol for an object acting on a model."""
+class RunnerProtocol(Protocol):
+    """Protocol for an object that runs a model and is recorded with the run.
+
+    Implementations register with
+    :func:`~drytorch.core.registering.register_runner`, which emits
+    :class:`~drytorch.core.log_events.RunnerRegistrationEvent`.
+    """
 
     @property
     @abc.abstractmethod
     def model(self) -> ModelProtocol[Any, Any]:
-        """The model that the actor acts on."""
+        """The model that the runner runs."""
 
 
-class SourceProtocol(ActorProtocol, Protocol):
+class SourceProtocol(RunnerProtocol, Protocol):
     """Protocol for a class that runs a model and reports its metrics.
 
-    Implementations register as actors of their model with
-    :func:`~drytorch.core.registering.register_actor`, which emits
-    :class:`~drytorch.core.log_events.ActorRegistrationEvent`. Each pass
+    Implementations register as runners of their model with
+    :func:`~drytorch.core.registering.register_runner`, which emits
+    :class:`~drytorch.core.log_events.RunnerRegistrationEvent`. Each pass
     over the data emits :class:`~drytorch.core.log_events.IterateBatchEvent`
     and then :class:`~drytorch.core.log_events.MetricEvent`.
     """
