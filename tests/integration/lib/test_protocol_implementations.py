@@ -26,7 +26,7 @@ from drytorch.lib.objectives import (
     Metric,
     MetricCollection,
 )
-from drytorch.lib.runners import ModelRunner, ModelRunnerWithLogs
+from drytorch.lib.runners import ModelRunner, Source
 from drytorch.lib.schedulers import ConstantScheduler, ExponentialScheduler
 from drytorch.lib.training import Trainer
 from tests.simple_classes import MLP, Linear, TorchData, TorchTuple
@@ -36,7 +36,7 @@ _actor: type[p.ActorProtocol] = ModelRunner
 _checkpoint: type[p.CheckpointProtocol] = LocalCheckpoint
 _clipper: type[p.GradientOpProtocol] = HistClipper
 _created_at: type[p.CreatedAtProtocol] = Model
-_diagnostic: type[p.MonitorProtocol] = Diagnostic
+_diagnostic: type[p.SourceProtocol] = Diagnostic
 _dict_loss: type[p.LossProtocol[Any, Any]] = DictLoss
 _ema_model: type[p.ModelProtocol[Any, Any]] = EMAModel
 _gradient_op: type[p.GradientOpProtocol] = NoOp
@@ -53,14 +53,14 @@ _mlp: type[p.ModuleProtocol[TorchTuple, TorchData]] = MLP
 _model: type[p.ModelProtocol[Any, Any]] = Model
 _module: type[p.ModuleProtocol[TorchTuple, TorchData]] = Linear
 _named: type[p.NamedProtocol] = Model
-_objective_monitor: type[p.ObjectiveMonitorProtocol] = ModelRunnerWithLogs
+_source: type[p.SourceProtocol] = Source
 _scheduler: type[p.SchedulerProtocol] = ConstantScheduler
 _swa_model: type[p.ModelProtocol[Any, Any]] = SWAModel
 _sync: type[p.SyncProtocol] = MetricCollection
-_test: type[p.MonitorProtocol] = _Test
+_test: type[p.SourceProtocol] = _Test
 _trainer: type[p.TrainerProtocol[Any, Any, Any]] = Trainer
 _transformed: type[p.SchedulerProtocol] = ExponentialScheduler
-_validation: type[p.MonitorProtocol] = Validation
+_validation: type[p.SourceProtocol] = Validation
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -76,7 +76,6 @@ def start_experiment(run) -> Generator[None, None, None]:
         ('identity_trainer', p.ActorProtocol),
         ('identity_trainer', p.CreatedAtProtocol),
         ('identity_trainer', p.NamedProtocol),
-        ('identity_trainer', p.ObjectiveMonitorProtocol),
         ('identity_trainer', p.TrainerProtocol),
         ('linear_model', p.CreatedAtProtocol),
         ('linear_model', p.ModelProtocol),

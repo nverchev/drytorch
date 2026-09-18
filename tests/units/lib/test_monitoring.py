@@ -77,31 +77,31 @@ class TestMetricExtractor:
         assert extractor_from_object.metric_spec == mock_metric_higher_is_better
         assert extractor_from_object.metric_name is None  # Not resolved yet
 
-    def test_get_monitor_with_validation(
+    def test_get_source_with_validation(
         self, extractor_from_str, mock_trainer, mock_validation
     ) -> None:
-        """Test getting monitored values with validation available."""
+        """Test the source is the validation when there is one."""
         mock_trainer.validation = mock_validation
 
-        monitor = extractor_from_str._get_monitor(mock_trainer)
+        source = extractor_from_str._get_source(mock_trainer)
 
-        assert monitor == mock_trainer.validation
+        assert source == mock_trainer.validation
 
-    def test_get_monitor_without_validation(
+    def test_get_source_without_validation(
         self, extractor_from_str, mock_trainer
     ) -> None:
-        """Test getting monitored values without validation."""
+        """Test the source is the trainer without a validation."""
         mock_trainer.validation = None
 
-        assert extractor_from_str._get_monitor(mock_trainer) == mock_trainer
+        assert extractor_from_str._get_source(mock_trainer) == mock_trainer
 
-    def test_get_monitor_with_optional_monitor(
+    def test_get_source_with_a_given_source(
         self, mock_trainer, mock_validation
     ) -> None:
-        """Test getting monitored values with an optional monitor specified."""
-        extractor = MetricExtractor(monitor=mock_validation)
+        """Test a given source is used instead of the default one."""
+        extractor = MetricExtractor(source=mock_validation)
 
-        assert extractor._get_monitor(mock_trainer) == mock_validation
+        assert extractor._get_source(mock_trainer) == mock_validation
 
     def test_get_metric_name_from_string(self) -> None:
         """Test extracting metric name from string."""
@@ -172,21 +172,20 @@ class TestMetricExtractor:
         # example_loss_name is the first metric name in example_named_metrics
         assert extractor_from_str._resolved_metric_name == example_loss_name
 
-    def test_extract_metric_value_auto_select_first_metric(
+    def test_extract_metric_value_without_a_metric(
         self,
         extractor_no_metric,
         mock_trainer,
         mock_metric_tracker,
         example_loss_name,
     ) -> None:
-        """Test extracting metric value when no metric specified."""
-        mock_trainer.validation.objective = None
+        """Test the metric defaults to the objective of the source."""
+        mock_trainer.validation.objective.name = example_loss_name
 
         extractor_no_metric.extract_metric_value(
             mock_trainer, mock_metric_tracker
         )
 
-        # example_loss_name is the first metric name in example_named_metrics
         assert extractor_no_metric._resolved_metric_name == example_loss_name
 
     def test_extract_metric_value_metric_not_found(
@@ -250,7 +249,7 @@ class TestMetricMonitor:
         )
 
         self.mock_metric_extractor_cls.assert_called_once_with(
-            metric=metric, monitor=None
+            metric=metric, source=None
         )
         self.mock_metric_tracker_cls.assert_called_once_with(
             metric_name=metric,

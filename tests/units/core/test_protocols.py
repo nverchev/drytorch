@@ -188,10 +188,9 @@ _loader: type[p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]] = _Loader
 _loss: type[p.LossProtocol[torch.Tensor, torch.Tensor]] = _Loss
 _model: type[p.ModelProtocol[Any, Any]] = _Model
 _module: type[p.ModuleProtocol[torch.Tensor, torch.Tensor]] = _Module
-_monitor: type[p.MonitorProtocol] = _Monitor
+_source: type[p.SourceProtocol] = _Monitor
 _named: type[p.NamedProtocol] = _Monitor
 _objective: type[p.ObjectiveProtocol[torch.Tensor, torch.Tensor]] = _Objective
-_objective_monitor: type[p.ObjectiveMonitorProtocol] = _Monitor
 _scheduler: type[p.SchedulerProtocol] = _Scheduler
 _sync: type[p.SyncProtocol] = _Objective
 
@@ -231,7 +230,6 @@ def objective() -> _Objective:
         ('monitor', p.CreatedAtProtocol),
         ('monitor', p.HigherIsBetterProtocol),
         ('monitor', p.NamedProtocol),
-        ('monitor', p.ObjectiveMonitorProtocol),
         ('objective', p.ObjectiveProtocol),
         ('objective', p.SyncProtocol),
     ],

@@ -30,8 +30,7 @@ from drytorch.utils import apply_ops, repr_utils
 
 __all__ = [
     'ModelRunner',
-    'ModelRunnerWithLogs',
-    'ModelRunnerWithObjective',
+    'Source',
 ]
 
 
@@ -65,7 +64,6 @@ class ModelRunner(
 
     loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
     model: Final[p.ModelProtocol[Input, Output]]
-    _cached_metrics: Mapping[str, float]
     _is_distributed: bool
     _max_stored_process: int
     _outputs_list: Final[list[Output]]
@@ -91,7 +89,6 @@ class ModelRunner(
         self.loader = loader
         self.model = model
         self._name = name
-        self._cached_metrics = {}
         self._is_distributed = dist.is_available() and dist.is_initialized()
         self._world_size = dist.get_world_size() if self._is_distributed else 1
         self._max_stored_process = self.max_stored_output // self._world_size
@@ -107,11 +104,6 @@ class ModelRunner(
         """
         self._run_epoch(store_outputs)
         return
-
-    @property
-    def computed_metrics(self) -> Mapping[str, float]:
-        """Retrieve cached metrics."""
-        return self._cached_metrics
 
     @property
     def name(self) -> str:
@@ -248,11 +240,14 @@ class ModelRunner(
         return None
 
 
-class ModelRunnerWithObjective(
+class Source(
     ModelRunner[Input, Target, Output],
     Generic[Input, Target, Output, _Objective_co],
 ):
-    """Run a model on a dataset, calculating the value of an objective function.
+    """Run a model on a dataset and publish the value of an objective.
+
+    Each pass emits :class:`~drytorch.core.log_events.MetricEvent` with the
+    name of the source.
 
     Attributes:
         loader: provides inputs and targets in batches.
@@ -261,6 +256,7 @@ class ModelRunnerWithObjective(
     """
 
     objective: Final[_Objective_co]
+    _cached_metrics: Mapping[str, float]
     _checked_metric_device: bool
 
     def __init__(
@@ -283,6 +279,7 @@ class ModelRunnerWithObjective(
         """
         super().__init__(model, loader=loader, name=name)
         self.objective = copy.deepcopy(objective)
+        self._cached_metrics = {}
         if self._is_distributed:
             if isinstance(self.objective, _SyncOnComputeProtocol):
                 if self.objective.sync_on_compute:
@@ -306,6 +303,11 @@ class ModelRunnerWithObjective(
         self._checked_metric_device = False
         return
 
+    @property
+    def computed_metrics(self) -> Mapping[str, float]:
+        """Retrieve cached metrics."""
+        return self._cached_metrics
+
     def _compute_metrics(self) -> Mapping[str, float]:
         if self._is_distributed and not self._checked_metric_device:
             try:
@@ -322,6 +324,12 @@ class ModelRunnerWithObjective(
     def _run_epoch(self, store_outputs: bool):
         self.objective.reset()  # reset before epoch to keep last metrics
         super()._run_epoch(store_outputs)
+        log_events.MetricEvent(
+            model_name=self.model.name,
+            source_name=self.name,
+            epoch=self.model.epoch,
+            metrics=self._compute_metrics(),
+        )
         return
 
     @override
@@ -342,28 +350,6 @@ class ModelRunnerWithObjective(
                 stacklevel=2,
             )
 
-        return
-
-
-class ModelRunnerWithLogs(
-    ModelRunnerWithObjective[Input, Target, Output, _Objective_co]
-):
-    """Run a model on a dataset and log the value of an objective function.
-
-    Attributes:
-        loader: provides inputs and targets in batches.
-        model: the model containing the weights to evaluate.
-        objective: processes the model outputs and targets.
-    """
-
-    def _run_epoch(self, store_outputs: bool):
-        super()._run_epoch(store_outputs)
-        log_events.MetricEvent(
-            model_name=self.model.name,
-            source_name=self.name,
-            epoch=self.model.epoch,
-            metrics=self._compute_metrics(),
-        )
         return
 
 

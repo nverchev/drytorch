@@ -3,11 +3,7 @@
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.lib.runners import (
-    ModelRunner,
-    ModelRunnerWithLogs,
-    ModelRunnerWithObjective,
-)
+from drytorch.lib.runners import ModelRunner, Source
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -212,8 +208,8 @@ class TestModelRunner:
         assert runner.outputs_list == []
 
 
-class TestModelRunnerWithObjective:
-    """Tests for the ModelRunnerWithObjective class."""
+class TestSource:
+    """Tests for the Source class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker, mock_loss) -> None:
@@ -221,11 +217,15 @@ class TestModelRunnerWithObjective:
 
         def _mock_init(instance, model, *_, **__):
             instance.model = model
+            instance._name = ''
             instance._is_distributed = True
             return
 
         self.mock_target = mocker.Mock()
         self.mock_output = mocker.Mock()
+        self.mock_metric_event = mocker.patch(
+            'drytorch.core.log_events.MetricEvent'
+        )
         mocker.patch(
             'drytorch.lib.runners.ModelRunner.__init__', new=_mock_init
         )
@@ -241,11 +241,9 @@ class TestModelRunnerWithObjective:
         return
 
     @pytest.fixture
-    def runner(
-        self, mock_model, mock_loader, mock_loss
-    ) -> ModelRunnerWithObjective:
+    def runner(self, mock_model, mock_loader, mock_loss) -> Source:
         """Set up a test instance."""
-        return ModelRunnerWithObjective(
+        return Source(
             mock_model,
             loader=mock_loader,
             objective=mock_loss,
@@ -272,40 +270,17 @@ class TestModelRunnerWithObjective:
 
         runner.objective.reset.assert_called_once()
 
-
-class TestModelRunnerWithLogs:
-    """Tests for the ModelRunnerWithLogs class."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, mocker, example_named_metrics) -> None:
-        """Set up the tests."""
-        mocker.patch('drytorch.lib.runners.ModelRunnerWithObjective._run_epoch')
-        mocker.patch.object(
-            ModelRunnerWithObjective,
-            '_compute_metrics',
-            return_value=example_named_metrics,
-        )
-        self.mock_log_events_metrics = mocker.patch(
-            'drytorch.core.log_events.MetricEvent'
-        )
-        return
-
-    @pytest.fixture
-    def runner(self, mock_model, mock_loader, mock_loss) -> ModelRunner:
-        """Set up a test instance."""
-        return ModelRunnerWithLogs(
-            mock_model,
-            loader=mock_loader,
-            objective=mock_loss,
-        )
-
-    def test_run_epoch_without_storing_outputs(
-        self, runner, example_named_metrics
+    def test_run_epoch_emits_metrics(
+        self, mocker, runner, example_named_metrics
     ) -> None:
-        """Test epoch run logs metrics."""
-        runner._run_epoch(False)
+        """Test each pass publishes the computed metrics."""
+        mocker.patch.object(
+            Source, '_compute_metrics', return_value=example_named_metrics
+        )
 
-        self.mock_log_events_metrics.assert_called_once_with(
+        runner._run_epoch(store_outputs=False)
+
+        self.mock_metric_event.assert_called_once_with(
             model_name=runner.model.name,
             source_name=runner.name,
             epoch=runner.model.epoch,

@@ -33,12 +33,11 @@ __all__ = [
     'LossProtocol',
     'ModelProtocol',
     'ModuleProtocol',
-    'MonitorProtocol',
     'NamedProtocol',
-    'ObjectiveMonitorProtocol',
     'ObjectiveProtocol',
     'OutputType',
     'SchedulerProtocol',
+    'SourceProtocol',
     'SyncProtocol',
     'TargetType',
     'Tensors',
@@ -248,37 +247,6 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
         """Save the weights, the optimizer state and the epoch."""
 
 
-class MonitorProtocol(Protocol):
-    """Protocol for a class that validates a model.
-
-    Implementations register as actors of their model with
-    :func:`~drytorch.core.registering.register_actor`, which emits
-    :class:`~drytorch.core.log_events.ActorRegistrationEvent`. Each pass
-    over the data emits :class:`~drytorch.core.log_events.IterateBatchEvent`
-    and then :class:`~drytorch.core.log_events.MetricEvent`.
-    """
-
-    def __call__(self, store_outputs: bool = False) -> None:
-        """Run the model on the data once.
-
-        Args:
-            store_outputs: whether to store the model outputs.
-        """
-
-    @property
-    def computed_metrics(self) -> Mapping[str, float]:
-        """Computed metric values."""
-
-    @property
-    @abc.abstractmethod
-    def model(self) -> ModelProtocol[Any, Any]:
-        """The model to evaluate."""
-
-    @property
-    def name(self) -> str:
-        """The name of the monitor."""
-
-
 @runtime_checkable
 class ObjectiveProtocol(Protocol[_Output_contra, _Target_contra]):
     """Protocol that calculates and returns metrics."""
@@ -345,13 +313,54 @@ class SyncProtocol(Protocol):
 
 
 @runtime_checkable
+class ActorProtocol(Protocol):
+    """Protocol for an object acting on a model."""
+
+    @property
+    @abc.abstractmethod
+    def model(self) -> ModelProtocol[Any, Any]:
+        """The model that the actor acts on."""
+
+
+class SourceProtocol(ActorProtocol, Protocol):
+    """Protocol for a class that runs a model and reports its metrics.
+
+    Implementations register as actors of their model with
+    :func:`~drytorch.core.registering.register_actor`, which emits
+    :class:`~drytorch.core.log_events.ActorRegistrationEvent`. Each pass
+    over the data emits :class:`~drytorch.core.log_events.IterateBatchEvent`
+    and then :class:`~drytorch.core.log_events.MetricEvent`.
+    """
+
+    def __call__(self, store_outputs: bool = False) -> None:
+        """Run the model on the data once.
+
+        Args:
+            store_outputs: whether to store the model outputs.
+        """
+
+    @property
+    def computed_metrics(self) -> Mapping[str, float]:
+        """Computed metric values."""
+
+    @property
+    def name(self) -> str:
+        """The name of the source."""
+
+    @property
+    @abc.abstractmethod
+    def objective(self) -> ObjectiveProtocol[Any, Any]:
+        """The objective computing the metrics."""
+
+
+@runtime_checkable
 class TrainerProtocol(
-    MonitorProtocol,
+    SourceProtocol,
     Protocol[_Input_contra, _Target_co, _Output_co],
 ):
     """Protocol for a class that train a model.
 
-    Besides the duties of :class:`MonitorProtocol`, ``train`` emits
+    Besides the duties of :class:`SourceProtocol`, ``train`` emits
     :class:`~drytorch.core.log_events.StartTrainingEvent`, then
     :class:`~drytorch.core.log_events.StartEpochEvent` and
     :class:`~drytorch.core.log_events.EndEpochEvent` for each epoch, and
@@ -379,7 +388,7 @@ class TrainerProtocol(
 
     @property
     @abc.abstractmethod
-    def validation(self) -> MonitorProtocol | None:
+    def validation(self) -> SourceProtocol | None:
         """The validation run during training, if any."""
 
     def train(self, n_epochs: int) -> None:
@@ -419,16 +428,6 @@ class TrainerProtocol(
 
 
 @runtime_checkable
-class ActorProtocol(Protocol):
-    """Protocol for an object acting on a model."""
-
-    @property
-    @abc.abstractmethod
-    def model(self) -> ModelProtocol[Any, Any]:
-        """The model that the actor acts on."""
-
-
-@runtime_checkable
 class CreatedAtProtocol(Protocol):
     """Protocol for objects exposing a creation timestamp."""
 
@@ -456,13 +455,3 @@ class NamedProtocol(Protocol):
     @abc.abstractmethod
     def name(self) -> str:
         """The name of the object."""
-
-
-@runtime_checkable
-class ObjectiveMonitorProtocol(Protocol):
-    """Protocol for monitors exposing an objective."""
-
-    @property
-    @abc.abstractmethod
-    def objective(self) -> ObjectiveProtocol[Any, Any]:
-        """The objective of the monitor."""

@@ -92,7 +92,7 @@ direction TB
     }
 
 
-    class MonitorProtocol {
+    class SourceProtocol {
         «ActorRegistrationEvent»
         +model: ModelProtocol
         +name: str
@@ -103,7 +103,7 @@ direction TB
     class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {
         +model: ModelProtocol[Input, Output]
         +learning_schema: LearningProtocol
-        +validation: MonitorProtocol | None
+        +validation: SourceProtocol | None
         +terminated: bool
         +save_checkpoint()
         +load_checkpoint(epoch: int)
@@ -112,18 +112,18 @@ direction TB
         +update_learning_rate(base_lr, scheduler) «LearningRateEvent»
     }
 
-    MonitorProtocol ..> LoaderProtocol : supports
+    SourceProtocol ..> LoaderProtocol : supports
     TrainerProtocol ..> LoaderProtocol : supports
     LearningProtocol --> GradientOpProtocol : contains
     LearningProtocol --> SchedulerProtocol : contains
     CheckpointProtocol --> ModelProtocol : binds to
-    MonitorProtocol --> ModelProtocol : evaluates
-    MonitorProtocol ..> ObjectiveProtocol : according to
+    SourceProtocol --> ModelProtocol : evaluates
+    SourceProtocol ..> ObjectiveProtocol : according to
     TrainerProtocol --> LearningProtocol :  implements
     TrainerProtocol --> LossProtocol : minimizes
     TrainerProtocol --> ModelProtocol : updates
-    TrainerProtocol --> MonitorProtocol : validated by
-    MonitorProtocol <|-- TrainerProtocol : extends
+    TrainerProtocol --> SourceProtocol : validated by
+    SourceProtocol <|-- TrainerProtocol : extends
     ObjectiveProtocol <|-- LossProtocol : extends
 
 ```

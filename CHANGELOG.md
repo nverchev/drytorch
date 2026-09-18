@@ -1,7 +1,10 @@
-## [0.1.0] - 14-09-2026
+# [0.1.0] - 18-09-2026
 
 ## [BREAKING CHANGES]
-- protocol attributes are read-only properties: `batch_size`, `dataset`, `sampler`, `mixed_precision`, `learning_schema`, `model` in `MonitorProtocol` and `TrainerProtocol`, and the attributes of `LearningProtocol`
+- renamed `MonitorProtocol` to `SourceProtocol`, after the `source_name` of the events, and merged `ObjectiveMonitorProtocol` into it: a source states the objective computing its metrics and inherits `ActorProtocol`
+- merged `ModelRunnerWithObjective` and `ModelRunnerWithLogs` into `Source`, which computes an objective and emits `MetricEvent`; `ModelRunner` no longer reports metrics
+- the callbacks and `MetricMonitor` take `source` instead of `monitor`
+- protocol attributes are read-only properties: `batch_size`, `dataset`, `sampler`, `mixed_precision`, `learning_schema`, `model` in `SourceProtocol` and `TrainerProtocol`, and the attributes of `LearningProtocol`
 - replaced `AbstractAggregator` and `TorchAverager` with `Aggregator`, a container whose `merge` combines accumulators by name; `reduce` and `all_reduce` are removed, and the accumulators are reduced by their owner
 - `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
 - `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators
@@ -24,6 +27,7 @@
 - `ModelOptimizer.base_lr` and `StatsCollector.active` are read-only; `ModelOptimizer.update_learning_rate` sets the learning rates
 - `Trainer` raises `ValueError` when the loss is better when higher
 - moved `MetricTracker` from `lib.objectives`, and `MetricExtractor`, `MetricMonitor` and `get_last` from `lib.hooks`, to the new `lib.monitoring`
+
 ## Added
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
@@ -44,6 +48,7 @@
 - the wrapper from `from_torchmetrics` keeps the direction of the composed metric
 - moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
+
 ## Changed
 - an object recorded more than once is represented once and referred to afterwards, so the metadata file names it with an anchor such as `&Model` and refers to it with `*Model`
 - ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups
@@ -80,6 +85,7 @@
 - `MetricMonitor.metric_tracker` and `MetricExtractor.optional_monitor` are `Final`; `MetricMonitor.history` is a `Sequence`
 - `MetricMonitor` takes an automatic `best_is` from the monitored metric when the metric states its direction, so the direction is recorded
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
+
 ## Removed
 - removed `ModelCaller`; `ModelRunner` is the base class of the runners
 - removed `HookRegistry`; hooks are passed to `Trainer` or added to `TrainerBuilder`
@@ -92,6 +98,7 @@
 
 - removed `TrainerProtocol.objective`, which no code used
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
+
 ## Fixed
 - `Hook` and `StaticHook` are named after the wrapped callable instead of their class, so `saving_hook` is recorded as `saving_hook`
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds

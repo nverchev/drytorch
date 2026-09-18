@@ -427,7 +427,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 10,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -439,8 +439,8 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         Args:
             metric: name of metric to monitor or metric calculator instance.
                 Defaults to the first metric found.
-            monitor: evaluation protocol to monitor. Defaults to validation
-                if available, trainer instance otherwise.
+            source: the source computing the metric. Defaults to the
+                validation if available, the trainer otherwise.
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of calls to wait before stopping.
             best_is: whether higher or lower metric values are better.
@@ -452,7 +452,7 @@ class EarlyStoppingCallback(Generic[Output, Target]):
         """
         self.monitor = monitoring.MetricMonitor(
             metric=metric,
-            monitor=monitor,
+            source=source,
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,
@@ -501,7 +501,7 @@ class PruneCallback(Generic[Output, Target]):
         self,
         thresholds: Mapping[int, float | None],
         metric: str | p.ObjectiveProtocol[Output, Target] | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
         filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
@@ -512,8 +512,8 @@ class PruneCallback(Generic[Output, Target]):
             thresholds: dictionary mapping epochs to pruning values.
             metric: name of metric to monitor or metric calculator instance.
                 Defaults to the first metric found.
-            monitor: evaluation protocol to monitor. Defaults to validation
-                if available, trainer instance otherwise.
+            source: the source computing the metric. Defaults to the
+                validation if available, the trainer otherwise.
             min_delta: minimum absolute change to qualify as an improvement.
             best_is: whether higher or lower metric values are better.
                 Default 'auto' takes it from the metric when it states its
@@ -524,7 +524,7 @@ class PruneCallback(Generic[Output, Target]):
         """
         self.monitor = monitoring.MetricMonitor(
             metric=metric,
-            monitor=monitor,
+            source=source,
             min_delta=min_delta,
             best_is=best_is,
             filter_fn=filter_fn,
@@ -573,7 +573,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -585,8 +585,8 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
         Args:
             metric: name of metric to monitor or metric calculator instance.
                 Defaults to the first metric found.
-            monitor: evaluation protocol to monitor. Defaults to validation
-                if available, trainer instance otherwise.
+            source: the source computing the metric. Defaults to the
+                validation if available, the trainer otherwise.
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
@@ -599,7 +599,7 @@ class ChangeSchedulerOnPlateauCallback(abc.ABC, Generic[Output, Target]):
         self.cooldown = cooldown
         self.monitor = monitoring.MetricMonitor(
             metric=metric,
-            monitor=monitor,
+            source=source,
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,
@@ -663,7 +663,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -676,8 +676,8 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         Args:
             metric: name of metric to monitor or metric calculator instance.
                 Defaults to the first metric found.
-            monitor: evaluation protocol to monitor. Defaults to validation
-                if available, trainer instance otherwise.
+            source: the source computing the metric. Defaults to the
+                validation if available, the trainer otherwise.
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before changing the schedule.
             best_is: whether higher or lower metric values are better.
@@ -690,7 +690,7 @@ class ReduceLROnPlateau(ChangeSchedulerOnPlateauCallback[Output, Target]):
         """
         super().__init__(
             metric=metric,
-            monitor=monitor,
+            source=source,
             min_delta=min_delta,
             patience=patience,
             best_is=best_is,

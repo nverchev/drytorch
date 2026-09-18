@@ -20,7 +20,7 @@ class TestDiagnostic:
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
         self.mock_super_call = mocker.patch(
-            'drytorch.lib.runners.ModelRunnerWithObjective.__call__'
+            'drytorch.lib.runners.Source.__call__'
         )
         return
 
@@ -56,7 +56,7 @@ class TestValidation:
             return
 
         self.mock_super_init = mocker.patch(
-            'drytorch.lib.runners.ModelRunnerWithLogs.__init__',
+            'drytorch.lib.runners.Source.__init__',
             autospec=True,
             side_effect=_set_model,
         )

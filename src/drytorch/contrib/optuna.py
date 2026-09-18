@@ -49,7 +49,7 @@ class TrialCallback(Generic[_Output, _Target]):
         trial: optuna.Trial,
         filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
         metric: p.ObjectiveProtocol[_Output, _Target] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        source: p.SourceProtocol | None = None,
     ) -> None:
         """Initialize.
 
@@ -58,12 +58,12 @@ class TrialCallback(Generic[_Output, _Target]):
             filter_fn: function to aggregate recent metric values.
             metric: name of metric to monitor or metric calculator instance.
                     Defaults to the first metric found.
-            monitor: evaluation protocol to monitor. Defaults to validation
-                if available, trainer instance otherwise.
+            source: the source computing the metric. Defaults to the
+                validation if available, the trainer otherwise.
         """
         self.monitor = monitoring.MetricMonitor(
             metric=metric,
-            monitor=monitor,
+            source=source,
             filter_fn=filter_fn,
         )
         self.reported = {}

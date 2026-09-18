@@ -37,9 +37,9 @@ class EvaluationMixin(runners.ModelRunner[Input, Target, Output]):
 
 class Diagnostic(
     EvaluationMixin[Input, Target, Output],
-    runners.ModelRunnerWithLogs[Input, Target, Output, Any],
+    runners.Source[Input, Target, Output, Any],
 ):
-    """Evaluate the model on inference mode without logging the metrics.
+    """Evaluate the model in inference mode.
 
     Attributes:
         loader: provides inputs and targets in batches.
@@ -50,7 +50,7 @@ class Diagnostic(
 
 class Validation(
     EvaluationMixin[Input, Target, Output],
-    runners.ModelRunnerWithLogs[Input, Target, Output, Any],
+    runners.Source[Input, Target, Output, Any],
 ):
     """Evaluate model on inference mode.
 

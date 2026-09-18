@@ -193,9 +193,7 @@ class ModelOptimizer:
 
 
 class Trainer(
-    runners.ModelRunnerWithLogs[
-        Input, Target, Output, p.LossProtocol[Output, Target]
-    ],
+    runners.Source[Input, Target, Output, p.LossProtocol[Output, Target]],
 ):
     """Implement the standard Pytorch training loop.
 

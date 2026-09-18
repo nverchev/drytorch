@@ -40,27 +40,27 @@ class MetricExtractor:
 
     Attributes:
         metric_spec: the metric specification (name or protocol instance).
-        optional_monitor: evaluation protocol to monitor.
+        optional_source: the source computing the metric.
     """
 
     metric_spec: Final[p.ObjectiveProtocol[Any, Any] | str | None]
-    optional_monitor: Final[p.MonitorProtocol | None]
+    optional_source: Final[p.SourceProtocol | None]
     _resolved_metric: p.ObjectiveProtocol[Any, Any] | None
     _resolved_metric_name: str | None
 
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        source: p.SourceProtocol | None = None,
     ) -> None:
         """Initialize.
 
         Args:
             metric: name of the metric to monitor or metric calculator instance.
-            monitor: evaluation protocol to monitor.
+            source: the source computing the metric.
         """
         self.metric_spec = metric
-        self.optional_monitor = monitor
+        self.optional_source = source
         self._resolved_metric = None
         self._resolved_metric_name = None
         return
@@ -87,17 +87,17 @@ class MetricExtractor:
         Raises:
             MetricNotFoundError: if the specified metric is not found.
         """
-        monitor = self._get_monitor(instance)
+        source = self._get_source(instance)
         metric_name = self._resolved_metric_name
         if metric_name is None:
-            metric_name, metric = self._resolve_metric(monitor)
+            metric_name, metric = self._resolve_metric(source)
             self._resolved_metric_name = metric_name
             self._resolved_metric = metric
             tracker.resolve_metric_name(metric_name)
 
-        last_metrics = monitor.computed_metrics
+        last_metrics = source.computed_metrics
         if metric_name not in last_metrics:
-            raise exceptions.MetricNotFoundError(monitor.name, metric_name)
+            raise exceptions.MetricNotFoundError(source.name, metric_name)
 
         return last_metrics[metric_name]
 
@@ -114,37 +114,34 @@ class MetricExtractor:
         return self._get_metric_best_is(self.metric_spec)
 
     def _resolve_metric(
-        self, monitor: p.MonitorProtocol
+        self, source: p.SourceProtocol
     ) -> tuple[str, p.ObjectiveProtocol[Any, Any] | None]:
         if isinstance(self.metric_spec, p.ObjectiveProtocol):
             metric = self.metric_spec
-        elif isinstance(monitor, p.ObjectiveMonitorProtocol):
-            metric = monitor.objective
         else:
-            metric = None
+            metric = source.objective
 
-        metric_name = None if metric is None else self._get_metric_name(metric)
-        if isinstance(self.metric_spec, str):
-            name = self.metric_spec
-        elif metric_name is not None:
-            name = metric_name
-        else:
-            name = next(iter(monitor.computed_metrics))
+        metric_name = self._get_metric_name(metric)
+        name = (
+            self.metric_spec
+            if isinstance(self.metric_spec, str)
+            else metric_name
+        )
 
         # the objective describes the monitored value only when names agree
         resolved_metric = metric if name == metric_name else None
         return name, resolved_metric
 
-    def _get_monitor(
+    def _get_source(
         self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> p.MonitorProtocol:
-        if self.optional_monitor is None:
+    ) -> p.SourceProtocol:
+        if self.optional_source is None:
             if instance.validation is None:
                 return instance
 
             return instance.validation
 
-        return self.optional_monitor
+        return self.optional_source
 
     @staticmethod
     def _get_metric_name(
@@ -187,7 +184,7 @@ class MetricMonitor(Generic[Output, Target]):
     def __init__(
         self,
         metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        source: p.SourceProtocol | None = None,
         min_delta: float = 1e-8,
         patience: int = 0,
         best_is: Literal['auto', 'higher', 'lower'] = 'auto',
@@ -197,7 +194,7 @@ class MetricMonitor(Generic[Output, Target]):
 
         Args:
             metric: name of the metric to monitor or metric calculator instance.
-            monitor: evaluation protocol to monitor.
+            source: the source computing the metric.
             min_delta: minimum absolute change to qualify as an improvement.
             patience: number of checks to wait before triggering callback.
             best_is: whether higher or lower metric values are better.
@@ -205,7 +202,7 @@ class MetricMonitor(Generic[Output, Target]):
                 direction, from initial measurements otherwise.
             filter_fn: function to aggregate recent metric values.
         """
-        self.extractor = MetricExtractor(metric=metric, monitor=monitor)
+        self.extractor = MetricExtractor(metric=metric, source=source)
         if best_is == 'auto':
             best_is = self.extractor.get_metric_best_is() or 'auto'
 
