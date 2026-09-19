@@ -38,6 +38,7 @@
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 
 ## Added
+- added `ValidationProtocol` and `TestProtocol`
 - added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
 - added `SourceRunAfterHookError`, raised when a hook runs before the source it follows
 - added `ValidationAlreadyAddedError`, raised when a builder is given a second validation
@@ -62,10 +63,10 @@
 - added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
 - added `higher_is_better` to `from_torcheval`, stated by the wrapped metric
 - the wrapper from `from_torchmetrics` keeps the direction of the composed metric
-- moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 
 ## Changed
+- regrouped `core/protocols.py` into components, running and control, and capabilities
 - `Plateau` and `WorseThan` evaluate only on fresh records computed for the current model epoch
 - `TrialCallback` reports to optuna only on fresh records computed for the current model epoch
 - each termination hook states its own reason when it terminates the training
@@ -103,6 +104,7 @@
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 
 ## Removed
+- removed the public `CreatedAtProtocol`, replaced by the private `_CreatedAtProtocol` in `core/tracking`
 - removed `CallEvery`, `call_every` and `evaluation_hook`
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`
 - removed `ModelCaller`; `ModelRunner` is the base class of the runners

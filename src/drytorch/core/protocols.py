@@ -1,9 +1,13 @@
-"""Internal protocols."""
+"""Internal protocols.
+
+Components: what users implement or pass in.
+Running and control: the runners and the hooks that drive them.
+Capabilities: optional behaviour, checked with isinstance, never required.
+"""
 
 from __future__ import annotations
 
 import abc
-import datetime
 
 from collections.abc import Iterable, Iterator, Mapping, MutableSequence
 from typing import (
@@ -23,7 +27,6 @@ from torch.utils import data
 
 __all__ = [
     'CheckpointProtocol',
-    'CreatedAtProtocol',
     'GradientOpProtocol',
     'HigherIsBetterProtocol',
     'HookProtocol',
@@ -32,7 +35,6 @@ __all__ = [
     'LoaderProtocol',
     'LossProtocol',
     'ModelProtocol',
-    'ModuleProtocol',
     'NamedProtocol',
     'ObjectiveProtocol',
     'OutputType',
@@ -42,7 +44,9 @@ __all__ = [
     'SyncProtocol',
     'TargetType',
     'Tensors',
+    'TestProtocol',
     'TrainerProtocol',
+    'ValidationProtocol',
 ]
 
 # pyright: reportReturnType=false
@@ -65,7 +69,7 @@ _Output_contra = TypeVar('_Output_contra', bound=OutputType, contravariant=True)
 
 
 # ---------------------------------------------------------------------------
-# Component protocols
+# Components
 # ---------------------------------------------------------------------------
 
 
@@ -109,30 +113,6 @@ class GradientOpProtocol(Protocol):
     @abc.abstractmethod
     def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
         """Apply the gradient operation to the given parameters."""
-
-
-class HookProtocol(Protocol):
-    """Protocol for an object that a trainer calls during training."""
-
-    @property
-    @abc.abstractmethod
-    def last_run_epoch(self) -> int:
-        """The epoch when the hook last ran, or 0 if never run."""
-
-    @property
-    @abc.abstractmethod
-    def trainer(self) -> TrainerProtocol[Any, Any, Any]:
-        """The trainer that calls the hook."""
-
-    def __call__(self) -> None:
-        """Execute the hook."""
-
-    def bind_trainer(self, trainer: TrainerProtocol[Any, Any, Any]) -> None:
-        """Bind the hook to the trainer that calls it.
-
-        Args:
-            trainer: the trainer calling the hook.
-        """
 
 
 class LearningProtocol(Protocol):
@@ -321,6 +301,11 @@ class SchedulerProtocol(Protocol):
         """
 
 
+# ---------------------------------------------------------------------------
+# Running and control
+# ---------------------------------------------------------------------------
+
+
 @runtime_checkable
 class RunnerProtocol(Protocol):
     """Protocol for an object that runs a model and is recorded with the run.
@@ -369,6 +354,24 @@ class SourceProtocol(RunnerProtocol, Protocol):
     @abc.abstractmethod
     def objective(self) -> ObjectiveProtocol[Any, Any]:
         """The objective computing the metrics."""
+
+
+class ValidationProtocol(SourceProtocol, Protocol):
+    """Source that hooks run during training to follow and choose settings."""
+
+
+class TestProtocol(ValidationProtocol, Protocol):
+    """Protocol for evaluating a model on a test dataset."""
+
+    def __call__(self, store_outputs: bool = False) -> None:
+        """Run the model on the data once.
+
+        Emits :class:`~drytorch.core.log_events.StartTestEvent` and then
+        :class:`~drytorch.core.log_events.EndTestEvent`.
+
+        Args:
+            store_outputs: whether to store the model outputs.
+        """
 
 
 @runtime_checkable
@@ -435,19 +438,33 @@ class TrainerProtocol(
         """
 
 
-# ---------------------------------------------------------------------------
-# Contract protocols
-# ---------------------------------------------------------------------------
-
-
-@runtime_checkable
-class CreatedAtProtocol(Protocol):
-    """Protocol for objects exposing a creation timestamp."""
+class HookProtocol(Protocol):
+    """Protocol for an object that a trainer calls during training."""
 
     @property
     @abc.abstractmethod
-    def created_at(self) -> datetime.datetime:
-        """The creation timestamp of the object."""
+    def last_run_epoch(self) -> int:
+        """The epoch when the hook last ran, or 0 if never run."""
+
+    @property
+    @abc.abstractmethod
+    def trainer(self) -> TrainerProtocol[Any, Any, Any]:
+        """The trainer that calls the hook."""
+
+    def __call__(self) -> None:
+        """Execute the hook."""
+
+    def bind_trainer(self, trainer: TrainerProtocol[Any, Any, Any]) -> None:
+        """Bind the hook to the trainer that calls it.
+
+        Args:
+            trainer: the trainer calling the hook.
+        """
+
+
+# ---------------------------------------------------------------------------
+# Capabilities
+# ---------------------------------------------------------------------------
 
 
 @runtime_checkable
@@ -458,14 +475,6 @@ class HigherIsBetterProtocol(Protocol):
     @abc.abstractmethod
     def higher_is_better(self) -> bool | None:
         """Flag whether higher metric values are better."""
-
-
-class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
-    """Protocol for a PyTorch module with type annotations."""
-
-    @abc.abstractmethod
-    def forward(self, inputs: _Input_contra, /) -> _Output_co:
-        """Forward run of the network."""
 
 
 @runtime_checkable

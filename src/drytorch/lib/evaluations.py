@@ -85,7 +85,7 @@ class Validation(
 
 
 class Test(Validation[Input, Target, Output]):
-    """Evaluate model performance on a test dataset.
+    """Evaluate model performance on a test dataset when training is over.
 
     Attributes:
         loader: provides inputs and targets in batches.

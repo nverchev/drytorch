@@ -5,8 +5,6 @@ match the protocol, so each class states the minimum a protocol asks for.
 The tests check the protocols that are runtime-checkable.
 """
 
-import datetime
-
 from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
@@ -37,14 +35,6 @@ class _Checkpoint:
 
     def save(self) -> None:
         """Save the model and optimizer state dictionaries."""
-
-
-class _Module:
-    """Minimal module."""
-
-    def forward(self, inputs: torch.Tensor, /) -> torch.Tensor:
-        """Forward run of the network."""
-        return inputs
 
 
 class _Model:
@@ -168,7 +158,6 @@ class _Monitor:
     def __init__(self, model: p.ModelProtocol[Any, Any]) -> None:
         """Initialize."""
         self.computed_metrics: Mapping[str, float] = {}
-        self.created_at = datetime.datetime.now()
         self.higher_is_better: bool | None = None
         self.last_run_epoch: int = 0
         self.model = model
@@ -181,19 +170,19 @@ class _Monitor:
 
 _runner: type[p.RunnerProtocol] = _Monitor
 _checkpoint: type[p.CheckpointProtocol] = _Checkpoint
-_created_at: type[p.CreatedAtProtocol] = _Monitor
 _gradient_op: type[p.GradientOpProtocol] = _GradientOp
 _higher_is_better: type[p.HigherIsBetterProtocol] = _Monitor
 _learning: type[p.LearningProtocol] = _LearningSchema
 _loader: type[p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]] = _Loader
 _loss: type[p.LossProtocol[torch.Tensor, torch.Tensor]] = _Loss
 _model: type[p.ModelProtocol[Any, Any]] = _Model
-_module: type[p.ModuleProtocol[torch.Tensor, torch.Tensor]] = _Module
 _source: type[p.SourceProtocol] = _Monitor
 _named: type[p.NamedProtocol] = _Monitor
 _objective: type[p.ObjectiveProtocol[torch.Tensor, torch.Tensor]] = _Objective
 _scheduler: type[p.SchedulerProtocol] = _Scheduler
 _sync: type[p.SyncProtocol] = _Objective
+_test: type[p.TestProtocol] = _Monitor
+_validation: type[p.ValidationProtocol] = _Monitor
 
 
 @pytest.fixture
@@ -228,7 +217,6 @@ def objective() -> _Objective:
         ('model', p.ModelProtocol),
         ('model', p.NamedProtocol),
         ('monitor', p.RunnerProtocol),
-        ('monitor', p.CreatedAtProtocol),
         ('monitor', p.HigherIsBetterProtocol),
         ('monitor', p.NamedProtocol),
         ('objective', p.ObjectiveProtocol),

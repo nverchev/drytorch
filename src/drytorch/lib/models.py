@@ -6,7 +6,7 @@ import abc
 import typing
 
 from collections.abc import Callable
-from typing import ClassVar, Final, Generic, TypeVar, cast
+from typing import Any, ClassVar, Final, Generic, Protocol, TypeVar, cast
 
 import torch
 
@@ -36,6 +36,14 @@ _ParamList = tuple[Tensor, ...] | list[Tensor]
 _MultiAvgFn = Callable[[_ParamList, _ParamList, Tensor | int], None]
 
 
+class _ModuleProtocol(Protocol[Input, Output]):
+    """Protocol for a PyTorch module with type annotations."""
+
+    @abc.abstractmethod
+    def forward(self, inputs: Input, /) -> Output:
+        """Forward run of the network."""
+
+
 class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     """Wrapper for a torch.nn.Module class with extra information.
 
@@ -58,7 +66,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
     def __init__(
         self,
-        module: p.ModuleProtocol[Input, Output],
+        module: _ModuleProtocol[Input, Output],
         name: str = '',
         device: torch.device | None = None,
         checkpoint: p.CheckpointProtocol | None = None,
@@ -251,7 +259,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
     @staticmethod
     def _validate_module(
-        torch_model: p.ModuleProtocol,
+        torch_model: _ModuleProtocol[Any, Any],
     ) -> torch.nn.Module:
         if not isinstance(torch_model, torch.nn.Module):
             raise TypeError('torch_module must be a torch.nn.Module subclass')
@@ -275,7 +283,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
 
     def __init__(
         self,
-        torch_module: p.ModuleProtocol[Input, Output],
+        torch_module: _ModuleProtocol[Input, Output],
         /,
         name: str = '',
         device: torch.device | None = None,
@@ -368,7 +376,7 @@ class SWAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        torch_module: p.ModuleProtocol[Input, Output],
+        torch_module: _ModuleProtocol[Input, Output],
         /,
         start_epoch: int,
         name: str = '',
@@ -438,7 +446,7 @@ class EMAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        torch_module: p.ModuleProtocol[Input, Output],
+        torch_module: _ModuleProtocol[Input, Output],
         /,
         name: str = '',
         device: torch.device | None = None,

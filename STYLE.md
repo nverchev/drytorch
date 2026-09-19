@@ -54,6 +54,8 @@ tutorial's paired `.md` and `.ipynb` in sync.
 - Optional behaviour of an object the library does not own is its own small
   protocol, checked with `isinstance`; a protocol used by one module only
   stays private to it.
+- A protocol with no user in the library may exist to document a role in
+  the experiment when the architecture diagram needs it.
 - Protocols declare attributes as abstract read-only properties; a `Final`
   attribute satisfies them, so implementations keep plain names.
 - Classes match protocols structurally and never inherit them: inheriting
@@ -120,8 +122,9 @@ Python requires it (dataclass fields with defaults after those without).
   # ---------------------------------------------------------------------------
   ```
   and ordered alphabetically within each group: in `core/exceptions.py`,
-  warnings follow errors; in `core/protocols.py`, contract protocols follow
-  component protocols; in `lib/runners.py`, private protocols follow runners.
+  warnings follow errors; in `core/protocols.py`, components, running and
+  control, and capabilities form their own groups; in `lib/runners.py`, private
+  protocols follow runners.
 - The class body, `__init__` and the docstring list attributes and arguments
   in the same order; docstrings list no private attributes.
 - Test modules: docstring, imports, constants, module fixtures, private

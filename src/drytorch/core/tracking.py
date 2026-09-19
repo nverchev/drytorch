@@ -12,7 +12,7 @@ import functools
 import warnings
 
 from collections.abc import Iterable, Mapping
-from typing import Any, ClassVar, Final, Self
+from typing import Any, ClassVar, Final, Protocol, Self, runtime_checkable
 
 from drytorch.core import exceptions, log_events
 from drytorch.core import protocols as p
@@ -30,6 +30,16 @@ __all__ = [
 
 
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
+
+
+@runtime_checkable
+class _CreatedAtProtocol(Protocol):
+    """Protocol for objects exposing a creation timestamp."""
+
+    @property
+    @abc.abstractmethod
+    def created_at(self) -> datetime.datetime:
+        """The creation timestamp of the object."""
 
 
 class MetadataManager:
@@ -140,7 +150,7 @@ class MetadataManager:
 
     @staticmethod
     def _get_ts(x: Any) -> datetime.datetime:
-        if isinstance(x, p.CreatedAtProtocol):
+        if isinstance(x, _CreatedAtProtocol):
             if isinstance(x.created_at, datetime.datetime):
                 return x.created_at
 
