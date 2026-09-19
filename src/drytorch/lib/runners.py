@@ -256,6 +256,7 @@ class Source(
     """
 
     objective: Final[_Objective_co]
+    _cached_epoch: int | None
     _cached_metrics: Mapping[str, float]
     _checked_metric_device: bool
 
@@ -279,6 +280,7 @@ class Source(
         """
         super().__init__(model, loader=loader, name=name)
         self.objective = copy.deepcopy(objective)
+        self._cached_epoch = None
         self._cached_metrics = {}
         if self._is_distributed:
             if isinstance(self.objective, _SyncOnComputeProtocol):
@@ -305,8 +307,20 @@ class Source(
 
     @property
     def computed_metrics(self) -> Mapping[str, float]:
-        """Retrieve cached metrics."""
+        """The metrics computed at the current epoch of the model.
+
+        Empty when the source has not run since the epoch of the model
+        changed.
+        """
+        if self._cached_epoch != self.model.epoch:
+            return {}
+
         return self._cached_metrics
+
+    @property
+    def last_run_epoch(self) -> int:
+        """The epoch when the source last ran, or 0 if never run."""
+        return 0 if self._cached_epoch is None else self._cached_epoch
 
     def _compute_metrics(self) -> Mapping[str, float]:
         if self._is_distributed and not self._checked_metric_device:
@@ -317,6 +331,7 @@ class Source(
 
             self._checked_metric_device = True
 
+        self._cached_epoch = self.model.epoch
         self._cached_metrics = objectives.compute_metrics(self.objective)
         return self._cached_metrics
 

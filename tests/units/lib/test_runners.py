@@ -284,3 +284,27 @@ class TestSource:
             epoch=runner.model.epoch,
             metrics=example_named_metrics,
         )
+
+    def test_last_run_epoch_initially_zero(self, runner) -> None:
+        """Test last_run_epoch is 0 before running."""
+        assert runner.last_run_epoch == 0
+
+    def test_computed_metrics_empty_when_out_of_date(
+        self, mocker, runner, example_named_metrics
+    ) -> None:
+        """Test computed_metrics is empty when the model epoch changed."""
+        mocker.patch(
+            'drytorch.lib.runners.objectives.compute_metrics',
+            return_value=example_named_metrics,
+        )
+        runner.model.epoch = 1
+
+        runner._run_epoch(store_outputs=False)
+
+        assert runner.last_run_epoch == 1
+        assert runner.computed_metrics == example_named_metrics
+
+        runner.model.epoch = 2
+
+        assert runner.last_run_epoch == 1
+        assert runner.computed_metrics == {}

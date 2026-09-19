@@ -1,531 +1,433 @@
 """Tests for the ``monitoring`` module."""
 
-from typing import Any, Literal
-
 import pytest
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.lib.monitoring import (
-    MetricExtractor,
-    MetricMonitor,
-    MetricTracker,
-    get_last,
+    ALWAYS,
+    After,
+    Always,
+    AndCondition,
+    AtEpochs,
+    Cooldown,
+    Every,
+    Monitor,
+    NotCondition,
+    OnTermination,
+    OrCondition,
+    Plateau,
+    Watch,
+    WorseThan,
 )
 
 
-class TestMetricExtractor:
-    """Tests for MetricExtractor class."""
+class _Hook:
+    """Minimal hook exposing what the conditions read."""
 
-    @pytest.fixture
-    def mock_metric_higher_is_better(self, mocker) -> p.ObjectiveProtocol:
-        """Mock a metric object with higher_is_better = True."""
-        mock = mocker.MagicMock()
-        mock.higher_is_better = True
-        mock.name = 'test_accuracy'
-        return mock
-
-    @pytest.fixture
-    def mock_metric_lower_is_better(self, mocker) -> p.ObjectiveProtocol:
-        """Mock a metric object with higher_is_better = False."""
-        mock = mocker.MagicMock()
-        mock.higher_is_better = False
-        mock.name = 'test_loss'
-        return mock
-
-    @pytest.fixture
-    def mock_metric_no_preference(self, mocker) -> p.ObjectiveProtocol:
-        """Mock a metric object with no higher_is_better attribute."""
-        mock = mocker.MagicMock()
-        del mock.higher_is_better  # Remove the attribute
-        mock.name = 'test_metric'
-        return mock
-
-    @pytest.fixture
-    def extractor_from_str(self, example_loss_name) -> MetricExtractor:
-        """Set up an extractor with string metric."""
-        return MetricExtractor(metric=example_loss_name)
-
-    @pytest.fixture
-    def extractor_from_object(
-        self, mock_metric_higher_is_better
-    ) -> MetricExtractor:
-        """Set up an extractor with a metric object."""
-        return MetricExtractor(metric=mock_metric_higher_is_better)
-
-    @pytest.fixture
-    def extractor_no_metric(self) -> MetricExtractor:
-        """Set up an extractor with no specified metric."""
-        return MetricExtractor()
-
-    @pytest.fixture
-    def mock_metric_tracker(self, mocker) -> MetricTracker:
-        """Returns a mock object."""
-        return mocker.create_autospec(MetricTracker)
-
-    def test_init_with_string_metric(
-        self, extractor_from_str, example_loss_name
-    ) -> None:
-        """Test instantiation with string metric."""
-        assert extractor_from_str.metric_spec == example_loss_name
-        assert extractor_from_str.metric_name is None  # Not resolved yet
-
-    def test_init_with_metric_object(
-        self, extractor_from_object, mock_metric_higher_is_better
-    ) -> None:
-        """Test instantiation with a metric object."""
-        assert extractor_from_object.metric_spec == mock_metric_higher_is_better
-        assert extractor_from_object.metric_name is None  # Not resolved yet
-
-    def test_get_source_with_validation(
-        self, extractor_from_str, mock_trainer, mock_validation
-    ) -> None:
-        """Test the source is the validation when there is one."""
-        mock_trainer.validation = mock_validation
-
-        source = extractor_from_str._get_source(mock_trainer)
-
-        assert source == mock_trainer.validation
-
-    def test_get_source_without_validation(
-        self, extractor_from_str, mock_trainer
-    ) -> None:
-        """Test the source is the trainer without a validation."""
-        mock_trainer.validation = None
-
-        assert extractor_from_str._get_source(mock_trainer) == mock_trainer
-
-    def test_get_source_with_a_given_source(
-        self, mock_trainer, mock_validation
-    ) -> None:
-        """Test a given source is used instead of the default one."""
-        extractor = MetricExtractor(source=mock_validation)
-
-        assert extractor._get_source(mock_trainer) == mock_validation
-
-    def test_get_metric_name_from_string(self) -> None:
-        """Test extracting metric name from string."""
-        assert MetricExtractor._get_metric_name('test_loss') == 'test_loss'
-
-    def test_get_metric_name_from_object_with_name(
-        self, mock_metric_higher_is_better
-    ) -> None:
-        """Test extracting a name from an object with a name attribute."""
-        name = MetricExtractor._get_metric_name(mock_metric_higher_is_better)
-
-        assert name == 'test_accuracy'
-
-    def test_get_metric_name_from_class_name(
-        self, mocker, example_loss_name
-    ) -> None:
-        """Test extracting metric name from class name."""
-        mock = mocker.MagicMock(spec=[])  # empty spec, no name or _get_name
-        mock.__class__.__name__ = example_loss_name
-
-        assert MetricExtractor._get_metric_name(mock) == example_loss_name
-
-    def test_get_metric_best_is_higher(
-        self, mock_metric_higher_is_better
-    ) -> None:
-        """Test getting best_is preference when higher is better."""
-        assert (
-            MetricExtractor._get_metric_best_is(mock_metric_higher_is_better)
-            == 'higher'
-        )
-
-    def test_get_metric_best_is_lower(
-        self, mock_metric_lower_is_better
-    ) -> None:
-        """Test getting best_is preference when lower is better."""
-        assert (
-            MetricExtractor._get_metric_best_is(mock_metric_lower_is_better)
-            == 'lower'
-        )
-
-    def test_get_metric_best_is_none(self, mock_metric_no_preference) -> None:
-        """Test getting best_is preference when not specified."""
-        assert (
-            MetricExtractor._get_metric_best_is(mock_metric_no_preference)
-            is None
-        )
-
-    def test_get_metric_best_is_string_metric(self) -> None:
-        """Test getting best_is preference for string metric."""
-        assert MetricExtractor._get_metric_best_is('test_loss') is None
-
-    def test_get_metric_best_is_none_metric(self) -> None:
-        """Test getting best_is preference for None metric."""
-        assert MetricExtractor._get_metric_best_is(None) is None
-
-    def test_extract_metric_value_with_string_metric(
-        self,
-        extractor_from_str,
-        mock_trainer,
-        mock_metric_tracker,
-        example_loss_name,
-    ) -> None:
-        """Test extracting metric value with string metric specification."""
-        extractor_from_str.extract_metric_value(
-            mock_trainer, mock_metric_tracker
-        )
-
-        # example_loss_name is the first metric name in example_named_metrics
-        assert extractor_from_str._resolved_metric_name == example_loss_name
-
-    def test_extract_metric_value_without_a_metric(
-        self,
-        extractor_no_metric,
-        mock_trainer,
-        mock_metric_tracker,
-        example_loss_name,
-    ) -> None:
-        """Test the metric defaults to the objective of the source."""
-        mock_trainer.validation.objective.name = example_loss_name
-
-        extractor_no_metric.extract_metric_value(
-            mock_trainer, mock_metric_tracker
-        )
-
-        assert extractor_no_metric._resolved_metric_name == example_loss_name
-
-    def test_extract_metric_value_metric_not_found(
-        self,
-        extractor_from_str,
-        mock_trainer,
-        mock_metric_tracker,
-    ) -> None:
-        """Test exception when the specified metric is not found."""
-        mock_trainer.validation = None
-        mock_trainer.computed_metrics.return_value = {}
-
-        with pytest.raises(exceptions.MetricNotFoundError):
-            extractor_from_str.extract_metric_value(
-                mock_trainer, mock_metric_tracker
-            )
-
-    def test_get_metric_best_is_delegation(self, extractor_from_object) -> None:
-        """Test get_metric_best_is delegates to a static method."""
-        result = extractor_from_object.get_metric_best_is()
-
-        assert result == 'higher'
-
-
-class TestMetricMonitor:
-    """Tests for MetricMonitor class."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, mocker) -> None:
-        """Set up the tests."""
-        self.mock_extractor = mocker.create_autospec(MetricExtractor)
-        self.mock_extractor.get_metric_best_is = mocker.Mock(
-            return_value='higher'
-        )
-        self.mock_metric_tracker = mocker.create_autospec(
-            MetricTracker, instance=True
-        )
-        self.mock_metric_tracker.best_is = 'auto'
-        self.mock_metric_tracker_cls = mocker.patch(
-            'drytorch.lib.monitoring.MetricTracker'
-        )
-        self.mock_metric_extractor_cls = mocker.patch(
-            'drytorch.lib.monitoring.MetricExtractor'
-        )
-        self.mock_metric_tracker_cls.return_value = self.mock_metric_tracker
-        self.mock_metric_extractor_cls.return_value = self.mock_extractor
+    def __init__(self, trainer, last_run_epoch: int = 0) -> None:
+        self.trainer = trainer
+        self.last_run_epoch = last_run_epoch
         return
 
-    def test_init_calls_metric_extractor_and_metric_tracker(self) -> None:
-        """Test that the constructor calls the mocks."""
-        metric = 'accuracy'
-        min_delta = 0.01
-        patience = 5
-        best_is: Literal['auto', 'higher', 'lower'] = 'higher'
+    def __call__(self) -> None:
+        return
 
-        MetricMonitor(
-            metric=metric,
-            min_delta=min_delta,
-            patience=patience,
-            best_is=best_is,
-        )
+    def bind_trainer(self, trainer) -> None:
+        self.trainer = trainer
+        return
 
-        self.mock_metric_extractor_cls.assert_called_once_with(
-            metric=metric, source=None
-        )
-        self.mock_metric_tracker_cls.assert_called_once_with(
-            metric_name=metric,
-            min_delta=min_delta,
-            patience=patience,
-            best_is=best_is,
-            filter_fn=get_last,
-        )
 
-    def test_init_takes_best_is_from_metric(self) -> None:
-        """Test an automatic direction comes from the metric when known."""
-        MetricMonitor(metric='accuracy')
+@pytest.fixture
+def hook(mock_trainer) -> _Hook:
+    """A hook bound to the mock trainer."""
+    return _Hook(mock_trainer)
 
-        call = self.mock_metric_tracker_cls.call_args
-        assert call.kwargs['best_is'] == 'higher'
 
-    def test_record_extractor_and_tracker_calls(self, mocker) -> None:
-        """Test that record_metric_value calls the necessary methods."""
-        instance = mocker.Mock()
-        monitor = MetricMonitor[Any, Any](metric='accuracy')
-        self.mock_extractor.extract_metric_value.return_value = 0.95
+def _observe(condition, hook, values, epochs) -> None:
+    """Let the condition observe values, as its source computed them."""
+    source = condition.monitor.source
+    for epoch, value in zip(epochs, values, strict=True):
+        source.computed_metrics = {condition.monitor.metric_name: value}
+        source.last_run_epoch = epoch
+        hook.trainer.model.epoch = epoch
+        condition.observe(hook)
 
-        monitor.record_metric_value(instance)
+    return
 
-        self.mock_extractor.extract_metric_value.assert_called_once_with(
-            instance, monitor.metric_tracker
-        )
-        self.mock_metric_tracker.add_value.assert_called_once_with(0.95)
 
-    def test_properties_delegate_to_tracker(self) -> None:
-        """Test properties delegate all calls to the internal tracker."""
-        monitor = MetricMonitor(metric='accuracy')
-        monitor.metric_tracker.best_value = 0.99
-        self.mock_metric_tracker.filtered_value = 0.95
-        monitor.metric_tracker.history = [0.9, 0.92, 0.95]
+class TestWatch:
+    """Tests for the Watch class."""
 
-        assert monitor.best_value == 0.99
-        assert monitor.filtered_value == 0.95
-        assert monitor.history == [0.9, 0.92, 0.95]
-
-    def test_is_improving_and_is_patient_delegate_to_tracker(self) -> None:
-        """Test that is_improving and is_patient delegate to the tracker."""
-        monitor = MetricMonitor(metric='accuracy')
-        monitor.metric_tracker.is_improving.return_value = True
-        monitor.metric_tracker.is_patient.return_value = False
-
-        is_improving = monitor.is_improving()
-        is_patient = monitor.is_patient()
-
-        assert is_improving is True
-        assert is_patient is False
-        self.mock_metric_tracker.is_improving.assert_called_once()
-        self.mock_metric_tracker.is_patient.assert_called_once()
-
-    def test_is_better_delegates_to_tracker(self) -> None:
-        """Test that is_better delegates to the tracker."""
-        monitor = MetricMonitor(metric='accuracy')
-        self.mock_metric_tracker.is_better.return_value = True
-
-        result = monitor.is_better(0.95, 0.9)
-
-        assert result is True
-        self.mock_metric_tracker.is_better.assert_called_once_with(0.95, 0.9)
-
-    def test_metric_name_property_delegates_to_extractor_and_tracker(
-        self,
+    def test_resolve_default_source_and_metric(
+        self, mock_trainer, mock_loss
     ) -> None:
-        """Test that the metric_name property delegates correctly."""
-        monitor = MetricMonitor(metric='accuracy')
-        self.mock_extractor.metric_name = 'test_accuracy'
-        self.mock_metric_tracker.metric_name = 'tracker_accuracy'
+        """Test resolve defaults to trainer and its loss."""
+        watch = Watch()
+        monitor = watch.resolve(mock_trainer)
 
-        assert monitor.metric_name == 'test_accuracy'
+        assert monitor.source is mock_trainer
+        assert monitor.metric_name == mock_loss.name
+        assert monitor.best_is == 'lower'
+
+    def test_resolve_with_source(self, mock_trainer, mock_validation) -> None:
+        """Test resolve with an explicit source."""
+        watch = Watch(source=mock_validation)
+        monitor = watch.resolve(mock_trainer)
+
+        assert monitor.source is mock_validation
+        assert monitor.metric_name == mock_validation.objective.name
+        assert monitor.best_is == 'higher'
+
+    def test_resolve_with_named_metric(self, mock_trainer) -> None:
+        """Test resolve with metric given by name."""
+        watch = Watch(metric='Accuracy')
+        monitor = watch.resolve(mock_trainer)
+
+        assert monitor.metric_name == 'Accuracy'
+        assert monitor.best_is is None
+
+    def test_resolve_with_objective(self, mocker, mock_trainer) -> None:
+        """Test resolve with metric given as an objective."""
+        objective = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
+        objective.name = 'Accuracy'
+        objective.higher_is_better = True
+        watch = Watch(metric=objective)
+        monitor = watch.resolve(mock_trainer)
+
+        assert monitor.metric_name == 'Accuracy'
+        assert monitor.best_is == 'higher'
+
+    def test_resolve_with_explicit_best_is(self, mock_trainer) -> None:
+        """Test explicit best_is overrides objective direction."""
+        watch = Watch(best_is='higher')
+        monitor = watch.resolve(mock_trainer)
+
+        assert monitor.best_is == 'higher'
+
+    def test_resolve_unknown_metric_raises(self, mocker, mock_trainer) -> None:
+        """Test resolve raises ValueError when metric name cannot be told."""
+        mock_trainer.objective.name = ''
+        watch = Watch()
+
+        with pytest.raises(ValueError, match='Cannot tell which metric'):
+            watch.resolve(mock_trainer)
 
 
-class TestMetricTracker:
-    """Tests for MetricTracker class."""
+class TestMonitor:
+    """Tests for the Monitor class."""
 
     @pytest.fixture
-    def tracker_auto(self) -> MetricTracker:
-        """Set up a basic test instance."""
-        return MetricTracker(
-            metric_name='test_loss', min_delta=0.01, patience=2
-        )
+    def monitor(self, mock_validation, example_loss_name) -> Monitor:
+        """A monitor of the loss of a validation."""
+        return Monitor(mock_validation, example_loss_name, best_is='lower')
 
-    @pytest.fixture
-    def tracker_higher_is_better(self) -> MetricTracker:
-        """Set up a test instance with higher is better."""
-        return MetricTracker(
-            metric_name='test_acc', min_delta=0.01, patience=2, best_is='higher'
-        )
+    def test_record_values(
+        self, monitor, example_epoch, example_loss_name, example_named_metrics
+    ) -> None:
+        """Test recording stores epoch and metric value."""
+        monitor.record(example_epoch)
 
-    @pytest.fixture
-    def tracker_lower_is_better(self) -> MetricTracker:
-        """Set up a test instance with lower is better."""
-        return MetricTracker(
-            metric_name='test_loss', min_delta=0.01, patience=2, best_is='lower'
-        )
+        assert monitor.epochs == (example_epoch,)
+        assert monitor.history == (example_named_metrics[example_loss_name],)
+        assert monitor.values == {
+            example_epoch: example_named_metrics[example_loss_name]
+        }
+        assert monitor.value == example_named_metrics[example_loss_name]
 
-    def test_init_auto(self, tracker_auto) -> None:
-        """Test basic instantiation."""
-        assert tracker_auto.metric_name == 'test_loss'
-        assert tracker_auto.best_is == 'auto'
-        assert tracker_auto.min_delta == 0.01
-        assert tracker_auto.patience == 2
-        assert len(tracker_auto.history) == 0
+    def test_record_once_per_epoch(self, monitor, example_epoch) -> None:
+        """Test recording twice on the same epoch records only once."""
+        monitor.record(example_epoch)
+        monitor.record(example_epoch)
 
-    def test_resolve_best_is(self, tracker_auto) -> None:
-        """Test the direction is set only while it is automatic."""
-        tracker_auto.resolve_best_is('higher')
-        tracker_auto.resolve_best_is('lower')
+        assert monitor.epochs == (example_epoch,)
 
-        assert tracker_auto.resolved_best_is == 'higher'
-        assert tracker_auto.best_is == 'auto'
-
-    def test_resolved_best_is_not_resolved(self, tracker_auto) -> None:
-        """Test the direction raises before it is resolved."""
-        with pytest.raises(exceptions.DirectionNotResolvedError):
-            _ = tracker_auto.resolved_best_is
-
-    def test_resolve_metric_name(self) -> None:
-        """Test the metric name is set only while it is unknown."""
-        tracker = MetricTracker()
-
-        tracker.resolve_metric_name('first')
-        tracker.resolve_metric_name('second')
-
-        assert tracker.metric_name == 'first'
-
-    def test_negative_patience(self) -> None:
-        """Test invalid patience."""
-        with pytest.raises(ValueError):
-            MetricTracker(patience=-1)
-
-    def test_best_result_not_available(self, tracker_auto) -> None:
-        """Test calling the best result before any values are added fails."""
+    def test_value_not_available_error(self, monitor) -> None:
+        """Test accessing value before recording raises error."""
         with pytest.raises(exceptions.ResultNotAvailableError):
-            _ = tracker_auto.best_value
+            _ = monitor.value
 
-    def test_filtered_result_not_available(self, tracker_auto) -> None:
-        """Test calling filtered_value before any values are added fails."""
-        with pytest.raises(exceptions.ResultNotAvailableError):
-            _ = tracker_auto.filtered_value
-
-        tracker_auto.add_value(5.0)
-
-        assert tracker_auto.filtered_value == 5.0
-        assert tracker_auto.best_value == 5.0
-
-    def test_add_value(self, tracker_auto) -> None:
-        """Test adding values to history."""
-        tracker_auto.add_value(1.0)
-        tracker_auto.add_value(2.0)
-
-        assert tracker_auto.history == [1.0, 2.0]
-
-    def test_filtered_value_default(self, tracker_auto) -> None:
-        """Test the default aggregation method (last value)."""
-        tracker_auto.add_value(1.0)
-        tracker_auto.add_value(2.0)
-        tracker_auto.add_value(3.0)
-
-        assert tracker_auto.filtered_value == 3.0
-
-    def test_is_improving_with_better_value_higher(
-        self, tracker_higher_is_better
+    def test_record_silent_skip_when_source_did_not_run(
+        self, monitor, mock_validation, example_epoch
     ) -> None:
-        """Test is_improving for improvement when higher is better."""
-        tracker_higher_is_better.add_value(1.0)
-        tracker_higher_is_better.add_value(2.0)
+        """Test empty metrics when source did not run are skipped silently."""
+        mock_validation.computed_metrics = {}
+        mock_validation.last_run_epoch = 0
 
-        assert tracker_higher_is_better.is_improving() is True
+        monitor.record(example_epoch)
 
-    def test_is_improving_with_worse_value_higher(
-        self, tracker_higher_is_better
+        assert monitor.epochs == ()
+        assert monitor.history == ()
+
+    def test_record_raises_when_source_ran_after_hook(
+        self, monitor, mock_validation
     ) -> None:
-        """Test is_improving for worse results when higher is better."""
-        tracker_higher_is_better.add_value(2.0)
-        tracker_higher_is_better.add_value(1.0)
+        """Test error when source ran after hook in observed epoch."""
+        mock_validation.computed_metrics = {}
+        mock_validation.last_run_epoch = 0
 
-        assert tracker_higher_is_better.is_improving() is False
+        # Hook runs at epoch 1 before validation
+        monitor.record(1)
 
-    def test_is_improving_with_better_value_lower(
-        self, tracker_lower_is_better
+        # Validation ran at epoch 1 after hook
+        mock_validation.last_run_epoch = 1
+
+        # Hook runs at epoch 2 before validation
+        with pytest.raises(exceptions.SourceRunAfterHookError) as exc_info:
+            monitor.record(2)
+
+        assert exc_info.value.source_name == mock_validation.name
+        assert exc_info.value.epoch == 1
+
+    def test_record_metric_not_found(
+        self, monitor, mock_validation, example_epoch
     ) -> None:
-        """Test is_improving for improvement when lower is better."""
-        tracker_lower_is_better.add_value(2.0)
-        tracker_lower_is_better.add_value(1.0)
+        """Test recording raises MetricNotFoundError if metric name missing."""
+        mock_validation.computed_metrics = {'Other': 1.0}
 
-        assert tracker_lower_is_better.is_improving() is True
-
-    def test_is_improving_with_worse_value_lower(
-        self, tracker_lower_is_better
-    ) -> None:
-        """Test is_improving for worse results when lower is better."""
-        tracker_lower_is_better.add_value(1.0)
-        tracker_lower_is_better.add_value(2.0)
-
-        assert tracker_lower_is_better.is_improving() is False
+        with pytest.raises(exceptions.MetricNotFoundError):
+            monitor.record(example_epoch)
 
     @pytest.mark.parametrize(
-        ('first', 'second', 'expected'),
-        [(1.0, 2.0, 'higher'), (2.0, 1.0, 'lower')],
+        ('best_is', 'better'), [('lower', False), ('higher', True)]
     )
-    def test_auto_best_is_determination(
-        self, tracker_auto, first, second, expected
+    def test_is_better(self, mock_validation, best_is, better) -> None:
+        """Test is_better follows the direction."""
+        monitor = Monitor(mock_validation, 'Metric', best_is=best_is)
+
+        assert monitor.is_better(2.0, 1.0) is better
+
+    def test_is_better_with_nan(self, monitor) -> None:
+        """Test is_better returns False for NaN."""
+        assert not monitor.is_better(float('nan'), 1.0)
+
+    def test_is_better_without_direction_raises(self, mock_validation) -> None:
+        """Test is_better raises ValueError when best_is is None."""
+        monitor = Monitor(mock_validation, 'Metric', best_is=None)
+
+        with pytest.raises(ValueError):
+            monitor.is_better(1.0, 2.0)
+
+
+class TestConditions:
+    """Tests for simple conditions."""
+
+    def test_always(self, hook) -> None:
+        """Test Always holds unconditionally."""
+        assert Always()(hook)
+        assert ALWAYS(hook)
+
+    @pytest.mark.parametrize(('epoch', 'holds'), [(1, False), (2, True)])
+    def test_after(self, hook, mock_model, epoch, holds) -> None:
+        """Test After holds from the given epoch on."""
+        mock_model.epoch = epoch
+
+        assert After(2)(hook) is holds
+
+    @pytest.mark.parametrize(('epoch', 'holds'), [(2, True), (3, False)])
+    def test_at_epochs(self, hook, mock_model, epoch, holds) -> None:
+        """Test AtEpochs holds only at the given epochs."""
+        mock_model.epoch = epoch
+
+        assert AtEpochs([2, 5])(hook) is holds
+
+    @pytest.mark.parametrize(
+        ('epoch', 'holds'), [(0, False), (1, True), (4, False), (5, True)]
+    )
+    def test_every(self, hook, mock_model, epoch, holds) -> None:
+        """Test Every holds every given number of epochs."""
+        mock_model.epoch = epoch
+
+        assert Every(2, start=1)(hook) is holds
+
+    def test_every_invalid_arguments(self) -> None:
+        """Test non-positive interval raises ValueError."""
+        with pytest.raises(ValueError):
+            Every(0)
+
+    def test_every_on_termination(self, hook, mock_model, mock_trainer) -> None:
+        """Test Every holds when trainer terminated."""
+        mock_model.epoch = 4
+        mock_trainer.terminated = True
+
+        assert Every(3, start=1)(hook)
+
+    @pytest.mark.parametrize(
+        ('last_run', 'holds'), [(0, True), (4, False), (2, True)]
+    )
+    def test_cooldown(self, mock_trainer, mock_model, last_run, holds) -> None:
+        """Test Cooldown holds when enough epochs passed since last run."""
+        mock_model.epoch = 5
+        hook = _Hook(mock_trainer, last_run_epoch=last_run)
+
+        assert Cooldown(2)(hook) is holds
+
+    def test_cooldown_invalid(self) -> None:
+        """Test negative cooldown raises ValueError."""
+        with pytest.raises(ValueError):
+            Cooldown(-1)
+
+    def test_on_termination(self, hook, mock_trainer) -> None:
+        """Test OnTermination holds only when trainer is terminated."""
+        assert not OnTermination()(hook)
+
+        mock_trainer.terminated = True
+
+        assert OnTermination()(hook)
+
+
+class TestPlateau:
+    """Tests for the Plateau condition."""
+
+    @pytest.fixture
+    def plateau(self, mock_trainer, example_loss_name) -> Plateau:
+        """A condition following the loss with a patience of two."""
+        watch = Watch(best_is='lower', metric=example_loss_name)
+        condition = Plateau(patience=2, watch=watch)
+        condition.bind_trainer(mock_trainer)
+        return condition
+
+    def test_invalid_patience(self) -> None:
+        """Test negative patience raises ValueError."""
+        with pytest.raises(ValueError):
+            Plateau(patience=-1)
+
+    def test_best_value_before_observation(self, plateau) -> None:
+        """Test best_value raises ResultNotAvailableError before any value."""
+        with pytest.raises(exceptions.ResultNotAvailableError):
+            _ = plateau.best_value
+
+    def test_fresh_value_rule(self, plateau, hook, mock_model) -> None:
+        """Test Plateau holds only if monitor recorded at current epoch."""
+        _observe(plateau, hook, [3.0, 2.0, 2.5, 2.5], [1, 2, 3, 4])
+        mock_model.epoch = 4
+
+        assert plateau(hook)
+
+        # Epoch 5: source did not run
+        mock_model.epoch = 5
+
+        assert not plateau(hook)
+
+    def test_holds_after_patience(self, plateau, hook, mock_model) -> None:
+        """Test Plateau holds after patience records without improvement."""
+        _observe(plateau, hook, [3.0, 2.0, 2.5], [1, 2, 3])
+        mock_model.epoch = 3
+
+        assert not plateau(hook)
+
+        _observe(plateau, hook, [2.5], [4])
+        mock_model.epoch = 4
+
+        assert plateau(hook)
+
+    def test_improvement_resets_patience(
+        self, plateau, hook, mock_model
     ) -> None:
-        """Test the direction is guessed from the first two values."""
-        tracker_auto.add_value(first)
-        tracker_auto.add_value(second)
+        """Test improvement resets patience countdown."""
+        _observe(plateau, hook, [3.0, 2.5, 2.4, 1.0], [1, 2, 3, 4])
+        mock_model.epoch = 4
 
-        with pytest.warns(exceptions.DirectionGuessedWarning):
-            improving = tracker_auto.is_improving()
+        assert not plateau(hook)
+        assert plateau.best_value == 1.0
 
-        assert improving is True
-        assert tracker_auto.resolved_best_is == expected
 
-    def test_improvement_with_tolerance(self, tracker_higher_is_better) -> None:
-        """Test improvement detection considering min_delta."""
-        tracker_higher_is_better.add_value(1.0)
-        assert tracker_higher_is_better.is_improving()
+class TestWorseThan:
+    """Tests for the WorseThan condition."""
 
-        tracker_higher_is_better.add_value(1.009)
-        assert not tracker_higher_is_better.is_improving()
+    @pytest.fixture
+    def worse_than(self, mock_trainer, example_loss_name) -> WorseThan:
+        """A condition comparing the loss with thresholds."""
+        watch = Watch(best_is='lower', metric=example_loss_name)
+        condition = WorseThan({2: 1.0, 3: None}, watch=watch)
+        condition.bind_trainer(mock_trainer)
+        return condition
 
-        tracker_higher_is_better.add_value(1.011)
-        assert tracker_higher_is_better.is_improving()
+    def test_ignores_other_epochs(self, worse_than, hook, mock_model) -> None:
+        """Test condition returns False for epochs not in thresholds."""
+        mock_model.epoch = 1
+        _observe(worse_than, hook, [2.0], [1])
 
-    def test_patience_countdown(self, tracker_higher_is_better) -> None:
-        """Test patience countdown mechanism."""
-        tracker_higher_is_better.add_value(2.0)
-        assert tracker_higher_is_better.is_improving()
-        assert tracker_higher_is_better.is_patient()
+        assert not worse_than(hook)
 
-        tracker_higher_is_better.add_value(1.0)  # worse
-        assert not tracker_higher_is_better.is_improving()
-        assert tracker_higher_is_better.is_patient()
-
-        tracker_higher_is_better.add_value(1.0)  # still worse
-        assert not tracker_higher_is_better.is_improving()
-        assert not tracker_higher_is_better.is_patient()
-
-    def test_patience_reset_on_improvement(
-        self, tracker_higher_is_better
+    def test_threshold_none_returns_false(
+        self, worse_than, hook, mock_model
     ) -> None:
-        """Test patience resets when improvement occurs."""
-        tracker_higher_is_better.add_value(1.0)
-        tracker_higher_is_better.add_value(0.5)  # worse
-        assert not tracker_higher_is_better.is_improving()
-        assert tracker_higher_is_better.is_patient()
+        """Test None threshold returns False."""
+        mock_model.epoch = 3
+        _observe(worse_than, hook, [2.0], [3])
 
-        tracker_higher_is_better.add_value(1.5)  # better
-        assert tracker_higher_is_better.is_improving()
-        assert tracker_higher_is_better.is_patient()
+        assert not worse_than(hook)
 
-    def test_reset_patience_method(self, tracker_higher_is_better) -> None:
-        """Test manual patience reset."""
-        tracker_higher_is_better.add_value(2.0)
-        tracker_higher_is_better.add_value(1.0)  # worse
-        assert not tracker_higher_is_better.is_improving()
+    def test_holds_when_worse(self, worse_than, hook, mock_model) -> None:
+        """Test condition holds when value misses threshold."""
+        mock_model.epoch = 2
+        _observe(worse_than, hook, [2.0], [2])
 
-        tracker_higher_is_better.add_value(1.0)  # worse
-        assert not tracker_higher_is_better.is_improving()
-        assert not tracker_higher_is_better.is_patient()
+        assert worse_than(hook)
 
-        tracker_higher_is_better.reset_patience()
-        assert tracker_higher_is_better.is_patient()
-
-    def test_is_better_with_nan(self, tracker_higher_is_better) -> None:
-        """Test is_better handles NaN values correctly."""
-        assert not tracker_higher_is_better.is_better(float('nan'), 1.0)
-
-    def test_single_value_always_improving(
-        self, tracker_higher_is_better
+    def test_fresh_value_rule_raises_when_no_record(
+        self, worse_than, hook, mock_model
     ) -> None:
-        """Test that single values are always considered improving."""
-        tracker_higher_is_better.add_value(1.0)
+        """Test WorseThan raises error if threshold epoch has no record."""
+        mock_model.epoch = 2
 
-        assert tracker_higher_is_better.is_improving()
+        with pytest.raises(exceptions.ResultNotAvailableError):
+            worse_than(hook)
+
+
+class TestCombinations:
+    """Tests for logical combinations of conditions."""
+
+    def test_and(self, hook, mock_model) -> None:
+        """Test And condition and & operator."""
+        mock_model.epoch = 3
+
+        condition = After(2) & AtEpochs([3])
+        first, second = condition.operands
+
+        assert isinstance(condition, AndCondition)
+        assert condition(hook)
+        assert isinstance(first, After)
+        assert first.epoch == 2
+        assert isinstance(second, AtEpochs)
+        assert second.epochs == frozenset({3})
+
+    def test_or(self, hook, mock_model) -> None:
+        """Test Or condition and | operator."""
+        mock_model.epoch = 3
+
+        condition = After(4) | AtEpochs([3])
+        first, second = condition.operands
+
+        assert isinstance(condition, OrCondition)
+        assert condition(hook)
+        assert isinstance(first, After)
+        assert first.epoch == 4
+        assert isinstance(second, AtEpochs)
+        assert second.epochs == frozenset({3})
+
+    def test_not(self, hook, mock_model) -> None:
+        """Test Not condition and ~ operator."""
+        mock_model.epoch = 3
+
+        condition = ~After(4)
+        (operand,) = condition.operands
+
+        assert isinstance(condition, NotCondition)
+        assert condition(hook)
+        assert isinstance(operand, After)
+        assert operand.epoch == 4
+
+    def test_bind_trainer_and_observe_delegation(
+        self, hook, mock_trainer, example_loss_name, example_epoch
+    ) -> None:
+        """Test combined condition delegates to operands."""
+        watch = Watch(best_is='lower', metric=example_loss_name)
+        plateau = Plateau(watch=watch)
+        combined = After(1) & plateau
+
+        combined.bind_trainer(mock_trainer)
+        combined.observe(hook)
+
+        assert plateau.monitor.epochs == (example_epoch,)

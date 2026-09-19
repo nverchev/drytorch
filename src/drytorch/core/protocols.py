@@ -114,6 +114,16 @@ class GradientOpProtocol(Protocol):
 class HookProtocol(Protocol):
     """Protocol for an object that a trainer calls during training."""
 
+    @property
+    @abc.abstractmethod
+    def last_run_epoch(self) -> int:
+        """The epoch when the hook last ran, or 0 if never run."""
+
+    @property
+    @abc.abstractmethod
+    def trainer(self) -> TrainerProtocol[Any, Any, Any]:
+        """The trainer that calls the hook."""
+
     def __call__(self) -> None:
         """Execute the hook."""
 
@@ -181,14 +191,6 @@ class LoaderProtocol(Protocol[_Data_co]):
         In distributed training, this is the total batch count across the entire
         world size, not just the number of batches yielded by the local process.
         """
-
-
-class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
-    """Protocol for a PyTorch module with type annotations."""
-
-    @abc.abstractmethod
-    def forward(self, inputs: _Input_contra, /) -> _Output_co:
-        """Forward run of the network."""
 
 
 @runtime_checkable
@@ -320,14 +322,6 @@ class SchedulerProtocol(Protocol):
 
 
 @runtime_checkable
-class SyncProtocol(Protocol):
-    """Protocol for objects that synchronize their state across processes."""
-
-    def sync(self) -> None:
-        """Synchronize the state across processes."""
-
-
-@runtime_checkable
 class RunnerProtocol(Protocol):
     """Protocol for an object that runs a model and is recorded with the run.
 
@@ -361,7 +355,11 @@ class SourceProtocol(RunnerProtocol, Protocol):
 
     @property
     def computed_metrics(self) -> Mapping[str, float]:
-        """Computed metric values."""
+        """The metrics computed at the current epoch, or empty if not run."""
+
+    @property
+    def last_run_epoch(self) -> int:
+        """The epoch when the source last ran, or 0 if never run."""
 
     @property
     def name(self) -> str:
@@ -405,11 +403,6 @@ class TrainerProtocol(
     @property
     def terminated(self) -> bool:
         """If true, this trainer should not be used for training anymore."""
-
-    @property
-    @abc.abstractmethod
-    def validation(self) -> SourceProtocol | None:
-        """The validation run during training, if any."""
 
     def train(self, n_epochs: int) -> None:
         """Train the module for the specified number of epochs.
@@ -467,6 +460,14 @@ class HigherIsBetterProtocol(Protocol):
         """Flag whether higher metric values are better."""
 
 
+class ModuleProtocol(Protocol[_Input_contra, _Output_co]):
+    """Protocol for a PyTorch module with type annotations."""
+
+    @abc.abstractmethod
+    def forward(self, inputs: _Input_contra, /) -> _Output_co:
+        """Forward run of the network."""
+
+
 @runtime_checkable
 class NamedProtocol(Protocol):
     """Protocol for objects exposing a name."""
@@ -475,3 +476,11 @@ class NamedProtocol(Protocol):
     @abc.abstractmethod
     def name(self) -> str:
         """The name of the object."""
+
+
+@runtime_checkable
+class SyncProtocol(Protocol):
+    """Protocol for objects that synchronize their state across processes."""
+
+    def sync(self) -> None:
+        """Synchronize the state across processes."""

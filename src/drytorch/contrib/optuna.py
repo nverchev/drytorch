@@ -34,60 +34,74 @@ class OptunaError(exceptions.DryTorchError):
 
 
 class TrialCallback(hooks.TrainerHook):
-    """Implements pruning logic for training models.
+    """Report a metric to an optuna trial and prune the training.
 
     Attributes:
-        monitor: follows the metric the callback acts on.
-        reported: dictionary mapping epochs to reported values.
+        reported: the values reported at each epoch.
         trial: ``optuna`` trial.
+        watch: what the callback reports.
+        when: decides whether the hook runs when the trainer calls it.
     """
 
-    monitor: Final[monitoring.MetricMonitor]
     reported: Final[dict[int, float]]
     trial: Final[optuna.Trial]
+    watch: Final[monitoring.Watch]
+    _monitor: monitoring.Monitor | None
 
     def __init__(
         self,
         trial: optuna.Trial,
-        filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
-        metric: p.ObjectiveProtocol[_Output, _Target] | str | None = None,
-        source: p.SourceProtocol | None = None,
+        watch: monitoring.Watch | None = None,
     ) -> None:
         """Initialize.
 
         Args:
             trial: ``optuna`` trial.
-            filter_fn: function to aggregate recent metric values.
-            metric: name of metric to monitor or metric calculator instance.
-                    Defaults to the first metric found.
-            source: the source computing the metric. Defaults to the
-                validation if available, the trainer otherwise.
+            watch: what to report. Default reports the loss of the trainer.
         """
-        self.monitor = monitoring.MetricMonitor(
-            metric=metric,
-            source=source,
-            filter_fn=filter_fn,
-        )
         super().__init__()
         self.reported = {}
         self.trial = trial
+        self.watch = monitoring.Watch() if watch is None else watch
+        self._monitor = None
+        return
+
+    @property
+    def monitor(self) -> monitoring.Monitor:
+        """The record of the reported metric.
+
+        Raises:
+            ResultNotAvailableError: if no trainer bound the callback yet.
+        """
+        if self._monitor is None:
+            raise exceptions.ResultNotAvailableError()
+
+        return self._monitor
+
+    @override
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Create the record of the metric for the trainer."""
+        super().bind_trainer(trainer)
+        self._monitor = self.watch.resolve(trainer)
         return
 
     @override
-    def __call__(self) -> None:
-        """Evaluate whether training should be stopped early.
+    def run(self) -> None:
+        """Report the value to the trial and prune the training.
 
         Raises:
             optuna.TrialPruned: if the trial should be pruned.
         """
-        self.monitor.record_metric_value(self.trainer)
         epoch = self.trainer.model.epoch
-        value = self.monitor.filtered_value
+        self.monitor.record(epoch)
+        if epoch not in self.monitor.values:
+            return
+
+        value = self.monitor.value
         self.trial.report(value, epoch)
         self.reported[epoch] = value
         if self.trial.should_prune():
-            metric_name = self.monitor.metric_name
-            msg = f'Optuna pruning while monitoring {metric_name}'
+            msg = f'Optuna pruning while monitoring {self.monitor.metric_name}'
             self.trainer.terminate_training(msg)
             raise optuna.TrialPruned()
 

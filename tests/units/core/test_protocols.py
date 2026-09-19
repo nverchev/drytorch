@@ -170,6 +170,7 @@ class _Monitor:
         self.computed_metrics: Mapping[str, float] = {}
         self.created_at = datetime.datetime.now()
         self.higher_is_better: bool | None = None
+        self.last_run_epoch: int = 0
         self.model = model
         self.name = 'monitor'
         self.objective: p.ObjectiveProtocol[Any, Any] = _Objective()

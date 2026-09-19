@@ -1,519 +1,801 @@
-"""Metric extraction, history and improvement checks for callbacks."""
+"""Record of the metrics and conditions deciding when a hook runs."""
 
 from __future__ import annotations
 
+import abc
+import dataclasses
 import operator
-import warnings
+import types
 
-from collections.abc import Callable, Sequence
-from typing import Any, Final, Generic, Literal, TypeVar
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Final, Generic, Literal, Self, TypeVar
+
+from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
 
 
 __all__ = [
-    'MetricExtractor',
-    'MetricMonitor',
-    'MetricTracker',
+    'ALWAYS',
+    'After',
+    'Always',
+    'AndCondition',
+    'AtEpochs',
+    'Condition',
+    'Cooldown',
+    'Every',
+    'LogicalCondition',
+    'MetricCondition',
+    'Monitor',
+    'NotCondition',
+    'OnTermination',
+    'OrCondition',
+    'Plateau',
+    'Watch',
+    'WorseThan',
+    'get_last',
 ]
 
-
-Input = TypeVar('Input', bound=p.InputType)
-Target = TypeVar('Target', bound=p.TargetType)
-Output = TypeVar('Output', bound=p.OutputType)
-_Output_contra = TypeVar(
-    '_Output_contra', bound=p.OutputType, contravariant=True
-)
-_Target_contra = TypeVar(
-    '_Target_contra', bound=p.TargetType, contravariant=True
-)
 
 get_last: Final = operator.itemgetter(-1)
 
 
-class MetricExtractor:
-    """Handle extraction of metrics from trainer/validation protocols.
-
-    This class is responsible for interfacing with trainer and validation
-    protocols to extract metric values.
+@dataclasses.dataclass(frozen=True)
+class Watch:
+    """What a condition follows during the training.
 
     Attributes:
-        metric_spec: the metric specification (name or protocol instance).
-        optional_source: the source computing the metric.
+        best_is: whether higher or lower values are better. Default takes it
+            from the objective computing the metric.
+        filter_fn: aggregates the recent values. Default takes the last.
+        metric: the metric to follow, by name or by objective. Default
+            follows the objective of the source.
+        source: the evaluation computing the metric. Default follows the
+            training.
     """
 
-    metric_spec: Final[p.ObjectiveProtocol[Any, Any] | str | None]
-    optional_source: Final[p.SourceProtocol | None]
-    _resolved_metric: p.ObjectiveProtocol[Any, Any] | None
-    _resolved_metric_name: str | None
+    best_is: Literal['higher', 'lower'] | None = None
+    filter_fn: Callable[[Sequence[float]], float] = get_last
+    metric: p.ObjectiveProtocol[Any, Any] | str | None = None
+    source: p.SourceProtocol | None = None
 
-    def __init__(
-        self,
-        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
-        source: p.SourceProtocol | None = None,
-    ) -> None:
-        """Initialize.
+    def resolve(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> Monitor:
+        """Create the record of the metric for a trainer.
 
         Args:
-            metric: name of the metric to monitor or metric calculator instance.
-            source: the source computing the metric.
-        """
-        self.metric_spec = metric
-        self.optional_source = source
-        self._resolved_metric = None
-        self._resolved_metric_name = None
-        return
-
-    @property
-    def metric_name(self) -> str | None:
-        """Get the resolved metric name."""
-        return self._resolved_metric_name
-
-    def extract_metric_value(
-        self,
-        instance: p.TrainerProtocol[Input, Target, Output],
-        tracker: MetricTracker[Output, Target],
-    ) -> float:
-        """Extract and return the metric value from the instance.
-
-        Args:
-            instance: trainer instance to extract from.
-            tracker: MetricTracker to potentially update metric name.
+            trainer: the trainer whose metrics are followed.
 
         Returns:
-            The extracted metric value.
+            The record of the metric.
 
         Raises:
-            MetricNotFoundError: if the specified metric is not found.
+            ValueError: if the metric cannot be determined.
         """
-        source = self._get_source(instance)
-        metric_name = self._resolved_metric_name
-        if metric_name is None:
-            metric_name, metric = self._resolve_metric(source)
-            self._resolved_metric_name = metric_name
-            self._resolved_metric = metric
-            tracker.resolve_metric_name(metric_name)
-
-        last_metrics = source.computed_metrics
-        if metric_name not in last_metrics:
-            raise exceptions.MetricNotFoundError(source.name, metric_name)
-
-        return last_metrics[metric_name]
-
-    def get_metric_best_is(self) -> Literal['higher', 'lower'] | None:
-        """Get the best_is preference from the metric if available.
-
-        Returns:
-            ``'higher'`` or ``'lower'`` if the metric states its direction,
-            ``None`` otherwise.
-        """
-        if self._resolved_metric is not None:
-            return self._get_metric_best_is(self._resolved_metric)
-
-        return self._get_metric_best_is(self.metric_spec)
-
-    def _resolve_metric(
-        self, source: p.SourceProtocol
-    ) -> tuple[str, p.ObjectiveProtocol[Any, Any] | None]:
-        if isinstance(self.metric_spec, p.ObjectiveProtocol):
-            metric = self.metric_spec
-        else:
-            metric = source.objective
-
-        metric_name = self._get_metric_name(metric)
-        name = (
-            self.metric_spec
-            if isinstance(self.metric_spec, str)
-            else metric_name
+        source = trainer if self.source is None else self.source
+        objective = self._get_objective(source)
+        return Monitor(
+            source,
+            self._get_metric_name(source, objective),
+            best_is=self.best_is or self._get_best_is(objective),
+            filter_fn=self.filter_fn,
         )
 
-        # the objective describes the monitored value only when names agree
-        resolved_metric = metric if name == metric_name else None
-        return name, resolved_metric
-
-    def _get_source(
-        self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> p.SourceProtocol:
-        if self.optional_source is None:
-            if instance.validation is None:
-                return instance
-
-            return instance.validation
-
-        return self.optional_source
-
-    @staticmethod
-    def _get_metric_name(
-        metric: p.ObjectiveProtocol[Output, Target] | str,
-    ) -> str:
-        if isinstance(metric, str):
-            return metric
-
-        if isinstance(metric, p.NamedProtocol) and metric.name:
-            return str(metric.name)
-
-        return metric.__class__.__name__
-
-    @staticmethod
-    def _get_metric_best_is(
-        metric: p.ObjectiveProtocol[Output, Target] | str | None,
+    def _get_best_is(
+        self, objective: p.ObjectiveProtocol[Any, Any] | None
     ) -> Literal['higher', 'lower'] | None:
-        if isinstance(metric, p.HigherIsBetterProtocol):
-            higher_is_better = metric.higher_is_better
-        else:
-            higher_is_better = None
+        if isinstance(objective, p.HigherIsBetterProtocol):
+            higher_is_better = objective.higher_is_better
+            if higher_is_better is not None:
+                return 'higher' if higher_is_better else 'lower'
 
-        if higher_is_better is None:
-            return None
+        return None
 
-        return 'higher' if higher_is_better else 'lower'
+    def _get_metric_name(
+        self,
+        source: p.SourceProtocol,
+        objective: p.ObjectiveProtocol[Any, Any] | None,
+    ) -> str:
+        if isinstance(self.metric, str):
+            return self.metric
+
+        if isinstance(objective, p.NamedProtocol) and objective.name:
+            return str(objective.name)
+
+        msg = f'Cannot tell which metric of {source.name} to follow.'
+        raise ValueError(msg)
+
+    def _get_objective(
+        self, source: p.SourceProtocol
+    ) -> p.ObjectiveProtocol[Any, Any] | None:
+        if isinstance(self.metric, p.ObjectiveProtocol):
+            return self.metric
+
+        objective = source.objective
+        if self.metric is None:
+            return objective
+
+        # the objective describes a named metric only when the names agree
+        if isinstance(objective, p.NamedProtocol):
+            if objective.name == self.metric:
+                return objective
+
+        return None
 
 
-class MetricMonitor(Generic[Output, Target]):
-    """Handle metric monitoring and alerts when performance stops increasing.
+class Monitor:
+    """Record of one metric of a source across the epochs.
+
+    Instances come from :meth:`Watch.resolve`, which finds the source, the
+    name of the metric and its direction.
 
     Attributes:
-        extractor: handles metric extraction from protocols.
-        metric_tracker: handles metric value tracking and improvement detection.
+        best_is: whether higher or lower values are better, when known.
+        filter_fn: aggregates the recent values into the current one.
+        metric_name: the name of the followed metric.
+        source: the evaluation computing the metric.
     """
 
-    extractor: Final[MetricExtractor]
-    metric_tracker: Final[MetricTracker[Output, Target]]
+    best_is: Final[Literal['higher', 'lower'] | None]
+    filter_fn: Final[Callable[[Sequence[float]], float]]
+    metric_name: Final[str]
+    source: Final[p.SourceProtocol]
+    _first_observed_epoch: int | None
+    _values: Final[dict[int, float]]
 
     def __init__(
         self,
-        metric: p.ObjectiveProtocol[Output, Target] | str | None = None,
-        source: p.SourceProtocol | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
+        source: p.SourceProtocol,
+        metric_name: str,
+        best_is: Literal['higher', 'lower'] | None = None,
         filter_fn: Callable[[Sequence[float]], float] = get_last,
     ) -> None:
         """Initialize.
 
         Args:
-            metric: name of the metric to monitor or metric calculator instance.
-            source: the source computing the metric.
-            min_delta: minimum absolute change to qualify as an improvement.
-            patience: number of checks to wait before triggering callback.
-            best_is: whether higher or lower metric values are better.
-                Default 'auto' takes it from the metric when it states its
-                direction, from initial measurements otherwise.
-            filter_fn: function to aggregate recent metric values.
+            source: the evaluation computing the metric.
+            metric_name: the name of the metric to follow.
+            best_is: whether higher or lower values are better.
+            filter_fn: aggregates the recent values. Default takes the last.
         """
-        self.extractor = MetricExtractor(metric=metric, source=source)
-        if best_is == 'auto':
-            best_is = self.extractor.get_metric_best_is() or 'auto'
-
-        initial_metric_name = None
-        if isinstance(metric, str):
-            initial_metric_name = metric
-
-        self.metric_tracker = MetricTracker(
-            metric_name=initial_metric_name,
-            min_delta=min_delta,
-            patience=patience,
-            best_is=best_is,
-            filter_fn=filter_fn,
-        )
+        self.best_is = best_is
+        self.filter_fn = filter_fn
+        self.metric_name = metric_name
+        self.source = source
+        self._first_observed_epoch = None
+        self._values = {}
         return
 
     @property
-    def metric_name(self) -> str | None:
-        """Get the metric name being monitored."""
-        return self.extractor.metric_name or self.metric_tracker.metric_name
-
-    @property
-    def best_value(self) -> float:
-        """Get the best result observed so far."""
-        return self.metric_tracker.best_value
-
-    @property
-    def filtered_value(self) -> float:
-        """Get the current filtered value."""
-        return self.metric_tracker.filtered_value
+    def epochs(self) -> Sequence[int]:
+        """The epochs of the recorded values."""
+        return tuple(self._values)
 
     @property
     def history(self) -> Sequence[float]:
-        """Get the metric history."""
-        return self.metric_tracker.history
-
-    def is_better(self, value: float, reference: float) -> bool:
-        """Check whether a value is better than a reference.
-
-        Args:
-            value: the value to compare.
-            reference: the value to compare against.
-
-        Returns:
-            ``True`` if ``value`` is better than ``reference``.
-        """
-        return self.metric_tracker.is_better(value, reference)
-
-    def is_improving(self) -> bool:
-        """Determine if the model performance is improving.
-
-        Returns:
-            ``True`` if the performance is improving.
-
-        Side Effects:
-            Reduces the patience countdown when there is no improvement.
-        """
-        return self.metric_tracker.is_improving()
-
-    def is_patient(self) -> bool:
-        """Check whether to be patient.
-
-        Returns:
-            ``True`` while the patience has not run out.
-        """
-        return self.metric_tracker.is_patient()
-
-    def record_metric_value(
-        self, instance: p.TrainerProtocol[Any, Target, Output]
-    ) -> None:
-        """Register a new metric value from a monitored evaluation.
-
-        Args:
-            instance: trainer instance to extract metric from.
-
-        Raises:
-            MetricNotFoundError: if the specified metric is not found.
-        """
-        value = self.extractor.extract_metric_value(
-            instance, self.metric_tracker
-        )
-        best_is = self.extractor.get_metric_best_is()
-        if best_is is not None:
-            self.metric_tracker.resolve_best_is(best_is)
-
-        self.metric_tracker.add_value(value)
-        return
-
-
-class MetricTracker(Generic[_Output_contra, _Target_contra]):
-    """Handle metric value tracking and improvement detection.
-
-    This class is responsible for storing metric history, determining
-    improvements, and managing patience countdown.
-
-    Note: this class can be used to automatically modify the training strategy.
-    Therefore, it does not follow the library conventions for a tracker.
-
-    Attributes:
-        best_is: whether higher or lower values are better, or ``'auto'`` to
-            resolve it at runtime.
-        min_delta: the minimum change required to qualify as an improvement.
-        patience: number of checks to wait before triggering callback.
-        filter_fn: function to aggregate recent metric values.
-    """
-
-    best_is: Final[Literal['auto', 'higher', 'lower']]
-    filter_fn: Final[Callable[[Sequence[float]], float]]
-    min_delta: Final[float]
-    patience: Final[int]
-    _metric_name: str | None
-    _resolved_best_is: Literal['higher', 'lower'] | None
-    _history: Final[list[float]]
-    _patience_countdown: int
-    _best_value: float | None
-
-    def __init__(
-        self,
-        metric_name: str | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = get_last,
-    ) -> None:
-        """Initialize.
-
-        Args:
-            metric_name: name of the metric to track.
-            min_delta: minimum absolute change to qualify as an improvement.
-            patience: number of checks to wait before triggering callback.
-            best_is: whether higher or lower metric values are better.
-            filter_fn: function to aggregate recent metric values.
-        """
-        self._metric_name = metric_name
-        self.best_is = best_is
-        self._resolved_best_is = None if best_is == 'auto' else best_is
-        self.filter_fn = filter_fn
-        self.min_delta = min_delta
-        self._validate_patience(patience)
-        self.patience = patience
-        self._history = []
-        self._patience_countdown = patience
-        self._best_value = None
-        return
+        """The recorded values, in the order they were recorded."""
+        return tuple(self._values.values())
 
     @property
-    def best_value(self) -> float:
-        """Get the best result observed so far.
-
-        Returns:
-            the best filtered value (according to the 'best_is' criterion).
+    def value(self) -> float:
+        """The current value, aggregated from the recent ones.
 
         Raises:
-            ResultNotAvailableError: if no results have been logged yet.
+            ResultNotAvailableError: if no value has been recorded yet.
         """
-        if self._best_value is None:
-            try:
-                self._best_value = self._history[0]
-            except IndexError as ie:
-                raise exceptions.ResultNotAvailableError() from ie
-
-        return self._best_value
-
-    @property
-    def filtered_value(self) -> float:
-        """Get the current value.
-
-        Returns:
-            the current value aggregated from recent ones.
-
-        Raises:
-            ResultNotAvailableError: if no results have been logged yet.
-        """
-        if not self.history:
+        if not self._values:
             raise exceptions.ResultNotAvailableError()
 
         return self.filter_fn(self.history)
 
     @property
-    def history(self) -> Sequence[float]:
-        """The recorded metric values."""
-        return self._history
+    def values(self) -> Mapping[int, float]:
+        """The recorded values, by epoch."""
+        return types.MappingProxyType(self._values)
 
-    @property
-    def metric_name(self) -> str | None:
-        """The name of the monitored metric, once known."""
-        return self._metric_name
-
-    @property
-    def resolved_best_is(self) -> Literal['higher', 'lower']:
-        """The direction in use: ``best_is``, or the one resolved at runtime.
-
-        Raises:
-            DirectionNotResolvedError: if the direction is not known yet.
-        """
-        if self._resolved_best_is is None:
-            raise exceptions.DirectionNotResolvedError()
-
-        return self._resolved_best_is
-
-    def add_value(self, value: float) -> None:
-        """Add a new metric value to the history.
-
-        Args:
-            value: the metric value to add.
-        """
-        self._history.append(value)
-        return
-
-    def is_better(self, value: float, reference: float) -> bool:
-        """Determine if the value is better than a reference value.
-
-        When best_is is in 'auto' mode, it is assumed that the given value is
-        better than the first recorded one.
+    def is_better(
+        self, value: float, reference: float, min_delta: float = 0.0
+    ) -> bool:
+        """Check whether a value is better than a reference.
 
         Args:
             value: the value to compare.
-            reference: the reference.
+            reference: the value to compare against.
+            min_delta: the minimum change that counts as better.
 
         Returns:
-            True if value is a potential improvement, False otherwise.
+            ``True`` if the value is better than the reference.
 
-        Side Effects:
-            An unresolved direction is guessed from the first two values,
-            emitting :class:`~drytorch.core.exceptions.DirectionGuessedWarning`.
+        Raises:
+            ValueError: if the direction of the metric is unknown.
         """
+        if self.best_is is None:
+            msg = f'The direction of {self.metric_name} is unknown.'
+            raise ValueError(msg)
+
         if value != value:  # check for NaN
             return False
 
-        if self._resolved_best_is is None:
-            if len(self.history) < 2:
-                return True
+        if self.best_is == 'lower':
+            return reference - min_delta > value
 
-            if self.history[0] > self.history[1]:
-                self._resolved_best_is = 'lower'
-            else:
-                self._resolved_best_is = 'higher'
+        return reference + min_delta < value
 
-            warnings.warn(
-                exceptions.DirectionGuessedWarning(
-                    self._resolved_best_is, self.metric_name
-                ),
-                stacklevel=2,
+    def record(self, epoch: int) -> None:
+        """Record the value the source computed for the epoch.
+
+        Nothing is recorded when the source did not run for this epoch, so a
+        source running every few epochs leaves no stale value behind.
+
+        Args:
+            epoch: the epoch of the value.
+
+        Raises:
+            MetricNotFoundError: if the source computed other metrics.
+            SourceRunAfterHookError: if the source ran after the hook in an
+                observed epoch.
+        """
+        if self._first_observed_epoch is None:
+            self._first_observed_epoch = epoch
+
+        if epoch in self._values:
+            return
+
+        computed_metrics = self.source.computed_metrics
+        if not computed_metrics:
+            last_run = self.source.last_run_epoch
+            if (
+                last_run > 0
+                and self._first_observed_epoch <= last_run
+                and last_run not in self._values
+            ):
+                raise exceptions.SourceRunAfterHookError(
+                    self.source.name, last_run
+                )
+
+            return
+
+        if self.metric_name not in computed_metrics:
+            raise exceptions.MetricNotFoundError(
+                self.source.name, self.metric_name
             )
 
-        if self._resolved_best_is == 'lower':
-            return reference - self.min_delta > value
-
-        return reference + self.min_delta < value
-
-    def is_improving(self) -> bool:
-        """Determine if the model performance is improving.
-
-        Returns:
-            True if there has been an improvement, False otherwise.
-
-        Side Effects:
-            If there is no improvement, the patience countdown is reduced.
-            Otherwise, it is restored to the maximum.
-        """
-        if len(self.history) <= 1:
-            return True
-
-        aggregated_value = self.filtered_value
-
-        if self.is_better(aggregated_value, self.best_value):
-            self._best_value = aggregated_value
-            self._patience_countdown = self.patience
-            return True
-
-        self._patience_countdown -= 1
-        return False
-
-    def is_patient(self) -> bool:
-        """Check whether to be patient.
-
-        Returns:
-            ``True`` while the patience has not run out.
-        """
-        return self._patience_countdown > 0
-
-    def reset_patience(self) -> None:
-        """Reset patience countdown to the maximum."""
-        self._patience_countdown = self.patience
+        self._values[epoch] = computed_metrics[self.metric_name]
         return
 
-    def resolve_best_is(self, best_is: Literal['higher', 'lower']) -> None:
-        """Set the direction if it is still automatic.
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+
+
+class Condition(abc.ABC):
+    """Decide whether a hook runs when its trainer calls it."""
+
+    @abc.abstractmethod
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Check the condition.
 
         Args:
-            best_is: whether higher or lower values are better.
+            hook: the hook asking whether to run.
+
+        Returns:
+            ``True`` if the hook should run.
         """
-        if self._resolved_best_is is None:
-            self._resolved_best_is = best_is
 
-        return
-
-    def resolve_metric_name(self, metric_name: str) -> None:
-        """Set the metric name if it is not known yet.
+    def __and__(self, other: _C) -> AndCondition[Self, _C]:
+        """Hold when both conditions hold.
 
         Args:
-            metric_name: the name of the monitored metric.
-        """
-        if self._metric_name is None:
-            self._metric_name = metric_name
+            other: the condition to combine with.
 
+        Returns:
+            The combined condition.
+        """
+        return AndCondition(self, other)
+
+    def __invert__(self) -> NotCondition[Self]:
+        """Hold when the condition does not.
+
+        Returns:
+            The negated condition.
+        """
+        return NotCondition(self)
+
+    def __or__(self, other: _C) -> OrCondition[Self, _C]:
+        """Hold when either condition holds.
+
+        Args:
+            other: the condition to combine with.
+
+        Returns:
+            The combined condition.
+        """
+        return OrCondition(self, other)
+
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Bind the condition to the trainer calling the hook.
+
+        Args:
+            trainer: the trainer calling the hook.
+        """
+        _not_used = trainer
         return
 
-    @staticmethod
-    def _validate_patience(patience: int) -> None:
+    def observe(self, hook: p.HookProtocol) -> None:
+        """Record what the condition follows, on every epoch.
+
+        Args:
+            hook: the hook the condition belongs to.
+        """
+        _not_used = hook
+        return
+
+
+_C = TypeVar('_C', bound=Condition)
+_C_co = TypeVar('_C_co', bound=Condition, covariant=True)
+_L_co = TypeVar('_L_co', bound=Condition, covariant=True)
+_R_co = TypeVar('_R_co', bound=Condition, covariant=True)
+
+
+class Always(Condition):
+    """Hold on every call."""
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold on every call."""
+        _not_used = hook
+        return True
+
+
+ALWAYS: Final = Always()
+
+
+class After(Condition):
+    """Hold from a given epoch on.
+
+    Attributes:
+        epoch: the first epoch when the condition holds.
+    """
+
+    epoch: Final[int]
+
+    def __init__(self, epoch: int) -> None:
+        """Initialize.
+
+        Args:
+            epoch: the first epoch when the condition holds.
+        """
+        self.epoch = epoch
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when the model reached the epoch."""
+        return hook.trainer.model.epoch >= self.epoch
+
+
+class AtEpochs(Condition):
+    """Hold at given epochs.
+
+    Attributes:
+        epochs: the epochs when the condition holds.
+    """
+
+    epochs: Final[frozenset[int]]
+
+    def __init__(self, epochs: Sequence[int] | frozenset[int]) -> None:
+        """Initialize.
+
+        Args:
+            epochs: the epochs when the condition holds.
+        """
+        self.epochs = frozenset(epochs)
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when the epoch is one of the given ones."""
+        return hook.trainer.model.epoch in self.epochs
+
+
+class Cooldown(Condition):
+    """Hold when the hook has not run for a number of epochs.
+
+    Attributes:
+        epochs: the epochs to skip after the hook ran.
+    """
+
+    epochs: Final[int]
+
+    def __init__(self, epochs: int) -> None:
+        """Initialize.
+
+        Args:
+            epochs: the epochs to skip after the hook ran.
+
+        Raises:
+            ValueError: if the number of epochs is negative.
+        """
+        if epochs < 0:
+            raise ValueError(f'epochs must be non-negative, got {epochs}')
+
+        self.epochs = epochs
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when the hook last ran long enough ago."""
+        last_epoch = hook.last_run_epoch
+        if last_epoch == 0:  # the hook never ran
+            return True
+
+        return hook.trainer.model.epoch - last_epoch > self.epochs
+
+
+class Every(Condition):
+    """Hold periodically, and when the training is terminated.
+
+    Attributes:
+        interval: the number of epochs between two calls.
+        start: the epoch from which the hook runs.
+    """
+
+    interval: Final[int]
+    start: Final[int]
+
+    def __init__(self, interval: int, start: int = 0) -> None:
+        """Initialize.
+
+        Args:
+            interval: the number of epochs between two calls.
+            start: the epoch from which the hook runs.
+
+        Raises:
+            ValueError: if interval is not positive or start is negative.
+        """
+        if interval <= 0:
+            raise ValueError(f'interval must be positive, got {interval}')
+
+        if start < 0:
+            raise ValueError(f'start must be non-negative, got {start}')
+
+        self.interval = interval
+        self.start = start
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold every interval epochs, or when the training is terminated."""
+        epoch = hook.trainer.model.epoch
+        if epoch < self.start:
+            return False
+
+        if hook.trainer.terminated:
+            return True
+
+        return not (epoch - self.start) % self.interval
+
+
+class OnTermination(Condition):
+    """Hold when the training has been terminated."""
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when the trainer is terminated."""
+        return hook.trainer.terminated
+
+
+class MetricCondition(Condition, abc.ABC):
+    """Base class for conditions following a metric.
+
+    Subclass it to decide on the values of a metric: the condition resolves
+    what it follows when the trainer binds it, and records on every call.
+
+    Attributes:
+        watch: what the condition follows.
+    """
+
+    watch: Final[Watch]
+    _monitor: Monitor | None
+
+    def __init__(self, watch: Watch | None = None) -> None:
+        """Initialize.
+
+        Args:
+            watch: what to follow. Default follows the loss of the trainer.
+        """
+        self.watch = Watch() if watch is None else watch
+        self._monitor = None
+        return
+
+    @property
+    def monitor(self) -> Monitor:
+        """The record of the followed metric.
+
+        Raises:
+            ResultNotAvailableError: if no trainer bound the condition yet.
+        """
+        if self._monitor is None:
+            raise exceptions.ResultNotAvailableError()
+
+        return self._monitor
+
+    @override
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Create the record of the metric for the trainer.
+
+        Raises:
+            ValueError: if the metric or its direction cannot be determined.
+        """
+        monitor = self.watch.resolve(trainer)
+        if monitor.best_is is None:
+            msg = (
+                f'The direction of {monitor.metric_name} is unknown:'
+                ' specify best_is.'
+            )
+            raise ValueError(msg)
+
+        self._monitor = monitor
+        return
+
+    @override
+    def observe(self, hook: p.HookProtocol) -> None:
+        """Record the value of the current epoch."""
+        self.monitor.record(hook.trainer.model.epoch)
+        return
+
+
+class Plateau(MetricCondition):
+    """Hold when the metric stopped improving.
+
+    Attributes:
+        min_delta: the minimum change counting as an improvement.
+        patience: the number of records to wait for an improvement.
+        watch: what the condition follows.
+
+    A record happens when the source computes the metric, so a source
+    running every few epochs makes the patience count its runs, not epochs.
+    """
+
+    min_delta: Final[float]
+    patience: Final[int]
+    _best_value: float | None
+    _since_improvement: int
+
+    def __init__(
+        self,
+        patience: int = 0,
+        min_delta: float = 1e-8,
+        watch: Watch | None = None,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            patience: the number of records to wait for an improvement, as
+                many as the runs of the source rather than epochs.
+            min_delta: the minimum change counting as an improvement.
+            watch: what to follow. Default follows the loss of the trainer.
+
+        Raises:
+            ValueError: if patience is negative.
+        """
         if patience < 0:
-            raise ValueError('Patience must be a non-negative integer.')
+            raise ValueError(f'patience must be non-negative, got {patience}')
+
+        super().__init__(watch)
+        self.min_delta = min_delta
+        self.patience = patience
+        self._best_value = None
+        self._since_improvement = 0
+        return
+
+    @property
+    def best_value(self) -> float:
+        """The best value observed so far.
+
+        Raises:
+            ResultNotAvailableError: if no value has been observed yet.
+        """
+        if self._best_value is None:
+            raise exceptions.ResultNotAvailableError()
+
+        return self._best_value
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when the last values did not improve on the previous ones."""
+        if hook.trainer.model.epoch not in self.monitor.values:
+            return False
+
+        return self._since_improvement >= max(self.patience, 1)
+
+    @override
+    def observe(self, hook: p.HookProtocol) -> None:
+        """Record the value of the current epoch and compare it."""
+        recorded = len(self.monitor.history)
+        super().observe(hook)
+        if len(self.monitor.history) == recorded:  # nothing new to compare
+            return
+
+        value = self.monitor.value
+        if self._best_value is None:
+            self._best_value = value
+            return
+
+        if self.monitor.is_better(value, self._best_value, self.min_delta):
+            self._best_value = value
+            self._since_improvement = 0
+        else:
+            self._since_improvement += 1
 
         return
+
+
+class WorseThan(MetricCondition):
+    """Hold when the metric is worse than a threshold at given epochs.
+
+    Attributes:
+        thresholds: the value to reach at each given epoch.
+        watch: what the condition follows.
+    """
+
+    thresholds: Final[Mapping[int, float | None]]
+
+    def __init__(
+        self,
+        thresholds: Mapping[int, float | None],
+        watch: Watch | None = None,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            thresholds: the value to reach at each given epoch.
+            watch: what to follow. Default follows the loss of the trainer.
+        """
+        super().__init__(watch)
+        self.thresholds = thresholds
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when the value does not reach the threshold of the epoch.
+
+        Raises:
+            ResultNotAvailableError: if the threshold epoch has no record.
+        """
+        epoch = hook.trainer.model.epoch
+        if epoch not in self.thresholds:
+            return False
+
+        threshold = self.thresholds[epoch]
+        if threshold is None:
+            return False
+
+        if epoch not in self.monitor.values:
+            raise exceptions.ResultNotAvailableError()
+
+        return not self.monitor.is_better(self.monitor.values[epoch], threshold)
+
+
+class LogicalCondition(Condition, abc.ABC):
+    """Base class for conditions combining other conditions."""
+
+    @property
+    @abc.abstractmethod
+    def operands(self) -> tuple[Condition, ...]:
+        """The combined conditions."""
+
+    @override
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Bind every combined condition."""
+        for condition in self.operands:
+            condition.bind_trainer(trainer)
+
+        return
+
+    @override
+    def observe(self, hook: p.HookProtocol) -> None:
+        """Let every combined condition observe what it follows."""
+        for condition in self.operands:
+            condition.observe(hook)
+
+        return
+
+
+class AndCondition(LogicalCondition, Generic[_L_co, _R_co]):
+    """Hold when both conditions hold.
+
+    Attributes:
+        left: the condition checked first.
+        right: the condition checked when the first holds.
+    """
+
+    left: Final[_L_co]
+    right: Final[_R_co]
+
+    def __init__(self, left: _L_co, right: _R_co) -> None:
+        """Initialize.
+
+        Args:
+            left: the condition checked first.
+            right: the condition checked when the first holds.
+        """
+        self.left = left
+        self.right = right
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when both conditions hold."""
+        return self.left(hook) and self.right(hook)
+
+    @property
+    @override
+    def operands(self) -> tuple[Condition, ...]:
+        """The two conditions."""
+        return self.left, self.right
+
+
+class NotCondition(LogicalCondition, Generic[_C_co]):
+    """Hold when the condition does not.
+
+    Attributes:
+        condition: the condition to negate.
+    """
+
+    condition: Final[_C_co]
+
+    def __init__(self, condition: _C_co) -> None:
+        """Initialize.
+
+        Args:
+            condition: the condition to negate.
+        """
+        self.condition = condition
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when the condition does not hold."""
+        return not self.condition(hook)
+
+    @property
+    @override
+    def operands(self) -> tuple[Condition, ...]:
+        """The negated condition."""
+        return (self.condition,)
+
+
+class OrCondition(LogicalCondition, Generic[_L_co, _R_co]):
+    """Hold when either condition holds.
+
+    Attributes:
+        left: the condition checked first.
+        right: the condition checked when the first does not hold.
+    """
+
+    left: Final[_L_co]
+    right: Final[_R_co]
+
+    def __init__(self, left: _L_co, right: _R_co) -> None:
+        """Initialize.
+
+        Args:
+            left: the condition checked first.
+            right: the condition checked when the first does not hold.
+        """
+        self.left = left
+        self.right = right
+        return
+
+    @override
+    def __call__(self, hook: p.HookProtocol) -> bool:
+        """Hold when either condition holds."""
+        return self.left(hook) or self.right(hook)
+
+    @property
+    @override
+    def operands(self) -> tuple[Condition, ...]:
+        """The two conditions."""
+        return self.left, self.right

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import warnings
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, Final, Generic, TypedDict, TypeVar, cast
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from typing import Any, Final, Generic, Literal, TypedDict, TypeVar, cast
 
 import torch
 
@@ -14,7 +14,7 @@ from typing_extensions import override
 
 from drytorch.core import exceptions, log_events
 from drytorch.core import protocols as p
-from drytorch.lib import evaluations, hooks, runners
+from drytorch.lib import evaluations, hooks, monitoring, runners
 
 
 __all__ = [
@@ -202,15 +202,13 @@ class Trainer(
         loader: provides inputs and targets in batches.
         model: the model to train.
         objective: determines the optimization's criterion.
-        post_epoch_hooks: hooks executed after each epoch, validation first.
+        post_epoch_hooks: hooks executed after each epoch.
         pre_epoch_hooks: hooks executed before each epoch.
-        validation: the validation run during training, if any.
     """
 
     learning_schema: Final[p.LearningProtocol]
     post_epoch_hooks: Final[hooks.HookChain]
     pre_epoch_hooks: Final[hooks.HookChain]
-    validation: Final[evaluations.Validation[Input, Target, Output] | None]
     _model_optimizer: Final[ModelOptimizer]
     _terminated: bool
 
@@ -224,9 +222,6 @@ class Trainer(
         loss: p.LossProtocol[Output, Target],
         post_epoch_hooks: Sequence[p.HookProtocol] = (),
         pre_epoch_hooks: Sequence[p.HookProtocol] = (),
-        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None = None,
-        val_name: str = '',
-        validate_every: int = 1,
     ) -> None:
         """Initialize.
 
@@ -237,34 +232,15 @@ class Trainer(
             learning_schema: contains optimizer settings and scheduling.
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
-            post_epoch_hooks: hooks executed after each epoch and validation.
+            post_epoch_hooks: hooks executed after each epoch.
             pre_epoch_hooks: hooks executed before each epoch.
-            val_loader: the loader for validation with the same metrics as
-                for training. Default does not validate.
-            val_name: the name for the validation.
-            validate_every: the number of epochs between validations.
 
         Raises:
-            ValueError: if the loss is better when higher or validate_every
-                is not positive.
+            ValueError: if the loss is better when higher.
         """
         super().__init__(model, loader=loader, objective=loss, name=name)
         self._check_loss_direction()
-        self.validation = self._create_validation(val_loader, val_name)
-        if validate_every < 1:
-            msg = f'validate_every must be positive, got {validate_every}'
-            raise ValueError(msg)
-
-        if self.validation is None:
-            post_epoch_chain = hooks.HookChain(post_epoch_hooks)
-        else:
-            val_hook = hooks.EvaluationHook(self.validation)
-            if validate_every > 1:
-                val_hook = hooks.CallEvery(val_hook, interval=validate_every)
-
-            post_epoch_chain = hooks.HookChain([val_hook, *post_epoch_hooks])
-
-        self.post_epoch_hooks = post_epoch_chain
+        self.post_epoch_hooks = hooks.HookChain(post_epoch_hooks)
         self.pre_epoch_hooks = hooks.HookChain(pre_epoch_hooks)
         self.post_epoch_hooks.bind_trainer(self)
         self.pre_epoch_hooks.bind_trainer(self)
@@ -431,18 +407,6 @@ class Trainer(
 
         return
 
-    def _create_validation(
-        self,
-        val_loader: p.LoaderProtocol[tuple[Input, Target]] | None,
-        val_name: str,
-    ) -> evaluations.Validation[Input, Target, Output] | None:
-        if val_loader is None:
-            return None
-
-        return evaluations.Validation(
-            self.model, name=val_name, loader=val_loader, metric=self.objective
-        )
-
     @override
     def _run_backward(self, outputs: Output, targets: Target) -> None:
         # replace super call
@@ -493,7 +457,11 @@ class Trainer(
 
 
 class TrainerBuilder(Generic[Input, Target, Output]):
-    """Collect the validation and the hooks before creating a trainer."""
+    """Collect the validation and the hooks before creating a trainer.
+
+    Hooks added through the helper methods follow the loss of the validation
+    by default, and the loss of the training when there is no validation.
+    """
 
     _learning_schema: Final[p.LearningProtocol]
     _loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
@@ -502,9 +470,7 @@ class TrainerBuilder(Generic[Input, Target, Output]):
     _name: Final[str]
     _post_epoch_hooks: Final[list[p.HookProtocol]]
     _pre_epoch_hooks: Final[list[p.HookProtocol]]
-    _val_loader: p.LoaderProtocol[tuple[Input, Target]] | None
-    _val_name: str
-    _validate_every: int
+    _validation: evaluations.Validation[Input, Target, Output] | None
 
     def __init__(
         self,
@@ -532,35 +498,161 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         self._name = name
         self._post_epoch_hooks = []
         self._pre_epoch_hooks = []
-        self._val_loader = None
-        self._val_name = ''
-        self._validate_every = 1
+        self._validation = None
         return
 
-    def add_post_epoch_hook(
-        self, hook: hooks.TrainerHook, every: int = 1, start: int = 0
+    @property
+    def validation(self) -> evaluations.Validation[Input, Target, Output]:
+        """The validation added to the builder.
+
+        Raises:
+            ResultNotAvailableError: if no validation has been added.
+        """
+        if self._validation is None:
+            raise exceptions.ResultNotAvailableError()
+
+        return self._validation
+
+    def add_early_stopping(
+        self,
+        patience: int = 10,
+        start_from_epoch: int = 2,
+        min_delta: float = 1e-8,
+        watch: monitoring.Watch | None = None,
     ) -> None:
-        """Add a hook to execute after each epoch and validation.
+        """Stop the training when a metric stops improving.
+
+        Args:
+            patience: the number of records to wait for an improvement,
+                as many as the runs of the source rather than epochs.
+            start_from_epoch: the first epoch when the training may stop.
+            min_delta: the minimum change counting as an improvement.
+            watch: what to follow. Default is :meth:`watch`.
+
+        Side Effects:
+            Warns with :exc:`~drytorch.core.exceptions.NoValidationWarning`
+            when following the default without a validation.
+        """
+        hook = hooks.EarlyStopping(
+            patience=patience,
+            start_from_epoch=start_from_epoch,
+            min_delta=min_delta,
+            watch=self.watch() if watch is None else watch,
+        )
+        self._post_epoch_hooks.append(hook)
+        return
+
+    def add_post_epoch_hook(self, hook: p.HookProtocol) -> None:
+        """Add a hook to execute after each epoch.
 
         Args:
             hook: the hook to execute after the ones already added.
-            every: the number of epochs between executions.
-            start: the epoch to start executing the hook.
         """
-        self._post_epoch_hooks.append(self._schedule(hook, every, start))
+        self._post_epoch_hooks.append(hook)
         return
 
-    def add_pre_epoch_hook(
-        self, hook: hooks.TrainerHook, every: int = 1, start: int = 0
-    ) -> None:
+    def add_pre_epoch_hook(self, hook: p.HookProtocol) -> None:
         """Add a hook to execute before each epoch.
 
         Args:
             hook: the hook to execute after the ones already added.
-            every: the number of epochs between executions.
-            start: the epoch to start executing the hook.
         """
-        self._pre_epoch_hooks.append(self._schedule(hook, every, start))
+        self._pre_epoch_hooks.append(hook)
+        return
+
+    def add_pruning(
+        self,
+        thresholds: Mapping[int, float | None],
+        watch: monitoring.Watch | None = None,
+    ) -> None:
+        """Stop the training when a metric misses a threshold.
+
+        Args:
+            thresholds: the value to reach at each given epoch.
+            watch: what to follow. Default is :meth:`watch`.
+
+        Side Effects:
+            Warns with :exc:`~drytorch.core.exceptions.NoValidationWarning`
+            when following the default without a validation.
+        """
+        hook = hooks.Pruning(
+            thresholds, watch=self.watch() if watch is None else watch
+        )
+        self._post_epoch_hooks.append(hook)
+        return
+
+    def add_reduce_lr_on_plateau(
+        self,
+        factor: float = 0.1,
+        patience: int = 0,
+        cooldown: int = 0,
+        min_delta: float = 1e-8,
+        watch: monitoring.Watch | None = None,
+    ) -> None:
+        """Reduce the learning rate when a metric stops improving.
+
+        Args:
+            factor: the factor scaling the learning rate down.
+            patience: the number of records to wait for an improvement,
+                as many as the runs of the source rather than epochs.
+            cooldown: the epochs to skip after the last reduction.
+            min_delta: the minimum change counting as an improvement.
+            watch: what to follow. Default is :meth:`watch`.
+
+        Side Effects:
+            Warns with :exc:`~drytorch.core.exceptions.NoValidationWarning`
+            when following the default without a validation.
+        """
+        hook = hooks.ReduceLROnPlateau(
+            factor=factor,
+            patience=patience,
+            cooldown=cooldown,
+            min_delta=min_delta,
+            watch=self.watch() if watch is None else watch,
+        )
+        self._post_epoch_hooks.append(hook)
+        return
+
+    def add_restart_schedule_on_plateau(
+        self,
+        patience: int = 0,
+        cooldown: int = 0,
+        min_delta: float = 1e-8,
+        watch: monitoring.Watch | None = None,
+    ) -> None:
+        """Restart the learning rate schedule when a metric stops improving.
+
+        Args:
+            patience: the number of records to wait for an improvement,
+                as many as the runs of the source rather than epochs.
+            cooldown: the epochs to skip after the last restart.
+            min_delta: the minimum change counting as an improvement.
+            watch: what to follow. Default is :meth:`watch`.
+
+        Side Effects:
+            Warns with :exc:`~drytorch.core.exceptions.NoValidationWarning`
+            when following the default without a validation.
+        """
+        hook = hooks.RestartScheduleOnPlateau(
+            patience=patience,
+            cooldown=cooldown,
+            min_delta=min_delta,
+            watch=self.watch() if watch is None else watch,
+        )
+        self._post_epoch_hooks.append(hook)
+        return
+
+    def add_saving(self, save_every: int = 1) -> None:
+        """Save the checkpoint periodically and when the training ends early.
+
+        Args:
+            save_every: the number of epochs between two savings.
+
+        Raises:
+            ValueError: if save_every is not positive.
+        """
+        when = monitoring.Every(save_every)
+        self._post_epoch_hooks.append(hooks.SavingHook(when))
         return
 
     def add_validation(
@@ -571,16 +663,28 @@ class TrainerBuilder(Generic[Input, Target, Output]):
     ) -> None:
         """Validate with the same metrics as for training.
 
-        Calling it again replaces the previous validation.
+        The validation runs as a post-epoch hook, after the ones already
+        added: add it before the hooks that follow its metrics.
 
         Args:
             val_loader: the loader for validation.
             val_name: the name for the validation.
             validate_every: the number of epochs between validations.
+
+        Raises:
+            ValueError: if validate_every is not positive.
+            ValidationAlreadyAddedError: if the builder already validates.
         """
-        self._val_loader = val_loader
-        self._val_name = val_name
-        self._validate_every = validate_every
+        if self._validation is not None:
+            name = self._validation.name
+            raise exceptions.ValidationAlreadyAddedError(name)
+
+        when = monitoring.Every(validate_every)
+        self._validation = evaluations.Validation(
+            self._model, name=val_name, loader=val_loader, metric=self._loss
+        )
+        hook = hooks.EvaluationHook(self._validation, when)
+        self._post_epoch_hooks.append(hook)
         return
 
     def build(self) -> Trainer[Input, Target, Output]:
@@ -595,18 +699,39 @@ class TrainerBuilder(Generic[Input, Target, Output]):
             loader=self._loader,
             loss=self._loss,
             learning_schema=self._learning_schema,
-            val_loader=self._val_loader,
-            val_name=self._val_name,
-            validate_every=self._validate_every,
             pre_epoch_hooks=self._pre_epoch_hooks,
             post_epoch_hooks=self._post_epoch_hooks,
         )
 
-    @staticmethod
-    def _schedule(
-        hook: hooks.TrainerHook, every: int, start: int
-    ) -> hooks.TrainerHook:
-        if every == 1 and not start:
-            return hook
+    def watch(
+        self,
+        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
+        best_is: Literal['higher', 'lower'] | None = None,
+        filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
+        training: bool = False,
+    ) -> monitoring.Watch:
+        """Create a watch with defaults from the builder.
 
-        return hooks.CallEvery(hook, interval=every, start=start)
+        Args:
+            metric: the metric to monitor. Defaults to the loss.
+            best_is: whether higher or lower values are better. Defaults to
+                the objective's direction if available.
+            filter_fn: aggregates the recent values. Default takes the last.
+            training: whether to follow training instead of validation.
+
+        Returns:
+            A watch that can be passed to hooks.
+
+        Side Effects:
+            Warns with :exc:`~drytorch.core.exceptions.NoValidationWarning`
+            when following the validation before it has been added.
+        """
+        if not training and self._validation is None:
+            warnings.warn(exceptions.NoValidationWarning(), stacklevel=2)
+
+        return monitoring.Watch(
+            best_is=best_is,
+            filter_fn=filter_fn,
+            metric=self._loss if metric is None else metric,
+            source=None if training else self._validation,
+        )

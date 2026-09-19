@@ -17,6 +17,7 @@ from drytorch.contrib.optuna import (
     get_final_value,
     suggest_overrides,
 )
+from drytorch.lib import monitoring
 
 
 @pytest.fixture
@@ -37,18 +38,6 @@ def mock_trial_intermediate_values(mocker):
 class TestTrialCallback:
     """Tests for the TrialCallback class."""
 
-    @pytest.fixture(autouse=True)
-    def setup(self, mocker) -> None:
-        """Set up the tests."""
-        self.mock_monitor = mocker.patch(
-            'drytorch.lib.monitoring.MetricMonitor'
-        )
-        self.mock_monitor_instance = self.mock_monitor.return_value
-        self.mock_monitor_instance.filtered_value = 0.5
-        self.mock_monitor_instance.metric_name = 'val_loss'
-        self.mock_trial = mocker.Mock(spec=optuna.Trial)
-        return
-
     @pytest.fixture
     def mock_trial(self, mocker) -> optuna.Trial:
         """Mock trial object."""
@@ -57,23 +46,27 @@ class TestTrialCallback:
     @pytest.fixture
     def callback(self, mock_trial, example_loss_name) -> TrialCallback:
         """Mock callback."""
-        return TrialCallback(mock_trial, metric=example_loss_name)
+        watch = monitoring.Watch(metric=example_loss_name)
+        return TrialCallback(mock_trial, watch=watch)
 
     def test_call_reports_to_trial(
-        self, mock_trial, callback, mock_trainer, example_epoch
+        self,
+        mock_trial,
+        callback,
+        mock_trainer,
+        example_epoch,
+        example_loss_name,
+        example_named_metrics,
     ) -> None:
         """Test that the callback reports the value to the trial."""
+        value = example_named_metrics[example_loss_name]
         mock_trial.should_prune.return_value = False
-
         callback.bind_trainer(mock_trainer)
 
         callback()
 
-        self.mock_monitor_instance.record_metric_value.assert_called_once_with(
-            mock_trainer
-        )
-        mock_trial.report.assert_called_once_with(0.5, example_epoch)
-        assert callback.reported == {example_epoch: 0.5}
+        mock_trial.report.assert_called_once_with(value, example_epoch)
+        assert callback.reported == {example_epoch: value}
 
     def test_pruning(self, mock_trial, callback, mock_trainer) -> None:
         """Test the callback raises TrialPruned if the trial should prune."""
@@ -88,6 +81,19 @@ class TestTrialCallback:
         mock_trainer.terminate_training.assert_called_once()
         assert isinstance(call_argument, str)
         assert call_argument.startswith('Optuna pruning')
+
+    def test_call_skips_when_no_record_at_epoch(
+        self, mock_trial, callback, mock_trainer
+    ) -> None:
+        """Test callback does not report when monitor recorded nothing."""
+        mock_trainer.computed_metrics = {}
+        mock_trainer.last_run_epoch = 0
+        callback.bind_trainer(mock_trainer)
+
+        callback()
+
+        mock_trial.report.assert_not_called()
+        assert callback.reported == {}
 
 
 class TestSuggestOverrides:

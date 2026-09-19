@@ -32,6 +32,27 @@ The following diagram maps the dependencies between the core interfaces using UM
 classDiagram
 direction TB
 
+    class RunnerProtocol {
+        «RunnerRegistrationEvent»
+        +model: ModelProtocol
+    }
+
+    class LoaderProtocol["LoaderProtocol[Input, Target]"] {
+        +batch_size: int | None
+        +sampler: torch.utils.data.Sampler | Iterable
+        +dataset: torch.utils.data.Dataset
+        +__iter__() Iterator[Input, Target]
+        +__len__() int
+    }
+
+    class SourceProtocol {
+        +name: str
+        +objective: ObjectiveProtocol
+        +computed_metrics: Mapping[str, float]
+        +last_run_epoch: int
+        +__call__(store_outputs: bool) «IterateBatchEvent» «MetricEvent»
+    }
+
     class ObjectiveProtocol["ObjectiveProtocol[Output, Target]"] {
         +update(outputs: Output, targets: Target)
         +compute() Mapping[str, torch.Tensor] | torch.Tensor | None
@@ -42,12 +63,21 @@ direction TB
         +forward(outputs: Output, targets: Target) torch.Tensor
     }
 
-    class SchedulerProtocol {
-        +__call__(base_lr, epoch) float
+    class ValidationProtocol
+
+    class TestProtocol {
+        +__call__(store_outputs: bool) «StartTestEvent» «EndTestEvent»
     }
 
-    class GradientOpProtocol {
-        +__call__(params: Iterable[torch.nn.Parameter])
+    class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {
+        +model: ModelProtocol[Input, Output]
+        +learning_schema: LearningProtocol
+        +terminated: bool
+        +save_checkpoint()
+        +load_checkpoint(epoch: int)
+        +terminate_training(reason: str) «TerminatedTrainingEvent»
+        +train(n_epochs: int) «StartTrainingEvent» «StartEpochEvent» «EndEpochEvent» «EndTrainingEvent»
+        +update_learning_rate(base_lr, scheduler) «LearningRateEvent»
     }
 
     class LearningProtocol {
@@ -58,13 +88,12 @@ direction TB
         +scheduler: SchedulerProtocol
     }
 
+    class SchedulerProtocol {
+        +__call__(base_lr, epoch) float
+    }
 
-    class LoaderProtocol["LoaderProtocol[Input, Target]"] {
-        +batch_size: int | None
-        +sampler: torch.utils.data.Sampler | Iterable
-        +dataset: torch.utils.data.Dataset
-        +__iter__() Iterator[Input, Target]
-        +__len__() int
+    class GradientOpProtocol {
+        +__call__(params: Iterable[torch.nn.Parameter])
     }
 
     class ModelProtocol["ModelProtocol[Input, Output]"] {
@@ -91,29 +120,11 @@ direction TB
         +load(epoch: int) int «LoadModelEvent»
     }
 
-
-    class RunnerProtocol {
-        «RunnerRegistrationEvent»
-        +model: ModelProtocol
-    }
-
-    class SourceProtocol {
-        +name: str
-        +objective: ObjectiveProtocol
-        +computed_metrics: Mapping[str, float]
-        +__call__(store_outputs: bool) «IterateBatchEvent» «MetricEvent»
-    }
-
-    class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {
-        +model: ModelProtocol[Input, Output]
-        +learning_schema: LearningProtocol
-        +validation: SourceProtocol | None
-        +terminated: bool
-        +save_checkpoint()
-        +load_checkpoint(epoch: int)
-        +terminate_training(reason: str) «TerminatedTrainingEvent»
-        +train(n_epochs: int) «StartTrainingEvent» «StartEpochEvent» «EndEpochEvent» «EndTrainingEvent»
-        +update_learning_rate(base_lr, scheduler) «LearningRateEvent»
+    class HookProtocol {
+        +last_run_epoch: int
+        +trainer: TrainerProtocol
+        +__call__()
+        +bind_trainer(trainer: TrainerProtocol)
     }
 
     RunnerProtocol ..> LoaderProtocol : supports
@@ -125,9 +136,12 @@ direction TB
     TrainerProtocol --> LearningProtocol :  implements
     TrainerProtocol --> LossProtocol : minimizes
     TrainerProtocol --> ModelProtocol : updates
-    TrainerProtocol --> SourceProtocol : validated by
+    HookProtocol --> TrainerProtocol : binds to
+    HookProtocol ..> ValidationProtocol : calls
     RunnerProtocol <|-- SourceProtocol : extends
     SourceProtocol <|-- TrainerProtocol : extends
+    SourceProtocol <|-- ValidationProtocol : extends
+    ValidationProtocol <|-- TestProtocol : extends
     ObjectiveProtocol <|-- LossProtocol : extends
 
 ```

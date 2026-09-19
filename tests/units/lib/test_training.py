@@ -70,7 +70,7 @@ class TestModelOptimizer:
 class _TerminateHook(hooks.TrainerHook):
     """Hook that terminates the training of the trainer that calls it."""
 
-    def __call__(self) -> None:
+    def run(self) -> None:
         """Terminate the training."""
         self.trainer.terminate_training('test termination')
         return
@@ -162,53 +162,10 @@ class TestTrainer:
         with pytest.raises(exceptions.LossNotScalarError):
             trainer.train(1)
 
-    def test_no_validation(self, trainer) -> None:
-        """Test a trainer without validation loader has no validation."""
-        assert trainer.validation is None
+    def test_no_hooks(self, trainer) -> None:
+        """Test a trainer without hooks has empty hooks."""
+        assert trainer.pre_epoch_hooks.hooks == ()
         assert trainer.post_epoch_hooks.hooks == ()
-
-    def test_validation_before_post_epoch_hooks(
-        self, mocker, create_trainer
-    ) -> None:
-        """Test the validation runs before the other post-epoch hooks."""
-        calls: list[str] = []
-        validation = mocker.Mock(side_effect=lambda: calls.append('val'))
-        mocker.patch(
-            'drytorch.lib.evaluations.Validation', return_value=validation
-        )
-        post_hook = mocker.Mock(side_effect=lambda: calls.append('post'))
-        trainer = create_trainer(
-            val_loader=mocker.Mock(), post_epoch_hooks=[post_hook]
-        )
-
-        trainer.post_epoch_hooks.execute()
-
-        assert trainer.validation is validation
-        assert calls == ['val', 'post']
-
-    def test_validate_every(self, mocker, create_trainer, mock_model) -> None:
-        """Test the validation runs every given number of epochs."""
-        validation = mocker.Mock()
-        mocker.patch(
-            'drytorch.lib.evaluations.Validation', return_value=validation
-        )
-        trainer = create_trainer(val_loader=mocker.Mock(), validate_every=2)
-
-        for epoch in (1, 2, 3):
-            mock_model.epoch = epoch
-            trainer.post_epoch_hooks.execute()
-
-        validation.assert_called_once()
-
-    @pytest.mark.parametrize('validate_every', [0, -1])
-    def test_validate_every_not_positive(
-        self, mocker, create_trainer, validate_every
-    ) -> None:
-        """Test a non-positive validate_every raises ValueError."""
-        with pytest.raises(ValueError):
-            create_trainer(
-                val_loader=mocker.Mock(), validate_every=validate_every
-            )
 
     def test_loss_higher_is_better(self, create_trainer, mock_loss) -> None:
         """Test a loss that is better when higher raises ValueError."""
@@ -339,6 +296,69 @@ class TestTrainerBuilder:
             learning_schema=mock_learning_schema,
         )
 
+    def test_validation_not_available(self, builder) -> None:
+        """Test accessing validation before adding it raises."""
+        with pytest.raises(exceptions.ResultNotAvailableError):
+            _ = builder.validation
+
+    def test_add_validation(self, mocker, builder) -> None:
+        """Test adding validation sets validation property."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, 'Val', validate_every=2)
+
+        assert builder.validation.name.startswith('Val')
+
+    def test_add_validation_twice_raises(self, mocker, builder) -> None:
+        """Test adding validation a second time raises."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, 'Val')
+
+        with pytest.raises(exceptions.ValidationAlreadyAddedError):
+            builder.add_validation(val_loader, 'Val2')
+
+    @pytest.mark.parametrize('validate_every', [0, -1])
+    def test_validate_every_not_positive(
+        self, mocker, builder, validate_every
+    ) -> None:
+        """Test non-positive validate_every raises ValueError."""
+        val_loader = mocker.Mock()
+
+        with pytest.raises(ValueError):
+            builder.add_validation(val_loader, validate_every=validate_every)
+
+    def test_watch_warns_without_validation(self, builder) -> None:
+        """Test watching validation before adding it warns."""
+        with pytest.warns(exceptions.NoValidationWarning):
+            watch = builder.watch()
+
+        assert watch.source is None
+
+    def test_watch_with_validation(self, mocker, builder) -> None:
+        """Test watch binds to the validation."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, 'Val')
+
+        watch = builder.watch()
+
+        assert watch.source is builder.validation
+
+    def test_watch_training(self, builder) -> None:
+        """Test watch with training=True targets the trainer."""
+        watch = builder.watch(training=True)
+
+        assert watch.source is None
+
+    def test_add_hooks_helpers(self, mocker, builder) -> None:
+        """Test builder helper methods add corresponding hooks."""
+        builder.add_validation(mocker.Mock(), 'Val')
+        builder.add_early_stopping(patience=5)
+        builder.add_pruning({3: 1.0})
+        builder.add_reduce_lr_on_plateau(factor=0.5)
+        builder.add_restart_schedule_on_plateau()
+        builder.add_saving(save_every=3)
+
+        assert len(builder._post_epoch_hooks) == 6
+
     def test_build(
         self,
         mocker,
@@ -353,6 +373,7 @@ class TestTrainerBuilder:
         pre_hook = mocker.Mock()
         post_hook = mocker.Mock()
         builder.add_validation(val_loader, 'Val', validate_every=2)
+        val_hook = builder._post_epoch_hooks[0]
         builder.add_pre_epoch_hook(pre_hook)
         builder.add_post_epoch_hook(post_hook)
 
@@ -364,10 +385,7 @@ class TestTrainerBuilder:
             loader=mock_loader,
             loss=mock_loss,
             learning_schema=mock_learning_schema,
-            val_loader=val_loader,
-            val_name='Val',
-            validate_every=2,
             pre_epoch_hooks=[pre_hook],
-            post_epoch_hooks=[post_hook],
+            post_epoch_hooks=[val_hook, post_hook],
         )
         assert trainer is self.mock_trainer_cls.return_value

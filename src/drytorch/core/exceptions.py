@@ -19,8 +19,6 @@ __all__ = [
     'ConvergenceError',
     'DatasetHasNoLengthError',
     'DeviceMismatchError',
-    'DirectionGuessedWarning',
-    'DirectionNotResolvedError',
     'DistributedDatasetNotDivisibleWarning',
     'DistributedStorageWarning',
     'DryTorchError',
@@ -48,6 +46,7 @@ __all__ = [
     'NoActiveExperimentError',
     'NoPreviousRunsWarning',
     'NoStashedStateError',
+    'NoValidationWarning',
     'NotExistingRunWarning',
     'ObjectiveSyncWarning',
     'OptimizerAlreadyBoundError',
@@ -64,11 +63,13 @@ __all__ = [
     'RunNotRecordedError',
     'RunNotStartedWarning',
     'RunStillPausedError',
+    'SourceRunAfterHookError',
     'TerminatedTrainingWarning',
     'TrackerAlreadyRegisteredError',
     'TrackerError',
     'TrackerExceptionWarning',
     'TrackerNotUsedError',
+    'ValidationAlreadyAddedError',
 ]
 
 
@@ -241,12 +242,6 @@ class DeviceMismatchError(DryTorchError):
         self.target_device = target_device
         super().__init__(metric_name, metric_device, target_device)
         return
-
-
-class DirectionNotResolvedError(DryTorchError):
-    """Raised when accessing the direction of a metric before it is known."""
-
-    _template = 'The direction of the monitored metric is not resolved yet.'
 
 
 class HookAlreadyBoundError(DryTorchError):
@@ -678,11 +673,9 @@ class RepeatedMetricsError(DryTorchError):
 
 
 class ResultNotAvailableError(DryTorchError):
-    """Raised when trying to access a result before the hook has been called."""
+    """Raised when accessing a result that is not available."""
 
-    _template = (
-        'The result will be available only after the hook has been called.'
-    )
+    _template = 'The result is not available.'
 
 
 class RunAlreadyRecordedError(DryTorchError):
@@ -749,6 +742,30 @@ class RunStillPausedError(DryTorchError):
         return
 
 
+class SourceRunAfterHookError(DryTorchError):
+    """Raised when a hook runs before the source it follows."""
+
+    _template = (
+        'The source {} ran at epoch {} after the hook. '
+        'Place the hook after the one that runs the source.'
+    )
+
+    epoch: Final[int]
+    source_name: Final[str]
+
+    def __init__(self, source_name: str, epoch: int) -> None:
+        """Initialize.
+
+        Args:
+            source_name: the name of the source that ran after the hook.
+            epoch: the epoch when the source ran.
+        """
+        self.epoch = epoch
+        self.source_name = source_name
+        super().__init__(source_name, epoch)
+        return
+
+
 class TrackerAlreadyRegisteredError(DryTorchError):
     """Raised when attempting to register an already registered tracker."""
 
@@ -783,6 +800,24 @@ class TrackerNotUsedError(DryTorchError):
         """
         self.tracker_name = tracker_name
         super().__init__(tracker_name)
+        return
+
+
+class ValidationAlreadyAddedError(DryTorchError):
+    """Raised when a builder is given a second validation."""
+
+    _template = 'The builder already validates with {}.'
+
+    validation_name: Final[str]
+
+    def __init__(self, validation_name: str) -> None:
+        """Initialize.
+
+        Args:
+            validation_name: the name of the validation already added.
+        """
+        self.validation_name = validation_name
+        super().__init__(validation_name)
         return
 
 
@@ -824,27 +859,6 @@ class ComputedBeforeUpdatedWarning(DryTorchWarning):
         """
         self.calculator = calculator
         super().__init__(calculator.__class__.__name__)
-        return
-
-
-class DirectionGuessedWarning(DryTorchWarning):
-    """Warning raised when the direction of a metric is guessed from values."""
-
-    _template = 'Monitoring {} assuming {} is best.'
-
-    best_is: Final[str]
-    metric_name: Final[str | None]
-
-    def __init__(self, best_is: str, metric_name: str | None) -> None:
-        """Initialize.
-
-        Args:
-            best_is: the guessed direction.
-            metric_name: the name of the monitored metric.
-        """
-        self.best_is = best_is
-        self.metric_name = metric_name
-        super().__init__(metric_name, best_is)
         return
 
 
@@ -942,6 +956,16 @@ class NoPreviousRunsWarning(DryTorchWarning):
     """Attempted to resume the last run, but none were found."""
 
     _template = 'No previous runs found. Starting a new one.'
+
+
+class NoValidationWarning(DryTorchWarning):
+    """Warning raised when a hook follows the training without validation."""
+
+    _template = (
+        'No validation added: following the training instead. '
+        'Add the validation first, or pass training=True to follow the '
+        'training explicitly.'
+    )
 
 
 class NotExistingRunWarning(DryTorchWarning):

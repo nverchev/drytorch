@@ -6,7 +6,8 @@ import pytest
 
 from drytorch.lib.evaluations import Validation
 from drytorch.lib.gradient_ops import HistClipper
-from drytorch.lib.hooks import EarlyStoppingCallback, HookChain
+from drytorch.lib.hooks import EarlyStopping, HookChain
+from drytorch.lib.monitoring import Watch
 from drytorch.lib.schedulers import ExponentialScheduler, warmup
 from drytorch.utils.averages import get_trailing_mean
 from drytorch.utils.repr_utils import recursive_repr
@@ -84,25 +85,28 @@ def test_shared_model_is_represented_once(
 
 
 def test_hook_repr() -> None:
-    """Test the representation of a hook chain."""
-    chain = HookChain([EarlyStoppingCallback(filter_fn=get_trailing_mean(9))])
+    """Test the representation of a hook and of the condition it runs on."""
+    chain = HookChain(
+        [EarlyStopping(watch=Watch(filter_fn=get_trailing_mean(9)))]
+    )
     expected = {
         'class': 'HookChain',
         'hooks': (
             {
-                'class': 'EarlyStoppingCallback',
-                'monitor': {
-                    'class': 'MetricMonitor',
-                    'extractor': 'MetricExtractor',
-                    'metric_tracker': {
-                        'best_is': 'auto',
-                        'class': 'MetricTracker',
-                        'filter_fn': 'trailing_mean(window_size=9)',
+                'class': 'EarlyStopping',
+                'when': {
+                    'class': 'AndCondition',
+                    'left': {'class': 'After', 'epoch': 2},
+                    'right': {
+                        'class': 'Plateau',
                         'min_delta': 1e-08,
                         'patience': 10,
+                        'watch': {
+                            'class': 'Watch',
+                            'filter_fn': 'trailing_mean(window_size=9)',
+                        },
                     },
                 },
-                'start_from_epoch': 2,
             },
         ),
     }

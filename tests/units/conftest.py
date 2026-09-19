@@ -69,6 +69,7 @@ def mock_loss(mocker) -> p.LossProtocol[torch.Tensor, torch.Tensor]:
     mock.forward = mocker.Mock(return_value=mock_loss_value)
     mock.name = 'Loss'
     mock.compute = mocker.Mock(return_value={'Loss': torch.tensor(1)})
+    mock.higher_is_better = False
     mock.__deepcopy__ = mocker.Mock(return_value=mock)
     return mock
 
@@ -90,30 +91,29 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
 
 @pytest.fixture
 def mock_validation(
-    mocker, mock_metric, example_named_metrics
+    mocker, mock_metric, example_epoch, example_named_metrics
 ) -> p.SourceProtocol:
     """Fixture for a mock validation."""
     mock = mocker.create_autospec(spec=p.SourceProtocol, instance=True)
     mock.name = 'mock_validation'
     mock.objective = mock_metric
     mock.computed_metrics = example_named_metrics
+    mock.last_run_epoch = example_epoch
     return mock
 
 
 @pytest.fixture
 def mock_trainer(
-    mocker, mock_model, mock_loss, mock_validation, example_named_metrics
+    mocker, mock_model, mock_loss, example_named_metrics
 ) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
     mock.model = mock_model
     mock.name = 'mock_trainer'
     mock.objective = mock_loss
-    mock.validation = mock_validation
     mock.terminated = False
-    mock.__class__.computed_metrics = mocker.PropertyMock(
-        return_value=example_named_metrics
-    )
+    mock.computed_metrics = example_named_metrics
+    mock.last_run_epoch = mock_model.epoch
 
     def _terminate_training(reason: str) -> None:
         mock.terminated = True

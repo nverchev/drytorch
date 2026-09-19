@@ -4,38 +4,49 @@
 - the trainer binds its hooks when it is created and calls them without arguments; a hook belongs to one trainer and `HookChain.execute` takes no argument
 - hooks are objects implementing `HookProtocol` and never receive the trainer: a hook subclasses `TrainerHook` and reads `self.trainer`, so functions are no longer wrapped into hooks
 - removed `Hook`, `StaticHook`, `static_hook_class` and `saving_hook`, replaced by the `SavingHook` and `EvaluationHook` classes and by writing a `TrainerHook` subclass
-- `CallEvery` wraps a hook and keeps it under `hook`; `call_every` and `evaluation_hook` are removed, and `TrainerBuilder.add_pre_epoch_hook` and `add_post_epoch_hook` take `every` and `start`
-- the monitoring callbacks are `TrainerHook` subclasses and are no longer generic
+- removed `call_every` and `evaluation_hook`, replaced by `EvaluationHook` and condition classes (such as `Every` and `After`) passed to `TrainerHook`
+- hooks subclass `TrainerHook` and are generic in their `when` condition; callbacks specialize the condition and expose typed condition properties
+- monitoring is redesigned around `Watch`, `Monitor`, and condition classes (`Condition`, `Always`, `After`, `AtEpochs`, `Cooldown`, `Every`, `OnTermination`, `Plateau`, `WorseThan`, `AndCondition`, `OrCondition`, `NotCondition`) supporting `&`, `|`, `~` operators
+- renamed `EarlyStoppingCallback` to `EarlyStopping`, `PruneCallback` to `Pruning` and `ChangeSchedulerOnPlateauCallback` to `ChangeScheduler`
+- `patience` counts the runs of the followed source, not epochs
 - renamed the actor of a model to runner: `ModelRunner` is `Runner`, `ActorProtocol` is `RunnerProtocol`, `register_actor` and `unregister_actor` are `register_runner` and `unregister_runner`, and `ActorRegistrationEvent` is `RunnerRegistrationEvent` with `runner_name` and `runner_ts`
-- renamed `MonitorProtocol` to `SourceProtocol`, after the `source_name` of the events, and merged `ObjectiveMonitorProtocol` into it: a source states the objective computing its metrics and inherits `ActorProtocol`
+- renamed `MonitorProtocol` to `SourceProtocol`, after the `source_name` of the events, and merged `ObjectiveMonitorProtocol` into it: a source states the objective computing its metrics and inherits `RunnerProtocol`
 - merged `ModelRunnerWithObjective` and `ModelRunnerWithLogs` into `Source`, which computes an objective and emits `MetricEvent`; `ModelRunner` no longer reports metrics
-- the callbacks and `MetricMonitor` take `source` instead of `monitor`
+- the monitoring hooks take `watch`, a `Watch` stating the source, the metric and its direction, instead of `metric`, `source`, `best_is` and `filter_fn`; without a source, they follow the trainer
 - protocol attributes are read-only properties: `batch_size`, `dataset`, `sampler`, `mixed_precision`, `learning_schema`, `model` in `SourceProtocol` and `TrainerProtocol`, and the attributes of `LearningProtocol`
 - replaced `AbstractAggregator` and `TorchAverager` with `Aggregator`, a container whose `merge` combines accumulators by name; `reduce` and `all_reduce` are removed, and the accumulators are reduced by their owner
 - `Objective._get_aggregator` is replaced by `Objective._get_accumulator_cls`; `Objective` creates the accumulators and reduces them
 - `Objective.merge_state` accepts any objective and raises `AccumulatorMismatchError` if the two objectives use different accumulators
 - `AbstractAccumulator.merge` takes `other: Any`; subclasses annotate `other` with their own class
 - runners register as actors of their model when created instead of when first called
-- `Hook.parameters` and `StaticHook.parameters` are read-only mappings copied at creation; `TrainerHook` subclasses implement `_get_name` and `_get_parameters`
-- `Trainer` takes `val_loader`, `val_name`, `validate_every`, `pre_epoch_hooks` and `post_epoch_hooks` at creation, or collects them with `Trainer.builder`; `Trainer.add_validation` is removed
-- `Trainer.pre_epoch_hooks` and `Trainer.post_epoch_hooks` are `HookChain`; `TrainerProtocol.validation` is a read-only property
+- `TrainerHook` subclasses implement `_get_name` and `_get_parameters`
+- `Trainer` takes `pre_epoch_hooks` and `post_epoch_hooks` at creation, or collects them with `Trainer.builder`; it no longer holds a validation: `Trainer.add_validation` is removed, and a validation runs as an `EvaluationHook`
+- `Trainer.pre_epoch_hooks` and `Trainer.post_epoch_hooks` are `HookChain`
+- `SourceProtocol.computed_metrics` is empty when the source has not run at the current epoch of the model
 - merged `CompositionalLoss` into `LossBase` and renamed it `LossWithMetrics`, which is not abstract
 - renamed `JoinMetrics` to `JoinedMetrics` and `JoinLossMetrics` to `JoinedLoss`
 - replaced `LossBase.watch` with the function `join`, which returns a new loss instead of changing the original
 - `JoinedMetrics` takes any number of objectives following `ObjectiveProtocol`; its `update` returns `None` and `compute` raises `RepeatedMetricsError` on repeated names; `JoinedLoss` takes any `LossProtocol`
 - `MetricCollection.fn` and `MetricCollection.named_fn` are read-only
 
-- `MetricTracker.metric_name` and `history` are read-only, `best_is` is `Final` and `best_value` has no setter; `resolved_best_is` is the direction in use, and `resolve_metric_name` and `resolve_best_is` set the name and the direction while they are unknown
 - library classes match protocols structurally instead of inheriting them
 - `Model.epoch` and `ModelProtocol.epoch` are read-only; `CheckpointProtocol.load` returns the loaded epoch, which `Model.load_state` sets
 - `ModelProtocol` requires `bind_optimizer`, `load_state` and `save_state`; `ModelOptimizer` and `Trainer` bind, load and save through the model
 - `CheckpointPathManager.epoch_dir` is replaced by `get_epoch_dir`; `get_model_state_path` and `get_optimizer_state_path` take the epoch
 - `ModelOptimizer.base_lr` and `StatsCollector.active` are read-only; `ModelOptimizer.update_learning_rate` sets the learning rates
 - `Trainer` raises `ValueError` when the loss is better when higher
-- moved `MetricTracker` from `lib.objectives`, and `MetricExtractor`, `MetricMonitor` and `get_last` from `lib.hooks`, to the new `lib.monitoring`
+- removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 
 ## Added
 - added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
+- added `SourceRunAfterHookError`, raised when a hook runs before the source it follows
+- added `ValidationAlreadyAddedError`, raised when a builder is given a second validation
+- added `NoValidationWarning`, emitted by `TrainerBuilder.watch` when it follows the training because no validation was added
+- added `last_run_epoch` to `SourceProtocol` and `Source`
+- added `TerminateTraining` and `monitoring.ALWAYS`, the default condition of the hooks
+- added `TrainerBuilder.watch`, following the loss of the validation by default, and `training=True` to follow the trainer
+- added `TrainerBuilder.add_early_stopping`, `add_pruning`, `add_reduce_lr_on_plateau`, `add_restart_schedule_on_plateau` and `add_saving`
+- added `TrainerBuilder.validation`; `TrainerBuilder.add_validation` adds the validation to the post-epoch hooks in call order and raises when called twice
 - added experiment pause and continue feature to allow pausing training sessions cleanly
 - added specific behaviour for trackers on pause to safely stash and restore resources
 - added `AccumulatorMismatchError`
@@ -44,19 +55,20 @@
 - added `__repr__` to `AbstractScheduler`
 - added `PauseExperimentEvent` and `ContinueExperimentEvent` to test workflows
 - added `torch_compile` and `distribute` to `EMAModel` and `SWAModel`
-- added `HookChain`, `TrainerBuilder` and `hooks.evaluation_hook`
+- added `HookChain`, `TrainerBuilder` and `EvaluationHook`
 - added `registering.RegisteringMeta`, the metaclass registering runners as actors of their model once created
 - added `objectives.join`, which joins objectives into one of the same kind as the first
 
 - added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
-- added `DirectionNotResolvedError`, raised by `MetricTracker.resolved_best_is` before the direction is known
-- added `DirectionGuessedWarning`, emitted when `MetricTracker` guesses the direction from the first values
 - added `higher_is_better` to `from_torcheval`, stated by the wrapped metric
 - the wrapper from `from_torchmetrics` keeps the direction of the composed metric
 - moved `ModuleProtocol` from `lib.models` to `core.protocols`, where it is documented with the other protocols
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 
 ## Changed
+- `Plateau` and `WorseThan` evaluate only on fresh records computed for the current model epoch
+- `TrialCallback` reports to optuna only on fresh records computed for the current model epoch
+- each termination hook states its own reason when it terminates the training
 - an object recorded more than once is represented once and referred to afterwards, so the metadata file names it with an anchor such as `&Model` and refers to it with `*Model`
 - ordered arguments across signatures and docstrings to weakly prefer alphabetical order within positional and named argument groups
 - `AbstractCheckpoint` emits `SaveModelEvent` and `LoadModelEvent` after the save or load succeeds
@@ -75,7 +87,6 @@
 - `MetricCollection` and its subclasses are invariant in `Output` and `Target`
 - moved `SupportsSync` from `runners` to `protocols` as `SyncProtocol`
 - loss formulas follow the written operations (`[A] - 3`, `[A] / [B]`, `[A]^-2`) and use parentheses only where needed
-- `MetricTracker` emits a warning when the metric improvement direction is automatically guessed from initial measurements
 - bumped minimum `torch` requirement to `>=2.10.0` which resolves compilation issues on Python 3.14, and consequently removed `pytest.skip` workarounds for Python 3.14 in test suites
 - last epoch sorts checkpoint by epoch and not by time of creation
 - unwrapped returns original model and not compiled one
@@ -89,11 +100,11 @@
 - moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
 
 - `TrainerProtocol.update_learning_rate` accepts learning rates by module name and defaults both arguments to `None`, like `Trainer`
-- `MetricMonitor.metric_tracker` and `MetricExtractor.optional_monitor` are `Final`; `MetricMonitor.history` is a `Sequence`
-- `MetricMonitor` takes an automatic `best_is` from the monitored metric when the metric states its direction, so the direction is recorded
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 
 ## Removed
+- removed `CallEvery`, `call_every` and `evaluation_hook`
+- removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`
 - removed `ModelCaller`; `ModelRunner` is the base class of the runners
 - removed `HookRegistry`; hooks are passed to `Trainer` or added to `TrainerBuilder`
 - removed the unused `fun` attribute from `Metric` and `DictLoss`
@@ -107,7 +118,6 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
-- `Hook` and `StaticHook` are named after the wrapped callable instead of their class, so `saving_hook` is recorded as `saving_hook`
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
 - the wrapper from `from_torchmetrics` reports its value under its name, `Loss`, so monitoring it without naming the metric works
 - combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function
@@ -151,7 +161,7 @@
 - `Wandb` stashes `_defined_metrics` across pause and continue to prevent redundant metric definitions
 - `SQLConnection` disposes its engine on `close()` rather than between runs
 - `SQLConnection` reuses existing experiment rows and avoids duplicating tags across runs
-- `MetricTracker.filtered_value` raises `ResultNotAvailableError` when history is empty
+- `Monitor.value` raises `ResultNotAvailableError` when history is empty
 - setting `MAX_REPR_SIZE` to 0 now records the element count without the elements, as it already did for dictionaries
 - batches carrying strings or bytes beside their tensors no longer stop training
 - `local_ops` validates targets upfront to prevent partial directory operations
@@ -170,13 +180,8 @@
 - numpy arrays of four or more dimensions now display values in representations
 - fixed `reduce()` in aggregators mutating internal cache by returning a copy
 - fixed `unregister_actor` raising an error when called outside of an active experiment run
-- fixed `PruneCallback` now unconditionally prunes when evaluated against a `None` threshold instead of bypassing and recording the benchmark value
 - fixed training loop failing to break immediately if a pre-epoch hook terminates training
 - fixed `TqdmLogger` leaking epoch progress bars when training is abruptly terminated
-- fixed `MetricMonitor` failing on name disagreements when cross-referencing metrics against objectives
-- fixed callback docstrings to correctly attach the `'auto'` behavior explanation to the `best_is` parameter
-- removed erroneous fallback to `_get_name` in `MetricExtractor` when resolving metric names
-- val_hook is reassigned on bind
 - fixed NestedScopeError message arguments
 - fixed NoActiveExperimentError class name evaluation
 - fixed unformatted string in _validate_batch_size error message
