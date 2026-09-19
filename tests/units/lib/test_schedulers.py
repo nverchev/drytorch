@@ -1,14 +1,10 @@
 """Tests for the ``schedulers`` module."""
 
-from collections.abc import Mapping
-from typing import Any
-
 import pytest
 
 from drytorch.core import tracking
 from drytorch.lib.schedulers import (
     AbstractScheduler,
-    ComposedScheduler,
     ConstantScheduler,
     CosineScheduler,
     ExponentialScheduler,
@@ -21,8 +17,8 @@ from drytorch.lib.schedulers import (
 )
 
 
-class TestBindingOperation:
-    """Test the generic binding operation on AbstractScheduler."""
+class TestComposeOperation:
+    """Test the generic compose operation on AbstractScheduler."""
 
     @pytest.fixture
     def initial_scheduler(self) -> AbstractScheduler:
@@ -34,30 +30,30 @@ class TestBindingOperation:
         """Return test argument."""
         return 1.0
 
-    def test_binding_with_rescale(self, initial_scheduler, base_lr) -> None:
-        """Test binding a scaling transformation."""
+    def test_compose_with_rescale(self, initial_scheduler, base_lr) -> None:
+        """Test composing a scaling transformation."""
         factor = 2.0
-        scaled_scheduler = initial_scheduler.bind(rescale(factor))
+        scaled_scheduler = initial_scheduler.compose(rescale(factor))
         epoch = 5
 
         assert scaled_scheduler(base_lr, epoch) == factor * base_lr
 
-    def test_binding_with_warmup(self, initial_scheduler, base_lr) -> None:
-        """Test binding a warmup transformation."""
+    def test_compose_with_warmup(self, initial_scheduler, base_lr) -> None:
+        """Test composing a warmup transformation."""
         warmup_steps = 3
-        warmed_up_scheduler = initial_scheduler.bind(warmup(warmup_steps))
+        warmed_up_scheduler = initial_scheduler.compose(warmup(warmup_steps))
         expected = base_lr * (1 / warmup_steps)
 
         assert warmed_up_scheduler(base_lr, 1) == expected
         assert warmed_up_scheduler(base_lr, warmup_steps) == base_lr
 
-    def test_binding_with_restart(self, base_lr) -> None:
-        """Test binding a restart transformation."""
+    def test_compose_with_restart(self, base_lr) -> None:
+        """Test composing a restart transformation."""
         base_scheduler = CosineScheduler(decay_steps=10, min_decay=0.1)
         restart_interval = 10
         restart_fraction = 0.2
 
-        restarted_scheduler = base_scheduler.bind(
+        restarted_scheduler = base_scheduler.compose(
             restart(restart_interval, restart_fraction)
         )
         expected_5 = base_scheduler(base_lr, 5)
@@ -68,10 +64,10 @@ class TestBindingOperation:
         assert restarted_scheduler(base_lr, 10) == expected_10
         assert restarted_scheduler(base_lr, 15) == expected_15
 
-    def test_binding_chaining(self, initial_scheduler, base_lr) -> None:
-        """Test chaining multiple binding operations."""
-        chained_scheduler = initial_scheduler.bind(warmup(warmup_steps=2))
-        chained_scheduler = chained_scheduler.bind(rescale(factor=0.5))
+    def test_compose_chaining(self, initial_scheduler, base_lr) -> None:
+        """Test chaining multiple compose operations."""
+        chained_scheduler = initial_scheduler.compose(warmup(warmup_steps=2))
+        chained_scheduler = chained_scheduler.compose(rescale(factor=0.5))
 
         assert chained_scheduler(base_lr, 0) == 0.0
         assert chained_scheduler(base_lr, 1) == 0.25
@@ -82,56 +78,47 @@ class _DummyTransform(TransformScheduler):
     """Dummy TransformScheduler subclass for testing."""
 
     def _compute(self, base_lr: float, epoch: int) -> float:
-        return self.logic(base_lr, epoch)
+        return self.scheduler(base_lr, epoch)
 
 
 class TestTransformSchedulers:
-    """Test TransformScheduler and ComposedScheduler."""
+    """Test TransformScheduler."""
 
     def test_transform_scheduler_defaults(self) -> None:
-        """Test default attributes of TransformScheduler."""
+        """Test attributes and repr of TransformScheduler."""
         scheduler = _DummyTransform(lambda lr, epoch: lr)
 
-        assert scheduler.parameters == {}
-        assert scheduler.base_scheduler_name == '_DummyTransform'
-
-    def test_composed_scheduler_with_mapping(self) -> None:
-        """Test ComposedScheduler initialization with Mapping."""
-        params: Mapping[str, Any] = {'step': 10}
-        composed = ComposedScheduler('Custom', params, lambda lr, epoch: lr * 2)
-
-        assert composed.base_scheduler_name == 'Custom'
-        assert composed.parameters == {'step': 10}
-        assert composed(1.0, 0) == 2.0
+        assert callable(scheduler.scheduler)
+        assert repr(scheduler).startswith('_DummyTransform(scheduler=')
 
 
 class TestRescaleLogic:
-    """Test the rescales transformation via bind."""
+    """Test the rescales transformation via compose."""
 
     def test_scaled_scheduler(self) -> None:
         """Test it correctly scales the base scheduler's output."""
         factor = 0.5
         base_lr = 0.1
-        scheduler = ConstantScheduler().bind(rescale(factor))
+        scheduler = ConstantScheduler().compose(rescale(factor))
 
         assert scheduler(base_lr, 10) == factor * base_lr
-        assert scheduler.parameters['factor'] == factor
+        assert scheduler.factor == factor
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
-            ConstantScheduler().bind(rescale(0.0))
+            ConstantScheduler().compose(rescale(0.0))
 
 
 class TestRestartLogic:
-    """Test the restart transformation via bind."""
+    """Test the restart transformation via compose."""
 
     def test_restart_scheduler(self) -> None:
         """Test periodic restarts of the base scheduler."""
         interval, fraction, max_r = 50, 0.5, 3
         base_lr = 1.0
 
-        scheduler = CosineScheduler(decay_steps=50, min_decay=0.01).bind(
+        scheduler = CosineScheduler(decay_steps=50, min_decay=0.01).compose(
             restart(
                 restart_interval=interval,
                 restart_fraction=fraction,
@@ -144,82 +131,80 @@ class TestRestartLogic:
         )
         assert scheduler(base_lr, 51) == expected
 
-        assert scheduler.parameters['restart_interval'] == interval
-        assert scheduler.parameters['restart_fraction'] == fraction
-        assert scheduler.parameters['max_restart'] == max_r
+        assert scheduler.restart_interval == interval
+        assert scheduler.restart_fraction == fraction
+        assert scheduler.max_restart == max_r
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
-            ConstantScheduler().bind(restart(restart_interval=0))
+            ConstantScheduler().compose(restart(restart_interval=0))
 
 
 class TestWarmupLogic:
-    """Test the warmup transformation via bind."""
+    """Test the warmup transformation via compose."""
 
     def test_warmup_scheduler(self) -> None:
         """Test the linear warmup phase before the base scheduler starts."""
         steps = 10
         base_lr = 0.1
 
-        scheduler = ConstantScheduler().bind(warmup(warmup_steps=steps))
+        scheduler = ConstantScheduler().compose(warmup(warmup_steps=steps))
 
         assert scheduler(base_lr, 0) == 0.0
         assert scheduler(base_lr, 5) == pytest.approx(0.05)
         assert scheduler(base_lr, 10) == base_lr
         assert scheduler(base_lr, 15) == base_lr
-        assert scheduler.parameters['warmup_steps'] == steps
+        assert scheduler.warmup_steps == steps
 
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
-            ConstantScheduler().bind(warmup(warmup_steps=-1))
+            ConstantScheduler().compose(warmup(warmup_steps=-1))
 
 
 class TestBaseSchedulerMetadata:
-    """Test parameters and repr for BaseScheduler subclasses."""
+    """Test repr and metadata for BaseScheduler subclasses and composition."""
 
     @pytest.mark.parametrize(
-        ('scheduler', 'expected_name', 'expected_params'),
+        ('scheduler', 'expected_repr_parts'),
         [
             (
                 ConstantScheduler(),
-                'ConstantScheduler',
-                {},
+                ['ConstantScheduler()'],
             ),
             (
                 CosineScheduler(decay_steps=100, min_decay=0.05),
-                'CosineScheduler',
-                {'decay_steps': 100, 'min_decay': 0.05},
+                ['CosineScheduler', 'decay_steps=100', 'min_decay=0.05'],
             ),
             (
                 ExponentialScheduler(exp_decay=0.95, min_decay=0.02),
-                'ExponentialScheduler',
-                {'exp_decay': 0.95, 'min_decay': 0.02},
+                ['ExponentialScheduler', 'exp_decay=0.95', 'min_decay=0.02'],
             ),
             (
                 PolynomialScheduler(max_epochs=500, power=2.0, min_decay=0.01),
-                'PolynomialScheduler',
-                {'max_epochs': 500, 'power': 2.0, 'min_decay': 0.01},
+                [
+                    'PolynomialScheduler',
+                    'max_epochs=500',
+                    'power=2.0',
+                    'min_decay=0.01',
+                ],
             ),
             (
                 StepScheduler(milestones=[50, 100], gamma=0.5),
-                'StepScheduler',
-                {'milestones': [50, 100], 'gamma': 0.5},
+                ['StepScheduler', 'milestones=[50, 100]', 'gamma=0.5'],
             ),
         ],
     )
-    def test_parameters_and_repr(
+    def test_repr(
         self,
         scheduler: AbstractScheduler,
-        expected_name: str,
-        expected_params: dict[str, Any],
+        expected_repr_parts: list[str],
     ) -> None:
-        """Test parameters mapping and repr string."""
-        assert scheduler.base_scheduler_name == expected_name
-        assert scheduler.parameters == expected_params
-        for key, value in expected_params.items():
-            assert f'{key}={value}' in repr(scheduler)
+        """Test repr string for BaseScheduler subclasses."""
+        repr_str = repr(scheduler)
+        for part in expected_repr_parts:
+            assert part in repr_str
 
     def test_extract_metadata_dataclass(self) -> None:
         """Test metadata extraction for dataclass scheduler."""
@@ -238,17 +223,55 @@ class TestBaseSchedulerMetadata:
         """Test metadata extraction for composed scheduler."""
         scheduler = ExponentialScheduler(exp_decay=0.9, min_decay=0.1)
 
-        composed = scheduler.bind(rescale(2.0))
+        composed = scheduler.compose(rescale(2.0))
         composed_meta = tracking.MetadataManager.extract_metadata(composed)
 
-        assert isinstance(composed_meta, dict)
-        assert composed_meta['class'] == 'ComposedScheduler'
-        assert composed_meta['base_scheduler_name'] == 'ExponentialScheduler'
-        assert composed_meta['parameters'] == {
-            'exp_decay': 0.9,
-            'min_decay': 0.1,
+        assert composed_meta == {
+            'class': 'RescaleScheduler',
             'factor': 2.0,
+            'scheduler': {
+                'class': 'ExponentialScheduler',
+                'exp_decay': 0.9,
+                'min_decay': 0.1,
+            },
         }
+
+    def test_repeated_transformation_keeps_both_factors(self) -> None:
+        """Test that repeated transformations keep both factors in record."""
+        scheduler = (
+            ConstantScheduler().compose(rescale(0.5)).compose(rescale(0.1))
+        )
+        metadata = tracking.MetadataManager.extract_metadata(scheduler)
+
+        assert metadata == {
+            'class': 'RescaleScheduler',
+            'factor': 0.1,
+            'scheduler': {
+                'class': 'RescaleScheduler',
+                'factor': 0.5,
+                'scheduler': 'ConstantScheduler()',
+            },
+        }
+        assert repr(scheduler) == (
+            'RescaleScheduler(factor=0.1, '
+            'scheduler=RescaleScheduler(factor=0.5, '
+            'scheduler=ConstantScheduler()))'
+        )
+
+    def test_transformation_order_preserved(self) -> None:
+        """Test different transformation orders are recorded differently."""
+        base = ConstantScheduler()
+        warmup_then_restart = base.compose(warmup(10)).compose(restart(5))
+        restart_then_warmup = base.compose(restart(5)).compose(warmup(10))
+
+        meta_wr = tracking.MetadataManager.extract_metadata(warmup_then_restart)
+        meta_rw = tracking.MetadataManager.extract_metadata(restart_then_warmup)
+
+        assert meta_wr != meta_rw
+        assert meta_wr['class'] == 'RestartScheduler'
+        assert meta_wr['scheduler']['class'] == 'WarmupScheduler'
+        assert meta_rw['class'] == 'WarmupScheduler'
+        assert meta_rw['scheduler']['class'] == 'RestartScheduler'
 
 
 class TestConstantScheduler:

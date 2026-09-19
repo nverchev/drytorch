@@ -1,6 +1,7 @@
 # [0.1.0] - 18-09-2026
 
 ## [BREAKING CHANGES]
+- renamed AbstractScheduler.bind to compose; a composed scheduler is the transformation wrapping the scheduler it modifies
 - the trainer binds its hooks when it is created and calls them without arguments; a hook belongs to one trainer and `HookChain.execute` takes no argument
 - hooks are objects implementing `HookProtocol` and never receive the trainer: a hook subclasses `TrainerHook` and reads `self.trainer`, so functions are no longer wrapped into hooks
 - removed `Hook`, `StaticHook`, `static_hook_class` and `saving_hook`, replaced by the `SavingHook` and `EvaluationHook` classes and by writing a `TrainerHook` subclass
@@ -104,6 +105,7 @@
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 
 ## Removed
+- ComposedScheduler, and parameters and base_scheduler_name from the schedulers
 - removed the public `CreatedAtProtocol`, replaced by the private `_CreatedAtProtocol` in `core/tracking`
 - removed `CallEvery`, `call_every` and `evaluation_hook`
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`
@@ -120,6 +122,7 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
+- composed schedulers record each transformation with its own settings and in order
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
 - the wrapper from `from_torchmetrics` reports its value under its name, `Loss`, so monitoring it without naming the metric works
 - combining losses whose metrics share a name with different functions raises `RepeatedMetricsError` instead of dropping one function

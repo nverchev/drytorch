@@ -134,10 +134,14 @@ def test_gradient_op_repr() -> None:
 def test_scheduler_repr() -> None:
     """Test the representation of a scheduler."""
     expected = {
-        'base_scheduler_name': 'ExponentialScheduler',
-        'class': 'ComposedScheduler',
-        'parameters': {'exp_decay': 0.975, 'min_decay': 0.0, 'warmup_steps': 2},
+        'class': 'WarmupScheduler',
+        'scheduler': {
+            'class': 'ExponentialScheduler',
+            'exp_decay': 0.975,
+            'min_decay': 0.0,
+        },
+        'warmup_steps': 2,
     }
-    scheduler = ExponentialScheduler().bind(warmup(2))
+    scheduler = ExponentialScheduler().compose(warmup(2))
 
     assert recursive_repr(scheduler) == expected
