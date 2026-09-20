@@ -43,6 +43,7 @@
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 
 ## Added
+- added `SyncedObjectiveProtocol`, the objective with a `sync` method that `from_torcheval` returns
 - added `ValidationProtocol` and `TestProtocol`
 - added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
 - added `SourceRunAfterHookError`, raised when a hook runs before the source it follows

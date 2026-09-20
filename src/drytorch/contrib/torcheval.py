@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Final, TypeVar
+from typing import Final, Protocol, TypeVar
 
 import torch
 
@@ -14,6 +14,7 @@ from drytorch.core import protocols as p
 
 
 __all__ = [
+    'SyncedObjectiveProtocol',
     'from_torcheval',
 ]
 
@@ -23,13 +24,19 @@ _Tensor = torch.Tensor
 _ComputeReturn = TypeVar('_ComputeReturn', bound=_Tensor | dict[str, _Tensor])
 
 
+class SyncedObjectiveProtocol(
+    p.ObjectiveProtocol[_Tensor, _Tensor], p.SyncProtocol, Protocol
+):
+    """Protocol for an objective synchronizing its state across processes."""
+
+
 def from_torcheval(
     torch_eval: metrics.Metric[_ComputeReturn],
     /,
     *,
     higher_is_better: bool | None = None,
     name: str | None = None,
-) -> p.ObjectiveProtocol[_Tensor, _Tensor]:
+) -> SyncedObjectiveProtocol:
     """Returns a wrapper of a Metric from torcheval with a sync method.
 
     Args:
