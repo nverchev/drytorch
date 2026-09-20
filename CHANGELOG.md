@@ -128,6 +128,7 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
+- `from_torcheval` accepts a metric whatever type it computes, instead of only one computing both a tensor and a dictionary
 - `LearningSchema.adam`, `adam_w`, `r_adam` and `sgd` accept learning rates by submodule, as the class and the trainer already did
 - composed schedulers record each transformation with its own settings and in order
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds

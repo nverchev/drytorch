@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, TypeVar
 
 import torch
 
@@ -20,9 +20,11 @@ __all__ = [
 
 _Tensor = torch.Tensor
 
+_ComputeReturn = TypeVar('_ComputeReturn', bound=_Tensor | dict[str, _Tensor])
+
 
 def from_torcheval(
-    torch_eval: metrics.Metric[_Tensor | dict[str, _Tensor]],
+    torch_eval: metrics.Metric[_ComputeReturn],
     /,
     *,
     higher_is_better: bool | None = None,
@@ -42,13 +44,11 @@ def from_torcheval(
 
     class _TorchEvalWithSync:
         higher_is_better: Final[bool | None]
-        metric: Final[metrics.Metric[_Tensor | dict[str, _Tensor]]]
+        metric: Final[metrics.Metric[_ComputeReturn]]
         name: Final[str]
-        _synced_value: _Tensor | dict[str, _Tensor] | None
+        _synced_value: _ComputeReturn | None
 
-        def __init__(
-            self, _metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
-        ) -> None:
+        def __init__(self, _metric: metrics.Metric[_ComputeReturn]) -> None:
             self.higher_is_better = higher_is_better
             self.metric = _metric
             name_str = name if name is not None else _metric.__class__.__name__
