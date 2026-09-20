@@ -73,6 +73,7 @@
 ## Changed
 - updated `STYLE.md` with the 3-tier argument convention: positional-only for generic/obvious target objects, positional-or-keyword for semantically named targets, and keyword-only for settings and options, requiring multiple positional-only arguments to have the same type
 - regrouped `core/protocols.py` into components, running and control, and capabilities
+- moved `ModuleProtocol` from `core.protocols` to `lib.models`, where the models that take a module document it
 - `Plateau` and `WorseThan` evaluate only on fresh records computed for the current model epoch
 - `TrialCallback` reports to optuna only on fresh records computed for the current model epoch
 - each termination hook states its own reason when it terminates the training

@@ -24,6 +24,7 @@ __all__ = [
     'AveragedModel',
     'EMAModel',
     'Model',
+    'ModuleProtocol',
     'SWAModel',
 ]
 
@@ -36,7 +37,7 @@ _ParamList = tuple[Tensor, ...] | list[Tensor]
 _MultiAvgFn = Callable[[_ParamList, _ParamList, Tensor | int], None]
 
 
-class _ModuleProtocol(Protocol[Input, Output]):
+class ModuleProtocol(Protocol[Input, Output]):
     """Protocol for a PyTorch module with type annotations."""
 
     @abc.abstractmethod
@@ -66,7 +67,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
     def __init__(
         self,
-        module: _ModuleProtocol[Input, Output],
+        module: ModuleProtocol[Input, Output],
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
@@ -261,7 +262,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
     @staticmethod
     def _validate_module(
-        module: _ModuleProtocol[Any, Any],
+        module: ModuleProtocol[Any, Any],
     ) -> torch.nn.Module:
         if not isinstance(module, torch.nn.Module):
             raise TypeError('module must be a torch.nn.Module subclass')
@@ -285,7 +286,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
 
     def __init__(
         self,
-        module: _ModuleProtocol[Input, Output],
+        module: ModuleProtocol[Input, Output],
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
@@ -379,7 +380,7 @@ class SWAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        module: _ModuleProtocol[Input, Output],
+        module: ModuleProtocol[Input, Output],
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
@@ -450,7 +451,7 @@ class EMAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        module: _ModuleProtocol[Input, Output],
+        module: ModuleProtocol[Input, Output],
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
