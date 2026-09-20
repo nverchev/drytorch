@@ -8,7 +8,7 @@ import pytest
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib import aggregators
+from drytorch.lib import accumulators
 from drytorch.lib.objectives import (
     DictLoss,
     JoinedLoss,
@@ -142,14 +142,14 @@ class TestMetricCollection:
     def test_merge_state_different_accumulators(self, metric_fun_1) -> None:
         """Test merging objectives with different accumulators raises."""
 
-        class OtherAccumulator(aggregators.TorchMeanAccumulator):
+        class OtherAccumulator(accumulators.TorchMeanAccumulator):
             pass
 
         class OtherCollection(MetricCollection):
             @classmethod
             def _get_accumulator_cls(
                 cls,
-            ) -> type[aggregators.TorchMeanAccumulator]:
+            ) -> type[accumulators.TorchMeanAccumulator]:
                 return OtherAccumulator
 
         metrics = MetricCollection(**metric_fun_1)

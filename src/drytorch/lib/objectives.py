@@ -31,7 +31,7 @@ from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib import aggregators
+from drytorch.lib import accumulators
 
 
 __all__ = [
@@ -77,13 +77,15 @@ class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
     """Abstract base class for metrics or losses."""
 
     _aggregator: Final[
-        aggregators.Aggregator[aggregators.AbstractAccumulator[Tensor, Tensor]]
+        accumulators.Aggregator[
+            accumulators.AbstractAccumulator[Tensor, Tensor]
+        ]
     ]
     _cached_values: dict[str, Tensor]
 
     def __init__(self) -> None:
         """Initialize."""
-        self._aggregator = aggregators.Aggregator()
+        self._aggregator = accumulators.Aggregator()
         self._cached_values = {}
         return
 
@@ -211,7 +213,7 @@ class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
     @abc.abstractmethod
     def _get_accumulator_cls(
         cls,
-    ) -> type[aggregators.AbstractAccumulator[Tensor, Tensor]]:
+    ) -> type[accumulators.AbstractAccumulator[Tensor, Tensor]]:
         """Returns the accumulator class."""
 
 
@@ -222,8 +224,8 @@ class AverageObjective(Objective[_Output_contra, _Target_contra], abc.ABC):
     @override
     def _get_accumulator_cls(
         cls,
-    ) -> type[aggregators.AbstractAccumulator[Tensor, Tensor]]:
-        return aggregators.TorchMeanAccumulator
+    ) -> type[accumulators.AbstractAccumulator[Tensor, Tensor]]:
+        return accumulators.TorchMeanAccumulator
 
 
 class MetricCollection(AverageObjective[Output, Target]):

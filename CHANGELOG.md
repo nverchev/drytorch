@@ -1,6 +1,7 @@
 # [0.1.0] - 18-09-2026
 
 ## [BREAKING CHANGES]
+- renamed `drytorch.lib.aggregators` to `drytorch.lib.accumulators`
 - settings, options, and hyperparameters across constructors and functions are keyword-only (after `*`); positional arguments are restricted to primary target objects
 - standardized model argument to `module` across all `Model` constructors, replacing `torch_module`
 - positional-only arguments (before `/`) are restricted to generic or obvious names (`module`, `fn`, `scheduler`, `obj`, `calculator`), while arguments with meaningful names (`dataset`, `device`, `config`) can be passed both positionally and by keyword

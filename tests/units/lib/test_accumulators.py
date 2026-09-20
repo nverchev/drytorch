@@ -1,10 +1,10 @@
-"""Tests for the ``aggregators`` module."""
+"""Tests for the ``accumulators`` module."""
 
 import torch
 
 import pytest
 
-from drytorch.lib.aggregators import Aggregator, TorchMeanAccumulator
+from drytorch.lib.accumulators import Aggregator, TorchMeanAccumulator
 
 
 class TestAggregator:

@@ -5,7 +5,7 @@ import torch.distributed as dist
 
 import pytest
 
-from drytorch.lib.aggregators import Aggregator, TorchMeanAccumulator
+from drytorch.lib.accumulators import Aggregator, TorchMeanAccumulator
 from tests.integration.conftest import DistributedWorker
 
 
