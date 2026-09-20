@@ -45,7 +45,7 @@ class LearningSchema:
     @classmethod
     def adam(
         cls,
-        base_lr: float = 1e-3,
+        base_lr: float | Mapping[str, float] = 1e-3,
         *,
         betas: tuple[float, float] = (0.9, 0.999),
         gradient_op: p.GradientOpProtocol = _default_grad_op,
@@ -54,7 +54,7 @@ class LearningSchema:
         """Convenience method for the Adam optimizer.
 
         Args:
-            base_lr: initial learning rate.
+            base_lr: initial learning rate, or one for each named submodule.
             betas: coefficients used for computing running averages.
             gradient_op: modifies parameters' after backward propagation.
             scheduler: modifies the learning rate given the current epoch.
@@ -70,7 +70,7 @@ class LearningSchema:
     @classmethod
     def adam_w(
         cls,
-        base_lr: float = 1e-3,
+        base_lr: float | Mapping[str, float] = 1e-3,
         *,
         betas: tuple[float, float] = (0.9, 0.999),
         gradient_op: p.GradientOpProtocol = _default_grad_op,
@@ -80,7 +80,7 @@ class LearningSchema:
         """Convenience method for the AdamW optimizer.
 
         Args:
-            base_lr: initial learning rate.
+            base_lr: initial learning rate, or one for each named submodule.
             betas: coefficients used for computing running averages.
             gradient_op: modifies parameters' after backward propagation.
             scheduler: modifies the learning rate given the current epoch.
@@ -97,7 +97,7 @@ class LearningSchema:
     @classmethod
     def r_adam(
         cls,
-        base_lr: float = 1e-3,
+        base_lr: float | Mapping[str, float] = 1e-3,
         *,
         betas: tuple[float, float] = (0.9, 0.999),
         gradient_op: p.GradientOpProtocol = _default_grad_op,
@@ -107,7 +107,7 @@ class LearningSchema:
         """Convenience method for the RAdam optimizer.
 
         Args:
-            base_lr: initial learning rate.
+            base_lr: initial learning rate, or one for each named submodule.
             betas: coefficients used for computing running averages.
             gradient_op: modifies parameters' after backward propagation.
             scheduler: modifies the learning rate given the current epoch.
@@ -129,7 +129,7 @@ class LearningSchema:
     @classmethod
     def sgd(
         cls,
-        base_lr: float = 0.01,
+        base_lr: float | Mapping[str, float] = 0.01,
         *,
         dampening: float = 0.0,
         gradient_op: p.GradientOpProtocol = _default_grad_op,
@@ -141,7 +141,7 @@ class LearningSchema:
         """Convenience method for the SGD optimizer.
 
         Args:
-            base_lr: initial learning rate.
+            base_lr: initial learning rate, or one for each named submodule.
             dampening:  dampening for momentum.
             gradient_op: modifies parameters' after backward propagation.
             momentum: momentum factor.

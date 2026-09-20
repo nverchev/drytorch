@@ -128,6 +128,7 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
+- `LearningSchema.adam`, `adam_w`, `r_adam` and `sgd` accept learning rates by submodule, as the class and the trainer already did
 - composed schedulers record each transformation with its own settings and in order
 - `Trainer.update_learning_rate` emits `LearningRateEvent` only after the update succeeds
 - the wrapper from `from_torchmetrics` reports its value under its name, `Loss`, so monitoring it without naming the metric works
