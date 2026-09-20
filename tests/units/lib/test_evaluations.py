@@ -111,7 +111,7 @@ class TestTest:
         self.mock_start_test.assert_called_once_with(
             test_instance.name, test_instance.model.name
         )
-        self.mock_super_call.assert_called_once_with(True)
+        self.mock_super_call.assert_called_once_with(store_outputs=True)
         self.mock_end_test.assert_called_once_with(
             test_instance.name, test_instance.model.name
         )

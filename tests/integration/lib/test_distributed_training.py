@@ -51,15 +51,15 @@ def setup_training() -> Trainer[TorchTuple, torch.Tensor, TorchData]:
     network = Linear(1, 1)
     model = Model(network, name='linear', device=DEVICE)
     dataset = IdentityDataset(80)
-    loader = DataLoader(dataset=dataset, batch_size=4)
+    loader = DataLoader(dataset, batch_size=4)
     loss = Loss(mse, name='MSE')
     learning_schema = LearningSchema.sgd(momentum=0)
     return Trainer(
         model,
-        name='MyDDPTrainer',
-        loader=loader,
         learning_schema=learning_schema,
+        loader=loader,
         loss=loss,
+        name='MyDDPTrainer',
     )
 
 
@@ -69,15 +69,15 @@ def setup_training_with_no_ddp_module() -> Trainer[
     """Setup DDP training without DDP module."""
     model = Model(Linear(1, 1), name='linear', device=DEVICE, distribute=False)
     dataset = IdentityDataset(80)
-    loader = DataLoader(dataset=dataset, batch_size=4)
+    loader = DataLoader(dataset, batch_size=4)
     loss = Loss(mse, name='MSE')
     learning_schema = LearningSchema.sgd(momentum=0)
     return Trainer(
         model,
-        name='MyDDPTrainer',
-        loader=loader,
         learning_schema=learning_schema,
+        loader=loader,
         loss=loss,
+        name='MyDDPTrainer',
     )
 
 
@@ -147,10 +147,10 @@ def infer_on_first_rank() -> None:
     model = Model(BatchNormLinear(), name='batch_norm_linear', device=DEVICE)
     trainer = Trainer(
         model,
-        name='MyDDPTrainer',
-        loader=DataLoader(dataset=IdentityDataset(80), batch_size=4),
         learning_schema=LearningSchema.sgd(momentum=0),
+        loader=DataLoader(IdentityDataset(80), batch_size=4),
         loss=Loss(mse, name='MSE'),
+        name='MyDDPTrainer',
     )
     trainer.train(1)
     if torch.distributed.get_rank() == 0:

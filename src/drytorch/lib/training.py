@@ -215,11 +215,11 @@ class Trainer(
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         learning_schema: p.LearningProtocol,
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
+        name: str = '',
         post_epoch_hooks: Sequence[p.HookProtocol] = (),
         pre_epoch_hooks: Sequence[p.HookProtocol] = (),
     ) -> None:
@@ -227,18 +227,18 @@ class Trainer(
 
         Args:
             model: the model containing the weights to evaluate.
+            loader: provides inputs and targets in batches.
+            loss: determines the optimization's criterion.
             name: the base name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
             learning_schema: contains optimizer settings and scheduling.
-            loader: provides inputs and targets in batches.
-            loss: determines the optimization's criterion.
             post_epoch_hooks: hooks executed after each epoch.
             pre_epoch_hooks: hooks executed before each epoch.
 
         Raises:
             ValueError: if the loss is better when higher.
         """
-        super().__init__(model, loader=loader, objective=loss, name=name)
+        super().__init__(model, loader=loader, name=name, objective=loss)
         self._check_loss_direction()
         self.post_epoch_hooks = hooks.HookChain(post_epoch_hooks)
         self.pre_epoch_hooks = hooks.HookChain(pre_epoch_hooks)
@@ -250,7 +250,7 @@ class Trainer(
         return
 
     @override
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, *, store_outputs: bool = False) -> None:
         """Train the module for one epoch.
 
         Args:
@@ -270,7 +270,7 @@ class Trainer(
         try:
             super().__call__()
         except exceptions.ConvergenceError as ce:
-            self.terminate_training(reason=str(ce))
+            self.terminate_training(str(ce))
             raise ce
 
         self.model.post_epoch_update()
@@ -314,7 +314,7 @@ class Trainer(
         )
         return
 
-    def train(self, n_epochs: int) -> None:
+    def train(self, n_epochs: int, /) -> None:
         """Train the module for the specified number of epochs.
 
         Args:
@@ -428,31 +428,31 @@ class Trainer(
     @staticmethod
     def builder(
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         learning_schema: p.LearningProtocol,
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
+        name: str = '',
     ) -> TrainerBuilder[Input, Target, Output]:
         """Collect the validation and the hooks before creating a trainer.
 
         Args:
             model: the model containing the weights to evaluate.
-            name: the base name for the object for logging purposes.
-                Defaults to class name plus eventual counter.
             learning_schema: contains optimizer settings and scheduling.
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
+            name: the base name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
 
         Returns:
             A builder for a trainer with these settings.
         """
         return TrainerBuilder(
             model,
-            name,
             learning_schema=learning_schema,
             loader=loader,
             loss=loss,
+            name=name,
         )
 
 
@@ -475,21 +475,21 @@ class TrainerBuilder(Generic[Input, Target, Output]):
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         learning_schema: p.LearningProtocol,
         loader: p.LoaderProtocol[tuple[Input, Target]],
         loss: p.LossProtocol[Output, Target],
+        name: str = '',
     ) -> None:
         """Initialize.
 
         Args:
             model: the model containing the weights to evaluate.
-            name: the base name for the object for logging purposes.
-                Defaults to class name plus eventual counter.
             learning_schema: contains optimizer settings and scheduling.
             loader: provides inputs and targets in batches.
             loss: determines the optimization's criterion.
+            name: the base name for the object for logging purposes.
+                Defaults to class name plus eventual counter.
         """
         self._learning_schema = learning_schema
         self._loader = loader
@@ -515,18 +515,19 @@ class TrainerBuilder(Generic[Input, Target, Output]):
 
     def add_early_stopping(
         self,
+        *,
+        min_delta: float = 1e-8,
         patience: int = 10,
         start_from_epoch: int = 2,
-        min_delta: float = 1e-8,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Stop the training when a metric stops improving.
 
         Args:
+            min_delta: the minimum change counting as an improvement.
             patience: the number of records to wait for an improvement,
                 as many as the runs of the source rather than epochs.
             start_from_epoch: the first epoch when the training may stop.
-            min_delta: the minimum change counting as an improvement.
             watch: what to follow. Default is :meth:`watch`.
 
         Side Effects:
@@ -534,15 +535,15 @@ class TrainerBuilder(Generic[Input, Target, Output]):
             when following the default without a validation.
         """
         hook = hooks.EarlyStopping(
+            min_delta=min_delta,
             patience=patience,
             start_from_epoch=start_from_epoch,
-            min_delta=min_delta,
             watch=self.watch() if watch is None else watch,
         )
         self._post_epoch_hooks.append(hook)
         return
 
-    def add_post_epoch_hook(self, hook: p.HookProtocol) -> None:
+    def add_post_epoch_hook(self, hook: p.HookProtocol, /) -> None:
         """Add a hook to execute after each epoch.
 
         Args:
@@ -551,7 +552,7 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         self._post_epoch_hooks.append(hook)
         return
 
-    def add_pre_epoch_hook(self, hook: p.HookProtocol) -> None:
+    def add_pre_epoch_hook(self, hook: p.HookProtocol, /) -> None:
         """Add a hook to execute before each epoch.
 
         Args:
@@ -563,6 +564,7 @@ class TrainerBuilder(Generic[Input, Target, Output]):
     def add_pruning(
         self,
         thresholds: Mapping[int, float | None],
+        *,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Stop the training when a metric misses a threshold.
@@ -583,20 +585,21 @@ class TrainerBuilder(Generic[Input, Target, Output]):
 
     def add_reduce_lr_on_plateau(
         self,
-        factor: float = 0.1,
-        patience: int = 0,
+        *,
         cooldown: int = 0,
+        factor: float = 0.1,
         min_delta: float = 1e-8,
+        patience: int = 0,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Reduce the learning rate when a metric stops improving.
 
         Args:
+            cooldown: the epochs to skip after the last reduction.
             factor: the factor scaling the learning rate down.
+            min_delta: the minimum change counting as an improvement.
             patience: the number of records to wait for an improvement,
                 as many as the runs of the source rather than epochs.
-            cooldown: the epochs to skip after the last reduction.
-            min_delta: the minimum change counting as an improvement.
             watch: what to follow. Default is :meth:`watch`.
 
         Side Effects:
@@ -604,10 +607,10 @@ class TrainerBuilder(Generic[Input, Target, Output]):
             when following the default without a validation.
         """
         hook = hooks.ReduceLROnPlateau(
-            factor=factor,
-            patience=patience,
             cooldown=cooldown,
+            factor=factor,
             min_delta=min_delta,
+            patience=patience,
             watch=self.watch() if watch is None else watch,
         )
         self._post_epoch_hooks.append(hook)
@@ -615,18 +618,19 @@ class TrainerBuilder(Generic[Input, Target, Output]):
 
     def add_restart_schedule_on_plateau(
         self,
-        patience: int = 0,
+        *,
         cooldown: int = 0,
         min_delta: float = 1e-8,
+        patience: int = 0,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Restart the learning rate schedule when a metric stops improving.
 
         Args:
-            patience: the number of records to wait for an improvement,
-                as many as the runs of the source rather than epochs.
             cooldown: the epochs to skip after the last restart.
             min_delta: the minimum change counting as an improvement.
+            patience: the number of records to wait for an improvement,
+                as many as the runs of the source rather than epochs.
             watch: what to follow. Default is :meth:`watch`.
 
         Side Effects:
@@ -634,9 +638,9 @@ class TrainerBuilder(Generic[Input, Target, Output]):
             when following the default without a validation.
         """
         hook = hooks.RestartScheduleOnPlateau(
-            patience=patience,
             cooldown=cooldown,
             min_delta=min_delta,
+            patience=patience,
             watch=self.watch() if watch is None else watch,
         )
         self._post_epoch_hooks.append(hook)
@@ -651,13 +655,14 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         Raises:
             ValueError: if save_every is not positive.
         """
-        when = monitoring.Every(save_every)
-        self._post_epoch_hooks.append(hooks.SavingHook(when))
+        condition = monitoring.Every(save_every)
+        self._post_epoch_hooks.append(hooks.SavingHook(when=condition))
         return
 
     def add_validation(
         self,
         val_loader: p.LoaderProtocol[tuple[Input, Target]],
+        *,
         val_name: str = '',
         validate_every: int = 1,
     ) -> None:
@@ -679,11 +684,11 @@ class TrainerBuilder(Generic[Input, Target, Output]):
             name = self._validation.name
             raise exceptions.ValidationAlreadyAddedError(name)
 
-        when = monitoring.Every(validate_every)
+        condition = monitoring.Every(validate_every)
         self._validation = evaluations.Validation(
-            self._model, name=val_name, loader=val_loader, metric=self._loss
+            self._model, loader=val_loader, metric=self._loss, name=val_name
         )
-        hook = hooks.EvaluationHook(self._validation, when)
+        hook = hooks.EvaluationHook(self._validation, when=condition)
         self._post_epoch_hooks.append(hook)
         return
 
@@ -695,28 +700,29 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         """
         return Trainer(
             self._model,
-            self._name,
+            learning_schema=self._learning_schema,
             loader=self._loader,
             loss=self._loss,
-            learning_schema=self._learning_schema,
-            pre_epoch_hooks=self._pre_epoch_hooks,
+            name=self._name,
             post_epoch_hooks=self._post_epoch_hooks,
+            pre_epoch_hooks=self._pre_epoch_hooks,
         )
 
     def watch(
         self,
-        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
+        *,
         best_is: Literal['higher', 'lower'] | None = None,
         filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
+        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
         training: bool = False,
     ) -> monitoring.Watch:
         """Create a watch with defaults from the builder.
 
         Args:
-            metric: the metric to monitor. Defaults to the loss.
             best_is: whether higher or lower values are better. Defaults to
                 the objective's direction if available.
             filter_fn: aggregates the recent values. Default takes the last.
+            metric: the metric to monitor. Defaults to the loss.
             training: whether to follow training instead of validation.
 
         Returns:

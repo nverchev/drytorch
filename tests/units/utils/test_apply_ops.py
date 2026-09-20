@@ -183,9 +183,7 @@ def test_recursive_apply_fails() -> None:
 
     # fail because it expects torch.Tensors and not int
     with pytest.raises(exceptions.FuncNotApplicableError):
-        recursive_apply(
-            obj=dict_data, expected_type=expected_type, func=_times_two
-        )
+        recursive_apply(dict_data, expected_type=expected_type, func=_times_two)
 
 
 def test_recursive_apply() -> None:
@@ -198,7 +196,7 @@ def test_recursive_apply() -> None:
     new_dict_data = {'list': new_tuple_data}
 
     out = recursive_apply(
-        obj=new_dict_data, expected_type=expected_type, func=_times_two
+        new_dict_data, expected_type=expected_type, func=_times_two
     )
 
     expected = {

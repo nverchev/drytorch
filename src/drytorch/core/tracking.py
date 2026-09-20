@@ -160,7 +160,7 @@ class MetadataManager:
 class Tracker(abc.ABC):
     """Abstract base class for tracking events with priority ordering."""
 
-    _current: ClassVar[Self | None] = None
+    _current: ClassVar[Tracker | None] = None
 
     @functools.singledispatchmethod
     @abc.abstractmethod
@@ -219,13 +219,13 @@ class Tracker(abc.ABC):
         Raises:
             TrackerNotActiveError: if the tracker is not registered.
         """
-        if cls._current is None:
+        if not isinstance(cls._current, cls):
             raise exceptions.TrackerNotUsedError(cls.__name__)
 
         return cls._current
 
     @classmethod
-    def _set_current(cls, tracker: Self) -> None:
+    def _set_current(cls, tracker: Tracker) -> None:
         cls._current = tracker
         return
 

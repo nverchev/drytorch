@@ -17,7 +17,7 @@ class TestCSVDumperPauseContinue:
     @pytest.fixture
     def tracker(self, tmp_path: pathlib.Path) -> CSVDumper:
         """Create a CSVDumper instance."""
-        return CSVDumper(tmp_path)
+        return CSVDumper(par_dir=tmp_path)
 
     def test_interleaved_pause_continue(
         self,

@@ -22,6 +22,7 @@ _Tensor = torch.Tensor
 
 def from_torchmetrics(
     torch_metric: metric.CompositionalMetric,
+    /,
 ) -> p.LossProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a CompositionalMetric for integration.
 

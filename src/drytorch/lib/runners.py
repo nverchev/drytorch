@@ -72,17 +72,17 @@ class Runner(
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         loader: p.LoaderProtocol[tuple[Input, Target]],
+        name: str = '',
     ) -> None:
         """Initialize.
 
         Args:
             model: the model to run.
+            loader: provides inputs and targets in batches.
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            loader: provides inputs and targets in batches.
 
         """
         super().__init__()
@@ -95,7 +95,7 @@ class Runner(
         self._outputs_list = []
         return
 
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, *, store_outputs: bool = False) -> None:
         """Single pass on the dataset.
 
         Args:
@@ -263,18 +263,18 @@ class Source(
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         loader: p.LoaderProtocol[tuple[Input, Target]],
+        name: str = '',
         objective: _Objective_co,
     ) -> None:
         """Initialize.
 
         Args:
             model: the model containing the weights to evaluate.
+            loader: provides inputs and targets in batches.
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            loader: provides inputs and targets in batches.
             objective: processes the model outputs and targets.
 
         """

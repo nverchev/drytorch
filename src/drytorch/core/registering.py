@@ -69,7 +69,7 @@ ALL_RUNNERS: Final = weakref.WeakKeyDictionary[
 ]()
 
 
-def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
+def check_current_run(model: p.ModelProtocol[Any, Any], /) -> None:
     """Raise if the model's run is not the active one."""
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     module = model.module
@@ -90,7 +90,7 @@ def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
     return
 
 
-def register_model(model: p.ModelProtocol[Any, Any]) -> None:
+def register_model(model: p.ModelProtocol[Any, Any], /) -> None:
     """Register a module in the current experiment.
 
     Args:
@@ -116,7 +116,7 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
     return
 
 
-def register_runner(runner: Any, model: p.ModelProtocol[Any, Any]) -> None:
+def register_runner(runner: Any, model: p.ModelProtocol[Any, Any], /) -> None:
     """Register a runner in the current run.
 
     Args:
@@ -139,7 +139,7 @@ def register_runner(runner: Any, model: p.ModelProtocol[Any, Any]) -> None:
     return
 
 
-def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
+def unregister_model(model: p.ModelProtocol[Any, Any], /) -> None:
     """Unregister a module and all its runners from the current experiment.
 
     Args:
@@ -156,7 +156,7 @@ def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
     return
 
 
-def unregister_runner(runner: Any) -> None:
+def unregister_runner(runner: Any, /) -> None:
     """Unregister a runner from the current experiment.
 
     Args:

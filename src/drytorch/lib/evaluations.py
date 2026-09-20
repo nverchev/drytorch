@@ -28,10 +28,10 @@ class EvaluationMixin(runners.Runner[Input, Target, Output]):
     """Mixin for running inference in eval mode without gradients."""
 
     @torch.inference_mode()
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, *, store_outputs: bool = False) -> None:
         """Set the model in evaluation mode and PyTorch in inference mode."""
         self.model.module.eval()
-        super().__call__(store_outputs)
+        super().__call__(store_outputs=store_outputs)
         return
 
 
@@ -65,18 +65,18 @@ class Validation(
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         loader: p.LoaderProtocol[tuple[Input, Target]],
+        name: str = '',
         metric: p.ObjectiveProtocol[Output, Target],
     ) -> None:
         """Initialize.
 
         Args:
             model: the model containing the weights to evaluate.
+            loader: provides inputs and targets in batches.
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            loader: provides inputs and targets in batches.
             metric: metric to evaluate the model.
 
         """
@@ -94,13 +94,13 @@ class Test(Validation[Input, Target, Output]):
     """
 
     @override
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, *, store_outputs: bool = False) -> None:
         """Test the model on the dataset.
 
         Args:
             store_outputs: whether to store model outputs. Defaults to False.
         """
         log_events.StartTestEvent(self.name, self.model.name)
-        super().__call__(store_outputs)
+        super().__call__(store_outputs=store_outputs)
         log_events.EndTestEvent(self.name, self.model.name)
         return

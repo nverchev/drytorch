@@ -18,7 +18,7 @@ _TransferOp = Callable[[pathlib.Path, pathlib.Path], object]
 
 
 def clone_experiment_data(
-    par_dir: pathlib.Path | str, exp_name: str, new_exp_name: str
+    par_dir: pathlib.Path | str, exp_name: str, new_exp_name: str, /
 ) -> None:
     """Clone local experiment data folders.
 
@@ -31,7 +31,9 @@ def clone_experiment_data(
     return
 
 
-def delete_experiment_data(par_dir: pathlib.Path | str, exp_name: str) -> None:
+def delete_experiment_data(
+    par_dir: pathlib.Path | str, exp_name: str, /
+) -> None:
     """Remove all local folders containing experiment data.
 
     Args:
@@ -45,7 +47,7 @@ def delete_experiment_data(par_dir: pathlib.Path | str, exp_name: str) -> None:
 
 
 def rename_experiment_data(
-    par_dir: pathlib.Path | str, exp_name: str, new_exp_name: str
+    par_dir: pathlib.Path | str, exp_name: str, new_exp_name: str, /
 ) -> None:
     """Rename local folders containing experiment data.
 

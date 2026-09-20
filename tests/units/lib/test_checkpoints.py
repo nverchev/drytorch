@@ -18,7 +18,7 @@ class TestPathManager:
     @pytest.fixture()
     def manager(self, mock_model, tmp_path) -> CheckpointPathManager:
         """Set up the path manager."""
-        return CheckpointPathManager(mock_model, tmp_path)
+        return CheckpointPathManager(mock_model, run_dir=tmp_path)
 
     def test_paths(self, manager) -> None:
         """Test that the paths have the correct name."""
@@ -56,7 +56,7 @@ class TestLocalCheckpoint:
     @pytest.fixture()
     def checkpoint(self, mock_model, optimizer, tmp_path) -> LocalCheckpoint:
         """Set up the checkpoint."""
-        checkpoint = LocalCheckpoint(tmp_path)
+        checkpoint = LocalCheckpoint(par_dir=tmp_path)
         checkpoint.bind_model(mock_model)
         checkpoint.bind_optimizer(optimizer)
         return checkpoint
@@ -70,7 +70,7 @@ class TestLocalCheckpoint:
 
     def test_checkpoint_not_initialized(self, tmp_path) -> None:
         """Test it raises an error if no model was registered."""
-        checkpoint = LocalCheckpoint(tmp_path)
+        checkpoint = LocalCheckpoint(par_dir=tmp_path)
 
         with pytest.raises(exceptions.CheckpointNotInitializedError):
             checkpoint.load()

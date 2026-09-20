@@ -31,7 +31,7 @@ class TestModelRegistration:
     def experiment(self, tmp_path) -> Experiment[None]:
         """Experiment without default trackers in a temporary folder."""
         drytorch.remove_all_default_trackers()
-        return Experiment(config=None, name='RegistrationExp', par_dir=tmp_path)
+        return Experiment(None, name='RegistrationExp', par_dir=tmp_path)
 
     def test_model_outside_run(self) -> None:
         """Test ``Model`` raises ``NoActiveExperimentError`` outside a run."""
@@ -65,7 +65,7 @@ class TestModelRegistration:
     ) -> None:
         """Test runner with model records custom checkpoint par_dir."""
         custom_par_dir = tmp_path / 'weights'
-        checkpoint = LocalCheckpoint(custom_par_dir)
+        checkpoint = LocalCheckpoint(par_dir=custom_par_dir)
 
         with experiment.create_run() as run:
             model = Model(torch.nn.Linear(1, 1), checkpoint=checkpoint)
@@ -95,7 +95,7 @@ class TestModelRegistration:
         dataset = torch.utils.data.TensorDataset(torch.ones(4, 1))
         with experiment.create_run():
             model = Model(torch.nn.Linear(1, 1))
-            runner = Runner(model, loader=DataLoader(dataset, 2))
+            runner = Runner(model, loader=DataLoader(dataset, batch_size=2))
 
         assert runner in registering.ALL_RUNNERS[model.module]
 
@@ -107,4 +107,4 @@ class TestModelRegistration:
 
         with experiment.create_run():
             with pytest.raises(exceptions.ModuleFromAnotherRunError):
-                Runner(model, loader=DataLoader(dataset, 2))
+                Runner(model, loader=DataLoader(dataset, batch_size=2))

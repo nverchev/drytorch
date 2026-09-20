@@ -33,6 +33,7 @@ class MatPlotter(base_classes.BasePlotter[Plot]):
 
     def __init__(
         self,
+        *,
         metric_loader: base_classes.MetricLoader | None = None,
         metric_names: Iterable[str] = (),
         model_names: Iterable[str] = (),

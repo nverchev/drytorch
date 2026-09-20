@@ -54,7 +54,7 @@ class TestComposeOperation:
         restart_fraction = 0.2
 
         restarted_scheduler = base_scheduler.compose(
-            restart(restart_interval, restart_fraction)
+            restart(restart_interval, restart_fraction=restart_fraction)
         )
         expected_5 = base_scheduler(base_lr, 5)
         expected_10 = base_scheduler(base_lr, 10)
@@ -66,8 +66,8 @@ class TestComposeOperation:
 
     def test_compose_chaining(self, initial_scheduler, base_lr) -> None:
         """Test chaining multiple compose operations."""
-        chained_scheduler = initial_scheduler.compose(warmup(warmup_steps=2))
-        chained_scheduler = chained_scheduler.compose(rescale(factor=0.5))
+        chained_scheduler = initial_scheduler.compose(warmup(2))
+        chained_scheduler = chained_scheduler.compose(rescale(0.5))
 
         assert chained_scheduler(base_lr, 0) == 0.0
         assert chained_scheduler(base_lr, 1) == 0.25
@@ -120,9 +120,9 @@ class TestRestartLogic:
 
         scheduler = CosineScheduler(decay_steps=50, min_decay=0.01).compose(
             restart(
-                restart_interval=interval,
-                restart_fraction=fraction,
+                interval,
                 max_restart=max_r,
+                restart_fraction=fraction,
             )
         )
 
@@ -138,7 +138,7 @@ class TestRestartLogic:
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
-            ConstantScheduler().compose(restart(restart_interval=0))
+            ConstantScheduler().compose(restart(0))
 
 
 class TestWarmupLogic:
@@ -149,7 +149,7 @@ class TestWarmupLogic:
         steps = 10
         base_lr = 0.1
 
-        scheduler = ConstantScheduler().compose(warmup(warmup_steps=steps))
+        scheduler = ConstantScheduler().compose(warmup(steps))
 
         assert scheduler(base_lr, 0) == 0.0
         assert scheduler(base_lr, 5) == pytest.approx(0.05)
@@ -160,7 +160,7 @@ class TestWarmupLogic:
     def test_invalid_params(self) -> None:
         """Test that invalid parameters raise ValueError."""
         with pytest.raises(ValueError):
-            ConstantScheduler().compose(warmup(warmup_steps=-1))
+            ConstantScheduler().compose(warmup(-1))
 
 
 class TestBaseSchedulerMetadata:

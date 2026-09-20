@@ -51,6 +51,7 @@ class TensorBoard(base_classes.Dumper):
 
     def __init__(
         self,
+        *,
         par_dir: pathlib.Path | None = None,
         flush_secs: int = 120,
         max_queue_size: int = 10,
@@ -65,7 +66,7 @@ class TensorBoard(base_classes.Dumper):
             max_queue_size: see tensorboard.SummaryWriter docs.
             start_server: if ``True``, start a local TensorBoard server.
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
         self._current_logdir = None
         self._flush_secs = flush_secs
         self.__class__.instance_count += 1

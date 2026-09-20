@@ -18,7 +18,7 @@ class TestCsvDumper:
     @pytest.fixture
     def tracker(self, tmp_path) -> CSVDumper:
         """Set up the instance."""
-        return CSVDumper(tmp_path)
+        return CSVDumper(par_dir=tmp_path)
 
     @pytest.fixture
     def tracker_started(

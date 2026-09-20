@@ -67,12 +67,14 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     def __init__(
         self,
         module: _ModuleProtocol[Input, Output],
-        name: str = '',
-        device: torch.device | None = None,
+        /,
+        *,
         checkpoint: p.CheckpointProtocol | None = None,
-        mixed_precision: bool = False,
-        torch_compile: bool = False,
+        device: torch.device | None = None,
         distribute: bool = True,
+        mixed_precision: bool = False,
+        name: str = '',
+        torch_compile: bool = False,
     ) -> None:
         """Initialize.
 
@@ -81,21 +83,21 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
         Args:
             module: :class:`torch.nn.Module` with type annotations.
-            name: the name of the model. Default uses the class name.
+            checkpoint: class that saves the state and optionally the optimizer.
             device: the device where to store the weights of the module.
                 Default uses the accelerator if available, cpu otherwise.
-            checkpoint: class that saves the state and optionally the optimizer.
-            mixed_precision: whether to use mixed precision computing.
-            torch_compile: whether to compile the module with torch.compile.
             distribute: whether to wrap the module for ddp training.
+            mixed_precision: whether to use mixed precision computing.
+            name: the name of the model. Default uses the class name.
+            torch_compile: whether to compile the module with torch.compile.
         """
         super().__init__()
         self._device = self._default_device() if device is None else device
         self._compile = torch_compile
         self._distribute = distribute
         self.mixed_precision = mixed_precision
-        torch_module = self._validate_module(module)
-        self.exec_module = self.prepare_module(torch_module)
+        validated_module = self._validate_module(module)
+        self.exec_module = self.prepare_module(validated_module)
         self._name = name
         self._epoch = 0
         self._registered = False
@@ -107,7 +109,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
         self.checkpoint.bind_model(self)
         return
 
-    def __call__(self, inputs: Input) -> Output:
+    def __call__(self, inputs: Input, /) -> Output:
         """Execute forward pass."""
         if torch.is_inference_mode_enabled():
             module = self._get_inference_module()
@@ -259,12 +261,12 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
     @staticmethod
     def _validate_module(
-        torch_model: _ModuleProtocol[Any, Any],
+        module: _ModuleProtocol[Any, Any],
     ) -> torch.nn.Module:
-        if not isinstance(torch_model, torch.nn.Module):
-            raise TypeError('torch_module must be a torch.nn.Module subclass')
+        if not isinstance(module, torch.nn.Module):
+            raise TypeError('module must be a torch.nn.Module subclass')
 
-        return torch_model
+        return module
 
 
 class AveragedModel(Model[Input, Output], abc.ABC):
@@ -283,36 +285,37 @@ class AveragedModel(Model[Input, Output], abc.ABC):
 
     def __init__(
         self,
-        torch_module: _ModuleProtocol[Input, Output],
+        module: _ModuleProtocol[Input, Output],
         /,
-        name: str = '',
-        device: torch.device | None = None,
+        *,
         checkpoint: p.CheckpointProtocol | None = None,
-        mixed_precision: bool = False,
-        torch_compile: bool = False,
+        device: torch.device | None = None,
         distribute: bool = True,
+        mixed_precision: bool = False,
+        name: str = '',
+        torch_compile: bool = False,
     ) -> None:
         """Initialize.
 
         Args:
-            torch_module: :class:`torch.nn.Module` with type annotations.
-            name: the name of the model. Default uses the class name.
+            module: :class:`torch.nn.Module` with type annotations.
+            checkpoint: class that saves the state and optionally the optimizer.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
-            checkpoint: class that saves the state and optionally the optimizer.
+            distribute: whether to wrap the module for ddp training.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to ``False``.
+            name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
-            distribute: whether to wrap the module for ddp training.
         """
         super().__init__(
-            torch_module,
-            name,
-            device,
-            checkpoint,
-            mixed_precision,
-            torch_compile=torch_compile,
+            module,
+            checkpoint=checkpoint,
+            device=device,
             distribute=distribute,
+            mixed_precision=mixed_precision,
+            name=name,
+            torch_compile=torch_compile,
         )
         self.exec_averaged_module = self._create_averaged_module()
         self.checkpoint.bind_module(
@@ -376,39 +379,40 @@ class SWAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        torch_module: _ModuleProtocol[Input, Output],
+        module: _ModuleProtocol[Input, Output],
         /,
-        start_epoch: int,
-        name: str = '',
-        device: torch.device | None = None,
+        *,
         checkpoint: p.CheckpointProtocol | None = None,
-        mixed_precision: bool = False,
-        torch_compile: bool = False,
+        device: torch.device | None = None,
         distribute: bool = True,
+        mixed_precision: bool = False,
+        name: str = '',
+        torch_compile: bool = False,
+        start_epoch: int,
     ) -> None:
         """Initialize.
 
         Args:
-            torch_module: :class:`torch.nn.Module` with type annotations.
-            start_epoch: the epoch at which to start averaging.
-            name: the name of the model. Default uses the class name.
+            module: :class:`torch.nn.Module` with type annotations.
+            checkpoint: class that saves the state and optionally the optimizer.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
-            checkpoint: class that saves the state and optionally the optimizer.
+            distribute: whether to wrap the module for ddp training.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to ``False``.
+            name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
-            distribute: whether to wrap the module for ddp training.
+            start_epoch: the epoch at which to start averaging.
         """
         self.start_epoch = start_epoch
         super().__init__(
-            torch_module,
-            name,
-            device,
-            checkpoint,
-            mixed_precision,
-            torch_compile=torch_compile,
+            module,
+            checkpoint=checkpoint,
+            device=device,
             distribute=distribute,
+            mixed_precision=mixed_precision,
+            name=name,
+            torch_compile=torch_compile,
         )
         return
 
@@ -446,39 +450,40 @@ class EMAModel(AveragedModel[Input, Output]):
 
     def __init__(
         self,
-        torch_module: _ModuleProtocol[Input, Output],
+        module: _ModuleProtocol[Input, Output],
         /,
-        name: str = '',
-        device: torch.device | None = None,
+        *,
         checkpoint: p.CheckpointProtocol | None = None,
-        mixed_precision: bool = False,
-        torch_compile: bool = False,
+        device: torch.device | None = None,
         distribute: bool = True,
+        mixed_precision: bool = False,
+        name: str = '',
+        torch_compile: bool = False,
         decay: float = 0.999,
     ) -> None:
         """Initialize.
 
         Args:
-            torch_module: :class:`torch.nn.Module` with type annotations.
-            name: the name of the model. Default uses the class name.
+            module: :class:`torch.nn.Module` with type annotations.
+            checkpoint: class that saves the state and optionally the optimizer.
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
-            checkpoint: class that saves the state and optionally the optimizer.
+            distribute: whether to wrap the module for ddp training.
             mixed_precision: whether to use mixed precision computing.
                 Defaults to ``False``.
+            name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
-            distribute: whether to wrap the module for ddp training.
             decay: the exponential decay rate for the moving average.
         """
         self.decay = decay
         super().__init__(
-            torch_module,
-            name,
-            device,
-            checkpoint,
-            mixed_precision,
-            torch_compile=torch_compile,
+            module,
+            checkpoint=checkpoint,
+            device=device,
             distribute=distribute,
+            mixed_precision=mixed_precision,
+            name=name,
+            torch_compile=torch_compile,
         )
         return
 

@@ -85,7 +85,7 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
 
     scheduler: Final[Callable[[float, int], float]]
 
-    def __init__(self, scheduler: Callable[[float, int], float]):
+    def __init__(self, scheduler: Callable[[float, int], float], /):
         """Initialize.
 
         Args:
@@ -127,7 +127,13 @@ class RescaleScheduler(TransformScheduler):
 
     factor: Final[float]
 
-    def __init__(self, scheduler: Callable[[float, int], float], factor: float):
+    def __init__(
+        self,
+        scheduler: Callable[[float, int], float],
+        /,
+        *,
+        factor: float,
+    ):
         """Initialize.
 
         Args:
@@ -163,17 +169,19 @@ class RestartScheduler(TransformScheduler):
     def __init__(
         self,
         scheduler: Callable[[float, int], float],
-        restart_interval: int,
-        restart_fraction: float = 1.0,
+        /,
+        *,
         max_restart: int | None = None,
+        restart_fraction: float = 1.0,
+        restart_interval: int,
     ):
         """Initialize.
 
         Args:
             scheduler: callable to calculate the scheduling.
-            restart_interval: number of epochs between restarts.
-            restart_fraction: fraction to use when restarting.
             max_restart: maximum number of restarts before deactivating.
+            restart_fraction: fraction to use when restarting.
+            restart_interval: number of epochs between restarts.
         """
         if restart_interval <= 0:
             raise ValueError('restart_interval must be positive.')
@@ -186,8 +194,8 @@ class RestartScheduler(TransformScheduler):
 
         super().__init__(scheduler)
         self.restart_interval = restart_interval
-        self.restart_fraction = restart_fraction
         self.max_restart = max_restart
+        self.restart_fraction = restart_fraction
         return
 
     @override
@@ -215,7 +223,11 @@ class WarmupScheduler(TransformScheduler):
     warmup_steps: Final[int]
 
     def __init__(
-        self, scheduler: Callable[[float, int], float], warmup_steps: int
+        self,
+        scheduler: Callable[[float, int], float],
+        /,
+        *,
+        warmup_steps: int = 10,
     ):
         """Initialize.
 
@@ -238,7 +250,7 @@ class WarmupScheduler(TransformScheduler):
         return self.scheduler(base_lr, epoch - self.warmup_steps)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class BaseScheduler(AbstractScheduler, abc.ABC):
     """Base class for schedulers that use dataclasses."""
 
@@ -415,22 +427,23 @@ def rescale(
     def _decorator(
         scheduler: Callable[[float, int], float],
     ) -> RescaleScheduler:
-        return RescaleScheduler(scheduler, factor)
+        return RescaleScheduler(scheduler, factor=factor)
 
     return _decorator
 
 
 def restart(
     restart_interval: int,
-    restart_fraction: float = 1.0,
+    *,
     max_restart: int | None = None,
+    restart_fraction: float = 1.0,
 ) -> Callable[[Callable[[float, int], float]], RestartScheduler]:
     """Create a restart transformation.
 
     Args:
         restart_interval: number of epochs between restarts.
-        restart_fraction: fraction to use when restarting.
         max_restart: maximum number of restarts before deactivating.
+        restart_fraction: fraction to use when restarting.
 
     Returns:
         A decorator that adds restarting to the scheduling logic.
@@ -440,7 +453,10 @@ def restart(
         scheduler: Callable[[float, int], float],
     ) -> RestartScheduler:
         return RestartScheduler(
-            scheduler, restart_interval, restart_fraction, max_restart
+            scheduler,
+            max_restart=max_restart,
+            restart_fraction=restart_fraction,
+            restart_interval=restart_interval,
         )
 
     return _decorator
@@ -461,6 +477,6 @@ def warmup(
     def _decorator(
         scheduler: Callable[[float, int], float],
     ) -> WarmupScheduler:
-        return WarmupScheduler(scheduler, warmup_steps)
+        return WarmupScheduler(scheduler, warmup_steps=warmup_steps)
 
     return _decorator

@@ -242,7 +242,7 @@ class TestMemoryMetrics:
     @pytest.fixture(scope='class')
     def tracker(self, metric_loader) -> MemoryMetrics:
         """Set up the instance."""
-        return MemoryMetrics(metric_loader)
+        return MemoryMetrics(metric_loader=metric_loader)
 
     def test_initialization(self, tracker) -> None:
         """Test basic initialization."""

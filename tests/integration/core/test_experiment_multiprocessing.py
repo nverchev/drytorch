@@ -24,7 +24,7 @@ class TestExperimentMultiprocessing:
             )
             results = pool.starmap(worker, [() for _ in range(num_processes)])
 
-        exp = Experiment(config=None, name=worker.name, par_dir=tmp_path)
+        exp = Experiment(None, name=worker.name, par_dir=tmp_path)
         runs = exp._registry.load_all()
         registry_ids = {r.id for r in runs}
 
@@ -50,7 +50,7 @@ class TestExperimentMultiprocessing:
             with multiprocessing.Pool(processes=len(status_list)) as pool:
                 pool.map(worker, status_list)
 
-        exp = Experiment(config={}, name=worker.name, par_dir=tmp_path)
+        exp = Experiment({}, name=worker.name, par_dir=tmp_path)
         runs = exp._registry.load_all()
 
         assert len(runs) == len(status_list)
@@ -75,7 +75,7 @@ class TestExperimentMultiprocessing:
             with multiprocessing.Pool(processes=len(status_list)) as pool:
                 pool.map(worker, status_list)
 
-        exp = Experiment(config={}, name=worker.name, par_dir=tmp_path)
+        exp = Experiment({}, name=worker.name, par_dir=tmp_path)
         runs = exp._registry.load_all()
 
         assert len(runs) == len(status_list)
@@ -85,7 +85,7 @@ class TestExperimentMultiprocessing:
     def test_resume_in_worker(self, tmp_path, example_run_id) -> None:
         """Test a worker process resumes a run under its recorded id."""
         drytorch.remove_all_default_trackers()
-        exp = Experiment(config=None, name='ResumeExperiment', par_dir=tmp_path)
+        exp = Experiment(None, name='ResumeExperiment', par_dir=tmp_path)
         with exp.create_run(run_id=example_run_id):
             pass
 
@@ -115,7 +115,7 @@ class TestExperimentMultiprocessing:
     def _resume(par_dir: pathlib.Path, name: str, run_id: str) -> str:
         """Resume a run and return its id (module-level for pickling)."""
         drytorch.remove_all_default_trackers()
-        exp = Experiment(config=None, name=name, par_dir=par_dir)
+        exp = Experiment(None, name=name, par_dir=par_dir)
         run = exp.create_run(run_id=run_id, resume=True)
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RunAlreadyCompletedWarning)

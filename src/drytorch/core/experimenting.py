@@ -343,7 +343,7 @@ class Experiment(Generic[_T_co]):
         if run_id in self._paused_runs:
             raise exceptions.RunStillPausedError(run_id, self.name)
 
-        return Run(experiment=self, run_id=run_id, resumed=True, record=record)
+        return Run(self, run_id, record=record, resumed=True)
 
     def _create_new_run(
         self,
@@ -359,7 +359,7 @@ class Experiment(Generic[_T_co]):
             time.sleep(1)  # the next timestamp gives a new id
             new_id = self._make_run_id(None)
 
-        return Run(experiment=self, run_id=new_id, record=record)
+        return Run(self, new_id, record=record)
 
     def _try_register(self, run_id: str) -> bool:
         """Record a new run; return False if its id is already recorded."""
@@ -459,6 +459,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self,
         experiment: Experiment[_T_co],
         run_id: str,
+        *,
         record: bool = True,
         resumed: bool = False,
     ) -> None:

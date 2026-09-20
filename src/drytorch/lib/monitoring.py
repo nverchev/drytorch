@@ -41,7 +41,7 @@ __all__ = [
 get_last: Final = operator.itemgetter(-1)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class Watch:
     """What a condition follows during the training.
 
@@ -75,10 +75,10 @@ class Watch:
         source = trainer if self.source is None else self.source
         objective = self._get_objective(source)
         return Monitor(
-            source,
-            self._get_metric_name(source, objective),
             best_is=self.best_is or self._get_best_is(objective),
             filter_fn=self.filter_fn,
+            metric_name=self._get_metric_name(source, objective),
+            source=source,
         )
 
     def _get_best_is(
@@ -145,18 +145,19 @@ class Monitor:
 
     def __init__(
         self,
-        source: p.SourceProtocol,
-        metric_name: str,
+        *,
         best_is: Literal['higher', 'lower'] | None = None,
         filter_fn: Callable[[Sequence[float]], float] = get_last,
+        metric_name: str,
+        source: p.SourceProtocol,
     ) -> None:
         """Initialize.
 
         Args:
-            source: the evaluation computing the metric.
-            metric_name: the name of the metric to follow.
             best_is: whether higher or lower values are better.
             filter_fn: aggregates the recent values. Default takes the last.
+            metric_name: the name of the metric to follow.
+            source: the evaluation computing the metric.
         """
         self.best_is = best_is
         self.filter_fn = filter_fn
@@ -194,7 +195,7 @@ class Monitor:
         return types.MappingProxyType(self._values)
 
     def is_better(
-        self, value: float, reference: float, min_delta: float = 0.0
+        self, value: float, reference: float, /, *, min_delta: float = 0.0
     ) -> bool:
         """Check whether a value is better than a reference.
 
@@ -444,7 +445,7 @@ class Every(Condition):
     interval: Final[int]
     start: Final[int]
 
-    def __init__(self, interval: int, start: int = 0) -> None:
+    def __init__(self, interval: int, *, start: int = 0) -> None:
         """Initialize.
 
         Args:
@@ -499,7 +500,7 @@ class MetricCondition(Condition, abc.ABC):
     watch: Final[Watch]
     _monitor: Monitor | None
 
-    def __init__(self, watch: Watch | None = None) -> None:
+    def __init__(self, *, watch: Watch | None = None) -> None:
         """Initialize.
 
         Args:
@@ -565,17 +566,18 @@ class Plateau(MetricCondition):
 
     def __init__(
         self,
-        patience: int = 0,
-        min_delta: float = 1e-8,
+        *,
         watch: Watch | None = None,
+        min_delta: float = 1e-8,
+        patience: int = 0,
     ) -> None:
         """Initialize.
 
         Args:
+            watch: what to follow. Default follows the loss of the trainer.
+            min_delta: the minimum change counting as an improvement.
             patience: the number of records to wait for an improvement, as
                 many as the runs of the source rather than epochs.
-            min_delta: the minimum change counting as an improvement.
-            watch: what to follow. Default follows the loss of the trainer.
 
         Raises:
             ValueError: if patience is negative.
@@ -583,7 +585,7 @@ class Plateau(MetricCondition):
         if patience < 0:
             raise ValueError(f'patience must be non-negative, got {patience}')
 
-        super().__init__(watch)
+        super().__init__(watch=watch)
         self.min_delta = min_delta
         self.patience = patience
         self._best_value = None
@@ -623,7 +625,9 @@ class Plateau(MetricCondition):
             self._best_value = value
             return
 
-        if self.monitor.is_better(value, self._best_value, self.min_delta):
+        if self.monitor.is_better(
+            value, self._best_value, min_delta=self.min_delta
+        ):
             self._best_value = value
             self._since_improvement = 0
         else:
@@ -645,6 +649,7 @@ class WorseThan(MetricCondition):
     def __init__(
         self,
         thresholds: Mapping[int, float | None],
+        *,
         watch: Watch | None = None,
     ) -> None:
         """Initialize.
@@ -653,7 +658,7 @@ class WorseThan(MetricCondition):
             thresholds: the value to reach at each given epoch.
             watch: what to follow. Default follows the loss of the trainer.
         """
-        super().__init__(watch)
+        super().__init__(watch=watch)
         self.thresholds = thresholds
         return
 
@@ -714,7 +719,7 @@ class AndCondition(LogicalCondition, Generic[_L_co, _R_co]):
     left: Final[_L_co]
     right: Final[_R_co]
 
-    def __init__(self, left: _L_co, right: _R_co) -> None:
+    def __init__(self, left: _L_co, right: _R_co, /) -> None:
         """Initialize.
 
         Args:
@@ -746,7 +751,7 @@ class NotCondition(LogicalCondition, Generic[_C_co]):
 
     condition: Final[_C_co]
 
-    def __init__(self, condition: _C_co) -> None:
+    def __init__(self, condition: _C_co, /) -> None:
         """Initialize.
 
         Args:
@@ -778,7 +783,7 @@ class OrCondition(LogicalCondition, Generic[_L_co, _R_co]):
     left: Final[_L_co]
     right: Final[_R_co]
 
-    def __init__(self, left: _L_co, right: _R_co) -> None:
+    def __init__(self, left: _L_co, right: _R_co, /) -> None:
         """Initialize.
 
         Args:

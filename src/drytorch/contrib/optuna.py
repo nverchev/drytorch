@@ -51,6 +51,7 @@ class TrialCallback(hooks.TrainerHook):
     def __init__(
         self,
         trial: optuna.Trial,
+        *,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Initialize.
@@ -111,6 +112,7 @@ class TrialCallback(hooks.TrainerHook):
 def suggest_overrides(
     tune_cfg: omegaconf.DictConfig,
     trial: optuna.Trial,
+    *,
     use_full_name: bool = False,
 ) -> list[str]:
     """Suggest values for a trial from structured configurations.
@@ -221,6 +223,7 @@ def suggest_overrides(
 
 def get_final_value(
     trial: optuna.Trial,
+    *,
     filter_fn: Callable[[Sequence[float]], float] | None = None,
 ) -> float:
     """Calculates a trial's final value from its intermediate reported values.

@@ -230,7 +230,7 @@ class TestTrainer:
 
     def test_terminate_training(self, trainer) -> None:
         """Test that terminated correctly stop training."""
-        trainer.terminate_training(reason='This is a test.')
+        trainer.terminate_training('This is a test.')
 
         with pytest.warns(exceptions.TerminatedTrainingWarning):
             trainer()
@@ -290,10 +290,10 @@ class TestTrainerBuilder:
         """Set up a TrainerBuilder instance with mock components."""
         return TrainerBuilder(
             mock_model,
-            'TestTrainer',
+            learning_schema=mock_learning_schema,
             loader=mock_loader,
             loss=mock_loss,
-            learning_schema=mock_learning_schema,
+            name='TestTrainer',
         )
 
     def test_validation_not_available(self, builder) -> None:
@@ -304,17 +304,17 @@ class TestTrainerBuilder:
     def test_add_validation(self, mocker, builder) -> None:
         """Test adding validation sets validation property."""
         val_loader = mocker.Mock()
-        builder.add_validation(val_loader, 'Val', validate_every=2)
+        builder.add_validation(val_loader, val_name='Val', validate_every=2)
 
         assert builder.validation.name.startswith('Val')
 
     def test_add_validation_twice_raises(self, mocker, builder) -> None:
         """Test adding validation a second time raises."""
         val_loader = mocker.Mock()
-        builder.add_validation(val_loader, 'Val')
+        builder.add_validation(val_loader, val_name='Val')
 
         with pytest.raises(exceptions.ValidationAlreadyAddedError):
-            builder.add_validation(val_loader, 'Val2')
+            builder.add_validation(val_loader, val_name='Val2')
 
     @pytest.mark.parametrize('validate_every', [0, -1])
     def test_validate_every_not_positive(
@@ -336,7 +336,7 @@ class TestTrainerBuilder:
     def test_watch_with_validation(self, mocker, builder) -> None:
         """Test watch binds to the validation."""
         val_loader = mocker.Mock()
-        builder.add_validation(val_loader, 'Val')
+        builder.add_validation(val_loader, val_name='Val')
 
         watch = builder.watch()
 
@@ -350,12 +350,12 @@ class TestTrainerBuilder:
 
     def test_add_hooks_helpers(self, mocker, builder) -> None:
         """Test builder helper methods add corresponding hooks."""
-        builder.add_validation(mocker.Mock(), 'Val')
+        builder.add_validation(mocker.Mock(), val_name='Val')
         builder.add_early_stopping(patience=5)
         builder.add_pruning({3: 1.0})
         builder.add_reduce_lr_on_plateau(factor=0.5)
         builder.add_restart_schedule_on_plateau()
-        builder.add_saving(save_every=3)
+        builder.add_saving(3)
 
         assert len(builder._post_epoch_hooks) == 6
 
@@ -372,7 +372,7 @@ class TestTrainerBuilder:
         val_loader = mocker.Mock()
         pre_hook = mocker.Mock()
         post_hook = mocker.Mock()
-        builder.add_validation(val_loader, 'Val', validate_every=2)
+        builder.add_validation(val_loader, val_name='Val', validate_every=2)
         val_hook = builder._post_epoch_hooks[0]
         builder.add_pre_epoch_hook(pre_hook)
         builder.add_post_epoch_hook(post_hook)
@@ -381,11 +381,11 @@ class TestTrainerBuilder:
 
         self.mock_trainer_cls.assert_called_once_with(
             mock_model,
-            'TestTrainer',
+            learning_schema=mock_learning_schema,
             loader=mock_loader,
             loss=mock_loss,
-            learning_schema=mock_learning_schema,
-            pre_epoch_hooks=[pre_hook],
+            name='TestTrainer',
             post_epoch_hooks=[val_hook, post_hook],
+            pre_epoch_hooks=[pre_hook],
         )
         assert trainer is self.mock_trainer_cls.return_value

@@ -26,7 +26,7 @@ class _CountingHook(TrainerHook):
         Args:
             when: decides whether the hook runs.
         """
-        super().__init__(when)
+        super().__init__(when=when)
         self.runs = 0
         return
 

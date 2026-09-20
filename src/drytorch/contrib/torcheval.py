@@ -23,15 +23,17 @@ _Tensor = torch.Tensor
 
 def from_torcheval(
     torch_eval: metrics.Metric[_Tensor | dict[str, _Tensor]],
-    name: str | None = None,
+    /,
+    *,
     higher_is_better: bool | None = None,
+    name: str | None = None,
 ) -> p.ObjectiveProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a Metric from torcheval with a sync method.
 
     Args:
         torch_eval: the torcheval metric to wrap.
-        name: optional name for the metric. Defaults to the class name.
         higher_is_better: whether higher values are better.
+        name: optional name for the metric. Defaults to the class name.
 
     Raises:
         exceptions.ComputedMetricsTypeError: If the metric computes to an

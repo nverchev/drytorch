@@ -23,7 +23,9 @@ tutorial's paired `.md` and `.ipynb` in sync.
   private ones state their variance (`_T`, `_T_contra`, `_R_co`).
 - Declare variance explicitly. A class that stores or merges values of a
   type variable is invariant.
-- `Self` for return types; as a parameter only in merge-like methods.
+- `Self` for return types, never for parameters. A merge-like method takes
+  `Any` in the base class, which lets each subclass narrow the parameter to
+  its own class without breaking contravariance.
 - Mark overrides with `@override` from `typing_extensions`.
 - Narrow an unknown type with a runtime-checkable protocol check, not with
   `getattr` or `hasattr`: the check narrows the type for the checker.
@@ -43,6 +45,21 @@ tutorial's paired `.md` and `.ipynb` in sync.
 - Private attributes (`_attr`) are internal: not documented, not recorded.
 - A container the class changes is private, exposed by a read-only property
   (`Mapping`, `Sequence`).
+
+## Arguments
+- Positional arguments are only the objects a class or function clearly
+  works on, which their type identifies: the module of a model, the function
+  of a metric, the operands of a condition.
+- Settings, hyperparameters and configuration options are keyword-only:
+  `Loss(loss_fn, name='MSE')`, not `Loss(loss_fn, 'MSE')`;
+  `RescaleScheduler(scheduler, factor=0.5)`.
+- A positional argument is positional-only when its name is
+  generic or obvious (`module`, `fn`, `scheduler`, `obj`, `calculator`),
+  where passing it by keyword adds no clarity (`round(0.6)`). Multiple
+  positional-only arguments must have the same type (such as the operands of
+  a condition or binary operation). When an argument's name is
+  meaningful at the call site (`dataset` in `DataLoader`, `device` in
+  `apply_to`), it may also be passed by name.
 
 ## Protocols
 - Protocols end in `Protocol` and are minimal: they declare only what the

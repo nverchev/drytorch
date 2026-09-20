@@ -217,6 +217,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     def __init__(
         self,
+        *,
         engine: sqlalchemy.Engine | None = None,
     ) -> None:
         """Initialize.

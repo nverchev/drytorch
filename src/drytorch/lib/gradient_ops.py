@@ -46,7 +46,7 @@ def _validate_threshold(threshold: float) -> None:
 class NoOp:
     """Placeholder performing no gradient action."""
 
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """No operation is performed."""
         return
 
@@ -56,7 +56,7 @@ class GradParamNormalizer:
 
     _eps = 1e-8
 
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Normalize gradients to unit norm in-place."""
         for param in params:
             grad = param.grad
@@ -74,7 +74,7 @@ class GradZScoreNormalizer:
 
     _eps = 1e-8
 
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Normalize gradients using Z-score in-place."""
         for param in params:
             grad = param.grad
@@ -95,7 +95,7 @@ class ClipOperation(abc.ABC):
     """Abstract base class for gradient operations."""
 
     @abc.abstractmethod
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Apply the gradient operation to the given parameters."""
 
 
@@ -108,7 +108,7 @@ class GradNormClipper(ClipOperation):
 
     threshold: Final[float]
 
-    def __init__(self, threshold: float = 1) -> None:
+    def __init__(self, threshold: float = 1, /) -> None:
         """Initialize.
 
         Args:
@@ -119,7 +119,7 @@ class GradNormClipper(ClipOperation):
         self.threshold = threshold
         return
 
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Clip gradients by norm in-place."""
         torch.nn.utils.clip_grad_norm_(params, max_norm=self.threshold)
         return
@@ -134,7 +134,7 @@ class GradValueClipper(ClipOperation):
 
     threshold: Final[float]
 
-    def __init__(self, threshold: float = 1) -> None:
+    def __init__(self, threshold: float = 1, /) -> None:
         """Initialize.
 
         Args:
@@ -145,13 +145,13 @@ class GradValueClipper(ClipOperation):
         self.threshold = threshold
         return
 
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Clip gradients by value in-place."""
         torch.nn.utils.clip_grad_value_(params, clip_value=self.threshold)
         return
 
 
-def reciprocal_clipping(zt: float, z_thresh: float) -> float:
+def reciprocal_clipping(zt: float, z_thresh: float, /) -> float:
     """Reciprocal clipping as recommended in https://arxiv.org/pdf/2504.02507.
 
     Instead of clipping to the threshold value, reciprocal clipping decreases
@@ -167,7 +167,7 @@ def reciprocal_clipping(zt: float, z_thresh: float) -> float:
     return z_thresh**2 / zt
 
 
-def mean_clipping(zt: float, z_thresh: float) -> float:
+def mean_clipping(zt: float, z_thresh: float, /) -> float:
     """Clip to the mean value (effectively setting gradient to running mean).
 
     Args:
@@ -181,7 +181,7 @@ def mean_clipping(zt: float, z_thresh: float) -> float:
     return 0.0
 
 
-def max_clipping(zt: float, z_thresh: float) -> float:
+def max_clipping(zt: float, z_thresh: float, /) -> float:
     """Standard clipping to the threshold value.
 
     Args:
@@ -199,7 +199,7 @@ class ClippingCriterion(abc.ABC):
     """Criteria that detects when to clip snd determines the clipping value."""
 
     @abc.abstractmethod
-    def should_clip(self, value: float) -> bool:
+    def should_clip(self, value: float, /) -> bool:
         """Determine whether to clip gradients based on the current value.
 
         Args:
@@ -210,7 +210,7 @@ class ClippingCriterion(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_clip_value(self, value: float) -> float:
+    def get_clip_value(self, value: float, /) -> float:
         """Calculate the clipping threshold based on current statistics.
 
         Args:
@@ -220,7 +220,7 @@ class ClippingCriterion(abc.ABC):
             The value to clip gradients to.
         """
 
-    def update(self, value: float) -> None:
+    def update(self, value: float, /) -> None:
         """Update internal statistics with a new observed value.
 
         Args:
@@ -263,16 +263,17 @@ class EMACriterion(ClippingCriterion):
 
     def __init__(
         self,
+        *,
         alpha: float = 0.98,
-        r_thresh: float = 1.05,
         clipping_function: ClipFunction = max_clipping,
+        r_thresh: float = 1.05,
     ):
         """Initialize.
 
         Args:
             alpha: exponential moving average decay factor.
-            r_thresh: ratio threshold between current_norm and mean_norm.
             clipping_function: function to determine clipping behavior.
+            r_thresh: ratio threshold between current_norm and mean_norm.
         """
         self.alpha = alpha
         self.clipping_function = clipping_function
@@ -282,14 +283,14 @@ class EMACriterion(ClippingCriterion):
         return
 
     @override
-    def should_clip(self, value: float) -> bool:
+    def should_clip(self, value: float, /) -> bool:
         if self._mu_t == 0.0:
             return False
 
         return value / self._mu_t > self.r_thresh
 
     @override
-    def get_clip_value(self, value: float) -> float:
+    def get_clip_value(self, value: float, /) -> float:
         if self._mu_t == 0.0:
             return value
 
@@ -298,7 +299,7 @@ class EMACriterion(ClippingCriterion):
         return self._mu_t * clipping_factor
 
     @override
-    def update(self, value: float) -> None:
+    def update(self, value: float, /) -> None:
         self._mu_t = self.alpha * self._mu_t + (1 - self.alpha) * value
         return
 
@@ -336,16 +337,17 @@ class ZStatCriterion(ClippingCriterion):
 
     def __init__(
         self,
+        *,
         alpha: float = 0.97,
-        z_thresh: float = 2.5,
         clipping_function: ClipFunction = reciprocal_clipping,
+        z_thresh: float = 2.5,
     ):
         """Initialize.
 
         Args:
             alpha: exponential moving average decay factor (0 < alpha < 1).
-            z_thresh: the Z-score above which values are clipped.
             clipping_function: function to determine clipping behavior.
+            z_thresh: the Z-score above which values are clipped.
         """
         self.alpha = alpha
         self.clipping_function = clipping_function
@@ -356,7 +358,7 @@ class ZStatCriterion(ClippingCriterion):
         return
 
     @override
-    def should_clip(self, value: float) -> bool:
+    def should_clip(self, value: float, /) -> bool:
         """Check if the Z-score exceeds the threshold."""
         if self._mu_t == 0.0:
             return False
@@ -365,7 +367,7 @@ class ZStatCriterion(ClippingCriterion):
         return z_score > self.z_thresh
 
     @override
-    def get_clip_value(self, value: float) -> float:
+    def get_clip_value(self, value: float, /) -> float:
         if self._mu_t == 0.0:
             return value
 
@@ -377,7 +379,7 @@ class ZStatCriterion(ClippingCriterion):
         return self._mu_t + new_z_score * math.sqrt(self._v_t)
 
     @override
-    def update(self, value: float) -> None:
+    def update(self, value: float, /) -> None:
         variance = (value - self._mu_t) ** 2
         self._v_t = self.alpha * self._v_t + (1 - self.alpha) * variance
         self._mu_t = self.alpha * self._mu_t + (1 - self.alpha) * value
@@ -455,7 +457,7 @@ class StatsCollector:
 
         return completed
 
-    def append(self, value: float) -> None:
+    def append(self, value: float, /) -> None:
         """Add a new datum to the collection."""
         if len(self) < self.max_samples:
             self._data.append(value)
@@ -487,16 +489,17 @@ class HistClipper(ClipOperation):
 
     def __init__(
         self,
+        *,
         criterion: ClippingCriterion | None = None,
-        warmup_clip_strategy: p.GradientOpProtocol | None = None,
         n_warmup_steps: int = 20,
+        warmup_clip_strategy: p.GradientOpProtocol | None = None,
     ) -> None:
         """Initialize.
 
         Args:
             criterion: the clipping criterion to determine when and how to clip.
-            warmup_clip_strategy: the clipping strategy used during warmup.
             n_warmup_steps: the number of warmup steps to collect initial stats.
+            warmup_clip_strategy: the clipping strategy used during warmup.
         """
         super().__init__()
         if criterion is None:
@@ -511,7 +514,7 @@ class HistClipper(ClipOperation):
         self._warmup_handler = StatsCollector(n_warmup_steps)
         return
 
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Apply global gradient clipping.
 
         Args:
@@ -571,16 +574,17 @@ class ParamHistClipper(ClipOperation):
 
     def __init__(
         self,
+        *,
         criterion: ClippingCriterion | None = None,
-        warmup_clip_strategy: p.GradientOpProtocol | None = None,
         n_warmup_steps: int = 20,
+        warmup_clip_strategy: p.GradientOpProtocol | None = None,
     ) -> None:
         """Initialize.
 
         Args:
             criterion: the clipping criterion to determine when and how to clip.
-            warmup_clip_strategy: the clipping strategy used during warmup.
             n_warmup_steps: the number of warmup steps to collect initial stats.
+            warmup_clip_strategy: the clipping strategy used during warmup.
         """
         super().__init__()
         if criterion is None:
@@ -600,7 +604,7 @@ class ParamHistClipper(ClipOperation):
         )
         return
 
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Apply global gradient clipping.
 
         Args:

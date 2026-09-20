@@ -155,20 +155,21 @@ class DataLoader(Generic[Data]):
     def __init__(
         self,
         dataset: data.Dataset[Data],
+        *,
         batch_size: int,
+        n_workers: int = 0,
         pin_memory: bool | None = None,
         sampler: data.Sampler | Iterable[Any] | None = None,
-        n_workers: int = 0,
     ) -> None:
         """Initialize.
 
         Args:
             dataset: the dataset to load data from.
             batch_size: number of samples per batch.
+            n_workers: number of subprocesses for data loading.
             pin_memory: pin memory for faster GPU training. Defaults to true
                 when hardware acceleration is available.
             sampler: defines the strategy to draw samples from the dataset.
-            n_workers: number of subprocesses for data loading.
 
         """
         self.batch_size = batch_size
@@ -185,7 +186,7 @@ class DataLoader(Generic[Data]):
     def __iter__(self) -> Iterator[Data]:
         """Return an iterator over the dataset in batches."""
         inference = torch.is_inference_mode_enabled()
-        return self.get_loader(inference).__iter__()
+        return self.get_loader(inference=inference).__iter__()
 
     def __len__(self) -> int:
         """Return the global number of batches in the dataset across all ranks.
@@ -201,6 +202,7 @@ class DataLoader(Generic[Data]):
 
     def get_loader(
         self,
+        *,
         inference: bool,
     ) -> data.DataLoader[Data]:
         """Create a DataLoader instance with runtime settings.
@@ -240,15 +242,16 @@ class DataLoader(Generic[Data]):
     def split(
         self,
         split: float = 0.2,
-        shuffle: bool = True,
+        *,
         seed: int = 42,
+        shuffle: bool = True,
     ) -> tuple[DataLoader[Data], DataLoader[Data]]:
         """Split the loader into two.
 
         Args:
             split: fraction of the dataset to the second output loader.
-            shuffle: whether to shuffle the data before splitting.
             seed: seed for shuffling.
+            shuffle: whether to shuffle the data before splitting.
 
         Returns:
             A tuple of (DataLoader, DataLoader).
@@ -281,15 +284,15 @@ class DataLoader(Generic[Data]):
         batch_size = _validate_batch_size(self.batch_size)
         first_loader = DataLoader(
             first_dataset,
-            batch_size,
-            pin_memory=self._pin_memory,
+            batch_size=batch_size,
             n_workers=self._n_workers,
+            pin_memory=self._pin_memory,
         )
         second_loader = DataLoader(
             second_dataset,
-            batch_size,
-            pin_memory=self._pin_memory,
+            batch_size=batch_size,
             n_workers=self._n_workers,
+            pin_memory=self._pin_memory,
         )
         return first_loader, second_loader
 
@@ -365,17 +368,18 @@ def get_n_batches(
 
 def take_from_dataset(
     dataset: data.Dataset[Data],
+    *,
+    device: torch.device = _default_device,
     n_samples: int = 1,
     preserve_order: bool = True,
-    device: torch.device = _default_device,
 ) -> Data:
     """Sample a batch of elements from a dataset and transfers them to a device.
 
     Args:
         dataset: the dataset where to sample from.
+        device: device where to store the sample.
         n_samples: the number of samples to take.
         preserve_order: take samples in order or randomly otherwise.
-        device: device where to store the sample.
 
     Returns:
         The desired number of samples in a batch.

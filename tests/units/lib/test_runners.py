@@ -69,7 +69,7 @@ class TestRunner:
 
     def test_name_property(self, mock_model, mock_loader) -> None:
         """Test name property starts with the given name."""
-        runner = Runner(mock_model, 'Runner', loader=mock_loader)
+        runner = Runner(mock_model, loader=mock_loader, name='Runner')
 
         assert runner.name.startswith('Runner')
 

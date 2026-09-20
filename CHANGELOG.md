@@ -1,6 +1,9 @@
 # [0.1.0] - 18-09-2026
 
 ## [BREAKING CHANGES]
+- settings, options, and hyperparameters across constructors and functions are keyword-only (after `*`); positional arguments are restricted to primary target objects
+- standardized model argument to `module` across all `Model` constructors, replacing `torch_module`
+- positional-only arguments (before `/`) are restricted to generic or obvious names (`module`, `fn`, `scheduler`, `obj`, `calculator`), while arguments with meaningful names (`dataset`, `device`, `config`) can be passed both positionally and by keyword
 - renamed AbstractScheduler.bind to compose; a composed scheduler is the transformation wrapping the scheduler it modifies
 - the trainer binds its hooks when it is created and calls them without arguments; a hook belongs to one trainer and `HookChain.execute` takes no argument
 - hooks are objects implementing `HookProtocol` and never receive the trainer: a hook subclasses `TrainerHook` and reads `self.trainer`, so functions are no longer wrapped into hooks
@@ -67,6 +70,7 @@
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 
 ## Changed
+- updated `STYLE.md` with the 3-tier argument convention: positional-only for generic/obvious target objects, positional-or-keyword for semantically named targets, and keyword-only for settings and options, requiring multiple positional-only arguments to have the same type
 - regrouped `core/protocols.py` into components, running and control, and capabilities
 - `Plateau` and `WorseThan` evaluate only on fresh records computed for the current model epoch
 - `TrialCallback` reports to optuna only on fresh records computed for the current model epoch

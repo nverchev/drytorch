@@ -189,6 +189,7 @@ class TqdmLogger(tracking.Tracker):
 
     def __init__(
         self,
+        *,
         enable_training_bar: bool = False,
         file: SupportsWrite[str] = sys.stderr,
         leave: bool = True,

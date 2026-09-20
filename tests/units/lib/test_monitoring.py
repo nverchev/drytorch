@@ -120,7 +120,11 @@ class TestMonitor:
     @pytest.fixture
     def monitor(self, mock_validation, example_loss_name) -> Monitor:
         """A monitor of the loss of a validation."""
-        return Monitor(mock_validation, example_loss_name, best_is='lower')
+        return Monitor(
+            best_is='lower',
+            metric_name=example_loss_name,
+            source=mock_validation,
+        )
 
     def test_record_values(
         self, monitor, example_epoch, example_loss_name, example_named_metrics
@@ -193,7 +197,11 @@ class TestMonitor:
     )
     def test_is_better(self, mock_validation, best_is, better) -> None:
         """Test is_better follows the direction."""
-        monitor = Monitor(mock_validation, 'Metric', best_is=best_is)
+        monitor = Monitor(
+            best_is=best_is,
+            metric_name='Metric',
+            source=mock_validation,
+        )
 
         assert monitor.is_better(2.0, 1.0) is better
 
@@ -203,7 +211,11 @@ class TestMonitor:
 
     def test_is_better_without_direction_raises(self, mock_validation) -> None:
         """Test is_better raises ValueError when best_is is None."""
-        monitor = Monitor(mock_validation, 'Metric', best_is=None)
+        monitor = Monitor(
+            best_is=None,
+            metric_name='Metric',
+            source=mock_validation,
+        )
 
         with pytest.raises(ValueError):
             monitor.is_better(1.0, 2.0)

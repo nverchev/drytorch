@@ -225,7 +225,7 @@ class TestEMACriterion:
 
     def test_set_statistics(self, ema_criterion: EMACriterion) -> None:
         """Test setting initial statistics."""
-        ema_criterion.set_statistics(mean=100.0)
+        ema_criterion.set_statistics(100.0)
 
         assert ema_criterion._mu_t == 100.0
 
@@ -308,12 +308,12 @@ class TestZStatCriterion:
 
     def test_set_statistics(self, zstat_criterion: ZStatCriterion) -> None:
         """Test setting initial statistics."""
-        zstat_criterion.set_statistics(mean=50.0, variance=10.0)
+        zstat_criterion.set_statistics(50.0, 10.0)
         assert zstat_criterion._mu_t == 50.0
         assert zstat_criterion._v_t == 10.0
 
         # variance is not updated by default
-        zstat_criterion.set_statistics(mean=50.0)
+        zstat_criterion.set_statistics(50.0)
         assert zstat_criterion._mu_t == 50.0
         assert zstat_criterion._v_t == 10.0
 
@@ -332,7 +332,7 @@ class TestStatsCollector:
     @pytest.fixture
     def stats_collector(self) -> StatsCollector:
         """Fixture for a StatsCollector instance."""
-        return StatsCollector(max_samples=3)
+        return StatsCollector(3)
 
     def test_init(self, stats_collector: StatsCollector) -> None:
         """Test initialization of StatsCollector."""

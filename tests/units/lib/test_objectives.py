@@ -480,7 +480,7 @@ class TestLoss:
     @pytest.fixture(scope='class')
     def loss_1(self, metric_1, metric_fun_1) -> Loss:
         """Set up a Loss instance with simple arguments."""
-        return Loss(next(iter(metric_fun_1.values())), metric_1)
+        return Loss(next(iter(metric_fun_1.values())), name=metric_1)
 
     def test_add_float(self, loss_1, example_metric_results) -> None:
         """Test addition by float."""

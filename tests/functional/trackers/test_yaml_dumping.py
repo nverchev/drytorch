@@ -22,7 +22,7 @@ class TestMetadataDumperFullCycle:
     @pytest.fixture
     def tracker(self, tmp_path) -> MetadataDumper:
         """Set up the instance."""
-        return MetadataDumper(tmp_path)
+        return MetadataDumper(par_dir=tmp_path)
 
     def test_config_metadata(
         self, tracker, start_experiment_event, example_run_ts, example_config

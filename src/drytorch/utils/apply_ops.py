@@ -25,18 +25,18 @@ _PASSTHROUGH_TYPES: Final = (str, bytes)
 
 @overload
 def recursive_apply(
-    obj: _C, expected_type: type[_T], func: Callable[[_T], _T]
+    obj: _C, /, expected_type: type[_T], func: Callable[[_T], _T]
 ) -> _C: ...
 
 
 @overload
 def recursive_apply(
-    obj: _T, expected_type: type[_T], func: Callable[[_T], _T]
+    obj: _T, /, expected_type: type[_T], func: Callable[[_T], _T]
 ) -> _T: ...
 
 
 def recursive_apply(
-    obj: _C, expected_type: type[_T], func: Callable[[_T], _T]
+    obj: _C, /, expected_type: type[_T], func: Callable[[_T], _T]
 ) -> _C | _T:
     """Look for an expected type and apply a given function.
 
@@ -96,7 +96,7 @@ def recursive_apply(
     raise exceptions.FuncNotApplicableError(func_name, obj.__class__.__name__)
 
 
-def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
+def apply(obj: _C, /, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     """Extend recursive_apply supports.
 
     If the input has attributes, it calls recursive_apply, creates a new
@@ -115,7 +115,7 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
         the container with the modified target objects.
     """
     if isinstance(obj, type):
-        return recursive_apply(obj, expected_type=expected_type, func=func)
+        return recursive_apply(obj, expected_type, func)
 
     names: list[str] = []
     names.extend(getattr(obj, '__dict__', {}))
@@ -123,7 +123,7 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
         names.extend(s for s in getattr(cls, '__slots__', ()) if s not in names)
 
     if not names:
-        return recursive_apply(obj, expected_type=expected_type, func=func)
+        return recursive_apply(obj, expected_type, func)
 
     new_obj = copy.copy(obj)
     for name in names:
@@ -138,7 +138,7 @@ def apply(obj: _C, expected_type: type[_T], func: Callable[[_T], _T]) -> _C:
     return new_obj
 
 
-def apply_to(obj: _C, device: torch.device) -> _C:
+def apply_to(obj: _C, /, device: torch.device) -> _C:
     """Change the device of tensors inside a container.
 
     Args:
@@ -154,10 +154,10 @@ def apply_to(obj: _C, device: torch.device) -> _C:
         return tensor.to(device, non_blocking=non_blocking)
 
     _to_device.__name__ = 'apply_to'
-    return apply(obj, expected_type=torch.Tensor, func=_to_device)
+    return apply(obj, torch.Tensor, _to_device)
 
 
-def apply_cpu_detach(obj: _C) -> _C:
+def apply_cpu_detach(obj: _C, /) -> _C:
     """Detach and store in cpu the tensors inside a container.
 
     Args:
@@ -171,4 +171,4 @@ def apply_cpu_detach(obj: _C) -> _C:
         return tensor.detach().cpu()
 
     _cpu_detach.__name__ = 'apply_cpu_detach'
-    return apply(obj, expected_type=torch.Tensor, func=_cpu_detach)
+    return apply(obj, torch.Tensor, _cpu_detach)

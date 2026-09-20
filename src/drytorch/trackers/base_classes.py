@@ -57,7 +57,7 @@ class Dumper(tracking.Tracker):
     _run_id: str | None
     _stashed_state: dict[str, tuple[pathlib.Path, str, str]]
 
-    def __init__(self, par_dir: pathlib.Path | None = None) -> None:
+    def __init__(self, *, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
 
         Args:
@@ -217,7 +217,7 @@ class MemoryMetrics(tracking.Tracker):
     model_dict: Final[dict[str, SourcedMetrics]]
     _metric_loader: Final[MetricLoader | None]
 
-    def __init__(self, metric_loader: MetricLoader | None = None) -> None:
+    def __init__(self, *, metric_loader: MetricLoader | None = None) -> None:
         """Initialize.
 
         Args:
@@ -267,6 +267,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
 
     def __init__(
         self,
+        *,
         metric_loader: MetricLoader | None = None,
         metric_names: Iterable[str] = (),
         model_names: Iterable[str] = (),
@@ -288,7 +289,7 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
             During the first 2 * start_epoch epochs, the graph is shown in
             its entirety.
         """
-        super().__init__(metric_loader)
+        super().__init__(metric_loader=metric_loader)
         self._metric_names = metric_names
         self._model_names = model_names
         self._source_names = source_names

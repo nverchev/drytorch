@@ -42,6 +42,7 @@ class HydraLink(base_classes.Dumper):
 
     def __init__(
         self,
+        *,
         par_dir: pathlib.Path | None = None,
         copy_hydra: bool = True,
         hydra_dir: pathlib.Path | None = None,
@@ -58,7 +59,7 @@ class HydraLink(base_classes.Dumper):
         Raises:
             TrackerError: if hydra has not started (hydra_dir does not exist).
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
         if hydra_dir is None:
             # get hydra configuration
             try:

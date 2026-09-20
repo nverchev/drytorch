@@ -167,7 +167,7 @@ class TestDataLoader:
 
     def test_dataloader_n_workers(self, loader) -> None:
         """Test n_workers parameter is properly set."""
-        assert loader.get_loader(True).num_workers == 2
+        assert loader.get_loader(inference=True).num_workers == 2
 
     def test_dataloader_drop_last_behavior(self, loader) -> None:
         """Test drop_last changes based on inference mode."""

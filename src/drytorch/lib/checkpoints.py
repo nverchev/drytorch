@@ -74,6 +74,7 @@ class CheckpointPathManager:
     def __init__(
         self,
         model: p.ModelProtocol[Any, Any],
+        *,
         run_dir: pathlib.Path | None = None,
     ) -> None:
         """Initialize.
@@ -167,7 +168,7 @@ class AbstractCheckpoint(abc.ABC):
         """The registered optimizer for the model."""
         return self._optimizer
 
-    def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
+    def bind_model(self, model: p.ModelProtocol[Any, Any], /) -> None:
         """Bind the model to manage."""
         if self._model is not None and self._model is not model:
             raise exceptions.ModelAlreadyBoundError(self._model.name)
@@ -181,7 +182,7 @@ class AbstractCheckpoint(abc.ABC):
         self._modules[name] = module
         return
 
-    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer, /) -> None:
         """Bind the optimizer connected to the model."""
         if self._optimizer is not None and self._optimizer is not optimizer:
             raise exceptions.OptimizerAlreadyBoundError(self.model.name)
@@ -297,7 +298,7 @@ class LocalCheckpoint(AbstractCheckpoint):
     par_dir: Final[pathlib.Path | None]
     _paths: CheckpointPathManager | None
 
-    def __init__(self, par_dir: pathlib.Path | None = None) -> None:
+    def __init__(self, *, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
 
         Args:
@@ -317,9 +318,9 @@ class LocalCheckpoint(AbstractCheckpoint):
         return self._paths
 
     @override
-    def bind_model(self, model: p.ModelProtocol[Any, Any]) -> None:
+    def bind_model(self, model: p.ModelProtocol[Any, Any], /) -> None:
         super().bind_model(model)
-        self._paths = CheckpointPathManager(model, self.par_dir)
+        self._paths = CheckpointPathManager(model, run_dir=self.par_dir)
         return
 
     @override

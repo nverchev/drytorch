@@ -14,6 +14,7 @@ __all__ = [
 
 
 def get_moving_average(
+    *,
     decay: float = 0.9,
     mass_coverage: float = 0.99,
 ) -> Callable[[Sequence[float]], float]:
@@ -58,7 +59,10 @@ def get_moving_average(
     return _mean
 
 
-def get_trailing_mean(window_size: int) -> Callable[[Sequence[float]], float]:
+def get_trailing_mean(
+    window_size: int,
+    /,
+) -> Callable[[Sequence[float]], float]:
     """Return a trailing average by specifying window size.
 
     Args:

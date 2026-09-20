@@ -315,17 +315,18 @@ class Metric(MetricCollection[Output, Target]):
         self,
         fn: Callable[[Output, Target], Tensor],
         /,
-        name: str,
+        *,
         higher_is_better: bool | None = None,
+        name: str,
     ) -> None:
         """Initialize.
 
         Args:
             fn: the callable that computes the metric value.
-            name: identifier for the metric.
             higher_is_better: ``True`` if higher values indicate better
                 performance, ``False`` if lower values are better, ``None`` if
                 unspecified.
+            name: identifier for the metric.
         """
         super().__init__(**{name: fn})
         self.name = name
@@ -354,21 +355,20 @@ class LossWithMetrics(
         self,
         *fn: Callable[[Output, Target], dict[str, Tensor]],
         criterion: Callable[[dict[str, Tensor]], Tensor],
-        name: str = 'Loss',
-        higher_is_better: bool = False,
         formula: str = '',
+        higher_is_better: bool = False,
+        name: str = 'Loss',
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
         """Initialize.
 
         Args:
             *fn: functions returning multiple named metric values.
-            criterion: logic extracting a loss value from computed value.
-            name: identifier for the loss.
+            criterion: logic extracting a loss value from computed values.
+            formula: representation of the loss formula. Defaults to empty.
             higher_is_better: ``True`` if higher values indicate better
                 performance. Defaults to ``False``.
-            formula: string representation of the loss formula. Default is
-                the name in brackets.
+            name: the name for the loss. Defaults to ``'Loss'``.
             **named_fn: dictionary of named functions returning a single value.
         """
         self.name = name
@@ -669,16 +669,17 @@ class Loss(LossWithMetrics[Output, Target]):
         self,
         fn: Callable[[Output, Target], Tensor],
         /,
-        name: str,
+        *,
         higher_is_better: bool = False,
+        name: str = 'Loss',
     ):
         """Initialize.
 
         Args:
             fn: the callable to calculate the loss.
-            name: the name for the loss.
             higher_is_better: ``True`` if higher values indicate better
                 performance. Defaults to ``False``.
+            name: the name for the loss. Defaults to ``'Loss'``.
         """
         super().__init__(
             criterion=operator.itemgetter(name),
@@ -697,16 +698,17 @@ class DictLoss(LossWithMetrics[Output, Target]):
         self,
         fn: Callable[[Output, Target], dict[str, Tensor]],
         /,
-        name: str,
+        *,
         higher_is_better: bool = False,
+        name: str,
     ):
         """Initialize.
 
         Args:
             fn: callable returning named metric values, including the loss.
-            name: key to extract as the loss and identifier for the loss.
             higher_is_better: ``True`` if higher values indicate better
                 performance. Defaults to ``False``.
+            name: key to extract as the loss and identifier for the loss.
         """
         super().__init__(
             fn,
@@ -872,6 +874,7 @@ def check_device(
 
 def compute_metrics(
     calculator: p.ObjectiveProtocol[Any, Any],
+    /,
 ) -> Mapping[str, float]:
     """Compute and represent the metrics as a mapping of named values.
 

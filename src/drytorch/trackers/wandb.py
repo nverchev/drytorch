@@ -45,6 +45,7 @@ class Wandb(Dumper):
 
     def __init__(
         self,
+        *,
         par_dir: pathlib.Path | None = None,
         settings: wandb_settings.Settings = _default_settings,
     ) -> None:
@@ -55,7 +56,7 @@ class Wandb(Dumper):
                 the same of the current experiment.
             settings: settings object from wandb containing all init arguments.
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
         self._defined_metrics = set()
         self._settings = copy.copy(settings)
         if self._settings.reinit not in ('create_new', 'default', True):

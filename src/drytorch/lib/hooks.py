@@ -84,7 +84,7 @@ class TrainerHook(abc.ABC, Generic[_C_co]):
     _last_run_epoch: int
     _trainer: p.TrainerProtocol[Any, Any, Any] | None
 
-    def __init__(self, when: _C_co = monitoring.ALWAYS) -> None:
+    def __init__(self, *, when: _C_co = monitoring.ALWAYS) -> None:
         """Initialize.
 
         Args:
@@ -162,6 +162,7 @@ class EvaluationHook(TrainerHook[_C_co]):
     def __init__(
         self,
         evaluation: p.SourceProtocol,
+        *,
         when: _C_co = monitoring.ALWAYS,
     ) -> None:
         """Initialize.
@@ -170,7 +171,7 @@ class EvaluationHook(TrainerHook[_C_co]):
             evaluation: the evaluation to run.
             when: decides whether the hook runs. Default runs every time.
         """
-        super().__init__(when)
+        super().__init__(when=when)
         self.evaluation = evaluation
         return
 
@@ -204,13 +205,13 @@ class TerminateTraining(TrainerHook[_C_co]):
 
     _reason: ClassVar[str] = 'a hook terminated the training'
 
-    def __init__(self, when: _C_co = monitoring.ALWAYS) -> None:
+    def __init__(self, *, when: _C_co = monitoring.ALWAYS) -> None:
         """Initialize.
 
         Args:
             when: decides whether the hook runs. Default runs every time.
         """
-        super().__init__(when)
+        super().__init__(when=when)
         return
 
     @override
@@ -235,22 +236,23 @@ class EarlyStopping(
 
     def __init__(
         self,
+        *,
+        min_delta: float = 1e-8,
         patience: int = 10,
         start_from_epoch: int = 2,
-        min_delta: float = 1e-8,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Initialize.
 
         Args:
+            min_delta: the minimum change counting as an improvement.
             patience: the number of records to wait for an improvement,
                 as many as the runs of the source rather than epochs.
             start_from_epoch: the first epoch when the training may stop.
-            min_delta: the minimum change counting as an improvement.
             watch: what to follow. Default follows the loss of the trainer.
         """
         plateau = monitoring.Plateau(
-            patience=patience, min_delta=min_delta, watch=watch
+            watch=watch, min_delta=min_delta, patience=patience
         )
         super().__init__(when=monitoring.After(start_from_epoch) & plateau)
         return
@@ -282,6 +284,7 @@ class Pruning(TerminateTraining[monitoring.WorseThan]):
     def __init__(
         self,
         thresholds: Mapping[int, float | None],
+        *,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Initialize.
@@ -352,23 +355,31 @@ class ReduceLROnPlateau(
 
     def __init__(
         self,
-        factor: float = 0.1,
-        patience: int = 0,
+        *,
         cooldown: int = 0,
+        factor: float = 0.1,
         min_delta: float = 1e-8,
+        patience: int = 0,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Initialize.
 
         Args:
+            cooldown: the epochs to skip after the last reduction.
             factor: the factor scaling the learning rate down.
+            min_delta: the minimum change counting as an improvement.
             patience: the number of records to wait for an improvement,
                 as many as the runs of the source rather than epochs.
-            cooldown: the epochs to skip after the last reduction.
-            min_delta: the minimum change counting as an improvement.
             watch: what to follow. Default follows the loss of the trainer.
         """
-        super().__init__(when=_on_plateau(patience, cooldown, min_delta, watch))
+        super().__init__(
+            when=_on_plateau(
+                cooldown=cooldown,
+                min_delta=min_delta,
+                patience=patience,
+                watch=watch,
+            )
+        )
         self.factor = factor
         self._n_reductions = 0
         return
@@ -386,7 +397,7 @@ class ReduceLROnPlateau(
         _not_used = epoch
         self._n_reductions += 1
         return schedulers.RescaleScheduler(
-            scheduler, self.factor**self._n_reductions
+            scheduler, factor=self.factor**self._n_reductions
         )
 
 
@@ -403,21 +414,29 @@ class RestartScheduleOnPlateau(
 
     def __init__(
         self,
-        patience: int = 0,
+        *,
         cooldown: int = 0,
         min_delta: float = 1e-8,
+        patience: int = 0,
         watch: monitoring.Watch | None = None,
     ) -> None:
         """Initialize.
 
         Args:
-            patience: the number of records to wait for an improvement,
-                as many as the runs of the source rather than epochs.
             cooldown: the epochs to skip after the last restart.
             min_delta: the minimum change counting as an improvement.
+            patience: the number of records to wait for an improvement,
+                as many as the runs of the source rather than epochs.
             watch: what to follow. Default follows the loss of the trainer.
         """
-        super().__init__(when=_on_plateau(patience, cooldown, min_delta, watch))
+        super().__init__(
+            when=_on_plateau(
+                cooldown=cooldown,
+                min_delta=min_delta,
+                patience=patience,
+                watch=watch,
+            )
+        )
         return
 
     @property
@@ -430,16 +449,17 @@ class RestartScheduleOnPlateau(
         self, epoch: int, scheduler: p.SchedulerProtocol
     ) -> p.SchedulerProtocol:
         """Consider the training until now a warm-up and restart it."""
-        return RestartScheduler(scheduler, epoch)
+        return RestartScheduler(scheduler, restart_interval=epoch)
 
 
 def _on_plateau(
-    patience: int,
+    *,
     cooldown: int,
     min_delta: float,
+    patience: int,
     watch: monitoring.Watch | None,
 ) -> monitoring.AndCondition[monitoring.Plateau, monitoring.Cooldown]:
     plateau = monitoring.Plateau(
-        patience=patience, min_delta=min_delta, watch=watch
+        watch=watch, min_delta=min_delta, patience=patience
     )
     return plateau & monitoring.Cooldown(cooldown)

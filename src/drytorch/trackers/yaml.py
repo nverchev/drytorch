@@ -76,14 +76,14 @@ class MetadataDumper(base_classes.Dumper):
 
     folder_name: ClassVar[str] = 'metadata'
 
-    def __init__(self, par_dir: pathlib.Path | None = None) -> None:
+    def __init__(self, *, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
 
         Args:
             par_dir: directory where to dump metadata. Defaults to the current
                 experiment's one.
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
         return
 
     @functools.singledispatchmethod

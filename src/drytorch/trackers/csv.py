@@ -52,6 +52,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
     def __init__(
         self,
+        *,
         par_dir: pathlib.Path | None = None,
         dialect: csv.Dialect = _default_dialect,
     ) -> None:
@@ -62,7 +63,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
                 the same of the current experiment.
             dialect: the format specification. Defaults to local dialect.
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
         self._active_sources = {}
         self._csv_stashed_state = {}
         self._dialect = dialect

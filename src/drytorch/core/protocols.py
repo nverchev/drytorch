@@ -82,13 +82,13 @@ class CheckpointProtocol(Protocol):
     :class:`~drytorch.core.log_events.LoadModelEvent` on ``load``.
     """
 
-    def bind_model(self, model: ModelProtocol[Any, Any]) -> None:
+    def bind_model(self, model: ModelProtocol[Any, Any], /) -> None:
         """Bind the model to manage."""
 
-    def bind_module(self, name: str, module: torch.nn.Module) -> None:
+    def bind_module(self, name: str, module: torch.nn.Module, /) -> None:
         """Bind a module connected to the model."""
 
-    def bind_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+    def bind_optimizer(self, optimizer: torch.optim.Optimizer, /) -> None:
         """Bind the optimizer connected to the model."""
 
     def load(self, epoch: int = -1) -> int:
@@ -111,7 +111,7 @@ class GradientOpProtocol(Protocol):
     """Abstract base class for gradient operations."""
 
     @abc.abstractmethod
-    def __call__(self, params: Iterable[torch.nn.Parameter]) -> None:
+    def __call__(self, params: Iterable[torch.nn.Parameter], /) -> None:
         """Apply the gradient operation to the given parameters."""
 
 
@@ -186,7 +186,7 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
     """
 
     @abc.abstractmethod
-    def __call__(self, /, inputs: _Input_contra) -> _Output_co:
+    def __call__(self, inputs: _Input_contra, /) -> _Output_co:
         """Call the module forward method."""
 
     @property
@@ -331,7 +331,7 @@ class SourceProtocol(RunnerProtocol, Protocol):
     and then :class:`~drytorch.core.log_events.MetricEvent`.
     """
 
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, *, store_outputs: bool = False) -> None:
         """Run the model on the data once.
 
         Args:
@@ -363,7 +363,7 @@ class ValidationProtocol(SourceProtocol, Protocol):
 class TestProtocol(ValidationProtocol, Protocol):
     """Protocol for evaluating a model on a test dataset."""
 
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, *, store_outputs: bool = False) -> None:
         """Run the model on the data once.
 
         Emits :class:`~drytorch.core.log_events.StartTestEvent` and then
@@ -407,14 +407,14 @@ class TrainerProtocol(
     def terminated(self) -> bool:
         """If true, this trainer should not be used for training anymore."""
 
-    def train(self, n_epochs: int) -> None:
+    def train(self, n_epochs: int, /) -> None:
         """Train the module for the specified number of epochs.
 
         Args:
             n_epochs: the number of epochs for which train the module.
         """
 
-    def terminate_training(self, reason: str) -> None:
+    def terminate_training(self, reason: str, /) -> None:
         """Prevent the trainer from continue the training."""
 
     def save_checkpoint(self) -> None:
@@ -425,6 +425,7 @@ class TrainerProtocol(
 
     def update_learning_rate(
         self,
+        *,
         base_lr: float | Mapping[str, float] | None = None,
         scheduler: SchedulerProtocol | None = None,
     ) -> None:
@@ -454,7 +455,7 @@ class HookProtocol(Protocol):
     def __call__(self) -> None:
         """Execute the hook."""
 
-    def bind_trainer(self, trainer: TrainerProtocol[Any, Any, Any]) -> None:
+    def bind_trainer(self, trainer: TrainerProtocol[Any, Any, Any], /) -> None:
         """Bind the hook to the trainer that calls it.
 
         Args:
