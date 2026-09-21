@@ -31,6 +31,11 @@ __all__ = [
 _T = TypeVar('_T')
 
 
+# ---------------------------------------------------------------------------
+# Base Classes
+# ---------------------------------------------------------------------------
+
+
 class AbstractScheduler(abc.ABC):
     """Abstract class for the scheduler."""
 
@@ -76,6 +81,11 @@ class AbstractScheduler(abc.ABC):
         """
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class BaseScheduler(AbstractScheduler, abc.ABC):
+    """Base class for schedulers that use dataclasses."""
+
+
 class TransformScheduler(AbstractScheduler, abc.ABC):
     """Base class for scheduler transformations.
 
@@ -115,6 +125,173 @@ class TransformScheduler(AbstractScheduler, abc.ABC):
         Returns:
             the value for learning rate to use.
         """
+
+
+# ---------------------------------------------------------------------------
+# Schedulers
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass(frozen=True)
+class ConstantScheduler(BaseScheduler):
+    """Constant learning rate."""
+
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        return base_lr
+
+
+@dataclasses.dataclass(frozen=True)
+class CosineScheduler(BaseScheduler):
+    """Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
+
+    C0, C1, and C2 are defined so that:
+    - f(x) = base_value when epoch = 0 and,
+    - f(x) = min value when epoch is C2 = number of decay steps.
+
+    After the number of decay steps, returns min value.
+
+    Attributes:
+        decay_steps: number of steps (epochs) to reach maximum decay.
+        min_decay: fraction of base_value for the minimum value.
+    """
+
+    decay_steps: int = 250
+    min_decay: float = 0.01
+
+    def __post_init__(self):
+        """Input Validation."""
+        if self.decay_steps <= 0:
+            raise ValueError('decay_steps must be positive.')
+
+        if not 0 <= self.min_decay <= 1:
+            raise ValueError('min_decay must be between 0 and 1.')
+
+        return
+
+    @override
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        min_lr = self.min_decay * base_lr
+        if epoch > self.decay_steps:
+            return min_lr
+
+        from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
+        return min_lr + (base_lr - min_lr) * (1 + from_1_to_minus1) / 2
+
+
+@dataclasses.dataclass(frozen=True)
+class ExponentialScheduler(BaseScheduler):
+    """Schedule exponential decay: f(x) = C0 + C1(C2^x).
+
+    C0, C1, and C2 are defined so that:
+    - f(x) = base_value when epoch = 0,
+    - f(x) = min value when the epoch goes to infinite
+    - f(x) is an exponential function with decay factor C2.
+
+    After the number of decay steps, returns min value.
+
+    Attributes:
+        exp_decay: exponential decay parameter d for the curve: f(x) = Cd^x.
+        min_decay: proportion of base learning rate for the minimum CO.
+    """
+
+    exp_decay: float = 0.975
+    min_decay: float = 0.00
+
+    def __post_init__(self):
+        """Input Validation."""
+        if not 0 < self.exp_decay <= 1:
+            raise ValueError('exp_decay must be positive and less than 1.')
+
+        if not 0 <= self.min_decay <= 1:
+            raise ValueError('min_decay must be between 0 and 1.')
+
+        return
+
+    @override
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        min_value = self.min_decay * base_lr
+        return (base_lr - min_value) * self.exp_decay**epoch + min_value
+
+
+@dataclasses.dataclass(frozen=True)
+class PolynomialScheduler(BaseScheduler):
+    """Polynomial learning rate scheduler: f(x) = C0 + C1(1 - x/C2)^C3.
+
+    C0, C1, C2, C3 are defined so that:
+    - f(x) = base_value when epoch = 0,
+    - f(x) = min value when epoch is C2 = number of decay steps
+    - f(x) is a polynomial of degree C3.
+
+    After the number of decay steps, returns min value.
+
+    Attributes:
+        max_epochs: maximum number of epochs.
+        min_decay: minimum fraction of the initial learning rate.
+        power: polynomial power.
+    """
+
+    max_epochs: int = 1000
+    min_decay: float = 0.0
+    power: float = 1.0
+
+    def __post_init__(self):
+        """Input Validation."""
+        if self.max_epochs <= 0:
+            raise ValueError('max_epochs must be positive.')
+
+        if self.power < 0:
+            raise ValueError('power must be non-negative.')
+
+        if not 0 <= self.min_decay <= 1:
+            raise ValueError('min_decay must be between 0 and 1.')
+
+        return
+
+    @override
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        if epoch >= self.max_epochs:
+            return self.min_decay * base_lr
+
+        decay_factor = (1 - epoch / self.max_epochs) ** self.power
+        return (self.min_decay + decay_factor * (1 - self.min_decay)) * base_lr
+
+
+@dataclasses.dataclass(frozen=True)
+class StepScheduler(BaseScheduler):
+    """Step-wise learning rate scheduler.
+
+    Reduces learning rate by a factor at specified milestones.
+
+    Attributes:
+        gamma: factor by which to reduce learning rate.
+        milestones: iterable of epochs at which to reduce the learning rate.
+    """
+
+    gamma: float = 0.1
+    milestones: Iterable[int] = dataclasses.field(default_factory=lambda: [200])
+
+    def __post_init__(self):
+        """Input Validation."""
+        if not all(m > 0 for m in self.milestones):
+            raise ValueError('All milestones must be positive.')
+
+        if self.milestones != sorted(self.milestones):
+            raise ValueError('Milestones must be in ascending order.')
+
+        if not 0 < self.gamma <= 1:
+            raise ValueError('gamma must be between 0 and 1 (exclusive of 0).')
+
+        return
+
+    @override
+    def _compute(self, base_lr: float, epoch: int) -> float:
+        count = sum(1 for milestone in self.milestones if epoch >= milestone)
+        return base_lr * (self.gamma**count)
+
+
+# ---------------------------------------------------------------------------
+# Transformations
+# ---------------------------------------------------------------------------
 
 
 class RescaleScheduler(TransformScheduler):
@@ -250,166 +427,9 @@ class WarmupScheduler(TransformScheduler):
         return self.scheduler(base_lr, epoch - self.warmup_steps)
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
-class BaseScheduler(AbstractScheduler, abc.ABC):
-    """Base class for schedulers that use dataclasses."""
-
-
-@dataclasses.dataclass(frozen=True)
-class ConstantScheduler(BaseScheduler):
-    """Constant learning rate."""
-
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        return base_lr
-
-
-@dataclasses.dataclass(frozen=True)
-class PolynomialScheduler(BaseScheduler):
-    """Polynomial learning rate scheduler: f(x) = C0 + C1(1 - x/C2)^C3.
-
-    C0, C1, C2, C3 are defined so that:
-    - f(x) = base_value when epoch = 0,
-    - f(x) = min value when epoch is C2 = number of decay steps
-    - f(x) is a polynomial of degree C3.
-
-    After the number of decay steps, returns min value.
-
-    Attributes:
-        max_epochs: maximum number of epochs.
-        min_decay: minimum fraction of the initial learning rate.
-        power: polynomial power.
-    """
-
-    max_epochs: int = 1000
-    min_decay: float = 0.0
-    power: float = 1.0
-
-    def __post_init__(self):
-        """Input Validation."""
-        if self.max_epochs <= 0:
-            raise ValueError('max_epochs must be positive.')
-
-        if self.power < 0:
-            raise ValueError('power must be non-negative.')
-
-        if not 0 <= self.min_decay <= 1:
-            raise ValueError('min_decay must be between 0 and 1.')
-
-        return
-
-    @override
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        if epoch >= self.max_epochs:
-            return self.min_decay * base_lr
-
-        decay_factor = (1 - epoch / self.max_epochs) ** self.power
-        return (self.min_decay + decay_factor * (1 - self.min_decay)) * base_lr
-
-
-@dataclasses.dataclass(frozen=True)
-class ExponentialScheduler(BaseScheduler):
-    """Schedule exponential decay: f(x) = C0 + C1(C2^x).
-
-    C0, C1, and C2 are defined so that:
-    - f(x) = base_value when epoch = 0,
-    - f(x) = min value when the epoch goes to infinite
-    - f(x) is an exponential function with decay factor C2.
-
-    After the number of decay steps, returns min value.
-
-    Attributes:
-        exp_decay: exponential decay parameter d for the curve: f(x) = Cd^x.
-        min_decay: proportion of base learning rate for the minimum CO.
-    """
-
-    exp_decay: float = 0.975
-    min_decay: float = 0.00
-
-    def __post_init__(self):
-        """Input Validation."""
-        if not 0 < self.exp_decay <= 1:
-            raise ValueError('exp_decay must be positive and less than 1.')
-
-        if not 0 <= self.min_decay <= 1:
-            raise ValueError('min_decay must be between 0 and 1.')
-
-        return
-
-    @override
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        min_value = self.min_decay * base_lr
-        return (base_lr - min_value) * self.exp_decay**epoch + min_value
-
-
-@dataclasses.dataclass(frozen=True)
-class CosineScheduler(BaseScheduler):
-    """Schedule cosine decay: f(x) = C0 + C1(1 + cos(πx/C2)).
-
-    C0, C1, and C2 are defined so that:
-    - f(x) = base_value when epoch = 0 and,
-    - f(x) = min value when epoch is C2 = number of decay steps.
-
-    After the number of decay steps, returns min value.
-
-    Attributes:
-        decay_steps: number of steps (epochs) to reach maximum decay.
-        min_decay: fraction of base_value for the minimum value.
-    """
-
-    decay_steps: int = 250
-    min_decay: float = 0.01
-
-    def __post_init__(self):
-        """Input Validation."""
-        if self.decay_steps <= 0:
-            raise ValueError('decay_steps must be positive.')
-
-        if not 0 <= self.min_decay <= 1:
-            raise ValueError('min_decay must be between 0 and 1.')
-
-        return
-
-    @override
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        min_lr = self.min_decay * base_lr
-        if epoch > self.decay_steps:
-            return min_lr
-
-        from_1_to_minus1 = np.cos(np.pi * epoch / self.decay_steps)
-        return min_lr + (base_lr - min_lr) * (1 + from_1_to_minus1) / 2
-
-
-@dataclasses.dataclass(frozen=True)
-class StepScheduler(BaseScheduler):
-    """Step-wise learning rate scheduler.
-
-    Reduces learning rate by a factor at specified milestones.
-
-    Attributes:
-        gamma: factor by which to reduce learning rate.
-        milestones: iterable of epochs at which to reduce the learning rate.
-    """
-
-    gamma: float = 0.1
-    milestones: Iterable[int] = dataclasses.field(default_factory=lambda: [200])
-
-    def __post_init__(self):
-        """Input Validation."""
-        if not all(m > 0 for m in self.milestones):
-            raise ValueError('All milestones must be positive.')
-
-        if self.milestones != sorted(self.milestones):
-            raise ValueError('Milestones must be in ascending order.')
-
-        if not 0 < self.gamma <= 1:
-            raise ValueError('gamma must be between 0 and 1 (exclusive of 0).')
-
-        return
-
-    @override
-    def _compute(self, base_lr: float, epoch: int) -> float:
-        count = sum(1 for milestone in self.milestones if epoch >= milestone)
-        return base_lr * (self.gamma**count)
+# ---------------------------------------------------------------------------
+# Transformation Helpers
+# ---------------------------------------------------------------------------
 
 
 def rescale(

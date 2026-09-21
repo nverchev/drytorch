@@ -17,63 +17,6 @@ from drytorch.lib.schedulers import (
 )
 
 
-class TestComposeOperation:
-    """Test the generic compose operation on AbstractScheduler."""
-
-    @pytest.fixture
-    def initial_scheduler(self) -> AbstractScheduler:
-        """Set up the instance."""
-        return ConstantScheduler()
-
-    @pytest.fixture
-    def base_lr(self) -> float:
-        """Return test argument."""
-        return 1.0
-
-    def test_compose_with_rescale(self, initial_scheduler, base_lr) -> None:
-        """Test composing a scaling transformation."""
-        factor = 2.0
-        scaled_scheduler = initial_scheduler.compose(rescale(factor))
-        epoch = 5
-
-        assert scaled_scheduler(base_lr, epoch) == factor * base_lr
-
-    def test_compose_with_warmup(self, initial_scheduler, base_lr) -> None:
-        """Test composing a warmup transformation."""
-        warmup_steps = 3
-        warmed_up_scheduler = initial_scheduler.compose(warmup(warmup_steps))
-        expected = base_lr * (1 / warmup_steps)
-
-        assert warmed_up_scheduler(base_lr, 1) == expected
-        assert warmed_up_scheduler(base_lr, warmup_steps) == base_lr
-
-    def test_compose_with_restart(self, base_lr) -> None:
-        """Test composing a restart transformation."""
-        base_scheduler = CosineScheduler(decay_steps=10, min_decay=0.1)
-        restart_interval = 10
-        restart_fraction = 0.2
-
-        restarted_scheduler = base_scheduler.compose(
-            restart(restart_interval, restart_fraction=restart_fraction)
-        )
-        expected_5 = base_scheduler(base_lr, 5)
-        expected_10 = base_scheduler(base_lr, 10)
-        expected_15 = base_scheduler(base_lr * restart_fraction, 5)
-
-        assert restarted_scheduler(base_lr, 5) == expected_5
-        assert restarted_scheduler(base_lr, 10) == expected_10
-        assert restarted_scheduler(base_lr, 15) == expected_15
-
-    def test_compose_chaining(self, initial_scheduler, base_lr) -> None:
-        """Test chaining multiple compose operations."""
-        chained_scheduler = initial_scheduler.compose(warmup(2))
-        chained_scheduler = chained_scheduler.compose(rescale(0.5))
-
-        assert chained_scheduler(base_lr, 0) == 0.0
-        assert chained_scheduler(base_lr, 1) == 0.25
-        assert chained_scheduler(base_lr, 2) == 0.5
-
-
 class _DummyTransform(TransformScheduler):
     """Dummy TransformScheduler subclass for testing."""
 
@@ -81,86 +24,9 @@ class _DummyTransform(TransformScheduler):
         return self.scheduler(base_lr, epoch)
 
 
-class TestTransformSchedulers:
-    """Test TransformScheduler."""
-
-    def test_transform_scheduler_defaults(self) -> None:
-        """Test attributes and repr of TransformScheduler."""
-        scheduler = _DummyTransform(lambda lr, epoch: lr)
-
-        assert callable(scheduler.scheduler)
-        assert repr(scheduler).startswith('_DummyTransform(scheduler=')
-
-
-class TestRescaleLogic:
-    """Test the rescales transformation via compose."""
-
-    def test_scaled_scheduler(self) -> None:
-        """Test it correctly scales the base scheduler's output."""
-        factor = 0.5
-        base_lr = 0.1
-        scheduler = ConstantScheduler().compose(rescale(factor))
-
-        assert scheduler(base_lr, 10) == factor * base_lr
-        assert scheduler.factor == factor
-
-    def test_invalid_params(self) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            ConstantScheduler().compose(rescale(0.0))
-
-
-class TestRestartLogic:
-    """Test the restart transformation via compose."""
-
-    def test_restart_scheduler(self) -> None:
-        """Test periodic restarts of the base scheduler."""
-        interval, fraction, max_r = 50, 0.5, 3
-        base_lr = 1.0
-
-        scheduler = CosineScheduler(decay_steps=50, min_decay=0.01).compose(
-            restart(
-                interval,
-                max_restart=max_r,
-                restart_fraction=fraction,
-            )
-        )
-
-        expected = CosineScheduler(decay_steps=50, min_decay=0.01)(
-            base_lr * fraction, 1
-        )
-        assert scheduler(base_lr, 51) == expected
-
-        assert scheduler.restart_interval == interval
-        assert scheduler.restart_fraction == fraction
-        assert scheduler.max_restart == max_r
-
-    def test_invalid_params(self) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            ConstantScheduler().compose(restart(0))
-
-
-class TestWarmupLogic:
-    """Test the warmup transformation via compose."""
-
-    def test_warmup_scheduler(self) -> None:
-        """Test the linear warmup phase before the base scheduler starts."""
-        steps = 10
-        base_lr = 0.1
-
-        scheduler = ConstantScheduler().compose(warmup(steps))
-
-        assert scheduler(base_lr, 0) == 0.0
-        assert scheduler(base_lr, 5) == pytest.approx(0.05)
-        assert scheduler(base_lr, 10) == base_lr
-        assert scheduler(base_lr, 15) == base_lr
-        assert scheduler.warmup_steps == steps
-
-    def test_invalid_params(self) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            ConstantScheduler().compose(warmup(-1))
+# ---------------------------------------------------------------------------
+# Base Classes
+# ---------------------------------------------------------------------------
 
 
 class TestBaseSchedulerMetadata:
@@ -274,6 +140,79 @@ class TestBaseSchedulerMetadata:
         assert meta_rw['scheduler']['class'] == 'RestartScheduler'
 
 
+class TestComposeOperation:
+    """Test the generic compose operation on AbstractScheduler."""
+
+    @pytest.fixture
+    def initial_scheduler(self) -> AbstractScheduler:
+        """Set up the instance."""
+        return ConstantScheduler()
+
+    @pytest.fixture
+    def base_lr(self) -> float:
+        """Return test argument."""
+        return 1.0
+
+    def test_compose_with_rescale(self, initial_scheduler, base_lr) -> None:
+        """Test composing a scaling transformation."""
+        factor = 2.0
+        scaled_scheduler = initial_scheduler.compose(rescale(factor))
+        epoch = 5
+
+        assert scaled_scheduler(base_lr, epoch) == factor * base_lr
+
+    def test_compose_with_warmup(self, initial_scheduler, base_lr) -> None:
+        """Test composing a warmup transformation."""
+        warmup_steps = 3
+        warmed_up_scheduler = initial_scheduler.compose(warmup(warmup_steps))
+        expected = base_lr * (1 / warmup_steps)
+
+        assert warmed_up_scheduler(base_lr, 1) == expected
+        assert warmed_up_scheduler(base_lr, warmup_steps) == base_lr
+
+    def test_compose_with_restart(self, base_lr) -> None:
+        """Test composing a restart transformation."""
+        base_scheduler = CosineScheduler(decay_steps=10, min_decay=0.1)
+        restart_interval = 10
+        restart_fraction = 0.2
+
+        restarted_scheduler = base_scheduler.compose(
+            restart(restart_interval, restart_fraction=restart_fraction)
+        )
+        expected_5 = base_scheduler(base_lr, 5)
+        expected_10 = base_scheduler(base_lr, 10)
+        expected_15 = base_scheduler(base_lr * restart_fraction, 5)
+
+        assert restarted_scheduler(base_lr, 5) == expected_5
+        assert restarted_scheduler(base_lr, 10) == expected_10
+        assert restarted_scheduler(base_lr, 15) == expected_15
+
+    def test_compose_chaining(self, initial_scheduler, base_lr) -> None:
+        """Test chaining multiple compose operations."""
+        chained_scheduler = initial_scheduler.compose(warmup(2))
+        chained_scheduler = chained_scheduler.compose(rescale(0.5))
+
+        assert chained_scheduler(base_lr, 0) == 0.0
+        assert chained_scheduler(base_lr, 1) == 0.25
+        assert chained_scheduler(base_lr, 2) == 0.5
+
+
+class TestTransformSchedulers:
+    """Test TransformScheduler."""
+
+    def test_transform_scheduler_defaults(self) -> None:
+        """Test attributes and repr of TransformScheduler."""
+        scheduler = _DummyTransform(lambda lr, epoch: lr)
+
+        assert callable(scheduler.scheduler)
+        assert repr(scheduler).startswith('_DummyTransform(scheduler=')
+
+
+# ---------------------------------------------------------------------------
+# Schedulers
+# ---------------------------------------------------------------------------
+
+
 class TestConstantScheduler:
     """Test the ConstantScheduler class."""
 
@@ -289,6 +228,115 @@ class TestConstantScheduler:
 
         for epoch in epochs:
             assert scheduler(base_lr, epoch) == base_lr
+
+
+class TestCosineScheduler:
+    """Test the CosineScheduler class."""
+
+    @pytest.fixture
+    def decay_steps(self) -> int:
+        """Return test argument."""
+        return 100
+
+    @pytest.fixture
+    def min_decay(self) -> float:
+        """Return test argument."""
+        return 0.1
+
+    @pytest.fixture
+    def scheduler(self, decay_steps, min_decay) -> AbstractScheduler:
+        """Set up the instance."""
+        return CosineScheduler(decay_steps=decay_steps, min_decay=min_decay)
+
+    def test_cosine_scheduler_start(self, scheduler) -> None:
+        """Test CosineScheduler at the start of the schedule."""
+        base_lr = 1.0
+
+        lr_epoch_0 = scheduler(base_lr, 0)
+
+        assert lr_epoch_0 == base_lr
+
+    def test_cosine_scheduler_mid(
+        self, scheduler, decay_steps, min_decay
+    ) -> None:
+        """Test CosineScheduler midway through the schedule."""
+        base_lr = 1.0
+        epoch_mid = decay_steps // 2
+
+        assert scheduler(base_lr, epoch_mid) == 0.55
+
+    def test_cosine_scheduler_end(
+        self, scheduler, decay_steps, min_decay
+    ) -> None:
+        """Test CosineScheduler at the end of the schedule."""
+        base_lr = 1.0
+
+        lr_epoch_end = scheduler(base_lr, decay_steps)
+
+        assert lr_epoch_end == min_decay * base_lr
+
+    def test_cosine_scheduler_beyond_end(
+        self, scheduler, decay_steps, min_decay
+    ) -> None:
+        """Test CosineScheduler beyond decay_steps remains constant."""
+        base_lr = 1.0
+
+        lr_beyond_decay = scheduler(base_lr, decay_steps + 10)
+
+        assert lr_beyond_decay == pytest.approx(min_decay * base_lr)
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            CosineScheduler(decay_steps=0)
+
+        with pytest.raises(ValueError):
+            CosineScheduler(min_decay=-0.1)
+
+        with pytest.raises(ValueError):
+            CosineScheduler(min_decay=1.1)
+
+
+class TestExponentialScheduler:
+    """Test the ExponentialScheduler class."""
+
+    @pytest.fixture
+    def exp_decay(self) -> float:
+        """Return test argument."""
+        return 0.9
+
+    @pytest.fixture
+    def min_decay(self) -> float:
+        """Return test argument."""
+        return 0.1
+
+    @pytest.fixture
+    def scheduler(self, exp_decay, min_decay) -> AbstractScheduler:
+        """Set up the instance."""
+        return ExponentialScheduler(exp_decay=exp_decay, min_decay=min_decay)
+
+    def test_scheduler(self, scheduler, exp_decay, min_decay) -> None:
+        """Test that the scheduler correctly decays learning rate."""
+        base_lr = 1.0
+
+        assert scheduler(base_lr, 0) == base_lr
+        assert scheduler(base_lr, 1) == 0.91
+        assert scheduler(base_lr, 22) == pytest.approx(0.1886293)
+        assert scheduler(base_lr, 50) == pytest.approx(0.1046383)
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            ExponentialScheduler(exp_decay=0.0)
+
+        with pytest.raises(ValueError):
+            ExponentialScheduler(exp_decay=1.1)
+
+        with pytest.raises(ValueError):
+            ExponentialScheduler(min_decay=-0.1)
+
+        with pytest.raises(ValueError):
+            ExponentialScheduler(min_decay=1.1)
 
 
 class TestPolynomialScheduler:
@@ -362,115 +410,6 @@ class TestPolynomialScheduler:
             PolynomialScheduler(min_decay=1.1)
 
 
-class TestExponentialScheduler:
-    """Test the ExponentialScheduler class."""
-
-    @pytest.fixture
-    def exp_decay(self) -> float:
-        """Return test argument."""
-        return 0.9
-
-    @pytest.fixture
-    def min_decay(self) -> float:
-        """Return test argument."""
-        return 0.1
-
-    @pytest.fixture
-    def scheduler(self, exp_decay, min_decay) -> AbstractScheduler:
-        """Set up the instance."""
-        return ExponentialScheduler(exp_decay=exp_decay, min_decay=min_decay)
-
-    def test_scheduler(self, scheduler, exp_decay, min_decay) -> None:
-        """Test that the scheduler correctly decays learning rate."""
-        base_lr = 1.0
-
-        assert scheduler(base_lr, 0) == base_lr
-        assert scheduler(base_lr, 1) == 0.91
-        assert scheduler(base_lr, 22) == pytest.approx(0.1886293)
-        assert scheduler(base_lr, 50) == pytest.approx(0.1046383)
-
-    def test_invalid_params(self) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            ExponentialScheduler(exp_decay=0.0)
-
-        with pytest.raises(ValueError):
-            ExponentialScheduler(exp_decay=1.1)
-
-        with pytest.raises(ValueError):
-            ExponentialScheduler(min_decay=-0.1)
-
-        with pytest.raises(ValueError):
-            ExponentialScheduler(min_decay=1.1)
-
-
-class TestCosineScheduler:
-    """Test the CosineScheduler class."""
-
-    @pytest.fixture
-    def decay_steps(self) -> int:
-        """Return test argument."""
-        return 100
-
-    @pytest.fixture
-    def min_decay(self) -> float:
-        """Return test argument."""
-        return 0.1
-
-    @pytest.fixture
-    def scheduler(self, decay_steps, min_decay) -> AbstractScheduler:
-        """Set up the instance."""
-        return CosineScheduler(decay_steps=decay_steps, min_decay=min_decay)
-
-    def test_cosine_scheduler_start(self, scheduler) -> None:
-        """Test CosineScheduler at the start of the schedule."""
-        base_lr = 1.0
-
-        lr_epoch_0 = scheduler(base_lr, 0)
-
-        assert lr_epoch_0 == base_lr
-
-    def test_cosine_scheduler_mid(
-        self, scheduler, decay_steps, min_decay
-    ) -> None:
-        """Test CosineScheduler midway through the schedule."""
-        base_lr = 1.0
-        epoch_mid = decay_steps // 2
-
-        assert scheduler(base_lr, epoch_mid) == 0.55
-
-    def test_cosine_scheduler_end(
-        self, scheduler, decay_steps, min_decay
-    ) -> None:
-        """Test CosineScheduler at the end of the schedule."""
-        base_lr = 1.0
-
-        lr_epoch_end = scheduler(base_lr, decay_steps)
-
-        assert lr_epoch_end == min_decay * base_lr
-
-    def test_cosine_scheduler_beyond_end(
-        self, scheduler, decay_steps, min_decay
-    ) -> None:
-        """Test CosineScheduler beyond decay_steps remains constant."""
-        base_lr = 1.0
-
-        lr_beyond_decay = scheduler(base_lr, decay_steps + 10)
-
-        assert lr_beyond_decay == pytest.approx(min_decay * base_lr)
-
-    def test_invalid_params(self) -> None:
-        """Test that invalid parameters raise ValueError."""
-        with pytest.raises(ValueError):
-            CosineScheduler(decay_steps=0)
-
-        with pytest.raises(ValueError):
-            CosineScheduler(min_decay=-0.1)
-
-        with pytest.raises(ValueError):
-            CosineScheduler(min_decay=1.1)
-
-
 class TestStepScheduler:
     """Test the StepScheduler class."""
 
@@ -541,3 +480,79 @@ class TestStepScheduler:
 
         with pytest.raises(ValueError):
             StepScheduler(gamma=1.1)
+
+
+# ---------------------------------------------------------------------------
+# Transformations
+# ---------------------------------------------------------------------------
+
+
+class TestRescaleLogic:
+    """Test the rescales transformation via compose."""
+
+    def test_scaled_scheduler(self) -> None:
+        """Test it correctly scales the base scheduler's output."""
+        factor = 0.5
+        base_lr = 0.1
+        scheduler = ConstantScheduler().compose(rescale(factor))
+
+        assert scheduler(base_lr, 10) == factor * base_lr
+        assert scheduler.factor == factor
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            ConstantScheduler().compose(rescale(0.0))
+
+
+class TestRestartLogic:
+    """Test the restart transformation via compose."""
+
+    def test_restart_scheduler(self) -> None:
+        """Test periodic restarts of the base scheduler."""
+        interval, fraction, max_r = 50, 0.5, 3
+        base_lr = 1.0
+
+        scheduler = CosineScheduler(decay_steps=50, min_decay=0.01).compose(
+            restart(
+                interval,
+                max_restart=max_r,
+                restart_fraction=fraction,
+            )
+        )
+
+        expected = CosineScheduler(decay_steps=50, min_decay=0.01)(
+            base_lr * fraction, 1
+        )
+        assert scheduler(base_lr, 51) == expected
+
+        assert scheduler.restart_interval == interval
+        assert scheduler.restart_fraction == fraction
+        assert scheduler.max_restart == max_r
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            ConstantScheduler().compose(restart(0))
+
+
+class TestWarmupLogic:
+    """Test the warmup transformation via compose."""
+
+    def test_warmup_scheduler(self) -> None:
+        """Test the linear warmup phase before the base scheduler starts."""
+        steps = 10
+        base_lr = 0.1
+
+        scheduler = ConstantScheduler().compose(warmup(steps))
+
+        assert scheduler(base_lr, 0) == 0.0
+        assert scheduler(base_lr, 5) == pytest.approx(0.05)
+        assert scheduler(base_lr, 10) == base_lr
+        assert scheduler(base_lr, 15) == base_lr
+        assert scheduler.warmup_steps == steps
+
+    def test_invalid_params(self) -> None:
+        """Test that invalid parameters raise ValueError."""
+        with pytest.raises(ValueError):
+            ConstantScheduler().compose(warmup(-1))
