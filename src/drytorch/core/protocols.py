@@ -1,8 +1,8 @@
 """Internal protocols.
 
+Capabilities: optional behaviour, checked with isinstance, never required.
 Components: what users implement or pass in.
 Running and control: the runners and the hooks that drive them.
-Capabilities: optional behaviour, checked with isinstance, never required.
 """
 
 from __future__ import annotations
@@ -42,6 +42,8 @@ __all__ = [
     'SchedulerProtocol',
     'SourceProtocol',
     'SyncProtocol',
+    'SyncedLossProtocol',
+    'SyncedObjectiveProtocol',
     'TargetType',
     'Tensors',
     'TestProtocol',
@@ -66,6 +68,39 @@ _Target_co = TypeVar('_Target_co', bound=TargetType, covariant=True)
 _Input_contra = TypeVar('_Input_contra', bound=InputType, contravariant=True)
 _Target_contra = TypeVar('_Target_contra', bound=TargetType, contravariant=True)
 _Output_contra = TypeVar('_Output_contra', bound=OutputType, contravariant=True)
+
+
+# ---------------------------------------------------------------------------
+# Capabilities
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class HigherIsBetterProtocol(Protocol):
+    """Protocol for metrics exposing whether higher values are better."""
+
+    @property
+    @abc.abstractmethod
+    def higher_is_better(self) -> bool | None:
+        """Flag whether higher metric values are better."""
+
+
+@runtime_checkable
+class NamedProtocol(Protocol):
+    """Protocol for objects exposing a name."""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """The name of the object."""
+
+
+@runtime_checkable
+class SyncProtocol(Protocol):
+    """Protocol for objects that synchronize their state across processes."""
+
+    def sync(self) -> None:
+        """Synchronize the state across processes."""
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +321,20 @@ class LossProtocol(ObjectiveProtocol[_Output_contra, _Target_contra], Protocol):
         """
 
 
+@runtime_checkable
+class SyncedObjectiveProtocol(
+    ObjectiveProtocol[_Output_contra, _Target_contra], SyncProtocol, Protocol
+):
+    """Protocol for an objective synchronizing its state across processes."""
+
+
+@runtime_checkable
+class SyncedLossProtocol(
+    LossProtocol[_Output_contra, _Target_contra], SyncProtocol, Protocol
+):
+    """Protocol for a loss synchronizing its state across processes."""
+
+
 class SchedulerProtocol(Protocol):
     """Protocol of a scheduler for the learning rate."""
 
@@ -461,36 +510,3 @@ class HookProtocol(Protocol):
         Args:
             trainer: the trainer calling the hook.
         """
-
-
-# ---------------------------------------------------------------------------
-# Capabilities
-# ---------------------------------------------------------------------------
-
-
-@runtime_checkable
-class HigherIsBetterProtocol(Protocol):
-    """Protocol for metrics exposing whether higher values are better."""
-
-    @property
-    @abc.abstractmethod
-    def higher_is_better(self) -> bool | None:
-        """Flag whether higher metric values are better."""
-
-
-@runtime_checkable
-class NamedProtocol(Protocol):
-    """Protocol for objects exposing a name."""
-
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """The name of the object."""
-
-
-@runtime_checkable
-class SyncProtocol(Protocol):
-    """Protocol for objects that synchronize their state across processes."""
-
-    def sync(self) -> None:
-        """Synchronize the state across processes."""

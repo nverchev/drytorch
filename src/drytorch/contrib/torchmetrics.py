@@ -23,7 +23,7 @@ _Tensor = torch.Tensor
 def from_torchmetrics(
     torch_metric: metric.CompositionalMetric,
     /,
-) -> p.LossProtocol[_Tensor, _Tensor]:
+) -> p.SyncedLossProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a CompositionalMetric for integration.
 
     Args:
@@ -72,6 +72,12 @@ def from_torchmetrics(
 
         def reset(self) -> None:
             self.metric.reset()
+            return
+
+        def sync(self) -> None:
+            for m in self._leaf_metrics:
+                m.sync()
+
             return
 
         def update(self, outputs: _Tensor, targets: _Tensor) -> None:

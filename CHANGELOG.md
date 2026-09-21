@@ -43,7 +43,9 @@
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 
 ## Added
-- added `SyncedObjectiveProtocol`, the objective with a `sync` method that `from_torcheval` returns
+- added `SyncedObjectiveProtocol` and `SyncedLossProtocol` in `core.protocols`; `join` and the two wrappers state that their result synchronizes
+- added the tutorials `data`, `models`, `training`, `learning`, `hyperparameter_tuning` and `custom_events`
+- the `objectives`, `experiments_and_runs` and `trackers` tutorials cover custom accumulators, run utilities and logging formatters
 - added `ValidationProtocol` and `TestProtocol`
 - added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
 - added `SourceRunAfterHookError`, raised when a hook runs before the source it follows
@@ -129,6 +131,7 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
+- the wrapper from `from_torchmetrics` synchronizes its metrics across processes, instead of leaving them unsynchronized in distributed training
 - `from_torcheval` accepts a metric whatever type it computes, instead of only one computing both a tensor and a dictionary
 - `LearningSchema.adam`, `adam_w`, `r_adam` and `sgd` accept learning rates by submodule, as the class and the trainer already did
 - composed schedulers record each transformation with its own settings and in order

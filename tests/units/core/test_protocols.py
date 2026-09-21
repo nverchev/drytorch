@@ -180,6 +180,10 @@ _source: type[p.SourceProtocol] = _Monitor
 _named: type[p.NamedProtocol] = _Monitor
 _objective: type[p.ObjectiveProtocol[torch.Tensor, torch.Tensor]] = _Objective
 _scheduler: type[p.SchedulerProtocol] = _Scheduler
+_synced_loss: type[p.SyncedLossProtocol[torch.Tensor, torch.Tensor]] = _Loss
+_synced_objective: type[
+    p.SyncedObjectiveProtocol[torch.Tensor, torch.Tensor]
+] = _Objective
 _sync: type[p.SyncProtocol] = _Objective
 _test: type[p.TestProtocol] = _Monitor
 _validation: type[p.ValidationProtocol] = _Monitor
@@ -214,6 +218,8 @@ def objective() -> _Objective:
     [
         ('loss', p.LossProtocol),
         ('loss', p.ObjectiveProtocol),
+        ('loss', p.SyncedLossProtocol),
+        ('loss', p.SyncedObjectiveProtocol),
         ('model', p.ModelProtocol),
         ('model', p.NamedProtocol),
         ('monitor', p.RunnerProtocol),
@@ -221,6 +227,7 @@ def objective() -> _Objective:
         ('monitor', p.NamedProtocol),
         ('objective', p.ObjectiveProtocol),
         ('objective', p.SyncProtocol),
+        ('objective', p.SyncedObjectiveProtocol),
     ],
 )
 def test_object_matches_runtime_protocol(

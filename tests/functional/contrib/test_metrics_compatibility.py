@@ -40,15 +40,15 @@ _torchmetrics_objective: type[p.ObjectiveProtocol[Any, Any]] = (
 
 def _wrap_torcheval(
     metric: 'metrics.Metric[torch.Tensor | dict[str, torch.Tensor]]',
-) -> p.ObjectiveProtocol[torch.Tensor, torch.Tensor]:
-    """Check the wrapper accepts a torcheval metric and returns an objective."""
+) -> p.SyncedObjectiveProtocol[torch.Tensor, torch.Tensor]:
+    """Check the wrapper accepts a metric and returns a synced objective."""
     return from_torcheval(metric)
 
 
 def _wrap_torchmetrics(
     metric: 'torchmetric.CompositionalMetric',
-) -> p.LossProtocol[torch.Tensor, torch.Tensor]:
-    """Check the wrapper accepts a composition and returns a loss."""
+) -> p.SyncedLossProtocol[torch.Tensor, torch.Tensor]:
+    """Check the wrapper accepts a composition and returns a synced loss."""
     return from_torchmetrics(metric)
 
 
@@ -67,7 +67,7 @@ def torchmetrics_metric() -> 'torchmetrics.MeanSquaredError':
 @pytest.fixture
 def wrapped_torcheval_metric(
     torcheval_metric,
-) -> p.ObjectiveProtocol[torch.Tensor, torch.Tensor]:
+) -> p.SyncedObjectiveProtocol[torch.Tensor, torch.Tensor]:
     """A torcheval metric wrapped for the library."""
     return from_torcheval(torcheval_metric)
 
@@ -75,7 +75,7 @@ def wrapped_torcheval_metric(
 @pytest.fixture
 def wrapped_torchmetrics_metric(
     torchmetrics_metric,
-) -> p.LossProtocol[torch.Tensor, torch.Tensor]:
+) -> p.SyncedLossProtocol[torch.Tensor, torch.Tensor]:
     """A torchmetrics composition wrapped for the library."""
     return from_torchmetrics(1 + torchmetrics_metric)
 
@@ -95,6 +95,7 @@ def wrapped_torchmetrics_metric(
         ('wrapped_torchmetrics_metric', p.LossProtocol),
         ('wrapped_torchmetrics_metric', p.NamedProtocol),
         ('wrapped_torchmetrics_metric', p.ObjectiveProtocol),
+        ('wrapped_torchmetrics_metric', p.SyncProtocol),
     ],
 )
 def test_third_party_metric_matches_protocol(
@@ -104,3 +105,18 @@ def test_third_party_metric_matches_protocol(
     instance = request.getfixturevalue(fixture_name)
 
     assert isinstance(instance, protocol)
+
+
+def test_torchmetrics_sync_preserves_computed_values(
+    wrapped_torchmetrics_metric,
+) -> None:
+    """Test sync on a single process leaves computed values unchanged."""
+    outputs = torch.tensor([0.1, 0.2])
+    targets = torch.tensor([1.0, 0.0])
+    wrapped_torchmetrics_metric.update(outputs, targets)
+    before = wrapped_torchmetrics_metric.compute()
+
+    wrapped_torchmetrics_metric.sync()
+    after = wrapped_torchmetrics_metric.compute()
+
+    assert before == after

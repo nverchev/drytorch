@@ -914,7 +914,7 @@ def join(
     objective: p.LossProtocol[Output, Target],
     /,
     *metrics: p.ObjectiveProtocol[Output, Target],
-) -> p.LossProtocol[Output, Target]: ...
+) -> p.SyncedLossProtocol[Output, Target]: ...
 
 
 @overload
@@ -922,14 +922,14 @@ def join(
     objective: p.ObjectiveProtocol[Output, Target],
     /,
     *metrics: p.ObjectiveProtocol[Output, Target],
-) -> p.ObjectiveProtocol[Output, Target]: ...
+) -> p.SyncedObjectiveProtocol[Output, Target]: ...
 
 
 def join(
     objective: p.ObjectiveProtocol[Output, Target],
     /,
     *metrics: p.ObjectiveProtocol[Output, Target],
-) -> p.ObjectiveProtocol[Output, Target]:
+) -> p.SyncedObjectiveProtocol[Output, Target]:
     """Join objectives into one of the same kind as the first.
 
     Args:
