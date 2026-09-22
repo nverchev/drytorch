@@ -27,20 +27,6 @@ dependencies = [
     "typing_extensions>=4.4.0",
 ]
 
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cpu", marker = "sys_platform != 'darwin'" },
-]
-
-[[tool.uv.index]]
-name = "default"
-url = "https://pypi.org/simple"
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
 [project.optional-dependencies]
 recommended = [
     "PyYAML >= 6.0",
@@ -122,6 +108,7 @@ log_cli_level = "WARNING"
 [tool.basedpyright]
 include = [
     "src",
+    "docs/tutorials",
     "tests/functional/contrib/test_metrics_compatibility.py",
     "tests/integration/lib/test_protocol_implementations.py",
     "tests/units/core/test_protocols.py",
