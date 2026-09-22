@@ -30,6 +30,11 @@ if importlib.util.find_spec('tensorboard') is None:
 class TensorBoard(base_classes.Dumper):
     """Tracker that wraps the TensorBoard SummaryWriter.
 
+    The server it starts lasts as long as the trackers of its experiment: it
+    stops when they are released, and at the latest when the process ends. To
+    read the results later, start a server on the same folder instead:
+    ``tensorboard --logdir <par_dir>/tensorboard``.
+
     Attributes:
         base_port: starting port number for TensorBoard.
         instance_count: counter for TensorBoard instances started.
@@ -194,6 +199,9 @@ class TensorBoard(base_classes.Dumper):
                     '--reload_multifile',
                     'true',
                 ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
             )
         except OSError as ose:
             msg = 'TensorBoard failed to start'

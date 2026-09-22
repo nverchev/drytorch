@@ -633,7 +633,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             return
 
         if not Experiment.has_current():
-            experiment.trackers.clean_up()
+            experiment.trackers.close_all()
 
         return
 

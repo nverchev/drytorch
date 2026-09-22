@@ -648,7 +648,7 @@ class TestRun:
     ) -> None:
         """Test the _cleanup_resources static method directly when paused."""
         self.patch_stop.reset_mock()
-        mock_clean_up = mocker.patch.object(experiment.trackers, 'clean_up')
+        mock_close_all = mocker.patch.object(experiment.trackers, 'close_all')
         mock_set_auto_publish = mocker.patch.object(
             log_events.Event, 'set_auto_publish'
         )
@@ -658,7 +658,7 @@ class TestRun:
 
         assert experiment._active_run is None
         self.patch_stop.assert_not_called()
-        mock_clean_up.assert_called_once()
+        mock_close_all.assert_called_once()
         mock_set_auto_publish.assert_not_called()
         mock_clear_current.assert_not_called()
 

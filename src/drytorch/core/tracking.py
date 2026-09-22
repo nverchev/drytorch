@@ -10,6 +10,7 @@ import abc
 import datetime
 import functools
 import warnings
+import weakref
 
 from collections.abc import Iterable, Mapping
 from typing import Any, ClassVar, Final, Protocol, Self, runtime_checkable
@@ -202,10 +203,7 @@ class Tracker(abc.ABC):
         return
 
     def close(self) -> None:
-        """Release everything, including any paused state.
-
-        Called once when the process ends.
-        """
+        """Override to release the tracker resources idempotently."""
         self.clean_up()
         return
 
@@ -243,6 +241,7 @@ class EventDispatcher:
     """
 
     exp_name: Final[str]
+    _finalizer: Final[weakref.finalize]
     _named_trackers: Final[dict[str, Tracker]]
 
     def __init__(self, exp_name) -> None:
@@ -253,6 +252,9 @@ class EventDispatcher:
         """
         self.exp_name = str(exp_name)
         self._named_trackers = {}
+        self._finalizer = weakref.finalize(
+            self, self._close_trackers, self._named_trackers
+        )
         return
 
     @property
@@ -260,11 +262,10 @@ class EventDispatcher:
         """A mapping of trackers, indexed by their names."""
         return self._named_trackers
 
-    def clean_up(self) -> None:
-        """Clean up all registered trackers."""
-        for name, tracker in self._named_trackers.items():
-            self._clean_up_tracker(name, tracker)
-
+    def close_all(self) -> None:
+        """Close all registered trackers."""
+        self._finalizer.detach()
+        self._close_trackers(self._named_trackers)
         return
 
     def publish(self, event: log_events.Event) -> None:
@@ -291,7 +292,7 @@ class EventDispatcher:
                 to_be_removed.append(name)
 
         for name in to_be_removed:
-            self._clean_up_tracker(name, self._named_trackers[name])
+            self._close_tracker(name, self._named_trackers[name])
             self.remove(name)
 
         return
@@ -337,17 +338,6 @@ class EventDispatcher:
 
         return
 
-    def _clean_up_tracker(self, name: str, tracker: Tracker) -> None:
-        try:
-            tracker._reset_current()
-            tracker.close()
-        except Exception as err:
-            warnings.warn(
-                exceptions.TrackerExceptionWarning(name, err),
-                stacklevel=2,
-            )
-        return
-
     def _subscribe_tracker(self, name: str, tracker: Tracker) -> None:
         """Subscribe a tracker to the dispatcher.
 
@@ -362,6 +352,26 @@ class EventDispatcher:
             raise exceptions.TrackerAlreadyRegisteredError(name, self.exp_name)
 
         self._named_trackers[name] = tracker
+        return
+
+    @staticmethod
+    def _close_tracker(name: str, tracker: Tracker) -> None:
+        try:
+            tracker._reset_current()
+            tracker.close()
+        except Exception as err:
+            warnings.warn(
+                exceptions.TrackerExceptionWarning(name, err), stacklevel=2
+            )
+
+        return
+
+    @staticmethod
+    def _close_trackers(named_trackers: dict[str, Tracker]) -> None:
+        for name, tracker in named_trackers.items():
+            EventDispatcher._close_tracker(name, tracker)
+
+        named_trackers.clear()
         return
 
 

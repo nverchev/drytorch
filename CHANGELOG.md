@@ -1,4 +1,4 @@
-# [0.1.0] - 18-09-2026
+# [0.1.0] - 21-09-2026
 
 ## [BREAKING CHANGES]
 - renamed `drytorch.lib.aggregators` to `drytorch.lib.accumulators`
@@ -33,7 +33,6 @@
 - replaced `LossBase.watch` with the function `join`, which returns a new loss instead of changing the original
 - `JoinedMetrics` takes any number of objectives following `ObjectiveProtocol`; its `update` returns `None` and `compute` raises `RepeatedMetricsError` on repeated names; `JoinedLoss` takes any `LossProtocol`
 - `MetricCollection.fn` and `MetricCollection.named_fn` are read-only
-
 - library classes match protocols structurally instead of inheriting them
 - `Model.epoch` and `ModelProtocol.epoch` are read-only; `CheckpointProtocol.load` returns the loaded epoch, which `Model.load_state` sets
 - `ModelProtocol` requires `bind_optimizer`, `load_state` and `save_state`; `ModelOptimizer` and `Trainer` bind, load and save through the model
@@ -44,8 +43,8 @@
 
 ## Added
 - added `SyncedObjectiveProtocol` and `SyncedLossProtocol` in `core.protocols`; `join` and the two wrappers state that their result synchronizes
-- added the tutorials `data`, `models`, `training`, `learning`, `hyperparameter_tuning` and `custom_events`
-- the `objectives`, `experiments_and_runs` and `trackers` tutorials cover custom accumulators, run utilities and logging formatters
+- added the tutorials `data.md`, `models.md`, `training.md`, `learning.md`, `custom_events.md`, and `distributed_training.md`
+- the `objectives.md`, `experiments_and_runs.md`, and `trackers.md` tutorials cover custom accumulators, run utilities and logging formatters
 - added `ValidationProtocol` and `TestProtocol`
 - added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
 - added `SourceRunAfterHookError`, raised when a hook runs before the source it follows
@@ -67,13 +66,13 @@
 - added `HookChain`, `TrainerBuilder` and `EvaluationHook`
 - added `registering.RegisteringMeta`, the metaclass registering runners as actors of their model once created
 - added `objectives.join`, which joins objectives into one of the same kind as the first
-
 - added `IncrementEpochEvent`, emitted by `Model.increment_epoch`
 - added `higher_is_better` to `from_torcheval`, stated by the wrapped metric
 - the wrapper from `from_torchmetrics` keeps the direction of the composed metric
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 
 ## Changed
+- renamed `EventDispatcher.clean_up` to `close_all`, which closes its trackers, unlike `Tracker.clean_up`
 - updated `STYLE.md` with the 3-tier argument convention: positional-only for generic/obvious target objects, positional-or-keyword for semantically named targets, and keyword-only for settings and options, requiring multiple positional-only arguments to have the same type
 - regrouped `core/protocols.py` into components, running and control, and capabilities
 - moved `ModuleProtocol` from `core.protocols` to `lib.models`, where the models that take a module document it
@@ -109,7 +108,6 @@
 - renamed `YamlDumper` to `MetadataDumper` in `drytorch.trackers.yaml`
 - consolidated integration tracker tests into one module per tracker
 - moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
-
 - `TrainerProtocol.update_learning_rate` accepts learning rates by module name and defaults both arguments to `None`, like `Trainer`
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 
@@ -126,11 +124,12 @@
 - removed unused `min_delta` and `best_is` arguments from `optuna.TrialCallback`
 - removed preferential dataclass apply branch in `apply`
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
-
 - removed `TrainerProtocol.objective`, which no code used
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
+- trackers are closed when their experiment is released, and at the latest when the process ends, so the TensorBoard server stops, stashed wandb runs finish and the SQL engine is disposed
+- the TensorBoard server no longer holds the output of the process that started it, which kept shells and CI jobs waiting
 - the wrapper from `from_torchmetrics` synchronizes its metrics across processes, instead of leaving them unsynchronized in distributed training
 - `from_torcheval` accepts a metric whatever type it computes, instead of only one computing both a tensor and a dictionary
 - `LearningSchema.adam`, `adam_w`, `r_adam` and `sgd` accept learning rates by submodule, as the class and the trainer already did
