@@ -186,7 +186,6 @@ _synced_objective: type[
 ] = _Objective
 _sync: type[p.SyncProtocol] = _Objective
 _test: type[p.TestProtocol] = _Monitor
-_validation: type[p.ValidationProtocol] = _Monitor
 
 
 @pytest.fixture

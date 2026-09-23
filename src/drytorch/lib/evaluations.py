@@ -12,8 +12,7 @@ from drytorch.lib import runners
 
 
 __all__ = [
-    'Diagnostic',
-    'EvaluationMixin',
+    'Evaluation',
     'Test',
     'Validation',
 ]
@@ -24,37 +23,8 @@ Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
 
 
-class EvaluationMixin(runners.Runner[Input, Target, Output]):
-    """Mixin for running inference in eval mode without gradients."""
-
-    @torch.inference_mode()
-    def __call__(self, *, store_outputs: bool = False) -> None:
-        """Set the model in evaluation mode and PyTorch in inference mode."""
-        self.model.module.eval()
-        super().__call__(store_outputs=store_outputs)
-        return
-
-
-class Diagnostic(
-    EvaluationMixin[Input, Target, Output],
-    runners.Source[Input, Target, Output, Any],
-):
-    """Evaluate the model in inference mode.
-
-    Attributes:
-        loader: provides inputs and targets in batches.
-        model: the model containing the weights to evaluate.
-        objective: processes the model outputs and targets.
-    """
-
-
-class Validation(
-    EvaluationMixin[Input, Target, Output],
-    runners.Source[Input, Target, Output, Any],
-):
-    """Evaluate model on inference mode.
-
-    It could be used for testing (see subclass) or validating a model.
+class Evaluation(runners.Source[Input, Target, Output, Any]):
+    """Evaluate a model in inference mode.
 
     Attributes:
         loader: provides inputs and targets in batches.
@@ -83,9 +53,27 @@ class Validation(
         super().__init__(model, loader=loader, name=name, objective=metric)
         return
 
+    @override
+    @torch.inference_mode()
+    def __call__(self, *, store_outputs: bool = False) -> None:
+        """Set the model in evaluation mode and PyTorch in inference mode."""
+        self.model.module.eval()
+        super().__call__(store_outputs=store_outputs)
+        return
 
-class Test(Validation[Input, Target, Output]):
-    """Evaluate model performance on a test dataset when training is over.
+
+class Validation(Evaluation[Input, Target, Output]):
+    """Evaluate model performance on held-out data during model development.
+
+    Attributes:
+        loader: provides inputs and targets in batches.
+        model: the model containing the weights to evaluate.
+        objective: processes the model outputs and targets.
+    """
+
+
+class Test(Evaluation[Input, Target, Output]):
+    """Evaluate model performance on a test dataset after model development.
 
     Attributes:
         loader: provides inputs and targets in batches.

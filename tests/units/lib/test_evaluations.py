@@ -1,9 +1,12 @@
 """Tests for the ``evaluations`` module."""
 
+from typing import Any
+
 import pytest
 
-from drytorch.lib.evaluations import Diagnostic, Validation
+from drytorch.lib.evaluations import Evaluation, Validation
 from drytorch.lib.evaluations import Test as _Test
+from drytorch.lib.objectives import Metric
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -13,8 +16,8 @@ def setup_module(module_mocker) -> None:
     return
 
 
-class TestDiagnostic:
-    """Tests for the Runner class."""
+class TestEvaluation:
+    """Tests for the Evaluation class."""
 
     @pytest.fixture(autouse=True)
     def setup(self, mocker, example_named_metrics) -> None:
@@ -25,20 +28,20 @@ class TestDiagnostic:
         return
 
     @pytest.fixture
-    def diagnostic(self, mock_model, mock_loader, mock_loss) -> Diagnostic:
+    def evaluation(self, mock_model, mock_loader, mock_loss) -> Evaluation:
         """Set up a test instance."""
-        return Diagnostic(
+        return Evaluation(
             mock_model,
             loader=mock_loader,
-            objective=mock_loss,
+            metric=mock_loss,
         )
 
-    def test_call_method(self, mocker, mock_model, diagnostic) -> None:
+    def test_call_method(self, mocker, mock_model, evaluation) -> None:
         """Test __call__ method sets the model to eval mode and runs epoch."""
         mock = mocker.Mock()
         mock_model.module = mock
 
-        diagnostic(store_outputs=True)
+        evaluation(store_outputs=True)
 
         self.mock_super_call.assert_called_once()
         mock.eval.assert_called_once()
@@ -51,8 +54,9 @@ class TestValidation:
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
 
-        def _set_model(instance, model, *_, **__) -> None:
+        def _set_model(instance, model, *_, objective=None, **__) -> None:
             instance.model = model  # read by the registering metaclass
+            instance.objective = objective
             return
 
         self.mock_super_init = mocker.patch(
@@ -76,6 +80,24 @@ class TestValidation:
         """Test parent __init__ is called."""
         self.mock_super_init.assert_called_once()
 
+    def test_metric_type_survives(self, mock_model, mock_loader) -> None:
+        """Test that a metric subclass preserves its concrete type."""
+
+        class CustomMetric(Metric[Any, Any]):
+            custom_attr: str = 'reachable'
+
+        custom_metric = CustomMetric(
+            lambda outputs, targets: outputs.sum(), name='custom'
+        )
+
+        validation = Validation(
+            mock_model,
+            loader=mock_loader,
+            metric=custom_metric,
+        )
+
+        assert validation.objective.custom_attr == 'reachable'
+
 
 class TestTest:
     """Tests for the Test class."""
@@ -90,7 +112,7 @@ class TestTest:
             'drytorch.core.log_events.EndTestEvent'
         )
         self.mock_super_call = mocker.patch(
-            'drytorch.lib.evaluations.Validation.__call__'
+            'drytorch.lib.evaluations.Evaluation.__call__'
         )
         return
 

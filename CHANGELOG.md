@@ -70,8 +70,11 @@
 - added `higher_is_better` to `from_torcheval`, stated by the wrapped metric
 - the wrapper from `from_torchmetrics` keeps the direction of the composed metric
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
+- `Evaluation`, the public evaluation source running the model in inference mode, base of `Validation` and `Test`
 
 ## Changed
+- `Source` is generic in any objective, not only in a loss
+- `Test` and `TestProtocol` derive from `Evaluation` and `SourceProtocol` instead of from the validation role
 - renamed `EventDispatcher.clean_up` to `close_all`, which closes its trackers, unlike `Tracker.clean_up`
 - updated `STYLE.md` with the 3-tier argument convention: positional-only for generic/obvious target objects, positional-or-keyword for semantically named targets, and keyword-only for settings and options, requiring multiple positional-only arguments to have the same type
 - regrouped `core/protocols.py` into components, running and control, and capabilities
@@ -112,6 +115,7 @@
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 
 ## Removed
+- `Diagnostic` and `EvaluationMixin`; use `Evaluation`
 - ComposedScheduler, and parameters and base_scheduler_name from the schedulers
 - removed the public `CreatedAtProtocol`, replaced by the private `_CreatedAtProtocol` in `core/tracking`
 - removed `CallEvery`, `call_every` and `evaluation_hook`

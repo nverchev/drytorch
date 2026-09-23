@@ -38,7 +38,9 @@ Input = TypeVar('Input', bound=p.InputType)
 Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
 _Objective_co = TypeVar(
-    '_Objective_co', bound=p.LossProtocol[Any, Any], covariant=True
+    '_Objective_co',
+    bound=p.ObjectiveProtocol[Any, Any],
+    covariant=True,
 )
 
 

@@ -48,7 +48,6 @@ __all__ = [
     'Tensors',
     'TestProtocol',
     'TrainerProtocol',
-    'ValidationProtocol',
 ]
 
 # pyright: reportReturnType=false
@@ -405,12 +404,8 @@ class SourceProtocol(RunnerProtocol, Protocol):
         """The objective computing the metrics."""
 
 
-class ValidationProtocol(SourceProtocol, Protocol):
-    """Source that hooks run during training to follow and choose settings."""
-
-
-class TestProtocol(ValidationProtocol, Protocol):
-    """Protocol for evaluating a model on a test dataset."""
+class TestProtocol(SourceProtocol, Protocol):
+    """Protocol for evaluating a model on test data after model development."""
 
     def __call__(self, *, store_outputs: bool = False) -> None:
         """Run the model on the data once.

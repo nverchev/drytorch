@@ -11,7 +11,7 @@ import pytest
 
 from drytorch.core import protocols as p
 from drytorch.lib.checkpoints import LocalCheckpoint
-from drytorch.lib.evaluations import Diagnostic, Validation
+from drytorch.lib.evaluations import Evaluation, Validation
 from drytorch.lib.evaluations import Test as _Test
 from drytorch.lib.gradient_ops import HistClipper, NoOp
 from drytorch.lib.learning import LearningSchema
@@ -31,12 +31,11 @@ from drytorch.lib.schedulers import ConstantScheduler, ExponentialScheduler
 from drytorch.lib.training import Trainer
 
 
-_runner: type[p.RunnerProtocol] = Runner
 _checkpoint: type[p.CheckpointProtocol] = LocalCheckpoint
 _clipper: type[p.GradientOpProtocol] = HistClipper
-_diagnostic: type[p.SourceProtocol] = Diagnostic
 _dict_loss: type[p.LossProtocol[Any, Any]] = DictLoss
 _ema_model: type[p.ModelProtocol[Any, Any]] = EMAModel
+_evaluation: type[p.SourceProtocol] = Evaluation
 _gradient_op: type[p.GradientOpProtocol] = NoOp
 _higher_is_better: type[p.HigherIsBetterProtocol] = Metric
 _joined_loss: type[p.LossProtocol[Any, Any]] = JoinedLoss
@@ -49,14 +48,15 @@ _metric: type[p.ObjectiveProtocol[Any, Any]] = Metric
 _metrics: type[p.ObjectiveProtocol[Any, Any]] = MetricCollection
 _model: type[p.ModelProtocol[Any, Any]] = Model
 _named: type[p.NamedProtocol] = Model
-_source: type[p.SourceProtocol] = Source
+_runner: type[p.RunnerProtocol] = Runner
 _scheduler: type[p.SchedulerProtocol] = ConstantScheduler
+_source: type[p.SourceProtocol] = Source
 _swa_model: type[p.ModelProtocol[Any, Any]] = SWAModel
 _sync: type[p.SyncProtocol] = MetricCollection
 _test: type[p.TestProtocol] = _Test
 _trainer: type[p.TrainerProtocol[Any, Any, Any]] = Trainer
 _transformed: type[p.SchedulerProtocol] = ExponentialScheduler
-_validation: type[p.ValidationProtocol] = Validation
+_validation: type[p.SourceProtocol] = Validation
 
 
 @pytest.fixture(autouse=True, scope='module')
