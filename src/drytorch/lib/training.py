@@ -33,6 +33,11 @@ Input = TypeVar('Input', bound=p.InputType)
 Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
 
+# need a separate set for Trainer.builder
+_Input = TypeVar('_Input', bound=p.InputType)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
+
 
 class ModelOptimizer:
     """Bundle the module and its optimizer.
@@ -427,13 +432,13 @@ class Trainer(
 
     @staticmethod
     def builder(
-        model: p.ModelProtocol[Input, Output],
+        model: p.ModelProtocol[_Input, _Output],
         *,
         learning_schema: p.LearningProtocol,
-        loader: p.LoaderProtocol[tuple[Input, Target]],
-        loss: p.LossProtocol[Output, Target],
+        loader: p.LoaderProtocol[tuple[_Input, _Target]],
+        loss: p.LossProtocol[_Output, _Target],
         name: str = '',
-    ) -> TrainerBuilder[Input, Target, Output]:
+    ) -> TrainerBuilder[_Input, _Target, _Output]:
         """Collect the validation and the hooks before creating a trainer.
 
         Args:
