@@ -38,7 +38,8 @@ tutorial's paired `.md` and `.ipynb` in sync.
 ## Attributes
 - Prefer immutable objects for experiment settings.
 - Declare every instance attribute in the class body; `__init__` only
-  assigns.
+  assigns. In tutorials, prefer annotating attributes during assignment in
+  `__init__` rather than in the class body.
 - Configuration is public and `Final` in the class body: `attr: Final[T]`.
   Other attributes and module-level constants are `Final` when never
   reassigned; in trackers, only where reassignment would cause errors.
@@ -86,6 +87,11 @@ tutorial's paired `.md` and `.ipynb` in sync.
 - Modules: `-ing` form for base logic, plural for a class and its
   subclasses, the dependency's name for bindings.
 - Counts: `n_*`.
+- Methods are verbs or verb phrases (`update`, `add_validation`,
+  `get_n_batches`); properties are nouns (`name`, `computed_metrics`). A factory
+  or an alternative constructor is named after what it returns, or after where
+  the value comes from (`Trainer.builder`, `LearningSchema.adam`,
+  `Metric.from_torcheval`).
 - Boolean flags are plain words (`record`, `distribute`), without `should_`
   or `is_`.
 - Default names come from `repr_utils.DefaultName`, exposed by a read-only
@@ -98,12 +104,15 @@ tutorial's paired `.md` and `.ipynb` in sync.
 - `from drytorch.core import protocols as p`.
 - Import modules, not their members: `from torch import distributed as dist`,
   then `torch.nn.Module`. Exception: names from `typing`,
-  `typing_extensions`, `collections.abc` and `_typeshed`.
+  `typing_extensions`, `collections.abc` and `_typeshed`. In tutorials, direct
+  imports of members from `torch.utils.data` (such as
+  `from torch.utils.data import SequentialSampler`) are allowed and preferred.
 - Empty collections are literals; the type comes from the class-body or
   variable annotation.
 - A blank line after every indented block.
 - A blank line before a full-line comment, except at the start of a block or
   right after a docstring.
+- A blank line after the block of type variable and alias definitions.
 - No other blank lines in a function body.
 - An explicit `return` at the end of every function.
 - Parameters an override does not use are consumed with `_not_used = ...`.
@@ -185,9 +194,13 @@ Python requires it (dataclass fields with defaults after those without).
   a docstring, do not.
 - Tutorials are MyST `.md` files paired with notebooks: edit the `.md`, then
   run `jupytext --sync`; do not edit the `.ipynb`.
-- Build as Read the Docs does, after `uv sync --all-extras`:
-  `DRYTORCH_INIT_MODE=minimal uv run sphinx-build -b html docs docs/_build/html`.
-  The notebooks run during the build; `-D nb_execution_mode=off` skips them.
+- In tutorials, each tutorial uses its own experiment name.
+- In tutorials, skip documentation for attributes (`Attributes:`), but document
+  arguments (`Args:`). Prefer annotating attributes during assignment rather
+  than declaring them in the class body.
+- Build the documentation with `make docs`, after `uv sync --all-extras`: it
+  builds as Read the Docs does, from clean tutorial data. `make docs-fast`
+  skips running the notebooks.
 
 ## Errors
 - Arguments that break the signature or the documented rules: built-in
