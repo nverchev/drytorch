@@ -1,4 +1,4 @@
-# [0.1.0] - 21-09-2026
+# [0.1.0] - 01-10-2026
 
 ## [BREAKING CHANGES]
 - renamed `drytorch.lib.aggregators` to `drytorch.lib.accumulators`
@@ -71,6 +71,7 @@
 - the wrapper from `from_torchmetrics` keeps the direction of the composed metric
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 - `Evaluation`, the public evaluation source running the model in inference mode, base of `Validation` and `Test`
+- added `n_parameters` and `n_trainable_parameters` to `ModelRegistrationEvent`, counted when the model is registered
 
 ## Changed
 - `Source` is generic in any objective, not only in a loss
@@ -113,6 +114,7 @@
 - moved run id and recording logic from `Run` to `Experiment`; `Run` only stores them
 - `TrainerProtocol.update_learning_rate` accepts learning rates by module name and defaults both arguments to `None`, like `Trainer`
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
+- `MetadataDumper` writes the parameter counts with the architecture, and `BuiltinLogger` logs how many parameters a registered model has and how many are trainable
 
 ## Removed
 - `Diagnostic` and `EvaluationMixin`; use `Evaluation`

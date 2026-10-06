@@ -92,6 +92,18 @@ def example_architecure_repr() -> str:
     return 'MyResnet(many layers...)'
 
 
+@pytest.fixture(scope='package')
+def example_n_parameters() -> int:
+    """Example number of parameters."""
+    return 27
+
+
+@pytest.fixture(scope='package')
+def example_n_trainable_parameters() -> int:
+    """Example number of parameters requiring a gradient."""
+    return 18
+
+
 # tests need primitive types
 @pytest.fixture(scope='package')
 def example_metadata() -> dict[str, Any]:

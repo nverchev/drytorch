@@ -88,11 +88,15 @@ class ModelRegistrationEvent(Event):
         model_name: the name of the model.
         model_ts: the model's timestamp.
         architecture_repr: the representation of the module architecture.
+        n_parameters: the number of parameters of the module.
+        n_trainable_parameters: how many of them require a gradient.
     """
 
     model_name: str
     model_ts: datetime.datetime
     architecture_repr: str
+    n_parameters: int
+    n_trainable_parameters: int
 
 
 @dataclasses.dataclass(frozen=True)

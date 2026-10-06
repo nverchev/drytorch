@@ -44,6 +44,8 @@ class TestMetadataDumperFullCycle:
         example_model_name,
         example_model_ts,
         example_architecure_repr,
+        example_n_parameters,
+        example_n_trainable_parameters,
     ) -> None:
         """Test correct dumping of metadata from the model."""
         tracker.notify(start_experiment_event)
@@ -55,7 +57,11 @@ class TestMetadataDumperFullCycle:
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 
-        assert metadata == example_architecure_repr
+        assert metadata == {
+            'n_parameters': example_n_parameters,
+            'n_trainable_parameters': example_n_trainable_parameters,
+            'architecture': example_architecure_repr,
+        }
 
     def test_caller_metadata(
         self,

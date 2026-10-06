@@ -1,5 +1,5 @@
 Experiment: test_exp - Starting run: 2025-08-01@12h54m21s
-Model test_model has been registered
+Model test_model registered: 27 parameters, of which 18 trainable
 Loaded test_model checkpoint at epoch 5
 Training test_model started
 Runner test_source test_model has been registered

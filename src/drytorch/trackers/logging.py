@@ -85,8 +85,16 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
-        msg = 'Model %(model_name)s has been registered'
-        logger.log(INFO_LEVELS.internal, msg, {'model_name': event.model_name})
+        msg = (
+            'Model %(model_name)s registered: %(n_parameters)d parameters, '
+            'of which %(n_trainable_parameters)d trainable'
+        )
+        args = {
+            'model_name': event.model_name,
+            'n_parameters': event.n_parameters,
+            'n_trainable_parameters': event.n_trainable_parameters,
+        }
+        logger.log(INFO_LEVELS.internal, msg, args)
         return super().notify(event)
 
     @notify.register

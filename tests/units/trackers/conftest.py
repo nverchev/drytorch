@@ -42,13 +42,20 @@ def start_experiment_mock_event(
 
 @pytest.fixture
 def model_registration_mock_event(
-    mocker, example_model_name, example_architecure_repr, example_model_ts
+    mocker,
+    example_model_name,
+    example_architecure_repr,
+    example_model_ts,
+    example_n_parameters,
+    example_n_trainable_parameters,
 ) -> log_events.ModelRegistrationEvent:
     """Mock ModelRegistration event instance."""
     mock = mocker.create_autospec(log_events.ModelRegistrationEvent)
     mock.model_name = example_model_name
     mock.model_ts = example_model_ts
     mock.architecture_repr = example_architecure_repr
+    mock.n_parameters = example_n_parameters
+    mock.n_trainable_parameters = example_n_trainable_parameters
     return mock
 
 

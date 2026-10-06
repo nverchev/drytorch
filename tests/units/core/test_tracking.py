@@ -116,6 +116,23 @@ class TestMetadataManager:
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
             manager.register_model(mock_model)
 
+    def test_register_model_counts_parameters(
+        self, mocker, mock_model, manager
+    ) -> None:
+        """Test frozen parameters count towards the total only."""
+        trainable = mocker.Mock(requires_grad=True)
+        trainable.numel.return_value = 6
+        frozen = mocker.Mock(requires_grad=False)
+        frozen.numel.return_value = 3
+        mock_model.module = mocker.Mock()
+        mock_model.module.parameters.return_value = [trainable, frozen]
+
+        manager.register_model(mock_model)
+
+        self.mock_model_registration_event.assert_called_once_with(
+            mock_model.name, mocker.ANY, mocker.ANY, 9, 6
+        )
+
     def test_unregister_runner(
         self, simple_runner, mock_model, manager
     ) -> None:

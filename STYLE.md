@@ -263,6 +263,9 @@ Python requires it (dataclass fields with defaults after those without).
 - Mocks of drytorch objects come from their protocol
   (`mocker.create_autospec(SomeProtocol, instance=True)`) and are shared
   through `conftest.py`.
+- A mock is a fake instance: it may hold real objects, but
+  it does not act as the object it replaces. A test that needs the real
+  behaviour uses a simple class from `tests.simple_classes`.
 - Shared fixtures are named by what they provide: `example_*` for values, in
   the package-scoped `tests/conftest.py`, and `mock_*` for protocol mocks, in
   the `conftest.py` of their level.

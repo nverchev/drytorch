@@ -15,6 +15,8 @@ import weakref
 from collections.abc import Iterable, Mapping
 from typing import Any, ClassVar, Final, Protocol, Self, runtime_checkable
 
+import torch
+
 from drytorch.core import exceptions, log_events
 from drytorch.core import protocols as p
 from drytorch.utils import repr_utils
@@ -91,7 +93,14 @@ class MetadataManager:
         metadata = repr_utils.LiteralStr(repr(model.module))
         self._register_metadata(model.name, metadata)
         model_version = self._get_ts(model)
-        log_events.ModelRegistrationEvent(model.name, model_version, metadata)
+        n_parameters, n_trainable = self._count_parameters(model.module)
+        log_events.ModelRegistrationEvent(
+            model.name,
+            model_version,
+            metadata,
+            n_parameters,
+            n_trainable,
+        )
         return
 
     def unregister_runner(self, runner: Any) -> None:
@@ -148,6 +157,17 @@ class MetadataManager:
             metadata = {}
 
         return metadata
+
+    @staticmethod
+    def _count_parameters(module: torch.nn.Module, /) -> tuple[int, int]:
+        n_parameters = 0
+        n_trainable = 0
+        for param in module.parameters():
+            n_parameters += param.numel()
+            if param.requires_grad:
+                n_trainable += param.numel()
+
+        return n_parameters, n_trainable
 
     @staticmethod
     def _get_ts(x: Any) -> datetime.datetime:

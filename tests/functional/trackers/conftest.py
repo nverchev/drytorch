@@ -39,13 +39,19 @@ def start_experiment_event(
 
 @pytest.fixture
 def model_registration_event(
-    example_model_name, example_architecure_repr, example_model_ts
+    example_model_name,
+    example_architecure_repr,
+    example_model_ts,
+    example_n_parameters,
+    example_n_trainable_parameters,
 ) -> log_events.ModelRegistrationEvent:
     """Provides a ModelRegistration event instance."""
     return log_events.ModelRegistrationEvent(
         model_name=example_model_name,
         model_ts=example_model_ts,
         architecture_repr=example_architecure_repr,
+        n_parameters=example_n_parameters,
+        n_trainable_parameters=example_n_trainable_parameters,
     )
 
 
