@@ -1,5 +1,7 @@
 """Tests for the ``loading`` module."""
 
+import itertools
+
 from collections.abc import Sequence
 
 import torch
@@ -198,6 +200,30 @@ class TestDataLoader:
         """Test DataLoader.split raises an error with invalid split ratios."""
         with pytest.raises(ValueError):
             loader.split(ratio=value)
+
+    def test_dataloader_fold_validate_on_disjoint_parts(self, loader) -> None:
+        """Validation parts cover the dataset once; training uses the rest."""
+        folds = loader.fold(n_folds=3)
+
+        val_parts = [list(val.dataset.indices) for _, val in folds]
+        train_parts = [list(train.dataset.indices) for train, _ in folds]
+        assert sorted(len(part) for part in val_parts) == [3, 3, 4]
+        assert sorted(itertools.chain(*val_parts)) == list(range(10))
+        for train_part, val_part in zip(train_parts, val_parts, strict=True):
+            assert sorted(train_part + val_part) == list(range(10))
+
+    def test_dataloader_fold_without_shuffling(self, loader) -> None:
+        """Without shuffling, each fold validates on a contiguous part."""
+        folds = loader.fold(n_folds=2, shuffle=False)
+
+        assert list(folds[0][1].dataset.indices) == [0, 1, 2, 3, 4]
+        assert list(folds[1][1].dataset.indices) == [5, 6, 7, 8, 9]
+
+    @pytest.mark.parametrize('n_folds', (1, 11))
+    def test_dataloader_fold_invalid_number(self, loader, n_folds) -> None:
+        """Fewer than two folds, or more than the samples, are rejected."""
+        with pytest.raises(ValueError, match='n_folds'):
+            loader.fold(n_folds=n_folds)
 
 
 def test_check_dataset_length_fail() -> None:

@@ -74,6 +74,7 @@
 - `Evaluation`, the public evaluation source running the model in inference mode, base of `Validation` and `Test`
 - added `n_parameters` and `n_trainable_parameters` to `ModelRegistrationEvent`, counted when the model is registered
 - added `indices` and `collate_fn` to `take_from_dataset`, which take the given samples in the given order and combine them with the given function
+- added `DataLoader.fold`, which splits a loader into the training and validation loaders of a k-fold cross-validation
 
 ## Changed
 - `Source` is generic in any objective, not only in a loss

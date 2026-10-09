@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import itertools
+
 from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from typing import Any, Final, Generic, TypeVar, overload
 
@@ -267,34 +269,68 @@ class DataLoader(Generic[Data]):
             raise ValueError('ratio must be between 0 and 1.')
 
         dataset_size = validate_dataset_length(self.dataset)
-        second_size = int(dataset_size * ratio)
-        first_size = dataset_size - second_size
-        indices: Sequence[int]
-        if shuffle:
-            indices = Permutation(dataset_size, seed=seed)
-        else:
-            indices = range(dataset_size)
-
-        first_dataset = data.Subset(
-            self.dataset, Sliced(indices, slice(first_size))
+        first_size = dataset_size - int(dataset_size * ratio)
+        indices = self._get_indices(dataset_size, seed=seed, shuffle=shuffle)
+        first_loader = self._get_subset_loader(
+            Sliced(indices, slice(first_size))
         )
-        second_dataset = data.Subset(
-            self.dataset, Sliced(indices, slice(first_size, dataset_size))
-        )
-        batch_size = _validate_batch_size(self.batch_size)
-        first_loader = DataLoader(
-            first_dataset,
-            batch_size=batch_size,
-            n_workers=self._n_workers,
-            pin_memory=self._pin_memory,
-        )
-        second_loader = DataLoader(
-            second_dataset,
-            batch_size=batch_size,
-            n_workers=self._n_workers,
-            pin_memory=self._pin_memory,
+        second_loader = self._get_subset_loader(
+            Sliced(indices, slice(first_size, dataset_size))
         )
         return first_loader, second_loader
+
+    def fold(
+        self,
+        n_folds: int = 5,
+        *,
+        seed: int = 42,
+        shuffle: bool = True,
+    ) -> list[tuple[DataLoader[Data], DataLoader[Data]]]:
+        """Split the loader into the training and validation loaders of folds.
+
+        Each fold validates on one of ``n_folds`` disjoint parts of the
+        dataset and trains on the others, as in a k-fold cross-validation.
+
+        Args:
+            n_folds: the number of folds.
+            seed: seed for shuffling.
+            shuffle: whether to shuffle the data before splitting.
+
+        Returns:
+            For each fold, the training loader and the validation loader.
+
+        Note:
+            A user-provided sampler is not propagated, as in :meth:`split`.
+
+        Raises:
+            ValueError: if n_folds is less than 2 or more than the samples.
+        """
+        dataset_size = validate_dataset_length(self.dataset)
+        if not 2 <= n_folds <= dataset_size:
+            msg = 'n_folds must be between 2 and the number of samples.'
+            raise ValueError(msg)
+
+        indices = self._get_indices(dataset_size, seed=seed, shuffle=shuffle)
+        bounds = [fold * dataset_size // n_folds for fold in range(n_folds + 1)]
+        loaders: list[tuple[DataLoader[Data], DataLoader[Data]]] = []
+        for start, stop in itertools.pairwise(bounds):
+            before = Sliced(indices, slice(start))
+            after = Sliced(indices, slice(stop, dataset_size))
+            train_loader = self._get_subset_loader([*before, *after])
+            val_loader = self._get_subset_loader(
+                Sliced(indices, slice(start, stop))
+            )
+            loaders.append((train_loader, val_loader))
+
+        return loaders
+
+    def _get_subset_loader(self, indices: Sequence[int]) -> DataLoader[Data]:
+        return DataLoader(
+            data.Subset(self.dataset, indices),
+            batch_size=_validate_batch_size(self.batch_size),
+            n_workers=self._n_workers,
+            pin_memory=self._pin_memory,
+        )
 
     def _init_sampler(self) -> data.Sampler | Iterable:
         """Set the initial sampler for the loader."""
@@ -303,42 +339,14 @@ class DataLoader(Generic[Data]):
 
         return data.RandomSampler(range(self.dataset_len))
 
+    @staticmethod
+    def _get_indices(
+        dataset_size: int, *, seed: int, shuffle: bool
+    ) -> Sequence[int]:
+        if shuffle:
+            return Permutation(dataset_size, seed=seed)
 
-def _validate_batch_size(batch_size: int | None) -> int:
-    """Checks that the batch size is a valid number.
-
-    Args:
-        batch_size: the requested number of elements in the mini-batch.
-
-    Returns:
-        The verified size.
-
-    Raises:
-        InvalidBatchError: if the batch size is invalid.
-    """
-    if batch_size is None or batch_size < 1:
-        msg = 'Batch size must be a positive integer. Got {batch_size}.'
-        raise ValueError(msg.format(batch_size=batch_size))
-
-    return batch_size
-
-
-def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
-    """Checks if a dataset has a valid length.
-
-    Args:
-        dataset: dataset to check.
-
-    Returns:
-        Length of the dataset.
-
-    Raises:
-        DatasetHasNoLengthError: if the dataset has no __len__ method.
-    """
-    if get_length := getattr(type(dataset), '__len__', None):
-        return get_length(dataset)
-
-    raise exceptions.DatasetHasNoLengthError()
+        return range(dataset_size)
 
 
 def get_n_batches(
@@ -420,3 +428,40 @@ def take_from_dataset(
         collate_fn=collate_fn,
     )
     return apply_ops.apply_to(next(iter(loader)), device)
+
+
+def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
+    """Checks if a dataset has a valid length.
+
+    Args:
+        dataset: dataset to check.
+
+    Returns:
+        Length of the dataset.
+
+    Raises:
+        DatasetHasNoLengthError: if the dataset has no __len__ method.
+    """
+    if get_length := getattr(type(dataset), '__len__', None):
+        return get_length(dataset)
+
+    raise exceptions.DatasetHasNoLengthError()
+
+
+def _validate_batch_size(batch_size: int | None) -> int:
+    """Checks that the batch size is a valid number.
+
+    Args:
+        batch_size: the requested number of elements in the mini-batch.
+
+    Returns:
+        The verified size.
+
+    Raises:
+        InvalidBatchError: if the batch size is invalid.
+    """
+    if batch_size is None or batch_size < 1:
+        msg = 'Batch size must be a positive integer. Got {batch_size}.'
+        raise ValueError(msg.format(batch_size=batch_size))
+
+    return batch_size
