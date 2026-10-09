@@ -45,6 +45,7 @@
 - added `SyncedObjectiveProtocol` and `SyncedLossProtocol` in `core.protocols`; `join` and the two wrappers state that their result synchronizes
 - added the tutorials `data.md`, `models.md`, `training.md`, `learning.md`, `custom_events.md`, and `distributed_training.md`
 - the `objectives.md`, `experiments_and_runs.md`, and `trackers.md` tutorials cover custom accumulators, run utilities and logging formatters
+- the README and the documentation home page point to the project template `drytorch-template`
 - added `ValidationProtocol` and `TestProtocol`
 - added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
 - added `SourceRunAfterHookError`, raised when a hook runs before the source it follows
@@ -72,6 +73,7 @@
 - the run registry records a session for each start and resumption of a run, with its timestamp, git commit and drytorch version
 - `Evaluation`, the public evaluation source running the model in inference mode, base of `Validation` and `Test`
 - added `n_parameters` and `n_trainable_parameters` to `ModelRegistrationEvent`, counted when the model is registered
+- added `indices` and `collate_fn` to `take_from_dataset`, which take the given samples in the given order and combine them with the given function
 
 ## Changed
 - `Source` is generic in any objective, not only in a loss

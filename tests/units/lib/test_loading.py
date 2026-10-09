@@ -15,6 +15,7 @@ from drytorch.lib.loading import (
     Permutation,
     Sliced,
     get_n_batches,
+    take_from_dataset,
     validate_dataset_length,
 )
 
@@ -40,6 +41,13 @@ class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
 def simple_seq() -> Sequence[tuple[int, int]]:
     """Provide a simple sequence for testing."""
     return [(i, i * 2) for i in range(10)]
+
+
+def _concatenate(
+    batch: list[tuple[torch.Tensor, torch.Tensor]],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    inputs, targets = zip(*batch, strict=True)
+    return torch.cat(inputs), torch.cat(targets)
 
 
 class TestSliced:
@@ -180,7 +188,7 @@ class TestDataLoader:
     @pytest.mark.parametrize('shuffle', (True, False))
     def test_dataloader_split(self, loader, shuffle: bool) -> None:
         """Test splitting the DataLoader into training and validation sets."""
-        train_loader, val_loader = loader.split(split=0.3, shuffle=shuffle)
+        train_loader, val_loader = loader.split(ratio=0.3, shuffle=shuffle)
 
         assert len(train_loader) == 7 // 3
         assert len(val_loader) == 3 // 3
@@ -189,7 +197,7 @@ class TestDataLoader:
     def test_dataloader_split_invalid_ratio(self, loader, value) -> None:
         """Test DataLoader.split raises an error with invalid split ratios."""
         with pytest.raises(ValueError):
-            loader.split(split=value)
+            loader.split(ratio=value)
 
 
 def test_check_dataset_length_fail() -> None:
@@ -226,3 +234,69 @@ def test_get_n_batches(
     assert (
         get_n_batches(n_samples, batch_size, n_batches, drop_last) == expected
     )
+
+
+def test_take_from_dataset_takes_the_first_samples(
+    simple_seq: Sequence[tuple[int, int]],
+) -> None:
+    """Without indices, the first samples are taken as a batch."""
+    dataset = SimpleDataset(simple_seq)
+
+    inputs, targets = take_from_dataset(dataset, n_samples=3)
+
+    torch.testing.assert_close(inputs, torch.tensor([[0.0], [1.0], [2.0]]))
+    torch.testing.assert_close(targets, torch.tensor([[0.0], [2.0], [4.0]]))
+
+
+def test_take_from_dataset_takes_the_given_indices_in_order(
+    simple_seq: Sequence[tuple[int, int]],
+) -> None:
+    """The samples at the indices are taken in the order of the indices."""
+    dataset = SimpleDataset(simple_seq)
+
+    inputs, _ = take_from_dataset(dataset, indices=[7, 2, 5])
+
+    torch.testing.assert_close(inputs, torch.tensor([[7.0], [2.0], [5.0]]))
+
+
+@pytest.mark.parametrize(
+    ('n_samples', 'preserve_order'), [(2, True), (None, False)]
+)
+def test_take_from_dataset_rejects_settings_contradicting_indices(
+    simple_seq: Sequence[tuple[int, int]],
+    n_samples: int | None,
+    preserve_order: bool,
+) -> None:
+    """Indices set the samples and their order, so other choices are errors."""
+    dataset = SimpleDataset(simple_seq)
+
+    with pytest.raises(ValueError, match='indices'):
+        take_from_dataset(
+            dataset,
+            indices=[1],
+            n_samples=n_samples,
+            preserve_order=preserve_order,
+        )
+
+
+def test_take_from_dataset_rejects_an_index_outside_the_dataset(
+    simple_seq: Sequence[tuple[int, int]],
+) -> None:
+    """An index past the end of the dataset is reported with the length."""
+    dataset = SimpleDataset(simple_seq)
+
+    with pytest.raises(IndexError, match='10 samples'):
+        take_from_dataset(dataset, indices=[1, 10])
+
+
+def test_take_from_dataset_combines_the_samples_with_the_collate_fn(
+    simple_seq: Sequence[tuple[int, int]],
+) -> None:
+    """A given collate function replaces the default stacking."""
+    dataset = SimpleDataset(simple_seq)
+
+    inputs, _ = take_from_dataset(
+        dataset, indices=[4, 1], collate_fn=_concatenate
+    )
+
+    torch.testing.assert_close(inputs, torch.tensor([4.0, 1.0]))

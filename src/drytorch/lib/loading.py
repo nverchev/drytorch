@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from typing import Any, Final, Generic, TypeVar, overload
 
 import torch
@@ -241,7 +241,7 @@ class DataLoader(Generic[Data]):
 
     def split(
         self,
-        split: float = 0.2,
+        ratio: float = 0.2,
         *,
         seed: int = 42,
         shuffle: bool = True,
@@ -249,7 +249,7 @@ class DataLoader(Generic[Data]):
         """Split the loader into two.
 
         Args:
-            split: fraction of the dataset to the second output loader.
+            ratio: fraction of the dataset to the second output loader.
             seed: seed for shuffling.
             shuffle: whether to shuffle the data before splitting.
 
@@ -261,13 +261,13 @@ class DataLoader(Generic[Data]):
             original dataset, so each split loader builds its own.
 
         Raises:
-            ValueError: if split is not between 0 and 1.
+            ValueError: if ratio is not between 0 and 1.
         """
-        if split < 0 or split > 1:
-            raise ValueError('split must be between 0 and 1.')
+        if ratio < 0 or ratio > 1:
+            raise ValueError('ratio must be between 0 and 1.')
 
         dataset_size = validate_dataset_length(self.dataset)
-        second_size = int(dataset_size * split)
+        second_size = int(dataset_size * ratio)
         first_size = dataset_size - second_size
         indices: Sequence[int]
         if shuffle:
@@ -369,22 +369,54 @@ def get_n_batches(
 def take_from_dataset(
     dataset: data.Dataset[Data],
     *,
+    collate_fn: Callable[[list[Data]], Data] | None = None,
     device: torch.device = _default_device,
-    n_samples: int = 1,
+    indices: Sequence[int] | None = None,
+    n_samples: int | None = None,
     preserve_order: bool = True,
 ) -> Data:
-    """Sample a batch of elements from a dataset and transfers them to a device.
+    """Take a batch of samples from a dataset and move it to a device.
 
     Args:
-        dataset: the dataset where to sample from.
-        device: device where to store the sample.
-        n_samples: the number of samples to take.
-        preserve_order: take samples in order or randomly otherwise.
+        dataset: the dataset where to take the samples from.
+        collate_fn: function combining the samples into a batch. Defaults to
+            the one of the PyTorch DataLoader.
+        device: device where to store the batch.
+        indices: the samples to take, in this order. Defaults to taking
+            ``n_samples`` samples.
+        n_samples: the number of samples to take when ``indices`` is not
+            given. Defaults to one.
+        preserve_order: when ``indices`` is not given, take the first samples,
+            or random ones otherwise.
 
     Returns:
-        The desired number of samples in a batch.
+        The samples, collated into a batch.
+
+    Raises:
+        ValueError: if ``indices`` is given with ``n_samples`` or with
+            ``preserve_order=False``.
+        IndexError: if an index is outside the dataset.
     """
+    if indices is not None:
+        if n_samples is not None or not preserve_order:
+            msg = 'indices set the samples and their order on their own.'
+            raise ValueError(msg)
+
+        if isinstance(dataset, Sized):
+            size = len(dataset)
+            for index in indices:
+                if not 0 <= index < size:
+                    msg = f'index {index} is outside the {size} samples.'
+                    raise IndexError(msg)
+
+        dataset = data.Subset(dataset, indices)
+        n_samples = len(indices)
+
+    batch_size = 1 if n_samples is None else n_samples
     loader = data.DataLoader(
-        dataset, batch_size=n_samples, shuffle=not preserve_order
+        dataset,
+        batch_size=batch_size,
+        shuffle=not preserve_order,
+        collate_fn=collate_fn,
     )
-    return next(apply_ops.apply_to(batch, device) for batch in loader)
+    return apply_ops.apply_to(next(iter(loader)), device)
