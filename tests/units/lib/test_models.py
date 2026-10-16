@@ -54,6 +54,18 @@ class TestModel:
             device_type='cpu', dtype=torch.bfloat16, enabled=True
         )
 
+    def test_default_device_without_available_accelerator(self, mocker) -> None:
+        """Test the default device is the CPU without an accelerator."""
+        mocker.patch(
+            'torch.accelerator.current_accelerator',
+            return_value=torch.device('cuda'),
+        )
+        mocker.patch('torch.accelerator.is_available', return_value=False)
+
+        model = Model(MLP(), name='default_device_model')
+
+        assert model.device == torch.device('cpu')
+
     def test_other_mixed_precision_types_raise(self) -> None:
         """Test only float16, bfloat16 or None are accepted."""
         with pytest.raises(ValueError, match='mixed_precision must be'):

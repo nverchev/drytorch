@@ -263,7 +263,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     @staticmethod
     def _default_device() -> torch.device:
         device = torch.accelerator.current_accelerator()
-        if device is not None:
+        if device is not None and torch.accelerator.is_available():
             index = torch.accelerator.current_device_index()
             return torch.device(device.type, index)
 
