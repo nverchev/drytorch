@@ -305,12 +305,13 @@ class Experiment(Generic[_T_co]):
             if run_id in self._paused_runs:
                 raise exceptions.RunStillPausedError(run_id, self.name)
 
-        record = record and _is_main_process()
+        main_process = _is_main_process()
+        record = record and main_process
         recorded_metadata = self._registry.load_all()
         if resume:
             return self._handle_resume_logic(run_id, recorded_metadata, record)
 
-        if run_id in [m.id for m in recorded_metadata]:
+        if main_process and run_id in [m.id for m in recorded_metadata]:
             raise exceptions.RunAlreadyRecordedError(run_id, self.name)
 
         return self._create_new_run(run_id, record)

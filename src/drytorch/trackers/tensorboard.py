@@ -2,12 +2,13 @@
 
 import functools
 import importlib.util
+import logging
 import pathlib
 import shutil
 import socket
 import subprocess
 
-from typing import ClassVar
+from typing import ClassVar, Final
 
 from tensorboard import notebook as tb_notebook
 from torch.utils import tensorboard
@@ -25,6 +26,10 @@ __all__ = [
 if importlib.util.find_spec('tensorboard') is None:
     _MSG = 'TensorBoard is not installed. Run `pip install tensorboard`.'
     raise ImportError(_MSG)
+
+SERVER_LOG_LEVEL: Final = 26
+
+_logger: Final = logging.getLogger(__name__)
 
 
 class TensorBoard(base_classes.Dumper):
@@ -161,7 +166,7 @@ class TensorBoard(base_classes.Dumper):
         return super().close()
 
     def _start_tensorboard(self, logdir: pathlib.Path) -> None:
-        """Start a TensorBoard server and open it in the default browser."""
+        """Start a TensorBoard server, shown inline in a notebook."""
         if self._is_notebook():
             tb_notebook.start(f'--logdir {logdir}')
         else:
@@ -169,7 +174,7 @@ class TensorBoard(base_classes.Dumper):
         return
 
     def _start_tensorboard_server(self, logdir: pathlib.Path) -> None:
-        """Start a TensorBoard server process."""
+        """Start a TensorBoard server titled after the experiment folder."""
         if self._process is not None:
             if self._process.poll() is None and self._current_logdir == logdir:
                 return
@@ -187,6 +192,7 @@ class TensorBoard(base_classes.Dumper):
             msg = 'TensorBoard executable not found.'
             raise exceptions.TrackerError(self, msg)
 
+        title = logdir.parent.name
         try:
             self._process = subprocess.Popen(  # noqa: S603
                 [
@@ -198,6 +204,8 @@ class TensorBoard(base_classes.Dumper):
                     str(port),
                     '--reload_multifile',
                     'true',
+                    '--window_title',
+                    title,
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -208,6 +216,12 @@ class TensorBoard(base_classes.Dumper):
             raise exceptions.TrackerError(self, msg) from ose
 
         self._current_logdir = logdir
+        _logger.log(
+            SERVER_LOG_LEVEL,
+            'TensorBoard (%s): http://localhost:%d',
+            title,
+            port,
+        )
         return
 
     def _terminate_server(self) -> None:
