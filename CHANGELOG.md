@@ -43,6 +43,7 @@
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 
 ## Added
+- `Wandb.log_at_epoch` logs the values of other events against the epoch of a model, on the axis of its metrics
 - `TensorBoard` titles its server after the folder of the experiment and logs the title and address at the new level `SERVER_LOG_LEVEL` (26)
 - added `SyncedObjectiveProtocol` and `SyncedLossProtocol` in `core.protocols`; `join` and the two wrappers state that their result synchronizes
 - added the tutorials `data.md`, `models.md`, `training.md`, `learning.md`, `custom_events.md`, and `distributed_training.md`

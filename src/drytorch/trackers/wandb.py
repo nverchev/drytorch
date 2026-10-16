@@ -5,7 +5,8 @@ import functools
 import pathlib
 import warnings
 
-from typing import ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar
 
 import wandb
 
@@ -135,16 +136,9 @@ class Wandb(Dumper):
             f'{event.model_name}/{event.source_name}-{name}': value
             for name, value in event.metrics.items()
         }
-        step_key = f'Progress/{event.model_name}'
-        plot_step = {step_key: event.epoch}
-
-        # define new metrics only once
-        for name in plot_names:
-            if name not in self._defined_metrics:
-                self.run.define_metric(name, step_metric=step_key)
-                self._defined_metrics.add(name)
-
-        self.run.log(plot_names | plot_step)
+        self.log_at_epoch(
+            plot_names, model_name=event.model_name, epoch=event.epoch
+        )
         return super().notify(event)
 
     @notify.register
@@ -196,3 +190,33 @@ class Wandb(Dumper):
 
         self._stashed_runs.clear()
         return super().close()
+
+    def log_at_epoch(
+        self,
+        values: Mapping[str, Any],
+        /,
+        *,
+        model_name: str,
+        epoch: int,
+    ) -> None:
+        """Log values against the epoch of a model, on the axis of its metrics.
+
+        Subclasses log the values of their own events with this method, so
+        that they share the x-axis of the metrics of the same model.
+
+        Args:
+            values: the values to log, by name.
+            model_name: the name of the model the values belong to.
+            epoch: the epoch of the model.
+
+        Raises:
+            AccessOutsideScopeError: if called outside an active run scope.
+        """
+        step_key = f'Progress/{model_name}'
+        for name in values:
+            if name not in self._defined_metrics:
+                self.run.define_metric(name, step_metric=step_key)
+                self._defined_metrics.add(name)
+
+        self.run.log(dict(values) | {step_key: epoch})
+        return

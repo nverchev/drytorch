@@ -96,6 +96,24 @@ class TestWandb:
 
         log_mock.assert_called_once_with(expected_metrics | step_dict)
 
+    def test_log_at_epoch_uses_the_axis_of_the_model(
+        self, mocker, tracker_started
+    ) -> None:
+        """Test values are logged and defined against the model's step."""
+        log_mock = mocker.patch.object(tracker_started.run, 'log')
+        define_mock = mocker.patch.object(tracker_started.run, 'define_metric')
+
+        tracker_started.log_at_epoch(
+            {'model/table': 1.0}, model_name='model', epoch=3
+        )
+
+        define_mock.assert_called_once_with(
+            'model/table', step_metric='Progress/model'
+        )
+        log_mock.assert_called_once_with(
+            {'model/table': 1.0, 'Progress/model': 3}
+        )
+
     def test_notify_metrics_outside_scope(
         self, tracker, epoch_metrics_mock_event
     ) -> None:
