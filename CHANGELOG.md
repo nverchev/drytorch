@@ -140,6 +140,8 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
+- `FolderAlreadyExistsError` shows its message, which the empty template of the base class discarded
+- `clone_experiment_data`, `rename_experiment_data` and `delete_experiment_data` raise `ExperimentNotFoundError` when no folder holds the experiment, instead of doing nothing
 - in distributed runs, only the main process checks whether a new run id is already recorded; the other processes join its run instead of raising `RunAlreadyRecordedError` when the main process recorded it first
 - removed the mention of a browser from the `TensorBoard` docstrings: the tracker no longer opens one
 - trackers are closed when their experiment is released, and at the latest when the process ends, so the TensorBoard server stops, stashed wandb runs finish and the SQL engine is disposed

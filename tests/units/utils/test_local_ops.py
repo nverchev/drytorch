@@ -122,3 +122,49 @@ def test_clone_experiment_data(tmp_path: pathlib.Path) -> None:
     for t in trackers:
         assert (tmp_path / t / exp_name / 'file.txt').read_text() == 'content'
         assert (tmp_path / t / clone_name / 'file.txt').read_text() == 'content'
+
+
+@pytest.mark.parametrize(
+    'transfer', [clone_experiment_data, rename_experiment_data]
+)
+def test_transfer_of_a_missing_experiment_raises(
+    tmp_path: pathlib.Path, transfer
+) -> None:
+    """Test cloning or renaming an experiment without data raises."""
+    (tmp_path / 'checkpoints' / 'other').mkdir(parents=True)
+
+    with pytest.raises(exceptions.ExperimentNotFoundError, match='missing'):
+        transfer(tmp_path, 'missing', 'new')
+
+    assert not (tmp_path / 'checkpoints' / 'new').exists()
+
+
+def test_transfer_from_a_missing_parent_directory_raises(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Test a parent directory that does not exist holds no experiment."""
+    with pytest.raises(exceptions.ExperimentNotFoundError):
+        clone_experiment_data(tmp_path / 'missing_dir', 'exp', 'clone')
+
+
+def test_clone_onto_an_existing_experiment_names_the_folder(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Test the error for an existing target names its folder."""
+    for name in ('original', 'clone'):
+        (tmp_path / 'checkpoints' / name).mkdir(parents=True)
+
+    with pytest.raises(
+        exceptions.FolderAlreadyExistsError, match=r'already exists: .*clone'
+    ):
+        clone_experiment_data(tmp_path, 'original', 'clone')
+
+
+def test_delete_a_missing_experiment_raises(tmp_path: pathlib.Path) -> None:
+    """Test deleting an experiment without data raises."""
+    (tmp_path / 'checkpoints' / 'other').mkdir(parents=True)
+
+    with pytest.raises(exceptions.ExperimentNotFoundError, match='missing'):
+        delete_experiment_data(tmp_path, 'missing')
+
+    assert (tmp_path / 'checkpoints' / 'other').exists()

@@ -26,6 +26,10 @@ def clone_experiment_data(
         par_dir: parent directory of the experiment folders.
         exp_name: experiment name to clone.
         new_exp_name: name for the clone.
+
+    Raises:
+        ExperimentNotFoundError: if no folder holds the experiment.
+        FolderAlreadyExistsError: if a folder of the clone already exists.
     """
     _transfer_experiment_data(shutil.copytree, par_dir, exp_name, new_exp_name)
     return
@@ -39,8 +43,16 @@ def delete_experiment_data(
     Args:
         par_dir: parent directory of the experiment folders.
         exp_name: name of the experiment.
+
+    Raises:
+        ExperimentNotFoundError: if no folder holds the experiment.
     """
-    for exp_folder in _get_experiment_folders(par_dir, exp_name):
+    par_dir = pathlib.Path(par_dir)
+    exp_folders = _get_experiment_folders(par_dir, exp_name)
+    if not exp_folders:
+        raise exceptions.ExperimentNotFoundError(exp_name, par_dir)
+
+    for exp_folder in exp_folders:
         shutil.rmtree(exp_folder)
 
     return
@@ -55,6 +67,10 @@ def rename_experiment_data(
         par_dir: parent directory of the experiment folders.
         exp_name: existing experiment name.
         new_exp_name: new experiment name.
+
+    Raises:
+        ExperimentNotFoundError: if no folder holds the experiment.
+        FolderAlreadyExistsError: if a folder with the new name already exists.
     """
     _transfer_experiment_data(
         pathlib.Path.rename, par_dir, exp_name, new_exp_name
@@ -79,6 +95,9 @@ def _get_experiment_folders(
     """
     _validate_name(exp_name)
     par_dir = pathlib.Path(par_dir)
+    if not par_dir.is_dir():
+        return []
+
     return [
         folder / exp_name
         for folder in par_dir.iterdir()
@@ -102,11 +121,17 @@ def _transfer_experiment_data(
 
     Raises:
         ValueError: if an experiment name is not a plain folder name.
+        ExperimentNotFoundError: if no folder holds the experiment.
         FolderAlreadyExistsError: if a target folder already exists.
     """
     _validate_name(new_exp_name)
+    par_dir = pathlib.Path(par_dir)
+    exp_folders = _get_experiment_folders(par_dir, exp_name)
+    if not exp_folders:
+        raise exceptions.ExperimentNotFoundError(exp_name, par_dir)
+
     pairs: list[tuple[pathlib.Path, pathlib.Path]] = []
-    for exp_folder in _get_experiment_folders(par_dir, exp_name):
+    for exp_folder in exp_folders:
         new_folder = exp_folder.parent / new_exp_name
         if new_folder.exists():
             raise exceptions.FolderAlreadyExistsError(new_folder)

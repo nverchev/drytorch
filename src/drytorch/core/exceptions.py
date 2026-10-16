@@ -24,6 +24,7 @@ __all__ = [
     'DryTorchError',
     'DryTorchWarning',
     'EpochNotFoundError',
+    'ExperimentNotFoundError',
     'ExperimentalFeatureWarning',
     'FailedOptionalImportWarning',
     'FolderAlreadyExistsError',
@@ -299,8 +300,31 @@ class EpochNotFoundError(DryTorchError):
         return
 
 
+class ExperimentNotFoundError(DryTorchError):
+    """Raised when no local folder holds the data of an experiment."""
+
+    _template = 'No data of experiment {} found in {}.'
+
+    exp_name: Final[str]
+    par_dir: Final[pathlib.Path]
+
+    def __init__(self, exp_name: str, par_dir: pathlib.Path) -> None:
+        """Initialize.
+
+        Args:
+            exp_name: the name of the experiment.
+            par_dir: the parent directory of the experiment folders.
+        """
+        self.exp_name = exp_name
+        self.par_dir = par_dir
+        super().__init__(exp_name, par_dir)
+        return
+
+
 class FolderAlreadyExistsError(DryTorchError):
     """Raised when a folder already exists and cannot be overwritten."""
+
+    _template = 'Target directory already exists: {}.'
 
     def __init__(self, path: pathlib.Path | str) -> None:
         """Initialize.
@@ -308,7 +332,7 @@ class FolderAlreadyExistsError(DryTorchError):
         Args:
             path: the path to the folder that already exists.
         """
-        super().__init__(f'Target directory already exists: {path}')
+        super().__init__(path)
         return
 
 
