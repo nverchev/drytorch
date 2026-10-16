@@ -42,6 +42,7 @@
 - `Trainer` raises `ValueError` when the loss is better when higher
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 - plotters no longer draw during training: `BasePlotter.plot` renders the figures of a model on request, and its arguments after `model_name` are keyword-only
+- dropped the `Grad` prefix from gradient operations: renamed `GradNormClipper`, `GradValueClipper`, `GradParamNormalizer`, and `GradZScoreNormalizer` to `NormClipper`, `ValueClipper`, `ParamNormalizer`, and `ZScoreNormalizer`
 
 ## Added
 - `BasePlotter.create_figures` returns the figure of each metric of a model without rendering it, to show or save

@@ -8,13 +8,13 @@ import pytest
 
 from drytorch.lib.gradient_ops import (
     EMACriterion,
-    GradNormClipper,
-    GradParamNormalizer,
-    GradValueClipper,
-    GradZScoreNormalizer,
     HistClipper,
+    NormClipper,
     ParamHistClipper,
+    ParamNormalizer,
     StatsCollector,
+    ValueClipper,
+    ZScoreNormalizer,
     ZStatCriterion,
     max_clipping,
     mean_clipping,
@@ -54,13 +54,13 @@ def example_parameters(
     return (tensor for tensor in tensor_tuple)
 
 
-class TestGradNormalizer:
-    """Test the GradNormalizer class."""
+class TestParamNormalizer:
+    """Test the ParamNormalizer class."""
 
     @pytest.fixture
     def grad_op(self):
         """Set up the instance."""
-        return GradParamNormalizer()
+        return ParamNormalizer()
 
     def test_call(
         self, grad_op, tensor_zero_grad, tensor_random_grad, example_parameters
@@ -72,13 +72,13 @@ class TestGradNormalizer:
         assert tensor_random_grad.grad.norm(2).item() == pytest.approx(1.0)
 
 
-class TestGradZScoreNormalizer:
-    """Test the TestGradZScoreNormalizer class."""
+class TestZScoreNormalizer:
+    """Test the ZScoreNormalizer class."""
 
     @pytest.fixture
     def grad_op(self):
         """Set up the instance."""
-        return GradZScoreNormalizer()
+        return ZScoreNormalizer()
 
     def test_call(
         self, grad_op, tensor_zero_grad, tensor_random_grad, example_parameters
@@ -94,8 +94,8 @@ class TestGradZScoreNormalizer:
         assert var == pytest.approx(1.0, abs=1e-6)
 
 
-class TestGradNormClipper:
-    """Test the GradNormClipper class."""
+class TestNormClipper:
+    """Test the NormClipper class."""
 
     @pytest.fixture
     def threshold(self):
@@ -105,12 +105,12 @@ class TestGradNormClipper:
     @pytest.fixture
     def grad_op(self, threshold):
         """Set up the instance."""
-        return GradNormClipper(threshold)
+        return NormClipper(threshold)
 
     def test_wrong_threshold(self) -> None:
         """Test threshold of 0 returns an error."""
         with pytest.raises(ValueError):
-            GradNormClipper(0)
+            NormClipper(0)
 
     def test_call(
         self, threshold, grad_op, tensor_random_grad, example_parameters
@@ -123,8 +123,8 @@ class TestGradNormClipper:
         assert norm == pytest.approx(threshold, abs=1e-6)
 
 
-class TestGradValueClipper:
-    """Test the GradValueClipper class."""
+class TestValueClipper:
+    """Test the ValueClipper class."""
 
     @pytest.fixture
     def threshold(self):
@@ -134,12 +134,12 @@ class TestGradValueClipper:
     @pytest.fixture
     def grad_op(self, threshold):
         """Set up the instance."""
-        return GradValueClipper(threshold)
+        return ValueClipper(threshold)
 
     def test_wrong_threshold(self) -> None:
         """Test negative threshold returns error."""
         with pytest.raises(ValueError):
-            GradValueClipper(-1)
+            ValueClipper(-1)
 
     def test_call(
         self, threshold, grad_op, tensor_random_grad, example_parameters
@@ -408,9 +408,7 @@ class TestHistClipping:
         )
         self.mock_should_clip = mocker.patch.object(EMACriterion, 'should_clip')
         self.mock_update = mocker.patch.object(EMACriterion, 'update')
-        self.mock_init_clip_call = mocker.patch.object(
-            GradNormClipper, '__call__'
-        )
+        self.mock_init_clip_call = mocker.patch.object(NormClipper, '__call__')
         self.mock_criterion_reset = mocker.patch.object(StatsCollector, 'reset')
         self.mock_torch_clip = mocker.patch.object(
             torch.nn.utils, 'clip_grad_norm_'
@@ -427,7 +425,7 @@ class TestHistClipping:
     def test_init(self, grad_clipping: HistClipper) -> None:
         """Test initialization."""
         assert isinstance(grad_clipping.criterion, EMACriterion)
-        assert isinstance(grad_clipping.warmup_clip_strategy, GradNormClipper)
+        assert isinstance(grad_clipping.warmup_clip_strategy, NormClipper)
         assert grad_clipping.n_warmup_steps == 1
 
     def test_call_warmup_phase(self, grad_clipping, example_parameters) -> None:
@@ -487,9 +485,7 @@ class TestParamHistClipping:
             ZStatCriterion, 'should_clip'
         )
         self.mock_update = mocker.patch.object(ZStatCriterion, 'update')
-        self.mock_init_clip_call = mocker.patch.object(
-            GradNormClipper, '__call__'
-        )
+        self.mock_init_clip_call = mocker.patch.object(NormClipper, '__call__')
         self.mock_criterion_reset = mocker.patch.object(StatsCollector, 'reset')
         self.mock_torch_clip = mocker.patch.object(
             torch.nn.utils, 'clip_grad_norm_'
@@ -505,7 +501,7 @@ class TestParamHistClipping:
     def test_init(self, grad_clipping: HistClipper) -> None:
         """Test initialization."""
         assert isinstance(grad_clipping.criterion, ZStatCriterion)
-        assert isinstance(grad_clipping.warmup_clip_strategy, GradNormClipper)
+        assert isinstance(grad_clipping.warmup_clip_strategy, NormClipper)
         assert grad_clipping.n_warmup_steps == 1
 
     def test_call_warmup_phase(self, grad_clipping, example_parameters) -> None:

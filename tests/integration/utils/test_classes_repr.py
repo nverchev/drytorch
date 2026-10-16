@@ -124,7 +124,7 @@ def test_gradient_op_repr() -> None:
             'z_thresh': 2.5,
         },
         'n_warmup_steps': 20,
-        'warmup_clip_strategy': {'class': 'GradNormClipper', 'threshold': 1.0},
+        'warmup_clip_strategy': {'class': 'NormClipper', 'threshold': 1.0},
     }
 
     assert recursive_repr(HistClipper()) == expected

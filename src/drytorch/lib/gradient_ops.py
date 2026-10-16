@@ -18,14 +18,14 @@ from drytorch.core import protocols as p
 __all__ = [
     'ClippingCriterion',
     'EMACriterion',
-    'GradNormClipper',
-    'GradParamNormalizer',
-    'GradValueClipper',
-    'GradZScoreNormalizer',
     'HistClipper',
     'NoOp',
+    'NormClipper',
     'ParamHistClipper',
+    'ParamNormalizer',
     'StatsCollector',
+    'ValueClipper',
+    'ZScoreNormalizer',
     'ZStatCriterion',
     'max_clipping',
     'mean_clipping',
@@ -51,7 +51,7 @@ class NoOp:
         return
 
 
-class GradParamNormalizer:
+class ParamNormalizer:
     """Strategy that normalizes each parameter's gradient to unit norm."""
 
     _eps = 1e-8
@@ -69,7 +69,7 @@ class GradParamNormalizer:
         return
 
 
-class GradZScoreNormalizer:
+class ZScoreNormalizer:
     """Gradient normalizing strategy using Z-score normalization."""
 
     _eps = 1e-8
@@ -99,7 +99,7 @@ class ClipOperation(abc.ABC):
         """Apply the gradient operation to the given parameters."""
 
 
-class GradNormClipper(ClipOperation):
+class NormClipper(ClipOperation):
     """Gradient norm clipping strategy.
 
     Attributes:
@@ -125,7 +125,7 @@ class GradNormClipper(ClipOperation):
         return
 
 
-class GradValueClipper(ClipOperation):
+class ValueClipper(ClipOperation):
     """Gradient value clipping strategy.
 
     Attributes:
@@ -506,7 +506,7 @@ class HistClipper(ClipOperation):
             criterion = ZStatCriterion()
 
         if warmup_clip_strategy is None:
-            warmup_clip_strategy = GradNormClipper()
+            warmup_clip_strategy = NormClipper()
 
         self.criterion = criterion
         self.n_warmup_steps = n_warmup_steps
@@ -591,7 +591,7 @@ class ParamHistClipper(ClipOperation):
             criterion = ZStatCriterion()
 
         if warmup_clip_strategy is None:
-            warmup_clip_strategy = GradNormClipper()
+            warmup_clip_strategy = NormClipper()
 
         self.criterion = criterion
         self.n_warmup_steps = n_warmup_steps
