@@ -38,7 +38,7 @@ SourcedMetrics: TypeAlias = dict[str, HistoryMetrics]
 NpArray: TypeAlias = npt.NDArray[np.float64]
 SourcedArray: TypeAlias = dict[str, NpArray]
 
-Plot = TypeVar('Plot')
+Figure = TypeVar('Figure')
 
 
 class Dumper(tracking.Tracker):
@@ -257,88 +257,150 @@ class MemoryMetrics(tracking.Tracker):
         return super().notify(event)
 
 
-class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
-    """Abstract class for plotting trajectory from sources."""
+class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
+    """Abstract class for plotting the learning curves on request.
 
-    _metric_names: Final[Iterable[str]]
-    _model_names: Final[Iterable[str]]
-    _source_names: Final[Iterable[str]]
-    _start: int
+    Attributes:
+        file_suffix: the suffix of the files the figures are saved to.
+    """
+
+    folder_name: ClassVar[str] = 'plots'
+    file_suffix: ClassVar[str]
 
     def __init__(
         self,
         *,
         metric_loader: MetricLoader | None = None,
-        metric_names: Iterable[str] = (),
-        model_names: Iterable[str] = (),
-        source_names: Iterable[str] = (),
-        start: int = 1,
+        par_dir: pathlib.Path | None = None,
     ) -> None:
         """Initialize.
 
         Args:
             metric_loader: a tracker that can load metrics from a previous run.
-            metric_names: the names of the metrics to plot. Defaults to all.
-            model_names: the names of the models to plot. Defaults to all.
-            source_names: the names of the sources to plot. Defaults to all.
-            start: if positive, the epoch from which to start plotting;
-                if negative, the last number of epochs. Defaults to all.
-
-        Note:
-            start_epoch allows you to exclude the initial epochs from the graph.
-            During the first 2 * start_epoch epochs, the graph is shown in
-            its entirety.
+            par_dir: the parent directory for the saved figures. Default uses
+                the same of the current experiment.
         """
         super().__init__(metric_loader=metric_loader)
-        self._metric_names = metric_names
-        self._model_names = model_names
-        self._source_names = source_names
-        self._start = start
+        self.user_par_dir = par_dir
         return
 
-    @functools.singledispatchmethod
-    @override
-    def notify(self, event: log_events.Event) -> None:
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.EndEpochEvent) -> None:
-        if self._start < 0:
-            start: int = max(1, event.epoch + self._start)
-        else:
-            start = self._start if event.epoch >= 2 * self._start else 1
-
-        self._update_plot(model_name=event.model_name, start=start)
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.EndTestEvent) -> None:
-        start = max(1, self._start)
-        self._update_plot(model_name=event.model_name, start=start)
-        return super().notify(event)
-
-    def plot(
+    def create_figures(
         self,
         model_name: str,
+        *,
         metric_names: Iterable[str] = (),
         source_names: Iterable[str] = (),
         start_epoch: int = 1,
-    ) -> list[Plot]:
-        """Plot the learning curves.
+    ) -> dict[str, Figure]:
+        """Create a figure for each metric without rendering it.
 
         Args:
             model_name: the name of the model to plot.
-            metric_names: the metric to plot. Defaults to all.
+            metric_names: the names of the metrics to plot. Defaults to all.
             source_names: the names of the sources to plot. Defaults to all.
             start_epoch: the epoch from which to start plotting.
 
         Returns:
-            References to the plot objects or windows depending on the backend.
+            The figures by metric name.
 
         Raises:
             ValueError: if start_epoch is less than 1.
             ValueError: if the model is not found.
+            ValueError: if no metric is left to plot.
         """
+        metric_arrays = self._get_metric_arrays(
+            model_name, metric_names, source_names, start_epoch
+        )
+        return {
+            metric_name: self._create_figure(
+                model_name, metric_name, sourced_array
+            )
+            for metric_name, sourced_array in metric_arrays.items()
+        }
+
+    def plot(
+        self,
+        model_name: str,
+        *,
+        metric_names: Iterable[str] = (),
+        source_names: Iterable[str] = (),
+        start_epoch: int = 1,
+    ) -> None:
+        """Render the figures of the metrics together.
+
+        Args:
+            model_name: the name of the model to plot.
+            metric_names: the names of the metrics to plot. Defaults to all.
+            source_names: the names of the sources to plot. Defaults to all.
+            start_epoch: the epoch from which to start plotting.
+
+        Raises:
+            ValueError: if start_epoch is less than 1.
+            ValueError: if the model is not found.
+            ValueError: if no metric is left to plot.
+        """
+        figures = self.create_figures(
+            model_name,
+            metric_names=metric_names,
+            source_names=source_names,
+            start_epoch=start_epoch,
+        )
+        self._render(list(figures.values()))
+        return
+
+    def save_figures(
+        self,
+        model_name: str,
+        *,
+        metric_names: Iterable[str] = (),
+        source_names: Iterable[str] = (),
+        start_epoch: int = 1,
+    ) -> None:
+        """Save the figure of each metric in the folder of the current run.
+
+        Args:
+            model_name: the name of the model to plot.
+            metric_names: the names of the metrics to plot. Defaults to all.
+            source_names: the names of the sources to plot. Defaults to all.
+            start_epoch: the epoch from which to start plotting.
+
+        Raises:
+            AccessOutsideScopeError: if no run is active.
+            ValueError: if start_epoch is less than 1.
+            ValueError: if the model is not found.
+            ValueError: if no metric is left to plot.
+
+        Side Effects:
+            Writes one file for each metric in a folder named after the model.
+        """
+        figures = self.create_figures(
+            model_name,
+            metric_names=metric_names,
+            source_names=source_names,
+            start_epoch=start_epoch,
+        )
+        model_dir = self._get_run_dir() / model_name
+        model_dir.mkdir(exist_ok=True)
+        for metric_name, figure in figures.items():
+            self._save_figure(
+                figure, model_dir / f'{metric_name}{self.file_suffix}'
+            )
+
+        return
+
+    @abc.abstractmethod
+    def _create_figure(
+        self, model_name: str, metric_name: str, sourced_array: SourcedArray
+    ) -> Figure:
+        """Create the figure of a metric from its sourced arrays."""
+
+    def _get_metric_arrays(
+        self,
+        model_name: str,
+        metric_names: Iterable[str],
+        source_names: Iterable[str],
+        start_epoch: int,
+    ) -> dict[str, SourcedArray]:
         if start_epoch < 1:
             raise ValueError('Start epoch must be positive.')
 
@@ -352,52 +414,32 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
             msg = f'No model named {model_name} has been found.'
             raise ValueError(msg)
 
-        return self._plot(model_name, source_names, metric_names, start_epoch)
-
-    def _plot(
-        self,
-        model_name: str,
-        source_names: Iterable[str],
-        metric_names: Iterable[str],
-        start: int,
-    ) -> list[Plot]:
-        sourced_metrics = self.model_dict.get(model_name, {})
         if source_names:
             sourced_metrics = {
                 source: sourced_metrics[source]
                 for source in source_names
                 if source in sourced_metrics
             }
+
         if not metric_names:
             all_metrics: Generator[set[str], None, None] = (
                 set(logs[1]) for logs in sourced_metrics.values()
             )
             metric_names = sorted(set().union(*all_metrics))
 
-        plots: list[Plot] = []
-        self._prepare_layout(model_name, list(metric_names))
+        metric_arrays: dict[str, SourcedArray] = {}
         for metric_name in metric_names:
             processed_sources = self._process_source(
-                sourced_metrics, metric_name, start
+                sourced_metrics, metric_name, start_epoch
             )
             if processed_sources:
-                plots.append(
-                    self._plot_metric(
-                        model_name, metric_name, **processed_sources
-                    )
-                )
+                metric_arrays[metric_name] = processed_sources
 
-        self._display_plot(model_name, plots)
-        return plots
+        if not metric_arrays:
+            msg = f'No metric to plot for model {model_name}.'
+            raise ValueError(msg)
 
-    def _display_plot(self, model_name: str, plots: list[Plot]) -> None:
-        _not_used = model_name, plots
-        return
-
-    @abc.abstractmethod
-    def _plot_metric(
-        self, model_name: str, metric_name: str, **sourced_array: NpArray
-    ) -> Plot: ...
+        return metric_arrays
 
     def _get_sourced_metric(
         self, sourced_metrics: SourcedMetrics, metric_name: str
@@ -415,10 +457,6 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
 
         return out
 
-    def _prepare_layout(self, model_name: str, metric_names: list[str]) -> None:
-        _not_used = model_name, metric_names
-        return
-
     def _process_source(
         self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
     ) -> SourcedArray:
@@ -427,12 +465,13 @@ class BasePlotter(MemoryMetrics, abc.ABC, Generic[Plot]):
         sourced_array = self._source_to_numpy(ordered_sources)
         return self._filter_by_epoch(sourced_array, start)
 
-    def _update_plot(self, model_name: str, start: int) -> None:
-        if self._model_names and model_name not in self._model_names:
-            return
+    @abc.abstractmethod
+    def _render(self, figures: list[Figure]) -> None:
+        """Render the figures together."""
 
-        self._plot(model_name, self._source_names, self._metric_names, start)
-        return
+    @abc.abstractmethod
+    def _save_figure(self, figure: Figure, path: pathlib.Path) -> None:
+        """Save the figure to the path."""
 
     @classmethod
     def _order_sources(cls, sources: SourcedMetric) -> SourcedMetric:

@@ -1,7 +1,7 @@
 """Functional tests for PlotlyPlotter."""
 
 import importlib.util
-import os
+import pathlib
 
 import pytest
 
@@ -14,25 +14,37 @@ from drytorch.trackers.plotly import PlotlyPlotter
 
 
 class TestPlotlyPlotterFullCycle:
-    """Manual verification for ``PlotlyPlotter``."""
+    """Complete ``PlotlyPlotter`` session."""
 
-    @pytest.mark.skipif(
-        'LIVE_PLOT' not in os.environ,
-        reason='opens figure windows; run manually with LIVE_PLOT set',
-    )
-    def test_live_plot(
+    def test_figures_of_the_session(
         self,
         example_model_name: str,
         plotting_workflow: tuple[log_events.Event, ...],
     ) -> None:
-        """Render plotly figures interactively when LIVE_PLOT is set."""
+        """A session has a figure for each metric."""
         plotter = PlotlyPlotter()
-
         for event in plotting_workflow:
             plotter.notify(event)
 
-        figures = plotter.plot(example_model_name)
-        plotter.clean_up()
+        figures = plotter.create_figures(example_model_name)
         plotter.close()
 
         assert len(figures) == 3
+
+    def test_save_figures_of_the_run(
+        self,
+        tmp_path: pathlib.Path,
+        example_model_name: str,
+        plotting_workflow: tuple[log_events.Event, ...],
+    ) -> None:
+        """Each figure is saved as a file in the folder of the run."""
+        plotter = PlotlyPlotter()
+        *events, stop_event = plotting_workflow
+        for event in events:
+            plotter.notify(event)
+
+        plotter.save_figures(example_model_name)
+        plotter.notify(stop_event)
+
+        saved = list(tmp_path.glob(f'plots/**/{example_model_name}/*.html'))
+        assert len(saved) == 3

@@ -1,5 +1,9 @@
 """Plotter class using plotly."""
 
+import pathlib
+
+from typing import ClassVar
+
 import plotly.graph_objs as go
 
 from typing_extensions import override
@@ -13,23 +17,16 @@ __all__ = [
 
 
 class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
-    """Tracker that builds a plotly figure per metric on request."""
+    """Tracker that plots each metric of a model in a figure with plotly."""
+
+    file_suffix: ClassVar[str] = '.html'
 
     @override
-    def _display_plot(self, model_name: str, plots: list[go.Figure]) -> None:
-        """Render the figures once a requested plot pass is complete."""
-        _not_used = model_name
-        for figure in plots:
-            figure.show()
-
-        return
-
-    @override
-    def _plot_metric(
+    def _create_figure(
         self,
         model_name: str,
         metric_name: str,
-        **sourced_array: base_classes.NpArray,
+        sourced_array: base_classes.SourcedArray,
     ) -> go.Figure:
         data: list[go.Scatter] = []
         for name, log in sourced_array.items():
@@ -57,7 +54,13 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
         )
 
     @override
-    def _update_plot(self, model_name: str, start: int) -> None:
-        """Skip the automatic per-epoch pass."""
-        _not_used = model_name, start
+    def _render(self, figures: list[go.Figure]) -> None:
+        for figure in figures:
+            figure.show()
+
+        return
+
+    @override
+    def _save_figure(self, figure: go.Figure, path: pathlib.Path) -> None:
+        figure.write_html(path)
         return

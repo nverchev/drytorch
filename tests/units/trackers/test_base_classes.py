@@ -18,6 +18,7 @@ from drytorch.trackers.base_classes import (
     Dumper,
     MemoryMetrics,
     MetricLoader,
+    SourcedArray,
     SourcedMetrics,
 )
 
@@ -69,9 +70,32 @@ class _ConcreteMetricLoader(MetricLoader):
         return
 
 
-class _ConcretePlotter(BasePlotter[str]):
-    def _plot_metric(self, model_name, metric_name, **sources) -> str:
-        return model_name + metric_name
+class _ConcretePlotter(BasePlotter[SourcedArray]):
+    file_suffix = '.txt'
+
+    def __init__(
+        self,
+        *,
+        metric_loader: MetricLoader | None = None,
+        par_dir: pathlib.Path | None = None,
+    ) -> None:
+        super().__init__(metric_loader=metric_loader, par_dir=par_dir)
+        self.rendered: list[list[SourcedArray]] = []
+        return
+
+    def _create_figure(
+        self, model_name: str, metric_name: str, sourced_array: SourcedArray
+    ) -> SourcedArray:
+        _not_used = model_name, metric_name
+        return sourced_array
+
+    def _render(self, figures: list[SourcedArray]) -> None:
+        self.rendered.append(figures)
+        return
+
+    def _save_figure(self, figure: SourcedArray, path: pathlib.Path) -> None:
+        path.write_text(' '.join(figure))
+        return
 
 
 @pytest.fixture(scope='module')
@@ -291,197 +315,161 @@ class TestMemoryMetrics:
 class TestBasePlotter:
     """Tests for BasePlotter."""
 
-    @pytest.fixture(scope='class', params=[-5, -1, 2, 3])
-    def start(self, request) -> int:
-        """Instance argument."""
-        return request.param
-
-    @pytest.fixture(scope='class', params=['All', 'Selected', 'Skipped'])
-    def model_names(self, request, example_model_name) -> tuple[str, ...]:
-        """Instance argument."""
-        if request.param == 'All':
-            return ()
-
-        if request.param == 'Selected':
-            return (example_model_name,)
-
-        return ('wrong_name',)
-
-    @pytest.fixture(scope='class', params=['All', 'Selected', 'Skipped'])
-    def source_names(self, request, example_sourced_metrics) -> tuple[str, ...]:
-        """Instance argument."""
-        if request.param == 'All':
-            return ()
-
-        if request.param == 'Selected':
-            return tuple(example_sourced_metrics)
-
-        return ('wrong_name',)
-
-    @pytest.fixture(scope='class', params=['All', 'Selected', 'Skipped'])
-    def metric_names(self, request, example_loss_name) -> tuple[str, ...]:
-        """Instance argument."""
-        if request.param == 'All':
-            return ()
-
-        if request.param == 'Selected':
-            return (example_loss_name,)
-
-        return ('wrong_name',)
-
-    @pytest.fixture(scope='class')
+    @pytest.fixture
     def plotter(
         self, example_model_name, example_sourced_metrics
-    ) -> BasePlotter[str]:
+    ) -> _ConcretePlotter:
         """Set up the instance."""
         instance = _ConcretePlotter()
         instance.model_dict[example_model_name] = example_sourced_metrics
         return instance
 
-    @pytest.fixture(scope='class')
-    def plotter_with_loader(self, metric_loader) -> BasePlotter[str]:
-        """Expected metrics."""
+    @pytest.fixture
+    def plotter_with_loader(self, metric_loader) -> _ConcretePlotter:
+        """Set up the instance with a metric loader."""
         return _ConcretePlotter(metric_loader=metric_loader)
 
-    @pytest.fixture(scope='class')
-    def plotter_with_start(self, start) -> BasePlotter[str]:
-        """Set up the instance."""
-        return _ConcretePlotter(start=start)
-
-    @pytest.fixture(scope='class')
-    def plotter_with_models(
-        self, example_model_name, example_sourced_metrics, model_names
-    ) -> BasePlotter[str]:
-        """Set up the instance."""
-        instance = _ConcretePlotter(model_names=model_names)
-        instance.model_dict[example_model_name] = example_sourced_metrics
-        instance.model_dict['other_model'] = example_sourced_metrics
-        return instance
-
-    def test_end_epoch(
-        self, mocker, end_epoch_mock_event, start, plotter_with_start
+    def test_create_figures_start_epoch_validation(
+        self, example_model_name, plotter
     ) -> None:
-        """Test notification with EndEpoch event."""
-        epoch = 4  # defined locally for convenience
-        end_epoch_mock_event.epoch = epoch
-        example_model_name = end_epoch_mock_event.model_name
-        spied = mocker.patch.object(plotter_with_start, '_update_plot')
-        plotter_with_start.notify(end_epoch_mock_event)
-        if start == -5:  # start + epoch < 0
-            true_start = 1
-        elif start == -1:  # start + epoch < 3
-            true_start = 3
-        elif start == 2:  # epoch >= 2 * start
-            true_start = 2
-        elif start == 3:  # epoch < 2 * start
-            true_start = 1
-        else:
-            raise ValueError('Value not anticipated.')
+        """A start epoch less than one raises ValueError."""
+        with pytest.raises(ValueError, match='Start epoch'):
+            plotter.create_figures(example_model_name, start_epoch=0)
 
-        spied.assert_called_once_with(
-            model_name=example_model_name, start=true_start
-        )
+    def test_create_figures_missing_model(self, plotter) -> None:
+        """A model without metrics raises ValueError."""
+        with pytest.raises(ValueError, match='No model named'):
+            plotter.create_figures('wrong_name')
 
-    def test_end_test(
-        self, mocker, end_test_mock_event, start, plotter_with_start
+    def test_create_figures_load(
+        self, example_model_name, plotter_with_loader
     ) -> None:
-        """Test notification with EndTest event."""
-        epoch = 4  # defined locally for convenience
-        end_test_mock_event.epoch = epoch
-        example_model_name = end_test_mock_event.model_name
-        mock_plot = mocker.patch.object(plotter_with_start, '_update_plot')
-        plotter_with_start.notify(end_test_mock_event)
-        if start == -5:
-            true_start = 1  # start < 0
-        elif start == -1:
-            true_start = 1  # start < 0
-        elif start == 2:
-            true_start = 2  # start > 0
-        elif start == 3:
-            true_start = 3  # start > 0
-        else:
-            raise ValueError('Value not anticipated.')
+        """Metrics are loaded when the model has none in memory."""
+        plotter_with_loader.create_figures(example_model_name)
 
-        mock_plot.assert_called_once_with(
-            model_name=example_model_name, start=true_start
-        )
-
-    def test_plot_validation(self, example_model_name, start, plotter) -> None:
-        """Test validation."""
-        if start <= 0:
-            with pytest.raises(ValueError):
-                plotter.plot(example_model_name, start_epoch=start)
-        else:
-            with pytest.raises(ValueError):
-                plotter.plot('wrong_name', start_epoch=start)
-
-    def test_plot_load(self, example_model_name, plotter_with_loader) -> None:
-        """Test loading."""
-        assert example_model_name not in plotter_with_loader.model_dict
-        plotter_with_loader.plot(example_model_name)
         assert example_model_name in plotter_with_loader.model_dict
-        old_metrics = plotter_with_loader.model_dict[example_model_name]
-        plotter_with_loader.model_dict[example_model_name] = old_metrics.copy()
-        plotter_with_loader.plot(example_model_name)
-        new_metrics = plotter_with_loader.model_dict[example_model_name]
-        assert old_metrics is not new_metrics  # should load the copy
 
-    def test_select_models(
-        self, mocker, example_model_name, model_names, plotter_with_models
+    def test_create_figures_keeps_metrics_in_memory(
+        self, example_model_name, plotter_with_loader
     ) -> None:
-        """Test _update_plot discards unwanted models."""
-        plot_mock = mocker.patch.object(plotter_with_models, '_plot')
-        plotter_with_models._update_plot(example_model_name, 1)
-        if model_names and model_names[0] != example_model_name:
-            plot_mock.assert_not_called()
-        else:
-            plot_mock.assert_called_once()
+        """Metrics in memory are not loaded again."""
+        plotter_with_loader.create_figures(example_model_name)
+        old_metrics = plotter_with_loader.model_dict[example_model_name]
+        copied_metrics = old_metrics.copy()
+        plotter_with_loader.model_dict[example_model_name] = copied_metrics
 
-    def test_select_sources(
+        plotter_with_loader.create_figures(example_model_name)
+
+        new_metrics = plotter_with_loader.model_dict[example_model_name]
+        assert new_metrics is copied_metrics
+
+    def test_create_figures_all_metrics(
+        self, example_model_name, example_loss_name, plotter
+    ) -> None:
+        """Every metric gets its arrays, without the empty sources."""
+        figures = plotter.create_figures(example_model_name)
+
+        assert set(figures) == {
+            example_loss_name,
+            'example_metric',
+            'example_metric_2',
+        }
+        assert 'empty_source' not in figures[example_loss_name]
+
+    def test_create_figures_selected_metrics(
+        self, example_model_name, example_loss_name, plotter
+    ) -> None:
+        """Only the selected metrics get their arrays."""
+        figures = plotter.create_figures(
+            example_model_name, metric_names=(example_loss_name,)
+        )
+
+        assert list(figures) == [example_loss_name]
+
+    def test_create_figures_selected_sources(
+        self, example_model_name, example_source_name, plotter
+    ) -> None:
+        """Only the selected sources get their arrays."""
+        figures = plotter.create_figures(
+            example_model_name, source_names=(example_source_name,)
+        )
+
+        for sourced_array in figures.values():
+            assert list(sourced_array) == [example_source_name]
+
+    @pytest.mark.parametrize(
+        'selection',
+        [{'metric_names': ('wrong_name',)}, {'source_names': ('wrong_name',)}],
+    )
+    def test_create_figures_nothing_to_plot(
+        self, example_model_name, plotter, selection
+    ) -> None:
+        """A selection that leaves no metric raises ValueError."""
+        with pytest.raises(ValueError, match='No metric to plot'):
+            plotter.create_figures(example_model_name, **selection)
+
+    def test_create_figures_does_not_render(
+        self, example_model_name, plotter
+    ) -> None:
+        """Creating the figures does not render them."""
+        plotter.create_figures(example_model_name)
+
+        assert plotter.rendered == []
+
+    def test_plot_renders(self, example_model_name, plotter) -> None:
+        """Plotting renders the figures of all the metrics together."""
+        expected = plotter.create_figures(example_model_name)
+
+        plotter.plot(example_model_name)
+
+        assert len(plotter.rendered) == 1
+        assert len(plotter.rendered[0]) == len(expected)
+
+    def test_save_figures(
         self,
-        mocker,
+        tmp_path,
         example_model_name,
         example_sourced_metrics,
-        source_names,
-        plotter,
+        start_experiment_mock_event,
     ) -> None:
-        """Test _plot discards unwanted sources."""
-        plot_mock = mocker.patch.object(plotter, '_plot_metric')
-        plotter._plot(example_model_name, source_names, (), 1)
-        if not source_names:
-            source_names = tuple(example_sourced_metrics)
+        """Each figure is saved in a folder of the model inside the run."""
+        plotter = _ConcretePlotter(par_dir=tmp_path)
+        plotter.model_dict[example_model_name] = example_sourced_metrics
+        plotter.notify(start_experiment_mock_event)
 
-        if source_names[0] not in example_sourced_metrics:
-            plot_mock.assert_not_called()
-        else:
-            # empty sources are skipped
-            source_names = tuple(
-                name for name in source_names if name != 'empty_source'
+        plotter.save_figures(example_model_name)
+
+        saved = sorted(path.name for path in tmp_path.glob('**/*.txt'))
+        assert saved == sorted(
+            f'{name}.txt' for name in plotter.create_figures(example_model_name)
+        )
+        assert all(
+            path.parent.name == example_model_name
+            for path in tmp_path.glob('**/*.txt')
+        )
+
+    def test_save_figures_outside_run(
+        self, example_model_name, plotter
+    ) -> None:
+        """Saving without an active run raises AccessOutsideScopeError."""
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter.save_figures(example_model_name)
+
+    def test_end_epoch_does_not_plot(self, end_epoch_mock_event) -> None:
+        """The end of an epoch does not render figures."""
+        plotter = _ConcretePlotter()
+        plotter.notify(
+            log_events.MetricEvent(
+                epoch=1,
+                model_name=end_epoch_mock_event.model_name,
+                source_name='val',
+                metrics={'metric_1': 1.0},
             )
-            # not all metrics have all the sources
-            all_called = set[str]()
-            for call in plot_mock.call_args_list:
-                for name in call.kwargs:
-                    all_called.add(name)
-            assert all_called == set(source_names)
+        )
 
-    def test_select_metrics(
-        self,
-        mocker,
-        example_model_name,
-        example_loss_name,
-        metric_names,
-        plotter,
-    ) -> None:
-        """Test _plot discards unwanted metrics."""
-        plot_mock = mocker.patch.object(plotter, '_plot_metric')
-        plotter._plot(example_model_name, (), metric_names, 1)
-        if not metric_names:
-            assert plot_mock.call_count > 1
-        elif metric_names[0] != example_loss_name:
-            plot_mock.assert_not_called()
-        else:
-            assert plot_mock.call_count == 1
+        plotter.notify(end_epoch_mock_event)
+
+        assert plotter.rendered == []
 
     def test_process_source(
         self,
@@ -531,25 +519,21 @@ class TestBasePlotter:
         plotter,
     ) -> None:
         """Test mismatched epoch and value list lengths raise TrackerError."""
-        # Prepare
         sourced_metrics: SourcedMetrics = {
             'val': ([1, 2, 3], {'metric_a': [1.0, 2.0]}),
         }
 
-        # Trigger
         with pytest.raises(exceptions.TrackerError) as exc_info:
             plotter._process_source(sourced_metrics, 'metric_a', start=1)
 
-        # Assert
         error_msg = str(exc_info.value)
         assert 'val' in error_msg
         assert 'metric_a' in error_msg
 
-    def test_plot_source_missing_initial_epoch_raises_tracker_error(
+    def test_create_figures_source_missing_initial_epoch_raises_tracker_error(
         self,
     ) -> None:
         """Test metric appearing only from second epoch raises TrackerError."""
-        # Prepare
         plotter = _ConcretePlotter()
         model_name = 'model_a'
         source_name = 'val'
@@ -568,46 +552,9 @@ class TestBasePlotter:
         plotter.notify(event_1)
         plotter.notify(event_2)
 
-        # Trigger
         with pytest.raises(exceptions.TrackerError) as exc_info:
-            plotter.plot(model_name)
+            plotter.create_figures(model_name)
 
-        # Assert
         error_msg = str(exc_info.value)
         assert source_name in error_msg
         assert 'metric_2' in error_msg
-
-    def test_plot_consistent_sources_plots_successfully(self) -> None:
-        """Test that consistent metrics across epochs plot successfully."""
-        # Prepare
-        plotter = _ConcretePlotter()
-        model_name = 'model_a'
-        source_name = 'val'
-        event_1 = log_events.MetricEvent(
-            epoch=1,
-            model_name=model_name,
-            source_name=source_name,
-            metrics={'metric_1': 1.0, 'metric_2': 4.0},
-        )
-        event_2 = log_events.MetricEvent(
-            epoch=2,
-            model_name=model_name,
-            source_name=source_name,
-            metrics={'metric_1': 2.0, 'metric_2': 5.0},
-        )
-        plotter.notify(event_1)
-        plotter.notify(event_2)
-
-        # Trigger
-        plots = plotter.plot(model_name)
-
-        # Assert
-        assert len(plots) == 2
-
-    def test_plot_calls_display_plot(
-        self, mocker, example_model_name, plotter
-    ) -> None:
-        """Test _plot calls _display_plot with model name and plots list."""
-        spy_display = mocker.patch.object(plotter, '_display_plot')
-        plots = plotter.plot(example_model_name)
-        spy_display.assert_called_once_with(example_model_name, plots)

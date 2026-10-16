@@ -8,119 +8,67 @@ import pytest
 if not importlib.util.find_spec('plotly'):
     pytest.skip('plotly not available', allow_module_level=True)
 
-import numpy as np
 import plotly.graph_objs as go
 
-from drytorch.core import log_events
 from drytorch.trackers.plotly import PlotlyPlotter
 
 
 class TestPlotlyPlotter:
     """Tests for the ``PlotlyPlotter`` class."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker) -> None:
+        """Set up the test."""
+        self.mock_show = mocker.patch.object(go.Figure, 'show')
+        return
+
     @pytest.fixture
-    def tracker(self) -> PlotlyPlotter:
-        """Set up the instance."""
-        return PlotlyPlotter()
+    def tracker(
+        self, example_model_name, example_loss_name, example_source_name
+    ) -> PlotlyPlotter:
+        """Set up the instance with metrics in memory."""
+        instance = PlotlyPlotter()
+        instance.model_dict[example_model_name] = {
+            example_source_name: (
+                [1, 2, 3],
+                {
+                    example_loss_name: [0.7, 0.8, 0.85],
+                    'Accuracy': [0.5, 0.6, 0.7],
+                },
+            ),
+            'single_point_source': ([3], {'Accuracy': [0.65]}),
+        }
+        return instance
 
-    def test_plot_single_point(
-        self,
-        tracker: PlotlyPlotter,
-        example_loss_name: str,
-        example_source_name: str,
-        example_model_name: str,
-        mocker,
+    def test_create_figures_one_for_each_metric(
+        self, tracker, example_model_name, example_loss_name
     ) -> None:
-        """Test plotting with a single datapoint."""
-        mock_show = mocker.patch.object(go.Figure, 'show')
-        model_name = example_model_name
-        data = np.array([[1, 0.8]])
-        sourced_array = {example_source_name: data}
+        """Each metric has its own figure, labelled with its name."""
+        figures = tracker.create_figures(example_model_name)
 
-        fig = tracker._plot_metric(
-            model_name, example_loss_name, **sourced_array
-        )
+        assert set(figures) == {example_loss_name, 'Accuracy'}
+        assert figures['Accuracy'].layout.yaxis.title.text == 'Accuracy'
 
-        assert fig.data[0].marker.symbol == 'diamond'
-        assert fig.data[0].marker.size == 20
-        mock_show.assert_not_called()
-
-    def test_plot_multiple_points(
-        self,
-        tracker: PlotlyPlotter,
-        example_loss_name: str,
-        example_source_name: str,
-        example_model_name: str,
-        mocker,
+    def test_create_figures_single_point(
+        self, tracker, example_model_name
     ) -> None:
-        """Test plotting with multiple points."""
-        mock_show = mocker.patch.object(go.Figure, 'show')
-        model_name = example_model_name
-        multi_points = np.array([[1, 0.7], [2, 0.8], [3, 0.85]])
-        sourced_array = {example_source_name: multi_points}
+        """A single point is drawn as a diamond marker."""
+        figures = tracker.create_figures(example_model_name)
 
-        fig = tracker._plot_metric(
-            model_name, example_loss_name, **sourced_array
-        )
+        traces = {trace.name: trace for trace in figures['Accuracy'].data}
+        assert traces['single_point_source'].mode == 'markers'
+        assert traces['single_point_source'].marker.symbol == 'diamond'
 
-        assert fig.data[0].marker.symbol is None
-        assert len(fig.data[0].x) == 3
-        mock_show.assert_not_called()
-
-    def test_plot_renders_figures(
-        self,
-        tracker: PlotlyPlotter,
-        example_model_name: str,
-        example_source_name: str,
-        mocker,
+    def test_create_figures_does_not_render(
+        self, tracker, example_model_name
     ) -> None:
-        """Verify each returned figure is rendered."""
-        mock_show = mocker.patch.object(go.Figure, 'show')
-        metric_event = log_events.MetricEvent(
-            model_name=example_model_name,
-            source_name=example_source_name,
-            epoch=1,
-            metrics={'loss': 0.5, 'accuracy': 0.8},
-        )
-        end_epoch_event = log_events.EndEpochEvent(
-            model_name=example_model_name,
-            source_name=example_source_name,
-            epoch=1,
-        )
+        """Creating the figures does not render them."""
+        tracker.create_figures(example_model_name)
 
-        tracker.notify(metric_event)
-        tracker.notify(end_epoch_event)
-        figures = tracker.plot(example_model_name)
+        self.mock_show.assert_not_called()
 
-        assert len(figures) == 2
-        assert mock_show.call_count == len(figures)
+    def test_plot_shows_each_figure(self, tracker, example_model_name) -> None:
+        """Plotting shows the figure of each metric."""
+        tracker.plot(example_model_name)
 
-    def test_training_neither_renders_nor_builds(
-        self,
-        tracker: PlotlyPlotter,
-        example_model_name: str,
-        example_source_name: str,
-        mocker,
-    ) -> None:
-        """Verify training events neither render nor build figures."""
-        mock_show = mocker.patch.object(go.Figure, 'show')
-        mock_init = mocker.patch.object(
-            go.Figure, '__init__', return_value=None
-        )
-        metric_event = log_events.MetricEvent(
-            model_name=example_model_name,
-            source_name=example_source_name,
-            epoch=1,
-            metrics={'loss': 0.5, 'accuracy': 0.8},
-        )
-        end_epoch_event = log_events.EndEpochEvent(
-            model_name=example_model_name,
-            source_name=example_source_name,
-            epoch=1,
-        )
-
-        tracker.notify(metric_event)
-        tracker.notify(end_epoch_event)
-
-        mock_show.assert_not_called()
-        mock_init.assert_not_called()
+        assert self.mock_show.call_count == 2

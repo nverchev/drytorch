@@ -41,8 +41,12 @@
 - `ModelOptimizer.base_lr` and `StatsCollector.active` are read-only; `ModelOptimizer.update_learning_rate` sets the learning rates
 - `Trainer` raises `ValueError` when the loss is better when higher
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
+- plotters no longer draw during training: `BasePlotter.plot` renders the figures of a model on request, and its arguments after `model_name` are keyword-only
 
 ## Added
+- `BasePlotter.create_figures` returns the figure of each metric of a model without rendering it, to show or save
+- plotters are dumpers: `BasePlotter.save_figures` saves the figure of each metric in the folder of the current run, as PNG (`MatPlotter`) or HTML (`PlotlyPlotter`)
+- `MatPlotter.plot_grid` renders the metrics of a model as subplots of one figure
 - `Wandb.log_at_epoch` logs the values of other events against the epoch of a model, on the axis of its metrics
 - `TensorBoard` titles its server after the folder of the experiment and logs the title and address at the new level `SERVER_LOG_LEVEL` (26)
 - added `SyncedObjectiveProtocol` and `SyncedLossProtocol` in `core.protocols`; `join` and the two wrappers state that their result synchronizes
@@ -121,6 +125,7 @@
 - `TrainerProtocol.update_learning_rate` accepts learning rates by module name and defaults both arguments to `None`, like `Trainer`
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 - `MetadataDumper` writes the parameter counts with the architecture, and `BuiltinLogger` logs how many parameters a registered model has and how many are trainable
+- the `matplotlib` optional dependency requires version 3.11.0 or later
 
 ## Removed
 - `Diagnostic` and `EvaluationMixin`; use `Evaluation`
@@ -138,8 +143,10 @@
 - removed unused `_removed_start` attribute and relative documentation in `BasePlotter`
 - removed `TrainerProtocol.objective`, which no code used
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
+- removed the `start`, `metric_names`, `model_names` and `source_names` arguments of `BasePlotter`, `MatPlotter` and `PlotlyPlotter`, which only the updates during training used
 
 ## Fixed
+- `Model` defaults to the CPU when torch is built for an accelerator but no device is available
 - `FolderAlreadyExistsError` shows its message, which the empty template of the base class discarded
 - `clone_experiment_data`, `rename_experiment_data` and `delete_experiment_data` raise `ExperimentNotFoundError` when no folder holds the experiment, instead of doing nothing
 - in distributed runs, only the main process checks whether a new run id is already recorded; the other processes join its run instead of raising `RunAlreadyRecordedError` when the main process recorded it first
@@ -160,15 +167,10 @@
 - `JoinedLoss.forward` also updates the joined metrics, which training never updated
 - typed actor metadata in `extract_metadata` and `ActorRegistrationEvent.metadata` as `Mapping[str, Any] | str`
 - `recursive_apply` falls back to type name for callables that are not functions
-- `MatPlotter` creates figures with `plt.figure()` for managed pyplot interactive display
-- `MatPlotter` clears and rebuilds layout grid when new metrics appear mid-run
-- `MatPlotter.close()` closes all managed figures and clears color mappings on tracker teardown
 - `MatPlotter` uses `ax.plot` with marker styling for single points to autoscale axes properly
 - `MatPlotter` disperses continuous colormap colors across sources via successive interval bisection
 - `MatPlotter` raises `TrackerError` when palette has insufficient distinct colors
 - `MatPlotter` assigns metric titles to each subplot
-- `BasePlotter`, `MatPlotter`, and `PlotlyPlotter` synchronize figure display after all metrics are plotted via `_display_plot`
-- `PlotlyPlotter` renders figures on an explicit `plot` call and does no work during training
 - `HydraLink` raises `TrackerError` when `HydraConfig` is unset and hydra has not started
 - `HydraLink` resolves symlink collisions when runs share timestamps or following clean-up
 - `HydraLink.clean_up()` uses `mkdir=False` keyword argument
