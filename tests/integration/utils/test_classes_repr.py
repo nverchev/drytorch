@@ -47,7 +47,6 @@ def test_repr_trainer(identity_trainer) -> None:
             'class': 'Model',
             'checkpoint': 'LocalCheckpoint',
             'exec_module': {'class': 'Linear', 'training': True},
-            'mixed_precision': False,
         },
         'objective': {
             'class': 'Loss',

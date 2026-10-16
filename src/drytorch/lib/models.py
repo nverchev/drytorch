@@ -51,14 +51,14 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     Attributes:
         checkpoint: saves and loads the state of the model.
         exec_module: :class:`torch.nn.Module` used for execution.
-        mixed_precision: whether to use mixed precision computing.
+        mixed_precision: if not None, the autocast precision.
     """
 
     _name = repr_utils.DefaultName()
 
     checkpoint: Final[p.CheckpointProtocol]
     exec_module: Final[torch.nn.Module]
-    mixed_precision: Final[bool]
+    mixed_precision: Final[torch.dtype | None]
     _compile: bool
     _device: torch.device
     _epoch: int
@@ -73,7 +73,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
         checkpoint: p.CheckpointProtocol | None = None,
         device: torch.device | None = None,
         distribute: bool = True,
-        mixed_precision: bool = False,
+        mixed_precision: torch.dtype | None = None,
         name: str = '',
         torch_compile: bool = False,
     ) -> None:
@@ -88,14 +88,21 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
             device: the device where to store the weights of the module.
                 Default uses the accelerator if available, cpu otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: whether to use mixed precision computing.
+            mixed_precision: if not None, the autocast precision.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
+
+        Raises:
+            ValueError: if ``mixed_precision`` is not None, bfloat16 or float16.
         """
         super().__init__()
         self._device = self._default_device() if device is None else device
         self._compile = torch_compile
         self._distribute = distribute
+        if mixed_precision not in (None, torch.float16, torch.bfloat16):
+            msg = 'mixed_precision must be torch.float16 or torch.bfloat16.'
+            raise ValueError(msg)
+
         self.mixed_precision = mixed_precision
         validated_module = self._validate_module(module)
         self.exec_module = self.prepare_module(validated_module)
@@ -118,7 +125,9 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
             module = self.exec_module
 
         with torch.autocast(
-            device_type=self.device.type, enabled=self.mixed_precision
+            device_type=self.device.type,
+            dtype=self.mixed_precision,
+            enabled=self.mixed_precision is not None,
         ):
             return module(inputs)
 
@@ -292,7 +301,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
         checkpoint: p.CheckpointProtocol | None = None,
         device: torch.device | None = None,
         distribute: bool = True,
-        mixed_precision: bool = False,
+        mixed_precision: torch.dtype | None = None,
         name: str = '',
         torch_compile: bool = False,
     ) -> None:
@@ -304,10 +313,12 @@ class AveragedModel(Model[Input, Output], abc.ABC):
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: whether to use mixed precision computing.
-                Defaults to ``False``.
+            mixed_precision: if not None, the autocast precision.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
+
+        Raises:
+            ValueError: if ``mixed_precision`` is not None, bfloat16 or float16.
         """
         super().__init__(
             module,
@@ -386,7 +397,7 @@ class SWAModel(AveragedModel[Input, Output]):
         checkpoint: p.CheckpointProtocol | None = None,
         device: torch.device | None = None,
         distribute: bool = True,
-        mixed_precision: bool = False,
+        mixed_precision: torch.dtype | None = None,
         name: str = '',
         torch_compile: bool = False,
         start_epoch: int,
@@ -399,11 +410,13 @@ class SWAModel(AveragedModel[Input, Output]):
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: whether to use mixed precision computing.
-                Defaults to ``False``.
+            mixed_precision: if not None, the autocast precision.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
             start_epoch: the epoch at which to start averaging.
+
+        Raises:
+            ValueError: if ``mixed_precision`` is not None, bfloat16 or float16.
         """
         self.start_epoch = start_epoch
         super().__init__(
@@ -457,7 +470,7 @@ class EMAModel(AveragedModel[Input, Output]):
         checkpoint: p.CheckpointProtocol | None = None,
         device: torch.device | None = None,
         distribute: bool = True,
-        mixed_precision: bool = False,
+        mixed_precision: torch.dtype | None = None,
         name: str = '',
         torch_compile: bool = False,
         decay: float = 0.999,
@@ -470,11 +483,13 @@ class EMAModel(AveragedModel[Input, Output]):
             device: the device where to store the weights of the module.
                 Default uses cuda when available, cpu otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: whether to use mixed precision computing.
-                Defaults to ``False``.
+            mixed_precision: if not None, the autocast precision.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
             decay: the exponential decay rate for the moving average.
+
+        Raises:
+            ValueError: if ``mixed_precision`` is not None, bfloat16 or float16.
         """
         self.decay = decay
         super().__init__(

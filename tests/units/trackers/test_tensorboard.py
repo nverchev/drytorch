@@ -15,6 +15,7 @@ if not importlib.util.find_spec('tensorboard'):
 
 from collections.abc import Generator
 
+from drytorch.trackers import tensorboard as tensorboard_module
 from drytorch.trackers.tensorboard import TensorBoard
 
 
@@ -24,7 +25,6 @@ class TestTensorBoard:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Setup test environment."""
-        self.open_browser_mock = mocker.patch('webbrowser.open')
         self.mock_popen = mocker.patch('subprocess.Popen')
         self.mock_popen.return_value.poll.return_value = None
         self.summary_writer_mock = mocker.patch(
@@ -173,6 +173,37 @@ class TestTensorBoard:
 
         writer.close.assert_called_once()
         assert tracker._stashed_writers == {}
+
+    def test_server_address_is_logged(
+        self,
+        mocker,
+        tracker,
+        start_experiment_mock_event,
+        tmp_path,
+    ) -> None:
+        """Test the title and address of the server are logged."""
+        mock_log = mocker.patch.object(tensorboard_module._logger, 'log')
+
+        tracker.notify(start_experiment_mock_event)
+
+        mock_log.assert_called_once_with(
+            tensorboard_module.SERVER_LOG_LEVEL,
+            'TensorBoard (%s): http://localhost:%d',
+            tmp_path.name,
+            tracker._port,
+        )
+
+    def test_server_is_titled_after_the_experiment_folder(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        tmp_path,
+    ) -> None:
+        """Test the browser window of the server shows the experiment folder."""
+        tracker.notify(start_experiment_mock_event)
+
+        args = self.mock_popen.call_args.args[0]
+        assert args[args.index('--window_title') + 1] == tmp_path.name
 
     def test_tensorboard_launch_fails_on_os_error(
         self,

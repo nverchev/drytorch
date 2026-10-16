@@ -22,7 +22,7 @@ def mock_model(
     mock.module = torch.nn.Linear(1, 1)
     mock.device = torch.device('cpu')
     mock.increment_epoch = mocker.Mock()
-    mock.mixed_precision = False
+    mock.mixed_precision = None
     return mock
 
 

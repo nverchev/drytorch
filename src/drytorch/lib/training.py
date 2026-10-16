@@ -79,7 +79,7 @@ class ModelOptimizer:
         self._model.bind_optimizer(self._optimizer)
         self._scaler = amp.grad_scaler.GradScaler(
             model.device.type,
-            enabled=model.mixed_precision,
+            enabled=model.mixed_precision == torch.float16,
         )
         return
 

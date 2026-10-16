@@ -45,7 +45,7 @@ class _Model:
         self.checkpoint: p.CheckpointProtocol = _Checkpoint()
         self.device = torch.device('cpu')
         self._epoch = 0
-        self.mixed_precision = False
+        self.mixed_precision = None
         self.module = module
         self.name = 'model'
 

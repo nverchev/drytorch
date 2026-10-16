@@ -234,8 +234,8 @@ class ModelProtocol(Protocol[_Input_contra, _Output_co]):
 
     @property
     @abc.abstractmethod
-    def mixed_precision(self) -> bool:
-        """Whether to use mixed precision computing."""
+    def mixed_precision(self) -> torch.dtype | None:
+        """The autocast precision, or ``None`` without mixed precision."""
 
     @property
     def module(self) -> torch.nn.Module:

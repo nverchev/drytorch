@@ -1,6 +1,7 @@
 # [0.1.0] - 01-10-2026
 
 ## [BREAKING CHANGES]
+- `mixed_precision` takes the autocast precision (`torch.float16` or `torch.bfloat16`) or `None` instead of a boolean; the gradient scaler is enabled only for `torch.float16`
 - renamed `drytorch.lib.aggregators` to `drytorch.lib.accumulators`
 - settings, options, and hyperparameters across constructors and functions are keyword-only (after `*`); positional arguments are restricted to primary target objects
 - standardized model argument to `module` across all `Model` constructors, replacing `torch_module`
@@ -42,6 +43,7 @@
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 
 ## Added
+- `TensorBoard` titles its server after the folder of the experiment and logs the title and address at the new level `SERVER_LOG_LEVEL` (26)
 - added `SyncedObjectiveProtocol` and `SyncedLossProtocol` in `core.protocols`; `join` and the two wrappers state that their result synchronizes
 - added the tutorials `data.md`, `models.md`, `training.md`, `learning.md`, `custom_events.md`, and `distributed_training.md`
 - the `objectives.md`, `experiments_and_runs.md`, and `trackers.md` tutorials cover custom accumulators, run utilities and logging formatters
@@ -137,6 +139,8 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 
 ## Fixed
+- in distributed runs, only the main process checks whether a new run id is already recorded; the other processes join its run instead of raising `RunAlreadyRecordedError` when the main process recorded it first
+- removed the mention of a browser from the `TensorBoard` docstrings: the tracker no longer opens one
 - trackers are closed when their experiment is released, and at the latest when the process ends, so the TensorBoard server stops, stashed wandb runs finish and the SQL engine is disposed
 - the TensorBoard server no longer holds the output of the process that started it, which kept shells and CI jobs waiting
 - the wrapper from `from_torchmetrics` synchronizes its metrics across processes, instead of leaving them unsynchronized in distributed training
