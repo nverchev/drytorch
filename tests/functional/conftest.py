@@ -228,7 +228,7 @@ class DistributedWorker(Generic[P, T]):
             rank=rank,
             init_method=f'tcp://127.0.0.1:{self.port}',
             world_size=self.world_size,
-            timeout=datetime.timedelta(seconds=60),
+            timeout=datetime.timedelta(seconds=180),
         )
         return
 

@@ -535,7 +535,7 @@ class TestParamHistClipping:
         # skip warmup by making handlers inactive
         for param in list_params:
             param_id = id(param)
-            # manually initialize state since we no longer use defaultdict
+            # manually initialize state since defaultdict is no longer used
             grad_clipping._dict_warmup_handler[param_id] = StatsCollector(20)
             grad_clipping._dict_criterion[param_id] = grad_clipping.criterion
             grad_clipping._dict_warmup_handler[param_id]._active = False

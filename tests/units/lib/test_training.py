@@ -34,6 +34,24 @@ class TestModelOptimizer:
             learning_schema=mock_learning_schema,
         )
 
+    @pytest.mark.parametrize(
+        ('mixed_precision', 'scaled'),
+        [(None, False), (torch.bfloat16, False), (torch.float16, True)],
+    )
+    def test_gradient_scaling_only_for_float16(
+        self, mock_model, mock_learning_schema, mixed_precision, scaled
+    ) -> None:
+        """Test the gradient scaler is enabled only for float16."""
+        mock_model.module = MLP()
+        mock_model.mixed_precision = mixed_precision
+
+        model_optimizer = ModelOptimizer(
+            model=mock_model,
+            learning_schema=mock_learning_schema,
+        )
+
+        assert model_optimizer._scaler.is_enabled() == scaled
+
     def test_update_learning_rate_global(self, model_optimizer) -> None:
         """Test it correctly updates global learning rate."""
         model_optimizer.update_learning_rate(base_lr=0.02)

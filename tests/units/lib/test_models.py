@@ -41,6 +41,26 @@ class TestModel:
         cpu = torch.device('cpu')
         return Model(MLP(), name='mlp_model', device=cpu, torch_compile=False)
 
+    def test_call_autocasts_to_the_given_type(self) -> None:
+        """Test the forward runs under autocast to the given type."""
+        cpu = torch.device('cpu')
+        model = Model(
+            MLP(), name='bf16_model', device=cpu, mixed_precision=torch.bfloat16
+        )
+
+        model(TorchTuple(torch.randn(1, 1)))
+
+        self.mock_autocast.assert_called_once_with(
+            device_type='cpu', dtype=torch.bfloat16, enabled=True
+        )
+
+    def test_other_mixed_precision_types_raise(self) -> None:
+        """Test only float16, bfloat16 or None are accepted."""
+        with pytest.raises(ValueError, match='mixed_precision must be'):
+            Model(
+                MLP(), device=torch.device('cpu'), mixed_precision=torch.float64
+            )
+
     def test_model_increment_epoch(self, mocker, complex_model: Model) -> None:
         """Test increment_epoch advances the epoch and emits an event."""
         mock_event = mocker.patch.object(log_events, 'IncrementEpochEvent')
@@ -196,7 +216,7 @@ class TestEMAModel:
         """Averaged model should run under autocast in inference mode."""
         cpu = torch.device('cpu')
         model = EMAModel(
-            MLP(), name='ema_mixed', device=cpu, mixed_precision=True
+            MLP(), name='ema_mixed', device=cpu, mixed_precision=torch.bfloat16
         )
         x = torch.randn(1, 1)
 

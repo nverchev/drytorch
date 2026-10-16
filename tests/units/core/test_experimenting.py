@@ -258,6 +258,19 @@ class TestExperiment:
         with pytest.raises(exceptions.RunAlreadyRecordedError):
             experiment.create_run(run_id=run1_id, resume=False)
 
+    def test_create_run_other_process_joins_recorded_run(
+        self, mocker, experiment, run1, run1_id
+    ) -> None:
+        """Test a process other than the main one joins an existing run."""
+        mocker.patch(
+            'drytorch.core.experimenting._is_main_process', return_value=False
+        )
+
+        run = experiment.create_run(run_id=run1_id, resume=False)
+
+        assert run.id == run1_id
+        assert not run.record
+
     def test_create_run_resume_nonexistent_run_id_error(
         self,
         experiment,

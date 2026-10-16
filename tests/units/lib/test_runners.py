@@ -103,7 +103,7 @@ class TestRunner:
     def test_run_forward(self, runner, mock_model) -> None:
         """Test forward pass."""
         mock_model.return_value = self.mock_output
-        runner.mixed_precision = False
+        runner.mixed_precision = None
 
         result = runner._run_forward(self.mock_input)
 
