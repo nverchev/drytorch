@@ -1,6 +1,7 @@
 # [0.1.0] - 01-10-2026
 
 ## [BREAKING CHANGES]
+- `take_from_dataset` returns the indices of the samples it takes, then the batch, so that random samples can be told apart
 - `mixed_precision` takes the autocast precision (`torch.float16` or `torch.bfloat16`) or `None` instead of a boolean; the gradient scaler is enabled only for `torch.float16`
 - renamed `drytorch.lib.aggregators` to `drytorch.lib.accumulators`
 - settings, options, and hyperparameters across constructors and functions are keyword-only (after `*`); positional arguments are restricted to primary target objects
@@ -54,7 +55,7 @@
 - added the tutorials `data.md`, `models.md`, `training.md`, `learning.md`, `custom_events.md`, and `distributed_training.md`
 - the `objectives.md`, `experiments_and_runs.md`, and `trackers.md` tutorials cover custom accumulators, run utilities and logging formatters
 - the README and the documentation home page point to the project template `drytorch-template`
-- added `ValidationProtocol` and `TestProtocol`
+- added `TestProtocol`
 - added `HookNotBoundError` and `HookAlreadyBoundError`, raised when a hook is called before a trainer binds it or is given to a second trainer
 - added `SourceRunAfterHookError`, raised when a hook runs before the source it follows
 - added `ValidationAlreadyAddedError`, raised when a builder is given a second validation
@@ -201,12 +202,12 @@
 - batches carrying strings or bytes beside their tensors no longer stop training
 - `local_ops` validates targets upfront to prevent partial directory operations
 - terminated training no longer emits `EndTrainingEvent`
-- `GradZScoreNormalizer` now properly skips single-element parameters and zero-variance gradients to prevent division by zero causing `nan` gradients
+- `ZScoreNormalizer` now properly skips single-element parameters and zero-variance gradients to prevent division by zero causing `nan` gradients
 - `ZStatCriterion` now properly clips only the upper tail (abnormally large values) rather than improperly increasing abnormally small values
 - `torcheval` wrapper stores and returns synchronized metric values
 - `torcheval` wrapper returns metrics as a named dictionary
 - `torchmetrics` wrapper raises error for duplicate metric names
-- `HistClipper` and `ParamHistClipper` now construct `ZStatCriterion` and `GradNormClipper` on a per-instance basis to avoid leaking state across instances due to shared class-variable defaults
+- `HistClipper` and `ParamHistClipper` now construct `ZStatCriterion` and `NormClipper` on a per-instance basis to avoid leaking state across instances due to shared class-variable defaults
 - `DataLoader.split()` now correctly propagates `pin_memory` and `n_workers` configurations to the resulting sub-loaders instead of dropping them
 - `Permutation` now properly uses the modern numpy RNG instead of legacy `np.random.randint` when no seed is provided
 - `validate_dataset_length` now correctly looks up `__len__` on the class type to respect Python's dunder resolution rules

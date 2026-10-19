@@ -382,7 +382,7 @@ def take_from_dataset(
     indices: Sequence[int] | None = None,
     n_samples: int | None = None,
     preserve_order: bool = True,
-) -> Data:
+) -> tuple[list[int], Data]:
     """Take a batch of samples from a dataset and move it to a device.
 
     Args:
@@ -398,12 +398,14 @@ def take_from_dataset(
             or random ones otherwise.
 
     Returns:
-        The samples, collated into a batch.
+        The indices of the samples in the dataset, and the samples as a batch.
 
     Raises:
         ValueError: if ``indices`` is given with ``n_samples`` or with
             ``preserve_order=False``.
         IndexError: if an index is outside the dataset.
+        DatasetHasNoLengthError: if ``indices`` is not given and the dataset
+            has no length.
     """
     if indices is not None:
         if n_samples is not None or not preserve_order:
@@ -417,17 +419,21 @@ def take_from_dataset(
                     msg = f'index {index} is outside the {size} samples.'
                     raise IndexError(msg)
 
-        dataset = data.Subset(dataset, indices)
-        n_samples = len(indices)
+        taken = list(indices)
+    else:
+        size = validate_dataset_length(dataset)
+        n_taken = min(1 if n_samples is None else n_samples, size)
+        if preserve_order:
+            taken = list(range(n_taken))
+        else:
+            taken = torch.randperm(size)[:n_taken].tolist()
 
-    batch_size = 1 if n_samples is None else n_samples
     loader = data.DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=not preserve_order,
+        data.Subset(dataset, taken),
+        batch_size=len(taken),
         collate_fn=collate_fn,
     )
-    return apply_ops.apply_to(next(iter(loader)), device)
+    return taken, apply_ops.apply_to(next(iter(loader)), device)
 
 
 def validate_dataset_length(dataset: data.Dataset[Any]) -> int:

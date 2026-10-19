@@ -268,10 +268,26 @@ def test_take_from_dataset_takes_the_first_samples(
     """Without indices, the first samples are taken as a batch."""
     dataset = SimpleDataset(simple_seq)
 
-    inputs, targets = take_from_dataset(dataset, n_samples=3)
+    indices, (inputs, targets) = take_from_dataset(dataset, n_samples=3)
 
+    assert indices == [0, 1, 2]
     torch.testing.assert_close(inputs, torch.tensor([[0.0], [1.0], [2.0]]))
     torch.testing.assert_close(targets, torch.tensor([[0.0], [2.0], [4.0]]))
+
+
+def test_take_from_dataset_reports_the_random_samples(
+    simple_seq: Sequence[tuple[int, int]],
+) -> None:
+    """Random samples come with the distinct indices they were taken at."""
+    dataset = SimpleDataset(simple_seq)
+
+    indices, (inputs, _) = take_from_dataset(
+        dataset, n_samples=4, preserve_order=False
+    )
+
+    assert len(set(indices)) == 4
+    expected = torch.tensor(indices, dtype=torch.float).unsqueeze(1)
+    torch.testing.assert_close(inputs, expected)
 
 
 def test_take_from_dataset_takes_the_given_indices_in_order(
@@ -280,8 +296,9 @@ def test_take_from_dataset_takes_the_given_indices_in_order(
     """The samples at the indices are taken in the order of the indices."""
     dataset = SimpleDataset(simple_seq)
 
-    inputs, _ = take_from_dataset(dataset, indices=[7, 2, 5])
+    indices, (inputs, _) = take_from_dataset(dataset, indices=[7, 2, 5])
 
+    assert indices == [7, 2, 5]
     torch.testing.assert_close(inputs, torch.tensor([[7.0], [2.0], [5.0]]))
 
 
@@ -321,7 +338,7 @@ def test_take_from_dataset_combines_the_samples_with_the_collate_fn(
     """A given collate function replaces the default stacking."""
     dataset = SimpleDataset(simple_seq)
 
-    inputs, _ = take_from_dataset(
+    _, (inputs, _) = take_from_dataset(
         dataset, indices=[4, 1], collate_fn=_concatenate
     )
 
