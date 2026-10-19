@@ -6,7 +6,16 @@ import abc
 import typing
 
 from collections.abc import Callable
-from typing import Any, ClassVar, Final, Generic, Protocol, TypeVar, cast
+from typing import (
+    Any,
+    ClassVar,
+    Final,
+    Generic,
+    Literal,
+    Protocol,
+    TypeVar,
+    cast,
+)
 
 import torch
 
@@ -51,7 +60,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
     Attributes:
         checkpoint: saves and loads the state of the model.
         exec_module: :class:`torch.nn.Module` used for execution.
-        mixed_precision: if not None, the autocast precision.
+        mixed_precision: the autocast precision; ``None`` disables autocast.
     """
 
     _name = repr_utils.DefaultName()
@@ -71,7 +80,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
-        device: torch.device | None = None,
+        device: torch.device | Literal['auto'] = 'auto',
         distribute: bool = True,
         mixed_precision: torch.dtype | None = None,
         name: str = '',
@@ -84,11 +93,13 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
 
         Args:
             module: :class:`torch.nn.Module` with type annotations.
-            checkpoint: class that saves the state and optionally the optimizer.
+            checkpoint: manages saving and loading of model weights.
+                Defaults to :class:`~drytorch.lib.checkpoints.LocalCheckpoint`.
             device: the device where to store the weights of the module.
-                Default uses the accelerator if available, cpu otherwise.
+                Default uses the available accelerator, or the CPU otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: if not None, the autocast precision.
+            mixed_precision: the autocast precision. Default disables
+                autocast.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
 
@@ -96,7 +107,7 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
             ValueError: if ``mixed_precision`` is not None, bfloat16 or float16.
         """
         super().__init__()
-        self._device = self._default_device() if device is None else device
+        self._device = _get_auto_device() if device == 'auto' else device
         self._compile = torch_compile
         self._distribute = distribute
         if mixed_precision not in (None, torch.float16, torch.bfloat16):
@@ -261,15 +272,6 @@ class Model(repr_utils.CreatedAtMixin, Generic[Input, Output]):
         return module
 
     @staticmethod
-    def _default_device() -> torch.device:
-        device = torch.accelerator.current_accelerator()
-        if device is not None and torch.accelerator.is_available():
-            index = torch.accelerator.current_device_index()
-            return torch.device(device.type, index)
-
-        return torch.device('cpu')
-
-    @staticmethod
     def _validate_module(
         module: ModuleProtocol[Any, Any],
     ) -> torch.nn.Module:
@@ -299,7 +301,7 @@ class AveragedModel(Model[Input, Output], abc.ABC):
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
-        device: torch.device | None = None,
+        device: torch.device | Literal['auto'] = 'auto',
         distribute: bool = True,
         mixed_precision: torch.dtype | None = None,
         name: str = '',
@@ -309,11 +311,13 @@ class AveragedModel(Model[Input, Output], abc.ABC):
 
         Args:
             module: :class:`torch.nn.Module` with type annotations.
-            checkpoint: class that saves the state and optionally the optimizer.
+            checkpoint: manages saving and loading of model weights.
+                Defaults to :class:`~drytorch.lib.checkpoints.LocalCheckpoint`.
             device: the device where to store the weights of the module.
-                Default uses cuda when available, cpu otherwise.
+                Default uses the available accelerator, or the CPU otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: if not None, the autocast precision.
+            mixed_precision: the autocast precision. Default disables
+                autocast.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
 
@@ -395,7 +399,7 @@ class SWAModel(AveragedModel[Input, Output]):
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
-        device: torch.device | None = None,
+        device: torch.device | Literal['auto'] = 'auto',
         distribute: bool = True,
         mixed_precision: torch.dtype | None = None,
         name: str = '',
@@ -406,11 +410,13 @@ class SWAModel(AveragedModel[Input, Output]):
 
         Args:
             module: :class:`torch.nn.Module` with type annotations.
-            checkpoint: class that saves the state and optionally the optimizer.
+            checkpoint: manages saving and loading of model weights.
+                Defaults to :class:`~drytorch.lib.checkpoints.LocalCheckpoint`.
             device: the device where to store the weights of the module.
-                Default uses cuda when available, cpu otherwise.
+                Default uses the available accelerator, or the CPU otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: if not None, the autocast precision.
+            mixed_precision: the autocast precision. Default disables
+                autocast.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
             start_epoch: the epoch at which to start averaging.
@@ -468,7 +474,7 @@ class EMAModel(AveragedModel[Input, Output]):
         /,
         *,
         checkpoint: p.CheckpointProtocol | None = None,
-        device: torch.device | None = None,
+        device: torch.device | Literal['auto'] = 'auto',
         distribute: bool = True,
         mixed_precision: torch.dtype | None = None,
         name: str = '',
@@ -479,11 +485,13 @@ class EMAModel(AveragedModel[Input, Output]):
 
         Args:
             module: :class:`torch.nn.Module` with type annotations.
-            checkpoint: class that saves the state and optionally the optimizer.
+            checkpoint: manages saving and loading of model weights.
+                Defaults to :class:`~drytorch.lib.checkpoints.LocalCheckpoint`.
             device: the device where to store the weights of the module.
-                Default uses cuda when available, cpu otherwise.
+                Default uses the available accelerator, or the CPU otherwise.
             distribute: whether to wrap the module for ddp training.
-            mixed_precision: if not None, the autocast precision.
+            mixed_precision: the autocast precision. Default disables
+                autocast.
             name: the name of the model. Default uses the class name.
             torch_compile: whether to compile the module with torch.compile.
             decay: the exponential decay rate for the moving average.
@@ -511,3 +519,12 @@ class EMAModel(AveragedModel[Input, Output]):
     @override
     def _get_multi_avg_fn(self) -> _MultiAvgFn:
         return torch.optim.swa_utils.get_ema_multi_avg_fn(decay=self.decay)
+
+
+def _get_auto_device() -> torch.device:
+    device = torch.accelerator.current_accelerator()
+    if device is not None and torch.accelerator.is_available():
+        index = torch.accelerator.current_device_index()
+        return torch.device(device.type, index)
+
+    return torch.device('cpu')

@@ -5,7 +5,7 @@ import torch
 import pytest
 
 from drytorch.core import log_events
-from drytorch.lib.models import EMAModel, Model, SWAModel
+from drytorch.lib.models import EMAModel, Model, SWAModel, _get_auto_device
 from tests.simple_classes import MLP, TorchData, TorchTuple
 
 
@@ -54,8 +54,8 @@ class TestModel:
             device_type='cpu', dtype=torch.bfloat16, enabled=True
         )
 
-    def test_default_device_without_available_accelerator(self, mocker) -> None:
-        """Test the default device is the CPU without an accelerator."""
+    def test_auto_device_without_available_accelerator(self, mocker) -> None:
+        """Test the automatic device is the CPU without an accelerator."""
         mocker.patch(
             'torch.accelerator.current_accelerator',
             return_value=torch.device('cuda'),
@@ -256,3 +256,17 @@ class TestEMAModel:
             model(inputs)
 
         compiled_average.assert_called_once_with(inputs)
+
+
+def test_auto_device_with_accelerator(mocker) -> None:
+    """Test the current accelerator is selected with its index."""
+    mocker.patch(
+        'torch.accelerator.current_accelerator',
+        return_value=torch.device('cuda'),
+    )
+    mocker.patch('torch.accelerator.is_available', return_value=True)
+    mocker.patch('torch.accelerator.current_device_index', return_value=1)
+
+    device = _get_auto_device()
+
+    assert device == torch.device('cuda', 1)

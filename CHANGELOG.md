@@ -1,6 +1,7 @@
 # [0.1.0] - 01-10-2026
 
 ## [BREAKING CHANGES]
+- the `device` argument of `Model` and its subclasses defaults to `'auto'` instead of `None`
 - `take_from_dataset` returns the indices of the samples it takes, then the batch, so that random samples can be told apart
 - `mixed_precision` takes the autocast precision (`torch.float16` or `torch.bfloat16`) or `None` instead of a boolean; the gradient scaler is enabled only for `torch.float16`
 - renamed `drytorch.lib.aggregators` to `drytorch.lib.accumulators`
