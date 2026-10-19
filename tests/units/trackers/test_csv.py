@@ -61,6 +61,17 @@ class TestCsvDumper:
 
         assert csv_path.exists()
 
+    def test_unrecorded_run_writes_no_file(
+        self, tracker, start_experiment_mock_event, epoch_metrics_mock_event
+    ) -> None:
+        """Test an unrecorded run writes no CSV file."""
+        start_experiment_mock_event.record = False
+        tracker.notify(start_experiment_mock_event)
+
+        tracker.notify(epoch_metrics_mock_event)
+
+        assert not (tracker.par_dir / tracker.folder_name).exists()
+
     def test_resume_with_header_mismatch(
         self,
         tracker_started_with_resume,

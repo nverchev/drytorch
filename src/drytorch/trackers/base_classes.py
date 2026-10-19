@@ -54,6 +54,7 @@ class Dumper(tracking.Tracker):
     user_par_dir: pathlib.Path | None
     _exp_name: str | None
     _par_dir: pathlib.Path | None
+    _record: bool
     _run_id: str | None
     _stashed_state: dict[str, tuple[pathlib.Path, str, str]]
 
@@ -68,6 +69,7 @@ class Dumper(tracking.Tracker):
         self.user_par_dir = par_dir
         self._exp_name = None
         self._par_dir = None
+        self._record = True
         self._run_id = None
         self._stashed_state = {}
         return
@@ -101,6 +103,11 @@ class Dumper(tracking.Tracker):
         return path
 
     @property
+    def record(self) -> bool:
+        """Whether the current run is recorded, so that the tracker writes."""
+        return self._record
+
+    @property
     def run_id(self) -> str:
         """Return the identifier for the experiment run.
 
@@ -121,8 +128,11 @@ class Dumper(tracking.Tracker):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         self._par_dir = event.par_dir
         self._exp_name = event.exp_name
+        self._record = event.record
         self._run_id = event.run_id
-        self.par_dir.mkdir(exist_ok=True, parents=True)
+        if self.record:
+            self.par_dir.mkdir(exist_ok=True, parents=True)
+
         return super().notify(event)
 
     @notify.register
@@ -142,6 +152,7 @@ class Dumper(tracking.Tracker):
         self._par_dir, self._exp_name, self._run_id = self._stashed_state.pop(
             event.run_id
         )
+        self._record = event.record
         return super().notify(event)
 
     @override
@@ -149,6 +160,7 @@ class Dumper(tracking.Tracker):
         """Remove experimental data from the tracker."""
         self._par_dir = None
         self._exp_name = None
+        self._record = True
         self._run_id = None
         return super().clean_up()
 
@@ -371,8 +383,12 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             ValueError: if no metric is left to plot.
 
         Side Effects:
-            Writes one file for each metric in a folder named after the model.
+            Writes one file for each metric in a folder named after the model,
+            if the run is recorded.
         """
+        if not self.record:
+            return
+
         figures = self.create_figures(
             model_name,
             metric_names=metric_names,

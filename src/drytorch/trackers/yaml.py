@@ -94,6 +94,9 @@ class MetadataDumper(base_classes.Dumper):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
+        if not self.record:
+            return
+
         run_dir = self._get_run_dir()
         repr_config = repr_utils.recursive_repr(event.config, depth=1000)
         model_with_ts = 'config_' + event.run_ts.strftime(TS_FMT) + '.yaml'
@@ -102,6 +105,9 @@ class MetadataDumper(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
+        if not self.record:
+            return super().notify(event)
+
         run_dir = self._get_run_dir()
         name_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
         file = self._file_path(run_dir, name_with_ts, 'architecture')
@@ -115,6 +121,9 @@ class MetadataDumper(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.RunnerRegistrationEvent) -> None:
+        if not self.record:
+            return super().notify(event)
+
         run_dir = self._get_run_dir()
         model_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
         runner_with_ts = (

@@ -69,6 +69,7 @@ class StartExperimentEvent(Event):
         resumed: this run was resumed.
         par_dir: the parent directory for the experiment.
         tags: descriptors for the experiment's variation (e.g., "lr=0.01").
+        record: whether trackers should record the run.
     """
 
     config: Any
@@ -78,6 +79,7 @@ class StartExperimentEvent(Event):
     resumed: bool = False
     par_dir: pathlib.Path = pathlib.Path()
     tags: Sequence[str] = dataclasses.field(default_factory=tuple)
+    record: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -378,10 +380,12 @@ class ContinueExperimentEvent(Event):
     Attributes:
         exp_name: the name of the experiment.
         run_id: identifier of the run.
+        record: whether trackers should record the run.
     """
 
     exp_name: str
     run_id: str
+    record: bool = True
 
 
 @dataclasses.dataclass(frozen=True)

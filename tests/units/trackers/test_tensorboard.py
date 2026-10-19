@@ -52,6 +52,17 @@ class TestTensorBoard:
         tracker.close()
         return
 
+    def test_unrecorded_run_opens_no_writer(
+        self, tracker, start_experiment_mock_event, epoch_metrics_mock_event
+    ) -> None:
+        """Test an unrecorded run opens no writer and logs no metric."""
+        start_experiment_mock_event.record = False
+        tracker.notify(start_experiment_mock_event)
+
+        tracker.notify(epoch_metrics_mock_event)
+
+        self.summary_writer_mock.assert_not_called()
+
     def test_clean_up_retains_server(self, tracker_started) -> None:
         """Test clean_up closes writer but retains server process."""
         process = tracker_started._process

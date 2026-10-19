@@ -37,6 +37,16 @@ class TestHydraLink:
         """Set up the instance with copy_hydra=False."""
         return HydraLink(par_dir=tmp_path, copy_hydra=False)
 
+    def test_unrecorded_run_links_nothing(
+        self, tracker, start_experiment_mock_event, tmp_path
+    ) -> None:
+        """Test an unrecorded run creates no link to the Hydra folder."""
+        start_experiment_mock_event.record = False
+
+        tracker.notify(start_experiment_mock_event)
+
+        assert not any(path.is_symlink() for path in tmp_path.rglob('*'))
+
     def test_cleanup_no_copy(
         self, tracker_no_copy, start_experiment_mock_event
     ) -> None:

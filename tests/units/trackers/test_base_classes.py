@@ -186,6 +186,41 @@ class TestDumper:
 
         assert tracker._run_id == start_experiment_mock_event.run_id
 
+    def test_unrecorded_run_is_not_recorded(
+        self, tracker, start_experiment_mock_event
+    ) -> None:
+        """Test the dumper knows that an unrecorded run is not recorded."""
+        start_experiment_mock_event.record = False
+
+        tracker.notify(start_experiment_mock_event)
+
+        assert tracker.record is False
+
+    def test_continued_unrecorded_run_stays_unrecorded(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        pause_experiment_mock_event,
+        stop_experiment_mock_event,
+        continue_experiment_mock_event,
+    ) -> None:
+        """Test a recorded run in between keeps a paused one unrecorded."""
+        start_experiment_mock_event.record = False
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(pause_experiment_mock_event)
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.run_id = 'run2'
+        start_2.record = True
+        tracker.notify(start_2)
+        stop_2 = copy.copy(stop_experiment_mock_event)
+        stop_2.run_id = 'run2'
+        tracker.notify(stop_2)
+        continue_experiment_mock_event.record = False
+
+        tracker.notify(continue_experiment_mock_event)
+
+        assert tracker.record is False
+
     def test_continue_without_stash_raises_error(
         self, tracker, continue_experiment_mock_event
     ) -> None:

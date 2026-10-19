@@ -82,6 +82,9 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
+        if not self.record:
+            return super().notify(event)
+
         run_dir = self._get_run_dir()
         file_address = self._file_path(
             run_dir, event.model_name, event.source_name

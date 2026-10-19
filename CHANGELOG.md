@@ -87,6 +87,7 @@
 - added `DataLoader.fold`, which splits a loader into the training and validation loaders of a k-fold cross-validation
 
 ## Changed
+- unrecorded runs (`record=False`) write nothing: `StartExperimentEvent` and `ContinueExperimentEvent` carry `record`, and the dumpers (`Dumper.record`) and `SQLConnection` skip their files, links, writers and database rows, while the logging trackers still report the run
 - `Source` is generic in any objective, not only in a loss
 - `Test` and `TestProtocol` derive from `Evaluation` and `SourceProtocol` instead of from the validation role
 - renamed `EventDispatcher.clean_up` to `close_all`, which closes its trackers, unlike `Tracker.clean_up`

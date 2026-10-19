@@ -92,6 +92,18 @@ class TestSQLConnection:
         tracker.notify(stop_experiment_mock_event)
         return
 
+    def test_unrecorded_run_stores_nothing(
+        self, tracker, start_experiment_mock_event, epoch_metrics_mock_event
+    ) -> None:
+        """Test an unrecorded run stores no run and no metric."""
+        start_experiment_mock_event.record = False
+        tracker.notify(start_experiment_mock_event)
+
+        tracker.notify(epoch_metrics_mock_event)
+
+        self.Run.assert_not_called()
+        self.Log.assert_not_called()
+
     def test_cleanup(self, tracker_started) -> None:
         """Test correct cleaning up."""
         tracker_started.clean_up()

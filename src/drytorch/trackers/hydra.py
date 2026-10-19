@@ -88,6 +88,9 @@ class HydraLink(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         # call super method to create par_dir first
         super().notify(event)
+        if not self.record:
+            return
+
         base_id = event.run_ts.strftime(TS_FMT)  # hydra dir is per launch
         counter = 0
         while True:

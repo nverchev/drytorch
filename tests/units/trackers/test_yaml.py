@@ -51,6 +51,20 @@ class TestMetadataDumper:
         """Test class attributes' existence."""
         assert isinstance(MetadataDumper.folder_name, str)
 
+    def test_unrecorded_run_dumps_nothing(
+        self,
+        tracker,
+        start_experiment_mock_event,
+        model_registration_mock_event,
+    ) -> None:
+        """Test an unrecorded run dumps no metadata."""
+        start_experiment_mock_event.record = False
+        tracker.notify(start_experiment_mock_event)
+
+        tracker.notify(model_registration_mock_event)
+
+        self.mock_dump.assert_not_called()
+
     def test_notify_configuration(self, tracker_started) -> None:
         """Test notification of a model registration event."""
         self.mock_dump.assert_called_once()

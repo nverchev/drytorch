@@ -210,6 +210,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     engine: sqlalchemy.Engine
     session_factory: orm.sessionmaker[orm.Session]
+    _record: bool
     _run: Run | None
     _sources: dict[str, Source]
     _sql_stashed_runs: dict[str, Run]
@@ -229,6 +230,7 @@ class SQLConnection(base_classes.MetricLoader):
         self.engine = engine or sqlalchemy.create_engine(self.default_url)
         reg.metadata.create_all(bind=self.engine)
         self.session_factory = orm.sessionmaker(bind=self.engine)
+        self._record = True
         self._run = None
         self._sources = {}
         self._sql_stashed_runs = {}
@@ -254,6 +256,10 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        self._record = event.record
+        if not self._record:
+            return super().notify(event)
+
         with self.session_factory() as session:
             experiment = (
                 session.query(Experiment)
@@ -279,6 +285,9 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.RunnerRegistrationEvent) -> None:
+        if not self._record:
+            return super().notify(event)
+
         with self.session_factory() as session:
             run = session.merge(self.run)
 
@@ -303,6 +312,9 @@ class SQLConnection(base_classes.MetricLoader):
         Raises:
             TrackerError: if the source has not been registered.
         """
+        if not self._record:
+            return super().notify(event)
+
         with self.session_factory() as session:
             if event.source_name not in self._sources:
                 msg = f'Source {event.source_name} has not been registered.'
@@ -333,6 +345,10 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        self._record = event.record
+        if not self._record:
+            return super().notify(event)
+
         if event.run_id not in self._sql_stashed_runs:
             raise exceptions.NoStashedStateError(self, event.run_id)
 
@@ -342,6 +358,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     @override
     def clean_up(self) -> None:
+        self._record = True
         self._run = None
         self._sources.clear()
         return super().clean_up()

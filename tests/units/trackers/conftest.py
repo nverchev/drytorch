@@ -37,6 +37,7 @@ def start_experiment_mock_event(
     mock.run_dir = tmp_path
     mock.resumed = False
     mock.tags = example_tags
+    mock.record = True
     return mock
 
 
@@ -265,6 +266,7 @@ def continue_experiment_mock_event(
     mock = mocker.create_autospec(log_events.ContinueExperimentEvent)
     mock.exp_name = example_exp_name
     mock.run_id = example_run_id
+    mock.record = True
     return mock
 
 

@@ -109,6 +109,9 @@ class TensorBoard(base_classes.Dumper):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
+        if not self.record:
+            return
+
         run_dir = self._get_run_dir()
         if self._start_server:
             self._start_tensorboard(self.par_dir / self.folder_name)
@@ -125,6 +128,9 @@ class TensorBoard(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
+        if not self.record:
+            return super().notify(event)
+
         for name, value in event.metrics.items():
             full_name = f'{event.model_name}/{event.source_name}-{name}'
             self.writer.add_scalar(full_name, value, global_step=event.epoch)
@@ -142,6 +148,9 @@ class TensorBoard(base_classes.Dumper):
 
     @notify.register
     def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if not event.record:
+            return super().notify(event)
+
         if event.run_id not in self._stashed_writers:
             raise exceptions.NoStashedStateError(self, event.run_id)
 

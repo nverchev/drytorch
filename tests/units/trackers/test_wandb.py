@@ -45,6 +45,17 @@ class TestWandb:
         tracker.notify(stop_experiment_mock_event)
         return
 
+    def test_unrecorded_run_starts_no_wandb_run(
+        self, tracker, start_experiment_mock_event, epoch_metrics_mock_event
+    ) -> None:
+        """Test an unrecorded run starts no W&B run and logs no metric."""
+        start_experiment_mock_event.record = False
+        tracker.notify(start_experiment_mock_event)
+
+        tracker.notify(epoch_metrics_mock_event)
+
+        self.init_mock.assert_not_called()
+
     def test_cleanup(self, tracker_started) -> None:
         """Test correct cleaning up."""
         tracker_started.clean_up()

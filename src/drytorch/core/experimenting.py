@@ -289,7 +289,8 @@ class Experiment(Generic[_T_co]):
         """Convenience constructor for a Run using this experiment.
 
         Args:
-            record: record the run in the registry.
+            record: record the run in the registry. An unrecorded run also
+                skips the persistent trackers, which keep files or databases.
             resume: resume the selected run if run_id is set, else the last run.
             run_id: identifier of the run; defaults to timestamp.
 
@@ -570,7 +571,9 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             log_events.Event.set_auto_publish(lambda _: None)
 
         if continuing:
-            log_events.ContinueExperimentEvent(self._experiment.name, self._id)
+            log_events.ContinueExperimentEvent(
+                self._experiment.name, self._id, record=self.record
+            )
         else:
             log_events.StartExperimentEvent(
                 self._experiment.config,
@@ -580,6 +583,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
                 self.resumed,
                 self._experiment.par_dir,
                 self._experiment.tags,
+                self.record,
             )
         return
 
