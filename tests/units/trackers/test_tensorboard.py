@@ -25,8 +25,6 @@ class TestTensorBoard:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Setup test environment."""
-        self.mock_popen = mocker.patch('subprocess.Popen')
-        self.mock_popen.return_value.poll.return_value = None
         self.summary_writer_mock = mocker.patch(
             'torch.utils.tensorboard.SummaryWriter',
         )
@@ -62,16 +60,6 @@ class TestTensorBoard:
         tracker.notify(epoch_metrics_mock_event)
 
         self.summary_writer_mock.assert_not_called()
-
-    def test_clean_up_retains_server(self, tracker_started) -> None:
-        """Test clean_up closes writer but retains server process."""
-        process = tracker_started._process
-        tracker_started.clean_up()
-
-        assert process is not None
-        assert tracker_started._writer is None
-        assert tracker_started._process is process
-        process.terminate.assert_not_called()
 
     def test_notify_stop_and_start_experiment(
         self,
@@ -110,16 +98,6 @@ class TestTensorBoard:
         """Test no logging occurs before experiment start."""
         with pytest.raises(exceptions.AccessOutsideScopeError):
             tracker.notify(epoch_metrics_mock_event)
-
-    def test_tensorboard_launch_fails_on_port_conflict(self, mocker) -> None:
-        """Test error is raised if no free ports are available."""
-        port_available_mock = mocker.patch.object(
-            TensorBoard, '_port_available'
-        )
-        port_available_mock.return_value = False
-
-        with pytest.raises(exceptions.TrackerError):
-            TensorBoard._find_free_port(start=6006, max_tries=100)
 
     def test_pause_stashes_and_continue_restores(
         self,
@@ -185,98 +163,40 @@ class TestTensorBoard:
         writer.close.assert_called_once()
         assert tracker._stashed_writers == {}
 
-    def test_server_address_is_logged(
+    def test_command_to_read_the_results_is_logged(
         self,
         mocker,
         tracker,
         start_experiment_mock_event,
         tmp_path,
     ) -> None:
-        """Test the title and address of the server are logged."""
+        """Test the command serving the results is logged when a run starts."""
+        mocker.patch.object(TensorBoard, '_is_notebook', return_value=False)
         mock_log = mocker.patch.object(tensorboard_module._logger, 'log')
 
         tracker.notify(start_experiment_mock_event)
 
         mock_log.assert_called_once_with(
             tensorboard_module.SERVER_LOG_LEVEL,
-            'TensorBoard (%s): http://localhost:%d',
+            'TensorBoard (%s):\ntensorboard --logdir %s',
             tmp_path.name,
-            tracker._port,
+            (tmp_path / TensorBoard.folder_name).resolve(),
         )
 
-    def test_server_is_titled_after_the_experiment_folder(
+    def test_notebook_shows_the_results_inline(
         self,
+        mocker,
         tracker,
         start_experiment_mock_event,
         tmp_path,
     ) -> None:
-        """Test the browser window of the server shows the experiment folder."""
+        """Test a notebook shows TensorBoard inline instead of the command."""
+        mocker.patch.object(TensorBoard, '_is_notebook', return_value=True)
+        mock_start = mocker.patch.object(
+            tensorboard_module.tb_notebook, 'start'
+        )
+
         tracker.notify(start_experiment_mock_event)
 
-        args = self.mock_popen.call_args.args[0]
-        assert args[args.index('--window_title') + 1] == tmp_path.name
-
-    def test_tensorboard_launch_fails_on_os_error(
-        self,
-        tracker,
-        start_experiment_mock_event,
-    ) -> None:
-        """Test TrackerError is raised when Popen fails with OSError."""
-        self.mock_popen.side_effect = PermissionError('Permission denied')
-
-        with pytest.raises(
-            exceptions.TrackerError, match='TensorBoard failed to start'
-        ):
-            tracker.notify(start_experiment_mock_event)
-
-    def test_server_reused_across_runs_same_directory(
-        self,
-        tracker,
-        start_experiment_mock_event,
-        stop_experiment_mock_event,
-    ) -> None:
-        """Test server process is reused across runs serving the same logdir."""
-        tracker.notify(start_experiment_mock_event)
-        initial_process = tracker._process
-        tracker.notify(stop_experiment_mock_event)
-        start_2 = copy.copy(start_experiment_mock_event)
-        start_2.run_id = 'run2'
-        tracker.notify(start_2)
-
-        assert tracker._process is initial_process
-        assert self.mock_popen.call_count == 1
-
-    def test_server_terminated_when_logdir_changes(
-        self,
-        start_experiment_mock_event,
-        tmp_path,
-    ) -> None:
-        """Test server process is terminated when logdir changes."""
-        tracker = TensorBoard(par_dir=None)
-        start_experiment_mock_event.par_dir = tmp_path / 'dir1'
-        tracker.notify(start_experiment_mock_event)
-        initial_process = tracker._process
-        start_diff_dir = copy.copy(start_experiment_mock_event)
-        start_diff_dir.par_dir = tmp_path / 'dir2'
-        start_diff_dir.run_id = 'diff_run'
-        tracker.notify(start_diff_dir)
-
-        assert initial_process is not None
-        initial_process.terminate.assert_called_once()  # type: ignore[attr-defined]
-        initial_process.wait.assert_called_once()  # type: ignore[attr-defined]
-        assert self.mock_popen.call_count == 2
-
-    def test_close_terminates_server(
-        self,
-        tracker,
-        start_experiment_mock_event,
-    ) -> None:
-        """Test close terminates running server process."""
-        tracker.notify(start_experiment_mock_event)
-        process = tracker._process
-        tracker.close()
-
-        assert process is not None
-        process.terminate.assert_called_once()  # type: ignore[attr-defined]
-        process.wait.assert_called_once()  # type: ignore[attr-defined]
-        assert tracker._process is None
+        logdir = tmp_path / TensorBoard.folder_name
+        mock_start.assert_called_once_with(f'--logdir {logdir}')

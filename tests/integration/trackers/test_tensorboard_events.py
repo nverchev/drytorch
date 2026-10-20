@@ -24,8 +24,8 @@ class TestTensorBoardPauseContinue:
 
     @pytest.fixture
     def tracker(self, tmp_path: pathlib.Path) -> TensorBoard:
-        """Create a TensorBoard instance with server disabled."""
-        return TensorBoard(par_dir=tmp_path, start_server=False)
+        """Create a TensorBoard instance."""
+        return TensorBoard(par_dir=tmp_path)
 
     def test_interleaved_pause_continue(
         self,

@@ -1,4 +1,4 @@
-# [0.1.0] - 01-10-2026
+# [0.1.0] - 20-10-2026
 
 ## [BREAKING CHANGES]
 - the `device` argument of `Model` and its subclasses defaults to `'auto'` instead of `None`
@@ -51,7 +51,7 @@
 - plotters are dumpers: `BasePlotter.save_figures` saves the figure of each metric in the folder of the current run, as PNG (`MatPlotter`) or HTML (`PlotlyPlotter`)
 - `MatPlotter.plot_grid` renders the metrics of a model as subplots of one figure
 - `Wandb.log_at_epoch` logs the values of other events against the epoch of a model, on the axis of its metrics
-- `TensorBoard` titles its server after the folder of the experiment and logs the title and address at the new level `SERVER_LOG_LEVEL` (26)
+- `TensorBoard` logs the command that serves the results, titled after the folder of the experiment, at the new level `SERVER_LOG_LEVEL` (26)
 - added `SyncedObjectiveProtocol` and `SyncedLossProtocol` in `core.protocols`; `join` and the two wrappers state that their result synchronizes
 - added the tutorials `data.md`, `models.md`, `training.md`, `learning.md`, `custom_events.md`, and `distributed_training.md`
 - the `objectives.md`, `experiments_and_runs.md`, and `trackers.md` tutorials cover custom accumulators, run utilities and logging formatters
@@ -132,6 +132,7 @@
 - the `matplotlib` optional dependency requires version 3.11.0 or later
 
 ## Removed
+- the TensorBoard server, with the `start_server` argument and the `base_port` and `instance_count` attributes of `TensorBoard`: outside notebooks, the tracker logs the command that serves the results
 - `Diagnostic` and `EvaluationMixin`; use `Evaluation`
 - ComposedScheduler, and parameters and base_scheduler_name from the schedulers
 - removed the public `CreatedAtProtocol`, replaced by the private `_CreatedAtProtocol` in `core/tracking`
@@ -154,9 +155,7 @@
 - `FolderAlreadyExistsError` shows its message, which the empty template of the base class discarded
 - `clone_experiment_data`, `rename_experiment_data` and `delete_experiment_data` raise `ExperimentNotFoundError` when no folder holds the experiment, instead of doing nothing
 - in distributed runs, only the main process checks whether a new run id is already recorded; the other processes join its run instead of raising `RunAlreadyRecordedError` when the main process recorded it first
-- removed the mention of a browser from the `TensorBoard` docstrings: the tracker no longer opens one
-- trackers are closed when their experiment is released, and at the latest when the process ends, so the TensorBoard server stops, stashed wandb runs finish and the SQL engine is disposed
-- the TensorBoard server no longer holds the output of the process that started it, which kept shells and CI jobs waiting
+- trackers are closed when their experiment is released, and at the latest when the process ends, so stashed wandb runs finish and the SQL engine is disposed
 - the wrapper from `from_torchmetrics` synchronizes its metrics across processes, instead of leaving them unsynchronized in distributed training
 - `from_torcheval` accepts a metric whatever type it computes, instead of only one computing both a tensor and a dictionary
 - `LearningSchema.adam`, `adam_w`, `r_adam` and `sgd` accept learning rates by submodule, as the class and the trainer already did
@@ -192,8 +191,6 @@
 - `DryTorchFormatter` formats messages via `formatMessage()` instead of mutating `_style._fmt`
 - `TqdmLogger` closes active progress bars on pause and replaces incomplete epoch bars cleanly
 - `TqdmLogger.clean_up()` invokes `super().clean_up()`
-- `TensorBoard` catches `OSError` on server launch failure to raise `TrackerError`
-- `TensorBoard` reuses running server across runs for the same directory and terminates it on close or directory change
 - `TensorBoard` avoids flushing on every metric event so `SummaryWriter` honors `max_queue_size` and `flush_secs`
 - `Wandb` relies on base tracker cleanup on stop and removes redundant scope guard in `MetricEvent`
 - `Wandb` stashes `_defined_metrics` across pause and continue to prevent redundant metric definitions
