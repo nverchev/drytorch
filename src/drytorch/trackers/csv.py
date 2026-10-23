@@ -77,8 +77,9 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        super().notify(event)
         self._resume_run = event.resumed
-        return super().notify(event)
+        return
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:

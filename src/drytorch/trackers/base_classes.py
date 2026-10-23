@@ -126,6 +126,7 @@ class Dumper(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        super().notify(event)
         self._par_dir = event.par_dir
         self._exp_name = event.exp_name
         self._record = event.record
@@ -133,7 +134,7 @@ class Dumper(tracking.Tracker):
         if self.record:
             self.par_dir.mkdir(exist_ok=True, parents=True)
 
-        return super().notify(event)
+        return
 
     @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:

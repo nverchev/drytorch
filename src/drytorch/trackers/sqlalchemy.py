@@ -256,9 +256,10 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        super().notify(event)
         self._record = event.record
         if not self._record:
-            return super().notify(event)
+            return
 
         with self.session_factory() as session:
             experiment = (
@@ -281,7 +282,7 @@ class SQLConnection(base_classes.MetricLoader):
             session.add(self._run)
             session.commit()
 
-        return super().notify(event)
+        return
 
     @notify.register
     def _(self, event: log_events.RunnerRegistrationEvent) -> None:

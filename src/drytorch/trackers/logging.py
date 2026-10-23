@@ -77,11 +77,12 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        super().notify(event)
         verb = 'Resuming' if event.resumed else 'Starting'
         msg = 'Experiment: %(name)s - %(verb)s run: %(id)s'
         args = {'name': event.exp_name, 'verb': verb, 'id': event.run_id}
         logger.log(INFO_LEVELS.experiment, msg, args)
-        return super().notify(event)
+        return
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
