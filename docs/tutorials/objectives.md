@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.19.1
+    jupytext_version: 1.19.6
 kernelspec:
   display_name: .venv
   language: python
@@ -19,132 +19,77 @@ kernelspec:
 DRYTorch helps you **standardize and document** your model's metrics and loss.
 
 ## Design
-The modular design extends to metrics and losses. DRYTorch provides a common interface for both, allowing you to easily switch between different libraries.
+The modular design extends to metrics and losses. DRYTorch provides a common
+interface for both, allowing you to easily switch between different libraries.
 
 ### Terminology
-
-An **objective** is a criterion for model performance evaluation. We distinguish between two types:
-
+An **objective** is a criterion for model performance evaluation, categorized
+into two types:
 * **Metric:** Assesses model performance as a proxy for the overall goal.
 * **Loss:** Optimizes the model parameters to improve metric assessments.
 
 DRYTorch allows using losses as metrics, but not vice versa.
 
 ### Protocols
-
-DRYTorch defines an `ObjectiveProtocol`, used by classes that implement the validation and testing of a model, and a `LossProtocol`, used for its training.
+DRYTorch defines an [`ObjectiveProtocol`](#drytorch.core.protocols.ObjectiveProtocol), used by classes that implement the
+validation and testing of a model, and a [`LossProtocol`](#drytorch.core.protocols.LossProtocol), used for its training.
 
 ```{code-cell} ipython3
 :tags: [skip-execution]
 
-! uv pip install drytorch
+from __future__ import annotations
+
+
+! uv pip install drytorch torchmetrics torcheval
 ```
-
-## Compatibility with Existing Libraries
-
-DRYTorch **does not re-implement** common metrics or losses. Instead, it defines **protocols** to ensure **full compatibility** with classes from popular existing libraries.
-
-
-### For Validation and Testing
-
-The `ObjectiveProtocol` is compatible with `Metric` classes from:
-* [**TorchMetrics**](https://lightning.ai/docs/torchmetrics/stable/)
-* [**TorchEval**](https://docs.pytorch.org/torcheval/stable/)
-
-You can use instances of these third-party metric classes **directly** when defining a DRYTorch validation or test step.
-
-### For Training
-
-The `LossProtocol` is designed to accept any class that meets its requirements, including some metrics. You can therefore use differentiable metrics from libraries like **TorchMetrics** directly when building a DRYTorch training class.
-
-
-**TorchMetrics** also offers a `CompositionalMetric`, with support for algebra operations, which inspired part of the DRYTorch own implementation. To make it compatible with the framework and better documentation, you can use
-`from_torchmetrics`.
 
 ```{code-cell} ipython3
 import torch
-import torchmetrics
 
-from torcheval import metrics as eval_metrics
+from drytorch import Experiment
 
-from drytorch.core import protocols as p
 
+experiment = Experiment(None, name='Objectives', par_dir='experiments')
+run = experiment.create_run()
+run.start()
 
 tensor_a = torch.ones(1, 1, dtype=torch.float)
 tensor_b = 3 * torch.ones(1, 1, dtype=torch.float)
-torch_metric = torchmetrics.MeanSquaredError()
-eval_metric = eval_metrics.MeanSquaredError()
-
-
-def is_valid_objective(
-    metric: p.ObjectiveProtocol[torch.Tensor, torch.Tensor],
-) -> bool:
-    """Test metric follows the Objective protocol."""
-    return isinstance(metric, p.ObjectiveProtocol)
-
-
-torch_metric.update(tensor_a, tensor_b)
-eval_metric.update(tensor_a, tensor_b)
-
-if not torch.isclose(torch_metric.compute(), eval_metric.compute()):
-    raise AssertionError('Metrics values should match.')
-
-if not (is_valid_objective(eval_metric) and is_valid_objective(torch_metric)):
-    raise AssertionError('These objects should follow the ObjectiveProtocol.')
 ```
 
-```{code-cell} ipython3
-def is_valid_loss(
-    metric: p.LossProtocol[torch.Tensor, torch.Tensor],
-) -> bool:
-    """Test metric follows the Loss protocol."""
-    return isinstance(metric, p.LossProtocol)
-
-
-if not is_valid_loss(torch_metric):
-    raise AssertionError('This object should also follow the LossProtocol.')
-```
-
-```{code-cell} ipython3
-from drytorch.contrib.torchmetrics import from_torchmetrics
-
-
-new_metric = 1 + torch_metric
-imported_metric = from_torchmetrics(new_metric)
-imported_metric.update(tensor_a, tensor_b)
-expected_metrics_from_torchmetrics = {
-    'Combined Loss': torch.tensor(5.0),
-    'MeanSquaredError': torch.tensor(4.0),
-}
-if not imported_metric.compute() == expected_metrics_from_torchmetrics:
-    raise AssertionError('Metrics values should be as expected.')
-```
-
-## DRYTorch implementation
-DRYTorch objective classes act as wrappers around **user-defined** metric and loss callables.
-
-
-These callables accept model outputs and targets and return one value per sample: a tensor of shape `(B,)`, where `B` is the batch size. The objective averages over all samples, so a batch counts as many times as it has samples. A callable can also return a scalar for the whole batch, but then every batch counts the same, including a smaller last batch. The abstract `Objective` class handles **calling the logic, documenting, and correctly aggregating** the results across batches.
-
+## Library classes
+DRYTorch objective classes act as wrappers around metric and loss callables.
+These callables accept model outputs and targets and return one value per
+sample: a tensor of shape `(B,)`, where `B` is the batch size. The objective
+averages over all samples, so a batch counts as many times as it has samples.
 
 ### The Metric and MetricCollection classes
-The `Metric` class is to define a single metric. You can document it by
-giving it an explicit name and specifies whether it is better when higher or
-lower. You can also concatenate different Metric instances with compatible signatures into a `MetricCollection` instance, or creating one directly from a dictionary of named metric functions.
+The [`Metric`](#drytorch.lib.objectives.Metric) class defines a single metric. You can document it by giving it an
+explicit name and specifying whether higher or lower values are better. You can
+also combine different [`Metric`](#drytorch.lib.objectives.Metric) instances with compatible signatures into a
+[`MetricCollection`](#drytorch.lib.objectives.MetricCollection) using the pipe operator (`|`).
 
 ```{code-cell} ipython3
-from torch.nn.functional import mse_loss as mse_loss_fn  # returns scalar value
-
 from drytorch.lib.objectives import Metric
 
 
 def mae_loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    """Returns batched Mean Absolute Error (MAE) values."""
+    """Return batched Mean Absolute Error (MAE) values.
+
+    Args:
+        outputs: predicted model outputs.
+        targets: ground truth targets.
+
+    Returns:
+        MAE values per sample.
+    """
     return torch.abs(outputs - targets).flatten(1).mean(1)
 
 
-mse_metric = Metric(mse_loss_fn, name='MSE', higher_is_better=False)
-mae_metric = Metric(mae_loss_fn, 'MAE', higher_is_better=False)
+mse_metric = Metric(
+    torch.nn.functional.mse_loss, name='MSE', higher_is_better=False
+)
+mae_metric = Metric(mae_loss_fn, name='MAE', higher_is_better=False)
 metric_collection = mse_metric | mae_metric
 metric_collection.update(tensor_a, tensor_b)
 metric_collection.compute()
@@ -156,11 +101,229 @@ if not metric_collection.compute() == expected_metric_collection:
     raise AssertionError('Metrics values should be as expected.')
 ```
 
-### Define a Custom Metric class
+### LossWithMetrics and Loss
+[`LossWithMetrics`](#drytorch.lib.objectives.LossWithMetrics) is a collection of metrics with a criterion that extracts the
+loss value from them.
 
-You can subclass the abstract `AverageObjective` class by overriding the
-`calculate` method. For different aggregation strategies, subclass the `Objective` and override the `_get_accumulator_cls` method to return your own accumulator.
-In this example, we slightly reduce the calculation overhead to obtain the previous metrics.
+[`Loss`](#drytorch.lib.objectives.Loss) is a subclass equivalent to [`Metric`](#drytorch.lib.objectives.Metric): it accepts a single callable that
+is used both as the criterion for backpropagation and as a metric.
+
+Algebraic operations between a [`LossWithMetrics`](#drytorch.lib.objectives.LossWithMetrics) instance and a scalar
+or another [`LossWithMetrics`](#drytorch.lib.objectives.LossWithMetrics) instance create a new [`LossWithMetrics`](#drytorch.lib.objectives.LossWithMetrics). The new
+loss also evaluates its components as metrics, so you can track the performance
+of the single components that make up a composed loss. Its `formula` attribute
+documents the operations and component losses used.
+
+```{code-cell} ipython3
+from drytorch.lib.objectives import Loss
+
+
+mse_loss = Loss(torch.nn.functional.mse_loss, name='MSE')
+mae_loss = Loss(mae_loss_fn, name='MAE')
+composed_loss = mse_loss**2 + 0.5 * mae_loss
+composed_loss.update(tensor_a, tensor_b)
+expected_metrics_from_loss = {
+    'Combined Loss': torch.tensor(17.0),
+    'MSE': torch.tensor(4.0),
+    'MAE': torch.tensor(2.0),
+}
+if not composed_loss.compute() == expected_metrics_from_loss:
+    raise AssertionError('Metrics values should be as expected.')
+
+if composed_loss.formula != '[MSE]^2 + 0.5 x [MAE]':
+    raise AssertionError('Formula mismatch.')
+```
+
+### Joining objectives with join
+The [`join`](#drytorch.lib.objectives.join) function combines multiple objectives. If the first argument is a
+loss, [`join(loss, *metrics)`](#drytorch.lib.objectives.join) returns a loss that computes the metrics
+alongside the criterion; otherwise, [`join(*metrics)`](#drytorch.lib.objectives.join) returns a metric
+collection. In both cases, the original objectives do not change.
+
+Objectives that are not metric collections (such as third-party metrics) are
+wrapped in [`JoinedLoss`](#drytorch.lib.objectives.JoinedLoss) or [`JoinedMetrics`](#drytorch.lib.objectives.JoinedMetrics).
+
+```{code-cell} ipython3
+from drytorch.lib.objectives import Metric, join
+
+
+l1_metric = Metric(
+    lambda out, tgt: torch.abs(out - tgt).flatten(1).mean(1),
+    name='L1',
+    higher_is_better=False,
+)
+joined_loss = join(composed_loss, l1_metric)
+joined_loss.update(tensor_a, tensor_b)
+expected_joined = {
+    'Combined Loss': torch.tensor(17.0),
+    'MSE': torch.tensor(4.0),
+    'MAE': torch.tensor(2.0),
+    'L1': torch.tensor(2.0),
+}
+if not joined_loss.compute() == expected_joined:
+    raise AssertionError('Joined metrics values should be as expected.')
+```
+
+### The DictLoss class
+[`DictLoss`](#drytorch.lib.objectives.DictLoss) is a subclass of [`LossWithMetrics`](#drytorch.lib.objectives.LossWithMetrics) for functions that calculate the
+loss alongside auxiliary metrics in a single callable.
+
+The `name` parameter specifies which key in the returned dictionary provides
+the loss value for gradient optimization. All other entries are recorded as
+auxiliary metrics.
+
+```{code-cell} ipython3
+from drytorch.lib.objectives import DictLoss
+
+
+def multi_task_fn(
+    outputs: torch.Tensor, targets: torch.Tensor
+) -> dict[str, torch.Tensor]:
+    """Compute combined loss and separate error metrics.
+
+    Args:
+        outputs: predicted model outputs.
+        targets: ground truth targets.
+
+    Returns:
+        Dictionary mapping metric names to batch values.
+    """
+    mse = torch.pow(outputs - targets, 2).flatten(1).mean(1)
+    mae = torch.abs(outputs - targets).flatten(1).mean(1)
+    return {'Loss': mse + 0.1 * mae, 'MSE': mse, 'MAE': mae}
+
+
+dict_loss = DictLoss(multi_task_fn, name='Loss')
+dict_loss.update(tensor_a, tensor_b)
+computed_dict_loss = dict_loss.compute()
+expected_dict_loss = {
+    'Loss': torch.tensor(4.2),
+    'MSE': torch.tensor(4.0),
+    'MAE': torch.tensor(2.0),
+}
+if not torch.allclose(computed_dict_loss['Loss'], expected_dict_loss['Loss']):
+    raise AssertionError('Loss value does not match.')
+
+if not torch.allclose(computed_dict_loss['MSE'], expected_dict_loss['MSE']):
+    raise AssertionError('Auxiliary MSE does not match.')
+
+if not torch.allclose(computed_dict_loss['MAE'], expected_dict_loss['MAE']):
+    raise AssertionError('Auxiliary MAE does not match.')
+```
+
+## External classes
+DRYTorch does not re-implement common metrics or losses. Instead, its
+protocols ensure full compatibility with classes from popular existing
+libraries like [TorchMetrics](https://lightning.ai/docs/torchmetrics/stable/)
+and [TorchEval](https://docs.pytorch.org/torcheval/stable/).
+
+### Compatibility with TorchMetrics and TorchEval
+The [`ObjectiveProtocol`](#drytorch.core.protocols.ObjectiveProtocol) is compatible with [`Metric`](#torchmetrics.Metric) classes from TorchMetrics (such as
+[`MeanSquaredError`](#torchmetrics.MeanSquaredError)) and TorchEval (such as [`MeanSquaredError`](#torcheval.metrics.MeanSquaredError)).
+You can use instances of these third-party metric classes directly when defining a DRYTorch validation or test step.
+
+The [`LossProtocol`](#drytorch.core.protocols.LossProtocol) is designed to accept any callable or class that computes a
+differentiable scalar, including differentiable metrics from TorchMetrics.
+
+```{code-cell} ipython3
+import torchmetrics
+
+from torcheval import metrics as eval_metrics
+
+from drytorch.core import protocols as p
+
+
+torch_metric = torchmetrics.MeanSquaredError()
+eval_metric = eval_metrics.MeanSquaredError()
+
+
+def is_valid_objective(
+    metric: p.ObjectiveProtocol[torch.Tensor, torch.Tensor],
+) -> bool:
+    """Test metric follows the Objective protocol.
+
+    Args:
+        metric: objective instance to test.
+
+    Returns:
+        True if the metric follows the ObjectiveProtocol.
+    """
+    return isinstance(metric, p.ObjectiveProtocol)
+
+
+def is_valid_loss(
+    metric: p.LossProtocol[torch.Tensor, torch.Tensor],
+) -> bool:
+    """Test metric follows the Loss protocol.
+
+    Args:
+        metric: loss instance to test.
+
+    Returns:
+        True if the metric follows the LossProtocol.
+    """
+    return isinstance(metric, p.LossProtocol)
+
+
+torch_metric.update(tensor_a, tensor_b)
+eval_metric.update(tensor_a, tensor_b)
+if not torch.isclose(torch_metric.compute(), eval_metric.compute()):
+    raise AssertionError('Metrics values should match.')
+
+if not (is_valid_objective(eval_metric) and is_valid_objective(torch_metric)):
+    raise AssertionError('These objects should follow the ObjectiveProtocol.')
+
+if not is_valid_loss(torch_metric):
+    raise AssertionError('This object should also follow the LossProtocol.')
+```
+
+### Compositional metrics with from_torchmetrics
+TorchMetrics offers `CompositionalMetric` with support for algebraic
+operations. To wrap it with DRYTorch naming, component inspection, and
+documentation, use [`from_torchmetrics`](#drytorch.contrib.torchmetrics.from_torchmetrics):
+
+```{code-cell} ipython3
+from drytorch.contrib.torchmetrics import from_torchmetrics
+
+
+new_metric = 1 + torch_metric
+imported_metric = from_torchmetrics(new_metric)
+imported_metric.update(tensor_a, tensor_b)
+expected_metrics_from_torchmetrics = {
+    'Loss': torch.tensor(5.0),
+    'MeanSquaredError': torch.tensor(4.0),
+}
+if not imported_metric.compute() == expected_metrics_from_torchmetrics:
+    raise AssertionError('Metrics values should be as expected.')
+```
+
+### Wrapping TorchEval with from_torcheval
+To name TorchEval metrics explicitly, specify whether higher is better, and
+return a metric dictionary from [`compute()`](#drytorch.core.protocols.ObjectiveProtocol.compute), use [`from_torcheval`](#drytorch.contrib.torcheval.from_torcheval):
+
+```{code-cell} ipython3
+from drytorch.contrib.torcheval import from_torcheval
+
+
+wrapped_eval = from_torcheval(
+    eval_metrics.MeanSquaredError(),
+    name='TorchEval_MSE',
+    higher_is_better=False,
+)
+wrapped_eval.update(tensor_a, tensor_b)
+expected_eval = {'TorchEval_MSE': torch.tensor(4.0)}
+if not wrapped_eval.compute() == expected_eval:
+    raise AssertionError('Wrapped metric value mismatch.')
+```
+
+## Custom classes
+To implement custom objective or accumulation logic, DRYTorch provides base
+classes that handle calling logic, metadata extraction, and batch aggregation.
+
+### Custom metric class
+To define a custom running average metric, subclass [`AverageObjective`](#drytorch.lib.objectives.AverageObjective) and
+override [`calculate`](#drytorch.lib.objectives.LossWithMetrics.calculate). For custom aggregation strategies, subclass [`Objective`](#drytorch.lib.objectives.Objective)
+and override `_get_accumulator_cls`:
 
 ```{code-cell} ipython3
 from typing_extensions import override
@@ -189,55 +352,90 @@ if not my_metrics.compute() == expected_metric_collection:
     raise AssertionError('Metrics values should be as before.')
 ```
 
-## LossWithMetrics and Loss
+### Custom accumulators
+[`Objective`](#drytorch.lib.objectives.Objective) subclasses aggregate batch values using an [`AbstractAccumulator`](#drytorch.lib.accumulators.AbstractAccumulator).
+[`AverageObjective`](#drytorch.lib.objectives.AverageObjective) uses [`TorchMeanAccumulator`](#drytorch.lib.accumulators.TorchMeanAccumulator) to calculate a sample-weighted
+arithmetic mean across batches.
 
-`LossWithMetrics` is a collection of metrics with a criterion that extracts the loss value from them.
+To define a custom aggregation strategy, subclass [`AbstractAccumulator`](#drytorch.lib.accumulators.AbstractAccumulator) and
+implement:
+- `from_value(cls, value)`: creates an accumulator from a batch value.
+- `merge(self, other)`: merges another accumulator of the same class.
+- `reduce(self)`: computes the final reduced metric.
+- [`sync(self)`](#drytorch.lib.accumulators.AbstractAccumulator.sync): synchronizes state across distributed processes.
 
-`Loss` is a subclass equivalent to `Metric`: it accepts a single callable that is used both as the criterion for backpropagation and as a metric.
-
-Algebraic operations between a `LossWithMetrics` instance and an integer, float, or another `LossWithMetrics` instance create a new `LossWithMetrics`. The new loss also evaluates its components as metrics, so you can track the performance of the **single components** that make up a composed loss. Its `formula` attribute documents the operations and component losses used.
-
-To track more metrics alongside a loss, `join(loss, *metrics)` returns a new loss that also computes the metrics; `join(*metrics)` joins metrics only. The result is of the same kind as the first objective, and the given objectives do not change. Objectives that are not metric collections, such as torchmetrics metrics, are wrapped in `JoinedLoss` or `JoinedMetrics`.
-
-```{code-cell} ipython3
-from torch.nn.functional import mse_loss as mse_loss_fn  # returns scalar value
-
-from drytorch.lib.objectives import Loss
-
-
-mse_loss = Loss(mse_loss_fn, name='MSE')
-mae_loss = Loss(mae_loss_fn, 'MAE')
-composed_loss = mse_loss**2 + 0.5 * mae_loss
-composed_loss.update(tensor_a, tensor_b)
-expected_metrics_from_loss = {
-    'Combined Loss': torch.tensor(17.0),
-    'MSE': torch.tensor(4.0),
-    'MAE': torch.tensor(2.0),
-}
-if not composed_loss.compute() == expected_metrics_from_loss:
-    raise AssertionError('Metrics values should be as expected.')
-```
+Override `_get_accumulator_cls` on an [`Objective`](#drytorch.lib.objectives.Objective) subclass to return your
+custom accumulator class.
 
 ```{code-cell} ipython3
-if composed_loss.formula != '[MSE]^2 + 0.5 x [MAE]':
-    raise AssertionError('Formula mismatch.')
+import dataclasses
+
+from typing import Self
+
+from torch import distributed as dist
+from typing_extensions import override
+
+from drytorch.lib.accumulators import AbstractAccumulator
+from drytorch.lib.objectives import Objective
+
+
+@dataclasses.dataclass(slots=True)
+class MaxAccumulator(AbstractAccumulator[torch.Tensor, torch.Tensor]):
+    """Accumulator tracking the maximum value."""
+
+    max_val: torch.Tensor
+
+    @override
+    def merge(self, other: MaxAccumulator) -> None:
+        self.max_val = torch.maximum(self.max_val, other.max_val)
+        return
+
+    @override
+    def reduce(self) -> torch.Tensor:
+        return self.max_val
+
+    @override
+    def sync(self) -> None:
+        if dist.is_available() and dist.is_initialized():
+            dist.all_reduce(self.max_val, op=dist.ReduceOp.MAX)
+
+        return
+
+    @classmethod
+    @override
+    def from_value(cls, value: torch.Tensor) -> Self:
+        return cls(max_val=value.detach().max())
+
+
+class MaxObjective(Objective[torch.Tensor, torch.Tensor]):
+    """Objective tracking maximum absolute error."""
+
+    @classmethod
+    @override
+    def _get_accumulator_cls(cls) -> type[MaxAccumulator]:
+        return MaxAccumulator
+
+    @override
+    def calculate(
+        self, outputs: torch.Tensor, targets: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        return {
+            'MaxError': torch.abs(outputs - targets).flatten(1).max(1).values
+        }
+
+
+max_obj = MaxObjective()
+max_obj.update(torch.tensor([[1.0]]), torch.tensor([[4.0]]))
+max_obj.update(torch.tensor([[1.0]]), torch.tensor([[7.0]]))
+if not torch.isclose(max_obj.compute()['MaxError'], torch.tensor(6.0)):
+    raise AssertionError('Max accumulator should track the maximum value.')
 ```
 
-### Data Distributed Parallelism
-DRYTorch `Objective` classes are compatible with PyTorch's Data Distributed Parallelism (DDP) module. Synchronization is handled by the library classes.
-
-To use `torchmetrics` and `torcheval` metrics with DDP, we recommend using the `from_torchmetrics` and `from_torcheval` utility functions.
-
-In particular, `from_torchmetrics` deactivates automatic synchronization and
-`from_torcheval` adds a `sync` method that calls `torcheval.metrics.toolkit.sync_and_compute` to synchronize the metrics across all processes.
-
-The following code snippet shows the latter call, which will raise a warning as the current process is not in a DDP scenario.
+## Stop the run
 
 ```{code-cell} ipython3
-from drytorch.contrib.torcheval import from_torcheval
-
-
-eval_metric_with_sync = from_torcheval(eval_metric)
-
-eval_metric_with_sync.sync()
+run.stop()
 ```
+
+For multi-process metric synchronization across distributed processes, see the
+[distributed_training](distributed_training.md) tutorial.

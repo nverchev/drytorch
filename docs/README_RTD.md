@@ -33,3 +33,11 @@ pip install drytorch
 ```bash
 uv add drytorch
 ```
+
+## Project Template
+
+To start a new project, use
+**[drytorch-template](https://github.com/nverchev/drytorch_template)**. It is a
+complete machine learning project, with Hydra configuration, custom trackers, Optuna
+tuning and distributed training, and its README explains which files to change
+for your task.

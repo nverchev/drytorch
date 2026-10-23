@@ -7,7 +7,7 @@
 
    tutorials
    api
-   architecture
+   protocols
 
 Indices and tables
 ==================

@@ -73,6 +73,10 @@ myst_enable_extensions = [
     'deflist',
 ]
 myst_fence_as_directive = ['mermaid']
+myst_heading_anchors = 3
+
+# Mermaid configuration
+mermaid_dark_theme = 'default'
 
 # Notebook execution configuration
 nb_execution_mode = 'cache'
@@ -101,12 +105,14 @@ html_theme_options = {'logo_only': True}
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
-    'torch': ('https://pytorch.org/docs/stable/', None),
+    'torch': ('https://docs.pytorch.org/docs/stable/', None),
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'matplotlib': ('https://matplotlib.org/stable/', None),
     'optuna': ('https://optuna.readthedocs.io/en/stable/', None),
     'sqlalchemy': ('https://docs.sqlalchemy.org/en/20/', None),
     'plotly': ('https://plotly.com/python-api-reference/', None),
+    'torchmetrics': ('https://lightning.ai/docs/torchmetrics/stable/', None),
+    'torcheval': ('https://meta-pytorch.org/torcheval/stable/', None),
 }
 
 
@@ -274,6 +280,14 @@ def skip_undefined_attributes(
 
 def setup(app: Sphinx) -> None:
     """Custom setup function."""
+    # the mermaid extension reads the reader's system preference and renders
+    # dark diagrams and a dark fullscreen view on this light-only theme: the
+    # page states it is light before the extension's module runs.
+    app.add_js_file(
+        None,
+        body="document.documentElement.dataset.theme = 'light';",
+        priority=400,
+    )
     app.connect('autodoc-process-bases', show_role_bases)
     app.connect('autodoc-process-docstring', insert_init_parameters)
     app.connect('autodoc-process-signature', customize_signature)

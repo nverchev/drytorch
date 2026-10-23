@@ -28,6 +28,7 @@ The following diagram maps the dependencies between the core interfaces using UM
   are emitted when an instance is created; after a method, by the method.
 
 ```mermaid
+%%{init: {'theme': 'default'}}%%
 
 classDiagram
 direction TB
@@ -37,13 +38,6 @@ direction TB
         +model: ModelProtocol
     }
 
-    class LoaderProtocol["LoaderProtocol[Input, Target]"] {
-        +batch_size: int | None
-        +sampler: torch.utils.data.Sampler | Iterable
-        +dataset: torch.utils.data.Dataset
-        +__iter__() Iterator[Input, Target]
-        +__len__() int
-    }
 
     class SourceProtocol {
         +name: str
@@ -63,7 +57,6 @@ direction TB
         +forward(outputs: Output, targets: Target) torch.Tensor
     }
 
-    class ValidationProtocol
 
     class TestProtocol {
         +__call__(store_outputs: bool) «StartTestEvent» «EndTestEvent»
@@ -101,7 +94,7 @@ direction TB
         +epoch: int
         +module: torch.nn.Module
         +device: torch.device
-        +mixed_precision: bool
+        +mixed_precision: torch.dtype | None
         +name: str
         +__call__(inputs: Input) Output
         +bind_optimizer(optimizer: Optimizer)
@@ -127,21 +120,27 @@ direction TB
         +bind_trainer(trainer: TrainerProtocol)
     }
 
+    class LoaderProtocol["LoaderProtocol[Input, Target]"] {
+        +batch_size: int | None
+        +sampler: torch.utils.data.Sampler | Iterable
+        +dataset: torch.utils.data.Dataset
+        +__iter__() Iterator[Input, Target]
+        +__len__() int
+    }
+
     RunnerProtocol ..> LoaderProtocol : supports
-    LearningProtocol --> GradientOpProtocol : contains
-    LearningProtocol --> SchedulerProtocol : contains
+    LearningProtocol --> GradientOpProtocol : defines
+    LearningProtocol --> SchedulerProtocol : follows
     CheckpointProtocol --> ModelProtocol : binds to
     RunnerProtocol --> ModelProtocol : runs
     SourceProtocol --> ObjectiveProtocol : computes
-    TrainerProtocol --> LearningProtocol :  implements
+    TrainerProtocol --> LearningProtocol : implements
     TrainerProtocol --> LossProtocol : minimizes
     TrainerProtocol --> ModelProtocol : updates
     HookProtocol --> TrainerProtocol : binds to
-    HookProtocol ..> ValidationProtocol : calls
     RunnerProtocol <|-- SourceProtocol : extends
     SourceProtocol <|-- TrainerProtocol : extends
-    SourceProtocol <|-- ValidationProtocol : extends
-    ValidationProtocol <|-- TestProtocol : extends
+    SourceProtocol <|-- TestProtocol : extends
     ObjectiveProtocol <|-- LossProtocol : extends
 
 ```
