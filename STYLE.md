@@ -15,6 +15,8 @@ tutorial's paired `.md` and `.ipynb` in sync.
   (for example, emitting events).
 - Protocols are necessary conditions for the framework, abstract classes are
   sufficient conditions with recommended behavior.
+- Avoid repeating string literals: use variables (class variables, available
+  variables, local variables, ...) instead.
 
 ## Typing
 - Avoid inline suppressions (`# type: ignore`, `# pyright: ignore`,
