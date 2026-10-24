@@ -236,11 +236,12 @@ def end_epoch_mock_event(
 
 @pytest.fixture
 def end_training_mock_event(
-    mocker, example_source_name
+    mocker, example_source_name, example_model_name
 ) -> log_events.EndTrainingEvent:
     """Mock EndTraining event instance."""
     mock = mocker.create_autospec(log_events.EndTrainingEvent)
     mock.source_name = example_source_name
+    mock.model_name = example_model_name
     return mock
 
 

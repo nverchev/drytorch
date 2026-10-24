@@ -79,8 +79,8 @@ output directory (defaulting to the experiment folder).
 
 Plotters ([`PlotlyPlotter`](#drytorch.trackers.plotly.PlotlyPlotter) and [`MatPlotter`](#drytorch.trackers.matplotlib.MatPlotter)) collect metrics during the session
 or load stored metrics from a [`MetricLoader`](#drytorch.trackers.base_classes.MetricLoader) (such as [`CSVDumper`](#drytorch.trackers.csv.CSVDumper) or
-[`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection)). They generate training curves and test figures on demand,
-which can be displayed together, saved to the run directory, or returned for inspection.
+[`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection)). They save the training plots when training ends and the test plot after each test.
+The `plot` and `save_plots` methods remain for doing it on demand, for example after loading old metrics.
 
 ## Initialization modes
 DRYTorch provides initialization modes to configure which default trackers

@@ -46,19 +46,15 @@ class TestMatPlotterFullCycle:
     ) -> None:
         """Each metric and the tests are saved as files in the run's folder."""
         plotter = MatPlotter()
-        *events, stop_event = plotting_workflow
-        for event in events:
+        for event in plotting_workflow:
             plotter.notify(event)
-
-        plotter.save_plots(example_model_name)
-        plotter.notify(stop_event)
 
         saved = {
             path.stem
             for path in tmp_path.glob(f'plots/**/{example_model_name}/*.png')
         }
         assert len(saved) == 4
-        assert 'tests' in saved
+        assert 'test_metrics' in saved
 
     def test_resumed_run_with_csv_loader_saves_earlier_test_plot(
         self,
@@ -110,4 +106,4 @@ class TestMatPlotterFullCycle:
             path.stem
             for path in tmp_path.glob(f'plots/**/{example_model_name}/*.png')
         }
-        assert 'tests' in saved
+        assert 'test_metrics' in saved

@@ -222,8 +222,10 @@ Python requires it (dataclass fields with defaults after those without).
   exception.
 - Trackers handle events with a `functools.singledispatchmethod` `notify`
   and handlers named `_`, each ending with `return super().notify(event)`.
-  The handlers of `StartExperimentEvent` call it first instead, since the
-  parent classes set up the state of the run there.
+  A handler calls it first instead when it uses what the parent classes do
+  with the event: the handlers of `StartExperimentEvent`, since the parents
+  set up the state of the run there, and the plotters' handler of
+  `TestMetricEvent`, since `MemoryMetrics` records the values it plots.
   `notify` and its handlers are placed first after properties.
 - Events follow the chronological workflow order:
   `StartExperimentEvent`, `ModelRegistrationEvent`,

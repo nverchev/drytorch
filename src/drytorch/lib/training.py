@@ -357,7 +357,10 @@ class Trainer(
             if self.terminated:
                 return
 
-        log_events.EndTrainingEvent(self.name)
+        log_events.EndTrainingEvent(
+            source_name=self.name,
+            model_name=self.model.name,
+        )
         return
 
     def train_until(self, epoch: int) -> None:

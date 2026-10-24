@@ -310,16 +310,19 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
     Attributes:
         file_suffix: the suffix of the files the figures are saved to.
+        show: whether to render the plots when saved.
     """
 
     folder_name: ClassVar[str] = 'plots'
     file_suffix: ClassVar[str]
+    show: Final[bool]
 
     def __init__(
         self,
         *,
         metric_loader: MetricLoader | None = None,
         par_dir: pathlib.Path | None = None,
+        show: bool = False,
     ) -> None:
         """Initialize.
 
@@ -327,9 +330,32 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             metric_loader: a tracker that can load metrics from a previous run.
             par_dir: the parent directory for the saved figures. Default uses
                 the same of the current experiment.
+            show: whether to render the plots when saved.
         """
         super().__init__(metric_loader=metric_loader)
         self.user_par_dir = par_dir
+        self.show = show
+        return
+
+    @functools.singledispatchmethod
+    @override
+    def notify(self, event: log_events.Event) -> None:
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.TerminatedTrainingEvent) -> None:
+        self._save_training_plots(event.model_name)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.EndTrainingEvent) -> None:
+        self._save_training_plots(event.model_name)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.TestMetricEvent) -> None:
+        super().notify(event)
+        self._save_test_plot(event.model_name)
         return
 
     def create_training_plots(
@@ -442,26 +468,69 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             ValueError: if neither a metric nor a test is left to plot.
 
         Side Effects:
-            Writes one file for each metric, and one named ``tests`` for the
-            tests, in a folder named after the model, if the run is recorded.
+            Writes one file for each metric, and one for the tests, in the
+            model folder, if the run is recorded.
         """
-        if not self.record:
-            return
-
-        training_plots, test_plot = self._create_plots(
+        training_plots = self._save_training_plots(
             model_name, metric_names, source_names, start_epoch
         )
-        model_dir = self._get_run_dir() / model_name
-        model_dir.mkdir(exist_ok=True)
-        for metric_name, plot in training_plots.items():
-            self._save_plot(
-                plot, model_dir / f'{metric_name}{self.file_suffix}'
-            )
-
-        if test_plot is not None:
-            self._save_plot(test_plot, model_dir / f'tests{self.file_suffix}')
+        test_plot = self._save_test_plot(model_name, metric_names, source_names)
+        if not training_plots and test_plot is None:
+            msg = f'No metric to plot for model {model_name}.'
+            raise ValueError(msg)
 
         return
+
+    def _get_model_dir(self, model_name: str) -> pathlib.Path:
+        model_dir = self._get_run_dir() / model_name
+        model_dir.mkdir(exist_ok=True)
+        return model_dir
+
+    def _save_training_plots(
+        self,
+        model_name: str,
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
+        start_epoch: int = 1,
+    ) -> dict[str, Figure]:
+        plots = self._create_training_plots(
+            model_name, metric_names, source_names, start_epoch
+        )
+        if self.record:
+            model_dir = self._get_model_dir(model_name)
+            for metric_name, plot in plots.items():
+                self._save_plot(
+                    plot, model_dir / f'{metric_name}{self.file_suffix}'
+                )
+
+        if self.show and plots:
+            self._render(list(plots.values()))
+
+        return plots
+
+    def _save_test_plot(
+        self,
+        model_name: str,
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
+    ) -> Figure | None:
+        plot = self.create_test_plot(
+            model_name, metric_names=metric_names, source_names=source_names
+        )
+        if plot is None:
+            return None
+
+        if self.record:
+            self._save_plot(
+                plot,
+                self._get_model_dir(model_name)
+                / f'test_metrics{self.file_suffix}',
+            )
+
+        if self.show:
+            self._render([plot])
+
+        return plot
 
     def _create_plots(
         self,

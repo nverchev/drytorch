@@ -90,8 +90,11 @@ class _ConcretePlotter(BasePlotter[SourcedArray]):
         *,
         metric_loader: MetricLoader | None = None,
         par_dir: pathlib.Path | None = None,
+        show: bool = False,
     ) -> None:
-        super().__init__(metric_loader=metric_loader, par_dir=par_dir)
+        super().__init__(
+            metric_loader=metric_loader, par_dir=par_dir, show=show
+        )
         self.rendered: list[list[SourcedArray]] = []
         return
 
@@ -117,7 +120,7 @@ class _ConcretePlotter(BasePlotter[SourcedArray]):
         return
 
     def _save_plot(self, figure: SourcedArray, path: pathlib.Path) -> None:
-        path.write_text(' '.join(figure))
+        path.write_text(str(figure))
         return
 
 
@@ -684,7 +687,7 @@ class TestBasePlotter:
         example_test_results,
         start_experiment_mock_event,
     ) -> None:
-        """The test figure is saved next to the curves, named tests."""
+        """The test figure is saved next to the curves."""
         plotter = _ConcretePlotter(par_dir=tmp_path)
         plotter.model_dict[example_model_name] = dict(example_sourced_metrics)
         plotter.test_dict[example_model_name] = {
@@ -701,8 +704,10 @@ class TestBasePlotter:
 
         plotter.save_plots(example_model_name)
 
-        saved = {path.name for path in tmp_path.glob('**/*.txt')}
-        assert 'tests.txt' in saved
+        saved = {
+            path.name for path in tmp_path.glob(f'**/*{plotter.file_suffix}')
+        }
+        assert f'test_metrics{plotter.file_suffix}' in saved
 
     def test_save_plots_outside_run(self, example_model_name, plotter) -> None:
         """Saving without an active run raises AccessOutsideScopeError."""
@@ -724,6 +729,174 @@ class TestBasePlotter:
         plotter.notify(end_epoch_mock_event)
 
         assert plotter.rendered == []
+
+    @pytest.mark.parametrize(
+        'event_cls',
+        [log_events.EndTrainingEvent, log_events.TerminatedTrainingEvent],
+    )
+    def test_training_end_events_save_plots(
+        self,
+        tmp_path,
+        example_model_name,
+        example_source_name,
+        start_experiment_mock_event,
+        event_cls,
+    ) -> None:
+        """EndTrainingEvent and TerminatedTrainingEvent save training plots."""
+        plotter = _ConcretePlotter(par_dir=tmp_path)
+        plotter.notify(start_experiment_mock_event)
+        plotter.model_dict[example_model_name] = {
+            example_source_name: ([1], {'loss': [0.5]}),
+        }
+        if event_cls is log_events.EndTrainingEvent:
+            event = log_events.EndTrainingEvent(
+                source_name=example_source_name,
+                model_name=example_model_name,
+            )
+        else:
+            event = log_events.TerminatedTrainingEvent(
+                source_name=example_source_name,
+                model_name=example_model_name,
+                epoch=1,
+                reason='early stopping',
+            )
+
+        plotter.notify(event)
+
+        saved = {
+            path.name for path in tmp_path.glob(f'**/*{plotter.file_suffix}')
+        }
+        assert f'loss{plotter.file_suffix}' in saved
+
+    def test_test_metric_event_saves_and_overwrites_test_plot(
+        self,
+        tmp_path,
+        example_model_name,
+        start_experiment_mock_event,
+    ) -> None:
+        """TestMetricEvent saves or overwrites the test plot with its values."""
+        plotter = _ConcretePlotter(par_dir=tmp_path)
+        plotter.notify(start_experiment_mock_event)
+        event1 = log_events.TestMetricEvent(
+            model_name=example_model_name,
+            source_name='test',
+            epoch=1,
+            metrics={'accuracy': 0.85},
+        )
+        plotter.notify(event1)
+
+        test_file = next(tmp_path.glob(f'**/test_metrics{plotter.file_suffix}'))
+        assert '0.85' in test_file.read_text()
+
+        event2 = log_events.TestMetricEvent(
+            model_name=example_model_name,
+            source_name='test',
+            epoch=2,
+            metrics={'accuracy': 0.95},
+        )
+        plotter.notify(event2)
+
+        assert '0.95' in test_file.read_text()
+
+    def test_unrecorded_run_saves_nothing(
+        self,
+        tmp_path,
+        example_model_name,
+        example_source_name,
+        start_experiment_mock_event,
+    ) -> None:
+        """Nothing is saved in an unrecorded run."""
+        start_experiment_mock_event.record = False
+        plotter = _ConcretePlotter(par_dir=tmp_path)
+        plotter.notify(start_experiment_mock_event)
+        plotter.model_dict[example_model_name] = {
+            example_source_name: ([1], {'loss': [0.5]}),
+        }
+        end_event = log_events.EndTrainingEvent(
+            source_name=example_source_name,
+            model_name=example_model_name,
+        )
+        test_event = log_events.TestMetricEvent(
+            source_name='test',
+            model_name=example_model_name,
+            epoch=1,
+            metrics={'accuracy': 0.9},
+        )
+
+        plotter.notify(end_event)
+        plotter.notify(test_event)
+
+        saved = list(tmp_path.glob(f'**/*{plotter.file_suffix}'))
+        assert saved == []
+
+    def test_model_without_metrics_does_not_raise(
+        self,
+        tmp_path,
+        example_source_name,
+        start_experiment_mock_event,
+    ) -> None:
+        """Nothing raises for a model without metrics."""
+        plotter = _ConcretePlotter(par_dir=tmp_path)
+        plotter.notify(start_experiment_mock_event)
+        end_event = log_events.EndTrainingEvent(
+            source_name=example_source_name,
+            model_name='empty_model',
+        )
+        term_event = log_events.TerminatedTrainingEvent(
+            source_name=example_source_name,
+            model_name='empty_model',
+            epoch=1,
+            reason='early stopping',
+        )
+        test_event = log_events.TestMetricEvent(
+            source_name=example_source_name,
+            model_name='empty_model',
+            epoch=1,
+            metrics={},
+        )
+
+        plotter.notify(end_event)
+        plotter.notify(term_event)
+        plotter.notify(test_event)
+
+    def test_show_setting_renders_plots(
+        self,
+        example_model_name,
+        example_source_name,
+        start_experiment_mock_event,
+    ) -> None:
+        """With show=True, plots are rendered; with default, they are not."""
+        plotter_default = _ConcretePlotter()
+        plotter_default.notify(start_experiment_mock_event)
+        plotter_default.model_dict[example_model_name] = {
+            example_source_name: ([1], {'loss': [0.5]}),
+        }
+        end_event = log_events.EndTrainingEvent(
+            source_name=example_source_name,
+            model_name=example_model_name,
+        )
+        test_event = log_events.TestMetricEvent(
+            source_name='test',
+            model_name=example_model_name,
+            epoch=1,
+            metrics={'accuracy': 0.9},
+        )
+
+        plotter_default.notify(end_event)
+        plotter_default.notify(test_event)
+        assert plotter_default.rendered == []
+
+        plotter_show = _ConcretePlotter(show=True)
+        plotter_show.notify(start_experiment_mock_event)
+        plotter_show.model_dict[example_model_name] = {
+            example_source_name: ([1], {'loss': [0.5]}),
+        }
+
+        plotter_show.notify(end_event)
+        assert len(plotter_show.rendered) == 1
+
+        plotter_show.notify(test_event)
+        assert len(plotter_show.rendered) == 2
 
     def test_process_source(
         self,

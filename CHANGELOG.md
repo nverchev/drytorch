@@ -48,6 +48,7 @@
 - dropped the `Grad` prefix from gradient operations: renamed `GradNormClipper`, `GradValueClipper`, `GradParamNormalizer`, and `GradZScoreNormalizer` to `NormClipper`, `ValueClipper`, `ParamNormalizer`, and `ZScoreNormalizer`
 
 ## Added
+- EndTrainingEvent.model_name
 - TestRegistrationEvent and register_test: a Test registers as a test, and SQLConnection records it in test_sources
 - TestMetricEvent, the MetricEvent a Test publishes
 - `BasePlotter.create_training_plots` returns the figure of each metric of a model without rendering it, to show or save
@@ -90,6 +91,7 @@
 - added `DataLoader.fold`, which splits a loader into the training and validation loaders of a k-fold cross-validation
 
 ## Changed
+- plotters save the training plots when training ends and the test plot after each test; show also displays them
 - test plots include the tests of earlier sessions: MetricLoader.load_test_metrics, and CSVDumper writes tests in a test_metrics folder
 - plotters keep the tests of a model out of the learning curves and draw them as a bar chart of their own, one panel per metric (`BasePlotter.create_test_plot`, `MemoryMetrics.test_dict`)
 - unrecorded runs (`record=False`) write nothing: `StartExperimentEvent` and `ContinueExperimentEvent` carry `record`, and the dumpers (`Dumper.record`) and `SQLConnection` skip their files, links, writers and database rows, while the logging trackers still report the run

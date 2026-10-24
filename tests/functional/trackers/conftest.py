@@ -215,9 +215,14 @@ def end_epoch_event(
 
 
 @pytest.fixture
-def end_training_event(example_source_name) -> log_events.EndTrainingEvent:
+def end_training_event(
+    example_source_name, example_model_name
+) -> log_events.EndTrainingEvent:
     """Provides an EndTraining event instance."""
-    return log_events.EndTrainingEvent(source_name=example_source_name)
+    return log_events.EndTrainingEvent(
+        source_name=example_source_name,
+        model_name=example_model_name,
+    )
 
 
 @pytest.fixture
@@ -489,6 +494,13 @@ def plotting_workflow(
         if epoch == 5:
             events.append(pause_experiment_event)
             events.append(continue_experiment_event)
+
+    events.append(
+        log_events.EndTrainingEvent(
+            source_name=train_source,
+            model_name=model_name,
+        )
+    )
 
     # Final test evaluation events
     events.append(

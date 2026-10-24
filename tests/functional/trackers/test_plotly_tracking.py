@@ -39,16 +39,12 @@ class TestPlotlyPlotterFullCycle:
     ) -> None:
         """Each metric and the tests are saved as files in the run's folder."""
         plotter = PlotlyPlotter()
-        *events, stop_event = plotting_workflow
-        for event in events:
+        for event in plotting_workflow:
             plotter.notify(event)
-
-        plotter.save_plots(example_model_name)
-        plotter.notify(stop_event)
 
         saved = {
             path.stem
             for path in tmp_path.glob(f'plots/**/{example_model_name}/*.html')
         }
         assert len(saved) == 4
-        assert 'tests' in saved
+        assert 'test_metrics' in saved

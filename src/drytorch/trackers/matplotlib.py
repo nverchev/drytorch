@@ -37,6 +37,7 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
         metric_loader: base_classes.MetricLoader | None = None,
         par_dir: pathlib.Path | None = None,
         palette: str = 'tab10',
+        show: bool = False,
     ) -> None:
         """Initialize.
 
@@ -45,11 +46,14 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
             par_dir: the parent directory for the saved figures. Default uses
                 the same of the current experiment.
             palette: colormap name to use for source colors (default: 'tab10').
+            show: whether to render the plots when saved.
 
         Raises:
             ValueError: if palette is not a valid colormap name.
         """
-        super().__init__(metric_loader=metric_loader, par_dir=par_dir)
+        super().__init__(
+            metric_loader=metric_loader, par_dir=par_dir, show=show
+        )
         self._cmap = self._get_cmap(palette)
         self._source_colors = {}
         return

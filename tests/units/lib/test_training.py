@@ -243,7 +243,10 @@ class TestTrainer:
         trainer.train(1)
 
         self.end_epoch_event.assert_called_once()
-        self.end_training_event.assert_called_once()
+        self.end_training_event.assert_called_once_with(
+            source_name=trainer.name,
+            model_name=trainer.model.name,
+        )
         self.terminated_event.assert_not_called()
 
     def test_terminate_training(self, trainer) -> None:

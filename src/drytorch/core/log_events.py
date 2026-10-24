@@ -330,13 +330,15 @@ class EndEpochEvent(Event):
 class EndTrainingEvent(Event):
     """Event logged when training ends.
 
-    It is not published when training was terminated before due. before due.
+    It is not published when training was terminated before due.
 
     Attributes:
-        source_name: The name of the object that is training a model.
+        source_name: the name of the object that is training a model.
+        model_name: the name of the model.
     """
 
     source_name: str
+    model_name: str
 
 
 @dataclasses.dataclass(frozen=True)
