@@ -369,6 +369,7 @@ class RunnerProtocol(Protocol):
         """The model that the runner runs."""
 
 
+@runtime_checkable
 class SourceProtocol(RunnerProtocol, Protocol):
     """Protocol for a class that runs a model and reports its metrics.
 
@@ -404,6 +405,7 @@ class SourceProtocol(RunnerProtocol, Protocol):
         """The objective computing the metrics."""
 
 
+@runtime_checkable
 class TestProtocol(SourceProtocol, Protocol):
     """Protocol for evaluating a model outside the training loop."""
 

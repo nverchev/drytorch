@@ -1,7 +1,6 @@
 """Classes to run a model."""
 
 import abc
-import copy
 import sys
 import warnings
 
@@ -245,6 +244,7 @@ class Runner(
 class Source(
     Runner[Input, Target, Output],
     Generic[Input, Target, Output, _Objective_co],
+    metaclass=registering.SourceRegisteringMeta,
 ):
     """Run a model on a dataset and publish the value of an objective.
 
@@ -281,7 +281,7 @@ class Source(
 
         """
         super().__init__(model, loader=loader, name=name)
-        self.objective = copy.deepcopy(objective)
+        self.objective = objective
         self._cached_epoch = None
         self._cached_metrics = {}
         if self._is_distributed:

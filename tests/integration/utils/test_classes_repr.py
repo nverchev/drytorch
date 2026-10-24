@@ -73,7 +73,7 @@ def test_shared_model_is_represented_once(
         identity_trainer.model,
         name='SharedValidation',
         loader=identity_loader,
-        metric=square_loss_calc,
+        metric=square_loss_calc.copy(),
     )
 
     recorded = recursive_repr(

@@ -224,6 +224,8 @@ def objective() -> _Objective:
         ('monitor', p.RunnerProtocol),
         ('monitor', p.HigherIsBetterProtocol),
         ('monitor', p.NamedProtocol),
+        ('monitor', p.SourceProtocol),
+        ('monitor', p.TestProtocol),
         ('objective', p.ObjectiveProtocol),
         ('objective', p.SyncProtocol),
         ('objective', p.SyncedObjectiveProtocol),

@@ -1,5 +1,7 @@
 """Configuration module with mockups."""
 
+from typing import Any
+
 import torch
 
 import pytest
@@ -70,7 +72,17 @@ def mock_loss(mocker) -> p.LossProtocol[torch.Tensor, torch.Tensor]:
     mock.name = 'Loss'
     mock.compute = mocker.Mock(return_value={'Loss': torch.tensor(1)})
     mock.higher_is_better = False
-    mock.__deepcopy__ = mocker.Mock(return_value=mock)
+
+    def _deepcopy(memo: Any = None):
+        _not_used = memo
+        copied = mocker.create_autospec(spec=p.LossProtocol, instance=True)
+        copied.name = mock.name
+        copied.compute = mock.compute
+        copied.higher_is_better = mock.higher_is_better
+        copied.forward = mock.forward
+        return copied
+
+    mock.__deepcopy__ = mocker.Mock(side_effect=_deepcopy)
     return mock
 
 

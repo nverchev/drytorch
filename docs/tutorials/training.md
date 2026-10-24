@@ -331,7 +331,7 @@ from drytorch import Validation
 
 direct_model = make_model()
 direct_validation = Validation(
-    direct_model, name='DirectValidation', loader=val_loader, metric=loss
+    direct_model, name='DirectValidation', loader=val_loader, metric=loss.copy()
 )
 early_stopping = hooks.EarlyStopping(
     patience=2, watch=monitoring.Watch(source=direct_validation)

@@ -5,6 +5,7 @@ the run that registered its model.
 
 Attributes:
     ALL_MODULES: maps each registered module to the run that owns it.
+    ALL_OBJECTIVES: maps each objective to the source using it.
     ALL_RUNNERS: maps each registered module to the runners using it.
 """
 
@@ -24,12 +25,15 @@ from drytorch.core import protocols as p
 
 __all__ = [
     'ALL_MODULES',
+    'ALL_OBJECTIVES',
     'ALL_RUNNERS',
     'RegisteringMeta',
+    'SourceRegisteringMeta',
     'TestRegisteringMeta',
     'check_current_run',
     'register_model',
     'register_runner',
+    'register_source',
     'register_test',
     'unregister_model',
     'unregister_runner',
@@ -61,7 +65,31 @@ class RegisteringMeta(abc.ABCMeta):
         return instance
 
 
-class TestRegisteringMeta(RegisteringMeta):
+class SourceRegisteringMeta(RegisteringMeta):
+    """Metaclass registering a source after initialization."""
+
+    @override
+    def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
+        """Source instantiation.
+
+        Args:
+            *args: the positional arguments of the class constructor.
+            **kwargs: the keyword arguments of the class constructor.
+
+        Returns:
+            The instance.
+
+        Side Effects:
+            Registers the instance as a runner of its model and records its
+            objective.
+        """
+        instance: _T = type.__call__(cls, *args, **kwargs)
+        register_source(instance, instance.model)
+
+        return instance
+
+
+class TestRegisteringMeta(SourceRegisteringMeta):
     """Metaclass registering a test after initialization."""
 
     @override
@@ -79,6 +107,7 @@ class _Owner:
 
 
 ALL_MODULES: Final = weakref.WeakKeyDictionary[torch.nn.Module, _Owner]()
+ALL_OBJECTIVES: Final = weakref.WeakKeyDictionary[Any, weakref.ref[Any]]()
 ALL_RUNNERS: Final = weakref.WeakKeyDictionary[
     torch.nn.Module, weakref.WeakSet[Any]
 ]()
@@ -150,6 +179,24 @@ def register_runner(runner: Any, model: p.ModelProtocol[Any, Any], /) -> None:
     return
 
 
+def register_source(source: Any, model: p.ModelProtocol[Any, Any], /) -> None:
+    """Register a source in the current run and record its objective.
+
+    Args:
+        source: the object to document.
+        model: the model that the object runs.
+
+    Raises:
+        ModuleNotRegisteredError: if the module is not registered in the
+            current experiment run.
+        ObjectiveAlreadyUsedError: if the objective is already used by another
+            source.
+    """
+    register_runner(source, model)
+    _record_objective(source)
+    return
+
+
 def register_test(test: Any, model: p.ModelProtocol[Any, Any], /) -> None:
     """Register a test in the current run.
 
@@ -160,12 +207,15 @@ def register_test(test: Any, model: p.ModelProtocol[Any, Any], /) -> None:
     Raises:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
+        ObjectiveAlreadyUsedError: if the objective is already used by another
+            source.
     """
     run = _get_run_of_new_runner(test, model)
     if run is not None:
         run.metadata_manager.register_test(test, model)
         ALL_RUNNERS[model.module].add(test)
 
+    _record_objective(test)
     return
 
 
@@ -177,7 +227,12 @@ def unregister_model(model: p.ModelProtocol[Any, Any], /) -> None:
     """
     module = model.module
     owner = ALL_MODULES.pop(module, None)
-    ALL_RUNNERS.pop(module, None)
+    runners = ALL_RUNNERS.pop(module, None)
+    if runners is not None:
+        for runner in runners:
+            if isinstance(runner, p.SourceProtocol):
+                ALL_OBJECTIVES.pop(runner.objective, None)
+
     if owner is not None:
         run = owner.run()
         if run is not None:
@@ -192,6 +247,9 @@ def unregister_runner(runner: Any, /) -> None:
     Args:
         runner: the object to document.
     """
+    if isinstance(runner, p.SourceProtocol):
+        ALL_OBJECTIVES.pop(runner.objective, None)
+
     try:
         run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
         run.metadata_manager.unregister_runner(runner)
@@ -213,3 +271,18 @@ def _get_run_of_new_runner(
         return None
 
     return experimenting.Experiment.get_current().run
+
+
+def _record_objective(source: Any) -> None:
+    if not isinstance(source, p.SourceProtocol):
+        return
+
+    objective = source.objective
+    existing_ref = ALL_OBJECTIVES.get(objective)
+    if existing_ref is not None:
+        existing_source = existing_ref()
+        if existing_source is not None and existing_source is not source:
+            raise exceptions.ObjectiveAlreadyUsedError(existing_source.name)
+
+    ALL_OBJECTIVES[objective] = weakref.ref(source)
+    return

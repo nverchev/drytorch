@@ -1,6 +1,7 @@
 # [0.1.0] - 20-10-2026
 
 ## [BREAKING CHANGES]
+- sources use the objective they are given instead of a copy, and giving the same objective to two sources raises ObjectiveAlreadyUsedError
 - the `device` argument of `Model` and its subclasses defaults to `'auto'` instead of `None`
 - `take_from_dataset` returns the indices of the samples it takes, then the batch, so that random samples can be told apart
 - `mixed_precision` takes the autocast precision (`torch.float16` or `torch.bfloat16`) or `None` instead of a boolean; the gradient scaler is enabled only for `torch.float16`
@@ -89,7 +90,7 @@
 - added `DataLoader.fold`, which splits a loader into the training and validation loaders of a k-fold cross-validation
 
 ## Changed
-- test plots include the tests of earlier sessions: MetricLoader.load_test_metrics, and CSVDumper writes tests in a tests folder
+- test plots include the tests of earlier sessions: MetricLoader.load_test_metrics, and CSVDumper writes tests in a test_metrics folder
 - plotters keep the tests of a model out of the learning curves and draw them as a bar chart of their own, one panel per metric (`BasePlotter.create_test_plot`, `MemoryMetrics.test_dict`)
 - unrecorded runs (`record=False`) write nothing: `StartExperimentEvent` and `ContinueExperimentEvent` carry `record`, and the dumpers (`Dumper.record`) and `SQLConnection` skip their files, links, writers and database rows, while the logging trackers still report the run
 - `Source` is generic in any objective, not only in a loss

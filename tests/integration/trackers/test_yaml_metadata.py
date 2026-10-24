@@ -85,7 +85,7 @@ def test_dumped_trainer_refers_to_its_model_once(
         identity_trainer.model,
         name='DumpedValidation',
         loader=identity_loader,
-        metric=square_loss_calc,
+        metric=square_loss_calc.copy(),
     )
     metadata = repr_utils.recursive_repr(
         {'trainer': identity_trainer, 'validation': validation}

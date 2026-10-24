@@ -49,6 +49,7 @@ __all__ = [
     'NoStashedStateError',
     'NoValidationWarning',
     'NotExistingRunWarning',
+    'ObjectiveAlreadyUsedError',
     'ObjectiveSyncWarning',
     'OptimizerAlreadyBoundError',
     'OptimizerNotLoadedWarning',
@@ -657,6 +658,27 @@ class NoStashedStateError(TrackerError):
             run_id: the identifier of the run.
         """
         super().__init__(tracker, f'No stashed state found for run {run_id!r}.')
+        return
+
+
+class ObjectiveAlreadyUsedError(DryTorchError):
+    """Raised when an objective is shared across multiple sources."""
+
+    _template = (
+        'The objective is already used by {}: give each source its own '
+        'objective, for example with copy.deepcopy(objective)'
+    )
+
+    source_name: Final[str]
+
+    def __init__(self, source_name: str) -> None:
+        """Initialize.
+
+        Args:
+            source_name: the name of the source already using the objective.
+        """
+        self.source_name = source_name
+        super().__init__(source_name)
         return
 
 

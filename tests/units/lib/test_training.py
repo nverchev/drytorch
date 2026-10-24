@@ -326,6 +326,17 @@ class TestTrainerBuilder:
 
         assert builder.validation.name.startswith('Val')
 
+    def test_add_validation_objective_copies_loss(
+        self, mocker, builder
+    ) -> None:
+        """add_validation gives validation a distinct objective."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, val_name='Val')
+
+        val_obj = builder.validation.objective
+        assert val_obj is not builder._loss
+        assert val_obj.compute() == builder._loss.compute()
+
     def test_add_validation_twice_raises(self, mocker, builder) -> None:
         """Test adding validation a second time raises."""
         val_loader = mocker.Mock()

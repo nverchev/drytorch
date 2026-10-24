@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import warnings
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -691,7 +692,10 @@ class TrainerBuilder(Generic[Input, Target, Output]):
 
         condition = monitoring.Every(validate_every)
         self._validation = evaluations.Validation(
-            self._model, loader=val_loader, metric=self._loss, name=val_name
+            self._model,
+            loader=val_loader,
+            metric=copy.deepcopy(self._loss),
+            name=val_name,
         )
         hook = hooks.EvaluationHook(self._validation, when=condition)
         self._post_epoch_hooks.append(hook)

@@ -60,7 +60,7 @@ def test_automatic_names(
             name='MyTrainer',
             loader=training_loder,
             learning_schema=new_learning_schema,
-            loss=square_loss_calc,
+            loss=square_loss_calc.copy(),
         )
         builder.add_validation(val_loader=val_loader)
         builder.add_early_stopping()
@@ -92,7 +92,7 @@ def test_iterative_pruning(
             name='MyTrainer',
             loader=training_loder,
             learning_schema=new_learning_schema,
-            loss=square_loss_calc,
+            loss=square_loss_calc.copy(),
         )
         builder.add_validation(val_loader=val_loader)
         watch = builder.watch(best_is='lower')
