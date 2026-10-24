@@ -1,15 +1,14 @@
 """Plotting with matplotlib."""
 
-import math
 import pathlib
 
-from collections.abc import Iterable
+from collections.abc import Sequence
 from typing import ClassVar, TypeAlias
 
 import matplotlib
 import matplotlib.pyplot as plt
 
-from matplotlib import axes, colors, figure, ticker
+from matplotlib import artist, axes, colors, figure, ticker
 from typing_extensions import override
 
 from drytorch.core import exceptions
@@ -65,11 +64,11 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
         self,
         model_name: str,
         *,
-        metric_names: Iterable[str] = (),
-        source_names: Iterable[str] = (),
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
         start_epoch: int = 1,
     ) -> None:
-        """Render the metrics as subplots of one figure.
+        """Render the metrics as subplots of one figure, and the tests apart.
 
         Args:
             model_name: the name of the model to plot.
@@ -79,40 +78,68 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
 
         Raises:
             ValueError: if start_epoch is less than 1.
-            ValueError: if the model is not found.
-            ValueError: if no metric is left to plot.
+            ValueError: if neither a metric nor a test is left to plot.
         """
         metric_arrays = self._get_metric_arrays(
             model_name, metric_names, source_names, start_epoch
         )
-        n_metrics = len(metric_arrays)
-        n_rows = math.ceil(math.sqrt(n_metrics))
-        n_cols = math.ceil(n_metrics / n_rows)
-        fig = plt.figure()
-        fig.suptitle(model_name, fontsize=16)
-        for index, (metric_name, sourced_array) in enumerate(
-            metric_arrays.items()
-        ):
-            ax = fig.add_subplot(n_rows, n_cols, index + 1)
-            self._draw_metric(ax, metric_name, sourced_array)
+        test_plot = self.create_test_plot(
+            model_name, metric_names=metric_names, source_names=source_names
+        )
+        if not metric_arrays and test_plot is None:
+            msg = f'No metric to plot for model {model_name}.'
+            raise ValueError(msg)
 
-        fig.tight_layout()
+        if metric_arrays:
+            n_rows, n_cols = self._get_grid_shape(len(metric_arrays))
+            fig = plt.figure()
+            fig.suptitle(model_name, fontsize=16)
+            for index, (metric_name, sourced_array) in enumerate(
+                metric_arrays.items()
+            ):
+                ax = fig.add_subplot(n_rows, n_cols, index + 1)
+                self._draw_metric(ax, metric_name, sourced_array)
+
+            fig.tight_layout()
+
+        if test_plot is not None:
+            plt.figure(test_plot)  # pyplot manages the figure to show it
+
         plt.show()
         return
 
     @override
-    def _create_figure(
+    def _create_training_plot(
         self,
         model_name: str,
         metric_name: str,
         sourced_array: base_classes.SourcedArray,
     ) -> figure.Figure:
-        # a figure without pyplot is not rendered and keeps no global state
         fig = figure.Figure()
         ax = fig.add_subplot()
         ax.set_title(model_name)
         self._draw_metric(ax, metric_name, sourced_array)
         fig.tight_layout()
+        return fig
+
+    @override
+    def _create_test_plot(
+        self, model_name: str, test_results: base_classes.TestResults
+    ) -> figure.Figure:
+        metric_names = self._get_test_metric_names(test_results)
+        n_rows, n_cols = self._get_grid_shape(len(metric_names))
+        fig = figure.Figure(layout='constrained')
+        fig.suptitle(f'{model_name} tests')
+        for index, metric_name in enumerate(metric_names):
+            ax = fig.add_subplot(n_rows, n_cols, index + 1)
+            self._draw_test_metric(ax, metric_name, test_results)
+
+        legend: dict[str, artist.Artist] = {}
+        for ax in fig.axes:
+            handles, labels = ax.get_legend_handles_labels()
+            legend |= dict(zip(labels, handles, strict=True))
+
+        fig.legend(legend.values(), legend.keys(), loc='outside lower center')
         return fig
 
     def _draw_metric(
@@ -140,6 +167,28 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
                 ax.plot(log[:, 0], log[:, 1], color=color, label=name)
 
         ax.legend()
+        return
+
+    def _draw_test_metric(
+        self,
+        ax: axes.Axes,
+        metric_name: str,
+        test_results: base_classes.TestResults,
+    ) -> None:
+        position = 0
+        for source_name, (epoch, metrics) in test_results.items():
+            if metric_name in metrics:
+                bars = ax.bar(
+                    position,
+                    metrics[metric_name],
+                    color=self._get_source_color(source_name),
+                    label=f'{source_name} (epoch {epoch})',
+                )
+                ax.bar_label(bars, fmt='%.3g')
+                position += 1
+
+        ax.set_xticks([])
+        ax.set_title(metric_name)
         return
 
     def _get_cmap(self, palette: str) -> colors.Colormap:
@@ -177,7 +226,7 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
         return
 
     @override
-    def _save_figure(self, figure: figure.Figure, path: pathlib.Path) -> None:
+    def _save_plot(self, figure: figure.Figure, path: pathlib.Path) -> None:
         figure.savefig(path)
         return
 

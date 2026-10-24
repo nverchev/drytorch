@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import plotly.graph_objs as go
 
+from plotly import subplots
 from typing_extensions import override
 
 from drytorch.trackers import base_classes
@@ -22,28 +23,16 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
     file_suffix: ClassVar[str] = '.html'
 
     @override
-    def _create_figure(
+    def _create_training_plot(
         self,
         model_name: str,
         metric_name: str,
         sourced_array: base_classes.SourcedArray,
     ) -> go.Figure:
-        data: list[go.Scatter] = []
-        for name, log in sourced_array.items():
-            if log.shape[0] == 1:
-                marker = go.scatter.Marker(symbol='diamond', size=20)
-                data.append(
-                    go.Scatter(
-                        x=log[:, 0],
-                        y=log[:, 1],
-                        mode='markers',
-                        marker=marker,
-                        name=name,
-                    )
-                )
-            else:
-                data.append(go.Scatter(x=log[:, 0], y=log[:, 1], name=name))
-
+        data = [
+            go.Scatter(x=log[:, 0], y=log[:, 1], name=name)
+            for name, log in sourced_array.items()
+        ]
         return go.Figure(
             data=data,
             layout=go.Layout(
@@ -54,6 +43,36 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
         )
 
     @override
+    def _create_test_plot(
+        self, model_name: str, test_results: base_classes.TestResults
+    ) -> go.Figure:
+        metric_names = self._get_test_metric_names(test_results)
+        n_rows, n_cols = self._get_grid_shape(len(metric_names))
+        figure = subplots.make_subplots(
+            rows=n_rows, cols=n_cols, subplot_titles=metric_names
+        )
+        for index, metric_name in enumerate(metric_names):
+            labels: list[str] = []
+            values: list[float] = []
+            for source_name, (epoch, metrics) in test_results.items():
+                if metric_name in metrics:
+                    labels.append(f'{source_name} (epoch {epoch})')
+                    values.append(metrics[metric_name])
+
+            bar = go.Bar(
+                x=labels,
+                y=values,
+                name=metric_name,
+                showlegend=False,
+                text=[f'{value:.3g}' for value in values],
+            )
+            row, col = divmod(index, n_cols)
+            figure.add_trace(bar, row=row + 1, col=col + 1)
+
+        figure.update_layout(title=f'{model_name} tests')
+        return figure
+
+    @override
     def _render(self, figures: list[go.Figure]) -> None:
         for figure in figures:
             figure.show()
@@ -61,6 +80,6 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
         return
 
     @override
-    def _save_figure(self, figure: go.Figure, path: pathlib.Path) -> None:
+    def _save_plot(self, figure: go.Figure, path: pathlib.Path) -> None:
         figure.write_html(path)
         return

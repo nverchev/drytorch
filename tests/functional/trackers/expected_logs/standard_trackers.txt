@@ -13,6 +13,6 @@ Saved test_model checkpoint in: /path/to/checkpoints/model_epoch_6.pt
     test_source: 100%|##########| 5/5, Samples=160, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
 [2024-01-01 12:00:00] - Training test_model terminated at epoch 7. Reason: test event
 [2024-01-01 12:00:00] - Training ended
-[2024-01-01 12:00:00] - Testing test_model started
     test_source: 100%|##########| 5/5, Samples=160, Test Loss=4.560e-01, Accuracy=8.920e-01, Precision=8.780e-01
+[2024-01-01 12:00:00] - Tested test_model at epoch 7
 [2024-01-01 12:00:00] - Experiment: test_exp - Stopping run: 2025-08-01@12h54m21s

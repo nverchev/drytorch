@@ -268,15 +268,9 @@ class TestSource:
 
         runner.objective.reset.assert_called_once()
 
-    def test_run_epoch_emits_metrics(
-        self, mocker, runner, example_named_metrics
-    ) -> None:
-        """Test each pass publishes the computed metrics."""
-        mocker.patch.object(
-            Source, '_compute_metrics', return_value=example_named_metrics
-        )
-
-        runner._run_epoch(store_outputs=False)
+    def test_publish_metrics(self, runner, example_named_metrics) -> None:
+        """Test _publish_metrics publishes MetricEvent."""
+        runner._publish_metrics(example_named_metrics)
 
         self.mock_metric_event.assert_called_once_with(
             model_name=runner.model.name,
@@ -284,6 +278,19 @@ class TestSource:
             epoch=runner.model.epoch,
             metrics=example_named_metrics,
         )
+
+    def test_run_epoch_emits_metrics(
+        self, mocker, runner, example_named_metrics
+    ) -> None:
+        """Test each pass publishes metrics through _publish_metrics."""
+        mocker.patch.object(
+            Source, '_compute_metrics', return_value=example_named_metrics
+        )
+        mock_publish = mocker.patch.object(Source, '_publish_metrics')
+
+        runner._run_epoch(store_outputs=False)
+
+        mock_publish.assert_called_once_with(example_named_metrics)
 
     def test_last_run_epoch_initially_zero(self, runner) -> None:
         """Test last_run_epoch is 0 before running."""

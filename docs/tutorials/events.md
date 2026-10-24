@@ -56,8 +56,7 @@ existing trackers.
 | [`EndEpochEvent`](#drytorch.core.log_events.EndEpochEvent) | Training epoch completion | Epoch progress |
 | [`TerminatedTrainingEvent`](#drytorch.core.log_events.TerminatedTrainingEvent) | Early training termination | Termination cause and progress |
 | [`EndTrainingEvent`](#drytorch.core.log_events.EndTrainingEvent) | Training cycle completion | Runner metadata |
-| [`StartTestEvent`](#drytorch.core.log_events.StartTestEvent) | Evaluation pass start | Evaluation metadata |
-| [`EndTestEvent`](#drytorch.core.log_events.EndTestEvent) | Evaluation pass completion | Evaluation metadata |
+| [`TestMetricEvent`](#drytorch.core.log_events.TestMetricEvent) | Evaluation pass metrics | Evaluated metrics |
 
 ```{code-cell} ipython3
 :tags: [skip-execution]

@@ -203,22 +203,18 @@ def end_training_event(example_source_name) -> log_events.EndTrainingEvent:
 
 
 @pytest.fixture
-def start_test_event(
-    example_source_name, example_model_name
-) -> log_events.StartTestEvent:
-    """Provides a Test event instance."""
-    return log_events.StartTestEvent(
-        source_name=example_source_name, model_name=example_model_name
-    )
-
-
-@pytest.fixture
-def end_test_event(
-    example_source_name, example_model_name
-) -> log_events.EndTestEvent:
-    """Provides a Test event instance."""
-    return log_events.EndTestEvent(
-        source_name=example_source_name, model_name=example_model_name
+def test_metric_event(
+    example_source_name,
+    example_model_name,
+    example_named_metrics,
+    example_epoch,
+) -> log_events.TestMetricEvent:
+    """Provides a TestMetric event instance."""
+    return log_events.TestMetricEvent(
+        source_name=example_source_name,
+        model_name=example_model_name,
+        epoch=example_epoch,
+        metrics=example_named_metrics,
     )
 
 
@@ -276,8 +272,7 @@ def event_workflow(
     terminated_training_event,
     end_epoch_event,
     end_training_event,
-    start_test_event,
-    end_test_event,
+    test_metric_event,
     pause_experiment_event,
     continue_experiment_event,
     stop_experiment_event,
@@ -315,7 +310,7 @@ def event_workflow(
         end_epoch_event, epoch=end_epoch_event.epoch + 2
     )
     test_metrics_event = dataclasses.replace(
-        metrics_event, epoch=metrics_event.epoch + 2
+        test_metric_event, epoch=metrics_event.epoch + 2
     )
     terminated_training_event = dataclasses.replace(
         terminated_training_event, epoch=start_training_event.start_epoch + 2
@@ -345,10 +340,8 @@ def event_workflow(
         terminated_training_event,
         third_end_epoch_event,
         end_training_event,
-        start_test_event,
         iterate_batch_event,
         test_metrics_event,
-        end_test_event,
         stop_experiment_event,
     )
     return event_tuple
@@ -481,15 +474,12 @@ def plotting_workflow(
 
     # Final test evaluation events
     events.append(
-        log_events.MetricEvent(
+        log_events.TestMetricEvent(
             model_name=model_name,
             source_name=test_source,
             epoch=10,
             metrics={'loss': 0.69, 'accuracy': 0.83, 'f1_score': 0.81},
         )
-    )
-    events.append(
-        log_events.EndTestEvent(source_name=test_source, model_name=model_name)
     )
     events.append(stop_experiment_event)
     return tuple(events)

@@ -72,8 +72,7 @@ def event_workflow(
     continue_experiment_event,
     terminated_training_event,
     end_training_event,
-    start_test_event,
-    end_test_event,
+    test_metric_event,
     save_model_event,
     stop_experiment_event,
 ) -> tuple[log_events.Event, ...]:
@@ -93,8 +92,7 @@ def event_workflow(
         continue_experiment_event,
         terminated_training_event,
         end_training_event,
-        start_test_event,
-        end_test_event,
+        test_metric_event,
         save_model_event,
         stop_experiment_event,
     )

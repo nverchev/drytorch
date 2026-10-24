@@ -337,16 +337,20 @@ class Source(
         self._cached_metrics = objectives.compute_metrics(self.objective)
         return self._cached_metrics
 
-    @override
-    def _run_epoch(self, store_outputs: bool):
-        self.objective.reset()  # reset before epoch to keep last metrics
-        super()._run_epoch(store_outputs)
+    def _publish_metrics(self, metrics: Mapping[str, float]) -> None:
         log_events.MetricEvent(
             model_name=self.model.name,
             source_name=self.name,
             epoch=self.model.epoch,
-            metrics=self._compute_metrics(),
+            metrics=metrics,
         )
+        return
+
+    @override
+    def _run_epoch(self, store_outputs: bool):
+        self.objective.reset()  # reset before epoch to keep last metrics
+        super()._run_epoch(store_outputs)
+        self._publish_metrics(self._compute_metrics())
         return
 
     @override

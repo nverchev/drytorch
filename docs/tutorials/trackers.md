@@ -79,8 +79,8 @@ output directory (defaulting to the experiment folder).
 Plotters ([`PlotlyPlotter`](#drytorch.trackers.plotly.PlotlyPlotter) and [`MatPlotter`](#drytorch.trackers.matplotlib.MatPlotter)) collect metrics during the session
 or load stored metrics from a [`MetricLoader`](#drytorch.trackers.base_classes.MetricLoader) (such as [`CSVDumper`](#drytorch.trackers.csv.CSVDumper) or
 [`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection)). They generate figures on demand, creating one figure per
-metric for a model: [`plot`](#drytorch.trackers.base_classes.BasePlotter.plot) renders them together, [`save_figures`](#drytorch.trackers.base_classes.BasePlotter.save_figures) writes them to
-the run directory, and [`create_figures`](#drytorch.trackers.base_classes.BasePlotter.create_figures) returns them as a dictionary keyed by
+metric for a model: [`plot`](#drytorch.trackers.base_classes.BasePlotter.plot) renders them together, [`save_plots`](#drytorch.trackers.base_classes.BasePlotter.save_plots) writes them to
+the run directory, and [`create_training_plots`](#drytorch.trackers.base_classes.BasePlotter.create_training_plots) returns them as a dictionary keyed by
 metric name.
 
 ## Initialization modes

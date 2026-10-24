@@ -47,8 +47,9 @@
 - dropped the `Grad` prefix from gradient operations: renamed `GradNormClipper`, `GradValueClipper`, `GradParamNormalizer`, and `GradZScoreNormalizer` to `NormClipper`, `ValueClipper`, `ParamNormalizer`, and `ZScoreNormalizer`
 
 ## Added
-- `BasePlotter.create_figures` returns the figure of each metric of a model without rendering it, to show or save
-- plotters are dumpers: `BasePlotter.save_figures` saves the figure of each metric in the folder of the current run, as PNG (`MatPlotter`) or HTML (`PlotlyPlotter`)
+- TestMetricEvent, the MetricEvent a Test publishes
+- `BasePlotter.create_training_plots` returns the figure of each metric of a model without rendering it, to show or save
+- plotters are dumpers: `BasePlotter.save_plots` saves the figure of each metric in the folder of the current run, as PNG (`MatPlotter`) or HTML (`PlotlyPlotter`)
 - `MatPlotter.plot_grid` renders the metrics of a model as subplots of one figure
 - `Wandb.log_at_epoch` logs the values of other events against the epoch of a model, on the axis of its metrics
 - `TensorBoard` logs the command that serves the results, titled after the folder of the experiment, at the new level `SERVER_LOG_LEVEL` (26)
@@ -87,6 +88,7 @@
 - added `DataLoader.fold`, which splits a loader into the training and validation loaders of a k-fold cross-validation
 
 ## Changed
+- plotters keep the tests of a model out of the learning curves and draw them as a bar chart of their own, one panel per metric (`BasePlotter.create_test_plot`, `MemoryMetrics.test_dict`)
 - unrecorded runs (`record=False`) write nothing: `StartExperimentEvent` and `ContinueExperimentEvent` carry `record`, and the dumpers (`Dumper.record`) and `SQLConnection` skip their files, links, writers and database rows, while the logging trackers still report the run
 - `Source` is generic in any objective, not only in a loss
 - `Test` and `TestProtocol` derive from `Evaluation` and `SourceProtocol` instead of from the validation role
@@ -132,6 +134,7 @@
 - the `matplotlib` optional dependency requires version 3.11.0 or later
 
 ## Removed
+- StartTestEvent and EndTestEvent: a Test publishes only TestMetricEvent
 - the TensorBoard server, with the `start_server` argument and the `base_port` and `instance_count` attributes of `TensorBoard`: outside notebooks, the tracker logs the command that serves the results
 - `Diagnostic` and `EvaluationMixin`; use `Evaluation`
 - ComposedScheduler, and parameters and base_scheduler_name from the schedulers

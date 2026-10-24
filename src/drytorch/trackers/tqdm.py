@@ -270,11 +270,6 @@ class TqdmLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.EndTestEvent) -> None:
-        self._clean_epoch_bar()
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         self._clean_epoch_bar()
         self._clean_training_bar()

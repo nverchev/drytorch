@@ -15,7 +15,6 @@ from drytorch.core import exceptions
 __all__ = [
     'ContinueExperimentEvent',
     'EndEpochEvent',
-    'EndTestEvent',
     'EndTrainingEvent',
     'Event',
     'IncrementEpochEvent',
@@ -29,10 +28,10 @@ __all__ = [
     'SaveModelEvent',
     'StartEpochEvent',
     'StartExperimentEvent',
-    'StartTestEvent',
     'StartTrainingEvent',
     'StopExperimentEvent',
     'TerminatedTrainingEvent',
+    'TestMetricEvent',
 ]
 
 
@@ -335,29 +334,8 @@ class EndTrainingEvent(Event):
 
 
 @dataclasses.dataclass(frozen=True)
-class StartTestEvent(Event):
-    """Event logged when a test is started.
-
-    Attributes:
-        source_name: the name of the object calling the test.
-        model_name: the name of the model.
-    """
-
-    source_name: str
-    model_name: str
-
-
-@dataclasses.dataclass(frozen=True)
-class EndTestEvent(Event):
-    """Event logged when a test is ended.
-
-    Attributes:
-        source_name: the name of the object calling the test.
-        model_name: the name of the model.
-    """
-
-    source_name: str
-    model_name: str
+class TestMetricEvent(MetricEvent):
+    """Event logged when a test aggregates its metrics."""
 
 
 @dataclasses.dataclass(frozen=True)

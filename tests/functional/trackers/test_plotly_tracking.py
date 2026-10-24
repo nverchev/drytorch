@@ -26,25 +26,29 @@ class TestPlotlyPlotterFullCycle:
         for event in plotting_workflow:
             plotter.notify(event)
 
-        figures = plotter.create_figures(example_model_name)
+        figures = plotter.create_training_plots(example_model_name)
         plotter.close()
 
         assert len(figures) == 3
 
-    def test_save_figures_of_the_run(
+    def test_save_plots_of_the_run(
         self,
         tmp_path: pathlib.Path,
         example_model_name: str,
         plotting_workflow: tuple[log_events.Event, ...],
     ) -> None:
-        """Each figure is saved as a file in the folder of the run."""
+        """Each metric and the tests are saved as files in the run's folder."""
         plotter = PlotlyPlotter()
         *events, stop_event = plotting_workflow
         for event in events:
             plotter.notify(event)
 
-        plotter.save_figures(example_model_name)
+        plotter.save_plots(example_model_name)
         plotter.notify(stop_event)
 
-        saved = list(tmp_path.glob(f'plots/**/{example_model_name}/*.html'))
-        assert len(saved) == 3
+        saved = {
+            path.stem
+            for path in tmp_path.glob(f'plots/**/{example_model_name}/*.html')
+        }
+        assert len(saved) == 4
+        assert 'tests' in saved

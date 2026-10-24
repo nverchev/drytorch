@@ -1,5 +1,6 @@
 """Classes for the evaluation of a model."""
 
+from collections.abc import Mapping
 from typing import Any, TypeVar
 
 import torch
@@ -63,7 +64,7 @@ class Evaluation(runners.Source[Input, Target, Output, Any]):
 
 
 class Validation(Evaluation[Input, Target, Output]):
-    """Evaluate model performance on held-out data during model development.
+    """Evaluate model performance on held-out data during training.
 
     Attributes:
         loader: provides inputs and targets in batches.
@@ -73,7 +74,7 @@ class Validation(Evaluation[Input, Target, Output]):
 
 
 class Test(Evaluation[Input, Target, Output]):
-    """Evaluate model performance on a test dataset after model development.
+    """Evaluate a model outside the training loop.
 
     Attributes:
         loader: provides inputs and targets in batches.
@@ -82,13 +83,11 @@ class Test(Evaluation[Input, Target, Output]):
     """
 
     @override
-    def __call__(self, *, store_outputs: bool = False) -> None:
-        """Test the model on the dataset.
-
-        Args:
-            store_outputs: whether to store model outputs. Defaults to False.
-        """
-        log_events.StartTestEvent(self.name, self.model.name)
-        super().__call__(store_outputs=store_outputs)
-        log_events.EndTestEvent(self.name, self.model.name)
+    def _publish_metrics(self, metrics: Mapping[str, float]) -> None:
+        log_events.TestMetricEvent(
+            model_name=self.model.name,
+            source_name=self.name,
+            epoch=self.model.epoch,
+            metrics=metrics,
+        )
         return

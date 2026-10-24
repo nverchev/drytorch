@@ -59,7 +59,7 @@ direction TB
 
 
     class TestProtocol {
-        +__call__(store_outputs: bool) «StartTestEvent» «EndTestEvent»
+        +__call__(store_outputs: bool) «TestMetricEvent»
     }
 
     class TrainerProtocol["TrainerProtocol[Input, Target, Output]"] {

@@ -1,1 +1,1 @@
-Testing test_model started
+Tested test_model at epoch 5

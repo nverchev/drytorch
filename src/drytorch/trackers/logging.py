@@ -158,15 +158,17 @@ class BuiltinLogger(tracking.Tracker):
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
-        log_msg_list: list[str] = ['%(desc)s']
-        desc = _to_desc(event.source_name)
-        log_args: dict[str, str | float] = {'desc': desc}
-        for i, (metric, value) in enumerate(event.metrics.items()):
-            log_msg_list.append(f'%(name_{i})s=%(value_{i})4e')
-            log_args[f'name_{i}'] = metric
-            log_args[f'value_{i}'] = value
+        msg, log_args = self._format_metrics(event)
+        logger.log(INFO_LEVELS.metrics, msg, log_args)
+        return super().notify(event)
 
-        logger.log(INFO_LEVELS.metrics, '\t'.join(log_msg_list), log_args)
+    @notify.register
+    def _(self, event: log_events.TestMetricEvent) -> None:
+        msg = 'Tested %(model_name)s at epoch %(epoch)d'
+        log_args = {'model_name': event.model_name, 'epoch': event.epoch}
+        logger.log(INFO_LEVELS.test, msg, log_args)
+        msg, metric_args = self._format_metrics(event)
+        logger.log(INFO_LEVELS.metrics, msg, metric_args)
         return super().notify(event)
 
     @notify.register
@@ -231,20 +233,6 @@ class BuiltinLogger(tracking.Tracker):
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.StartTestEvent) -> None:
-        logger.log(
-            INFO_LEVELS.test,
-            'Testing %(model_name)s started',
-            {'model_name': event.model_name},
-        )
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.EndTestEvent) -> None:
-        logger.log(INFO_LEVELS.internal, 'Test executed without errors')
-        return super().notify(event)
-
-    @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         msg = 'Experiment: %(name)s - Pausing run: %(id)s'
         args = {'name': event.exp_name, 'id': event.run_id}
@@ -264,6 +252,20 @@ class BuiltinLogger(tracking.Tracker):
         args = {'name': event.exp_name, 'id': event.run_id}
         logger.log(INFO_LEVELS.experiment, msg, args)
         return super().notify(event)
+
+    @staticmethod
+    def _format_metrics(
+        event: log_events.MetricEvent,
+    ) -> tuple[str, dict[str, str | float]]:
+        log_msg_list: list[str] = ['%(desc)s']
+        desc = _to_desc(event.source_name)
+        log_args: dict[str, str | float] = {'desc': desc}
+        for i, (metric, value) in enumerate(event.metrics.items()):
+            log_msg_list.append(f'%(name_{i})s=%(value_{i})4e')
+            log_args[f'name_{i}'] = metric
+            log_args[f'value_{i}'] = value
+
+        return '\t'.join(log_msg_list), log_args
 
 
 class DryTorchFilter(logging.Filter):

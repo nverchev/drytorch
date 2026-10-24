@@ -279,13 +279,33 @@ class TestBuiltinLogger:
 
         assert 'Training ended' in self.stream.getvalue()
 
-    def test_test_event(self, tracker, start_test_mock_event) -> None:
-        """Test handling of Test event."""
-        start_test_mock_event.model_name = 'my_model'
+    def test_test_metric_event(
+        self, tracker, test_metric_mock_event, logger
+    ) -> None:
+        """At test level, the test is announced and its metrics are not."""
+        test_metric_mock_event.source_name = 'test_source'
+        test_metric_mock_event.metrics = {'loss': 1.2, 'accuracy': 0.81}
+        model_name = test_metric_mock_event.model_name
+        epoch = test_metric_mock_event.epoch
 
-        tracker.notify(start_test_mock_event)
+        logger.setLevel(INFO_LEVELS.test)
+        tracker.notify(test_metric_mock_event)
 
-        assert 'Testing my_model started' in self.stream.getvalue()
+        output = self.stream.getvalue()
+        assert f'Tested {model_name} at epoch {epoch}' in output
+        assert 'loss=' not in output
+
+    def test_metric_event_not_logged_at_test_level(
+        self, tracker, epoch_metrics_mock_event, logger
+    ) -> None:
+        """Test that MetricEvent is filtered out at test level."""
+        logger.setLevel(INFO_LEVELS.test)
+        tracker.notify(epoch_metrics_mock_event)
+        assert self.stream.getvalue() == ''
+
+        logger.setLevel(INFO_LEVELS.metrics)
+        tracker.notify(epoch_metrics_mock_event)
+        assert self.stream.getvalue() != ''
 
     def test_pause_experiment_event(
         self,

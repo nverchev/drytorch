@@ -405,13 +405,12 @@ class SourceProtocol(RunnerProtocol, Protocol):
 
 
 class TestProtocol(SourceProtocol, Protocol):
-    """Protocol for evaluating a model on test data after model development."""
+    """Protocol for evaluating a model outside the training loop."""
 
     def __call__(self, *, store_outputs: bool = False) -> None:
         """Run the model on the data once.
 
-        Emits :class:`~drytorch.core.log_events.StartTestEvent` and then
-        :class:`~drytorch.core.log_events.EndTestEvent`.
+        Emits :class:`~drytorch.core.log_events.TestMetricEvent`.
 
         Args:
             store_outputs: whether to store the model outputs.

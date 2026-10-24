@@ -229,8 +229,8 @@ Python requires it (dataclass fields with defaults after those without).
   `StartEpochEvent`, `IncrementEpochEvent`, `IterateBatchEvent`,
   `MetricEvent`, `LearningRateEvent`, `SaveModelEvent`,
   `TerminatedTrainingEvent`, `EndEpochEvent`, `EndTrainingEvent`,
-  `StartTestEvent`, `EndTestEvent`, `PauseExperimentEvent`,
-  `ContinueExperimentEvent`, `StopExperimentEvent`.
+  `TestMetricEvent`, `PauseExperimentEvent`, `ContinueExperimentEvent`,
+  `StopExperimentEvent`.
 - This workflow order defines the order of event classes in
   `core/log_events.py` and the order of `@notify.register` handlers in
   trackers.

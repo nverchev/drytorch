@@ -54,8 +54,11 @@ class TestValidation:
     def setup(self, mocker, example_named_metrics) -> None:
         """Set up the tests."""
 
-        def _set_model(instance, model, *_, objective=None, **__) -> None:
+        def _set_model(
+            instance, model, *_, name='', objective=None, **__
+        ) -> None:
             instance.model = model  # read by the registering metaclass
+            instance._name = name
             instance.objective = objective
             return
 
@@ -79,6 +82,19 @@ class TestValidation:
     def test_initialization(self, validation) -> None:
         """Test parent __init__ is called."""
         self.mock_super_init.assert_called_once()
+
+    def test_publish_metrics(self, mocker, validation) -> None:
+        """Test that Validation still publishes a plain MetricEvent."""
+        mock_metric_event = mocker.patch('drytorch.core.log_events.MetricEvent')
+        metrics = {'loss': 0.5}
+        validation._publish_metrics(metrics)
+
+        mock_metric_event.assert_called_once_with(
+            model_name=validation.model.name,
+            source_name=validation.name,
+            epoch=validation.model.epoch,
+            metrics=metrics,
+        )
 
     def test_metric_type_survives(self, mock_model, mock_loader) -> None:
         """Test that a metric subclass preserves its concrete type."""
@@ -105,14 +121,8 @@ class TestTest:
     @pytest.fixture(autouse=True)
     def setup(self, mocker) -> None:
         """Set up the tests."""
-        self.mock_start_test = mocker.patch(
-            'drytorch.core.log_events.StartTestEvent'
-        )
-        self.mock_end_test = mocker.patch(
-            'drytorch.core.log_events.EndTestEvent'
-        )
-        self.mock_super_call = mocker.patch(
-            'drytorch.lib.evaluations.Evaluation.__call__'
+        self.mock_test_metric = mocker.patch(
+            'drytorch.core.log_events.TestMetricEvent'
         )
         return
 
@@ -126,14 +136,14 @@ class TestTest:
             metric=mock_metric,
         )
 
-    def test_call_logging(self, test_instance) -> None:
-        """Test __call__ method logs start and end test events."""
-        test_instance(store_outputs=True)
+    def test_publish_metrics(self, test_instance) -> None:
+        """Test that Test publishes TestMetricEvent."""
+        metrics = {'loss': 0.5}
+        test_instance._publish_metrics(metrics)
 
-        self.mock_start_test.assert_called_once_with(
-            test_instance.name, test_instance.model.name
-        )
-        self.mock_super_call.assert_called_once_with(store_outputs=True)
-        self.mock_end_test.assert_called_once_with(
-            test_instance.name, test_instance.model.name
+        self.mock_test_metric.assert_called_once_with(
+            model_name=test_instance.model.name,
+            source_name=test_instance.name,
+            epoch=test_instance.model.epoch,
+            metrics=metrics,
         )

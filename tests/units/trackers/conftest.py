@@ -226,24 +226,15 @@ def end_training_mock_event(
 
 
 @pytest.fixture
-def start_test_mock_event(
-    mocker, example_source_name, example_model_name
-) -> log_events.StartTestEvent:
-    """Mock StartTest event instance."""
-    mock = mocker.create_autospec(log_events.StartTestEvent)
-    mock.source_name = example_source_name
+def test_metric_mock_event(
+    mocker, example_source_name, example_model_name, example_named_metrics
+) -> log_events.TestMetricEvent:
+    """Mock TestMetric event instance."""
+    mock = mocker.create_autospec(log_events.TestMetricEvent)
     mock.model_name = example_model_name
-    return mock
-
-
-@pytest.fixture
-def end_test_mock_event(
-    mocker, example_source_name, example_model_name
-) -> log_events.EndTestEvent:
-    """Mock EndTest event instance."""
-    mock = mocker.create_autospec(log_events.EndTestEvent)
     mock.source_name = example_source_name
-    mock.model_name = example_model_name
+    mock.epoch = 10
+    mock.metrics = example_named_metrics
     return mock
 
 

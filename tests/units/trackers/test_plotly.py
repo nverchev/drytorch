@@ -40,30 +40,20 @@ class TestPlotlyPlotter:
         }
         return instance
 
-    def test_create_figures_one_for_each_metric(
+    def test_create_training_plots_one_for_each_metric(
         self, tracker, example_model_name, example_loss_name
     ) -> None:
         """Each metric has its own figure, labelled with its name."""
-        figures = tracker.create_figures(example_model_name)
+        figures = tracker.create_training_plots(example_model_name)
 
         assert set(figures) == {example_loss_name, 'Accuracy'}
         assert figures['Accuracy'].layout.yaxis.title.text == 'Accuracy'
 
-    def test_create_figures_single_point(
-        self, tracker, example_model_name
-    ) -> None:
-        """A single point is drawn as a diamond marker."""
-        figures = tracker.create_figures(example_model_name)
-
-        traces = {trace.name: trace for trace in figures['Accuracy'].data}
-        assert traces['single_point_source'].mode == 'markers'
-        assert traces['single_point_source'].marker.symbol == 'diamond'
-
-    def test_create_figures_does_not_render(
+    def test_create_training_plots_does_not_render(
         self, tracker, example_model_name
     ) -> None:
         """Creating the figures does not render them."""
-        tracker.create_figures(example_model_name)
+        tracker.create_training_plots(example_model_name)
 
         self.mock_show.assert_not_called()
 
@@ -72,3 +62,19 @@ class TestPlotlyPlotter:
         tracker.plot(example_model_name)
 
         assert self.mock_show.call_count == 2
+
+    def test_create_test_plot_one_panel_for_each_metric(
+        self, tracker, example_model_name
+    ) -> None:
+        """Each test metric has its own panel, with a bar for each test."""
+        tracker.test_dict[example_model_name] = {
+            'Test': (5, {'Accuracy': 0.9, 'Loss': 0.3}),
+            'Test_shifted': (5, {'Accuracy': 0.7}),
+        }
+
+        test_figure = tracker.create_test_plot(example_model_name)
+
+        assert test_figure is not None
+        bars = list(test_figure.data)
+        assert [len(bar.y) for bar in bars] == [2, 1]
+        assert all(isinstance(bar, go.Bar) for bar in bars)

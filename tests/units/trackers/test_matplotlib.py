@@ -43,32 +43,32 @@ class TestMatPlotter:
         }
         return instance
 
-    def test_create_figures_without_pyplot(
+    def test_create_training_plots_without_pyplot(
         self, tracker, example_model_name
     ) -> None:
         """The figures are created without pyplot, so they are not rendered."""
-        figures = tracker.create_figures(example_model_name)
+        figures = tracker.create_training_plots(example_model_name)
 
         assert all(isinstance(fig, figure.Figure) for fig in figures.values())
         self.plt_mock.figure.assert_not_called()
         self.plt_mock.show.assert_not_called()
 
-    def test_create_figures_one_for_each_metric(
+    def test_create_training_plots_one_for_each_metric(
         self, tracker, example_model_name, example_loss_name
     ) -> None:
         """Each metric has its own figure, labelled with its name."""
-        figures = tracker.create_figures(example_model_name)
+        figures = tracker.create_training_plots(example_model_name)
 
         assert set(figures) == {example_loss_name, 'Accuracy'}
         ax = figures['Accuracy'].axes[0]
         assert ax.get_ylabel() == 'Accuracy'
         assert ax.get_title() == example_model_name
 
-    def test_create_figures_single_point(
+    def test_create_training_plots_single_point(
         self, tracker, example_model_name
     ) -> None:
         """A single point is drawn as a diamond marker."""
-        figures = tracker.create_figures(example_model_name)
+        figures = tracker.create_training_plots(example_model_name)
 
         lines = {
             line.get_label(): line
@@ -77,11 +77,11 @@ class TestMatPlotter:
         assert lines['single_point_source'].get_marker() == 'D'
         assert lines['single_point_source'].get_linestyle() == 'None'
 
-    def test_create_figures_same_color_for_a_source(
+    def test_create_training_plots_same_color_for_a_source(
         self, tracker, example_model_name, example_source_name
     ) -> None:
         """A source has the same color in every figure."""
-        figures = tracker.create_figures(example_model_name)
+        figures = tracker.create_training_plots(example_model_name)
 
         colors = set()
         for fig in figures.values():
@@ -114,6 +114,36 @@ class TestMatPlotter:
         ylabels = {ax.get_ylabel() for ax in grid.axes}
         assert ylabels == {example_loss_name, 'Accuracy'}
         self.plt_mock.figure.assert_called_once_with()
+        self.plt_mock.show.assert_called_once()
+
+    def test_create_test_plot_one_panel_for_each_metric(
+        self, tracker, example_model_name
+    ) -> None:
+        """Each test metric has its own panel, with a bar for each test."""
+        tracker.test_dict[example_model_name] = {
+            'Test': (5, {'Accuracy': 0.9, 'Loss': 0.3}),
+            'Test_shifted': (5, {'Accuracy': 0.7}),
+        }
+
+        test_figure = tracker.create_test_plot(example_model_name)
+
+        assert test_figure is not None
+        panels = {ax.get_title(): ax for ax in test_figure.axes}
+        assert set(panels) == {'Accuracy', 'Loss'}
+        assert len(panels['Accuracy'].patches) == 2
+        assert len(panels['Loss'].patches) == 1
+
+    def test_plot_grid_shows_tests(self, tracker, example_model_name) -> None:
+        """The test figure is shown with the grid of the curves."""
+        tracker.test_dict[example_model_name] = {'Test': (5, {'Accuracy': 0.9})}
+        grid = figure.Figure()
+        self.plt_mock.figure.return_value = grid
+
+        tracker.plot_grid(example_model_name)
+
+        handed = [call.args for call in self.plt_mock.figure.call_args_list]
+        assert handed[0] == ()
+        assert isinstance(handed[1][0], figure.Figure)
         self.plt_mock.show.assert_called_once()
 
     def test_close(self, tracker) -> None:

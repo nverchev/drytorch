@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import abc
 import functools
+import math
 import pathlib
 
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Sequence
 from typing import ClassVar, Final, Generic, TypeAlias, TypeVar
 
 import numpy as np
@@ -28,6 +29,7 @@ __all__ = [
     'SourcedArray',
     'SourcedMetric',
     'SourcedMetrics',
+    'TestResults',
 ]
 
 
@@ -37,6 +39,7 @@ SourcedMetric: TypeAlias = dict[str, HistoryMetric]
 SourcedMetrics: TypeAlias = dict[str, HistoryMetrics]
 NpArray: TypeAlias = npt.NDArray[np.float64]
 SourcedArray: TypeAlias = dict[str, NpArray]
+TestResults: TypeAlias = dict[str, tuple[int, dict[str, float]]]
 
 Figure = TypeVar('Figure')
 
@@ -224,10 +227,12 @@ class MemoryMetrics(tracking.Tracker):
     """Keep all metrics in memory.
 
     Attributes:
-        model_dict: all metrics recorded in this session.
+        model_dict: all metrics recorded in this session, except tests.
+        test_dict: the latest test of each source, by model name.
     """
 
     model_dict: Final[dict[str, SourcedMetrics]]
+    test_dict: Final[dict[str, TestResults]]
     _metric_loader: Final[MetricLoader | None]
 
     def __init__(self, *, metric_loader: MetricLoader | None = None) -> None:
@@ -239,6 +244,7 @@ class MemoryMetrics(tracking.Tracker):
         super().__init__()
         self._metric_loader = metric_loader
         self.model_dict = {}
+        self.test_dict = {}
         return
 
     @functools.singledispatchmethod
@@ -269,6 +275,12 @@ class MemoryMetrics(tracking.Tracker):
 
         return super().notify(event)
 
+    @notify.register
+    def _(self, event: log_events.TestMetricEvent) -> None:
+        test_results = self.test_dict.setdefault(event.model_name, {})
+        test_results[event.source_name] = (event.epoch, dict(event.metrics))
+        return super().notify(event)
+
 
 class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
     """Abstract class for plotting the learning curves on request.
@@ -297,12 +309,12 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         self.user_par_dir = par_dir
         return
 
-    def create_figures(
+    def create_training_plots(
         self,
         model_name: str,
         *,
-        metric_names: Iterable[str] = (),
-        source_names: Iterable[str] = (),
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
         start_epoch: int = 1,
     ) -> dict[str, Figure]:
         """Create a figure for each metric without rendering it.
@@ -318,25 +330,49 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
         Raises:
             ValueError: if start_epoch is less than 1.
-            ValueError: if the model is not found.
             ValueError: if no metric is left to plot.
         """
-        metric_arrays = self._get_metric_arrays(
+        plots = self._create_training_plots(
             model_name, metric_names, source_names, start_epoch
         )
-        return {
-            metric_name: self._create_figure(
-                model_name, metric_name, sourced_array
-            )
-            for metric_name, sourced_array in metric_arrays.items()
-        }
+        if not plots:
+            msg = f'No metric to plot for model {model_name}.'
+            raise ValueError(msg)
+
+        return plots
+
+    def create_test_plot(
+        self,
+        model_name: str,
+        *,
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
+    ) -> Figure | None:
+        """Create the figure of the tests of a model without rendering it.
+
+        Args:
+            model_name: the name of the model to plot.
+            metric_names: the names of the metrics to plot. Defaults to all.
+            source_names: the names of the tests to plot. Defaults to all.
+
+        Returns:
+            A figure with the latest value of each test, or None if the model
+            has no test left to plot.
+        """
+        test_results = self._get_test_results(
+            model_name, metric_names, source_names
+        )
+        if not test_results:
+            return None
+
+        return self._create_test_plot(model_name, test_results)
 
     def plot(
         self,
         model_name: str,
         *,
-        metric_names: Iterable[str] = (),
-        source_names: Iterable[str] = (),
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
         start_epoch: int = 1,
     ) -> None:
         """Render the figures of the metrics together.
@@ -349,24 +385,24 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
         Raises:
             ValueError: if start_epoch is less than 1.
-            ValueError: if the model is not found.
-            ValueError: if no metric is left to plot.
+            ValueError: if neither a metric nor a test is left to plot.
         """
-        figures = self.create_figures(
-            model_name,
-            metric_names=metric_names,
-            source_names=source_names,
-            start_epoch=start_epoch,
+        training_plots, test_plot = self._create_plots(
+            model_name, metric_names, source_names, start_epoch
         )
-        self._render(list(figures.values()))
+        plots = list(training_plots.values())
+        if test_plot is not None:
+            plots.append(test_plot)
+
+        self._render(plots)
         return
 
-    def save_figures(
+    def save_plots(
         self,
         model_name: str,
         *,
-        metric_names: Iterable[str] = (),
-        source_names: Iterable[str] = (),
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
         start_epoch: int = 1,
     ) -> None:
         """Save the figure of each metric in the folder of the current run.
@@ -380,42 +416,83 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         Raises:
             AccessOutsideScopeError: if no run is active.
             ValueError: if start_epoch is less than 1.
-            ValueError: if the model is not found.
-            ValueError: if no metric is left to plot.
+            ValueError: if neither a metric nor a test is left to plot.
 
         Side Effects:
-            Writes one file for each metric in a folder named after the model,
-            if the run is recorded.
+            Writes one file for each metric, and one named ``tests`` for the
+            tests, in a folder named after the model, if the run is recorded.
         """
         if not self.record:
             return
 
-        figures = self.create_figures(
-            model_name,
-            metric_names=metric_names,
-            source_names=source_names,
-            start_epoch=start_epoch,
+        training_plots, test_plot = self._create_plots(
+            model_name, metric_names, source_names, start_epoch
         )
         model_dir = self._get_run_dir() / model_name
         model_dir.mkdir(exist_ok=True)
-        for metric_name, figure in figures.items():
-            self._save_figure(
-                figure, model_dir / f'{metric_name}{self.file_suffix}'
+        for metric_name, plot in training_plots.items():
+            self._save_plot(
+                plot, model_dir / f'{metric_name}{self.file_suffix}'
             )
+
+        if test_plot is not None:
+            self._save_plot(test_plot, model_dir / f'tests{self.file_suffix}')
 
         return
 
+    def _create_plots(
+        self,
+        model_name: str,
+        metric_names: Sequence[str],
+        source_names: Sequence[str],
+        start_epoch: int,
+    ) -> tuple[dict[str, Figure], Figure | None]:
+        training_plots = self._create_training_plots(
+            model_name, metric_names, source_names, start_epoch
+        )
+        test_plot = self.create_test_plot(
+            model_name, metric_names=metric_names, source_names=source_names
+        )
+        if not training_plots and test_plot is None:
+            msg = f'No metric to plot for model {model_name}.'
+            raise ValueError(msg)
+
+        return training_plots, test_plot
+
+    def _create_training_plots(
+        self,
+        model_name: str,
+        metric_names: Sequence[str],
+        source_names: Sequence[str],
+        start_epoch: int,
+    ) -> dict[str, Figure]:
+        metric_arrays = self._get_metric_arrays(
+            model_name, metric_names, source_names, start_epoch
+        )
+        return {
+            metric_name: self._create_training_plot(
+                model_name, metric_name, sourced_array
+            )
+            for metric_name, sourced_array in metric_arrays.items()
+        }
+
     @abc.abstractmethod
-    def _create_figure(
+    def _create_training_plot(
         self, model_name: str, metric_name: str, sourced_array: SourcedArray
     ) -> Figure:
         """Create the figure of a metric from its sourced arrays."""
 
+    @abc.abstractmethod
+    def _create_test_plot(
+        self, model_name: str, test_results: TestResults
+    ) -> Figure:
+        """Create the figure of the tests of a model, one panel per metric."""
+
     def _get_metric_arrays(
         self,
         model_name: str,
-        metric_names: Iterable[str],
-        source_names: Iterable[str],
+        metric_names: Sequence[str],
+        source_names: Sequence[str],
         start_epoch: int,
     ) -> dict[str, SourcedArray]:
         if start_epoch < 1:
@@ -427,9 +504,6 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
         if sourced_metrics:
             self.model_dict[model_name] = sourced_metrics
-        else:
-            msg = f'No model named {model_name} has been found.'
-            raise ValueError(msg)
 
         if source_names:
             sourced_metrics = {
@@ -452,10 +526,6 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             if processed_sources:
                 metric_arrays[metric_name] = processed_sources
 
-        if not metric_arrays:
-            msg = f'No metric to plot for model {model_name}.'
-            raise ValueError(msg)
-
         return metric_arrays
 
     def _get_sourced_metric(
@@ -474,6 +544,30 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
         return out
 
+    def _get_test_results(
+        self,
+        model_name: str,
+        metric_names: Sequence[str],
+        source_names: Sequence[str],
+    ) -> TestResults:
+        test_results = self.test_dict.get(model_name, {})
+        out: TestResults = {}
+        for source_name, (epoch, metrics) in test_results.items():
+            if source_names and source_name not in source_names:
+                continue
+
+            if metric_names:
+                metrics = {
+                    name: value
+                    for name, value in metrics.items()
+                    if name in metric_names
+                }
+
+            if metrics:
+                out[source_name] = (epoch, metrics)
+
+        return out
+
     def _process_source(
         self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
     ) -> SourcedArray:
@@ -487,7 +581,7 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         """Render the figures together."""
 
     @abc.abstractmethod
-    def _save_figure(self, figure: Figure, path: pathlib.Path) -> None:
+    def _save_plot(self, figure: Figure, path: pathlib.Path) -> None:
         """Save the figure to the path."""
 
     @classmethod
@@ -508,6 +602,16 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
                 filtered[name] = data[mask]
 
         return filtered
+
+    @staticmethod
+    def _get_grid_shape(n_panels: int) -> tuple[int, int]:
+        n_rows = math.ceil(math.sqrt(n_panels))
+        return n_rows, math.ceil(n_panels / n_rows)
+
+    @staticmethod
+    def _get_test_metric_names(test_results: TestResults) -> list[str]:
+        names = (set(metrics) for _, metrics in test_results.values())
+        return sorted(set().union(*names))
 
     @staticmethod
     def _len_source(source_pair: tuple[str, HistoryMetric]) -> int:

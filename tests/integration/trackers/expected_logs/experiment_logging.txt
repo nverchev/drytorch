@@ -4,5 +4,5 @@ Experiment: test_exp - Pausing run: 2025-08-01@12h54m21s
 Experiment: test_exp - Continuing run: 2025-08-01@12h54m21s
 Training test_model terminated at epoch 5. Reason: test event
 Training ended
-Testing test_model started
+Tested test_model at epoch 5
 Experiment: test_exp - Stopping run: 2025-08-01@12h54m21s
