@@ -6,6 +6,7 @@ Attributes:
     TS_FMT: format for representing a timestamp.
 """
 
+import enum
 import functools
 import pathlib
 
@@ -184,6 +185,15 @@ def represent_literal_str(
     )
 
 
+def represent_omitted(
+    dumper: yaml.Dumper, data: repr_utils.Omitted
+) -> yaml.MappingNode:
+    """YAML representer for omitted values."""
+    return dumper.represent_mapping(
+        '!Omitted', {'omitted_elements': data.count}
+    )
+
+
 def represent_sequence(
     dumper: yaml.Dumper,
     sequence: Sequence[Any] | set[Any] | frozenset[Any],
@@ -209,13 +219,11 @@ def represent_sequence(
     )
 
 
-def represent_omitted(
-    dumper: yaml.Dumper, data: repr_utils.Omitted
-) -> yaml.MappingNode:
-    """YAML representer for omitted values."""
-    return dumper.represent_mapping(
-        '!Omitted', {'omitted_elements': data.count}
-    )
+def represent_str_enum(
+    dumper: yaml.Dumper, member: enum.StrEnum
+) -> yaml.ScalarNode:
+    """YAML representer for string enumerations, written as their value."""
+    return dumper.represent_str(str(member))
 
 
 DryTorchDumper.add_representer(repr_utils.LiteralStr, represent_literal_str)
@@ -224,3 +232,4 @@ DryTorchDumper.add_representer(tuple, represent_sequence)
 DryTorchDumper.add_representer(set, represent_sequence)
 DryTorchDumper.add_representer(frozenset, represent_sequence)
 DryTorchDumper.add_representer(repr_utils.Omitted, represent_omitted)
+DryTorchDumper.add_multi_representer(enum.StrEnum, represent_str_enum)

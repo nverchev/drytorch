@@ -1,5 +1,6 @@
 """Tests for the ``yaml`` module."""
 
+import enum
 import importlib.util
 
 from collections.abc import Generator
@@ -134,3 +135,16 @@ class TestYamlSerialization:
 
         assert '[alpha, beta, delta, gamma]' in dumped
         assert '[alpha, beta, delta, gamma]' in dumped_frozen
+
+    def test_str_enum_dumping(self) -> None:
+        """A StrEnum member dumps as a plain string without Python tags."""
+
+        class _Classifier(enum.StrEnum):
+            MLP = 'mlp'
+
+        dumped = yaml.dump(
+            {'classifier': _Classifier.MLP}, Dumper=DryTorchDumper
+        )
+
+        assert dumped == 'classifier: mlp\n'
+        assert yaml.safe_load(dumped) == {'classifier': 'mlp'}

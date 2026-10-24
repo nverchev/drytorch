@@ -159,6 +159,7 @@
 - removed the `start`, `metric_names`, `model_names` and `source_names` arguments of `BasePlotter`, `MatPlotter` and `PlotlyPlotter`, which only the updates during training used
 
 ## Fixed
+- the YAML metadata writes StrEnum values as plain strings instead of Python tags
 - `Model` defaults to the CPU when torch is built for an accelerator but no device is available
 - `FolderAlreadyExistsError` shows its message, which the empty template of the base class discarded
 - `clone_experiment_data`, `rename_experiment_data` and `delete_experiment_data` raise `ExperimentNotFoundError` when no folder holds the experiment, instead of doing nothing
