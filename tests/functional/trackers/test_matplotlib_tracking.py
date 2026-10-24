@@ -1,5 +1,6 @@
 """Functional tests for MatPlotter."""
 
+import dataclasses
 import importlib.util
 import pathlib
 
@@ -10,6 +11,7 @@ if not importlib.util.find_spec('matplotlib'):
     pytest.skip('matplotlib not available', allow_module_level=True)
 
 from drytorch.core import log_events
+from drytorch.trackers.csv import CSVDumper
 from drytorch.trackers.matplotlib import MatPlotter
 
 
@@ -56,4 +58,56 @@ class TestMatPlotterFullCycle:
             for path in tmp_path.glob(f'plots/**/{example_model_name}/*.png')
         }
         assert len(saved) == 4
+        assert 'tests' in saved
+
+    def test_resumed_run_with_csv_loader_saves_earlier_test_plot(
+        self,
+        tmp_path: pathlib.Path,
+        example_model_name: str,
+        start_experiment_event: log_events.StartExperimentEvent,
+        stop_experiment_event: log_events.StopExperimentEvent,
+    ) -> None:
+        """A resumed run with CSV loader still saves earlier test plot."""
+        csv_tracker = CSVDumper(par_dir=tmp_path)
+        csv_tracker.notify(start_experiment_event)
+
+        train_event = log_events.MetricEvent(
+            model_name=example_model_name,
+            source_name='train',
+            epoch=1,
+            metrics={'loss': 0.5, 'accuracy': 0.8},
+        )
+        val_event = log_events.MetricEvent(
+            model_name=example_model_name,
+            source_name='val',
+            epoch=1,
+            metrics={'loss': 0.45, 'accuracy': 0.82},
+        )
+        test_event = log_events.TestMetricEvent(
+            model_name=example_model_name,
+            source_name='test',
+            epoch=1,
+            metrics={'loss': 0.4, 'accuracy': 0.85},
+        )
+        csv_tracker.notify(train_event)
+        csv_tracker.notify(val_event)
+        csv_tracker.notify(test_event)
+        csv_tracker.notify(stop_experiment_event)
+
+        resumed_start = dataclasses.replace(
+            start_experiment_event, resumed=True
+        )
+        resumed_csv = CSVDumper(par_dir=tmp_path)
+        plotter = MatPlotter(metric_loader=resumed_csv, par_dir=tmp_path)
+        plotter.notify(resumed_start)
+        resumed_csv.notify(resumed_start)
+
+        plotter.save_plots(example_model_name)
+        plotter.notify(stop_experiment_event)
+        resumed_csv.notify(stop_experiment_event)
+
+        saved = {
+            path.stem
+            for path in tmp_path.glob(f'plots/**/{example_model_name}/*.png')
+        }
         assert 'tests' in saved

@@ -12,9 +12,11 @@ from drytorch.core.registering import (
     ALL_MODULES,
     ALL_RUNNERS,
     RegisteringMeta,
+    TestRegisteringMeta,
     _Owner,
     register_model,
     register_runner,
+    register_test,
     unregister_model,
     unregister_runner,
 )
@@ -70,6 +72,17 @@ class _FailingActor(_Actor):
         raise ValueError('failing initialization')
 
 
+class _TestActor(metaclass=TestRegisteringMeta):
+    """Test runner of a model."""
+
+    model: p.ModelProtocol[Any, Any]
+
+    def __init__(self, model: p.ModelProtocol[Any, Any]) -> None:
+        """Initialize."""
+        self.model = model
+        return
+
+
 class TestRegisteringMeta:
     """Tests for the metaclass registering the runners."""
 
@@ -106,6 +119,17 @@ class TestRegisteringMeta:
         self.mock_register_runner.assert_not_called()
 
 
+class TestTestRegisteringMeta:
+    """Tests for the metaclass registering test runners."""
+
+    def test_registers_test(self, mocker, mock_model) -> None:
+        """Test the runner registers through register_test."""
+        mock_register = mocker.patch('drytorch.core.registering.register_test')
+        runner = _TestActor(mock_model)
+
+        mock_register.assert_called_once_with(runner, mock_model)
+
+
 def test_register_model(mock_run, mock_model) -> None:
     """Test successful model registration."""
     manager = mock_run.metadata_manager
@@ -131,6 +155,7 @@ def test_register_runner(mock_run, mock_model) -> None:
     """Test a successful runner registration."""
     caller = _SimpleCaller()
     manager = mock_run.metadata_manager
+    manager.register_runner.reset_mock()
     ALL_MODULES[mock_model.module] = _Owner(
         weakref.ref(mock_run), mock_run.experiment.name, mock_run.id
     )
@@ -139,6 +164,22 @@ def test_register_runner(mock_run, mock_model) -> None:
 
     manager.register_runner.assert_called_once_with(caller, mock_model)
     assert caller in ALL_RUNNERS[mock_model.module]
+
+
+def test_register_runner_module_not_registered(mock_model) -> None:
+    """Test error if registering a runner on an unregistered module."""
+    with pytest.raises(exceptions.ModuleNotRegisteredError):
+        register_runner(_SimpleCaller(), mock_model)
+
+
+def test_register_runner_no_current_run(mocker, mock_model) -> None:
+    """Test error if registering a runner with no active experiment."""
+    mocker.patch(
+        'drytorch.Experiment.get_current',
+        side_effect=exceptions.NoActiveExperimentError('mock'),
+    )
+    with pytest.raises(exceptions.NoActiveExperimentError):
+        register_runner(_SimpleCaller(), mock_model)
 
 
 def test_register_runner_with_wrong_experiment(
@@ -154,6 +195,52 @@ def test_register_runner_with_wrong_experiment(
 
     with pytest.raises(exceptions.ModuleFromAnotherRunError):
         register_runner(_SimpleCaller(), mock_model)
+
+
+def test_register_test(mock_run, mock_model) -> None:
+    """Test test registration through metadata manager."""
+    caller = _SimpleCaller()
+    manager = mock_run.metadata_manager
+    manager.register_test.reset_mock()
+    ALL_MODULES[mock_model.module] = _Owner(
+        weakref.ref(mock_run), mock_run.experiment.name, mock_run.id
+    )
+
+    register_test(caller, mock_model)
+
+    manager.register_test.assert_called_once_with(caller, mock_model)
+    assert caller in ALL_RUNNERS[mock_model.module]
+
+
+def test_register_test_module_not_registered(mock_model) -> None:
+    """Test error if registering a test on an unregistered module."""
+    with pytest.raises(exceptions.ModuleNotRegisteredError):
+        register_test(_SimpleCaller(), mock_model)
+
+
+def test_register_test_no_current_run(mocker, mock_model) -> None:
+    """Test error if registering a test with no active experiment."""
+    mocker.patch(
+        'drytorch.Experiment.get_current',
+        side_effect=exceptions.NoActiveExperimentError('mock'),
+    )
+    with pytest.raises(exceptions.NoActiveExperimentError):
+        register_test(_SimpleCaller(), mock_model)
+
+
+def test_register_test_with_wrong_experiment(
+    mocker, mock_run, mock_model
+) -> None:
+    """Test error if registering a test on a model from another experiment."""
+    other_experiment = mocker.Mock()
+    other_experiment.experiment.name = 'other'
+    other_experiment.id = 'other_id'
+    ALL_MODULES[mock_model.module] = _Owner(
+        weakref.ref(other_experiment), 'other', 'other_id'
+    )
+
+    with pytest.raises(exceptions.ModuleFromAnotherRunError):
+        register_test(_SimpleCaller(), mock_model)
 
 
 def test_unregister_model(mock_run, mock_model) -> None:

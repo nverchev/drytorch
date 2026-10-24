@@ -68,13 +68,16 @@ class TestPlotlyPlotter:
     ) -> None:
         """Each test metric has its own panel, with a bar for each test."""
         tracker.test_dict[example_model_name] = {
-            'Test': (5, {'Accuracy': 0.9, 'Loss': 0.3}),
-            'Test_shifted': (5, {'Accuracy': 0.7}),
+            'Test': ([1, 2], {'Accuracy': [0.8, 0.9], 'Loss': [0.4, 0.3]}),
+            'Test_shifted': ([1], {'Accuracy': [0.7]}),
         }
 
         test_figure = tracker.create_test_plot(example_model_name)
 
         assert test_figure is not None
         bars = list(test_figure.data)
-        assert [len(bar.y) for bar in bars] == [2, 1]
+        assert len(bars) == 3
         assert all(isinstance(bar, go.Bar) for bar in bars)
+        legend_names = [bar.name for bar in bars if bar.showlegend]
+        assert legend_names == ['Test', 'Test_shifted']
+        assert test_figure.layout.xaxis.ticktext == ('1', '2', '1')

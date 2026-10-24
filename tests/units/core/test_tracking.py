@@ -86,6 +86,9 @@ class TestMetadataManager:
         self.mock_caller_registration_event = mocker.patch(
             'drytorch.core.log_events.RunnerRegistrationEvent'
         )
+        self.mock_test_registration_event = mocker.patch(
+            'drytorch.core.log_events.TestRegistrationEvent'
+        )
         return
 
     @pytest.fixture()
@@ -104,8 +107,19 @@ class TestMetadataManager:
 
         assert simple_runner.name in manager.named_metadata
         self.mock_caller_registration_event.assert_called_once()
+        self.mock_test_registration_event.assert_not_called()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
             manager.register_runner(simple_runner, mock_model)
+
+    def test_register_test(self, mock_model, simple_runner, manager) -> None:
+        """Test recording test metadata creates TestRegistrationEvent."""
+        manager.register_test(simple_runner, mock_model)
+
+        assert simple_runner.name in manager.named_metadata
+        self.mock_test_registration_event.assert_called_once()
+        self.mock_caller_registration_event.assert_not_called()
+        with pytest.raises(exceptions.NameAlreadyRegisteredError):
+            manager.register_test(simple_runner, mock_model)
 
     def test_register_model(self, mock_model, manager) -> None:
         """Test registering a model creates the event."""

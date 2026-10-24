@@ -4,7 +4,6 @@ import csv
 import functools
 import pathlib
 
-from collections.abc import Iterable
 from typing import ClassVar
 
 from typing_extensions import override
@@ -39,9 +38,15 @@ class DryTorchDialect(csv.Dialect):
 
 
 class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
-    """Dump metrics into a CSV file."""
+    """Dump metrics into a CSV file.
+
+    Attributes:
+        folder_name: name of the folder containing the tracker data.
+        tests_folder_name: name of the folder containing test metrics.
+    """
 
     folder_name: ClassVar[str] = 'csv_metrics'
+    tests_folder_name: ClassVar[str] = 'test_metrics'
     _base_headers: ClassVar[tuple[str, ...]] = ('Model', 'Source', 'Epoch')
     _default_dialect: ClassVar[csv.Dialect] = DryTorchDialect()
 
@@ -86,57 +91,17 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         if not self.record:
             return super().notify(event)
 
-        run_dir = self._get_run_dir()
-        file_address = self._file_path(
-            run_dir, event.model_name, event.source_name
-        )
-        if event.source_name not in self._active_sources:
-            if self._resume_run and file_address.exists():
-                with file_address.open(newline='') as log:
-                    reader = csv.reader(log, dialect=self._dialect)
-                    previous_headers = tuple(next(reader))
-                    len_base = len(self._base_headers)
-                    recorded_metrics = previous_headers[len_base:]
-                    if set(event.metrics) != set(recorded_metrics):
-                        msg = (
-                            'Headers for source {!r} do not match previous: '
-                            '{} vs {}'
-                        )
-                        msg = msg.format(
-                            event.source_name,
-                            tuple(event.metrics),
-                            recorded_metrics,
-                        )
-                        raise exceptions.TrackerError(self, msg)
+        folder = self._get_run_dir() / event.model_name
+        self._write_metrics(folder, event)
+        return super().notify(event)
 
-                    self._active_sources[event.source_name] = recorded_metrics
-            else:
-                metric_names = tuple(event.metrics)
-                headers = self._base_headers + metric_names
-                with file_address.open('w', newline='') as log:  # reset
-                    writer = csv.writer(log, dialect=self._dialect)
-                    writer.writerow(headers)
+    @notify.register
+    def _(self, event: log_events.TestMetricEvent) -> None:
+        if not self.record:
+            return super().notify(event)
 
-                self._active_sources[event.source_name] = metric_names
-
-        recorded_metrics = self._active_sources[event.source_name]
-        if set(event.metrics) != set(recorded_metrics):
-            msg = 'Metric set changed for source {!r}: expected {}, got {}'
-            msg = msg.format(
-                event.source_name, recorded_metrics, tuple(event.metrics)
-            )
-            raise exceptions.TrackerError(self, msg)
-
-        with file_address.open('a', newline='') as log:
-            writer = csv.writer(log, dialect=self._dialect)
-            writer.writerow(
-                [
-                    event.model_name,
-                    event.source_name,
-                    event.epoch,
-                    *(event.metrics[m] for m in recorded_metrics),
-                ]
-            )
+        folder = self._get_run_dir() / event.model_name / self.tests_folder_name
+        self._write_metrics(folder, event)
         return super().notify(event)
 
     @notify.register
@@ -187,6 +152,12 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
         """
         run_dir = self._get_run_dir()
         file_address = self._file_path(run_dir, model_name, source)
+        if not file_address.exists():
+            test_file_address = (
+                run_dir / model_name / self.tests_folder_name / source
+            ).with_suffix('.csv')
+            if test_file_address.exists():
+                file_address = test_file_address
 
         with file_address.open(newline='') as log:
             reader = csv.reader(log, dialect=self._dialect)
@@ -236,19 +207,82 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     def _load_metrics(
         self, model_name: str, max_epoch: int = -1
     ) -> base_classes.SourcedMetrics:
+        sources = self._find_sources(model_name)
         out: base_classes.SourcedMetrics = {}
-
-        if self._resume_run:
-            sources: Iterable[str] = self._find_sources(model_name)
-        elif self._active_sources:
-            sources = self._active_sources
-        else:
-            sources = set()
-
-        for source in sources:
+        for source in sorted(sources):
             out[source] = self.read_csv(model_name, source, max_epoch)
 
         return out
+
+    @override
+    def _load_test_metrics(
+        self, model_name: str
+    ) -> base_classes.SourcedMetrics:
+        tests_path = (
+            self._get_run_dir(mkdir=False) / model_name / self.tests_folder_name
+        )
+        if not tests_path.is_dir():
+            return {}
+
+        out: base_classes.SourcedMetrics = {}
+        for file in sorted(tests_path.glob('*.csv')):
+            out[file.stem] = self.read_csv(model_name, file.stem)
+
+        return out
+
+    def _write_metrics(
+        self, folder: pathlib.Path, event: log_events.MetricEvent
+    ) -> None:
+        folder.mkdir(parents=True, exist_ok=True)
+        file_address = (folder / event.source_name).with_suffix('.csv')
+        if event.source_name not in self._active_sources:
+            if self._resume_run and file_address.exists():
+                with file_address.open(newline='') as log:
+                    reader = csv.reader(log, dialect=self._dialect)
+                    previous_headers = tuple(next(reader))
+                    len_base = len(self._base_headers)
+                    recorded_metrics = previous_headers[len_base:]
+                    if set(event.metrics) != set(recorded_metrics):
+                        msg = (
+                            'Headers for source {!r} do not match previous: '
+                            '{} vs {}'
+                        )
+                        msg = msg.format(
+                            event.source_name,
+                            tuple(event.metrics),
+                            recorded_metrics,
+                        )
+                        raise exceptions.TrackerError(self, msg)
+
+                    self._active_sources[event.source_name] = recorded_metrics
+            else:
+                metric_names = tuple(event.metrics)
+                headers = self._base_headers + metric_names
+                with file_address.open('w', newline='') as log:  # reset
+                    writer = csv.writer(log, dialect=self._dialect)
+                    writer.writerow(headers)
+
+                self._active_sources[event.source_name] = metric_names
+
+        recorded_metrics = self._active_sources[event.source_name]
+        if set(event.metrics) != set(recorded_metrics):
+            msg = 'Metric set changed for source {!r}: expected {}, got {}'
+            msg = msg.format(
+                event.source_name, recorded_metrics, tuple(event.metrics)
+            )
+            raise exceptions.TrackerError(self, msg)
+
+        with file_address.open('a', newline='') as log:
+            writer = csv.writer(log, dialect=self._dialect)
+            writer.writerow(
+                [
+                    event.model_name,
+                    event.source_name,
+                    event.epoch,
+                    *(event.metrics[m] for m in recorded_metrics),
+                ]
+            )
+        return
 
     @staticmethod
     def _file_path(
@@ -258,4 +292,4 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
     ) -> pathlib.Path:
         model_path = run_dir / model_name
         model_path.mkdir(exist_ok=True)
-        return model_path / f'{source_name}.csv'
+        return (model_path / source_name).with_suffix('.csv')

@@ -39,7 +39,7 @@ SourcedMetric: TypeAlias = dict[str, HistoryMetric]
 SourcedMetrics: TypeAlias = dict[str, HistoryMetrics]
 NpArray: TypeAlias = npt.NDArray[np.float64]
 SourcedArray: TypeAlias = dict[str, NpArray]
-TestResults: TypeAlias = dict[str, tuple[int, dict[str, float]]]
+TestResults: TypeAlias = dict[str, list[tuple[int, dict[str, float]]]]
 
 Figure = TypeVar('Figure')
 
@@ -222,17 +222,31 @@ class MetricLoader(tracking.Tracker, abc.ABC):
         self, model_name: str, max_epoch: int = -1
     ) -> SourcedMetrics: ...
 
+    def load_test_metrics(self, model_name: str) -> SourcedMetrics:
+        """Load test metrics from the last run of the experiment.
+
+        Args:
+            model_name: the name of the model.
+
+        Returns:
+            The epochs and named metric values of each test source.
+        """
+        return self._load_test_metrics(model_name)
+
+    @abc.abstractmethod
+    def _load_test_metrics(self, model_name: str) -> SourcedMetrics: ...
+
 
 class MemoryMetrics(tracking.Tracker):
     """Keep all metrics in memory.
 
     Attributes:
-        model_dict: all metrics recorded in this session, except tests.
-        test_dict: the latest test of each source, by model name.
+        model_dict: training and validation metrics recorded in this session.
+        test_dict: test metrics recorded in this session.
     """
 
     model_dict: Final[dict[str, SourcedMetrics]]
-    test_dict: Final[dict[str, TestResults]]
+    test_dict: Final[dict[str, SourcedMetrics]]
     _metric_loader: Final[MetricLoader | None]
 
     def __init__(self, *, metric_loader: MetricLoader | None = None) -> None:
@@ -261,11 +275,26 @@ class MemoryMetrics(tracking.Tracker):
             event.model_name, event.epoch
         )
         self.model_dict[event.model_name] = metrics
+        test_metrics = self._metric_loader.load_test_metrics(event.model_name)
+        self.test_dict[event.model_name] = test_metrics
         return super().notify(event)
 
     @notify.register
     def _(self, event: log_events.MetricEvent) -> None:
-        sourced_metrics = self.model_dict.setdefault(event.model_name, {})
+        self._record_metric(self.model_dict, event)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.TestMetricEvent) -> None:
+        self._record_metric(self.test_dict, event)
+        return super().notify(event)
+
+    @staticmethod
+    def _record_metric(
+        target_dict: dict[str, SourcedMetrics],
+        event: log_events.MetricEvent,
+    ) -> None:
+        sourced_metrics = target_dict.setdefault(event.model_name, {})
         epochs, logs_dict = sourced_metrics.setdefault(
             event.source_name, ([], {})
         )
@@ -273,13 +302,7 @@ class MemoryMetrics(tracking.Tracker):
         for metric_name, metric_value in event.metrics.items():
             logs_dict.setdefault(metric_name, []).append(metric_value)
 
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.TestMetricEvent) -> None:
-        test_results = self.test_dict.setdefault(event.model_name, {})
-        test_results[event.source_name] = (event.epoch, dict(event.metrics))
-        return super().notify(event)
+        return
 
 
 class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
@@ -356,8 +379,8 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             source_names: the names of the tests to plot. Defaults to all.
 
         Returns:
-            A figure with the latest value of each test, or None if the model
-            has no test left to plot.
+            A figure of the tests, or None if the model has no test left to
+            plot.
         """
         test_results = self._get_test_results(
             model_name, metric_names, source_names
@@ -498,12 +521,8 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         if start_epoch < 1:
             raise ValueError('Start epoch must be positive.')
 
+        self._load_missing_metrics(model_name)
         sourced_metrics = self.model_dict.get(model_name, {})
-        if not sourced_metrics and self._metric_loader is not None:
-            sourced_metrics = self._metric_loader.load_metrics(model_name)
-
-        if sourced_metrics:
-            self.model_dict[model_name] = sourced_metrics
 
         if source_names:
             sourced_metrics = {
@@ -528,6 +547,22 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
         return metric_arrays
 
+    def _load_missing_metrics(self, model_name: str) -> None:
+        if self._metric_loader is None:
+            return
+
+        if model_name not in self.model_dict:
+            self.model_dict[model_name] = self._metric_loader.load_metrics(
+                model_name
+            )
+
+        if model_name not in self.test_dict:
+            self.test_dict[model_name] = self._metric_loader.load_test_metrics(
+                model_name
+            )
+
+        return
+
     def _get_sourced_metric(
         self, sourced_metrics: SourcedMetrics, metric_name: str
     ) -> SourcedMetric:
@@ -550,21 +585,22 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         metric_names: Sequence[str],
         source_names: Sequence[str],
     ) -> TestResults:
-        test_results = self.test_dict.get(model_name, {})
+        self._load_missing_metrics(model_name)
+        test_metrics = self.test_dict.get(model_name, {})
         out: TestResults = {}
-        for source_name, (epoch, metrics) in test_results.items():
+        for source_name in sorted(test_metrics):
             if source_names and source_name not in source_names:
                 continue
 
-            if metric_names:
-                metrics = {
-                    name: value
-                    for name, value in metrics.items()
-                    if name in metric_names
-                }
+            epochs, metrics_dict = test_metrics[source_name]
+            if not epochs:
+                continue
 
-            if metrics:
-                out[source_name] = (epoch, metrics)
+            evaluations = self._extract_evaluations(
+                self, source_name, epochs, metrics_dict, metric_names
+            )
+            if evaluations:
+                out[source_name] = evaluations
 
         return out
 
@@ -589,6 +625,37 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         return dict(sorted(sources.items(), key=cls._len_source))
 
     @staticmethod
+    def _extract_evaluations(
+        tracker: tracking.Tracker,
+        source_name: str,
+        epochs: list[int],
+        metrics_dict: dict[str, list[float]],
+        metric_names: Sequence[str],
+    ) -> list[tuple[int, dict[str, float]]]:
+        for name, values in metrics_dict.items():
+            if metric_names and name not in metric_names:
+                continue
+
+            if len(epochs) != len(values):
+                msg = '{} and {} logs refer to different epochs.'
+                msg = msg.format(source_name, name)
+                raise exceptions.TrackerError(tracker, msg)
+
+        evaluations: dict[int, dict[str, float]] = {}
+        for i, epoch in enumerate(epochs):
+            metrics: dict[str, float] = {}
+            for name, values in metrics_dict.items():
+                if metric_names and name not in metric_names:
+                    continue
+
+                metrics[name] = values[i]
+
+            if metrics:
+                evaluations[epoch] = metrics
+
+        return sorted(evaluations.items())
+
+    @staticmethod
     def _filter_by_epoch(
         sourced_array: SourcedArray, start: int
     ) -> SourcedArray:
@@ -610,7 +677,11 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
     @staticmethod
     def _get_test_metric_names(test_results: TestResults) -> list[str]:
-        names = (set(metrics) for _, metrics in test_results.values())
+        names = (
+            set(metrics)
+            for entries in test_results.values()
+            for _, metrics in entries
+        )
         return sorted(set().union(*names))
 
     @staticmethod

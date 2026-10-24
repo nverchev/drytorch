@@ -41,6 +41,7 @@ existing trackers.
 | :--- | :--- | :--- |
 | [`ModelRegistrationEvent`](#drytorch.core.log_events.ModelRegistrationEvent) | Model registration to the run | Architecture and metadata |
 | [`RunnerRegistrationEvent`](#drytorch.core.log_events.RunnerRegistrationEvent) | Runner registration to the run | Runner metadata |
+| [`TestRegistrationEvent`](#drytorch.core.log_events.TestRegistrationEvent) | Test runner registration to the run | Runner metadata |
 | [`SaveModelEvent`](#drytorch.core.log_events.SaveModelEvent) | Checkpoint saved to disk | Checkpoint metadata |
 | [`LoadModelEvent`](#drytorch.core.log_events.LoadModelEvent) | Checkpoint restored from disk | Checkpoint metadata |
 

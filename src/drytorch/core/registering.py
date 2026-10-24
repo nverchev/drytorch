@@ -16,6 +16,8 @@ from typing import Any, Final, TypeVar
 
 import torch
 
+from typing_extensions import override
+
 from drytorch.core import exceptions, experimenting
 from drytorch.core import protocols as p
 
@@ -24,9 +26,11 @@ __all__ = [
     'ALL_MODULES',
     'ALL_RUNNERS',
     'RegisteringMeta',
+    'TestRegisteringMeta',
     'check_current_run',
     'register_model',
     'register_runner',
+    'register_test',
     'unregister_model',
     'unregister_runner',
 ]
@@ -53,6 +57,17 @@ class RegisteringMeta(abc.ABCMeta):
         """
         instance: _T = type.__call__(cls, *args, **kwargs)
         register_runner(instance, instance.model)
+
+        return instance
+
+
+class TestRegisteringMeta(RegisteringMeta):
+    """Metaclass registering a test after initialization."""
+
+    @override
+    def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
+        instance: _T = type.__call__(cls, *args, **kwargs)
+        register_test(instance, instance.model)
         return instance
 
 
@@ -127,14 +142,29 @@ def register_runner(runner: Any, model: p.ModelProtocol[Any, Any], /) -> None:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
     """
-    check_current_run(model)
-    run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-    module = model.module
-
-    runners = ALL_RUNNERS.setdefault(module, weakref.WeakSet())
-    if runner not in runners:
+    run = _get_run_of_new_runner(runner, model)
+    if run is not None:
         run.metadata_manager.register_runner(runner, model)
-        runners.add(runner)
+        ALL_RUNNERS[model.module].add(runner)
+
+    return
+
+
+def register_test(test: Any, model: p.ModelProtocol[Any, Any], /) -> None:
+    """Register a test in the current run.
+
+    Args:
+        test: the object to document.
+        model: the model that the object runs.
+
+    Raises:
+        ModuleNotRegisteredError: if the module is not registered in the
+            current experiment run.
+    """
+    run = _get_run_of_new_runner(test, model)
+    if run is not None:
+        run.metadata_manager.register_test(test, model)
+        ALL_RUNNERS[model.module].add(test)
 
     return
 
@@ -172,3 +202,14 @@ def unregister_runner(runner: Any, /) -> None:
         runner_set.discard(runner)
 
     return
+
+
+def _get_run_of_new_runner(
+    runner: Any, model: p.ModelProtocol[Any, Any], /
+) -> experimenting.Run[Any] | None:
+    check_current_run(model)
+    runners = ALL_RUNNERS.setdefault(model.module, weakref.WeakSet())
+    if runner in runners:
+        return None
+
+    return experimenting.Experiment.get_current().run

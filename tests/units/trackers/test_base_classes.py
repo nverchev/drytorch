@@ -53,9 +53,14 @@ def example_sourced_metrics(
 
 
 class _ConcreteMetricLoader(MetricLoader):
-    def __init__(self, sourced_metrics: SourcedMetrics) -> None:
+    def __init__(
+        self,
+        sourced_metrics: SourcedMetrics,
+        test_metrics: SourcedMetrics | None = None,
+    ) -> None:
         super().__init__()
         self.sourced_metrics = sourced_metrics
+        self.test_metrics = test_metrics or {}
 
     def _load_metrics(
         self, model_name: str, max_epoch: int = -1
@@ -64,6 +69,12 @@ class _ConcreteMetricLoader(MetricLoader):
             return {}
 
         return self.sourced_metrics
+
+    def _load_test_metrics(self, model_name: str) -> SourcedMetrics:
+        if model_name == 'wrong_name':
+            return {}
+
+        return self.test_metrics
 
     @functools.singledispatchmethod
     @override
@@ -95,8 +106,10 @@ class _ConcretePlotter(BasePlotter[SourcedArray]):
     ) -> SourcedArray:
         _not_used = model_name
         return {
-            source_name: np.array(list(metrics.values()))
-            for source_name, (_, metrics) in test_results.items()
+            source_name: np.array(
+                [v for _, metrics in entries for v in metrics.values()]
+            )
+            for source_name, entries in test_results.items()
         }
 
     def _render(self, figures: list[SourcedArray]) -> None:
@@ -112,8 +125,8 @@ class _ConcretePlotter(BasePlotter[SourcedArray]):
 def example_test_results() -> TestResults:
     """Example of the tests of a model."""
     return {
-        'Test': (5, {'Accuracy': 0.9, 'Loss': 0.3}),
-        'Test_shifted': (5, {'Accuracy': 0.7}),
+        'Test': [(5, {'Accuracy': 0.9, 'Loss': 0.3})],
+        'Test_shifted': [(5, {'Accuracy': 0.7})],
     }
 
 
@@ -313,6 +326,15 @@ class TestMetricLoader:
         with pytest.raises(ValueError):
             _ = loader_started.load_metrics(example_model_name, -2)
 
+    def test_load_test_metrics(
+        self, example_model_name, loader_started
+    ) -> None:
+        """Test load_test_metrics returns test metrics."""
+        loader_started.test_metrics = {'Test': ([1], {'loss': [0.5]})}
+        assert loader_started.load_test_metrics(example_model_name) == {
+            'Test': ([1], {'loss': [0.5]}),
+        }
+
 
 class TestMemoryMetrics:
     """Tests for MemoryMetrics."""
@@ -325,6 +347,7 @@ class TestMemoryMetrics:
     def test_initialization(self, tracker) -> None:
         """Test basic initialization."""
         assert tracker.model_dict == {}
+        assert tracker.test_dict == {}
 
     def test_metrics_notification(
         self, example_model_name, tracker, epoch_metrics_mock_event
@@ -354,47 +377,36 @@ class TestMemoryMetrics:
     def test_test_metrics_notification(
         self, metric_loader, test_metric_mock_event
     ) -> None:
-        """Tests are kept apart from the other metrics."""
+        """Test metrics are stored in test_dict and not in model_dict."""
         tracker = MemoryMetrics(metric_loader=metric_loader)
         model_name = test_metric_mock_event.model_name
         source_name = test_metric_mock_event.source_name
 
         tracker.notify(test_metric_mock_event)
 
-        assert tracker.test_dict[model_name][source_name] == (
-            test_metric_mock_event.epoch,
-            dict(test_metric_mock_event.metrics),
-        )
         assert model_name not in tracker.model_dict
-
-    def test_test_metrics_keep_the_latest(
-        self, metric_loader, test_metric_mock_event
-    ) -> None:
-        """A second test of a source replaces the first."""
-        tracker = MemoryMetrics(metric_loader=metric_loader)
-        model_name = test_metric_mock_event.model_name
-        source_name = test_metric_mock_event.source_name
-        tracker.notify(test_metric_mock_event)
-        test_metric_mock_event.epoch += 1
-
-        tracker.notify(test_metric_mock_event)
-
-        epoch, _ = tracker.test_dict[model_name][source_name]
-        assert epoch == test_metric_mock_event.epoch
+        assert model_name in tracker.test_dict
+        epochs, logs = tracker.test_dict[model_name][source_name]
+        assert epochs == [test_metric_mock_event.epoch]
+        for metric_name, value in test_metric_mock_event.metrics.items():
+            assert logs[metric_name] == [value]
 
     def test_load_model_notification(
         self,
         example_model_name,
         example_sourced_metrics,
         load_model_mock_event,
-        tracker,
+        metric_loader,
     ) -> None:
         """Test notification with LoadModel event."""
+        metric_loader.test_metrics = {'Test': ([1], {'m': [0.5]})}
+        tracker = MemoryMetrics(metric_loader=metric_loader)
         tracker.notify(load_model_mock_event)
-        example_model_name = load_model_mock_event.model_name
+        model_name = load_model_mock_event.model_name
         source_name = set(example_sourced_metrics)
-        assert example_model_name in tracker.model_dict
-        assert source_name == set(tracker.model_dict[example_model_name])
+        assert model_name in tracker.model_dict
+        assert source_name == set(tracker.model_dict[model_name])
+        assert tracker.test_dict[model_name] == {'Test': ([1], {'m': [0.5]})}
 
 
 class TestBasePlotter:
@@ -544,7 +556,16 @@ class TestBasePlotter:
         self, example_model_name, plotter, example_test_results
     ) -> None:
         """The test figure holds the tests, filtered by source and metric."""
-        plotter.test_dict[example_model_name] = example_test_results
+        plotter.test_dict[example_model_name] = {
+            source_name: (
+                [epoch for epoch, _ in entries],
+                {
+                    m: [metrics[m] for _, metrics in entries if m in metrics]
+                    for m in {m for _, metrics in entries for m in metrics}
+                },
+            )
+            for source_name, entries in example_test_results.items()
+        }
 
         figure = plotter.create_test_plot(
             example_model_name,
@@ -556,11 +577,81 @@ class TestBasePlotter:
         assert list(figure) == ['Test']
         assert list(figure['Test']) == [0.9]
 
+    def test_create_test_plot_inconsistent_lengths_raises(
+        self, example_model_name, plotter
+    ) -> None:
+        """Inconsistent epochs and values in test_dict raises TrackerError."""
+        plotter.test_dict[example_model_name] = {
+            'Test': ([1, 2], {'Accuracy': [0.9]}),
+        }
+        with pytest.raises(exceptions.TrackerError) as exc_info:
+            plotter.create_test_plot(example_model_name)
+
+        assert 'logs refer to different epochs' in str(exc_info.value)
+
+    def test_test_source_appears_only_in_test_plot(
+        self, example_model_name, plotter
+    ) -> None:
+        """A test source appears only in the test plot, with all its values."""
+        plotter.model_dict[example_model_name] = {
+            'train': ([1, 2], {'Accuracy': [0.5, 0.6]}),
+        }
+        plotter.test_dict[example_model_name] = {
+            'Test': ([1, 2], {'Accuracy': [0.7, 0.8]}),
+        }
+
+        training_plots = plotter.create_training_plots(example_model_name)
+        assert 'train' in training_plots['Accuracy']
+        assert 'Test' not in training_plots['Accuracy']
+
+        test_plot = plotter.create_test_plot(example_model_name)
+        assert test_plot is not None
+        assert 'Test' in test_plot
+        assert list(test_plot['Test']) == [0.7, 0.8]
+
+    def test_test_plot_keeps_later_evaluation_at_same_epoch(
+        self, example_model_name, plotter
+    ) -> None:
+        """Keep later evaluation when a source has two at the same epoch."""
+        plotter.test_dict[example_model_name] = {
+            'Test': ([2, 1, 1], {'Accuracy': [0.9, 0.5, 0.6]}),
+        }
+        test_results = plotter._get_test_results(example_model_name, (), ())
+        assert test_results['Test'] == [
+            (1, {'Accuracy': 0.6}),
+            (2, {'Accuracy': 0.9}),
+        ]
+
+    def test_test_plot_includes_earlier_session_test_source(
+        self, example_model_name
+    ) -> None:
+        """With earlier test source from loader, test plot includes it."""
+        loader = _ConcreteMetricLoader(
+            sourced_metrics={
+                'train': ([1], {'Accuracy': [0.5]}),
+            },
+            test_metrics={'OldTest': ([1], {'Accuracy': [0.75]})},
+        )
+        plotter = _ConcretePlotter(metric_loader=loader)
+        test_plot = plotter.create_test_plot(example_model_name)
+        assert test_plot is not None
+        assert 'OldTest' in test_plot
+        assert list(test_plot['OldTest']) == [0.75]
+
     def test_plot_renders_curves_and_tests(
         self, example_model_name, plotter, example_test_results
     ) -> None:
         """Plotting renders the test figure with the curves."""
-        plotter.test_dict[example_model_name] = example_test_results
+        plotter.test_dict[example_model_name] = {
+            source_name: (
+                [epoch for epoch, _ in entries],
+                {
+                    m: [metrics[m] for _, metrics in entries if m in metrics]
+                    for m in {m for _, metrics in entries for m in metrics}
+                },
+            )
+            for source_name, entries in example_test_results.items()
+        }
         n_curves = len(plotter.create_training_plots(example_model_name))
 
         plotter.plot(example_model_name)
@@ -570,7 +661,16 @@ class TestBasePlotter:
     def test_plot_tests_only(self, example_test_results) -> None:
         """A model with only tests renders its test figure."""
         plotter = _ConcretePlotter()
-        plotter.test_dict['tested_model'] = example_test_results
+        plotter.test_dict['tested_model'] = {
+            source_name: (
+                [epoch for epoch, _ in entries],
+                {
+                    m: [metrics[m] for _, metrics in entries if m in metrics]
+                    for m in {m for _, metrics in entries for m in metrics}
+                },
+            )
+            for source_name, entries in example_test_results.items()
+        }
 
         plotter.plot('tested_model')
 
@@ -586,8 +686,17 @@ class TestBasePlotter:
     ) -> None:
         """The test figure is saved next to the curves, named tests."""
         plotter = _ConcretePlotter(par_dir=tmp_path)
-        plotter.model_dict[example_model_name] = example_sourced_metrics
-        plotter.test_dict[example_model_name] = example_test_results
+        plotter.model_dict[example_model_name] = dict(example_sourced_metrics)
+        plotter.test_dict[example_model_name] = {
+            source_name: (
+                [epoch for epoch, _ in entries],
+                {
+                    m: [metrics[m] for _, metrics in entries if m in metrics]
+                    for m in {m for _, metrics in entries for m in metrics}
+                },
+            )
+            for source_name, entries in example_test_results.items()
+        }
         plotter.notify(start_experiment_mock_event)
 
         plotter.save_plots(example_model_name)

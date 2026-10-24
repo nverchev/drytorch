@@ -175,19 +175,26 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
         metric_name: str,
         test_results: base_classes.TestResults,
     ) -> None:
+        positions: list[int] = []
+        tick_labels: list[str] = []
         position = 0
-        for source_name, (epoch, metrics) in test_results.items():
-            if metric_name in metrics:
-                bars = ax.bar(
-                    position,
-                    metrics[metric_name],
-                    color=self._get_source_color(source_name),
-                    label=f'{source_name} (epoch {epoch})',
-                )
-                ax.bar_label(bars, fmt='%.3g')
-                position += 1
+        for source_name, entries in test_results.items():
+            labeled = False
+            for epoch, metrics in entries:
+                if metric_name in metrics:
+                    label = source_name if not labeled else None
+                    ax.bar(
+                        position,
+                        metrics[metric_name],
+                        color=self._get_source_color(source_name),
+                        label=label,
+                    )
+                    positions.append(position)
+                    tick_labels.append(str(epoch))
+                    position += 1
+                    labeled = True
 
-        ax.set_xticks([])
+        ax.set_xticks(positions, tick_labels)
         ax.set_title(metric_name)
         return
 

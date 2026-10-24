@@ -28,6 +28,7 @@ from tests.functional.trackers.conftest import (
     string_stream,
     terminated_training_event,
     test_metric_event,
+    test_registration_event,
     update_learning_rate_event,
 )
 
@@ -39,6 +40,7 @@ _fixtures = (
     continue_experiment_event,
     model_registration_event,
     runner_registration_event,
+    test_registration_event,
     save_model_event,
     load_model_event,
     start_training_event,

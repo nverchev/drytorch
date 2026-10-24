@@ -11,8 +11,11 @@ import drytorch
 from drytorch.core import exceptions, registering
 from drytorch.core.experimenting import Experiment
 from drytorch.lib.checkpoints import LocalCheckpoint
+from drytorch.lib.evaluations import Test as _Test
+from drytorch.lib.evaluations import Validation
 from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
+from drytorch.lib.objectives import Metric
 from drytorch.lib.runners import Runner
 
 
@@ -108,3 +111,43 @@ class TestModelRegistration:
         with experiment.create_run():
             with pytest.raises(exceptions.ModuleFromAnotherRunError):
                 Runner(model, loader=DataLoader(dataset, batch_size=2))
+
+    def test_validation_publishes_runner_registration_event(
+        self, experiment, mocker
+    ) -> None:
+        """Test creating a Validation publishes RunnerRegistrationEvent."""
+        mock_runner_reg = mocker.patch(
+            'drytorch.core.log_events.RunnerRegistrationEvent'
+        )
+        dataset = torch.utils.data.TensorDataset(
+            torch.ones(4, 1), torch.ones(4, 1)
+        )
+        with experiment.create_run():
+            model = Model(torch.nn.Linear(1, 1))
+            Validation(
+                model,
+                loader=DataLoader(dataset, batch_size=2),
+                metric=Metric(lambda out, tgt: out.sum(), name='loss'),
+            )
+
+        mock_runner_reg.assert_called_once()
+
+    def test_test_publishes_test_registration_event(
+        self, experiment, mocker
+    ) -> None:
+        """Test creating a Test publishes TestRegistrationEvent."""
+        mock_test_reg = mocker.patch(
+            'drytorch.core.log_events.TestRegistrationEvent'
+        )
+        dataset = torch.utils.data.TensorDataset(
+            torch.ones(4, 1), torch.ones(4, 1)
+        )
+        with experiment.create_run():
+            model = Model(torch.nn.Linear(1, 1))
+            _Test(
+                model,
+                loader=DataLoader(dataset, batch_size=2),
+                metric=Metric(lambda out, tgt: out.sum(), name='loss'),
+            )
+
+        mock_test_reg.assert_called_once()

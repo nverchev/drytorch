@@ -74,6 +74,24 @@ def runner_registration_event(
 
 
 @pytest.fixture
+def test_registration_event(
+    example_source_name,
+    example_source_ts,
+    example_model_name,
+    example_model_ts,
+    example_metadata,
+) -> log_events.TestRegistrationEvent:
+    """Provides a TestRegistration event instance."""
+    return log_events.TestRegistrationEvent(
+        runner_name=example_source_name,
+        runner_ts=example_source_ts,
+        model_name=example_model_name,
+        model_ts=example_model_ts,
+        metadata=example_metadata,
+    )
+
+
+@pytest.fixture
 def load_model_event(
     example_model_name, example_epoch
 ) -> log_events.LoadModelEvent:
@@ -473,6 +491,15 @@ def plotting_workflow(
             events.append(continue_experiment_event)
 
     # Final test evaluation events
+    events.append(
+        log_events.TestRegistrationEvent(
+            runner_name=test_source,
+            runner_ts=start_experiment_event.run_ts,
+            model_name=model_name,
+            model_ts=start_experiment_event.run_ts,
+            metadata={},
+        )
+    )
     events.append(
         log_events.TestMetricEvent(
             model_name=model_name,

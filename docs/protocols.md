@@ -59,6 +59,7 @@ direction TB
 
 
     class TestProtocol {
+        «TestRegistrationEvent»
         +__call__(store_outputs: bool) «TestMetricEvent»
     }
 

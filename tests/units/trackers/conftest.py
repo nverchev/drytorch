@@ -80,6 +80,25 @@ def runner_registration_mock_event(
 
 
 @pytest.fixture
+def test_registration_mock_event(
+    mocker,
+    example_source_name,
+    example_source_ts,
+    example_model_name,
+    example_model_ts,
+    example_metadata,
+) -> log_events.TestRegistrationEvent:
+    """Mock TestRegistration event instance."""
+    mock = mocker.create_autospec(log_events.TestRegistrationEvent)
+    mock.runner_name = example_source_name
+    mock.runner_ts = example_source_ts
+    mock.model_name = example_model_name
+    mock.model_ts = example_model_ts
+    mock.metadata = example_metadata
+    return mock
+
+
+@pytest.fixture
 def load_model_mock_event(
     mocker, example_model_name
 ) -> log_events.LoadModelEvent:

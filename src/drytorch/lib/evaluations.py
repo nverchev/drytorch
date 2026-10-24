@@ -7,7 +7,7 @@ import torch
 
 from typing_extensions import override
 
-from drytorch.core import log_events
+from drytorch.core import log_events, registering
 from drytorch.core import protocols as p
 from drytorch.lib import runners
 
@@ -73,7 +73,10 @@ class Validation(Evaluation[Input, Target, Output]):
     """
 
 
-class Test(Evaluation[Input, Target, Output]):
+class Test(
+    Evaluation[Input, Target, Output],
+    metaclass=registering.TestRegisteringMeta,
+):
     """Evaluate a model outside the training loop.
 
     Attributes:

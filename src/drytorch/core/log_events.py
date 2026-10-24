@@ -32,6 +32,7 @@ __all__ = [
     'StopExperimentEvent',
     'TerminatedTrainingEvent',
     'TestMetricEvent',
+    'TestRegistrationEvent',
 ]
 
 
@@ -117,6 +118,11 @@ class RunnerRegistrationEvent(Event):
     model_name: str
     model_ts: datetime.datetime
     metadata: Mapping[str, Any] | str
+
+
+@dataclasses.dataclass(frozen=True)
+class TestRegistrationEvent(RunnerRegistrationEvent):
+    """Event logged when a test has been registered."""
 
 
 @dataclasses.dataclass(frozen=True)

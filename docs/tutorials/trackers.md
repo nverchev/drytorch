@@ -53,8 +53,9 @@ DRYTorch provides built-in trackers and integrations with external libraries:
 * [`MetadataDumper`](#drytorch.trackers.yaml.MetadataDumper) (**default**): dumps experiment configuration,
   environment metadata, and tags to YAML files (used by default when `PyYAML` is
   installed).
-* [`CSVDumper`](#drytorch.trackers.csv.CSVDumper): exports metrics into separate CSV files for each
-  runner.
+* [`CSVDumper`](#drytorch.trackers.csv.CSVDumper): exports training and
+  validation metrics into separate CSV files for each runner, and tests into a
+  `tests/` subdirectory.
 * [`HydraLink`](#drytorch.trackers.hydra.HydraLink): links and optionally copies Hydra output folders
   into the run directory.
 * [`MatPlotter`](#drytorch.trackers.matplotlib.MatPlotter): plots the metrics of a model with
@@ -78,10 +79,8 @@ output directory (defaulting to the experiment folder).
 
 Plotters ([`PlotlyPlotter`](#drytorch.trackers.plotly.PlotlyPlotter) and [`MatPlotter`](#drytorch.trackers.matplotlib.MatPlotter)) collect metrics during the session
 or load stored metrics from a [`MetricLoader`](#drytorch.trackers.base_classes.MetricLoader) (such as [`CSVDumper`](#drytorch.trackers.csv.CSVDumper) or
-[`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection)). They generate figures on demand, creating one figure per
-metric for a model: [`plot`](#drytorch.trackers.base_classes.BasePlotter.plot) renders them together, [`save_plots`](#drytorch.trackers.base_classes.BasePlotter.save_plots) writes them to
-the run directory, and [`create_training_plots`](#drytorch.trackers.base_classes.BasePlotter.create_training_plots) returns them as a dictionary keyed by
-metric name.
+[`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection)). They generate training curves and test figures on demand,
+which can be displayed together, saved to the run directory, or returned for inspection.
 
 ## Initialization modes
 DRYTorch provides initialization modes to configure which default trackers

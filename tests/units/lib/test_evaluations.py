@@ -13,6 +13,7 @@ from drytorch.lib.objectives import Metric
 def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
     module_mocker.patch('drytorch.core.registering.register_runner')
+    module_mocker.patch('drytorch.core.registering.register_test')
     return
 
 
@@ -114,6 +115,18 @@ class TestValidation:
 
         assert validation.objective.custom_attr == 'reachable'
 
+    def test_registration(
+        self, mocker, mock_model, mock_metric, mock_loader
+    ) -> None:
+        """Test creating a Validation registers as runner."""
+        mock_runner_reg = mocker.patch(
+            'drytorch.core.registering.register_runner'
+        )
+        mock_test_reg = mocker.patch('drytorch.core.registering.register_test')
+        val = Validation(mock_model, loader=mock_loader, metric=mock_metric)
+        mock_runner_reg.assert_called_once_with(val, mock_model)
+        mock_test_reg.assert_not_called()
+
 
 class TestTest:
     """Tests for the Test class."""
@@ -147,3 +160,15 @@ class TestTest:
             epoch=test_instance.model.epoch,
             metrics=metrics,
         )
+
+    def test_registration(
+        self, mocker, mock_model, mock_metric, mock_loader
+    ) -> None:
+        """Test creating a Test registers as test runner."""
+        mock_runner_reg = mocker.patch(
+            'drytorch.core.registering.register_runner'
+        )
+        mock_test_reg = mocker.patch('drytorch.core.registering.register_test')
+        test = _Test(mock_model, loader=mock_loader, metric=mock_metric)
+        mock_test_reg.assert_called_once_with(test, mock_model)
+        mock_runner_reg.assert_not_called()

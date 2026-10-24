@@ -21,6 +21,9 @@ from drytorch.trackers.sqlalchemy import (
     SQLConnection,
     Tags,
 )
+from drytorch.trackers.sqlalchemy import (
+    TestSource as _TestSource,
+)
 
 
 class TestSQLConnectionFullCycle:
@@ -77,8 +80,18 @@ class TestSQLConnectionFullCycle:
             col['name'] for col in inspector.get_columns('sources')
         }
         logs_columns = {col['name'] for col in inspector.get_columns('logs')}
+        test_sources_columns = {
+            col['name'] for col in inspector.get_columns('test_sources')
+        }
 
-        expected_tables = {'runs', 'experiments', 'sources', 'logs', 'tags'}
+        expected_tables = {
+            'runs',
+            'experiments',
+            'sources',
+            'logs',
+            'tags',
+            'test_sources',
+        }
         expected_experiment_columns = {
             'row_id',
             'experiment_name',
@@ -102,6 +115,10 @@ class TestSQLConnectionFullCycle:
             'source_ts',
             'run_table_id',
         }
+        expected_test_source_columns = {
+            'row_id',
+            'source_id',
+        }
         expected_log_columns = {
             'row_id',
             'source_id',
@@ -116,6 +133,7 @@ class TestSQLConnectionFullCycle:
         assert tags_columns == expected_tag_columns
         assert runs_columns == expected_run_columns
         assert sources_columns == expected_source_columns
+        assert test_sources_columns == expected_test_source_columns
         assert logs_columns == expected_log_columns
 
     def test_experiment_workflow_stored_correctly(self, tracker) -> None:
@@ -237,3 +255,97 @@ class TestSQLConnectionFullCycle:
         for _, (epochs, _) in loaded_metrics.items():
             assert example_epoch in epochs
             assert 8 in epochs
+
+    def test_test_source_creation(
+        self,
+        resumed_tracker,
+        runner_registration_event,
+        test_registration_event,
+    ) -> None:
+        """Test that TestSource is created only for a test."""
+        test_event = dataclasses.replace(
+            test_registration_event, runner_name='my_test_runner'
+        )
+        resumed_tracker.notify(test_event)
+
+        with resumed_tracker.session_factory() as session:
+            runner_source = (
+                session.query(Source)
+                .where(
+                    Source.source_name.is_(
+                        runner_registration_event.runner_name
+                    )
+                )
+                .first()
+            )
+            test_source = (
+                session.query(Source)
+                .where(Source.source_name.is_('my_test_runner'))
+                .first()
+            )
+            assert runner_source is not None
+            assert test_source is not None
+
+            runner_ts = (
+                session.query(_TestSource)
+                .where(_TestSource.source_id.is_(runner_source.row_id))
+                .first()
+            )
+            created_ts = (
+                session.query(_TestSource)
+                .where(_TestSource.source_id.is_(test_source.row_id))
+                .first()
+            )
+            assert runner_ts is None
+            assert created_ts is not None
+
+    def test_load_test_metrics_returns_only_tests_of_current_run(
+        self,
+        resumed_tracker,
+        test_registration_event,
+        start_experiment_event,
+        stop_experiment_event,
+    ) -> None:
+        """Test load_test_metrics returns only the tests of the current run."""
+        model_name = test_registration_event.model_name
+        test_event_run1 = dataclasses.replace(
+            test_registration_event, runner_name='test_run1'
+        )
+        resumed_tracker.notify(test_event_run1)
+
+        assert 'test_run1' in resumed_tracker.load_test_metrics(model_name)
+
+        run2_event = dataclasses.replace(start_experiment_event, run_id='run_2')
+        run2_tracker = SQLConnection(engine=resumed_tracker.engine)
+        run2_tracker.notify(run2_event)
+        test_event_run2 = dataclasses.replace(
+            test_registration_event, runner_name='test_run2'
+        )
+        run2_tracker.notify(test_event_run2)
+
+        assert 'test_run2' in run2_tracker.load_test_metrics(model_name)
+        assert 'test_run1' not in run2_tracker.load_test_metrics(model_name)
+        assert 'test_run1' in resumed_tracker.load_test_metrics(model_name)
+        run2_tracker.notify(stop_experiment_event)
+
+    def test_load_test_metrics_loads_all_epochs(
+        self,
+        resumed_tracker,
+        test_registration_event,
+        metrics_event,
+    ) -> None:
+        """Test load_test_metrics loads all recorded test epochs."""
+        model_name = test_registration_event.model_name
+        source = test_registration_event.runner_name
+        resumed_tracker.notify(test_registration_event)
+        for ep in (1, 2, 3):
+            event = dataclasses.replace(
+                metrics_event,
+                epoch=ep,
+                model_name=model_name,
+                source_name=source,
+            )
+            resumed_tracker.notify(event)
+
+        test_metrics = resumed_tracker.load_test_metrics(model_name)
+        assert test_metrics[source][0] == [1, 2, 3]

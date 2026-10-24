@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import plotly.graph_objs as go
 
+from plotly import colors as pc
 from plotly import subplots
 from typing_extensions import override
 
@@ -51,23 +52,48 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
         figure = subplots.make_subplots(
             rows=n_rows, cols=n_cols, subplot_titles=metric_names
         )
+        palette = pc.DEFAULT_PLOTLY_COLORS
+        colors = {
+            source: palette[i % len(palette)]
+            for i, source in enumerate(test_results)
+        }
+        seen_sources: set[str] = set()
         for index, metric_name in enumerate(metric_names):
-            labels: list[str] = []
-            values: list[float] = []
-            for source_name, (epoch, metrics) in test_results.items():
-                if metric_name in metrics:
-                    labels.append(f'{source_name} (epoch {epoch})')
-                    values.append(metrics[metric_name])
-
-            bar = go.Bar(
-                x=labels,
-                y=values,
-                name=metric_name,
-                showlegend=False,
-                text=[f'{value:.3g}' for value in values],
-            )
             row, col = divmod(index, n_cols)
-            figure.add_trace(bar, row=row + 1, col=col + 1)
+            position = 0
+            positions: list[int] = []
+            tick_labels: list[str] = []
+            for source_name, entries in test_results.items():
+                x_vals: list[int] = []
+                y_vals: list[float] = []
+                for epoch, metrics in entries:
+                    if metric_name in metrics:
+                        x_vals.append(position)
+                        y_vals.append(metrics[metric_name])
+                        positions.append(position)
+                        tick_labels.append(str(epoch))
+                        position += 1
+
+                if x_vals:
+                    show_legend = source_name not in seen_sources
+                    seen_sources.add(source_name)
+                    bar = go.Bar(
+                        x=x_vals,
+                        y=y_vals,
+                        name=source_name,
+                        legendgroup=source_name,
+                        showlegend=show_legend,
+                        marker_color=colors[source_name],
+                    )
+                    figure.add_trace(bar, row=row + 1, col=col + 1)
+
+            figure.update_xaxes(
+                tickmode='array',
+                tickvals=positions,
+                ticktext=tick_labels,
+                row=row + 1,
+                col=col + 1,
+            )
 
         figure.update_layout(title=f'{model_name} tests')
         return figure

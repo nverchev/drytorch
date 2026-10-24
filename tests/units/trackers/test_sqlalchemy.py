@@ -67,6 +67,10 @@ class TestSQLConnection:
         self.Tags = mocker.patch(
             'drytorch.trackers.sqlalchemy.Tags', return_value=self.tags
         )
+        self.TestSource = mocker.patch(
+            'drytorch.trackers.sqlalchemy.TestSource',
+            return_value=mocker.Mock(),
+        )
         return
 
     @pytest.fixture
@@ -285,6 +289,23 @@ class TestSQLConnection:
             source_ts=runner_registration_mock_event.runner_ts,
             run=self.mock_context.merge.return_value,
         )
+        self.TestSource.assert_not_called()
+
+    def test_test_registration_source_creation(
+        self,
+        tracker_started,
+        test_registration_mock_event,
+    ) -> None:
+        """Test TestRegistrationEvent creates Source and TestSource."""
+        tracker_started.notify(test_registration_mock_event)
+        self.Source.assert_called_once_with(
+            model_name=test_registration_mock_event.model_name,
+            model_ts=test_registration_mock_event.model_ts,
+            source_name=test_registration_mock_event.runner_name,
+            source_ts=test_registration_mock_event.runner_ts,
+            run=self.mock_context.merge.return_value,
+        )
+        self.TestSource.assert_called_once_with(source=self.Source.return_value)
 
     def test_metric_event_log_creation(
         self,
@@ -308,6 +329,7 @@ class TestSQLConnection:
         mock_run = mocker.Mock()
         mock_run.run_id = 'test_run_id'
         mock_query.join.return_value = mock_query
+        mock_query.outerjoin.return_value = mock_query
         mock_query.where.return_value = mock_query
         mock_query.__iter__.return_value = [].__iter__()
         self.mock_context.query.return_value = mock_query
@@ -338,6 +360,27 @@ class TestSQLConnection:
         assert result['source1'] == mock_metrics
         find_sources.assert_called_once_with('test_model')
         get_run_metrics.assert_called_once_with([self.source], max_epoch=10)
+
+    def test_load_test_metrics_method(
+        self,
+        mocker,
+        tracker_started,
+    ) -> None:
+        """Test the _load_test_metrics method integration."""
+        mock_sources = {'test_source': [self.source]}
+        mock_metrics = ([1], {'metric1': [1.0]})
+        find_test_sources = mocker.patch.object(
+            tracker_started, '_find_test_sources', return_value=mock_sources
+        )
+        get_run_metrics = mocker.patch.object(
+            tracker_started, '_get_run_metrics', return_value=mock_metrics
+        )
+        result = tracker_started._load_test_metrics('test_model')
+
+        assert 'test_source' in result
+        assert result['test_source'] == mock_metrics
+        find_test_sources.assert_called_once_with('test_model')
+        get_run_metrics.assert_called_once_with([self.source], max_epoch=-1)
 
     def test_pause_stashes_and_continue_restores(
         self,

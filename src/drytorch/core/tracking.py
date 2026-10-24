@@ -62,7 +62,10 @@ class MetadataManager:
         return self._named_metadata
 
     def register_runner(
-        self, runner: Any, model: p.ModelProtocol[Any, Any]
+        self,
+        runner: Any,
+        model: p.ModelProtocol[Any, Any],
+        /,
     ) -> None:
         """Record metadata of an object that runs a model.
 
@@ -70,6 +73,32 @@ class MetadataManager:
             runner: the object running the model.
             model: the model that is called.
         """
+        self._register_runner(runner, model, log_events.RunnerRegistrationEvent)
+        return
+
+    def register_test(
+        self,
+        test: Any,
+        model: p.ModelProtocol[Any, Any],
+        /,
+    ) -> None:
+        """Record metadata of a test that runs a model.
+
+        Args:
+            test: the test running the model.
+            model: the model that is called.
+        """
+        self._register_runner(test, model, log_events.TestRegistrationEvent)
+        return
+
+    def _register_runner(
+        self,
+        runner: Any,
+        model: p.ModelProtocol[Any, Any],
+        event_cls: type[log_events.RunnerRegistrationEvent],
+        /,
+    ) -> None:
+        runner_name: str
         if isinstance(runner, p.NamedProtocol) and runner.name:
             runner_name = runner.name
         else:
@@ -79,7 +108,7 @@ class MetadataManager:
         model_version = self._get_ts(model)
         metadata = self.extract_metadata(runner)
         self._register_metadata(runner_name, metadata)
-        log_events.RunnerRegistrationEvent(
+        event_cls(
             runner_name, runner_version, model.name, model_version, metadata
         )
         return

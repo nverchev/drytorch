@@ -319,3 +319,129 @@ class TestCsvDumper:
         error_msg = str(exc_info.value)
         assert str(csv_path) in error_msg
         assert '1' in error_msg
+
+    def test_test_metric_event_writes_under_test_folder(
+        self, tracker_started, example_model_name, example_named_metrics
+    ) -> None:
+        """TestMetricEvent writes in the test folder; MetricEvent does not."""
+        metric_event = log_events.MetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='train',
+            metrics=example_named_metrics,
+        )
+        test_metric_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='test',
+            metrics=example_named_metrics,
+        )
+
+        tracker_started.notify(metric_event)
+        tracker_started.notify(test_metric_event)
+
+        run_dir = tracker_started._get_run_dir()
+        model_dir = run_dir / example_model_name
+        test_dir = model_dir / tracker_started.tests_folder_name
+        metric_file = model_dir / 'train.csv'
+        test_file = test_dir / 'test.csv'
+
+        assert metric_file.exists()
+        assert not (test_dir / 'train.csv').exists()
+        assert test_file.exists()
+        assert not (model_dir / 'test.csv').exists()
+
+    def test_resume_loads_both_kinds(
+        self,
+        tmp_path,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """After a resume, both kinds load into their respective loaders."""
+        tracker1 = CSVDumper(par_dir=tmp_path)
+        tracker1.notify(start_experiment_mock_event)
+        metric_event = log_events.MetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='train',
+            metrics=example_named_metrics,
+        )
+        test_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='eval_test',
+            metrics=example_named_metrics,
+        )
+        tracker1.notify(metric_event)
+        tracker1.notify(test_event)
+        tracker1.notify(stop_experiment_mock_event)
+
+        start_experiment_mock_event.resumed = True
+        tracker2 = CSVDumper(par_dir=tmp_path)
+        tracker2.notify(start_experiment_mock_event)
+        loaded = tracker2.load_metrics(example_model_name)
+        test_loaded = tracker2.load_test_metrics(example_model_name)
+        tracker2.notify(stop_experiment_mock_event)
+
+        assert 'train' in loaded
+        assert 'eval_test' not in loaded
+        assert 'eval_test' in test_loaded
+        assert 'train' not in test_loaded
+
+    def test_load_test_metrics_returns_only_test_files(
+        self,
+        tmp_path,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """load_test_metrics returns only the test metric files."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        tracker.notify(start_experiment_mock_event)
+        metric_event = log_events.MetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='train',
+            metrics=example_named_metrics,
+        )
+        test_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='eval_test',
+            metrics=example_named_metrics,
+        )
+        tracker.notify(metric_event)
+        tracker.notify(test_event)
+
+        test_metrics = tracker.load_test_metrics(example_model_name)
+        assert 'eval_test' in test_metrics
+        assert 'train' not in test_metrics
+        tracker.notify(stop_experiment_mock_event)
+
+    def test_load_test_metrics_loads_all_epochs(
+        self,
+        tmp_path,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """load_test_metrics loads all recorded test epochs."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        tracker.notify(start_experiment_mock_event)
+        for ep in (1, 2, 3):
+            tracker.notify(
+                log_events.TestMetricEvent(
+                    epoch=ep,
+                    model_name=example_model_name,
+                    source_name='eval_test',
+                    metrics=example_named_metrics,
+                )
+            )
+
+        test_metrics = tracker.load_test_metrics(example_model_name)
+        assert test_metrics['eval_test'][0] == [1, 2, 3]
+        tracker.notify(stop_experiment_mock_event)

@@ -121,8 +121,8 @@ class TestMatPlotter:
     ) -> None:
         """Each test metric has its own panel, with a bar for each test."""
         tracker.test_dict[example_model_name] = {
-            'Test': (5, {'Accuracy': 0.9, 'Loss': 0.3}),
-            'Test_shifted': (5, {'Accuracy': 0.7}),
+            'Test': ([1, 2], {'Accuracy': [0.8, 0.9], 'Loss': [0.4, 0.3]}),
+            'Test_shifted': ([1], {'Accuracy': [0.7]}),
         }
 
         test_figure = tracker.create_test_plot(example_model_name)
@@ -130,12 +130,21 @@ class TestMatPlotter:
         assert test_figure is not None
         panels = {ax.get_title(): ax for ax in test_figure.axes}
         assert set(panels) == {'Accuracy', 'Loss'}
-        assert len(panels['Accuracy'].patches) == 2
-        assert len(panels['Loss'].patches) == 1
+        assert len(panels['Accuracy'].patches) == 3
+        assert len(panels['Loss'].patches) == 2
+        acc_ticks = [t.get_text() for t in panels['Accuracy'].get_xticklabels()]
+        assert acc_ticks == ['1', '2', '1']
+        assert len(test_figure.legends) == 1
+        legend_labels = [
+            t.get_text() for t in test_figure.legends[0].get_texts()
+        ]
+        assert legend_labels == ['Test', 'Test_shifted']
 
     def test_plot_grid_shows_tests(self, tracker, example_model_name) -> None:
         """The test figure is shown with the grid of the curves."""
-        tracker.test_dict[example_model_name] = {'Test': (5, {'Accuracy': 0.9})}
+        tracker.test_dict[example_model_name] = {
+            'Test': ([5], {'Accuracy': [0.9]}),
+        }
         grid = figure.Figure()
         self.plt_mock.figure.return_value = grid
 

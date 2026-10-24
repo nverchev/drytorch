@@ -23,6 +23,7 @@ __all__ = [
     'SQLConnection',
     'Source',
     'Tags',
+    'TestSource',
 ]
 
 
@@ -159,6 +160,30 @@ class Source:
 
 
 @reg.mapped_as_dataclass
+class TestSource:
+    """Table for test sources.
+
+    Attributes:
+        row_id: the unique id for the table.
+        source_id: foreign key to the source.
+        source: the source that is a test.
+    """
+
+    __tablename__ = 'test_sources'
+    row_id: orm.Mapped[int] = orm.mapped_column(
+        init=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    source_id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.ForeignKey(Source.row_id),
+        unique=True,
+        init=False,
+    )
+    source: orm.Mapped[Source] = orm.relationship()
+
+
+@reg.mapped_as_dataclass
 class Log:
     """Table for the logs of the metrics.
 
@@ -290,17 +315,20 @@ class SQLConnection(base_classes.MetricLoader):
             return super().notify(event)
 
         with self.session_factory() as session:
-            run = session.merge(self.run)
+            source = self._add_source(session, event)
+            session.commit()
+            self._sources[event.runner_name] = source
 
-            # every runner gets a row, even when it never logs metrics
-            source = Source(
-                model_name=event.model_name,
-                model_ts=event.model_ts,
-                source_name=event.runner_name,
-                source_ts=event.runner_ts,
-                run=run,
-            )
-            session.add(source)
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.TestRegistrationEvent) -> None:
+        if not self._record:
+            return super().notify(event)
+
+        with self.session_factory() as session:
+            source = self._add_source(session, event)
+            session.add(TestSource(source=source))
             session.commit()
             self._sources[event.runner_name] = source
 
@@ -371,15 +399,42 @@ class SQLConnection(base_classes.MetricLoader):
         self.engine.dispose()
         return super().close()
 
+    @override
+    def _load_test_metrics(
+        self, model_name: str
+    ) -> base_classes.SourcedMetrics:
+        test_sources = self._find_test_sources(model_name)
+        out: base_classes.SourcedMetrics = {}
+        for source_name, run_sources in test_sources.items():
+            out[source_name] = self._get_run_metrics(run_sources, max_epoch=-1)
+
+        return out
+
+    def _add_source(
+        self, session: orm.Session, event: log_events.RunnerRegistrationEvent
+    ) -> Source:
+        # every runner gets a row, even when it never logs metrics
+        source = Source(
+            model_name=event.model_name,
+            model_ts=event.model_ts,
+            source_name=event.runner_name,
+            source_ts=event.runner_ts,
+            run=session.merge(self.run),
+        )
+        session.add(source)
+        return source
+
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
         with self.session_factory() as session:
             run = session.merge(self.run)
             query = (
                 session.query(Source)
                 .join(Source.run)
+                .outerjoin(TestSource)
                 .where(
                     Run.run_id.is_(run.run_id),
                     Source.model_name.is_(model_name),
+                    TestSource.row_id.is_(None),
                 )
             )
             named_sources: dict[str, list[Source]] = {}
@@ -390,6 +445,25 @@ class SQLConnection(base_classes.MetricLoader):
             if not named_sources:
                 msg = f'No sources for model {model_name}.'
                 raise exceptions.TrackerError(self, msg)
+
+            return named_sources
+
+    def _find_test_sources(self, model_name: str) -> dict[str, list[Source]]:
+        with self.session_factory() as session:
+            run = session.merge(self.run)
+            query = (
+                session.query(Source)
+                .join(Source.run)
+                .join(TestSource)
+                .where(
+                    Run.run_id.is_(run.run_id),
+                    Source.model_name.is_(model_name),
+                )
+            )
+            named_sources: dict[str, list[Source]] = {}
+            for source in query:
+                sources = named_sources.setdefault(source.source_name, [])
+                sources.append(source)
 
             return named_sources
 
