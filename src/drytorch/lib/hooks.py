@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 
 from collections.abc import Mapping, Sequence
-from typing import Any, ClassVar, Final, Generic, final
+from typing import Any, ClassVar, Final, Generic, final, overload
 
 from typing_extensions import TypeVar, override
 
@@ -84,7 +84,13 @@ class TrainerHook(abc.ABC, Generic[_C_co]):
     _last_run_epoch: int
     _trainer: p.TrainerProtocol[Any, Any, Any] | None
 
-    def __init__(self, *, when: _C_co = monitoring.ALWAYS) -> None:
+    @overload
+    def __init__(self: TrainerHook[monitoring.Always]) -> None: ...
+
+    @overload
+    def __init__(self, *, when: _C_co) -> None: ...
+
+    def __init__(self, *, when: Any = monitoring.ALWAYS) -> None:
         """Initialize.
 
         Args:
@@ -159,11 +165,25 @@ class EvaluationHook(TrainerHook[_C_co]):
 
     evaluation: Final[p.SourceProtocol]
 
+    @overload
+    def __init__(
+        self: EvaluationHook[monitoring.Always],
+        evaluation: p.SourceProtocol,
+    ) -> None: ...
+
+    @overload
     def __init__(
         self,
         evaluation: p.SourceProtocol,
         *,
-        when: _C_co = monitoring.ALWAYS,
+        when: _C_co,
+    ) -> None: ...
+
+    def __init__(
+        self,
+        evaluation: p.SourceProtocol,
+        *,
+        when: Any = monitoring.ALWAYS,
     ) -> None:
         """Initialize.
 
@@ -204,15 +224,6 @@ class TerminateTraining(TrainerHook[_C_co]):
     """
 
     _reason: ClassVar[str] = 'a hook terminated the training'
-
-    def __init__(self, *, when: _C_co = monitoring.ALWAYS) -> None:
-        """Initialize.
-
-        Args:
-            when: decides whether the hook runs. Default runs every time.
-        """
-        super().__init__(when=when)
-        return
 
     @override
     def run(self) -> None:
