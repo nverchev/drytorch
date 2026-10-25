@@ -1,7 +1,7 @@
 # [0.1.0] - 20-10-2026
 
 ## [BREAKING CHANGES]
-- sources use the objective they are given instead of a copy, and giving the same objective to two sources raises ObjectiveAlreadyUsedError
+- sources use the objective they are given instead of a copy
 - the `device` argument of `Model` and its subclasses defaults to `'auto'` instead of `None`
 - `take_from_dataset` returns the indices of the samples it takes, then the batch, so that random samples can be told apart
 - `mixed_precision` takes the autocast precision (`torch.float16` or `torch.bfloat16`) or `None` instead of a boolean; the gradient scaler is enabled only for `torch.float16`

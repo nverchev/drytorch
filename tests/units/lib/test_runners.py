@@ -1,7 +1,5 @@
 """Tests for the ``runners`` module."""
 
-import gc
-
 import pytest
 
 from drytorch.core import exceptions
@@ -249,35 +247,14 @@ class TestSource:
     def test_registration_on_creation(
         self, mocker, mock_model, mock_loader, mock_loss
     ) -> None:
-        """Test the source registers via register_source when created."""
-        mock_reg = mocker.patch('drytorch.core.registering.register_source')
+        """Test the source registers via register_runner when created."""
+        mock_reg = mocker.patch('drytorch.core.registering.register_runner')
         source = Source(mock_model, loader=mock_loader, objective=mock_loss)
         mock_reg.assert_called_once_with(source, mock_model)
 
     def test_objective_is_passed_object(self, mock_loss, runner) -> None:
         """Test a source's objective is the exact object passed."""
         assert runner.objective is mock_loss
-
-    def test_sharing_objective_raises_error(
-        self, mock_model, mock_loader, mock_loss, runner
-    ) -> None:
-        """Test a second source with the same objective raises an error."""
-        with pytest.raises(exceptions.ObjectiveAlreadyUsedError):
-            Source(mock_model, loader=mock_loader, objective=mock_loss)
-
-    def test_objective_reusable_after_source_gc(
-        self, mocker, mock_model, mock_loader
-    ) -> None:
-        """Test objective can be reused after source is collected."""
-        mock_reg = mocker.patch('drytorch.core.registering.register_runner')
-        mock_obj = mocker.Mock()
-        source = Source(mock_model, loader=mock_loader, objective=mock_obj)
-        mock_reg.reset_mock()
-        del source
-        gc.collect()
-
-        new_source = Source(mock_model, loader=mock_loader, objective=mock_obj)
-        assert new_source.objective is mock_obj
 
     def test_run_backward(self, runner) -> None:
         """Test backward pass updates the objective."""
@@ -289,8 +266,6 @@ class TestSource:
 
     def test_objective_reset_on_epoch_run(self, runner) -> None:
         """Test that the objective is reset at the start of each epoch."""
-        runner.objective.reset.reset_mock()
-
         runner._run_epoch(store_outputs=False)
 
         runner.objective.reset.assert_called_once()

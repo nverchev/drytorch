@@ -146,7 +146,9 @@ learning_schema = LearningSchema.adam(base_lr=0.05)
 Evaluation sources execute a model over a data loader in inference mode and
 publish metric events. They pair a model with a data loader and an objective
 satisfying [`ObjectiveProtocol`](#drytorch.core.protocols.ObjectiveProtocol) (such as a [`Metric`](#drytorch.lib.objectives.Metric) or [`MetricCollection`](#drytorch.lib.objectives.MetricCollection)) to
-compute and report metrics without modifying model parameters:
+compute and report metrics without modifying model parameters. Each pass resets
+the objective, updates it with each batch, and leaves its final state on it.
+You can inspect the objective directly after evaluation:
 
 ```{code-cell} ipython3
 from drytorch import Test
@@ -155,6 +157,7 @@ from drytorch import Test
 eval_model = make_model()
 test = Test(eval_model, loader=test_loader, metric=mae)
 test()
+mae.compute()
 ```
 
 ## Trainer
@@ -331,7 +334,7 @@ from drytorch import Validation
 
 direct_model = make_model()
 direct_validation = Validation(
-    direct_model, name='DirectValidation', loader=val_loader, metric=loss.copy()
+    direct_model, name='DirectValidation', loader=val_loader, metric=loss
 )
 early_stopping = hooks.EarlyStopping(
     patience=2, watch=monitoring.Watch(source=direct_validation)

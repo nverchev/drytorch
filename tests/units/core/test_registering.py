@@ -11,15 +11,12 @@ from drytorch.core import exceptions
 from drytorch.core import protocols as p
 from drytorch.core.registering import (
     ALL_MODULES,
-    ALL_OBJECTIVES,
     ALL_RUNNERS,
     RegisteringMeta,
-    SourceRegisteringMeta,
     TestRegisteringMeta,
     _Owner,
     register_model,
     register_runner,
-    register_source,
     register_test,
     unregister_model,
     unregister_runner,
@@ -94,30 +91,6 @@ class _FailingActor(_Actor):
         raise ValueError('failing initialization')
 
 
-class _SourceActor(metaclass=SourceRegisteringMeta):
-    """Source of a model."""
-
-    computed_metrics: Mapping[str, float]
-    last_run_epoch: int
-    model: p.ModelProtocol[Any, Any]
-    name: str
-    objective: Any
-
-    def __init__(
-        self, model: p.ModelProtocol[Any, Any], objective: Any = None
-    ) -> None:
-        """Initialize."""
-        self.computed_metrics = {}
-        self.last_run_epoch = 0
-        self.model = model
-        self.objective = objective or _DummyObjective()
-        self.name = 'Source'
-        return
-
-    def __call__(self, *, store_outputs: bool = False) -> None:
-        return
-
-
 class _TestActor(metaclass=TestRegisteringMeta):
     """Test runner of a model."""
 
@@ -173,19 +146,6 @@ class TestRegisteringMeta:
             _FailingActor(mock_model)
 
         self.mock_register_runner.assert_not_called()
-
-
-class TestSourceRegisteringMeta:
-    """Tests for the metaclass registering sources."""
-
-    def test_registers_source(self, mocker, mock_model) -> None:
-        """Test the source registers through register_source."""
-        mock_register = mocker.patch(
-            'drytorch.core.registering.register_source'
-        )
-        source = _SourceActor(mock_model)
-
-        mock_register.assert_called_once_with(source, mock_model)
 
 
 class TestTestRegisteringMeta:
@@ -264,38 +224,6 @@ def test_register_runner_with_wrong_experiment(
 
     with pytest.raises(exceptions.ModuleFromAnotherRunError):
         register_runner(_SimpleCaller(), mock_model)
-
-
-def test_register_source(mock_run, mock_model) -> None:
-    """Test source registration through metadata manager."""
-    source = _SimpleCaller()
-    manager = mock_run.metadata_manager
-    manager.register_runner.reset_mock()
-    ALL_MODULES[mock_model.module] = _Owner(
-        weakref.ref(mock_run), mock_run.experiment.name, mock_run.id
-    )
-
-    register_source(source, mock_model)
-
-    manager.register_runner.assert_called_once_with(source, mock_model)
-    assert source in ALL_RUNNERS[mock_model.module]
-    assert ALL_OBJECTIVES[source.objective]() is source
-
-
-def test_register_source_with_same_objective_raises(
-    mock_run, mock_model
-) -> None:
-    """Test registering a second source with the same objective raises."""
-    obj = _DummyObjective()
-    source1 = _SimpleCaller(objective=obj)
-    ALL_MODULES[mock_model.module] = _Owner(
-        weakref.ref(mock_run), mock_run.experiment.name, mock_run.id
-    )
-    register_source(source1, mock_model)
-
-    source2 = _SimpleCaller(objective=obj)
-    with pytest.raises(exceptions.ObjectiveAlreadyUsedError):
-        register_source(source2, mock_model)
 
 
 def test_register_test(mock_run, mock_model) -> None:

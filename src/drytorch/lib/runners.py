@@ -248,12 +248,11 @@ class Runner(
 class Source(
     Runner[Input, Target, Output],
     Generic[Input, Target, Output, _Objective_co],
-    metaclass=registering.SourceRegisteringMeta,
 ):
     """Run a model on a dataset and publish the value of an objective.
 
-    Each pass emits :class:`~drytorch.core.log_events.MetricEvent` with the
-    name of the source.
+    Each pass resets the objective, updates it with each batch, and leaves its
+    final state on it, emitting :class:`~drytorch.core.log_events.MetricEvent`.
 
     Attributes:
         loader: provides inputs and targets in batches.
@@ -311,7 +310,6 @@ class Source(
                         stacklevel=2,
                     )
 
-        self.objective.reset()
         self._checked_metric_device = False
         return
 
