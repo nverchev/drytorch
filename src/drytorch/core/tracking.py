@@ -72,6 +72,9 @@ class MetadataManager:
         Args:
             runner: the object running the model.
             model: the model that is called.
+
+        Raises:
+            NameAlreadyRegisteredError: if the name is already registered.
         """
         self._register_runner(runner, model, log_events.RunnerRegistrationEvent)
         return
@@ -87,6 +90,9 @@ class MetadataManager:
         Args:
             test: the test running the model.
             model: the model that is called.
+
+        Raises:
+            NameAlreadyRegisteredError: if the name is already registered.
         """
         self._register_runner(test, model, log_events.TestRegistrationEvent)
         return
@@ -118,6 +124,9 @@ class MetadataManager:
 
         Args:
             model: the model to document.
+
+        Raises:
+            NameAlreadyRegisteredError: if the name is already registered.
         """
         metadata = repr_utils.LiteralStr(repr(model.module))
         self._register_metadata(model.name, metadata)

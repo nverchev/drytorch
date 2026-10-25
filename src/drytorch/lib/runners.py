@@ -102,6 +102,10 @@ class Runner(
         Args:
             store_outputs: whether to store model outputs. Defaults to
                 ``False``.
+
+        Raises:
+            ModelDeviceMismatchError: if a metric state device does not match
+                the model device in distributed training.
         """
         self._run_epoch(store_outputs)
         return
@@ -255,6 +259,10 @@ class Source(
         loader: provides inputs and targets in batches.
         model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
+
+    Raises:
+        ModelDeviceMismatchError: if a metric state device does not match the
+            model device in distributed training.
     """
 
     objective: Final[_Objective_co]

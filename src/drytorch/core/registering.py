@@ -114,7 +114,16 @@ ALL_RUNNERS: Final = weakref.WeakKeyDictionary[
 
 
 def check_current_run(model: p.ModelProtocol[Any, Any], /) -> None:
-    """Raise if the model's run is not the active one."""
+    """Raise if the model's run is not the active one.
+
+    Args:
+        model: the model to check.
+
+    Raises:
+        ModuleFromAnotherRunError: if the module belongs to another run.
+        ModuleNotRegisteredError: if the module has not been registered in the
+            current run.
+    """
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     module = model.module
     owner = ALL_MODULES.get(module)
@@ -142,6 +151,7 @@ def register_model(model: p.ModelProtocol[Any, Any], /) -> None:
 
     Raises:
         ModuleAlreadyRegisteredError: if the module is already registered.
+        NameAlreadyRegisteredError: if the name is already registered.
     """
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     module = model.module
@@ -170,6 +180,7 @@ def register_runner(runner: Any, model: p.ModelProtocol[Any, Any], /) -> None:
     Raises:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
+        NameAlreadyRegisteredError: if the name is already registered.
     """
     run = _get_run_of_new_runner(runner, model)
     if run is not None:
@@ -189,6 +200,7 @@ def register_source(source: Any, model: p.ModelProtocol[Any, Any], /) -> None:
     Raises:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
+        NameAlreadyRegisteredError: if the name is already registered.
         ObjectiveAlreadyUsedError: if the objective is already used by another
             source.
     """
@@ -207,6 +219,7 @@ def register_test(test: Any, model: p.ModelProtocol[Any, Any], /) -> None:
     Raises:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
+        NameAlreadyRegisteredError: if the name is already registered.
         ObjectiveAlreadyUsedError: if the objective is already used by another
             source.
     """
