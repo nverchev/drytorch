@@ -290,8 +290,8 @@ Some conditions inspect metrics published by a source:
 
 A [`Watch`](#drytorch.lib.monitoring.Watch) object specifies what to follow:
 * `source`: the source computing the metric (defaults to the trainer).
-* `metric`: the name of the metric or objective function.
-* `best_is`: whether higher or lower values are better.
+* `metric_name`: the name of the metric (needed when the objective yields multiple metrics).
+* `best_is`: whether higher or lower values are better (needed when not specified by the source's objective).
 * `filter_fn`: how recent values are aggregated (e.g. trailing means from
   `drytorch.utils.averages`).
 

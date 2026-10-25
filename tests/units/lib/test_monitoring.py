@@ -3,7 +3,6 @@
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.core import protocols as p
 from drytorch.lib.monitoring import (
     ALWAYS,
     After,
@@ -81,22 +80,11 @@ class TestWatch:
 
     def test_resolve_with_named_metric(self, mock_trainer) -> None:
         """Test resolve with metric given by name."""
-        watch = Watch(metric='Accuracy')
+        watch = Watch(metric_name='Accuracy')
         monitor = watch.resolve(mock_trainer)
 
         assert monitor.metric_name == 'Accuracy'
         assert monitor.best_is is None
-
-    def test_resolve_with_objective(self, mocker, mock_trainer) -> None:
-        """Test resolve with metric given as an objective."""
-        objective = mocker.create_autospec(p.ObjectiveProtocol, instance=True)
-        objective.name = 'Accuracy'
-        objective.higher_is_better = True
-        watch = Watch(metric=objective)
-        monitor = watch.resolve(mock_trainer)
-
-        assert monitor.metric_name == 'Accuracy'
-        assert monitor.best_is == 'higher'
 
     def test_resolve_with_explicit_best_is(self, mock_trainer) -> None:
         """Test explicit best_is overrides objective direction."""
@@ -106,11 +94,11 @@ class TestWatch:
         assert monitor.best_is == 'higher'
 
     def test_resolve_unknown_metric_raises(self, mocker, mock_trainer) -> None:
-        """Test resolve raises ValueError when metric name cannot be told."""
+        """Test resolve raises when metric name cannot be told."""
         mock_trainer.objective.name = ''
         watch = Watch()
 
-        with pytest.raises(ValueError, match='Cannot tell which metric'):
+        with pytest.raises(exceptions.UnnamedObjectiveError):
             watch.resolve(mock_trainer)
 
 
@@ -210,14 +198,14 @@ class TestMonitor:
         assert not monitor.is_better(float('nan'), 1.0)
 
     def test_is_better_without_direction_raises(self, mock_validation) -> None:
-        """Test is_better raises ValueError when best_is is None."""
+        """Test is_better raises UnknownDirectionError when best_is is None."""
         monitor = Monitor(
             best_is=None,
             metric_name='Metric',
             source=mock_validation,
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(exceptions.UnknownDirectionError):
             monitor.is_better(1.0, 2.0)
 
 
@@ -294,7 +282,7 @@ class TestPlateau:
     @pytest.fixture
     def plateau(self, mock_trainer, example_loss_name) -> Plateau:
         """A condition following the loss with a patience of two."""
-        watch = Watch(best_is='lower', metric=example_loss_name)
+        watch = Watch(best_is='lower', metric_name=example_loss_name)
         condition = Plateau(patience=2, watch=watch)
         condition.bind_trainer(mock_trainer)
         return condition
@@ -343,6 +331,14 @@ class TestPlateau:
         assert not plateau(hook)
         assert plateau.best_value == 1.0
 
+    def test_bind_trainer_unknown_direction_raises(self, mock_trainer) -> None:
+        """Test bind_trainer raises when direction cannot be determined."""
+        watch = Watch(metric_name='uncomputed_metric')
+        condition = Plateau(watch=watch)
+
+        with pytest.raises(exceptions.UnknownDirectionError):
+            condition.bind_trainer(mock_trainer)
+
 
 class TestWorseThan:
     """Tests for the WorseThan condition."""
@@ -350,7 +346,7 @@ class TestWorseThan:
     @pytest.fixture
     def worse_than(self, mock_trainer, example_loss_name) -> WorseThan:
         """A condition comparing the loss with thresholds."""
-        watch = Watch(best_is='lower', metric=example_loss_name)
+        watch = Watch(best_is='lower', metric_name=example_loss_name)
         condition = WorseThan({2: 1.0, 3: None}, watch=watch)
         condition.bind_trainer(mock_trainer)
         return condition
@@ -435,7 +431,7 @@ class TestCombinations:
         self, hook, mock_trainer, example_loss_name, example_epoch
     ) -> None:
         """Test combined condition delegates to operands."""
-        watch = Watch(best_is='lower', metric=example_loss_name)
+        watch = Watch(best_is='lower', metric_name=example_loss_name)
         plateau = Plateau(watch=watch)
         combined = After(1) & plateau
 

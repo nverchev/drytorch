@@ -46,6 +46,7 @@
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
 - plotters no longer draw during training: `BasePlotter.plot` renders the figures of a model on request, and its arguments after `model_name` are keyword-only
 - dropped the `Grad` prefix from gradient operations: renamed `GradNormClipper`, `GradValueClipper`, `GradParamNormalizer`, and `GradZScoreNormalizer` to `NormClipper`, `ValueClipper`, `ParamNormalizer`, and `ZScoreNormalizer`
+- renamed the `metric` argument of `Watch` and `TrainerBuilder.watch` to `metric_name`
 
 ## Added
 - EndTrainingEvent.model_name
@@ -89,6 +90,7 @@
 - added `n_parameters` and `n_trainable_parameters` to `ModelRegistrationEvent`, counted when the model is registered
 - added `indices` and `collate_fn` to `take_from_dataset`, which take the given samples in the given order and combine them with the given function
 - added `DataLoader.fold`, which splits a loader into the training and validation loaders of a k-fold cross-validation
+- `UnknownDirectionError` and `UnnamedObjectiveError`, raised when a watched metric cannot be named or its direction is unknown
 
 ## Changed
 - plotters save the training plots when training ends and the test plot after each test; show also displays them
@@ -137,6 +139,7 @@
 - `RegisteringMeta` derives from `abc.ABCMeta`, as runners no longer inherit protocols
 - `MetadataDumper` writes the parameter counts with the architecture, and `BuiltinLogger` logs how many parameters a registered model has and how many are trainable
 - the `matplotlib` optional dependency requires version 3.11.0 or later
+- `Watch`, `Monitor` and the metric conditions raise `UnnamedObjectiveError` and `UnknownDirectionError` instead of `ValueError`
 
 ## Removed
 - StartTestEvent and EndTestEvent: a Test publishes only TestMetricEvent
@@ -157,6 +160,7 @@
 - removed `TrainerProtocol.objective`, which no code used
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 - removed the `start`, `metric_names`, `model_names` and `source_names` arguments of `BasePlotter`, `MatPlotter` and `PlotlyPlotter`, which only the updates during training used
+- `Watch` and `TrainerBuilder.watch` no longer take an objective as `metric_name`; pass its name, and `best_is` when the source's objective doesn't compute it
 
 ## Fixed
 - the YAML metadata writes StrEnum values as plain strings instead of Python tags

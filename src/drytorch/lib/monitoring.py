@@ -47,17 +47,23 @@ class Watch:
 
     Attributes:
         best_is: whether higher or lower values are better. Default takes it
-            from the objective computing the metric.
+            from the source's objective.
         filter_fn: aggregates the recent values. Default takes the last.
-        metric: the metric to follow, by name or by objective. Default
-            follows the objective of the source.
-        source: the evaluation computing the metric. Default follows the
-            training.
+        metric_name: the name of the metric to follow. Default follows the
+            source's objective.
+        source: the source determining the metric. Default follows the trainer.
+
+    Raises:
+        MetricNotFoundError: if the metric is not in the source's outputs.
+        UnknownDirectionError: when a condition needs ``best_is``, it is not
+            given, and the source's objective does not specify it.
+        UnnamedObjectiveError: when the training starts, if ``metric_name`` is
+            not given and the source's objective has no name.
     """
 
     best_is: Literal['higher', 'lower'] | None = None
     filter_fn: Callable[[Sequence[float]], float] = get_last
-    metric: p.ObjectiveProtocol[Any, Any] | str | None = None
+    metric_name: str | None = None
     source: p.SourceProtocol | None = None
 
     def resolve(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> Monitor:
@@ -70,7 +76,7 @@ class Watch:
             The record of the metric.
 
         Raises:
-            ValueError: if the metric cannot be determined.
+            UnnamedObjectiveError: if the metric cannot be determined.
         """
         source = trainer if self.source is None else self.source
         objective = self._get_objective(source)
@@ -96,29 +102,27 @@ class Watch:
         source: p.SourceProtocol,
         objective: p.ObjectiveProtocol[Any, Any] | None,
     ) -> str:
-        if isinstance(self.metric, str):
-            return self.metric
+        if self.metric_name is not None:
+            return self.metric_name
 
         if isinstance(objective, p.NamedProtocol) and objective.name:
             return str(objective.name)
 
-        msg = f'Cannot tell which metric of {source.name} to follow.'
-        raise ValueError(msg)
+        raise exceptions.UnnamedObjectiveError(source.name)
 
     def _get_objective(
         self, source: p.SourceProtocol
     ) -> p.ObjectiveProtocol[Any, Any] | None:
-        if isinstance(self.metric, p.ObjectiveProtocol):
-            return self.metric
-
         objective = source.objective
-        if self.metric is None:
+        if self.metric_name is None:
             return objective
 
         # the objective describes a named metric only when the names agree
-        if isinstance(objective, p.NamedProtocol):
-            if objective.name == self.metric:
-                return objective
+        if (
+            isinstance(objective, p.NamedProtocol)
+            and objective.name == self.metric_name
+        ):
+            return objective
 
         return None
 
@@ -133,7 +137,7 @@ class Monitor:
         best_is: whether higher or lower values are better, when known.
         filter_fn: aggregates the recent values into the current one.
         metric_name: the name of the followed metric.
-        source: the evaluation computing the metric.
+        source: the source computing the metric.
     """
 
     best_is: Final[Literal['higher', 'lower'] | None]
@@ -157,7 +161,7 @@ class Monitor:
             best_is: whether higher or lower values are better.
             filter_fn: aggregates the recent values. Default takes the last.
             metric_name: the name of the metric to follow.
-            source: the evaluation computing the metric.
+            source: the source computing the metric.
         """
         self.best_is = best_is
         self.filter_fn = filter_fn
@@ -208,11 +212,12 @@ class Monitor:
             ``True`` if the value is better than the reference.
 
         Raises:
-            ValueError: if the direction of the metric is unknown.
+            UnknownDirectionError: if the direction of the metric is unknown.
         """
         if self.best_is is None:
-            msg = f'The direction of {self.metric_name} is unknown.'
-            raise ValueError(msg)
+            raise exceptions.UnknownDirectionError(
+                self.metric_name, self.source.name
+            )
 
         if value != value:  # check for NaN
             return False
@@ -527,15 +532,13 @@ class MetricCondition(Condition, abc.ABC):
         """Create the record of the metric for the trainer.
 
         Raises:
-            ValueError: if the metric or its direction cannot be determined.
+            UnknownDirectionError: if the direction of the metric is unknown.
         """
         monitor = self.watch.resolve(trainer)
         if monitor.best_is is None:
-            msg = (
-                f'The direction of {monitor.metric_name} is unknown:'
-                ' specify best_is.'
+            raise exceptions.UnknownDirectionError(
+                monitor.metric_name, monitor.source.name
             )
-            raise ValueError(msg)
 
         self._monitor = monitor
         return

@@ -192,7 +192,9 @@ class TestEarlyStopping:
     @pytest.fixture
     def hook(self, example_loss_name) -> EarlyStopping:
         """Set up a test instance."""
-        watch = monitoring.Watch(best_is='higher', metric=example_loss_name)
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
         return EarlyStopping(
             patience=2,
             start_from_epoch=1,
@@ -235,7 +237,9 @@ class TestPruning:
     @pytest.fixture
     def hook(self, example_loss_name) -> Pruning:
         """Set up a test instance."""
-        watch = monitoring.Watch(best_is='higher', metric=example_loss_name)
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
         return Pruning(
             {3: 2.0, 5: 0.5},
             watch=watch,
@@ -276,7 +280,9 @@ class TestReduceLROnPlateau:
     @pytest.fixture
     def hook(self, example_loss_name) -> ReduceLROnPlateau:
         """Set up a test instance."""
-        watch = monitoring.Watch(best_is='higher', metric=example_loss_name)
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
         return ReduceLROnPlateau(
             factor=0.01,
             patience=2,
@@ -332,7 +338,9 @@ class TestReduceLROnPlateau:
         mock_trainer.learning_schema = mocker.Mock()
         mock_trainer.learning_schema.scheduler = schedulers.ConstantScheduler()
         watch = monitoring.Watch(
-            source=mock_validation, best_is='higher', metric=example_loss_name
+            source=mock_validation,
+            best_is='higher',
+            metric_name=example_loss_name,
         )
         hook = ReduceLROnPlateau(
             factor=0.1, patience=0, cooldown=0, watch=watch
@@ -372,7 +380,9 @@ class TestRestartScheduleOnPlateau:
     @pytest.fixture
     def hook(self, example_loss_name) -> RestartScheduleOnPlateau:
         """Set up a test instance."""
-        watch = monitoring.Watch(best_is='higher', metric=example_loss_name)
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
         return RestartScheduleOnPlateau(
             patience=2,
             watch=watch,

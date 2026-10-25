@@ -71,6 +71,8 @@ __all__ = [
     'TrackerError',
     'TrackerExceptionWarning',
     'TrackerNotUsedError',
+    'UnknownDirectionError',
+    'UnnamedObjectiveError',
     'ValidationAlreadyAddedError',
 ]
 
@@ -846,6 +848,47 @@ class TrackerNotUsedError(DryTorchError):
         """
         self.tracker_name = tracker_name
         super().__init__(tracker_name)
+        return
+
+
+class UnknownDirectionError(DryTorchError):
+    """Raised when the direction of a followed metric cannot be determined."""
+
+    _template = (
+        'The direction of {} computed by {} is unknown: specify best_is.'
+    )
+
+    metric_name: Final[str]
+    source_name: Final[str]
+
+    def __init__(self, metric_name: str, source_name: str) -> None:
+        """Initialize.
+
+        Args:
+            metric_name: the name of the metric whose direction is unknown.
+            source_name: the name of the source computing the metric.
+        """
+        self.metric_name = metric_name
+        self.source_name = source_name
+        super().__init__(metric_name, source_name)
+        return
+
+
+class UnnamedObjectiveError(DryTorchError):
+    """Raised when the metric to follow cannot be named from the objective."""
+
+    _template = 'The objective of {} has no name: specify metric_name.'
+
+    source_name: Final[str]
+
+    def __init__(self, source_name: str) -> None:
+        """Initialize.
+
+        Args:
+            source_name: the name of the source whose objective has no name.
+        """
+        self.source_name = source_name
+        super().__init__(source_name)
         return
 
 

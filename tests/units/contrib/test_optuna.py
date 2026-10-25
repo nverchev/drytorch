@@ -46,7 +46,7 @@ class TestTrialCallback:
     @pytest.fixture
     def callback(self, mock_trial, example_loss_name) -> TrialCallback:
         """Mock callback."""
-        watch = monitoring.Watch(metric=example_loss_name)
+        watch = monitoring.Watch(metric_name=example_loss_name)
         return TrialCallback(mock_trial, watch=watch)
 
     def test_call_reports_to_trial(

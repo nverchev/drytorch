@@ -725,16 +725,17 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         *,
         best_is: Literal['higher', 'lower'] | None = None,
         filter_fn: Callable[[Sequence[float]], float] = monitoring.get_last,
-        metric: p.ObjectiveProtocol[Any, Any] | str | None = None,
+        metric_name: str | None = None,
         training: bool = False,
     ) -> monitoring.Watch:
         """Create a watch with defaults from the builder.
 
         Args:
-            best_is: whether higher or lower values are better. Defaults to
-                the objective's direction if available.
+            best_is: whether higher or lower values are better. Default takes it
+                from the source's objective.
             filter_fn: aggregates the recent values. Default takes the last.
-            metric: the metric to monitor. Defaults to the loss.
+            metric_name: the name of the metric to follow. Default follows the
+                source's objective.
             training: whether to follow training instead of validation.
 
         Returns:
@@ -750,6 +751,6 @@ class TrainerBuilder(Generic[Input, Target, Output]):
         return monitoring.Watch(
             best_is=best_is,
             filter_fn=filter_fn,
-            metric=self._loss if metric is None else metric,
+            metric_name=metric_name,
             source=None if training else self._validation,
         )
