@@ -163,6 +163,10 @@ class TestMatPlotter:
 
         assert tracker._source_colors == {}
 
+    def test_folder_name(self) -> None:
+        """Test the folder name is 'matplotlib'."""
+        assert MatPlotter.folder_name == 'matplotlib'
+
     @pytest.mark.parametrize('invalid_palette', ['invalid_palette_name', 123])
     def test_initialization_invalid_palette_raises_value_error(
         self, invalid_palette

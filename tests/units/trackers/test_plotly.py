@@ -57,6 +57,10 @@ class TestPlotlyPlotter:
 
         self.mock_show.assert_not_called()
 
+    def test_folder_name(self) -> None:
+        """Test the folder name is 'plotly'."""
+        assert PlotlyPlotter.folder_name == 'plotly'
+
     def test_plot_shows_each_figure(self, tracker, example_model_name) -> None:
         """Plotting shows the figure of each metric."""
         tracker.plot(example_model_name)

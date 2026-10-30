@@ -22,6 +22,7 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
     """Tracker that plots each metric of a model in a figure with plotly."""
 
     file_suffix: ClassVar[str] = '.html'
+    folder_name: ClassVar[str] = 'plotly'
 
     @override
     def _create_training_plot(

@@ -51,7 +51,9 @@ class TestMatPlotterFullCycle:
 
         saved = {
             path.stem
-            for path in tmp_path.glob(f'plots/**/{example_model_name}/*.png')
+            for path in tmp_path.glob(
+                f'matplotlib/**/{example_model_name}/*.png'
+            )
         }
         assert len(saved) == 4
         assert 'test_metrics' in saved
@@ -104,6 +106,8 @@ class TestMatPlotterFullCycle:
 
         saved = {
             path.stem
-            for path in tmp_path.glob(f'plots/**/{example_model_name}/*.png')
+            for path in tmp_path.glob(
+                f'matplotlib/**/{example_model_name}/*.png'
+            )
         }
         assert 'test_metrics' in saved

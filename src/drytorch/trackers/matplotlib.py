@@ -27,6 +27,7 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
     """Tracker that plots each metric of a model in a figure with matplotlib."""
 
     file_suffix: ClassVar[str] = '.png'
+    folder_name: ClassVar[str] = 'matplotlib'
 
     _cmap: colors.Colormap
     _source_colors: dict[str, ColorType]

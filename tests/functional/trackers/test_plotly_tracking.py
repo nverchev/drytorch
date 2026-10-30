@@ -44,7 +44,7 @@ class TestPlotlyPlotterFullCycle:
 
         saved = {
             path.stem
-            for path in tmp_path.glob(f'plots/**/{example_model_name}/*.html')
+            for path in tmp_path.glob(f'plotly/**/{example_model_name}/*.html')
         }
         assert len(saved) == 4
         assert 'test_metrics' in saved

@@ -328,7 +328,6 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         show: whether to render the plots when saved.
     """
 
-    folder_name: ClassVar[str] = 'plots'
     file_suffix: ClassVar[str]
     show: Final[bool]
 

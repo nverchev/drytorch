@@ -6,6 +6,7 @@ import pathlib
 import warnings
 
 from collections.abc import Generator
+from typing import ClassVar
 
 import numpy as np
 
@@ -85,6 +86,7 @@ class _ConcreteMetricLoader(MetricLoader):
 
 class _ConcretePlotter(BasePlotter[SourcedArray]):
     file_suffix = '.txt'
+    folder_name: ClassVar[str] = 'plots'
 
     def __init__(
         self,
