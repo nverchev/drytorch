@@ -23,6 +23,12 @@ jobs:
             python-version: "3.13"
           - os: ubuntu-latest
             python-version: "3.14"
+          - os: windows-latest
+            python-version: "3.15"
+            index-strategy: unsafe-best-match
+
+    env:
+      UV_INDEX_STRATEGY: ${{ matrix.index-strategy || 'first-index' }}
 
     steps:
     - name: Checkout code
