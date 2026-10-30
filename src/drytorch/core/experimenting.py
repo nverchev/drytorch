@@ -53,11 +53,13 @@ class RunSession:
         timestamp: when the session started.
         commit: git commit hash of the code, if available.
         drytorch_version: the drytorch version in use.
+        uncommitted_changes: whether uncommitted changes were present.
     """
 
     timestamp: str
     commit: str | None
     drytorch_version: str
+    uncommitted_changes: bool | None = None
 
 
 @dataclasses.dataclass
@@ -546,14 +548,25 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             return
 
         continuing = self.status == 'paused'
-        Experiment.set_current(self._experiment)
-        self.status = 'running'
+        session: RunSession | None = None
         if self.record:
+            if _is_main_process():
+                session = _new_session()
+                self._check_reproducibility(session)
+
+            self.status = 'running'
             self._update_registry()
             if not continuing:
                 registry = self._experiment._registry
-                registry.add_session(self._id, _new_session())
+                if session is None:
+                    session = _new_session()
 
+                registry.add_session(self._id, session)
+
+        else:
+            self.status = 'running'
+
+        Experiment.set_current(self._experiment)
         self._experiment._active_run = self
         if self._experiment._paused_runs.get(self._id) is self:
             del self._experiment._paused_runs[self._id]
@@ -564,7 +577,6 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self._finalizer = weakref.finalize(
             self, self._stop_experiment, self._experiment, self._id
         )
-
         if _is_main_process():
             log_events.Event.set_auto_publish(self._experiment.trackers.publish)
         else:  # no tracking in secondary processes
@@ -595,6 +607,36 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         self.status = 'completed'
         self._close()
+        return
+
+    def _check_reproducibility(self, session: RunSession) -> None:
+        if session.commit is None:
+            warnings.warn(exceptions.GitUnavailableWarning(), stacklevel=3)
+
+        if session.uncommitted_changes:
+            output = _run_git_command('status', '--porcelain')
+            n_files = len(output.splitlines()) if output else 1
+            warnings.warn(
+                exceptions.UncommittedChangesWarning(n_files),
+                stacklevel=3,
+            )
+
+        if not self.resumed or session.commit is None:
+            return
+
+        for metadata in self._experiment._registry.load_all():
+            if metadata.id == self._id and metadata.sessions:
+                last_commit = metadata.sessions[-1].commit
+                if last_commit is not None and last_commit != session.commit:
+                    warnings.warn(
+                        exceptions.CommitMismatchWarning(
+                            last_commit, session.commit
+                        ),
+                        stacklevel=3,
+                    )
+
+                break
+
         return
 
     def _close(self) -> None:
@@ -653,21 +695,15 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
 
 def _get_last_commit_hash() -> str | None:
-    git = shutil.which('git')
-    if git is None:
+    return _run_git_command('rev-parse', 'HEAD')
+
+
+def _has_uncommitted_changes() -> bool | None:
+    output = _run_git_command('status', '--porcelain')
+    if output is None:
         return None
 
-    try:
-        result = subprocess.run(  # noqa: S603
-            [git, 'rev-parse', 'HEAD'],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except subprocess.CalledProcessError:
-        return None
-
-    return result.stdout.strip()
+    return bool(output)
 
 
 def _is_distributed() -> bool:
@@ -685,7 +721,27 @@ def _new_session() -> RunSession:
         timestamp=_timestamp(),
         commit=_get_last_commit_hash(),
         drytorch_version=importlib.metadata.version('drytorch'),
+        uncommitted_changes=_has_uncommitted_changes(),
     )
+
+
+def _run_git_command(*args: str) -> str | None:
+    git = shutil.which('git')
+    if git is None:
+        return None
+
+    try:
+        result = subprocess.run(  # noqa: S603
+            [git, *args],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=pathlib.Path.cwd(),
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+    return result.stdout.strip()
 
 
 def _timestamp() -> str:

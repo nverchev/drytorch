@@ -3,6 +3,8 @@
 It automatically initializes some trackers with sets of settings (modes) that
 work well together. The mode can be set as an environmental variable
 DRYTORCH_INIT_MODE before loading the package or explicitly reset after.
+The DRYTORCH_STRICT environment variable turns reproducibility warnings into
+errors when set to 1, requiring a readable commit.
 
 Available modes:
     1) standard: log to stderr, preferring tqdm over the built-in logger.
@@ -23,6 +25,7 @@ import warnings
 
 from typing import Literal, TypeGuard
 
+from drytorch.core import exceptions
 from drytorch.core.exceptions import FailedOptionalImportWarning
 from drytorch.core.experimenting import Experiment
 from drytorch.core.tracking import (
@@ -153,3 +156,10 @@ if _check_mode_is_valid(INIT_MODE):
     init_trackers(INIT_MODE)
 elif INIT_MODE != 'none':
     raise ValueError(f'DRYTORCH_INIT_MODE: {INIT_MODE} not a valid setting.')
+
+warnings.filterwarnings('ignore', category=exceptions.GitUnavailableWarning)
+_strict = os.getenv('DRYTORCH_STRICT', '0')
+if _strict == '1':
+    warnings.filterwarnings('error', category=exceptions.ReproducibilityWarning)
+elif _strict != '0':
+    raise ValueError(f'DRYTORCH_STRICT: {_strict} not a valid setting.')

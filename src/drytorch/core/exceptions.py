@@ -14,6 +14,7 @@ __all__ = [
     'AccumulatorMismatchError',
     'CannotStoreOutputWarning',
     'CheckpointNotInitializedError',
+    'CommitMismatchWarning',
     'ComputedBeforeUpdatedWarning',
     'ComputedMetricsTypeError',
     'ConvergenceError',
@@ -29,6 +30,7 @@ __all__ = [
     'FailedOptionalImportWarning',
     'FolderAlreadyExistsError',
     'FuncNotApplicableError',
+    'GitUnavailableWarning',
     'HookAlreadyBoundError',
     'HookNotBoundError',
     'LossNotScalarError',
@@ -56,6 +58,7 @@ __all__ = [
     'PastEpochWarning',
     'RecursionWarning',
     'RepeatedMetricsError',
+    'ReproducibilityWarning',
     'ResultNotAvailableError',
     'RunAlreadyCompletedWarning',
     'RunAlreadyFailedWarning',
@@ -71,6 +74,7 @@ __all__ = [
     'TrackerError',
     'TrackerExceptionWarning',
     'TrackerNotUsedError',
+    'UncommittedChangesWarning',
     'UnknownDirectionError',
     'UnnamedObjectiveError',
     'ValidationAlreadyAddedError',
@@ -110,6 +114,10 @@ class DryTorchWarning(UserWarning):
         """
         super().__init__(self._template.format(*args))
         return
+
+
+class ReproducibilityWarning(DryTorchWarning):
+    """Warnings that DRYTORCH_STRICT turns into errors."""
 
 
 class TrackerError(DryTorchError):
@@ -929,6 +937,27 @@ class CannotStoreOutputWarning(DryTorchWarning):
         return
 
 
+class CommitMismatchWarning(ReproducibilityWarning):
+    """Warning raised when code commit differs from the run's commit."""
+
+    _template = 'The run started at {} and the code is at {}.'
+
+    old_commit: Final[str]
+    new_commit: Final[str]
+
+    def __init__(self, old_commit: str, new_commit: str) -> None:
+        """Initialize.
+
+        Args:
+            old_commit: the commit hash when the run started.
+            new_commit: the current commit hash.
+        """
+        self.old_commit = old_commit[:7]
+        self.new_commit = new_commit[:7]
+        super().__init__(self.old_commit, self.new_commit)
+        return
+
+
 class ComputedBeforeUpdatedWarning(DryTorchWarning):
     """Warning raised when compute method is called before updating."""
 
@@ -1029,6 +1058,12 @@ class FailedOptionalImportWarning(DryTorchWarning):
         self.package_name = package_name
         super().__init__(package_name)
         return
+
+
+class GitUnavailableWarning(ReproducibilityWarning):
+    """Warning raised when the code commit cannot be read."""
+
+    _template = 'The commit of the code cannot be read.'
 
 
 class ModuleNotDistributedWarning(DryTorchWarning):
@@ -1198,4 +1233,22 @@ class TrackerExceptionWarning(DryTorchWarning):
         self.error = error
         formatted_traceback: Final = traceback.format_exc()
         super().__init__(subscriber_name, formatted_traceback)
+        return
+
+
+class UncommittedChangesWarning(ReproducibilityWarning):
+    """Warning raised when there are uncommitted changes."""
+
+    _template = '{} files have uncommitted changes.'
+
+    n_files: Final[int]
+
+    def __init__(self, n_files: int) -> None:
+        """Initialize.
+
+        Args:
+            n_files: the number of files with uncommitted changes.
+        """
+        self.n_files = n_files
+        super().__init__(n_files)
         return

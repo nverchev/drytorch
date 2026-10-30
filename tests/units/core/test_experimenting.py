@@ -2,13 +2,14 @@
 
 import importlib.metadata
 import json
+import subprocess
 import warnings
 
 from collections.abc import Generator
 
 import pytest
 
-from drytorch.core import exceptions, log_events
+from drytorch.core import exceptions, experimenting, log_events
 from drytorch.core.experimenting import (
     Experiment,
     Run,
@@ -79,6 +80,25 @@ class TestRunRegistry:
 
         assert loaded.sessions == []
 
+    def test_load_entry_without_uncommitted_changes(self, registry) -> None:
+        """Test an entry without uncommitted_changes loads with None."""
+        entry = {
+            'id': 'old',
+            'status': 'completed',
+            'sessions': [
+                {
+                    'timestamp': '1245',
+                    'commit': 'abc',
+                    'drytorch_version': '0.1.0',
+                }
+            ],
+        }
+        registry.file_path.write_text(json.dumps([entry]))
+
+        (loaded,) = registry.load_all()
+
+        assert loaded.sessions[0].uncommitted_changes is None
+
     def test_add_session_nonexistent_run(self, registry) -> None:
         """Test adding a session to an unrecorded run raises."""
         with pytest.raises(exceptions.RunNotRecordedError):
@@ -133,6 +153,14 @@ class TestExperiment:
         """Set up the tests."""
         mocker.patch.object(log_events, 'StartExperimentEvent')
         mocker.patch.object(log_events, 'StopExperimentEvent')
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=False,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='abc1234',
+        )
         return
 
     @pytest.fixture()
@@ -350,6 +378,14 @@ class TestRun:
             RunRegistry, 'update_run_status'
         )
         self.patch_add_session = mocker.patch.object(RunRegistry, 'add_session')
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=False,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='abc1234',
+        )
         return
 
     @pytest.fixture()
@@ -791,3 +827,335 @@ class TestRun:
         assert start_run_id == run.id
         assert continue_call_count == 1
         assert continue_args == (experiment.name, run.id)
+
+    def test_uncommitted_changes_warning(self, experiment, mocker) -> None:
+        """Test uncommitted changes emits UncommittedChangesWarning."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=True,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._run_git_command',
+            return_value=' M a.py\n?? b.py',
+        )
+        run = experiment.create_run()
+
+        with pytest.warns(
+            exceptions.UncommittedChangesWarning,
+            match='2 files have uncommitted changes.',
+        ):
+            run.start()
+
+        run.stop()
+
+    def test_commit_mismatch_warning(self, experiment, mocker) -> None:
+        """Test resumed run with mismatched commits warns."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=False,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='newcommit123456',
+        )
+        self.patch_load.return_value = [
+            RunMetadata(
+                id='r1',
+                status='completed',
+                sessions=[RunSession('ts', 'oldcommit123456', '0.1.0', False)],
+            )
+        ]
+        run = experiment.create_run(run_id='r1', resume=True)
+
+        with pytest.warns(
+            exceptions.CommitMismatchWarning,
+            match='The run started at oldcomm and the code is at newcom.',
+        ):
+            run.start()
+
+        run.stop()
+
+    def test_git_unavailable_ignored_by_default(
+        self, experiment, mocker
+    ) -> None:
+        """Test git unavailable is ignored under default filters."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=None,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value=None,
+        )
+        run = experiment.create_run()
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.filterwarnings(
+                'ignore', category=exceptions.GitUnavailableWarning
+            )
+            run.start()
+            run.stop()
+
+        assert not [
+            w
+            for w in caught
+            if issubclass(w.category, exceptions.ReproducibilityWarning)
+        ]
+        assert run.status == 'completed'
+
+    def test_outside_repository_ignored_by_default(
+        self, experiment, mocker
+    ) -> None:
+        """Test outside repository is ignored under default filters."""
+        mocker.patch(
+            'subprocess.run',
+            side_effect=subprocess.CalledProcessError(128, ['git']),
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            side_effect=experimenting._has_uncommitted_changes,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            side_effect=experimenting._get_last_commit_hash,
+        )
+        run = experiment.create_run()
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.filterwarnings(
+                'ignore', category=exceptions.GitUnavailableWarning
+            )
+            run.start()
+            run.stop()
+
+        assert not [
+            w
+            for w in caught
+            if issubclass(w.category, exceptions.ReproducibilityWarning)
+        ]
+        assert run.status == 'completed'
+
+    def test_record_false_skips_checks(self, experiment, mocker) -> None:
+        """Test record=False skips reproducibility checks."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=True,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='commit1',
+        )
+        run = experiment.create_run(record=False)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', category=exceptions.ReproducibilityWarning
+            )
+            run.start()
+            run.stop()
+
+        assert run.status == 'completed'
+
+    def test_resumed_none_commit_skips_comparison(
+        self, experiment, mocker
+    ) -> None:
+        """Test None commit in earlier session skips comparison."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=False,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='commit1',
+        )
+        self.patch_load.return_value = [
+            RunMetadata(
+                id='r1',
+                status='completed',
+                sessions=[RunSession('ts', None, '0.1.0', False)],
+            )
+        ]
+        run = experiment.create_run(run_id='r1', resume=True)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', category=exceptions.ReproducibilityWarning
+            )
+            run.start()
+            run.stop()
+
+        assert run.status == 'completed'
+
+
+class TestGitHelpers:
+    """Test git helper functions."""
+
+    def test_has_uncommitted_changes_false(self, mocker) -> None:
+        """Test returns False when porcelain output is empty."""
+        mocker.patch(
+            'drytorch.core.experimenting._run_git_command',
+            return_value='',
+        )
+
+        result = experimenting._has_uncommitted_changes()
+
+        assert result is False
+
+    def test_has_uncommitted_changes_none(self, mocker) -> None:
+        """Test returns None when git command fails."""
+        mocker.patch(
+            'drytorch.core.experimenting._run_git_command',
+            return_value=None,
+        )
+
+        result = experimenting._has_uncommitted_changes()
+
+        assert result is None
+
+    def test_has_uncommitted_changes_true(self, mocker) -> None:
+        """Test returns True when porcelain output is non-empty."""
+        mocker.patch(
+            'drytorch.core.experimenting._run_git_command',
+            return_value=' M file.py',
+        )
+
+        result = experimenting._has_uncommitted_changes()
+
+        assert result is True
+
+    def test_outside_repository_returns_none(self, mocker) -> None:
+        """Test returns None when run outside a git repository."""
+        mocker.patch(
+            'subprocess.run',
+            side_effect=subprocess.CalledProcessError(128, ['git']),
+        )
+
+        assert experimenting._get_last_commit_hash() is None
+        assert experimenting._has_uncommitted_changes() is None
+
+
+class TestStrictReproducibility:
+    """Test strict mode with real run registry."""
+
+    @pytest.fixture()
+    def config(self) -> object:
+        """Set up a test config object."""
+        return object()
+
+    @pytest.fixture()
+    def experiment(self, config, tmp_path) -> Generator[Experiment, None, None]:
+        """Set up an experiment."""
+        exp = Experiment(config, name='ExpStrict', par_dir=tmp_path)
+        try:
+            yield exp
+        finally:
+            Run._teardown(exp)
+
+    def test_strict_commit_mismatch_raises(self, experiment, mocker) -> None:
+        """Test commit mismatch raises in strict and leaves file."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=False,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='commit11111',
+        )
+        with experiment.create_run(run_id='r1'):
+            pass
+
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='commit22222',
+        )
+        run_resumed = experiment.create_run(run_id='r1', resume=True)
+        registry_file = experiment._registry.file_path
+        content_before = registry_file.read_text()
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', category=exceptions.ReproducibilityWarning
+            )
+            with pytest.raises(exceptions.CommitMismatchWarning):
+                run_resumed.start()
+
+        content_after = registry_file.read_text()
+        assert content_after == content_before
+        assert run_resumed.status == 'created'
+
+    def test_strict_git_unavailable_raises(self, experiment, mocker) -> None:
+        """Test git unavailable raises in strict mode and leaves file."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=None,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value=None,
+        )
+        run = experiment.create_run()
+        registry_file = experiment._registry.file_path
+        content_before = registry_file.read_text()
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', category=exceptions.ReproducibilityWarning
+            )
+            with pytest.raises(exceptions.GitUnavailableWarning):
+                run.start()
+
+        content_after = registry_file.read_text()
+        assert content_after == content_before
+        assert run.status == 'created'
+
+    def test_strict_outside_repository_raises(self, experiment, mocker) -> None:
+        """Test outside git repository raises in strict and leaves file."""
+        mocker.patch(
+            'subprocess.run',
+            side_effect=subprocess.CalledProcessError(128, ['git']),
+        )
+        run = experiment.create_run()
+        registry_file = experiment._registry.file_path
+        content_before = registry_file.read_text()
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', category=exceptions.ReproducibilityWarning
+            )
+            with pytest.raises(exceptions.GitUnavailableWarning):
+                run.start()
+
+        content_after = registry_file.read_text()
+        assert content_after == content_before
+        assert run.status == 'created'
+
+    def test_strict_uncommitted_changes_raises(
+        self, experiment, mocker
+    ) -> None:
+        """Test uncommitted changes raises in strict and leaves file."""
+        mocker.patch(
+            'drytorch.core.experimenting._has_uncommitted_changes',
+            return_value=True,
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._run_git_command',
+            return_value=' M file.py',
+        )
+        mocker.patch(
+            'drytorch.core.experimenting._get_last_commit_hash',
+            return_value='commit1',
+        )
+        run = experiment.create_run()
+        registry_file = experiment._registry.file_path
+        content_before = registry_file.read_text()
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', category=exceptions.ReproducibilityWarning
+            )
+            with pytest.raises(exceptions.UncommittedChangesWarning):
+                run.start()
+
+        content_after = registry_file.read_text()
+        assert content_after == content_before
+        assert run.status == 'created'

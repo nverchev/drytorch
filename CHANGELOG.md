@@ -49,6 +49,7 @@
 - renamed the `metric` argument of `Watch` and `TrainerBuilder.watch` to `metric_name`
 
 ## Added
+- strict mode via `DRYTORCH_STRICT` turns reproducibility warnings into errors
 - EndTrainingEvent.model_name
 - TestRegistrationEvent and register_test: a Test registers as a test, and SQLConnection records it in test_sources
 - TestMetricEvent, the MetricEvent a Test publishes

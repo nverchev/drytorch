@@ -174,6 +174,12 @@ with first_experiment.create_run(record=False) as debug_run:
         raise AssertionError('The run should not be recorded.')
 ```
 
+### Strict mode
+Setting the `DRYTORCH_STRICT` environment variable to `1` turns reproducibility
+warnings into errors. In strict mode, starting a run with uncommitted changes,
+with an unreadable commit, or resuming a run with code from a different commit
+raises an error and refuses to start, leaving the run registry unchanged.
+
 ### Pausing and continuing a run
 Only one run is active at a time, so a run pauses to let another experiment
 work, and continues in the same run afterwards.

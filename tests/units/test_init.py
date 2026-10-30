@@ -2,13 +2,14 @@
 
 import importlib
 import os
+import warnings
 
 import pytest
 
 import drytorch
 
 from drytorch import FailedOptionalImportWarning
-from drytorch.core import tracking
+from drytorch.core import exceptions, tracking
 
 
 def test_standard_trackers() -> None:
@@ -65,3 +66,41 @@ def test_failed_import_warning() -> None:
 
     assert any('tqdm' in w for w in warnings)
     assert any('yaml' in w for w in warnings)
+
+
+def test_env_strict_mode_invalid() -> None:
+    """Test setting DRYTORCH_STRICT to invalid value raises ValueError."""
+    os.environ['DRYTORCH_STRICT'] = '2'
+    try:
+        with pytest.raises(ValueError, match='DRYTORCH_STRICT'):
+            importlib.reload(drytorch)
+    finally:
+        os.environ.pop('DRYTORCH_STRICT', None)
+        importlib.reload(drytorch)
+
+
+def test_env_strict_mode_enabled() -> None:
+    """Test setting DRYTORCH_STRICT to 1 filters warnings as errors."""
+    os.environ['DRYTORCH_STRICT'] = '1'
+    try:
+        importlib.reload(drytorch)
+        with pytest.raises(exceptions.UncommittedChangesWarning):
+            warnings.warn(exceptions.UncommittedChangesWarning(1), stacklevel=1)
+        with pytest.raises(exceptions.GitUnavailableWarning):
+            warnings.warn(exceptions.GitUnavailableWarning(), stacklevel=1)
+    finally:
+        os.environ.pop('DRYTORCH_STRICT', None)
+        importlib.reload(drytorch)
+
+
+def test_git_unavailable_warning_ignored_by_default() -> None:
+    """Test GitUnavailableWarning is ignored by default filter."""
+    importlib.reload(drytorch)
+
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.warn(exceptions.GitUnavailableWarning(), stacklevel=1)
+
+    assert not any(
+        isinstance(w.message, exceptions.GitUnavailableWarning)
+        for w in recorded
+    )
