@@ -99,9 +99,11 @@ class Runner(
     def __call__(self, *, store_outputs: bool = False) -> None:
         """Single pass on the dataset.
 
+        Stored outputs are detached and moved to the CPU. Only tensors,
+        mappings, sequences, tuples and dataclasses can be stored.
+
         Args:
-            store_outputs: whether to store model outputs. Defaults to
-                ``False``.
+            store_outputs: whether to store model outputs.
 
         Raises:
             ModelDeviceMismatchError: if a metric state device does not match

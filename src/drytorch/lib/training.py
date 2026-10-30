@@ -259,6 +259,9 @@ class Trainer(
     def __call__(self, *, store_outputs: bool = False) -> None:
         """Train the module for one epoch.
 
+        Stored outputs are detached and moved to the CPU. Only tensors,
+        mappings, sequences, tuples and dataclasses can be stored.
+
         Args:
             store_outputs: whether to store model outputs.
 

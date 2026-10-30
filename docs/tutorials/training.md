@@ -160,6 +160,12 @@ test()
 mae.compute()
 ```
 
+To keep the outputs of the model, call the evaluation with `store_outputs=True`
+and read them from `outputs_list`. Storing detaches the tensors in the outputs
+and moves them to the CPU, so they do not fill the memory of the accelerator.
+This works for outputs made of tensors, mappings, sequences, tuples and
+dataclasses: anything else raises a warning, and the outputs are not stored.
+
 ## Trainer
 A [`Trainer`](#drytorch.lib.training.Trainer) executes the optimization loop over training batches. Because it
 must backpropagate gradients and update model weights, a [`Trainer`](#drytorch.lib.training.Trainer) requires the

@@ -161,8 +161,10 @@
 - removed `ModelProtocol.checkpoint`; the model saves and loads its own state
 - removed the `start`, `metric_names`, `model_names` and `source_names` arguments of `BasePlotter`, `MatPlotter` and `PlotlyPlotter`, which only the updates during training used
 - `Watch` and `TrainerBuilder.watch` no longer take an objective as `metric_name`; pass its name, and `best_is` when the source's objective doesn't compute it
+- removed `recursive_apply`, merged into `apply`, which no longer traverses plain classes: stored outputs must be tensors, containers, named tuples or dataclasses
 
 ## Fixed
+- `apply` traverses nested dataclasses and keeps `None`, so runners no longer lose the outputs that hold them
 - the YAML metadata writes StrEnum values as plain strings instead of Python tags
 - `Model` defaults to the CPU when torch is built for an accelerator but no device is available
 - `FolderAlreadyExistsError` shows its message, which the empty template of the base class discarded

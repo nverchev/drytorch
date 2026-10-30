@@ -341,7 +341,10 @@ class FolderAlreadyExistsError(DryTorchError):
 class FuncNotApplicableError(DryTorchError):
     """Raised when a function cannot be applied to a specific type."""
 
-    _template = 'Cannot apply function {} on type {}.'
+    _template = (
+        'Cannot apply function {} on type {}: only mappings, sequences, '
+        'tuples and dataclasses are traversed.'
+    )
 
     func_name: Final[str]
     type_name: Final[str]
