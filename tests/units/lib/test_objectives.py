@@ -74,7 +74,8 @@ class TestMetricCollection:
     """Tests for MetricCollection."""
 
     @pytest.fixture(scope='class')
-    def metrics(self, metric_fun_1, metric_fun_2) -> MetricCollection:
+    @classmethod
+    def metrics(cls, metric_fun_1, metric_fun_2) -> MetricCollection:
         """Set up a MetricCollection instance with simple metric functions."""
         metric_fun_dict = metric_fun_1 | metric_fun_2
         return MetricCollection(**metric_fun_dict)
@@ -227,10 +228,11 @@ class TestMetric:
     """Tests for Metric."""
 
     @pytest.fixture(scope='class')
-    def metric(self, metric_1, metric_fun_1) -> Metric:
+    @classmethod
+    def metric(cls, metric_1, metric_fun_1) -> Metric:
         """Set up a Metric instance with a simple metric function."""
-        self.simple_fun = next(iter(metric_fun_1.values()))
-        return Metric(self.simple_fun, name=metric_1, higher_is_better=True)
+        simple_fun = next(iter(metric_fun_1.values()))
+        return Metric(simple_fun, name=metric_1, higher_is_better=True)
 
     def test_calculate(self, metric_1, metric) -> None:
         """Test it calculates metrics correctly."""
@@ -266,8 +268,9 @@ class TestLossWithMetrics:
     """Tests for LossWithMetrics."""
 
     @pytest.fixture(scope='class')
+    @classmethod
     def example_metric_results(
-        self, metric_1, metric_2
+        cls, metric_1, metric_2
     ) -> dict[str, torch.Tensor]:
         """A possible calculated value for metrics."""
         return {
@@ -276,7 +279,8 @@ class TestLossWithMetrics:
         }
 
     @pytest.fixture(scope='class')
-    def loss_1(self, metric_1, metric_fun_1) -> LossWithMetrics:
+    @classmethod
+    def loss_1(cls, metric_1, metric_fun_1) -> LossWithMetrics:
         """Set up a base instance (as defined by the Loss subclass)."""
         # formula corresponds to what the formula components should look like
         return LossWithMetrics(
@@ -286,7 +290,8 @@ class TestLossWithMetrics:
         )
 
     @pytest.fixture(scope='class')
-    def loss_2(self, metric_2, metric_fun_2) -> LossWithMetrics:
+    @classmethod
+    def loss_2(cls, metric_2, metric_fun_2) -> LossWithMetrics:
         """Set up a second base instance (as defined by the Loss subclass)."""
         return LossWithMetrics(
             criterion=lambda x: x[metric_2],
@@ -295,12 +300,14 @@ class TestLossWithMetrics:
         )
 
     @pytest.fixture(scope='class')
-    def composed_loss_1(self, loss_1) -> LossWithMetrics:
+    @classmethod
+    def composed_loss_1(cls, loss_1) -> LossWithMetrics:
         """Set up a LossWithMetrics instance with simple arguments."""
         return 2 * loss_1
 
     @pytest.fixture(scope='class')
-    def composed_loss_2(self, loss_2) -> LossWithMetrics:
+    @classmethod
+    def composed_loss_2(cls, loss_2) -> LossWithMetrics:
         """Set up a LossWithMetrics instance with simple arguments."""
         return 3 * loss_2
 
@@ -467,18 +474,21 @@ class TestLoss:
     """Tests for Loss."""
 
     @pytest.fixture(scope='class')
-    def metric(self, metric_1, metric_fun_1) -> Metric:
+    @classmethod
+    def metric(cls, metric_1, metric_fun_1) -> Metric:
         """Set up a Metric instance with a simple metric function."""
-        self.simple_fun = next(iter(metric_fun_1.values()))
-        return Metric(self.simple_fun, name=metric_1, higher_is_better=True)
+        simple_fun = next(iter(metric_fun_1.values()))
+        return Metric(simple_fun, name=metric_1, higher_is_better=True)
 
     @pytest.fixture(scope='class')
-    def example_metric_results(self, metric_1) -> dict[str, torch.Tensor]:
+    @classmethod
+    def example_metric_results(cls, metric_1) -> dict[str, torch.Tensor]:
         """A possible calculated value for metrics."""
         return {metric_1: torch.tensor(2.0)}
 
     @pytest.fixture(scope='class')
-    def loss_1(self, metric_1, metric_fun_1) -> Loss:
+    @classmethod
+    def loss_1(cls, metric_1, metric_fun_1) -> Loss:
         """Set up a Loss instance with simple arguments."""
         return Loss(next(iter(metric_fun_1.values())), name=metric_1)
 
@@ -547,12 +557,14 @@ class TestDictLoss:
     """Tests for DictLoss."""
 
     @pytest.fixture(scope='class')
-    def loss_name(self) -> str:
+    @classmethod
+    def loss_name(cls) -> str:
         """Name of the loss key in the multi-output fn dict."""
         return 'primary'
 
     @pytest.fixture(scope='class')
-    def dict_loss(self, multi_fn, loss_name) -> DictLoss:
+    @classmethod
+    def dict_loss(cls, multi_fn, loss_name) -> DictLoss:
         """A DictLoss wrapping the module-level multi-output fn."""
         return DictLoss(multi_fn, name=loss_name)
 
@@ -601,7 +613,8 @@ class TestJoinedMetrics:
     """Tests for JoinedMetrics."""
 
     @pytest.fixture(scope='class')
-    def joined(self, metric_fun_1, metric_fun_2) -> JoinedMetrics:
+    @classmethod
+    def joined(cls, metric_fun_1, metric_fun_2) -> JoinedMetrics:
         """Set up a JoinedMetrics instance from two MetricCollections."""
         return JoinedMetrics(
             MetricCollection(**metric_fun_1),
@@ -670,7 +683,8 @@ class TestJoinedLoss:
     """Tests for JoinedLoss."""
 
     @pytest.fixture(scope='class')
-    def loss_metric(self) -> str:
+    @classmethod
+    def loss_metric(cls) -> str:
         """Name of the loss metric."""
         return 'Loss'
 

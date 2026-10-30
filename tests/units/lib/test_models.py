@@ -36,7 +36,8 @@ class TestModel:
         return
 
     @pytest.fixture(scope='class')
-    def complex_model(self) -> Model[TorchTuple, TorchData]:
+    @classmethod
+    def complex_model(cls) -> Model[TorchTuple, TorchData]:
         """Fixture of a complex model wrapped with Model."""
         cpu = torch.device('cpu')
         return Model(MLP(), name='mlp_model', device=cpu, torch_compile=False)
@@ -185,7 +186,8 @@ class TestEMAModel:
     """Tests for the EMAModel wrapper."""
 
     @pytest.fixture(scope='class')
-    def ema_model(self, class_mocker) -> EMAModel[TorchTuple, TorchData]:
+    @classmethod
+    def ema_model(cls, class_mocker) -> EMAModel[TorchTuple, TorchData]:
         """Fixture for the EMA model."""
         class_mocker.patch('torch.compile', side_effect=lambda x: x)
         cpu = torch.device('cpu')

@@ -146,7 +146,8 @@ class TestDumper:
     @pytest.fixture(
         scope='class', params=[None, 'test'], ids=['default', 'custom_path']
     )
-    def par_dir(self, request, tmp_path_factory) -> pathlib.Path | None:
+    @classmethod
+    def par_dir(cls, request, tmp_path_factory) -> pathlib.Path | None:
         """Set up the path."""
         return None if request.param is None else tmp_path_factory.mktemp('tmp')
 
@@ -350,7 +351,8 @@ class TestMemoryMetrics:
     """Tests for MemoryMetrics."""
 
     @pytest.fixture(scope='class')
-    def tracker(self, metric_loader) -> MemoryMetrics:
+    @classmethod
+    def tracker(cls, metric_loader) -> MemoryMetrics:
         """Set up the instance."""
         return MemoryMetrics(metric_loader=metric_loader)
 
