@@ -207,6 +207,7 @@ class MetricLoader(tracking.Tracker, abc.ABC):
             The current epochs and named metric values by the source.
 
         Raises:
+            NoSourcesError: if the model has no sources.
             ValueError: if max_epoch is less than -1.
         """
         if max_epoch == 0:
@@ -215,7 +216,11 @@ class MetricLoader(tracking.Tracker, abc.ABC):
         if max_epoch < -1:
             raise ValueError('Max epoch should not be less than -1.')
 
-        return self._load_metrics(model_name, max_epoch)
+        metrics = self._load_metrics(model_name, max_epoch)
+        if not metrics:
+            raise exceptions.NoSourcesError(self, model_name)
+
+        return metrics
 
     @abc.abstractmethod
     def _load_metrics(
@@ -271,10 +276,9 @@ class MemoryMetrics(tracking.Tracker):
         if self._metric_loader is None:
             return super().notify(event)
 
-        metrics = self._metric_loader.load_metrics(
+        self.model_dict[event.model_name] = self._load_metrics(
             event.model_name, event.epoch
         )
-        self.model_dict[event.model_name] = metrics
         test_metrics = self._metric_loader.load_test_metrics(event.model_name)
         self.test_dict[event.model_name] = test_metrics
         return super().notify(event)
@@ -288,6 +292,17 @@ class MemoryMetrics(tracking.Tracker):
     def _(self, event: log_events.TestMetricEvent) -> None:
         self._record_metric(self.test_dict, event)
         return super().notify(event)
+
+    def _load_metrics(
+        self, model_name: str, max_epoch: int = -1
+    ) -> SourcedMetrics:
+        if self._metric_loader is None:
+            return {}
+
+        try:
+            return self._metric_loader.load_metrics(model_name, max_epoch)
+        except exceptions.NoSourcesError:
+            return {}
 
     @staticmethod
     def _record_metric(
@@ -621,9 +636,7 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             return
 
         if model_name not in self.model_dict:
-            self.model_dict[model_name] = self._metric_loader.load_metrics(
-                model_name
-            )
+            self.model_dict[model_name] = self._load_metrics(model_name)
 
         if model_name not in self.test_dict:
             self.test_dict[model_name] = self._metric_loader.load_test_metrics(

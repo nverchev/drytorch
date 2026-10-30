@@ -197,12 +197,7 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
 
     def _find_sources(self, model_name: str) -> set[str]:
         path = self._get_run_dir() / model_name
-        named_sources = {file.stem for file in path.glob('*.csv')}
-        if not named_sources:
-            msg = f'No sources in {path}.'
-            raise exceptions.TrackerError(self, msg)
-
-        return named_sources
+        return {file.stem for file in path.glob('*.csv')}
 
     def _load_metrics(
         self, model_name: str, max_epoch: int = -1

@@ -6,7 +6,7 @@ import importlib.util
 
 import pytest
 
-from drytorch.core import exceptions
+from drytorch.core import exceptions, log_events
 
 
 if not importlib.util.find_spec('sqlalchemy'):
@@ -184,13 +184,13 @@ class TestSQLConnection:
     def test_find_sources_nonexistent_model(
         self, mocker, tracker_started
     ) -> None:
-        """Test _find_sources with a nonexistent model raises an exception."""
+        """Test _find_sources for nonexistent model returns empty mapping."""
         mock_query = mocker.MagicMock()
         mock_query.where.return_value = mock_query
         mock_query.__iter__.return_value = [].__iter__()
         self.mock_context.query.return_value = mock_query
-        with pytest.raises(exceptions.TrackerError):
-            tracker_started._find_sources('nonexistent_model')
+
+        assert tracker_started._find_sources('nonexistent_model') == {}
 
     def test_get_run_metrics(
         self,
@@ -335,9 +335,7 @@ class TestSQLConnection:
         self.mock_context.query.return_value = mock_query
         self.mock_context.merge.return_value = mock_run
 
-        with pytest.raises(exceptions.TrackerError):
-            tracker_started._find_sources('test_model')
-
+        assert tracker_started._find_sources('test_model') == {}
         mock_query.where.assert_called_once()
 
     def test_load_metrics_method(
@@ -514,3 +512,36 @@ class TestSQLConnectionInMemory:
         assert exp_runs_count == 2
         assert tag_texts == {'tag1', 'tag2', 'tag3'}
         assert num_tags == 3
+
+    def test_test_only_model_raises_no_sources(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """A test-only model raises NoSourcesError and loads test metrics."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+        tracker.notify(start_experiment_mock_event)
+        test_event = log_events.TestRegistrationEvent(
+            runner_name='test_runner',
+            runner_ts=start_experiment_mock_event.run_ts,
+            model_name='tested_only_model',
+            model_ts=start_experiment_mock_event.run_ts,
+            metadata='',
+        )
+        metric_event = log_events.TestMetricEvent(
+            model_name='tested_only_model',
+            source_name='test_runner',
+            epoch=1,
+            metrics={'accuracy': 0.95},
+        )
+        tracker.notify(test_event)
+        tracker.notify(metric_event)
+
+        with pytest.raises(exceptions.NoSourcesError):
+            _ = tracker.load_metrics('tested_only_model')
+
+        test_metrics = tracker.load_test_metrics('tested_only_model')
+        tracker.notify(stop_experiment_mock_event)
+
+        assert test_metrics == {'test_runner': ([1], {'accuracy': [0.95]})}

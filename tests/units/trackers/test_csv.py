@@ -123,8 +123,7 @@ class TestCsvDumper:
         assert source_name in tracker_started_with_resume._load_metrics(
             model_name
         )
-        with pytest.raises(exceptions.TrackerError):
-            _ = tracker_started_with_resume._load_metrics('wrong_name')
+        assert tracker_started_with_resume._load_metrics('wrong_name') == {}
 
     def test_pause_stashes_and_continue_restores(
         self,
@@ -445,3 +444,29 @@ class TestCsvDumper:
         test_metrics = tracker.load_test_metrics(example_model_name)
         assert test_metrics['eval_test'][0] == [1, 2, 3]
         tracker.notify(stop_experiment_mock_event)
+
+    def test_test_only_model_raises_no_sources(
+        self,
+        tracker_started,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """A test-only model raises NoSourcesError and loads test metrics."""
+        test_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='eval_test',
+            metrics=example_named_metrics,
+        )
+        tracker_started.notify(test_event)
+
+        with pytest.raises(exceptions.NoSourcesError):
+            _ = tracker_started.load_metrics(example_model_name)
+
+        test_metrics = tracker_started.load_test_metrics(example_model_name)
+        assert test_metrics == {
+            'eval_test': (
+                [1],
+                {k: [v] for k, v in example_named_metrics.items()},
+            )
+        }

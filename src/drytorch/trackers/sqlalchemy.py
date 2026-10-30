@@ -442,10 +442,6 @@ class SQLConnection(base_classes.MetricLoader):
                 sources = named_sources.setdefault(source.source_name, [])
                 sources.append(source)
 
-            if not named_sources:
-                msg = f'No sources for model {model_name}.'
-                raise exceptions.TrackerError(self, msg)
-
             return named_sources
 
     def _find_test_sources(self, model_name: str) -> dict[str, list[Source]]:

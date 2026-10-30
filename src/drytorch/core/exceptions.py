@@ -46,6 +46,7 @@ __all__ = [
     'NestedScopeError',
     'NoActiveExperimentError',
     'NoPreviousRunsWarning',
+    'NoSourcesError',
     'NoStashedStateError',
     'NoValidationWarning',
     'NotExistingRunWarning',
@@ -648,6 +649,20 @@ class NoActiveExperimentError(DryTorchError):
             specify_string = ''
 
         super().__init__(specify_string)
+        return
+
+
+class NoSourcesError(TrackerError):
+    """Exception raised when a model has no sources."""
+
+    def __init__(self, tracker: Any, model_name: str) -> None:
+        """Initialize.
+
+        Args:
+            tracker: the tracker object that encountered the error.
+            model_name: the name of the model without sources.
+        """
+        super().__init__(tracker, f'No sources for model {model_name!r}.')
         return
 
 

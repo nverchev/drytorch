@@ -164,6 +164,7 @@
 - removed `recursive_apply`, merged into `apply`, which no longer traverses plain classes: stored outputs must be tensors, containers, named tuples or dataclasses
 
 ## Fixed
+- plotters save the test plot of a model with only test sources, and loading a model without sources keeps its test metrics
 - `apply` traverses nested dataclasses and keeps `None`, so runners no longer lose the outputs that hold them
 - the YAML metadata writes StrEnum values as plain strings instead of Python tags
 - `Model` defaults to the CPU when torch is built for an accelerator but no device is available

@@ -3,6 +3,7 @@
 import copy
 import functools
 import pathlib
+import warnings
 
 from collections.abc import Generator
 
@@ -12,7 +13,7 @@ from typing_extensions import override
 
 import pytest
 
-from drytorch.core import exceptions, log_events
+from drytorch.core import exceptions, log_events, tracking
 from drytorch.trackers.base_classes import (
     BasePlotter,
     Dumper,
@@ -323,6 +324,12 @@ class TestMetricLoader:
     def test_null(self, example_model_name, loader_started) -> None:
         """Test empty dictionary return."""
         assert loader_started.load_metrics(example_model_name, 0) == {}
+        assert loader_started.load_metrics('wrong_name', 0) == {}
+
+    def test_no_sources_error(self, loader_started) -> None:
+        """A model without sources raises NoSourcesError."""
+        with pytest.raises(exceptions.NoSourcesError):
+            _ = loader_started.load_metrics('wrong_name')
 
     def test_value_error(self, example_model_name, loader_started) -> None:
         """Test value error."""
@@ -410,6 +417,23 @@ class TestMemoryMetrics:
         assert model_name in tracker.model_dict
         assert source_name == set(tracker.model_dict[model_name])
         assert tracker.test_dict[model_name] == {'Test': ([1], {'m': [0.5]})}
+
+    def test_load_model_without_sources_loads_test_metrics(
+        self,
+        load_model_mock_event,
+    ) -> None:
+        """A model without sources still loads its test metrics."""
+        loader = _ConcreteMetricLoader(
+            sourced_metrics={},
+            test_metrics={'Test': ([1], {'m': [0.5]})},
+        )
+        tracker = MemoryMetrics(metric_loader=loader)
+        tracker.notify(load_model_mock_event)
+
+        assert tracker.model_dict[load_model_mock_event.model_name] == {}
+        assert tracker.test_dict[load_model_mock_event.model_name] == {
+            'Test': ([1], {'m': [0.5]}),
+        }
 
 
 class TestBasePlotter:
@@ -797,6 +821,31 @@ class TestBasePlotter:
         plotter.notify(event2)
 
         assert '0.95' in test_file.read_text()
+
+    def test_test_metric_event_saves_test_plot_for_test_only_model(
+        self,
+        tmp_path,
+        start_experiment_mock_event,
+    ) -> None:
+        """A TestMetricEvent for a test-only model saves its test plot."""
+        loader = _ConcreteMetricLoader(sourced_metrics={}, test_metrics={})
+        plotter = _ConcretePlotter(metric_loader=loader, par_dir=tmp_path)
+        dispatcher = tracking.EventDispatcher('test_exp')
+        dispatcher.subscribe(plotter)
+        dispatcher.publish(start_experiment_mock_event)
+        event = log_events.TestMetricEvent(
+            source_name='test',
+            model_name='tested_only_model',
+            epoch=1,
+            metrics={'accuracy': 0.9},
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', exceptions.TrackerExceptionWarning)
+            dispatcher.publish(event)
+
+        test_file = next(tmp_path.glob(f'**/test_metrics{plotter.file_suffix}'))
+        assert '0.9' in test_file.read_text()
 
     def test_unrecorded_run_saves_nothing(
         self,
