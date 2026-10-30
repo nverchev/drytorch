@@ -41,11 +41,10 @@ The examples train a small linear model on samples of a line.
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-from typing import override
-
 import torch
 
 from torch.utils import data
+from typing_extensions import override
 
 from drytorch import (
     DataLoader,
