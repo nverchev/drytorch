@@ -11,6 +11,7 @@ Don't Repeat Yourself (DRY) principles: replicable, documented, reusable.
 
 * **Reproducibility:** experimental isolation to prevent unintended dependencies, data leakage, and misconfiguration.
 * **Modularity:** flexible protocols preserving type inference in custom implementations.
+* **Type Checking:** support for type checkers (such as basedpyright) for static detection of incompatible components.
 * **Decoupled Tracking:** execution independent of tracking events (logging, plotting, and storing metadata).
 * **Optional Dependencies:** support for external libraries (Hydra, W&B, TensorBoard, etc.) but minimal requirements.
 * **Self-Documentation:** automatic metadata extraction and standardization.
@@ -32,3 +33,11 @@ pip install drytorch
 ```bash
 uv add drytorch
 ```
+
+## Project Template
+
+To start a new project, use
+**[drytorch-template](https://github.com/nverchev/drytorch_template)**. It is a
+complete machine learning project, with Hydra configuration, custom trackers, Optuna
+tuning and distributed training, and its README explains which files to change
+for your task.

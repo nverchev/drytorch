@@ -1,4 +1,4 @@
-"""Module containing YAML options and dumper.
+"""YAML options and dumper.
 
 Attributes:
     MAX_LENGTH_PLAIN_REPR: Maximum length for sequences in plain style.
@@ -6,11 +6,12 @@ Attributes:
     TS_FMT: format for representing a timestamp.
 """
 
+import enum
 import functools
 import pathlib
 
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, ClassVar, Final
 
 import yaml
 
@@ -36,26 +37,55 @@ TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 
 
 class DryTorchDumper(yaml.Dumper):
-    """YAML Dumper with custom representers for drytorch."""
+    """Dumper that names anchors after the drytorch notation."""
+
+    _anchor_names: Final[repr_utils.NameCounter]
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize."""
+        super().__init__(*args, **kwargs)
+        self._anchor_names = repr_utils.NameCounter()
+        return
+
+    @override
+    def generate_anchor(self, node: yaml.Node) -> str:
+        """Name the anchor after the class of the represented object."""
+        class_name = self._get_class_name(node)
+        if class_name is None:
+            return super().generate_anchor(node)
+
+        return self._anchor_names.next_name(class_name)
+
+    @staticmethod
+    def _get_class_name(node: yaml.Node) -> str | None:
+        if not isinstance(node, yaml.MappingNode):
+            return None
+
+        for key, value in node.value:
+            if key.value == 'class' and isinstance(value, yaml.ScalarNode):
+                return str(value.value)
+
+        return None
 
 
 class MetadataDumper(base_classes.Dumper):
     """Tracker that dumps metadata in a YAML file.
 
-    Class Attributes:
+    Attributes:
         folder_name: name for the folder that contains metadata.
     """
 
-    folder_name = 'metadata'
+    folder_name: ClassVar[str] = 'metadata'
 
-    def __init__(self, par_dir: pathlib.Path | None = None) -> None:
+    def __init__(self, *, par_dir: pathlib.Path | None = None) -> None:
         """Initialize.
 
         Args:
             par_dir: directory where to dump metadata. Defaults to the current
                 experiment's one.
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
+        return
 
     @functools.singledispatchmethod
     @override
@@ -65,31 +95,56 @@ class MetadataDumper(base_classes.Dumper):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
+        if not self.record:
+            return
+
         run_dir = self._get_run_dir()
         repr_config = repr_utils.recursive_repr(event.config, depth=1000)
         model_with_ts = 'config_' + event.run_ts.strftime(TS_FMT) + '.yaml'
-        self._dump(repr_config, run_dir / model_with_ts)
+        self.dump(repr_config, run_dir / model_with_ts)
         return
 
     @notify.register
     def _(self, event: log_events.ModelRegistrationEvent) -> None:
+        if not self.record:
+            return super().notify(event)
+
         run_dir = self._get_run_dir()
         name_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
         file = self._file_path(run_dir, name_with_ts, 'architecture')
-        self._dump(event.architecture_repr, file)
+        metadata = {
+            'n_parameters': event.n_parameters,
+            'n_trainable_parameters': event.n_trainable_parameters,
+            'architecture': event.architecture_repr,
+        }
+        self.dump(metadata, file)
         return super().notify(event)
 
     @notify.register
-    def _(self, event: log_events.ActorRegistrationEvent) -> None:
+    def _(self, event: log_events.RunnerRegistrationEvent) -> None:
+        if not self.record:
+            return super().notify(event)
+
         run_dir = self._get_run_dir()
         model_with_ts = event.model_name + '_' + event.model_ts.strftime(TS_FMT)
-        actor_with_ts = event.actor_name + '_' + event.actor_ts.strftime(TS_FMT)
-        file = self._file_path(run_dir, model_with_ts, actor_with_ts)
-        self._dump(event.metadata, file)
+        runner_with_ts = (
+            event.runner_name + '_' + event.runner_ts.strftime(TS_FMT)
+        )
+        file = self._file_path(run_dir, model_with_ts, runner_with_ts)
+        self.dump(event.metadata, file)
         return super().notify(event)
 
     @staticmethod
-    def _dump(metadata: dict[str, Any] | str, file_path: pathlib.Path) -> None:
+    def dump(
+        metadata: Mapping[str, Any] | str,
+        file_path: pathlib.Path,
+    ) -> None:
+        """Dump metadata to a YAML file.
+
+        Args:
+            metadata: metadata to dump.
+            file_path: destination path for the YAML file.
+        """
         with file_path.open('w') as metadata_file:
             yaml.dump(metadata, metadata_file, Dumper=DryTorchDumper)
 
@@ -130,6 +185,15 @@ def represent_literal_str(
     )
 
 
+def represent_omitted(
+    dumper: yaml.Dumper, data: repr_utils.Omitted
+) -> yaml.MappingNode:
+    """YAML representer for omitted values."""
+    return dumper.represent_mapping(
+        '!Omitted', {'omitted_elements': data.count}
+    )
+
+
 def represent_sequence(
     dumper: yaml.Dumper,
     sequence: Sequence[Any] | set[Any] | frozenset[Any],
@@ -155,13 +219,11 @@ def represent_sequence(
     )
 
 
-def represent_omitted(
-    dumper: yaml.Dumper, data: repr_utils.Omitted
-) -> yaml.MappingNode:
-    """YAML representer for omitted values."""
-    return dumper.represent_mapping(
-        '!Omitted', {'omitted_elements': data.count}
-    )
+def represent_str_enum(
+    dumper: yaml.Dumper, member: enum.StrEnum
+) -> yaml.ScalarNode:
+    """YAML representer for string enumerations, written as their value."""
+    return dumper.represent_str(str(member))
 
 
 DryTorchDumper.add_representer(repr_utils.LiteralStr, represent_literal_str)
@@ -170,3 +232,4 @@ DryTorchDumper.add_representer(tuple, represent_sequence)
 DryTorchDumper.add_representer(set, represent_sequence)
 DryTorchDumper.add_representer(frozenset, represent_sequence)
 DryTorchDumper.add_representer(repr_utils.Omitted, represent_omitted)
+DryTorchDumper.add_multi_representer(enum.StrEnum, represent_str_enum)

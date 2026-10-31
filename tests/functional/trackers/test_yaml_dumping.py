@@ -16,17 +16,17 @@ from drytorch.utils import repr_utils
 TS_FMT = repr_utils.CreatedAtMixin.ts_fmt
 
 
-class TestSQLConnectionFullCycle:
-    """Complete SQLConnection session and tests it afterward."""
+class TestMetadataDumperFullCycle:
+    """Complete ``MetadataDumper`` session and tests it afterward."""
 
     @pytest.fixture
     def tracker(self, tmp_path) -> MetadataDumper:
         """Set up the instance."""
-        return MetadataDumper(tmp_path)
+        return MetadataDumper(par_dir=tmp_path)
 
     def test_config_metadata(
         self, tracker, start_experiment_event, example_run_ts, example_config
-    ):
+    ) -> None:
         """Test correct dumping off config metadata."""
         tracker.notify(start_experiment_event)
         example_run_ts_str = example_run_ts.strftime(TS_FMT)
@@ -44,7 +44,9 @@ class TestSQLConnectionFullCycle:
         example_model_name,
         example_model_ts,
         example_architecure_repr,
-    ):
+        example_n_parameters,
+        example_n_trainable_parameters,
+    ) -> None:
         """Test correct dumping of metadata from the model."""
         tracker.notify(start_experiment_event)
         example_model_ts_str = example_model_ts.strftime(TS_FMT)
@@ -55,19 +57,23 @@ class TestSQLConnectionFullCycle:
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 
-        assert metadata == example_architecure_repr
+        assert metadata == {
+            'n_parameters': example_n_parameters,
+            'n_trainable_parameters': example_n_trainable_parameters,
+            'architecture': example_architecure_repr,
+        }
 
     def test_caller_metadata(
         self,
         tracker,
         start_experiment_event,
-        actor_registration_event,
+        runner_registration_event,
         example_model_name,
         example_model_ts,
         example_source_name,
         example_source_ts,
         example_metadata,
-    ):
+    ) -> None:
         """Test correct dumping of metadata from the caller."""
         tracker.notify(start_experiment_event)
         example_model_ts_str = example_model_ts.strftime(TS_FMT)
@@ -77,7 +83,7 @@ class TestSQLConnectionFullCycle:
         address = metadata_path / (
             f'{example_source_name}_{example_source_ts_str}'
         )
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         with address.with_suffix('.yaml').open() as file:
             metadata = yaml.safe_load(file)
 

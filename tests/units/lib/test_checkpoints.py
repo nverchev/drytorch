@@ -1,29 +1,31 @@
-"""Tests for the "checkpoint" module."""
+"""Tests for the ``checkpoints`` module."""
 
 import torch
 
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.lib import checkpoints
+from drytorch.lib.checkpoints import (
+    SAFE_GLOBALS,
+    CheckpointPathManager,
+    LocalCheckpoint,
+)
 
 
 class TestPathManager:
     """Tests for PathManager."""
 
     @pytest.fixture()
-    def manager(
-        self, mock_model, tmp_path
-    ) -> checkpoints.CheckpointPathManager:
+    def manager(self, mock_model, tmp_path) -> CheckpointPathManager:
         """Set up the path manager."""
-        return checkpoints.CheckpointPathManager(mock_model, tmp_path)
+        return CheckpointPathManager(mock_model, run_dir=tmp_path)
 
-    def test_paths(self, manager):
+    def test_paths(self, manager) -> None:
         """Test that the paths have the correct name."""
-        epoch_dir = manager.epoch_dir
+        epoch_dir = manager.get_epoch_dir(3)
         paths = [
-            manager.get_model_state_path('model'),
-            manager.get_optimizer_state_path(),
+            manager.get_model_state_path('model', 3),
+            manager.get_optimizer_state_path(3),
         ]
         expected_paths = [
             epoch_dir / 'model_state.pt',
@@ -38,7 +40,7 @@ class TestLocalCheckpoint:
     """Tests for LocalCheckpoint."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker):
+    def setup(self, mocker) -> None:
         """Set up the model state class."""
         self.mock_save_event = mocker.patch.object(log_events, 'SaveModelEvent')
         self.mock_load_event = mocker.patch.object(log_events, 'LoadModelEvent')
@@ -52,18 +54,24 @@ class TestLocalCheckpoint:
         return torch.optim.SGD(mock_model.module.parameters())
 
     @pytest.fixture()
-    def checkpoint(
-        self, mock_model, optimizer, tmp_path
-    ) -> checkpoints.LocalCheckpoint:
+    def checkpoint(self, mock_model, optimizer, tmp_path) -> LocalCheckpoint:
         """Set up the checkpoint."""
-        checkpoint = checkpoints.LocalCheckpoint(tmp_path)
+        checkpoint = LocalCheckpoint(par_dir=tmp_path)
         checkpoint.bind_model(mock_model)
         checkpoint.bind_optimizer(optimizer)
         return checkpoint
 
+    def test_par_dir(self, checkpoint, tmp_path) -> None:
+        """Test par_dir attribute on LocalCheckpoint."""
+        default_checkpoint = LocalCheckpoint()
+
+        assert checkpoint.par_dir == tmp_path
+        assert default_checkpoint.par_dir is None
+
     def test_checkpoint_not_initialized(self, tmp_path) -> None:
         """Test it raises an error if no model was registered."""
-        checkpoint = checkpoints.LocalCheckpoint(tmp_path)
+        checkpoint = LocalCheckpoint(par_dir=tmp_path)
+
         with pytest.raises(exceptions.CheckpointNotInitializedError):
             checkpoint.load()
 
@@ -75,47 +83,87 @@ class TestLocalCheckpoint:
     def test_get_last_saved_epoch_wrong_checkpoint(self, checkpoint) -> None:
         """Test it raises an error if it cannot find any folder."""
         checkpoint.save()
+
         with pytest.raises(exceptions.EpochNotFoundError):
             checkpoint.load(1000)
 
-    def test_save_and_load(self, checkpoint) -> None:
-        """Test it saves the model's state."""
+    def test_save_and_load_module_state(self, checkpoint) -> None:
+        """Test saving and restoring module parameters."""
         checkpoint.save()
-        self.mock_save_event.assert_called_once()
         old_weight = checkpoint.model.module.weight.clone()
         new_weight = torch.FloatTensor([[0.0]])
         checkpoint.model.module.weight = torch.nn.Parameter(new_weight)
-        assert old_weight != checkpoint.model.module.weight
+
         checkpoint.load(checkpoint.model.epoch)
+
+        self.mock_save_event.assert_called_once()
         self.mock_load_event.assert_called_once()
         assert old_weight == checkpoint.model.module.weight
+
+    def test_save_and_load_optimizer_state(self, checkpoint) -> None:
+        """Test saving and restoring optimizer parameters."""
+        checkpoint.save()
         old_lr = checkpoint.optimizer.param_groups[0]['lr']
-        new_lr = 0.01
-        checkpoint.optimizer.param_groups[0]['lr'] = new_lr
-        assert old_lr != checkpoint.optimizer.param_groups[0]['lr']
+        checkpoint.optimizer.param_groups[0]['lr'] = 0.01
+
         checkpoint.load(checkpoint.model.epoch)
+
         assert old_lr == checkpoint.optimizer.param_groups[0]['lr']
 
-    def test_get_last_saved_epoch(self, checkpoint, mock_model) -> None:
+    def test_failed_save_emits_no_event(self, mocker, checkpoint) -> None:
+        """Test a failed save emits no SaveModelEvent."""
+        mocker.patch.object(checkpoint, '_save_module', side_effect=OSError)
+
+        with pytest.raises(OSError):
+            checkpoint.save()
+
+        self.mock_save_event.assert_not_called()
+
+    def test_failed_load_emits_no_event(self, mocker, checkpoint) -> None:
+        """Test a failed load emits no LoadModelEvent."""
+        checkpoint.save()
+        mocker.patch.object(
+            checkpoint, '_load_module', side_effect=RuntimeError
+        )
+
+        with pytest.raises(RuntimeError):
+            checkpoint.load(checkpoint.model.epoch)
+
+        self.mock_load_event.assert_not_called()
+
+    def test_load_returns_epoch(self, checkpoint) -> None:
+        """Test load returns the loaded epoch."""
+        checkpoint.save()
+
+        epoch = checkpoint.load()
+
+        assert epoch == checkpoint.model.epoch
+
+    def test_get_last_saved_epoch(self, checkpoint) -> None:
         """Test it recovers the epoch of the longest trained model."""
         checkpoint.save()
-        old_epoch = checkpoint.model.epoch
-        assert checkpoint._get_last_saved_epoch() == old_epoch
-        new_epoch = 15
-        checkpoint.model.epoch = new_epoch
+        checkpoint.model.epoch = 15
         checkpoint.save()
-        assert checkpoint._get_last_saved_epoch() == new_epoch
+
+        last_epoch = checkpoint._get_last_saved_epoch()
+
+        assert last_epoch == 15
+
+    def test_optimizer_not_loaded_warning(self, checkpoint, mock_model) -> None:
+        """Test warning when optimizer state cannot be loaded."""
+        checkpoint.save()
         model_with_no_bias = torch.nn.Linear(1, 1, bias=False)
         optimizer = torch.optim.SGD(model_with_no_bias.parameters())
         checkpoint.remove_model()
         checkpoint.bind_model(mock_model)
         checkpoint.bind_optimizer(optimizer)
+
         with pytest.warns(exceptions.OptimizerNotLoadedWarning):
             checkpoint.load()
 
     def test_save_multiple_modules(self, checkpoint, mock_model) -> None:
         """Test it saves multiple modules."""
-        epoch_dir = checkpoint.paths.epoch_dir
+        epoch_dir = checkpoint.paths.get_epoch_dir(mock_model.epoch)
         aux_module = torch.nn.Linear(10, 5)
         checkpoint.bind_model(mock_model)
         checkpoint.bind_module('aux', aux_module)
@@ -131,7 +179,6 @@ class TestLocalCheckpoint:
         aux_module = torch.nn.Linear(10, 5)
         checkpoint.bind_model(mock_model)
         checkpoint.bind_module('aux', aux_module)
-
         checkpoint.save()
         for p in mock_model.module.parameters():
             p.data.zero_()
@@ -150,6 +197,7 @@ class TestLocalCheckpoint:
     def test_bind_optimizer_already_bound(self, checkpoint, mock_model) -> None:
         """Test it raises an error when binding a second optimizer."""
         optimizer2 = torch.optim.SGD(mock_model.module.parameters(), lr=0.01)
+
         with pytest.raises(exceptions.OptimizerAlreadyBoundError):
             checkpoint.bind_optimizer(optimizer2)
 
@@ -159,5 +207,12 @@ class TestLocalCheckpoint:
         """Test it raises an error when binding a second model."""
         mock_model2 = mocker.MagicMock(spec=type(mock_model))
         mock_model2.name = 'MockModel2'
+
         with pytest.raises(exceptions.ModelAlreadyBoundError):
             checkpoint.bind_model(mock_model2)
+
+
+def test_safe_globals_is_tuple() -> None:
+    """Test that SAFE_GLOBALS is an immutable tuple."""
+    assert isinstance(SAFE_GLOBALS, tuple)
+    assert len(SAFE_GLOBALS) > 0

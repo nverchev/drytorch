@@ -26,7 +26,7 @@ def example_run_id(example_run_ts) -> str:
 
 
 @pytest.fixture(scope='package')
-def example_tags(request) -> list[str]:
+def example_tags() -> list[str]:
     """Yields either a tag or None."""
     return ['test_tag']
 
@@ -90,6 +90,18 @@ def example_named_metrics(example_loss_name) -> dict[str, float]:
 def example_architecure_repr() -> str:
     """Example architecture representation."""
     return 'MyResnet(many layers...)'
+
+
+@pytest.fixture(scope='package')
+def example_n_parameters() -> int:
+    """Example number of parameters."""
+    return 27
+
+
+@pytest.fixture(scope='package')
+def example_n_trainable_parameters() -> int:
+    """Example number of parameters requiring a gradient."""
+    return 18
 
 
 # tests need primitive types

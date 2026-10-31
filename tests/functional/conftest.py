@@ -45,15 +45,17 @@ def linear_model() -> Model[TorchTuple, TorchData]:
 
 
 @pytest.fixture
-def swa_model() -> SWAModel[TorchTuple, TorchData]:
+def swa_model(request) -> SWAModel[TorchTuple, TorchData]:
     """Instantiate a simple model."""
-    return SWAModel(Linear(1, 1), name='swa_linear', start_epoch=6)
+    start_epoch = getattr(request, 'param', 6)
+    return SWAModel(Linear(1, 1), name='swa_linear', start_epoch=start_epoch)
 
 
 @pytest.fixture
-def ema_model() -> EMAModel[TorchTuple, TorchData]:
+def ema_model(request) -> EMAModel[TorchTuple, TorchData]:
     """Instantiate a simple model."""
-    return EMAModel(Linear(1, 1), name='ema_linear', decay=0.5)
+    decay = getattr(request, 'param', 0.5)
+    return EMAModel(Linear(1, 1), name='ema_linear', decay=decay)
 
 
 @pytest.fixture
@@ -67,7 +69,7 @@ def identity_loader(
     identity_dataset,
 ) -> DataLoader[tuple[TorchTuple, torch.Tensor]]:
     """Instantiate a loader for the identity dataset."""
-    return DataLoader(dataset=identity_dataset, batch_size=4)
+    return DataLoader(identity_dataset, batch_size=4)
 
 
 @pytest.fixture
@@ -106,7 +108,7 @@ def square_loss_calc() -> Loss[TorchData, torch.Tensor]:
         """
         return ((outputs.output - targets) ** 2).mean()
 
-    return Loss(mse, 'MSE')
+    return Loss(mse, name='MSE')
 
 
 @pytest.fixture
@@ -125,10 +127,10 @@ def identity_trainer(
     """Instantiate a trainer for the linear model using the identity dataset."""
     trainer = Trainer(
         linear_model,
-        name='MyTrainer',
-        loader=identity_loader,
         learning_schema=standard_learning_schema,
+        loader=identity_loader,
         loss=square_loss_calc,
+        name='MyTrainer',
     )
     return trainer
 
@@ -143,10 +145,10 @@ def identity_trainer_with_ema(
     """Instantiate a trainer for a ema model using the identity dataset."""
     trainer = Trainer(
         ema_model,
-        name='MyTrainer',
-        loader=identity_loader,
         learning_schema=standard_learning_schema,
+        loader=identity_loader,
         loss=square_loss_calc,
+        name='MyTrainer',
     )
     return trainer
 
@@ -161,20 +163,20 @@ def identity_trainer_with_swa(
     """Instantiate a trainer for a swa model using the identity dataset."""
     trainer = Trainer(
         swa_model,
-        name='MyTrainer',
-        loader=identity_loader,
         learning_schema=standard_learning_schema,
+        loader=identity_loader,
         loss=square_loss_calc,
+        name='MyTrainer',
     )
     return trainer
 
 
 @pytest.fixture(scope='module')
-def run(tmpdir_factory, example_run_id) -> Generator[Run, None, None]:
+def run(tmp_path_factory, example_run_id) -> Generator[Run, None, None]:
     """Fixture of an experiment."""
     drytorch.remove_all_default_trackers()
-    par_dir = tmpdir_factory.mktemp('experiments')
-    exp = Experiment(name='TestExperiment', par_dir=par_dir, config=None)
+    par_dir = tmp_path_factory.mktemp('experiments')
+    exp = Experiment(None, name='TestExperiment', par_dir=par_dir)
     with exp.create_run(run_id=example_run_id) as run:
         yield run
 
@@ -226,7 +228,7 @@ class DistributedWorker(Generic[P, T]):
             rank=rank,
             init_method=f'tcp://127.0.0.1:{self.port}',
             world_size=self.world_size,
-            timeout=datetime.timedelta(seconds=60),
+            timeout=datetime.timedelta(seconds=180),
         )
         return
 
@@ -261,6 +263,7 @@ class RunningWorker(Generic[P, T]):
         self.run_id = run_id
         if name is None:  # avoid conflicts between parallel tests
             name = f'TestSubProcessExperiment_{uuid.uuid4()}'
+
         self.name = name
         self.should_remove_default_tracking = should_remove_default_tracking
         return
@@ -269,9 +272,7 @@ class RunningWorker(Generic[P, T]):
         """Call the worker with the experiment set up."""
         if self.should_remove_default_tracking:
             drytorch.remove_all_default_trackers()
-        exp: Experiment = Experiment(
-            name=self.name, par_dir=self.par_dir, config=None
-        )
+        exp: Experiment = Experiment(None, name=self.name, par_dir=self.par_dir)
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', ExperimentalFeatureWarning)
             with exp.create_run(run_id=self.run_id):

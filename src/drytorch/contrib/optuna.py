@@ -1,18 +1,19 @@
 """Support for optuna."""
 
+import collections
 import string
 
-from collections import Counter
 from collections.abc import Callable, Sequence
-from typing import Any, Final, Generic, TypeVar
+from typing import Any, Final, TypeVar
 
+import omegaconf
 import optuna
 
-from omegaconf import DictConfig
+from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib import hooks
+from drytorch.lib import hooks, monitoring
 
 
 __all__ = [
@@ -22,12 +23,8 @@ __all__ = [
     'suggest_overrides',
 ]
 
-_Target_contra = TypeVar(
-    '_Target_contra', bound=p.TargetType, contravariant=True
-)
-_Output_contra = TypeVar(
-    '_Output_contra', bound=p.OutputType, contravariant=True
-)
+_Target = TypeVar('_Target', bound=p.TargetType)
+_Output = TypeVar('_Output', bound=p.OutputType)
 
 
 class OptunaError(exceptions.DryTorchError):
@@ -36,75 +33,87 @@ class OptunaError(exceptions.DryTorchError):
     _template = 'Optuna: {}'
 
 
-class TrialCallback(Generic[_Output_contra, _Target_contra]):
-    """Implements pruning logic for training models.
+class TrialCallback(hooks.TrainerHook):
+    """Report a metric to an optuna trial and prune the training.
 
     Attributes:
-        monitor: Monitor instance
-        trial: Optuna trial.
-        reported: Dictionary mapping epochs to reported values.
+        reported: the values reported at each epoch.
+        trial: ``optuna`` trial.
+        watch: what the callback reports.
+        when: decides whether the hook runs when the trainer calls it.
     """
 
-    monitor: hooks.MetricMonitor
-    trial: optuna.Trial
-    reported: dict[int, float]
+    reported: Final[dict[int, float]]
+    trial: Final[optuna.Trial]
+    watch: Final[monitoring.Watch]
+    _monitor: monitoring.Monitor | None
 
     def __init__(
         self,
         trial: optuna.Trial,
-        filter_fn: Callable[[Sequence[float]], float] = hooks.get_last,
-        metric: p.ObjectiveProtocol[_Output_contra, _Target_contra]
-        | str
-        | None = None,
-        monitor: p.MonitorProtocol | None = None,
+        *,
+        watch: monitoring.Watch | None = None,
     ) -> None:
         """Initialize.
 
         Args:
-            trial: Optuna trial
-            filter_fn: function to aggregate recent metric values.
-            metric: Name of metric to monitor or metric calculator instance.
-                    Defaults to the first metric found.
-            monitor: Evaluation protocol to monitor. Defaults to validation
-                if available, trainer instance otherwise.
+            trial: ``optuna`` trial.
+            watch: what to report. Default reports the loss of the trainer.
         """
-        self.monitor: Final = hooks.MetricMonitor(
-            metric=metric,
-            monitor=monitor,
-            filter_fn=filter_fn,
-        )
-        self.trial: Final = trial
-        self.reported: Final = dict[int, float]()
+        super().__init__()
+        self.reported = {}
+        self.trial = trial
+        self.watch = monitoring.Watch() if watch is None else watch
+        self._monitor = None
         return
 
-    def __call__(
-        self,
-        instance: p.TrainerProtocol[Any, _Target_contra, _Output_contra],
-    ) -> None:
-        """Evaluate whether training should be stopped early.
+    @property
+    def monitor(self) -> monitoring.Monitor:
+        """The record of the reported metric.
 
-        Args:
-            instance: Trainer instance to evaluate.
+        Raises:
+            ResultNotAvailableError: if no trainer bound the callback yet.
+        """
+        if self._monitor is None:
+            raise exceptions.ResultNotAvailableError()
+
+        return self._monitor
+
+    @override
+    def bind_trainer(self, trainer: p.TrainerProtocol[Any, Any, Any]) -> None:
+        """Create the record of the metric for the trainer."""
+        super().bind_trainer(trainer)
+        self._monitor = self.watch.resolve(trainer)
+        return
+
+    @override
+    def run(self) -> None:
+        """Report the value to the trial and prune the training.
 
         Raises:
             optuna.TrialPruned: if the trial should be pruned.
         """
-        self.monitor.record_metric_value(instance)
-        epoch = instance.model.epoch
-        value = self.monitor.filtered_value
+        epoch = self.trainer.model.epoch
+        self.monitor.record(epoch)
+        if epoch not in self.monitor.values:
+            return
+
+        value = self.monitor.value
         self.trial.report(value, epoch)
         self.reported[epoch] = value
         if self.trial.should_prune():
-            metric_name = self.monitor.metric_name
-            msg = f'Optuna pruning while monitoring {metric_name}'
-            instance.terminate_training(msg)
+            msg = f'Optuna pruning while monitoring {self.monitor.metric_name}'
+            self.trainer.terminate_training(msg)
             raise optuna.TrialPruned()
 
         return
 
 
 def suggest_overrides(
-    tune_cfg: DictConfig, trial: optuna.Trial, use_full_name: bool = False
+    tune_cfg: omegaconf.DictConfig,
+    trial: optuna.Trial,
+    *,
+    use_full_name: bool = False,
 ) -> list[str]:
     """Suggest values for a trial from structured configurations.
 
@@ -172,7 +181,7 @@ def suggest_overrides(
         return string.capwords(suffix.replace('_', ' '))
 
     short_names = {k: _get_short_name(k) for k in tune_cfg.tune.params}
-    name_counts = Counter(short_names.values())
+    name_counts = collections.Counter(short_names.values())
 
     all_overrides: list[str] = [*tune_cfg.overrides]
     for setting_name, param_value in tune_cfg.tune.params.items():
@@ -181,7 +190,7 @@ def suggest_overrides(
             param_name = setting_name
 
         if param_value.suggest == 'suggest_list':
-            new_value = []
+            new_value: list[Any] = []
             for i in range(
                 trial.suggest_int(
                     name=f'{param_name} #',
@@ -214,6 +223,7 @@ def suggest_overrides(
 
 def get_final_value(
     trial: optuna.Trial,
+    *,
     filter_fn: Callable[[Sequence[float]], float] | None = None,
 ) -> float:
     """Calculates a trial's final value from its intermediate reported values.
@@ -226,7 +236,7 @@ def get_final_value(
     FrozenTrial.
 
     Args:
-        trial: the completed Optuna trial to evaluate.
+        trial: the completed ``optuna`` trial to evaluate.
         filter_fn: function to aggregate the trial's intermediate values.
             Defaults to min or max depending on the study direction.
 

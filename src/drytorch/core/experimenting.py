@@ -1,10 +1,11 @@
-"""Module containing the Experiment and Run class."""
+"""Experiment and Run classes."""
 
 from __future__ import annotations
 
 import dataclasses
 import datetime
 import gc
+import importlib.metadata
 import json
 import multiprocessing
 import pathlib
@@ -15,7 +16,7 @@ import types
 import warnings
 import weakref
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import (
     Any,
     ClassVar,
@@ -45,13 +46,35 @@ RunStatus = Literal['created', 'running', 'completed', 'failed', 'paused']
 
 
 @dataclasses.dataclass
+class RunSession:
+    """A start or resumption of a run.
+
+    Attributes:
+        timestamp: when the session started.
+        commit: git commit hash of the code, if available.
+        drytorch_version: the drytorch version in use.
+        uncommitted_changes: whether uncommitted changes were present.
+    """
+
+    timestamp: str
+    commit: str | None
+    drytorch_version: str
+    uncommitted_changes: bool | None = None
+
+
+@dataclasses.dataclass
 class RunMetadata:
-    """Metadata for a run."""
+    """Metadata for a run.
+
+    Attributes:
+        id: unique identifier for the run.
+        status: status of the run.
+        sessions: the start of the run and each resumption, in order.
+    """
 
     id: str
     status: RunStatus
-    timestamp: str
-    commit: str | None
+    sessions: list[RunSession] = dataclasses.field(default_factory=list)
 
 
 class RunRegistry:
@@ -59,10 +82,11 @@ class RunRegistry:
 
     Attributes:
         file_path: path to the JSON file.
+        lock_path: path to the lock file for file operations.
     """
 
-    file_path: pathlib.Path
-    lock_path: pathlib.Path
+    file_path: Final[pathlib.Path]
+    lock_path: Final[pathlib.Path]
 
     def __init__(self, path: pathlib.Path):
         """Initialize.
@@ -86,34 +110,56 @@ class RunRegistry:
         except (FileNotFoundError, json.JSONDecodeError):
             return []
 
-        run_data = []
+        recorded_metadata: list[RunMetadata] = []
         for item in data:
-            run_data.append(RunMetadata(**item))
+            sessions = [RunSession(**s) for s in item.get('sessions', [])]
+            metadata = RunMetadata(item['id'], item['status'], sessions)
+            recorded_metadata.append(metadata)
 
-        return run_data
+        return recorded_metadata
+
+    def add_session(self, run_id: str, session: RunSession) -> None:
+        """Record a start or resumption of a run.
+
+        Args:
+            run_id: the id of the run.
+            session: the new session.
+
+        Raises:
+            RunNotRecordedError: if the run is not in the registry.
+        """
+        with filelock.FileLock(self.lock_path):
+            recorded_metadata = self.load_all()
+            for metadata in recorded_metadata:
+                if metadata.id == run_id:
+                    metadata.sessions.append(session)
+                    break
+            else:
+                raise exceptions.RunNotRecordedError(run_id)
+
+            self._save(recorded_metadata)
+
+        return
 
     def register_new_run(self, run_metadata: RunMetadata) -> None:
         """Register a new run, ensuring a unique ID.
 
         Args:
-            run_metadata: the metadata for the run (id will be updated).
+            run_metadata: the metadata of the new run.
 
         Raises:
             RunAlreadyRecordedError: if the run ID is already registered.
         """
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         with filelock.FileLock(self.lock_path):
-            run_data = self.load_all()
-            if any(r.id == run_metadata.id for r in run_data):
+            recorded_metadata = self.load_all()
+            if any(m.id == run_metadata.id for m in recorded_metadata):
                 raise exceptions.RunAlreadyRecordedError(
                     run_metadata.id, self.file_path.parent.name
                 )
 
-            run_data.append(run_metadata)
-
-            # Convert to dicts for JSON serialization
-            serialized_data = [dataclasses.asdict(r) for r in run_data]
-            self.file_path.write_text(json.dumps(serialized_data, indent=2))
+            recorded_metadata.append(run_metadata)
+            self._save(recorded_metadata)
 
         return
 
@@ -123,19 +169,26 @@ class RunRegistry:
         Args:
             run_id: the id of the run to update.
             status: the new status.
+
+        Raises:
+            RunNotRecordedError: if the run is not in the registry.
         """
         with filelock.FileLock(self.lock_path):
-            run_data = self.load_all()
-            for run in run_data:
-                if run.id == run_id:
-                    run.status = status
+            recorded_metadata = self.load_all()
+            for metadata in recorded_metadata:
+                if metadata.id == run_id:
+                    metadata.status = status
                     break
             else:
                 raise exceptions.RunNotRecordedError(run_id)
 
-            # Convert to dicts for JSON serialization
-            serialized_data = [dataclasses.asdict(r) for r in run_data]
-            self.file_path.write_text(json.dumps(serialized_data, indent=2))
+            self._save(recorded_metadata)
+
+        return
+
+    def _save(self, recorded_metadata: list[RunMetadata]) -> None:
+        serialized = [dataclasses.asdict(m) for m in recorded_metadata]
+        self.file_path.write_text(json.dumps(serialized, indent=2))
         return
 
 
@@ -149,26 +202,24 @@ class Experiment(Generic[_T_co]):
     type annotations.
 
     Attributes:
-        folder_name: name of the hidden folder storing experiment metadata.
-        run_file: filename storing the registry of run IDs for this experiment.
-        previous_runs: a list of all previous runs created by this class.
         par_dir: parent directory for experiment data.
         tags: descriptors for the experiment.
         trackers: dispatcher for publishing events.
+        folder_name: name of the hidden folder storing experiment metadata.
+        run_file: filename storing the registry of run IDs for this experiment.
     """
 
     folder_name: ClassVar[str] = '.drytorch'
     run_file: ClassVar[str] = 'runs.json'
     _name = repr_utils.DefaultName()
     __current: ClassVar[Experiment[Any] | None] = None
-
-    par_dir: pathlib.Path
-    __config: _T_co
-    tags: list[str]
-    trackers: tracking.EventDispatcher
-    _registry: RunRegistry
+    par_dir: Final[pathlib.Path]
+    tags: Final[Sequence[str]]
+    trackers: Final[tracking.EventDispatcher]
     _active_run: Run[_T_co] | None
     _paused_runs: dict[str, Run[_T_co]]
+    _registry: RunRegistry
+    __config: Final[_T_co]
 
     def __init__(
         self,
@@ -176,22 +227,22 @@ class Experiment(Generic[_T_co]):
         *,
         name: str = '',
         par_dir: str | pathlib.Path = pathlib.Path(),
-        tags: list[str] | None = None,
+        tags: Sequence[str] | None = None,
     ) -> None:
         """Initialize.
 
         Args:
-            config: Configuration for the experiment.
-            name: The name of the experiment (defaults to class name).
-            par_dir: Parent directory for experiment data.
-            tags: Descriptors for the experiment (e.g., ``"lr=0.01"``).
+            config: configuration for the experiment.
+            name: the name of the experiment (defaults to class name).
+            par_dir: parent directory for experiment data.
+            tags: descriptors for the experiment (e.g., ``"lr=0.01"``).
         """
         _validate_chars(name)
-        self.__config: Final = config
+        self.__config = config
         self._name = name
         self.par_dir = pathlib.Path(par_dir)
-        self.tags = tags or []
-        self.trackers: Final = tracking.EventDispatcher(self.name)
+        self.tags = tuple(tags) if tags else ()
+        self.trackers = tracking.EventDispatcher(self.name)
         self.trackers.subscribe(**tracking.DEFAULT_TRACKERS)
         run_file = self.par_dir / self.folder_name / self.name / self.run_file
         self._registry = RunRegistry(run_file)
@@ -200,9 +251,9 @@ class Experiment(Generic[_T_co]):
         return
 
     @property
-    def paused_runs(self) -> Mapping[str, Run[_T_co]]:
-        """A snapshot of runs paused in this session."""
-        return dict(self._paused_runs)
+    def config(self) -> _T_co:
+        """Experiment configuration."""
+        return self.__config
 
     @property
     def name(self) -> str:
@@ -210,23 +261,40 @@ class Experiment(Generic[_T_co]):
         return self._name
 
     @property
-    def config(self) -> _T_co:
-        """Experiment configuration."""
-        return self.__config
+    def paused_runs(self) -> Mapping[str, Run[_T_co]]:
+        """A snapshot of runs paused in this session."""
+        return dict(self._paused_runs)
+
+    @property
+    def run(self) -> Run[_T_co]:
+        """Get the current run.
+
+        Raises:
+            NoActiveExperimentError: if no run is currently active.
+        """
+        if self._active_run is None:
+            raise exceptions.NoActiveExperimentError(self.name)
+
+        return self._active_run
+
+    @override
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(name={self.name})'
 
     def create_run(
         self,
         *,
-        run_id: str | None = None,
-        resume: bool = False,
         record: bool = True,
+        resume: bool = False,
+        run_id: str | None = None,
     ) -> Run[_T_co]:
         """Convenience constructor for a Run using this experiment.
 
         Args:
-            run_id: identifier of the run; defaults to timestamp.
+            record: record the run in the registry. An unrecorded run also
+                skips the persistent trackers, which keep files or databases.
             resume: resume the selected run if run_id is set, else the last run.
-            record: record the run in the registry.
+            run_id: identifier of the run; defaults to timestamp.
 
         Returns:
             The created run object.
@@ -240,42 +308,46 @@ class Experiment(Generic[_T_co]):
             if run_id in self._paused_runs:
                 raise exceptions.RunStillPausedError(run_id, self.name)
 
-        record = record and _is_main_process()
-        runs_data = self._registry.load_all()
+        main_process = _is_main_process()
+        record = record and main_process
+        recorded_metadata = self._registry.load_all()
         if resume:
-            return self._handle_resume_logic(run_id, runs_data, record)
+            return self._handle_resume_logic(run_id, recorded_metadata, record)
 
-        if runs_data and run_id in [r.id for r in runs_data]:
+        if main_process and run_id in [m.id for m in recorded_metadata]:
             raise exceptions.RunAlreadyRecordedError(run_id, self.name)
 
         return self._create_new_run(run_id, record)
 
     def _handle_resume_logic(
-        self, run_id: str | None, runs_data: list[RunMetadata], record: bool
+        self,
+        run_id: str | None,
+        recorded_metadata: list[RunMetadata],
+        record: bool,
     ) -> Run[_T_co]:
         """Handle resume logic for existing runs."""
-        if not runs_data:
+        if not recorded_metadata:
             warnings.warn(exceptions.NoPreviousRunsWarning(), stacklevel=2)
             return self._create_new_run(run_id, record)
 
         if run_id is None:
-            run_id = runs_data[-1].id
+            run_id = recorded_metadata[-1].id
         else:
-            matching_runs = [r for r in runs_data if r.id == run_id]
-            if not matching_runs:
+            matching_metadata = [m for m in recorded_metadata if m.id == run_id]
+            if not matching_metadata:
                 warnings.warn(
                     exceptions.NotExistingRunWarning(run_id), stacklevel=1
                 )
                 return self._create_new_run(run_id, record)
 
-            if len(matching_runs) > 1:
+            if len(matching_metadata) > 1:
                 msg = f'Multiple runs with id {run_id} found in the registry.'
                 raise RuntimeError(msg)
 
         if run_id in self._paused_runs:
             raise exceptions.RunStillPausedError(run_id, self.name)
 
-        return Run(experiment=self, run_id=run_id, resumed=True, record=record)
+        return Run(self, run_id, record=record, resumed=True)
 
     def _create_new_run(
         self,
@@ -291,54 +363,22 @@ class Experiment(Generic[_T_co]):
             time.sleep(1)  # the next timestamp gives a new id
             new_id = self._make_run_id(None)
 
-        return Run(experiment=self, run_id=new_id, record=record)
+        return Run(self, new_id, record=record)
 
     def _try_register(self, run_id: str) -> bool:
         """Record a new run; return False if its id is already recorded."""
-        run_data = RunMetadata(
-            id=run_id,
-            status='created',
-            timestamp=_timestamp(),
-            commit=self._get_last_commit_hash(),
-        )
+        run_metadata = RunMetadata(id=run_id, status='created')
         try:
-            self._registry.register_new_run(run_data)
+            self._registry.register_new_run(run_metadata)
         except exceptions.RunAlreadyRecordedError:
             return False
 
         return True
 
-    @staticmethod
-    def _make_run_id(run_id: str | None) -> str:
-        """Return the id, or a timestamp; worker processes append their PID."""
-        final_id = run_id or _timestamp()
-        if not _is_distributed():  # keep the same ID for distributed runs
-            if multiprocessing.current_process().name != 'MainProcess':
-                final_id = f'{final_id}_{multiprocessing.current_process().pid}'
-
-        return final_id
-
-    @property
-    def run(self) -> Run[_T_co]:
-        """Get the current run.
-
-        Raises:
-            NoActiveExperimentError: if no run is currently active.
-        """
-        if self._active_run is None:
-            raise exceptions.NoActiveExperimentError(self.name)
-
-        return self._active_run
-
     @classmethod
     def get_config(cls) -> _T_co:
         """Retrieve the configuration of the current experiment."""
         return cls.get_current().__config
-
-    @classmethod
-    def has_current(cls) -> bool:
-        """Check whether there is an active experiment."""
-        return Experiment.__current is not None
 
     @classmethod
     def get_current(cls) -> Self:
@@ -356,8 +396,13 @@ class Experiment(Generic[_T_co]):
 
         return current
 
+    @classmethod
+    def has_current(cls) -> bool:
+        """Check whether there is an active experiment."""
+        return Experiment.__current is not None
+
     @staticmethod
-    def set_current(experiment: Experiment[_T_co]) -> None:
+    def set_current(experiment: Experiment[Any]) -> None:
         """Set an experiment as active.
 
         Raises:
@@ -376,37 +421,24 @@ class Experiment(Generic[_T_co]):
         return
 
     @staticmethod
-    def _get_last_commit_hash() -> str | None:
-        """Get the last commit hash if available otherwise None."""
-        git = shutil.which('git')
-        if git is None:
-            return None
+    def _make_run_id(run_id: str | None) -> str:
+        """Return the id, or a timestamp; worker processes append their PID."""
+        final_id = run_id or _timestamp()
+        if not _is_distributed():  # keep the same ID for distributed runs
+            if multiprocessing.current_process().name != 'MainProcess':
+                final_id = f'{final_id}_{multiprocessing.current_process().pid}'
 
-        try:
-            result = subprocess.run(  # noqa: S603
-                [git, 'rev-parse', 'HEAD'],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-        except subprocess.CalledProcessError:
-            return None
-
-        return result.stdout.strip()
-
-    @override
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(name={self.name})'
+        return final_id
 
 
 class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
     """Execution lifecycle for a single run of an Experiment.
 
     Attributes:
-        status: Current status of the run.
-        resumed: whether the run was resumed.
         metadata_manager: Manager for run metadata.
         record: whether to record the run in the registry.
+        resumed: whether the run was resumed.
+        status: Current status of the run.
     """
 
     _STATUS_WARNINGS: ClassVar[
@@ -419,37 +451,38 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         'failed': exceptions.RunAlreadyFailedWarning,
     }
 
-    _experiment: Experiment[_T_co]
-    _id: str
-    resumed: bool
-    record: bool
+    metadata_manager: Final[tracking.MetadataManager]
+    record: Final[bool]
+    resumed: Final[bool]
     status: RunStatus
-    metadata_manager: tracking.MetadataManager
+    _experiment: Final[Experiment[_T_co]]
     _finalizer: weakref.finalize[..., Self] | None
+    _id: Final[str]
 
     def __init__(
         self,
         experiment: Experiment[_T_co],
         run_id: str,
-        resumed: bool = False,
+        *,
         record: bool = True,
+        resumed: bool = False,
     ) -> None:
         """Initialize.
 
         Args:
             experiment: the experiment this run belongs to.
             run_id: identifier of the run.
-            resumed: whether the run was resumed.
             record: record the run in the registry.
+            resumed: whether the run was resumed.
         """
         super().__init__()
-        self._experiment: Final = experiment
-        self._id: Final = run_id
-        self.resumed = resumed
+        self.metadata_manager = tracking.MetadataManager()
         self.record = record
+        self.resumed = resumed
         self.status = 'created'
-        self.metadata_manager: Final = tracking.MetadataManager()
+        self._experiment = experiment
         self._finalizer = None
+        self._id = run_id
         return
 
     @property
@@ -486,6 +519,10 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self.stop()
         return
 
+    @override
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(id={self.id}, status={self.status})'
+
     def is_active(self) -> bool:
         """Check if the run is currently active."""
         return self.status == 'running'
@@ -504,18 +541,32 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self._pause_experiment(self.experiment, self._id)
         return
 
-    def start(self: Self) -> None:
+    def start(self) -> None:
         """Start the experiment scope."""
         if self.status not in ('created', 'paused'):
             warnings.warn(self._STATUS_WARNINGS[self.status](), stacklevel=1)
             return
 
         continuing = self.status == 'paused'
-        Experiment.set_current(self._experiment)
-        self.status = 'running'
+        session: RunSession | None = None
         if self.record:
-            self._update_registry()
+            if _is_main_process():
+                session = _new_session()
+                self._check_reproducibility(session)
 
+            self.status = 'running'
+            self._update_registry()
+            if not continuing:
+                registry = self._experiment._registry
+                if session is None:
+                    session = _new_session()
+
+                registry.add_session(self._id, session)
+
+        else:
+            self.status = 'running'
+
+        Experiment.set_current(self._experiment)
         self._experiment._active_run = self
         if self._experiment._paused_runs.get(self._id) is self:
             del self._experiment._paused_runs[self._id]
@@ -526,14 +577,15 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         self._finalizer = weakref.finalize(
             self, self._stop_experiment, self._experiment, self._id
         )
-
         if _is_main_process():
             log_events.Event.set_auto_publish(self._experiment.trackers.publish)
         else:  # no tracking in secondary processes
             log_events.Event.set_auto_publish(lambda _: None)
 
         if continuing:
-            log_events.ContinueExperimentEvent(self._experiment.name, self._id)
+            log_events.ContinueExperimentEvent(
+                self._experiment.name, self._id, record=self.record
+            )
         else:
             log_events.StartExperimentEvent(
                 self._experiment.config,
@@ -543,6 +595,7 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
                 self.resumed,
                 self._experiment.par_dir,
                 self._experiment.tags,
+                self.record,
             )
         return
 
@@ -554,6 +607,36 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
 
         self.status = 'completed'
         self._close()
+        return
+
+    def _check_reproducibility(self, session: RunSession) -> None:
+        if session.commit is None:
+            warnings.warn(exceptions.GitUnavailableWarning(), stacklevel=3)
+
+        if session.uncommitted_changes:
+            output = _run_git_command('status', '--porcelain')
+            n_files = len(output.splitlines()) if output else 1
+            warnings.warn(
+                exceptions.UncommittedChangesWarning(n_files),
+                stacklevel=3,
+            )
+
+        if not self.resumed or session.commit is None:
+            return
+
+        for metadata in self._experiment._registry.load_all():
+            if metadata.id == self._id and metadata.sessions:
+                last_commit = metadata.sessions[-1].commit
+                if last_commit is not None and last_commit != session.commit:
+                    warnings.warn(
+                        exceptions.CommitMismatchWarning(
+                            last_commit, session.commit
+                        ),
+                        stacklevel=3,
+                    )
+
+                break
+
         return
 
     def _close(self) -> None:
@@ -576,17 +659,15 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
         return
 
     @staticmethod
-    def _teardown(experiment: Experiment[_T_co]) -> None:
-        """Common cleanup for pause and stop."""
-        log_events.Event.set_auto_publish(None)
-        experiment._active_run = None
-        Experiment._clear_current()
-        gc.collect()
+    def _pause_experiment(experiment: Experiment[Any], run_id: str) -> None:
+        """Cleanup on pause without holding reference to a Run instance."""
+        log_events.PauseExperimentEvent(experiment.name, run_id)
+        Run._teardown(experiment)
         return
 
     @staticmethod
     def _stop_experiment(
-        experiment: Experiment[_T_co],
+        experiment: Experiment[Any],
         run_id: str,
     ) -> None:
         """Cleanup without holding reference to a Run instance."""
@@ -595,23 +676,34 @@ class Run(repr_utils.CreatedAtMixin, Generic[_T_co]):
             if active_run.id == run_id:
                 log_events.StopExperimentEvent(experiment.name, run_id)
                 Run._teardown(experiment)
+
             return
 
         if not Experiment.has_current():
-            experiment.trackers.clean_up()
+            experiment.trackers.close_all()
 
         return
 
     @staticmethod
-    def _pause_experiment(experiment: Experiment[_T_co], run_id: str) -> None:
-        """Cleanup on pause without holding reference to a Run instance."""
-        log_events.PauseExperimentEvent(experiment.name, run_id)
-        Run._teardown(experiment)
+    def _teardown(experiment: Experiment[Any]) -> None:
+        """Common cleanup for pause and stop."""
+        log_events.Event.set_auto_publish(None)
+        experiment._active_run = None
+        Experiment._clear_current()
+        gc.collect()
         return
 
-    @override
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(id={self.id}, status={self.status})'
+
+def _get_last_commit_hash() -> str | None:
+    return _run_git_command('rev-parse', 'HEAD')
+
+
+def _has_uncommitted_changes() -> bool | None:
+    output = _run_git_command('status', '--porcelain')
+    if output is None:
+        return None
+
+    return bool(output)
 
 
 def _is_distributed() -> bool:
@@ -622,6 +714,34 @@ def _is_distributed() -> bool:
 def _is_main_process() -> bool:
     """Whether this process is not distributed or has rank 0."""
     return not _is_distributed() or dist.get_rank() == 0
+
+
+def _new_session() -> RunSession:
+    return RunSession(
+        timestamp=_timestamp(),
+        commit=_get_last_commit_hash(),
+        drytorch_version=importlib.metadata.version('drytorch'),
+        uncommitted_changes=_has_uncommitted_changes(),
+    )
+
+
+def _run_git_command(*args: str) -> str | None:
+    git = shutil.which('git')
+    if git is None:
+        return None
+
+    try:
+        result = subprocess.run(  # noqa: S603
+            [git, *args],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=pathlib.Path.cwd(),
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+    return result.stdout.strip()
 
 
 def _timestamp() -> str:
@@ -638,3 +758,5 @@ def _validate_chars(name: str) -> None:
     if invalid_chars := set(name) & not_allowed_chars:
         msg = f'Name contains invalid character(s): {invalid_chars!r}'
         raise ValueError(msg)
+
+    return

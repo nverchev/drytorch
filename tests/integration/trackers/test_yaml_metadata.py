@@ -21,6 +21,7 @@ except ImportError:
     raise
 
 from drytorch.core import log_events
+from drytorch.lib.evaluations import Validation
 from drytorch.trackers.yaml import (
     MAX_LENGTH_PLAIN_REPR,
     MAX_LENGTH_SHORT_REPR,
@@ -31,7 +32,7 @@ from drytorch.trackers.yaml import (
 from drytorch.utils import repr_utils
 
 
-def test_short_repr():
+def test_short_repr() -> None:
     """Test short_repr function."""
     assert has_short_repr('a' * MAX_LENGTH_SHORT_REPR) is True
     assert has_short_repr('a' * (MAX_LENGTH_SHORT_REPR + 1)) is False
@@ -41,7 +42,62 @@ def test_short_repr():
     assert has_short_repr(34) is True  # true for not a Sized object
 
 
-def test_literal_string():
+def test_anchor_named_after_the_class() -> None:
+    """Test a repeated object is dumped once, under an anchor."""
+    shared = {'class': 'Model', 'mixed_precision': False}
+    metadata = {'class': 'Trainer', 'model': shared, 'ema': shared}
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert 'model: &Model\n' in yaml_output
+    assert 'ema: *Model\n' in yaml_output
+
+
+def test_anchors_of_the_same_class_are_numbered() -> None:
+    """Test the second object of a class is numbered, as default names are."""
+    first = {'class': 'Model', 'mixed_precision': False}
+    second = {'class': 'Model', 'mixed_precision': True}
+    metadata = {'first': [first, first], 'second': [second, second]}
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert '&Model\n' in yaml_output
+    assert '&Model_1\n' in yaml_output
+
+
+def test_cycle_is_dumped_as_a_reference() -> None:
+    """Test an object referring to itself is dumped with an alias."""
+    metadata: dict[str, object] = {'class': 'Trainer'}
+    metadata['hook'] = {'class': 'Hook', 'trainer': metadata}
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert yaml_output.startswith('&Trainer\n')
+    assert 'trainer: *Trainer\n' in yaml_output
+
+
+def test_dumped_trainer_refers_to_its_model_once(
+    run, identity_trainer, identity_loader, square_loss_calc
+) -> None:
+    """Test a model used by two runners is dumped once, under an anchor."""
+    _not_used = run
+    validation = Validation(
+        identity_trainer.model,
+        name='DumpedValidation',
+        loader=identity_loader,
+        metric=square_loss_calc.copy(),
+    )
+    metadata = repr_utils.recursive_repr(
+        {'trainer': identity_trainer, 'validation': validation}
+    )
+
+    yaml_output = yaml.dump(metadata, sort_keys=False, Dumper=DryTorchDumper)
+
+    assert '&Model\n' in yaml_output
+    assert 'model: *Model\n' in yaml_output
+
+
+def test_literal_string() -> None:
     """Test YAML representers for correct serialization."""
     str_value = 'test'
     lit_str = repr_utils.LiteralStr(str_value)
@@ -49,42 +105,42 @@ def test_literal_string():
     assert yaml_output == yaml.dump(str_value, default_style='|')
 
 
-def test_short_sequence():
+def test_short_sequence() -> None:
     """Test sequence representation logic."""
     short_seq = ('a', 'b')
     yaml_output = yaml.dump(short_seq, Dumper=DryTorchDumper)
     assert yaml_output.strip() == '[a, b]'  # Flow style
 
 
-def test_long_sequence():
+def test_long_sequence() -> None:
     """Test sequence representation logic."""
     long_seq = ['a'] * (MAX_LENGTH_PLAIN_REPR + 1)
     yaml_output = yaml.dump(long_seq, Dumper=DryTorchDumper)
     assert '- ' in yaml_output  # Block style for long sequences
 
 
-def test_long_element():
+def test_long_element() -> None:
     """Test sequence representation logic."""
     long_element = ('a' * (MAX_LENGTH_SHORT_REPR + 1),)
     yaml_output = yaml.dump(long_element, Dumper=DryTorchDumper)
     assert '- ' in yaml_output  # Block style for long elements
 
 
-def test_represent_omitted():
+def test_represent_omitted() -> None:
     """Test correct representation of omitted values."""
     omitted = repr_utils.Omitted(5)
     yaml_string = yaml.dump(omitted, Dumper=DryTorchDumper)
     assert yaml_string == '!Omitted\nomitted_elements: 5\n'
 
 
-def test_represent_unknown_omitted():
+def test_represent_unknown_omitted() -> None:
     """Test correct representation of an unknown number of omitted values."""
     omitted = repr_utils.Omitted()
     yaml_string = yaml.dump(omitted, Dumper=DryTorchDumper)
     assert yaml_string == '!Omitted\nomitted_elements: .nan\n'
 
 
-def test_represent_list_with_omitted():
+def test_represent_list_with_omitted() -> None:
     """Test the correct representation of omitted values inside a list."""
     yaml_string = yaml.dump(
         [2, repr_utils.Omitted(5), 3], Dumper=DryTorchDumper
@@ -93,7 +149,7 @@ def test_represent_list_with_omitted():
 
 
 @given(text(characters(codec='ascii', exclude_categories=['Cc', 'Cs'])))
-def test_literal_str_yaml_representation(string):
+def test_literal_str_yaml_representation(string) -> None:
     """Test LiteralStr is represented with the pipe style."""
     # pipe style incompatible with trailing spaces or empty strings
     stripped = string.strip()
@@ -104,7 +160,7 @@ def test_literal_str_yaml_representation(string):
 
 
 class TestMetadataDumperPauseContinue:
-    """Tests MetadataDumper metadata routing across interleaved runs."""
+    """Tests ``MetadataDumper`` metadata routing across interleaved runs."""
 
     @pytest.fixture
     def tracker(self, tmp_path: pathlib.Path) -> MetadataDumper:
@@ -121,12 +177,11 @@ class TestMetadataDumperPauseContinue:
         start_experiment_event_b: log_events.StartExperimentEvent,
         stop_experiment_event_b: log_events.StopExperimentEvent,
         model_registration_event: log_events.ModelRegistrationEvent,
-        actor_registration_event: log_events.ActorRegistrationEvent,
+        runner_registration_event: log_events.RunnerRegistrationEvent,
         run_a_dir: Callable[[str], pathlib.Path],
         run_b_dir: Callable[[str], pathlib.Path],
     ) -> None:
-        """Verify MetadataDumper routes metadata to correct run directory."""
-        # Trigger
+        """Verify ``MetadataDumper`` routes metadata correctly."""
         tracker.notify(start_experiment_event)
         tracker.notify(model_registration_event)
         tracker.notify(pause_experiment_event)
@@ -136,11 +191,10 @@ class TestMetadataDumperPauseContinue:
         tracker.notify(stop_experiment_event_b)
 
         tracker.notify(continue_experiment_event)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         tracker.notify(stop_experiment_event)
         tracker.close()
 
-        # Assert
         dir_a = run_a_dir(MetadataDumper.folder_name)
         dir_b = run_b_dir(MetadataDumper.folder_name)
 
@@ -152,12 +206,13 @@ class TestMetadataDumperPauseContinue:
 
         with config_a_file.open() as f:
             config_a_content = yaml.safe_load(f)
+
         with config_b_file.open() as f:
             config_b_content = yaml.safe_load(f)
 
-        actor_name = actor_registration_event.actor_name
-        actor_files_a = list(dir_a.rglob(f'*{actor_name}*.yaml'))
-        actor_files_b = list(dir_b.rglob(f'*{actor_name}*.yaml'))
+        runner_name = runner_registration_event.runner_name
+        runner_files_a = list(dir_a.rglob(f'*{runner_name}*.yaml'))
+        runner_files_b = list(dir_b.rglob(f'*{runner_name}*.yaml'))
 
         assert dir_a.exists()
         assert dir_b.exists()
@@ -165,5 +220,5 @@ class TestMetadataDumperPauseContinue:
         assert len(files_b) == 2
         assert config_a_content == start_experiment_event.config
         assert config_b_content == start_experiment_event_b.config
-        assert len(actor_files_a) == 1
-        assert len(actor_files_b) == 0
+        assert len(runner_files_a) == 1
+        assert len(runner_files_b) == 0

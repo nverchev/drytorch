@@ -1,11 +1,12 @@
-"""Module containing a tracker calling Weights and Biases."""
+"""Tracker calling Weights and Biases."""
 
 import copy
 import functools
 import pathlib
 import warnings
 
-from typing import ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar
 
 import wandb
 
@@ -32,18 +33,20 @@ class WandbWarning(exceptions.DryTorchWarning):
 class Wandb(Dumper):
     """Tracker that wraps a run for the wandb library."""
 
+    folder_name: ClassVar[str] = 'wandb'
     _default_settings: ClassVar[wandb_settings.Settings] = (
         wandb_settings.Settings()
     )
-    folder_name = 'wandb'
 
-    _settings: wandb_settings.Settings
-    _run: wandb_run.Run | None
     _defined_metrics: set[str]
+    _explicit_run_id: str | None
+    _run: wandb_run.Run | None
+    _settings: wandb_settings.Settings
     _stashed_runs: dict[str, tuple[wandb_run.Run, set[str]]]
 
     def __init__(
         self,
+        *,
         par_dir: pathlib.Path | None = None,
         settings: wandb_settings.Settings = _default_settings,
     ) -> None:
@@ -54,7 +57,8 @@ class Wandb(Dumper):
                 the same of the current experiment.
             settings: settings object from wandb containing all init arguments.
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
+        self._defined_metrics = set()
         self._settings = copy.copy(settings)
         if self._settings.reinit not in ('create_new', 'default', True):
             msg = "Forcing reinit='create_new' to support paused runs."
@@ -62,9 +66,7 @@ class Wandb(Dumper):
 
         self._settings.reinit = 'create_new'
         self._explicit_run_id = self._settings.run_id
-
         self._run = None
-        self._defined_metrics = set()
         self._stashed_runs = {}
         return
 
@@ -80,36 +82,6 @@ class Wandb(Dumper):
 
         return self._run
 
-    @override
-    def clean_up(self) -> None:
-        try:
-            if self._run is not None:
-                self._run.finish()
-        except Exception as e:
-            warnings.warn(
-                WandbWarning(f'Error during cleanup: {e}'), stacklevel=1
-            )
-        finally:
-            self._run = None
-            self._defined_metrics = set()
-            self._settings.run_id = self._explicit_run_id
-
-        return super().clean_up()
-
-    @override
-    def close(self) -> None:
-        for run, _ in self._stashed_runs.values():
-            try:
-                run.finish()
-            except Exception as e:
-                warnings.warn(
-                    WandbWarning(f'Error finishing stashed run: {e}'),
-                    stacklevel=1,
-                )
-
-        self._stashed_runs.clear()
-        return super().close()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -118,6 +90,9 @@ class Wandb(Dumper):
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
         super().notify(event)
+        if not self.record:
+            return
+
         project = self._settings.project or event.exp_name
         group = self._settings.run_group or event.exp_name
         run_id = ''
@@ -154,6 +129,25 @@ class Wandb(Dumper):
         return
 
     @notify.register
+    def _(self, event: log_events.MetricEvent) -> None:
+        """Process metric events.
+
+        Raises:
+            AccessOutsideScopeError: if called outside an active run scope.
+        """
+        if not self.record:
+            return super().notify(event)
+
+        plot_names = {
+            f'{event.model_name}/{event.source_name}-{name}': value
+            for name, value in event.metrics.items()
+        }
+        self.log_at_epoch(
+            plot_names, model_name=event.model_name, epoch=event.epoch
+        )
+        return super().notify(event)
+
+    @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         if self._run is not None:
             self._stashed_runs[event.run_id] = (
@@ -167,31 +161,71 @@ class Wandb(Dumper):
 
     @notify.register
     def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        if not event.record:
+            return super().notify(event)
+
         if event.run_id not in self._stashed_runs:
             raise exceptions.NoStashedStateError(self, event.run_id)
 
         self._run, self._defined_metrics = self._stashed_runs.pop(event.run_id)
         return super().notify(event)
 
-    @notify.register
-    def _(self, event: log_events.MetricEvent) -> None:
-        """Process metric events.
+    @override
+    def clean_up(self) -> None:
+        try:
+            if self._run is not None:
+                self._run.finish()
+        except Exception as e:
+            warnings.warn(
+                WandbWarning(f'Error during cleanup: {e}'), stacklevel=1
+            )
+        finally:
+            self._run = None
+            self._defined_metrics = set()
+            self._settings.run_id = self._explicit_run_id
+
+        return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        for run, _ in self._stashed_runs.values():
+            try:
+                run.finish()
+            except Exception as e:
+                warnings.warn(
+                    WandbWarning(f'Error finishing stashed run: {e}'),
+                    stacklevel=1,
+                )
+
+        self._stashed_runs.clear()
+        return super().close()
+
+    def log_at_epoch(
+        self,
+        values: Mapping[str, Any],
+        /,
+        *,
+        model_name: str,
+        epoch: int,
+    ) -> None:
+        """Log values against the epoch of a model, on the axis of its metrics.
+
+        Subclasses log the values of their own events with this method, so
+        that they share the x-axis of the metrics of the same model.
+
+        Args:
+            values: the values to log, by name.
+            model_name: the name of the model the values belong to.
+            epoch: the epoch of the model.
 
         Raises:
             AccessOutsideScopeError: if called outside an active run scope.
         """
-        plot_names = {
-            f'{event.model_name}/{event.source_name}-{name}': value
-            for name, value in event.metrics.items()
-        }
-        step_key = f'Progress/{event.model_name}'
-        plot_step = {step_key: event.epoch}
-
-        # define new metrics only once
-        for name in plot_names:
+        step_key = f'Progress/{model_name}'
+        for name in values:
             if name not in self._defined_metrics:
                 self.run.define_metric(name, step_metric=step_key)
                 self._defined_metrics.add(name)
 
-        self.run.log(plot_names | plot_step)
-        return super().notify(event)
+        self.run.log(dict(values) | {step_key: epoch})
+        return

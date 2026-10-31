@@ -1,21 +1,22 @@
-"""Tests for the "training" module."""
+"""Tests for the ``training`` module."""
+
+from collections.abc import Callable
+from typing import Any
 
 import torch
 
-from ...simple_classes import MLP
-
 import pytest
 
-from drytorch import Trainer
 from drytorch.core import exceptions
-from drytorch.lib.training import ModelOptimizer
+from drytorch.lib import hooks
+from drytorch.lib.training import ModelOptimizer, Trainer, TrainerBuilder
+from tests.simple_classes import MLP
 
 
-@pytest.fixture(autouse=True)
-def setup_module(session_mocker) -> None:
+@pytest.fixture(autouse=True, scope='module')
+def setup_module(module_mocker) -> None:
     """Fixture for a mock experiment."""
-    # Patch at the point where register_source is called
-    session_mocker.patch('drytorch.core.registering.register_actor')
+    module_mocker.patch('drytorch.core.registering.register_runner')
     return
 
 
@@ -32,6 +33,24 @@ class TestModelOptimizer:
             model=mock_model,
             learning_schema=mock_learning_schema,
         )
+
+    @pytest.mark.parametrize(
+        ('mixed_precision', 'scaled'),
+        [(None, False), (torch.bfloat16, False), (torch.float16, True)],
+    )
+    def test_gradient_scaling_only_for_float16(
+        self, mock_model, mock_learning_schema, mixed_precision, scaled
+    ) -> None:
+        """Test the gradient scaler is enabled only for float16."""
+        mock_model.module = MLP()
+        mock_model.mixed_precision = mixed_precision
+
+        model_optimizer = ModelOptimizer(
+            model=mock_model,
+            learning_schema=mock_learning_schema,
+        )
+
+        assert model_optimizer._scaler.is_enabled() == scaled
 
     def test_update_learning_rate_global(self, model_optimizer) -> None:
         """Test it correctly updates global learning rate."""
@@ -54,14 +73,32 @@ class TestModelOptimizer:
     def test_missing_param_error(self, model_optimizer) -> None:
         """Test that MissingParamError is raised when params are missing."""
         with pytest.raises(exceptions.MissingParamError):
-            model_optimizer.base_lr = {'linear': 0.1}
+            model_optimizer.update_learning_rate(base_lr={'linear': 0.1})
+
+    def test_base_lr_dict_copied(self, model_optimizer) -> None:
+        """Test that the base_lr dictionary is copied when updated."""
+        dict_lr: dict[str, float] = {'linear': 0.01, 'linear2': 0.001}
+        model_optimizer.update_learning_rate(base_lr=dict_lr)
+
+        dict_lr['linear'] = 0.999
+
+        assert model_optimizer.base_lr == {'linear': 0.01, 'linear2': 0.001}
+
+
+class _TerminateHook(hooks.TrainerHook):
+    """Hook that terminates the training of the trainer that calls it."""
+
+    def run(self) -> None:
+        """Terminate the training."""
+        self.trainer.terminate_training('test termination')
+        return
 
 
 class TestTrainer:
     """Tests for Trainer."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker):
+    def setup(self, mocker) -> None:
         """Set up the test class."""
         self.model_optimizer = mocker.patch(
             'drytorch.lib.training.ModelOptimizer'
@@ -87,20 +124,51 @@ class TestTrainer:
         self.terminated_event = mocker.patch(
             'drytorch.core.log_events.TerminatedTrainingEvent'
         )
+        self.learning_rate_event = mocker.patch(
+            'drytorch.core.log_events.LearningRateEvent'
+        )
         return
 
     @pytest.fixture()
-    def trainer(
+    def create_trainer(
         self, mock_model, mock_learning_schema, mock_loss, mock_loader
-    ) -> Trainer:
+    ) -> Callable[..., Trainer]:
+        """Provide a function creating a Trainer with mock components."""
+
+        def _create(**kwargs: Any) -> Trainer:
+            return Trainer(
+                mock_model,
+                learning_schema=mock_learning_schema,
+                loss=mock_loss,
+                loader=mock_loader,
+                name='TestTrainer',
+                **kwargs,
+            )
+
+        return _create
+
+    @pytest.fixture()
+    def trainer(self, create_trainer) -> Trainer:
         """Set up a Trainer instance with mock components."""
-        return Trainer(
-            mock_model,
-            learning_schema=mock_learning_schema,
-            loss=mock_loss,
-            loader=mock_loader,
-            name='TestTrainer',
-        )
+        return create_trainer()
+
+    def test_update_learning_rate(self, trainer) -> None:
+        """Test the learning rate is updated and the event is emitted."""
+        trainer.update_learning_rate(base_lr=0.01)
+
+        update = self.model_optimizer.return_value.update_learning_rate
+        update.assert_called_once_with(0.01, None)
+        self.learning_rate_event.assert_called_once()
+
+    def test_failed_update_learning_rate_emits_no_event(self, trainer) -> None:
+        """Test a failed learning rate update emits no event."""
+        update = self.model_optimizer.return_value.update_learning_rate
+        update.side_effect = exceptions.MissingParamError(['module'], ['other'])
+
+        with pytest.raises(exceptions.MissingParamError):
+            trainer.update_learning_rate(base_lr={'other': 0.01})
+
+        self.learning_rate_event.assert_not_called()
 
     def test_loss_not_a_scalar(self, mocker, trainer) -> None:
         """Test that convergence error correctly terminates training."""
@@ -108,44 +176,49 @@ class TestTrainer:
         loss_value.requires_grad = True
         mock = mocker.MagicMock(return_value=loss_value)
         trainer.objective.forward = mock
+
         with pytest.raises(exceptions.LossNotScalarError):
             trainer.train(1)
 
-    def test_add_validation(self, mocker, trainer, mock_validation) -> None:
-        """Test that validation is added correctly with interval handling."""
-        # Arrange
-        val_loader = mocker.Mock()
-        mock_hook = mocker.Mock()
-        mock_every = mocker.Mock()
-        mocker.patch(
-            'drytorch.lib.evaluations.Validation',
-            return_value=mock_validation,
-        )
-        mocker.patch(
-            'drytorch.lib.hooks.StaticHook',
-            return_value=mock_hook,
-        )
-        call_every = mocker.patch(
-            'drytorch.lib.hooks.call_every',
-            return_value=mock_every,
-        )
-        register = mocker.patch('drytorch.lib.hooks.HookRegistry.register')
-        interval = 3
+    def test_no_hooks(self, trainer) -> None:
+        """Test a trainer without hooks has empty hooks."""
+        assert trainer.pre_epoch_hooks.hooks == ()
+        assert trainer.post_epoch_hooks.hooks == ()
 
-        trainer.add_validation(val_loader, interval=interval)
+    def test_loss_higher_is_better(self, create_trainer, mock_loss) -> None:
+        """Test a loss that is better when higher raises ValueError."""
+        mock_loss.higher_is_better = True
 
-        call_every.assert_called_once_with(interval)
-        mock_hook.bind.assert_called_once_with(mock_every)
-        register.assert_called_once_with(mock_hook.bind.return_value)
-        assert trainer.validation is mock_validation
+        with pytest.raises(ValueError):
+            create_trainer()
 
-    def test_post_epoch_hook_terminates_training(self, trainer) -> None:
+    @pytest.mark.parametrize('higher_is_better', [False, None])
+    def test_loss_lower_is_better(
+        self, create_trainer, mock_loss, higher_is_better
+    ) -> None:
+        """Test a loss that is not better when higher is accepted."""
+        mock_loss.higher_is_better = higher_is_better
+
+        trainer = create_trainer()
+
+        assert trainer.objective is mock_loss
+
+    def test_builder(
+        self, mock_model, mock_learning_schema, mock_loss, mock_loader
+    ) -> None:
+        """Test builder returns a TrainerBuilder."""
+        builder = Trainer.builder(
+            mock_model,
+            loader=mock_loader,
+            loss=mock_loss,
+            learning_schema=mock_learning_schema,
+        )
+
+        assert isinstance(builder, TrainerBuilder)
+
+    def test_post_epoch_hook_terminates_training(self, create_trainer) -> None:
         """Test that post-epoch hook termination prevents end_training_event."""
-
-        def terminate_hook(instance):
-            instance.terminate_training('test termination')
-
-        trainer.post_epoch_hooks.register(terminate_hook)
+        trainer = create_trainer(post_epoch_hooks=[_TerminateHook()])
 
         trainer.train(3)
 
@@ -154,13 +227,9 @@ class TestTrainer:
         self.end_epoch_event.assert_called_once()
         self.end_training_event.assert_not_called()
 
-    def test_pre_epoch_hook_terminates_training(self, trainer) -> None:
+    def test_pre_epoch_hook_terminates_training(self, create_trainer) -> None:
         """Test that pre-epoch hook termination prevents end_training_event."""
-
-        def terminate_hook(instance):
-            instance.terminate_training('test termination')
-
-        trainer.pre_epoch_hooks.register(terminate_hook)
+        trainer = create_trainer(pre_epoch_hooks=[_TerminateHook()])
 
         trainer.train(3)
 
@@ -174,27 +243,19 @@ class TestTrainer:
         trainer.train(1)
 
         self.end_epoch_event.assert_called_once()
-        self.end_training_event.assert_called_once()
+        self.end_training_event.assert_called_once_with(
+            source_name=trainer.name,
+            model_name=trainer.model.name,
+        )
         self.terminated_event.assert_not_called()
-
-    @pytest.mark.parametrize('interval', [0, -1])
-    def test_add_validation_raises_for_non_positive_interval(
-        self,
-        mocker,
-        trainer,
-        interval,
-    ) -> None:
-        """Test that validation raises an error for non-positive intervals."""
-        val_loader = mocker.Mock()
-
-        with pytest.raises(ValueError):
-            trainer.add_validation(val_loader, interval=interval)
 
     def test_terminate_training(self, trainer) -> None:
         """Test that terminated correctly stop training."""
-        trainer.terminate_training(reason='This is a test.')
+        trainer.terminate_training('This is a test.')
+
         with pytest.warns(exceptions.TerminatedTrainingWarning):
             trainer()
+
         self.terminated_event.assert_called_once()
 
     def test_train_until(self, mocker, trainer) -> None:
@@ -202,7 +263,9 @@ class TestTrainer:
         trainer.model.epoch = 2
         mock_train = mocker.MagicMock()
         trainer.train = mock_train
+
         trainer.train_until(4)
+
         mock_train.assert_called_once_with(2)
 
     def test_past_epoch_warning(self, trainer) -> None:
@@ -212,14 +275,13 @@ class TestTrainer:
         with pytest.warns(exceptions.PastEpochWarning):
             trainer.train_until(3)
 
-    def test_hook_execution_order(self, mocker, trainer) -> None:
+    def test_hook_execution_order(self, mocker, create_trainer) -> None:
         """Test that hooks are executed in the correct order."""
-        # Mock the hooks to track their order of execution
-        mocker.patch('drytorch.lib.runners.registering.register_actor')
         pre_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
         post_hook_list = [mocker.MagicMock(), mocker.MagicMock()]
-        trainer.pre_epoch_hooks.register_all(pre_hook_list)
-        trainer.post_epoch_hooks.register_all(post_hook_list)
+        trainer = create_trainer(
+            pre_epoch_hooks=pre_hook_list, post_epoch_hooks=post_hook_list
+        )
 
         trainer.train(1)
 
@@ -231,3 +293,131 @@ class TestTrainer:
             ordered_list.append(hook.call_args_list[0])
 
         assert ordered_list == sorted(ordered_list)
+
+
+class TestTrainerBuilder:
+    """Tests for TrainerBuilder."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker) -> None:
+        """Set up the test class."""
+        self.mock_trainer_cls = mocker.patch('drytorch.lib.training.Trainer')
+        return
+
+    @pytest.fixture()
+    def builder(
+        self, mock_model, mock_learning_schema, mock_loss, mock_loader
+    ) -> TrainerBuilder:
+        """Set up a TrainerBuilder instance with mock components."""
+        return TrainerBuilder(
+            mock_model,
+            learning_schema=mock_learning_schema,
+            loader=mock_loader,
+            loss=mock_loss,
+            name='TestTrainer',
+        )
+
+    def test_validation_not_available(self, builder) -> None:
+        """Test accessing validation before adding it raises."""
+        with pytest.raises(exceptions.ResultNotAvailableError):
+            _ = builder.validation
+
+    def test_add_validation(self, mocker, builder) -> None:
+        """Test adding validation sets validation property."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, val_name='Val', validate_every=2)
+
+        assert builder.validation.name.startswith('Val')
+
+    def test_add_validation_objective_copies_loss(
+        self, mocker, builder
+    ) -> None:
+        """add_validation gives validation a distinct objective."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, val_name='Val')
+
+        val_obj = builder.validation.objective
+        assert val_obj is not builder._loss
+        assert val_obj.compute() == builder._loss.compute()
+
+    def test_add_validation_twice_raises(self, mocker, builder) -> None:
+        """Test adding validation a second time raises."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, val_name='Val')
+
+        with pytest.raises(exceptions.ValidationAlreadyAddedError):
+            builder.add_validation(val_loader, val_name='Val2')
+
+    @pytest.mark.parametrize('validate_every', [0, -1])
+    def test_validate_every_not_positive(
+        self, mocker, builder, validate_every
+    ) -> None:
+        """Test non-positive validate_every raises ValueError."""
+        val_loader = mocker.Mock()
+
+        with pytest.raises(ValueError):
+            builder.add_validation(val_loader, validate_every=validate_every)
+
+    def test_watch_warns_without_validation(self, builder) -> None:
+        """Test watching validation before adding it warns."""
+        with pytest.warns(exceptions.NoValidationWarning):
+            watch = builder.watch()
+
+        assert watch.source is None
+
+    def test_watch_with_validation(self, mocker, builder) -> None:
+        """Test watch binds to the validation."""
+        val_loader = mocker.Mock()
+        builder.add_validation(val_loader, val_name='Val')
+
+        watch = builder.watch()
+
+        assert watch.source is builder.validation
+
+    def test_watch_training(self, builder) -> None:
+        """Test watch with training=True targets the trainer."""
+        watch = builder.watch(training=True)
+
+        assert watch.source is None
+
+    def test_add_hooks_helpers(self, mocker, builder) -> None:
+        """Test builder helper methods add corresponding hooks."""
+        builder.add_validation(mocker.Mock(), val_name='Val')
+        builder.add_early_stopping(patience=5)
+        builder.add_pruning({3: 1.0})
+        builder.add_reduce_lr_on_plateau(factor=0.5)
+        builder.add_restart_schedule_on_plateau()
+        builder.add_saving(3)
+
+        assert len(builder._post_epoch_hooks) == 6
+
+    def test_build(
+        self,
+        mocker,
+        builder,
+        mock_model,
+        mock_learning_schema,
+        mock_loss,
+        mock_loader,
+    ) -> None:
+        """Test build passes the collected validation and hooks."""
+        val_loader = mocker.Mock()
+        pre_hook = mocker.Mock()
+        post_hook = mocker.Mock()
+        builder.add_validation(val_loader, val_name='Val', validate_every=2)
+        val_hook = builder._post_epoch_hooks[0]
+        builder.add_pre_epoch_hook(pre_hook)
+        builder.add_post_epoch_hook(post_hook)
+
+        trainer = builder.build()
+
+        self.mock_trainer_cls.assert_called_once_with(
+            mock_model,
+            learning_schema=mock_learning_schema,
+            loader=mock_loader,
+            loss=mock_loss,
+            name='TestTrainer',
+            post_epoch_hooks=[val_hook, post_hook],
+            pre_epoch_hooks=[pre_hook],
+        )
+        assert trainer is self.mock_trainer_cls.return_value

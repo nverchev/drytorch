@@ -1,11 +1,11 @@
-"""Module containing sqlalchemy Table classes and a tracker to track metrics."""
+"""SQLAlchemy Table classes and a tracker to track metrics."""
 
 from __future__ import annotations
 
 import datetime
 import functools
 
-from typing import ClassVar, cast
+from typing import ClassVar
 
 import sqlalchemy
 
@@ -23,6 +23,7 @@ __all__ = [
     'SQLConnection',
     'Source',
     'Tags',
+    'TestSource',
 ]
 
 
@@ -65,6 +66,7 @@ class Tags:
     Attributes:
         row_id: the unique id for the table.
         experiment_id: the id for the experiment.
+        experiment: the entry for the experiment for the tag.
         text: a tag for the experiment.
     """
 
@@ -158,6 +160,30 @@ class Source:
 
 
 @reg.mapped_as_dataclass
+class TestSource:
+    """Table for test sources.
+
+    Attributes:
+        row_id: the unique id for the table.
+        source_id: foreign key to the source.
+        source: the source that is a test.
+    """
+
+    __tablename__ = 'test_sources'
+    row_id: orm.Mapped[int] = orm.mapped_column(
+        init=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    source_id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.ForeignKey(Source.row_id),
+        unique=True,
+        init=False,
+    )
+    source: orm.Mapped[Source] = orm.relationship()
+
+
+@reg.mapped_as_dataclass
 class Log:
     """Table for the logs of the metrics.
 
@@ -197,6 +223,10 @@ class Log:
 class SQLConnection(base_classes.MetricLoader):
     """Tracker that creates a connection to a SQL database using sqlalchemy.
 
+    Experiments cloned, deleted or renamed with :mod:`~drytorch.utils.local_ops`
+    stay in the database; :meth:`clone_experiment`, :meth:`delete_experiment`
+    and :meth:`rename_experiment` copy, remove or rename them.
+
     Attributes:
         default_url: by default, it creates a local sqlite database.
         engine: the sqlalchemy Engine for the connection.
@@ -209,6 +239,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     engine: sqlalchemy.Engine
     session_factory: orm.sessionmaker[orm.Session]
+    _record: bool
     _run: Run | None
     _sources: dict[str, Source]
     _sql_stashed_runs: dict[str, Run]
@@ -216,6 +247,7 @@ class SQLConnection(base_classes.MetricLoader):
 
     def __init__(
         self,
+        *,
         engine: sqlalchemy.Engine | None = None,
     ) -> None:
         """Initialize.
@@ -227,6 +259,7 @@ class SQLConnection(base_classes.MetricLoader):
         self.engine = engine or sqlalchemy.create_engine(self.default_url)
         reg.metadata.create_all(bind=self.engine)
         self.session_factory = orm.sessionmaker(bind=self.engine)
+        self._record = True
         self._run = None
         self._sources = {}
         self._sql_stashed_runs = {}
@@ -245,19 +278,6 @@ class SQLConnection(base_classes.MetricLoader):
 
         return self._run
 
-    @override
-    def clean_up(self) -> None:
-        self._run = None
-        self._sources.clear()
-        return super().clean_up()
-
-    @override
-    def close(self) -> None:
-        self._sql_stashed_runs.clear()
-        self._sql_stashed_sources.clear()
-        self.engine.dispose()
-        return super().close()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -265,12 +285,13 @@ class SQLConnection(base_classes.MetricLoader):
 
     @notify.register
     def _(self, event: log_events.StartExperimentEvent) -> None:
+        super().notify(event)
+        self._record = event.record
+        if not self._record:
+            return
+
         with self.session_factory() as session:
-            experiment = (
-                session.query(Experiment)
-                .where(Experiment.experiment_name.is_(event.exp_name))
-                .first()
-            )
+            experiment = self._find_experiment(session, event.exp_name)
 
             if experiment is None:
                 experiment = Experiment(experiment_name=event.exp_name)
@@ -286,41 +307,31 @@ class SQLConnection(base_classes.MetricLoader):
             session.add(self._run)
             session.commit()
 
-        return super().notify(event)
+        return
 
     @notify.register
-    def _(self, event: log_events.PauseExperimentEvent) -> None:
-        if self._run is not None:
-            self._sql_stashed_runs[event.run_id] = self._run
-            self._sql_stashed_sources[event.run_id] = self._sources
-            self._run = None
-            self._sources = {}
+    def _(self, event: log_events.RunnerRegistrationEvent) -> None:
+        if not self._record:
+            return super().notify(event)
 
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.ContinueExperimentEvent) -> None:
-        if event.run_id not in self._sql_stashed_runs:
-            raise exceptions.NoStashedStateError(self, event.run_id)
-
-        self._run = self._sql_stashed_runs.pop(event.run_id)
-        self._sources = self._sql_stashed_sources.pop(event.run_id)
-        return super().notify(event)
-
-    @notify.register
-    def _(self, event: log_events.ActorRegistrationEvent) -> None:
         with self.session_factory() as session:
-            run = session.merge(self.run)
-            source = Source(
-                model_name=event.model_name,
-                model_ts=event.model_ts,
-                source_name=event.actor_name,
-                source_ts=event.actor_ts,
-                run=run,
-            )
-            session.add(source)
+            source = self._add_source(session, event)
             session.commit()
-            self._sources[event.actor_name] = source
+            self._sources[event.runner_name] = source
+
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.TestRegistrationEvent) -> None:
+        if not self._record:
+            return super().notify(event)
+
+        with self.session_factory() as session:
+            source = self._add_source(session, event)
+            session.add(TestSource(source=source))
+            session.commit()
+            self._sources[event.runner_name] = source
+
         return super().notify(event)
 
     @notify.register
@@ -330,6 +341,9 @@ class SQLConnection(base_classes.MetricLoader):
         Raises:
             TrackerError: if the source has not been registered.
         """
+        if not self._record:
+            return super().notify(event)
+
         with self.session_factory() as session:
             if event.source_name not in self._sources:
                 msg = f'Source {event.source_name} has not been registered.'
@@ -348,26 +362,310 @@ class SQLConnection(base_classes.MetricLoader):
             session.commit()
         return super().notify(event)
 
+    @notify.register
+    def _(self, event: log_events.PauseExperimentEvent) -> None:
+        if self._run is not None:
+            self._sql_stashed_runs[event.run_id] = self._run
+            self._sql_stashed_sources[event.run_id] = self._sources
+            self._run = None
+            self._sources = {}
+
+        return super().notify(event)
+
+    @notify.register
+    def _(self, event: log_events.ContinueExperimentEvent) -> None:
+        self._record = event.record
+        if not self._record:
+            return super().notify(event)
+
+        if event.run_id not in self._sql_stashed_runs:
+            raise exceptions.NoStashedStateError(self, event.run_id)
+
+        self._run = self._sql_stashed_runs.pop(event.run_id)
+        self._sources = self._sql_stashed_sources.pop(event.run_id)
+        return super().notify(event)
+
+    @override
+    def clean_up(self) -> None:
+        self._record = True
+        self._run = None
+        self._sources.clear()
+        return super().clean_up()
+
+    @override
+    def close(self) -> None:
+        self._sql_stashed_runs.clear()
+        self._sql_stashed_sources.clear()
+        self.engine.dispose()
+        return super().close()
+
+    def clone_experiment(self, exp_name: str, new_exp_name: str, /) -> None:
+        """Clone an experiment and all its data in the database.
+
+        Args:
+            exp_name: name of the experiment to clone.
+            new_exp_name: new name for the cloned experiment.
+
+        Raises:
+            TrackerError: if a run is active or stashed, if no experiment has
+                the given name, or if new_exp_name already exists.
+
+        Side Effects:
+            Creates a new experiment in the database with copies of all tags,
+            runs, sources, test sources, and logs from the original experiment.
+        """
+        if self._run is not None or self._sql_stashed_runs:
+            msg = 'Cannot clone an experiment while a run is active or stashed.'
+            raise exceptions.TrackerError(self, msg)
+
+        with self.session_factory() as session:
+            orig_exp = self._find_experiment(session, exp_name)
+            if orig_exp is None:
+                msg = f'No experiment named {exp_name!r} found.'
+                raise exceptions.TrackerError(self, msg)
+
+            if self._find_experiment(session, new_exp_name) is not None:
+                msg = f'Experiment {new_exp_name!r} already exists.'
+                raise exceptions.TrackerError(self, msg)
+
+            new_exp = Experiment(experiment_name=new_exp_name)
+            session.add(new_exp)
+
+            for tag in sorted(orig_exp.tags, key=lambda t: t.row_id):
+                session.add(Tags(text=tag.text, experiment=new_exp))
+
+            test_source_ids = {
+                test_source.source_id
+                for test_source in (
+                    session.query(TestSource)
+                    .join(Source, TestSource.source_id == Source.row_id)
+                    .join(Run, Source.run_table_id == Run.row_id)
+                    .where(Run.experiment_id == orig_exp.row_id)
+                    .all()
+                )
+            }
+
+            for orig_run in sorted(orig_exp.runs, key=lambda r: r.row_id):
+                new_run = Run(
+                    run_id=orig_run.run_id,
+                    run_ts=orig_run.run_ts,
+                    experiment=new_exp,
+                )
+                session.add(new_run)
+
+                for orig_source in sorted(
+                    orig_run.sources, key=lambda s: s.row_id
+                ):
+                    new_source = Source(
+                        model_name=orig_source.model_name,
+                        model_ts=orig_source.model_ts,
+                        source_name=orig_source.source_name,
+                        source_ts=orig_source.source_ts,
+                        run=new_run,
+                    )
+                    session.add(new_source)
+
+                    if orig_source.row_id in test_source_ids:
+                        session.add(TestSource(source=new_source))
+
+                    for orig_log in sorted(
+                        orig_source.logs, key=lambda log: log.row_id
+                    ):
+                        new_log = Log(
+                            source=new_source,
+                            epoch=orig_log.epoch,
+                            metric_name=orig_log.metric_name,
+                            value=orig_log.value,
+                        )
+                        new_log.created_at = orig_log.created_at
+                        session.add(new_log)
+
+            session.commit()
+
+        return
+
+    def delete_experiment(self, exp_name: str, /) -> None:
+        """Remove an experiment and all its data from the database.
+
+        Args:
+            exp_name: name of the experiment.
+
+        Raises:
+            TrackerError: if a run is active or stashed, or if no experiment
+                has the given name.
+
+        Side Effects:
+            Deletes the experiment and all associated tags, runs, sources,
+            test sources, and logs from the database.
+        """
+        if self._run is not None or self._sql_stashed_runs:
+            msg = (
+                'Cannot delete an experiment while a run is active or stashed.'
+            )
+            raise exceptions.TrackerError(self, msg)
+
+        with self.session_factory() as session:
+            experiment = self._find_experiment(session, exp_name)
+            if experiment is None:
+                msg = f'No experiment named {exp_name!r} found.'
+                raise exceptions.TrackerError(self, msg)
+
+            test_sources = (
+                session.query(TestSource)
+                .join(Source, TestSource.source_id == Source.row_id)
+                .join(Run, Source.run_table_id == Run.row_id)
+                .where(Run.experiment_id == experiment.row_id)
+                .all()
+            )
+            for test_source in test_sources:
+                session.delete(test_source)
+
+            session.delete(experiment)
+            session.commit()
+
+        return
+
+    def rename_experiment(self, exp_name: str, new_exp_name: str, /) -> None:
+        """Rename an experiment in the database.
+
+        Args:
+            exp_name: existing experiment name.
+            new_exp_name: new experiment name.
+
+        Raises:
+            TrackerError: if a run is active or stashed, if no experiment has
+                the given name, or if new_exp_name already exists.
+
+        Side Effects:
+            Updates the experiment name in the database.
+        """
+        if self._run is not None or self._sql_stashed_runs:
+            msg = (
+                'Cannot rename an experiment while a run is active or stashed.'
+            )
+            raise exceptions.TrackerError(self, msg)
+
+        with self.session_factory() as session:
+            experiment = self._find_experiment(session, exp_name)
+            if experiment is None:
+                msg = f'No experiment named {exp_name!r} found.'
+                raise exceptions.TrackerError(self, msg)
+
+            if self._find_experiment(session, new_exp_name) is not None:
+                msg = f'Experiment {new_exp_name!r} already exists.'
+                raise exceptions.TrackerError(self, msg)
+
+            experiment.experiment_name = new_exp_name
+            session.commit()
+
+        return
+
+    @staticmethod
+    def _find_experiment(
+        session: orm.Session, exp_name: str
+    ) -> Experiment | None:
+        return (
+            session.query(Experiment)
+            .where(Experiment.experiment_name.is_(exp_name))
+            .first()
+        )
+
+    @override
+    def _load_test_metrics(
+        self, model_name: str
+    ) -> base_classes.ExperimentMetrics:
+        test_sources = self._find_test_sources(model_name)
+        out: base_classes.ExperimentMetrics = {}
+        for exp_name, sources_dict in test_sources.items():
+            exp_metrics: base_classes.SourcedMetrics = {}
+            for source_name, run_sources in sources_dict.items():
+                exp_metrics[source_name] = self._get_run_metrics(
+                    run_sources, max_epoch=-1
+                )
+
+            out[exp_name] = exp_metrics
+
+        return out
+
+    def _add_source(
+        self, session: orm.Session, event: log_events.RunnerRegistrationEvent
+    ) -> Source:
+        # every runner gets a row, even when it never logs metrics
+        source = Source(
+            model_name=event.model_name,
+            model_ts=event.model_ts,
+            source_name=event.runner_name,
+            source_ts=event.runner_ts,
+            run=session.merge(self.run),
+        )
+        session.add(source)
+        return source
+
     def _find_sources(self, model_name: str) -> dict[str, list[Source]]:
         with self.session_factory() as session:
             run = session.merge(self.run)
             query = (
                 session.query(Source)
                 .join(Source.run)
+                .outerjoin(TestSource)
                 .where(
                     Run.run_id.is_(run.run_id),
                     Source.model_name.is_(model_name),
+                    TestSource.row_id.is_(None),
                 )
             )
-            named_sources = dict[str, list[Source]]()
+            named_sources: dict[str, list[Source]] = {}
             for source in query:
-                source = cast(Source, source)  # fixing wrong annotation
                 sources = named_sources.setdefault(source.source_name, [])
                 sources.append(source)
 
-            if not named_sources:
-                msg = f'No sources for model {model_name}.'
-                raise exceptions.TrackerError(self, msg)
+            return named_sources
+
+    def _find_test_sources(
+        self, model_name: str
+    ) -> dict[str, dict[str, list[Source]]]:
+        with self.session_factory() as session:
+            last_run_rows = (
+                session.query(
+                    Run.experiment_id,
+                    sql.func.max(Run.row_id).label('max_row_id'),
+                )
+                .join(Source, Source.run_table_id == Run.row_id)
+                .join(TestSource, TestSource.source_id == Source.row_id)
+                .where(Source.model_name.is_(model_name))
+                .group_by(Run.experiment_id)
+                .subquery()
+            )
+            last_run_ids = (
+                session.query(
+                    Run.experiment_id,
+                    Run.run_id,
+                )
+                .join(
+                    last_run_rows,
+                    Run.row_id == last_run_rows.c.max_row_id,
+                )
+                .subquery()
+            )
+            query = (
+                session.query(Experiment.experiment_name, Source)
+                .join(Run, Run.experiment_id == Experiment.row_id)
+                .join(
+                    last_run_ids,
+                    sql.and_(
+                        last_run_ids.c.experiment_id == Run.experiment_id,
+                        last_run_ids.c.run_id == Run.run_id,
+                    ),
+                )
+                .join(Source, Source.run_table_id == Run.row_id)
+                .join(TestSource, TestSource.source_id == Source.row_id)
+                .where(Source.model_name.is_(model_name))
+            )
+            named_sources: dict[str, dict[str, list[Source]]] = {}
+            for exp_name, source in query:
+                exp_sources = named_sources.setdefault(exp_name, {})
+                sources = exp_sources.setdefault(source.source_name, [])
+                sources.append(source)
 
             return named_sources
 
@@ -384,18 +682,17 @@ class SQLConnection(base_classes.MetricLoader):
             if max_epoch != -1:
                 query = query.where(Log.epoch <= max_epoch)
 
-            named_epochs = dict[str, list[int]]()
-            named_metric_values = dict[str, list[float]]()
+            named_epochs: dict[str, list[int]] = {}
+            named_metric_values: dict[str, list[float]] = {}
 
             for log in query:
-                log = cast(Log, log)  # fixing wrong annotation
                 epochs = named_epochs.setdefault(log.metric_name, [])
                 epochs.append(log.epoch)
                 values = named_metric_values.setdefault(log.metric_name, [])
                 values.append(log.value)
 
         name = ''
-        epochs = list[int]()
+        epochs: list[int] = []
         for next_name, next_epochs in named_epochs.items():
             if epochs and epochs != next_epochs:
                 msg = f'{name} and {next_name} logs refer to different epochs.'

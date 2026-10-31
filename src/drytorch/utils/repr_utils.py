@@ -1,4 +1,4 @@
-"""Module containing utilities to extract readable representations.
+"""Utilities to extract readable representations.
 
 Attributes:
     MAX_DEPTH: Max number of recursions when representing an object.
@@ -17,7 +17,16 @@ import numbers
 import types
 
 from collections.abc import Collection, Hashable, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeAlias, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Final,
+    NamedTuple,
+    Self,
+    TypeAlias,
+    overload,
+)
 
 import numpy as np
 import torch
@@ -26,17 +35,10 @@ from torch import _tensor_str
 from typing_extensions import override
 
 
-__all__ = [
-    'INCLUDE_PROPERTIES',
-    'MAX_DEPTH',
-    'MAX_REPR_SIZE',
-    'recursive_repr',
-]
-
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-    from pandas.core.generic import NDFrame
+    from pandas.core import generic as pd_generic
 
     GenericDict: TypeAlias = dict[Hashable, Any]
     GenericList: TypeAlias = list[Any]
@@ -45,12 +47,21 @@ if TYPE_CHECKING:
     ndarray: TypeAlias = npt.NDArray[Any]
 
 else:
-    from numpy import ndarray
+    ndarray = np.ndarray
 
     GenericList = list
     GenericDict = dict
     GenericSet = set
     GenericTuple = tuple
+
+
+__all__ = [
+    'INCLUDE_PROPERTIES',
+    'MAX_DEPTH',
+    'MAX_REPR_SIZE',
+    'NameCounter',
+    'recursive_repr',
+]
 
 MAX_DEPTH: int = 10
 MAX_REPR_SIZE: int = 10
@@ -72,6 +83,7 @@ class CreatedAtMixin:
         """Initialize."""
         self._created_at = datetime.datetime.now()
         super().__init__(*args, **kwargs)
+        return
 
     @property
     def created_at(self) -> datetime.datetime:
@@ -84,18 +96,38 @@ class CreatedAtMixin:
         return self._created_at.strftime(self.ts_fmt)
 
 
-class DefaultName:
-    """Add a counter to a prefix.
+class NameCounter:
+    """Number the names that repeat: the second ``Model`` is ``Model_1``."""
 
-    Attributes:
-        _prefixes: dictionary mapping prefixes to their counters.
-    """
-
-    _prefixes: dict[str, itertools.count[int]]
+    _prefixes: Final[dict[str, itertools.count[int]]]
 
     def __init__(self) -> None:
         """Initialize."""
         self._prefixes = {}
+        return
+
+    def next_name(self, prefix: str) -> str:
+        """Return the prefix, numbered after its first use.
+
+        Args:
+            prefix: the name to number.
+
+        Returns:
+            The prefix itself the first time, then the prefix and a count.
+        """
+        count = next(self._prefixes.setdefault(prefix, itertools.count()))
+        return prefix if not count else f'{prefix}_{count}'
+
+
+class DefaultName:
+    """Add a counter to a prefix."""
+
+    _counter: Final[NameCounter]
+
+    def __init__(self) -> None:
+        """Initialize."""
+        self._counter = NameCounter()
+        return
 
     @overload
     def __get__(self, instance: None, objtype: type | None = None) -> Self: ...
@@ -112,11 +144,7 @@ class DefaultName:
     def __set__(self, instance: Any, value: str) -> None:
         """Return the default name for the instance or class."""
         value = value if value else instance.__class__.__name__
-        count_iter = self._prefixes.setdefault(value, itertools.count())
-        if count_value := next(count_iter):
-            value = f'{value}_{count_value}'
-
-        instance.__name = value
+        instance.__name = self._counter.next_name(value)
         return
 
 
@@ -194,17 +222,27 @@ class TorchPrintOptions:
         return
 
 
+class _Recorded(NamedTuple):
+    """An object kept alive, so its id is not reused, and what it recorded."""
+
+    obj: Any
+    representation: Any
+
+
 @functools.singledispatch
 def _dispatch_repr(
     obj: object,
     *,
     depth: int,
-    _visited: set[int],
+    _visited: dict[int, _Recorded],
 ) -> Any:
     class_name = obj.__class__.__name__
     if depth > 0:
         attributes = _get_object_attributes(obj)
-        result_attrs = {}
+        # the result is registered before recursing, so cycles point to it
+        result: dict[str, Any] = {'class': class_name}
+        _visited[id(obj)] = _Recorded(obj, result)
+        result_attrs: dict[str, Any] = {}
         for key, value in attributes.items():
             if _should_skip_attribute(key, value, obj):
                 continue
@@ -214,32 +252,40 @@ def _dispatch_repr(
             )
 
         if result_attrs:
-            return {'class': class_name, **dict(sorted(result_attrs.items()))}
+            result.update(sorted(result_attrs.items()))
+            return result
+
+        del _visited[id(obj)]
 
     return repr(obj) if _has_own_repr(obj) else class_name
 
 
 @_dispatch_repr.register
-def _(obj: Omitted, *, depth: int = 10, _visited: set[int]) -> Omitted:
+def _(
+    obj: Omitted, *, depth: int = 10, _visited: dict[int, _Recorded]
+) -> Omitted:
     _not_used = depth
     return obj
 
 
 @_dispatch_repr.register
-def _(obj: str, *, depth: int = 10, _visited: set[int]) -> str:
+def _(obj: str, *, depth: int = 10, _visited: dict[int, _Recorded]) -> str:
     _not_used = depth
     return obj
 
 
 @_dispatch_repr.register
-def _(obj: None, *, depth: int = 10, _visited: set[int]) -> None:
+def _(obj: None, *, depth: int = 10, _visited: dict[int, _Recorded]) -> None:
     _not_used = depth
     return obj
 
 
 @_dispatch_repr.register
 def _(
-    obj: numbers.Number, *, depth: int = 10, _visited: set[int]
+    obj: numbers.Number,
+    *,
+    depth: int = 10,
+    _visited: dict[int, _Recorded],
 ) -> numbers.Number:
     if item_method := getattr(obj, 'item', None):
         try:
@@ -253,7 +299,7 @@ def _(
 
 @_dispatch_repr.register
 def _(
-    obj: GenericTuple, *, depth: int = 1, _visited: set[int]
+    obj: GenericTuple, *, depth: int = 1, _visited: dict[int, _Recorded]
 ) -> tuple[Any, ...]:
     return tuple(
         recursive_repr(item, depth=depth - 1, _visited=_visited)
@@ -262,15 +308,21 @@ def _(
 
 
 @_dispatch_repr.register
-def _(obj: GenericList, *, depth: int = 10, _visited: set[int]) -> list[Any]:
-    return [
-        recursive_repr(item, depth=depth - 1, _visited=_visited)
-        for item in _limit_size(obj)
-    ]
+def _(
+    obj: GenericList, *, depth: int = 10, _visited: dict[int, _Recorded]
+) -> list[Any]:
+    result: list[Any] = []
+    _visited[id(obj)] = _Recorded(obj, result)
+    for item in _limit_size(obj):
+        result.append(recursive_repr(item, depth=depth - 1, _visited=_visited))
+
+    return result
 
 
 @_dispatch_repr.register
-def _(obj: GenericSet, *, depth: int = 10, _visited: set[int]) -> set[Hashable]:
+def _(
+    obj: GenericSet, *, depth: int = 10, _visited: dict[int, _Recorded]
+) -> set[Hashable]:
     return {
         recursive_repr(item, depth=depth - 1, _visited=_visited)
         for item in _limit_size(obj)
@@ -279,19 +331,25 @@ def _(obj: GenericSet, *, depth: int = 10, _visited: set[int]) -> set[Hashable]:
 
 @_dispatch_repr.register
 def _(
-    obj: GenericDict, *, depth: int = 10, _visited: set[int]
+    obj: GenericDict, *, depth: int = 10, _visited: dict[int, _Recorded]
 ) -> dict[str, Any]:
-    out_dict: dict[str, Any] = {
-        str(key): recursive_repr(value, depth=depth - 1, _visited=_visited)
-        for key, value in list(obj.items())[:MAX_REPR_SIZE]
-    }
+    out_dict: dict[str, Any] = {}
+    _visited[id(obj)] = _Recorded(obj, out_dict)
+    for key, value in list(obj.items())[:MAX_REPR_SIZE]:
+        out_dict[str(key)] = recursive_repr(
+            value, depth=depth - 1, _visited=_visited
+        )
+
     if len(obj) > MAX_REPR_SIZE:
         out_dict['...'] = Omitted(len(obj) - MAX_REPR_SIZE)
+
     return out_dict
 
 
 @_dispatch_repr.register
-def _(obj: torch.Tensor, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
+def _(
+    obj: torch.Tensor, *, depth: int = 10, _visited: dict[int, _Recorded]
+) -> LiteralStr:
     _not_used = depth
     _not_used2 = _visited
     size_str = f'Tensor of size {tuple(obj.shape)}, dtype={obj.dtype}\n'
@@ -302,7 +360,9 @@ def _(obj: torch.Tensor, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
 
 
 @_dispatch_repr.register
-def _(obj: ndarray, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
+def _(
+    obj: ndarray, *, depth: int = 10, _visited: dict[int, _Recorded]
+) -> LiteralStr:
     size_factor = 2 ** (+obj.ndim - 1)
     size_str = f'Array of size {obj.shape}\n'
     with np.printoptions(
@@ -316,13 +376,13 @@ def _(obj: ndarray, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
 
 
 @_dispatch_repr.register(type)
-def _(obj, *, depth: int = 10, _visited: set[int]) -> str:
+def _(obj, *, depth: int = 10, _visited: dict[int, _Recorded]) -> str:
     _not_used = depth
     return obj.__name__
 
 
 @_dispatch_repr.register(types.FunctionType)
-def _(obj, *, depth: int = 10, _visited: set[int]) -> str:
+def _(obj, *, depth: int = 10, _visited: dict[int, _Recorded]) -> str:
     _not_used: int = depth
     return obj.__name__
 
@@ -331,7 +391,7 @@ def recursive_repr(
     obj: object,
     *,
     depth: int | None = None,
-    _visited: set[int] | None = None,
+    _visited: dict[int, _Recorded] | None = None,
 ) -> Any:
     """Create a hierarchical representation of an object with cycle detection.
 
@@ -339,28 +399,29 @@ def recursive_repr(
     items in tuples, lists, sets, and dictionaries. The latter structures are
     limited in size by limiting the number of elements and replacing the others
     with an Omitted instance. Arrays are represented using native representation
-    Numbers are returned as they are or converted to built-in types.
+    Numbers are returned as they are or converted to built-in types. An object
+    represented twice gives the same representation both times, so a cycle
+    refers back to it.
 
     Args:
-        obj: The object to represent
-        depth: Maximum recursion depth allowed (defaults to MAX_DEPTH)
-        _visited: Set of object IDs already visited (for cycle detection)
+        obj: the object to represent.
+        depth: maximum recursion depth allowed (defaults to MAX_DEPTH).
 
     Returns:
         A readable representation of the object
     """
     if _visited is None:
-        _visited = set()
+        _visited = {}
 
     if depth is None:
         depth = MAX_DEPTH
 
-    if not isinstance(obj, (str, numbers.Number, type, types.FunctionType)):
-        obj_id = id(obj)
-        if obj_id in _visited:
-            return {'duplicated': _dispatch_repr(obj, depth=1, _visited=set())}
+    if isinstance(obj, (str, numbers.Number, type, types.FunctionType)):
+        return _dispatch_repr(obj, depth=depth, _visited=_visited)
 
-        _visited.add(obj_id)
+    recorded = _visited.get(id(obj))
+    if recorded is not None:
+        return recorded.representation
 
     return _dispatch_repr(obj, depth=depth, _visited=_visited)
 
@@ -384,7 +445,7 @@ def _get_object_attributes(obj: object) -> dict[str, Any]:
 
 def _get_object_properties(obj: object) -> dict[str, Any]:
     """Extract property values from an object."""
-    properties = {}
+    properties: dict[str, Any] = {}
 
     for cls in reversed(obj.__class__.__mro__):
         for name, attr in cls.__dict__.items():
@@ -445,7 +506,7 @@ except (ImportError, ModuleNotFoundError):
     pass
 
 else:
-    from pandas.core.generic import NDFrame
+    from pandas.core import generic as pd_generic
 
     class PandasPrintOptions:
         """Context manager to temporarily set Pandas display options.
@@ -500,7 +561,12 @@ else:
             return
 
     @_dispatch_repr.register
-    def _(obj: NDFrame, *, depth: int = 10, _visited: set[int]) -> LiteralStr:
+    def _(
+        obj: pd_generic.NDFrame,
+        *,
+        depth: int = 10,
+        _visited: dict[int, _Recorded],
+    ) -> LiteralStr:
         # only defined when Pandas is imported
         _not_used = depth
         with PandasPrintOptions(

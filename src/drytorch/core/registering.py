@@ -1,33 +1,74 @@
-"""Module registering models and records when they are called.
+"""Registration of models and their runners in the current run.
 
-Actors and models are registered in global variables that keep track of the
-experiments at the time of calling. The experiment must be the same. Then the
-Experiment class is called to create the log events.
+An runner, such as a runner, registers when created, so it must be created in
+the run that registered its model.
 
 Attributes:
-    ALL_MODULES: A dictionary that maps module references to experiments.
+    ALL_MODULES: maps each registered module to the run that owns it.
+    ALL_RUNNERS: maps each registered module to the runners using it.
 """
 
+import abc
 import dataclasses
 import weakref
 
-from typing import Any, Final
+from typing import Any, Final, TypeVar
 
 import torch
+
+from typing_extensions import override
 
 from drytorch.core import exceptions, experimenting
 from drytorch.core import protocols as p
 
 
 __all__ = [
-    'ALL_ACTORS',
     'ALL_MODULES',
+    'ALL_RUNNERS',
+    'RegisteringMeta',
+    'TestRegisteringMeta',
     'check_current_run',
-    'register_actor',
     'register_model',
-    'unregister_actor',
+    'register_runner',
+    'register_test',
     'unregister_model',
+    'unregister_runner',
 ]
+
+
+_T = TypeVar('_T', bound=p.RunnerProtocol)
+
+
+class RegisteringMeta(abc.ABCMeta):
+    """Metaclass registering a runner after initialization."""
+
+    def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
+        """Runner instantiation.
+
+        Args:
+            *args: the positional arguments of the class constructor.
+            **kwargs: the keyword arguments of the class constructor.
+
+        Returns:
+            The instance.
+
+        Side Effects:
+            Registers the instance as a runner of its model.
+        """
+        instance: _T = type.__call__(cls, *args, **kwargs)
+        register_runner(instance, instance.model)
+
+        return instance
+
+
+class TestRegisteringMeta(RegisteringMeta):
+    """Metaclass registering a test after initialization."""
+
+    @override
+    def __call__(cls: type[_T], *args: Any, **kwargs: Any) -> _T:
+        instance: _T = type.__call__(cls, *args, **kwargs)
+        register_test(instance, instance.model)
+        return instance
 
 
 @dataclasses.dataclass(frozen=True)
@@ -38,13 +79,22 @@ class _Owner:
 
 
 ALL_MODULES: Final = weakref.WeakKeyDictionary[torch.nn.Module, _Owner]()
-ALL_ACTORS: Final = weakref.WeakKeyDictionary[
+ALL_RUNNERS: Final = weakref.WeakKeyDictionary[
     torch.nn.Module, weakref.WeakSet[Any]
 ]()
 
 
-def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
-    """Raise if the model's run is not the active one."""
+def check_current_run(model: p.ModelProtocol[Any, Any], /) -> None:
+    """Raise if the model's run is not the active one.
+
+    Args:
+        model: the model to check.
+
+    Raises:
+        ModuleFromAnotherRunError: if the module belongs to another run.
+        ModuleNotRegisteredError: if the module has not been registered in the
+            current run.
+    """
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     module = model.module
     owner = ALL_MODULES.get(module)
@@ -61,8 +111,10 @@ def check_current_run(model: p.ModelProtocol[Any, Any]) -> None:
             run.id,
         )
 
+    return
 
-def register_model(model: p.ModelProtocol[Any, Any]) -> None:
+
+def register_model(model: p.ModelProtocol[Any, Any], /) -> None:
     """Register a module in the current experiment.
 
     Args:
@@ -70,6 +122,7 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
 
     Raises:
         ModuleAlreadyRegisteredError: if the module is already registered.
+        NameAlreadyRegisteredError: if the name is already registered.
     """
     run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
     module = model.module
@@ -79,43 +132,64 @@ def register_model(model: p.ModelProtocol[Any, Any]) -> None:
             model.name, owner.exp_name, owner.run_id
         )
 
-    ALL_MODULES[module] = _Owner(weakref.ref(run), run.experiment.name, run.id)
+    ALL_MODULES[module] = _Owner(
+        exp_name=run.experiment.name,
+        run=weakref.ref(run),
+        run_id=run.id,
+    )
     run.metadata_manager.register_model(model)
     return
 
 
-def register_actor(actor: Any, model: p.ModelProtocol[Any, Any]) -> None:
-    """Register an actor in the current run.
+def register_runner(runner: Any, model: p.ModelProtocol[Any, Any], /) -> None:
+    """Register a runner in the current run.
 
     Args:
-        actor: the object to document.
-        model: the model that the object acts on.
+        runner: the object to document.
+        model: the model that the object runs.
 
     Raises:
         ModuleNotRegisteredError: if the module is not registered in the
             current experiment run.
+        NameAlreadyRegisteredError: if the name is already registered.
     """
-    check_current_run(model)
-    run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-    module = model.module
-
-    actors = ALL_ACTORS.setdefault(module, weakref.WeakSet())
-    if actor not in actors:
-        run.metadata_manager.register_actor(actor, model)
-        actors.add(actor)
+    run = _get_run_of_new_runner(runner, model)
+    if run is not None:
+        run.metadata_manager.register_runner(runner, model)
+        ALL_RUNNERS[model.module].add(runner)
 
     return
 
 
-def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
-    """Unregister a module and all its actors from the current experiment.
+def register_test(test: Any, model: p.ModelProtocol[Any, Any], /) -> None:
+    """Register a test in the current run.
+
+    Args:
+        test: the object to document.
+        model: the model that the object runs.
+
+    Raises:
+        ModuleNotRegisteredError: if the module is not registered in the
+            current experiment run.
+        NameAlreadyRegisteredError: if the name is already registered.
+    """
+    run = _get_run_of_new_runner(test, model)
+    if run is not None:
+        run.metadata_manager.register_test(test, model)
+        ALL_RUNNERS[model.module].add(test)
+
+    return
+
+
+def unregister_model(model: p.ModelProtocol[Any, Any], /) -> None:
+    """Unregister a module and all its runners from the current experiment.
 
     Args:
         model: the model to register.
     """
     module = model.module
     owner = ALL_MODULES.pop(module, None)
-    ALL_ACTORS.pop(module, None)
+    ALL_RUNNERS.pop(module, None)
     if owner is not None:
         run = owner.run()
         if run is not None:
@@ -124,19 +198,30 @@ def unregister_model(model: p.ModelProtocol[Any, Any]) -> None:
     return
 
 
-def unregister_actor(actor: Any) -> None:
-    """Unregister an actor from the current experiment.
+def unregister_runner(runner: Any, /) -> None:
+    """Unregister a runner from the current experiment.
 
     Args:
-        actor: the object to document.
+        runner: the object to document.
     """
     try:
         run: experimenting.Run[Any] = experimenting.Experiment.get_current().run
-        run.metadata_manager.unregister_actor(actor)
+        run.metadata_manager.unregister_runner(runner)
     except exceptions.NoActiveExperimentError:
         pass
 
-    for actor_set in ALL_ACTORS.values():
-        actor_set.discard(actor)
+    for runner_set in ALL_RUNNERS.values():
+        runner_set.discard(runner)
 
     return
+
+
+def _get_run_of_new_runner(
+    runner: Any, model: p.ModelProtocol[Any, Any], /
+) -> experimenting.Run[Any] | None:
+    check_current_run(model)
+    runners = ALL_RUNNERS.setdefault(model.module, weakref.WeakSet())
+    if runner in runners:
+        return None
+
+    return experimenting.Experiment.get_current().run

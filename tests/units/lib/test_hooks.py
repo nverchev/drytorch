@@ -1,526 +1,413 @@
-"""Tests for the "hooks" module."""
-
-import pickle
-
-from typing import Any, Literal
+"""Tests for the ``hooks`` module."""
 
 import pytest
 
 from drytorch.core import exceptions
-from drytorch.core import protocols as p
-from drytorch.lib import objectives, schedulers
+from drytorch.lib import monitoring, schedulers
 from drytorch.lib.hooks import (
-    EarlyStoppingCallback,
-    HookRegistry,
-    MetricExtractor,
-    MetricMonitor,
-    PruneCallback,
+    EarlyStopping,
+    EvaluationHook,
+    HookChain,
+    Pruning,
     ReduceLROnPlateau,
     RestartScheduleOnPlateau,
-    StaticHook,
-    call_every,
-    get_last,
-    saving_hook,
-    static_hook_class,
+    SavingHook,
+    TerminateTraining,
+    TrainerHook,
 )
 
 
-Accuracy = 'Accuracy'
-Criterion = 'Loss'
+class _CountingHook(TrainerHook):
+    """Hook counting how many times it ran."""
 
+    def __init__(self, when: monitoring.Condition = monitoring.ALWAYS) -> None:
+        """Initialize.
 
-class _TestClass:
-    def __init__(self, text: str, number: int = 1):
-        self.text = text
-        self.number = number
+        Args:
+            when: decides whether the hook runs.
+        """
+        super().__init__(when=when)
+        self.runs = 0
         return
 
-    def __call__(self) -> None:
+    def run(self) -> None:
+        """Count the run."""
+        self.runs += 1
         return
 
 
-class TestHookRegistry:
-    """Tests for HookRegistry class."""
+class TestHookChain:
+    """Tests for the HookChain class."""
 
-    @pytest.fixture
-    def registry(self) -> HookRegistry[Any]:
-        """Set up the instance."""
-        return HookRegistry()
+    def test_execute_in_order(self, mocker) -> None:
+        """Test the hooks are executed in the given order."""
+        calls: list[int] = []
+        first = mocker.Mock(side_effect=lambda: calls.append(1))
+        second = mocker.Mock(side_effect=lambda: calls.append(2))
+        chain = HookChain([first, second])
 
-    def test_register_single_hook(self, mocker, registry) -> None:
-        """Test that a single hook can be registered and executed."""
-        mock_hook = mocker.MagicMock()
-        registry.register(mock_hook)
-        registry.execute(mocker.MagicMock())  # Pass any instance
-        mock_hook.assert_called_once()
+        chain.execute()
 
-    def test_register_all_hooks(self, mocker, registry) -> None:
-        """Test that multiple hooks can be registered and executed in order."""
-        mock_hook1 = mocker.MagicMock()
-        mock_hook2 = mocker.MagicMock()
-        registry.register_all([mock_hook1, mock_hook2])
-        registry.execute(mocker.MagicMock())
-        mock_hook1.assert_called_once()
-        mock_hook2.assert_called_once()
+        assert calls == [1, 2]
+
+    def test_binds_its_hooks(self, mocker, mock_trainer) -> None:
+        """Test binding the chain binds every hook."""
+        hook = mocker.Mock()
+        chain = HookChain([hook])
+
+        chain.bind_trainer(mock_trainer)
+
+        hook.bind_trainer.assert_called_once_with(mock_trainer)
+
+    def test_hooks_copied(self, mocker) -> None:
+        """Test changing the given hooks does not change the chain."""
+        hook_list = [mocker.Mock()]
+        chain = HookChain(hook_list)
+
+        hook_list.append(mocker.Mock())
+
+        assert len(chain.hooks) == 1
+
+
+class TestTrainerHook:
+    """Tests for the TrainerHook class."""
+
+    def test_runs_when_the_condition_holds(self, mock_trainer) -> None:
+        """Test the hook runs while its condition holds."""
+        hook = _CountingHook(when=monitoring.After(mock_trainer.model.epoch))
+        hook.bind_trainer(mock_trainer)
+
+        hook()
+
+        assert hook.runs == 1
+
+    def test_skips_when_the_condition_fails(self, mock_trainer) -> None:
+        """Test the hook does not run when its condition fails."""
+        hook = _CountingHook(
+            when=monitoring.After(mock_trainer.model.epoch + 1)
+        )
+        hook.bind_trainer(mock_trainer)
+
+        hook()
+
+        assert hook.runs == 0
+
+    def test_records_the_epoch_it_ran(self, mock_trainer) -> None:
+        """Test the hook remembers when it last ran."""
+        hook = _CountingHook()
+        hook.bind_trainer(mock_trainer)
+
+        assert hook.last_run_epoch == 0
+
+        hook()
+
+        assert hook.last_run_epoch == mock_trainer.model.epoch
+
+    def test_observes_before_running(self, mocker, mock_trainer) -> None:
+        """Test the condition observes on every call."""
+        when = mocker.Mock(return_value=False)
+        hook = _CountingHook(when=when)
+        hook.bind_trainer(mock_trainer)
+
+        hook()
+
+        when.observe.assert_called_once_with(hook)
+
+    def test_not_bound(self) -> None:
+        """Test calling a hook before a trainer binds it raises."""
+        hook = SavingHook()
+
+        with pytest.raises(exceptions.HookNotBoundError):
+            hook()
+
+    def test_bound_twice(self, mocker, mock_trainer) -> None:
+        """Test binding a hook to a second trainer raises."""
+        hook = SavingHook()
+        hook.bind_trainer(mock_trainer)
+
+        with pytest.raises(exceptions.HookAlreadyBoundError):
+            hook.bind_trainer(mocker.Mock())
+
+    def test_binds_its_condition(self, mocker, mock_trainer) -> None:
+        """Test binding the hook binds its condition."""
+        when = mocker.Mock()
+        hook = _CountingHook(when=when)
+
+        hook.bind_trainer(mock_trainer)
+
+        when.bind_trainer.assert_called_once_with(mock_trainer)
 
 
 def test_saving_hook(mock_trainer) -> None:
-    """Test that saving_hook calls save_checkpoint on the instance."""
-    hook = saving_hook
-    hook(mock_trainer)
+    """Test the saving hook saves the checkpoint of its trainer."""
+    hook = SavingHook()
+    hook.bind_trainer(mock_trainer)
+
+    hook()
+
     mock_trainer.save_checkpoint.assert_called_once()
 
 
-def test_static_hook(mocker) -> None:
-    """Test that static_hook wraps a void callable."""
-    mock_callable = mocker.MagicMock()
-    hook = StaticHook(mock_callable)
-    hook(mocker.MagicMock())
-    mock_callable.assert_called_once()
+def test_evaluation_hook(mocker, mock_trainer) -> None:
+    """Test the hook runs the evaluation it holds."""
+    evaluation = mocker.Mock()
+    hook = EvaluationHook(evaluation)
+    hook.bind_trainer(mock_trainer)
+
+    hook()
+
+    evaluation.assert_called_once()
 
 
-def test_static_class(mocker, mock_trainer) -> None:
-    """Test that static_hook_class creates a callable hook."""
-    mock_event = mocker.MagicMock()
-    hook = static_hook_class(_TestClass)('test')
-    mocker.patch.object(_TestClass, '__call__', mock_event)
+def test_evaluation_hook_runs_periodically(
+    mocker, mock_trainer, mock_model
+) -> None:
+    """Test a scheduled evaluation runs every given number of epochs."""
+    evaluation = mocker.Mock()
+    hook = EvaluationHook(evaluation, when=monitoring.Every(2, start=2))
+    hook.bind_trainer(mock_trainer)
 
-    hook(mock_trainer)
-    mock_event.assert_called_once()
+    for epoch in (1, 2, 3):
+        mock_model.epoch = epoch
+        hook()
 
-
-def test_static_hook_pickleable(mocker, mock_trainer) -> None:
-    """Test that static_hook_class produces pickleable hooks."""
-    mock_event = mocker.MagicMock()
-    mocker.patch.object(_TestClass, '__call__', mock_event)
-
-    original_hook = static_hook_class(_TestClass)('test', number=42)
-    reconstructed_hook = pickle.loads(pickle.dumps(original_hook))  # noqa: S301
-
-    reconstructed_hook(mock_trainer)
-    mock_event.assert_called_once()
+    evaluation.assert_called_once()
 
 
-def test_call_every(mocker, mock_trainer) -> None:
-    """Test call_every executes the hook based on interval and trainer state."""
-    mock_hook = mocker.MagicMock()
-    hook = call_every(start=3, interval=3)(mock_hook)
+def test_terminate_training(mock_trainer) -> None:
+    """Test the hook terminates the training of its trainer."""
+    hook = TerminateTraining()
+    hook.bind_trainer(mock_trainer)
 
-    mock_hook.reset_mock()
-    mock_trainer.model.epoch = 0
-    hook(mock_trainer)
-    mock_hook.assert_not_called()
+    hook()
 
-    mock_hook.reset_mock()
-    mock_trainer.model.epoch = 4
-    hook(mock_trainer)
-    mock_hook.assert_not_called()
-
-    mock_trainer.model.epoch = 6
-    hook(mock_trainer)
-    mock_hook.assert_called_once_with(mock_trainer)
-
-    mock_hook.reset_mock()
-    mock_trainer.terminate_training('This is a test.')
-    hook(mock_trainer)
-    mock_hook.assert_called_once_with(mock_trainer)
+    mock_trainer.terminate_training.assert_called_once_with(
+        'a hook terminated the training'
+    )
 
 
-class TestMetricExtractor:
-    """Tests for MetricExtractor class."""
-
-    @pytest.fixture()
-    def mock_metric_higher_is_better(self, mocker) -> p.ObjectiveProtocol:
-        """Mock a metric object with higher_is_better = True."""
-        mock = mocker.MagicMock()
-        mock.higher_is_better = True
-        mock.name = 'test_accuracy'
-        return mock
-
-    @pytest.fixture()
-    def mock_metric_lower_is_better(self, mocker) -> p.ObjectiveProtocol:
-        """Mock a metric object with higher_is_better = False."""
-        mock = mocker.MagicMock()
-        mock.higher_is_better = False
-        mock.name = 'test_loss'
-        return mock
-
-    @pytest.fixture()
-    def mock_metric_no_preference(self, mocker) -> p.ObjectiveProtocol:
-        """Mock a metric object with no higher_is_better attribute."""
-        mock = mocker.MagicMock()
-        del mock.higher_is_better  # Remove the attribute
-        mock.name = 'test_metric'
-        return mock
-
-    @pytest.fixture()
-    def extractor_from_str(self, example_loss_name) -> MetricExtractor:
-        """Set up an extractor with string metric."""
-        return MetricExtractor(metric=example_loss_name)
-
-    @pytest.fixture()
-    def extractor_from_object(
-        self, mock_metric_higher_is_better
-    ) -> MetricExtractor:
-        """Set up an extractor with a metric object."""
-        return MetricExtractor(metric=mock_metric_higher_is_better)
-
-    @pytest.fixture()
-    def extractor_no_metric(self) -> MetricExtractor:
-        """Set up an extractor with no specified metric."""
-        return MetricExtractor()
+class TestEarlyStopping:
+    """Tests for the EarlyStopping hook."""
 
     @pytest.fixture
-    def mock_metric_tracker(self, mocker) -> objectives.MetricTracker:
-        """Returns a mock object."""
-        return mocker.create_autospec(objectives.MetricTracker)
-
-    def test_init_with_string_metric(
-        self, extractor_from_str, example_loss_name
-    ) -> None:
-        """Test instantiation with string metric."""
-        assert extractor_from_str.metric_spec == example_loss_name
-        assert extractor_from_str.metric_name is None  # Not resolved yet
-
-    def test_init_with_metric_object(
-        self, extractor_from_object, mock_metric_higher_is_better
-    ) -> None:
-        """Test instantiation with a metric object."""
-        assert extractor_from_object.metric_spec == mock_metric_higher_is_better
-        assert extractor_from_object.metric_name is None  # Not resolved yet
-
-    def test_get_monitor_with_validation(
-        self, extractor_from_str, mock_trainer, mock_validation
-    ) -> None:
-        """Test getting monitored values with validation available."""
-        mock_trainer.validation = mock_validation
-        monitor = extractor_from_str._get_monitor(mock_trainer)
-        assert monitor == mock_trainer.validation
-
-    def test_get_monitor_without_validation(
-        self, extractor_from_str, mock_trainer
-    ) -> None:
-        """Test getting monitored values without validation."""
-        mock_trainer.validation = None
-        assert extractor_from_str._get_monitor(mock_trainer) == mock_trainer
-
-    def test_get_monitor_with_optional_monitor(
-        self, mock_trainer, mock_validation
-    ) -> None:
-        """Test getting monitored values with an optional monitor specified."""
-        extractor = MetricExtractor(monitor=mock_validation)
-        assert extractor._get_monitor(mock_trainer) == mock_validation
-
-    def test_get_metric_name_from_string(self) -> None:
-        """Test extracting metric name from string."""
-        assert MetricExtractor._get_metric_name('test_loss') == 'test_loss'
-
-    def test_get_metric_name_from_object_with_name(
-        self, mock_metric_higher_is_better
-    ) -> None:
-        """Test extracting a name from an object with a name attribute."""
-        name = MetricExtractor._get_metric_name(mock_metric_higher_is_better)
-        assert name == 'test_accuracy'
-
-    def test_get_metric_name_from_class_name(
-        self, mocker, example_loss_name
-    ) -> None:
-        """Test extracting metric name from class name."""
-        mock = mocker.MagicMock(spec=[])  # empty spec, no name or _get_name
-        mock.__class__.__name__ = example_loss_name
-        assert MetricExtractor._get_metric_name(mock) == example_loss_name
-
-    def test_get_metric_best_is_higher(
-        self, mock_metric_higher_is_better
-    ) -> None:
-        """Test getting best_is preference when higher is better."""
-        assert (
-            MetricExtractor._get_metric_best_is(mock_metric_higher_is_better)
-            == 'higher'
-        )
-
-    def test_get_metric_best_is_lower(
-        self, mock_metric_lower_is_better
-    ) -> None:
-        """Test getting best_is preference when lower is better."""
-        assert (
-            MetricExtractor._get_metric_best_is(mock_metric_lower_is_better)
-            == 'lower'
-        )
-
-    def test_get_metric_best_is_none(self, mock_metric_no_preference) -> None:
-        """Test getting best_is preference when not specified."""
-        assert (
-            MetricExtractor._get_metric_best_is(mock_metric_no_preference)
-            is None
-        )
-
-    def test_get_metric_best_is_string_metric(self) -> None:
-        """Test getting best_is preference for string metric."""
-        assert MetricExtractor._get_metric_best_is('test_loss') is None
-
-    def test_get_metric_best_is_none_metric(self) -> None:
-        """Test getting best_is preference for None metric."""
-        assert MetricExtractor._get_metric_best_is(None) is None
-
-    def test_extract_metric_value_with_string_metric(
-        self,
-        extractor_from_str,
-        mock_trainer,
-        mock_metric_tracker,
-        example_loss_name,
-    ) -> None:
-        """Test extracting metric value with string metric specification."""
-        extractor_from_str.extract_metric_value(
-            mock_trainer, mock_metric_tracker
-        )
-        # example_loss_name is the first metric name in example_named_metrics
-        assert extractor_from_str._resolved_metric_name == example_loss_name
-
-    def test_extract_metric_value_auto_select_first_metric(
-        self,
-        extractor_no_metric,
-        mock_trainer,
-        mock_metric_tracker,
-        example_loss_name,
-    ) -> None:
-        """Test extracting metric value when no metric specified."""
-        mock_trainer.validation.objective = None
-        extractor_no_metric.extract_metric_value(
-            mock_trainer, mock_metric_tracker
-        )
-        # example_loss_name is the first metric name in example_named_metrics
-        assert extractor_no_metric._resolved_metric_name == example_loss_name
-
-    def test_extract_metric_value_metric_not_found(
-        self,
-        extractor_from_str,
-        mock_trainer,
-        mock_metric_tracker,
-    ) -> None:
-        """Test exception when the specified metric is not found."""
-        mock_trainer.validation = None
-        mock_trainer.computed_metrics.return_value = {}
-        with pytest.raises(exceptions.MetricNotFoundError):
-            extractor_from_str.extract_metric_value(
-                mock_trainer, mock_metric_tracker
-            )
-
-    def test_get_metric_best_is_delegation(self, extractor_from_object) -> None:
-        """Test get_metric_best_is delegates to a static method."""
-        result = extractor_from_object.get_metric_best_is()
-        assert result == 'higher'
-
-
-class TestMetricMonitor:
-    """Tests for MetricMonitor class."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, mocker) -> None:
-        """Set up the tests."""
-        self.mock_extractor = mocker.create_autospec(MetricExtractor)
-        self.mock_extractor.get_metric_best_is = mocker.Mock(
-            return_value='higher'
-        )
-        self.mock_metric_tracker = mocker.create_autospec(
-            objectives.MetricTracker, instance=True
-        )
-        self.mock_metric_tracker.best_is = 'auto'
-        self.mock_metric_tracker_cls = mocker.patch(
-            'drytorch.lib.objectives.MetricTracker'
-        )
-        self.mock_metric_extractor_cls = mocker.patch(
-            'drytorch.lib.hooks.MetricExtractor'
-        )
-        self.mock_metric_tracker_cls.return_value = self.mock_metric_tracker
-        self.mock_metric_extractor_cls.return_value = self.mock_extractor
-        return
-
-    def test_init_calls_metric_extractor_and_metric_tracker(self) -> None:
-        """Test that the constructor calls the mocks."""
-        metric = 'accuracy'
-        min_delta = 0.01
-        patience = 5
-        best_is: Literal['auto', 'higher', 'lower'] = 'higher'
-
-        MetricMonitor(
-            metric=metric,
-            min_delta=min_delta,
-            patience=patience,
-            best_is=best_is,
-        )
-
-        self.mock_metric_extractor_cls.assert_called_once_with(
-            metric=metric, monitor=None
-        )
-        self.mock_metric_tracker_cls.assert_called_once_with(  # type: ignore
-            metric_name=metric,
-            min_delta=min_delta,
-            patience=patience,
-            best_is=best_is,
-            filter_fn=get_last,
-        )
-
-    def test_record_extractor_and_tracker_calls(self, mocker) -> None:
-        """Test that record_metric_value calls the necessary methods."""
-        instance = mocker.Mock()
-        monitor = MetricMonitor[Any, Any](metric='accuracy')
-        self.mock_extractor.extract_metric_value.return_value = 0.95
-        monitor.record_metric_value(instance)
-
-        self.mock_extractor.extract_metric_value.assert_called_once_with(
-            instance, monitor.metric_tracker
-        )
-        self.mock_metric_tracker.add_value.assert_called_once_with(0.95)
-
-    def test_properties_delegate_to_tracker(self):
-        """Test properties delegate all calls to the internal tracker."""
-        monitor = MetricMonitor(metric='accuracy')
-        monitor.metric_tracker.best_value = 0.99
-        self.mock_metric_tracker.filtered_value = 0.95
-        monitor.metric_tracker.history = [0.9, 0.92, 0.95]
-
-        assert monitor.best_value == 0.99
-        assert monitor.filtered_value == 0.95
-        assert monitor.history == [0.9, 0.92, 0.95]
-
-    def test_is_improving_and_is_patient_delegate_to_tracker(self):
-        """Test that is_improving and is_patient delegate to the tracker."""
-        monitor = MetricMonitor(metric='accuracy')
-        monitor.metric_tracker.is_improving.return_value = True
-        monitor.metric_tracker.is_patient.return_value = False
-
-        is_improving = monitor.is_improving()
-        is_patient = monitor.is_patient()
-
-        assert is_improving is True
-        assert is_patient is False
-        self.mock_metric_tracker.is_improving.assert_called_once()
-        self.mock_metric_tracker.is_patient.assert_called_once()
-
-    def test_is_better_delegates_to_tracker(self):
-        """Test that is_better delegates to the tracker."""
-        monitor = MetricMonitor(metric='accuracy')
-        self.mock_metric_tracker.is_better.return_value = True  # type: ignore
-
-        result = monitor.is_better(0.95, 0.9)
-
-        assert result is True
-        self.mock_metric_tracker.is_better.assert_called_once_with(0.95, 0.9)
-
-    def test_metric_name_property_delegates_to_extractor_and_tracker(self):
-        """Test that the metric_name property delegates correctly."""
-        monitor = MetricMonitor(metric='accuracy')
-        self.mock_extractor.metric_name = 'test_accuracy'
-        self.mock_metric_tracker.metric_name = 'tracker_accuracy'
-
-        assert monitor.metric_name == 'test_accuracy'
-
-
-class TestEarlyStoppingCallback:
-    """Tests for EarlyStoppingCallback."""
-
-    @pytest.fixture()
-    def callback(self, example_loss_name) -> EarlyStoppingCallback:
+    def hook(self, example_loss_name) -> EarlyStopping:
         """Set up a test instance."""
-        return EarlyStoppingCallback(
-            metric=example_loss_name,
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
+        return EarlyStopping(
             patience=2,
+            start_from_epoch=1,
+            watch=watch,
         )
 
-    def test_early_epoch_no_stop(self, mock_trainer, callback) -> None:
+    def test_plateau_property(self, hook) -> None:
+        """Test the plateau property exposes the condition."""
+        assert isinstance(hook.plateau, monitoring.Plateau)
+
+    def test_early_epoch_no_stop(self, mock_trainer, mock_model, hook) -> None:
         """Test training continues if not enough epochs passed."""
-        mock_trainer.model.epoch = 1
-        callback(mock_trainer)
-        mock_trainer.terminate_training.assert_not_called()  # type: ignore
+        mock_model.epoch = 0
+        hook.bind_trainer(mock_trainer)
 
-    def test_stops_on_plateau(self, mock_trainer, callback) -> None:
+        hook()
+
+        mock_trainer.terminate_training.assert_not_called()
+
+    def test_stops_on_plateau(
+        self, mock_trainer, mock_model, hook, example_loss_name
+    ) -> None:
         """Test training stops after a plateau."""
-        objective = mock_trainer.validation.objective  # type: ignore
-        objective.higher_is_better = True
-        for _ in range(callback.monitor.metric_tracker.patience + 1):
-            callback(mock_trainer)
-        mock_trainer.terminate_training.assert_called_once()  # type: ignore
+        hook.bind_trainer(mock_trainer)
+
+        for epoch in range(1, 4):
+            mock_model.epoch = epoch
+            mock_trainer.computed_metrics = {example_loss_name: 1.0}
+            mock_trainer.last_run_epoch = epoch
+            hook()
+
+        mock_trainer.terminate_training.assert_called_once()
+        call_msg = mock_trainer.terminate_training.call_args[0][0]
+        assert 'the metric stopped improving' in call_msg
 
 
-class TestPruneCallback:
-    """Tests for PruneCallback."""
+class TestPruning:
+    """Tests for the Pruning hook."""
 
-    @pytest.fixture()
-    def simple_pruning(self) -> dict[int, float]:
-        """Set up a simple pruning instance."""
-        return {3: 2, 5: 0.5}
-
-    @pytest.fixture()
-    def callback(self, example_loss_name, simple_pruning) -> PruneCallback:
+    @pytest.fixture
+    def hook(self, example_loss_name) -> Pruning:
         """Set up a test instance."""
-        return PruneCallback(
-            thresholds=simple_pruning,
-            metric=example_loss_name,
-            best_is='higher',
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
+        return Pruning(
+            {3: 2.0, 5: 0.5},
+            watch=watch,
         )
 
-    def test_no_pruning_before_threshold(self, mock_trainer, callback) -> None:
+    def test_no_pruning_before_threshold(
+        self, mock_trainer, mock_model, hook, example_loss_name
+    ) -> None:
         """Test no pruning before the defined epoch."""
-        mock_trainer.model.epoch = 2
-        callback(mock_trainer)
-        mock_trainer.terminate_training.assert_not_called()  # type: ignore
+        mock_model.epoch = 2
+        mock_trainer.computed_metrics = {example_loss_name: 1.0}
+        mock_trainer.last_run_epoch = 2
+        hook.bind_trainer(mock_trainer)
 
-    def test_prunes_at_threshold(self, mock_trainer, callback) -> None:
+        hook()
+
+        mock_trainer.terminate_training.assert_not_called()
+
+    def test_prunes_at_threshold(
+        self, mock_trainer, mock_model, hook, example_loss_name
+    ) -> None:
         """Test pruning occurs when the threshold condition is met."""
-        mock_trainer.model.epoch = 5
-        callback(mock_trainer)
-        mock_trainer.terminate_training.assert_called_once()  # type: ignore
+        mock_model.epoch = 5
+        mock_trainer.computed_metrics = {example_loss_name: 0.2}
+        mock_trainer.last_run_epoch = 5
+        hook.bind_trainer(mock_trainer)
+
+        hook()
+
+        mock_trainer.terminate_training.assert_called_once()
+        call_msg = mock_trainer.terminate_training.call_args[0][0]
+        assert 'the metric missed a threshold' in call_msg
 
 
 class TestReduceLROnPlateau:
-    """Tests for ReduceLROnPlateau."""
+    """Tests for the ReduceLROnPlateau hook."""
 
-    @pytest.fixture()
-    def callback(self, example_loss_name) -> ReduceLROnPlateau:
+    @pytest.fixture
+    def hook(self, example_loss_name) -> ReduceLROnPlateau:
         """Set up a test instance."""
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
         return ReduceLROnPlateau(
-            metric=example_loss_name, patience=2, factor=0.01, cooldown=1
+            factor=0.01,
+            patience=2,
+            cooldown=1,
+            watch=watch,
         )
 
-    def test_reduces_lr_and_respects_cooldown(
-        self, mocker, mock_trainer, callback
+    def test_plateau_property(self, hook) -> None:
+        """Test the plateau property exposes the condition."""
+        assert isinstance(hook.plateau, monitoring.Plateau)
+
+    def test_reduces_lr(
+        self, mocker, mock_trainer, mock_model, hook, example_loss_name
     ) -> None:
-        """Test LR reduction and cooldown enforcement."""
-        scheduler = schedulers.ConstantScheduler()
-        mock_trainer.learning_schema = mocker.Mock
-        mock_trainer.learning_schema.scheduler = scheduler
+        """Test the learning rate is reduced after the patience."""
+        mock_trainer.learning_schema = mocker.Mock()
+        mock_trainer.learning_schema.scheduler = schedulers.ConstantScheduler()
+        hook.bind_trainer(mock_trainer)
 
-        for _ in range(callback.monitor.metric_tracker.patience + 1):
-            callback(mock_trainer)
+        for epoch in range(1, 4):
+            mock_model.epoch = epoch
+            mock_trainer.computed_metrics = {example_loss_name: 1.0}
+            mock_trainer.last_run_epoch = epoch
+            hook()
 
-        mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
+        mock_trainer.update_learning_rate.assert_called_once()
 
-        callback(mock_trainer)
-        mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
+    def test_respects_cooldown(
+        self, mocker, mock_trainer, mock_model, hook, example_loss_name
+    ) -> None:
+        """Test no further reduction happens during the cooldown."""
+        mock_trainer.learning_schema = mocker.Mock()
+        mock_trainer.learning_schema.scheduler = schedulers.ConstantScheduler()
+        hook.bind_trainer(mock_trainer)
+
+        for epoch in range(1, 5):
+            mock_model.epoch = epoch
+            mock_trainer.computed_metrics = {example_loss_name: 1.0}
+            mock_trainer.last_run_epoch = epoch
+            hook()
+
+        mock_trainer.update_learning_rate.assert_called_once()
+
+    def test_validation_every_two_epochs_single_reduction(
+        self,
+        mocker,
+        mock_trainer,
+        mock_model,
+        mock_validation,
+        example_loss_name,
+    ) -> None:
+        """Test validation every 2 epochs produces a single reduction."""
+        mock_trainer.learning_schema = mocker.Mock()
+        mock_trainer.learning_schema.scheduler = schedulers.ConstantScheduler()
+        watch = monitoring.Watch(
+            source=mock_validation,
+            best_is='higher',
+            metric_name=example_loss_name,
+        )
+        hook = ReduceLROnPlateau(
+            factor=0.1, patience=0, cooldown=0, watch=watch
+        )
+        hook.bind_trainer(mock_trainer)
+
+        # Epoch 0: baseline
+        mock_model.epoch = 0
+        mock_validation.computed_metrics = {example_loss_name: 1.0}
+        mock_validation.last_run_epoch = 0
+        hook()
+
+        # Epoch 1: no validation
+        mock_model.epoch = 1
+        mock_validation.computed_metrics = {}
+        mock_validation.last_run_epoch = 0
+        hook()
+
+        # Epoch 2: plateau triggers reduction
+        mock_model.epoch = 2
+        mock_validation.computed_metrics = {example_loss_name: 1.0}
+        mock_validation.last_run_epoch = 2
+        hook()
+
+        # Epoch 3: no validation, no second reduction
+        mock_model.epoch = 3
+        mock_validation.computed_metrics = {}
+        mock_validation.last_run_epoch = 2
+        hook()
+
+        mock_trainer.update_learning_rate.assert_called_once()
 
 
 class TestRestartScheduleOnPlateau:
-    """Tests for RestartScheduleOnPlateau."""
+    """Tests for the RestartScheduleOnPlateau hook."""
 
-    @pytest.fixture()
-    def callback(self, example_loss_name) -> RestartScheduleOnPlateau:
+    @pytest.fixture
+    def hook(self, example_loss_name) -> RestartScheduleOnPlateau:
         """Set up a test instance."""
+        watch = monitoring.Watch(
+            best_is='higher', metric_name=example_loss_name
+        )
         return RestartScheduleOnPlateau(
-            metric=example_loss_name, patience=2, cooldown=1
+            patience=2,
+            watch=watch,
         )
 
-    def test_restarts_schedule_on_plateau(
-        self, mocker, mock_trainer, callback
+    def test_plateau_property(self, hook) -> None:
+        """Test the plateau property exposes the condition."""
+        assert isinstance(hook.plateau, monitoring.Plateau)
+
+    def test_restarts_schedule(
+        self, mocker, mock_trainer, mock_model, hook, example_loss_name
     ) -> None:
-        """Test learning schedule restart after plateau."""
-        scheduler = schedulers.ConstantScheduler()
-        mock_trainer.learning_schema = mocker.Mock
-        mock_trainer.learning_schema.scheduler = scheduler
+        """Test the schedule restarts after a plateau."""
+        mock_trainer.learning_schema = mocker.Mock()
+        mock_trainer.learning_schema.scheduler = schedulers.ConstantScheduler()
+        hook.bind_trainer(mock_trainer)
 
-        for _ in range(callback.monitor.metric_tracker.patience + 2):
-            callback(mock_trainer)
+        for epoch in range(1, 4):
+            mock_model.epoch = epoch
+            mock_trainer.computed_metrics = {example_loss_name: 1.0}
+            mock_trainer.last_run_epoch = epoch
+            hook()
 
-        mock_trainer.update_learning_rate.assert_called_once()  # type: ignore
-        args = mock_trainer.update_learning_rate.call_args  # type: ignore
-        assert isinstance(args[1]['scheduler'], schedulers.AbstractScheduler)
+        arguments = mock_trainer.update_learning_rate.call_args
+        mock_trainer.update_learning_rate.assert_called_once()
+        assert isinstance(
+            arguments[1]['scheduler'], schedulers.AbstractScheduler
+        )

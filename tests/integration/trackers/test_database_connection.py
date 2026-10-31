@@ -35,7 +35,7 @@ def event_workflow(
     model_registration_event,
     load_model_event,
     start_training_event,
-    actor_registration_event,
+    runner_registration_event,
     start_epoch_event,
     iterate_batch_event,
     metrics_event,
@@ -45,8 +45,7 @@ def event_workflow(
     continue_experiment_event,
     terminated_training_event,
     end_training_event,
-    start_test_event,
-    end_test_event,
+    test_metric_event,
     save_model_event,
     stop_experiment_event,
 ) -> tuple[log_events.Event, ...]:
@@ -56,7 +55,7 @@ def event_workflow(
         model_registration_event,
         load_model_event,
         start_training_event,
-        actor_registration_event,
+        runner_registration_event,
         start_epoch_event,
         iterate_batch_event,
         metrics_event,
@@ -66,8 +65,7 @@ def event_workflow(
         continue_experiment_event,
         terminated_training_event,
         end_training_event,
-        start_test_event,
-        end_test_event,
+        test_metric_event,
         save_model_event,
         stop_experiment_event,
     )
@@ -75,7 +73,7 @@ def event_workflow(
 
 
 class TestSQLConnection:
-    """Tests for the SQLConnection class."""
+    """Tests for the ``SQLConnection`` class."""
 
     @pytest.fixture
     def tracker(self, tmp_path) -> Generator[SQLConnection, None, None]:
@@ -91,7 +89,6 @@ class TestSQLConnection:
 
     def test_database_connection_failure(self) -> None:
         """Test behavior when the database connection fails."""
-        # example case of connection failure
         invalid_engine = sqlalchemy.create_engine(
             'sqlite:///invalid/path/database.db'
         )
@@ -101,7 +98,6 @@ class TestSQLConnection:
 
     def test_concurrent_database_access(self, tmp_path, event_workflow) -> None:
         """Test two tracker instances accessing a database concurrently."""
-        database = tmp_path / 'test_db.db'
         database = tmp_path / 'test_db.db'
         engine = sqlalchemy.create_engine(
             f'sqlite:///{database}', poolclass=sqlalchemy.pool.NullPool
@@ -137,7 +133,7 @@ class TestSQLConnection:
         tracker,
         mocker,
         start_experiment_event,
-        actor_registration_event,
+        runner_registration_event,
     ) -> None:
         """Test that sessions are properly rolled back on errors."""
 
@@ -145,14 +141,14 @@ class TestSQLConnection:
             raise sqlalchemy_exc.IntegrityError('', '', ValueError())
 
         tracker.notify(start_experiment_event)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         mocker.patch.object(
             sqlalchemy.orm.Session,  # type: ignore
             'add',
             side_effect=_raise_integrity_error,
         )
         with pytest.raises(sqlalchemy_exc.IntegrityError):
-            tracker.notify(actor_registration_event)
+            tracker.notify(runner_registration_event)
 
         # verify database state is consistent (no partial commits)
         with tracker.session_factory() as session:
@@ -166,7 +162,7 @@ class TestSQLConnection:
 
 
 class TestSQLConnectionPauseContinue:
-    """Tests SQLConnection run isolation across interleaved runs."""
+    """Tests ``SQLConnection`` run isolation across interleaved runs."""
 
     @pytest.fixture
     def tracker(
@@ -191,23 +187,22 @@ class TestSQLConnectionPauseContinue:
         stop_experiment_event: log_events.StopExperimentEvent,
         start_experiment_event_b: log_events.StartExperimentEvent,
         stop_experiment_event_b: log_events.StopExperimentEvent,
-        actor_registration_event: log_events.ActorRegistrationEvent,
+        runner_registration_event: log_events.RunnerRegistrationEvent,
         metrics_event_a1: log_events.MetricEvent,
         metrics_event_b: log_events.MetricEvent,
         metrics_event_a2: log_events.MetricEvent,
         run_b_id: str,
     ) -> None:
-        """Verify SQLConnection keeps separate run rows and isolated logs."""
+        """Verify isolated logs and runs in ``SQLConnection``."""
         run_a = start_experiment_event.run_id
 
-        # Trigger
         tracker.notify(start_experiment_event)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         tracker.notify(metrics_event_a1)
         tracker.notify(pause_experiment_event)
 
         tracker.notify(start_experiment_event_b)
-        tracker.notify(actor_registration_event)
+        tracker.notify(runner_registration_event)
         tracker.notify(metrics_event_b)
         tracker.notify(stop_experiment_event_b)
 
@@ -215,7 +210,6 @@ class TestSQLConnectionPauseContinue:
         tracker.notify(metrics_event_a2)
         tracker.notify(stop_experiment_event)
 
-        # Assert
         with tracker.session_factory() as session:
             exp_rows = session.scalars(
                 sqlalchemy.select(sql_models.Experiment)

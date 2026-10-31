@@ -1,5 +1,7 @@
 """Configuration module with mockups."""
 
+from typing import Any
+
 import torch
 
 import pytest
@@ -22,8 +24,7 @@ def mock_model(
     mock.module = torch.nn.Linear(1, 1)
     mock.device = torch.device('cpu')
     mock.increment_epoch = mocker.Mock()
-    mock.checkpoint = mocker.Mock()
-    mock.mixed_precision = False
+    mock.mixed_precision = None
     return mock
 
 
@@ -70,7 +71,18 @@ def mock_loss(mocker) -> p.LossProtocol[torch.Tensor, torch.Tensor]:
     mock.forward = mocker.Mock(return_value=mock_loss_value)
     mock.name = 'Loss'
     mock.compute = mocker.Mock(return_value={'Loss': torch.tensor(1)})
-    mock.__deepcopy__ = mocker.Mock(return_value=mock)
+    mock.higher_is_better = False
+
+    def _deepcopy(memo: Any = None):
+        _not_used = memo
+        copied = mocker.create_autospec(spec=p.LossProtocol, instance=True)
+        copied.name = mock.name
+        copied.compute = mock.compute
+        copied.higher_is_better = mock.higher_is_better
+        copied.forward = mock.forward
+        return copied
+
+    mock.__deepcopy__ = mocker.Mock(side_effect=_deepcopy)
     return mock
 
 
@@ -91,32 +103,31 @@ def mock_loader(mocker) -> p.LoaderProtocol[tuple[torch.Tensor, torch.Tensor]]:
 
 @pytest.fixture
 def mock_validation(
-    mocker, mock_metric, example_named_metrics
-) -> p.MonitorProtocol:
+    mocker, mock_metric, example_epoch, example_named_metrics
+) -> p.SourceProtocol:
     """Fixture for a mock validation."""
-    mock = mocker.create_autospec(spec=p.MonitorProtocol, instance=True)
+    mock = mocker.create_autospec(spec=p.SourceProtocol, instance=True)
     mock.name = 'mock_validation'
     mock.objective = mock_metric
     mock.computed_metrics = example_named_metrics
+    mock.last_run_epoch = example_epoch
     return mock
 
 
 @pytest.fixture
 def mock_trainer(
-    mocker, mock_model, mock_loss, mock_validation, example_named_metrics
+    mocker, mock_model, mock_loss, example_named_metrics
 ) -> p.TrainerProtocol:
     """Fixture for a mock trainer."""
     mock = mocker.create_autospec(p.TrainerProtocol, instance=True)
     mock.model = mock_model
     mock.name = 'mock_trainer'
     mock.objective = mock_loss
-    mock.validation = mock_validation
     mock.terminated = False
-    mock.__class__.computed_metrics = mocker.PropertyMock(
-        return_value=example_named_metrics
-    )
+    mock.computed_metrics = example_named_metrics
+    mock.last_run_epoch = mock_model.epoch
 
-    def _terminate_training(reason: str):
+    def _terminate_training(reason: str) -> None:
         mock.terminated = True
         _unused = reason
 

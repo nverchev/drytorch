@@ -1,15 +1,12 @@
-"""Tests for the "models" module."""
-
-import unittest.mock
+"""Tests for the ``models`` module."""
 
 import torch
 
-from ...simple_classes import MLP, TorchData, TorchTuple
-
 import pytest
 
-from drytorch import Model
-from drytorch.lib.models import EMAModel, SWAModel
+from drytorch.core import log_events
+from drytorch.lib.models import EMAModel, Model, SWAModel, _get_auto_device
+from tests.simple_classes import MLP, TorchData, TorchTuple
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -23,7 +20,7 @@ class TestModel:
     """Tests for the Model wrapper."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, mocker):
+    def setup(self, mocker) -> None:
         """Set up torch.autocast mocks."""
         self.mock_autocast = mocker.patch('torch.autocast')
         self.mock_context = mocker.Mock()
@@ -39,15 +36,60 @@ class TestModel:
         return
 
     @pytest.fixture(scope='class')
-    def complex_model(self) -> Model[TorchTuple, TorchData]:
+    @classmethod
+    def complex_model(cls) -> Model[TorchTuple, TorchData]:
         """Fixture of a complex model wrapped with Model."""
         cpu = torch.device('cpu')
         return Model(MLP(), name='mlp_model', device=cpu, torch_compile=False)
 
-    def test_model_increment_epoch(self, complex_model: Model) -> None:
-        """Test Model's increment_epoch method increases the epoch count."""
+    def test_call_autocasts_to_the_given_type(self) -> None:
+        """Test the forward runs under autocast to the given type."""
+        cpu = torch.device('cpu')
+        model = Model(
+            MLP(), name='bf16_model', device=cpu, mixed_precision=torch.bfloat16
+        )
+
+        model(TorchTuple(torch.randn(1, 1)))
+
+        self.mock_autocast.assert_called_once_with(
+            device_type='cpu', dtype=torch.bfloat16, enabled=True
+        )
+
+    def test_auto_device_without_available_accelerator(self, mocker) -> None:
+        """Test the automatic device is the CPU without an accelerator."""
+        mocker.patch(
+            'torch.accelerator.current_accelerator',
+            return_value=torch.device('cuda'),
+        )
+        mocker.patch('torch.accelerator.is_available', return_value=False)
+
+        model = Model(MLP(), name='default_device_model')
+
+        assert model.device == torch.device('cpu')
+
+    def test_other_mixed_precision_types_raise(self) -> None:
+        """Test only float16, bfloat16 or None are accepted."""
+        with pytest.raises(ValueError, match='mixed_precision must be'):
+            Model(
+                MLP(), device=torch.device('cpu'), mixed_precision=torch.float64
+            )
+
+    def test_model_increment_epoch(self, mocker, complex_model: Model) -> None:
+        """Test increment_epoch advances the epoch and emits an event."""
+        mock_event = mocker.patch.object(log_events, 'IncrementEpochEvent')
+
         complex_model.increment_epoch()
+
         assert complex_model.epoch == 1
+        mock_event.assert_called_once_with(model_name='mlp_model', epoch=1)
+
+    def test_load_state_sets_epoch(self, mocker, complex_model: Model) -> None:
+        """Test load_state sets the epoch the checkpoint reports."""
+        mocker.patch.object(complex_model.checkpoint, 'load', return_value=7)
+
+        complex_model.load_state()
+
+        assert complex_model.epoch == 7
 
     def test_no_dist(self, complex_model: Model) -> None:
         """Test module is exec_module outside distributed settings."""
@@ -63,7 +105,7 @@ class TestSWAModel:
         mocker.patch('torch.compile', side_effect=lambda x: x)
         cpu = torch.device('cpu')
         model = SWAModel(MLP(), name='swa_model', start_epoch=2, device=cpu)
-        model.epoch = 2
+        model._epoch = 2
         return model
 
     def test_init(self, swa_model) -> None:
@@ -89,7 +131,7 @@ class TestSWAModel:
 
     def test_update_parameters_no_start(self, swa_model) -> None:
         """No averaging should occur if start_epoch is not reached yet."""
-        swa_model.epoch = 0
+        swa_model._epoch = 0
         initial = [p.clone() for p in swa_model.averaged_module.parameters()]
         for p in swa_model.module.parameters():
             p.data.zero_()
@@ -108,8 +150,8 @@ class TestSWAModel:
     ) -> None:
         """Forward should use the base model outside inference mode."""
         spy = mocker.spy(swa_model.module, 'forward')
-
         x = torch.randn(1, 1)
+
         swa_model(TorchTuple(x))
 
         assert spy.called
@@ -119,7 +161,6 @@ class TestSWAModel:
     ) -> None:
         """Forward should use averaged model in inference mode."""
         spy = mocker.spy(swa_model.averaged_module, 'forward')
-
         x = torch.randn(1, 1)
 
         with torch.inference_mode():
@@ -131,9 +172,8 @@ class TestSWAModel:
         self, swa_model, mocker
     ) -> None:
         """Forward should use averaged model in inference mode."""
-        swa_model.epoch = swa_model.start_epoch - 1
+        swa_model._epoch = swa_model.start_epoch - 1
         spy = mocker.spy(swa_model.module, 'forward')
-
         x = torch.randn(1, 1)
 
         with torch.inference_mode():
@@ -146,17 +186,17 @@ class TestEMAModel:
     """Tests for the EMAModel wrapper."""
 
     @pytest.fixture(scope='class')
-    def ema_model(self) -> EMAModel[TorchTuple, TorchData]:
+    @classmethod
+    def ema_model(cls, class_mocker) -> EMAModel[TorchTuple, TorchData]:
         """Fixture for the EMA model."""
-        # Using a class-scoped fixture means we can't easily use mocker fixture.
-        # Instead we patch torch.compile manually.
-        with unittest.mock.patch('torch.compile', side_effect=lambda x: x):
-            cpu = torch.device('cpu')
-            return EMAModel(MLP(), name='ema_model', decay=0.9, device=cpu)
+        class_mocker.patch('torch.compile', side_effect=lambda x: x)
+        cpu = torch.device('cpu')
+        return EMAModel(MLP(), name='ema_model', decay=0.9, device=cpu)
 
     def test_init(self, ema_model) -> None:
         """Test class initialization."""
         fn = ema_model._get_multi_avg_fn()
+
         assert callable(fn)
         assert ema_model.decay == 0.9
 
@@ -179,8 +219,8 @@ class TestEMAModel:
     ) -> None:
         """Forward should use averaged model in inference mode."""
         spy = mocker.spy(ema_model.averaged_module, 'forward')
-
         x = torch.randn(1, 1)
+
         with torch.inference_mode():
             ema_model(TorchTuple(x))
 
@@ -190,10 +230,10 @@ class TestEMAModel:
         """Averaged model should run under autocast in inference mode."""
         cpu = torch.device('cpu')
         model = EMAModel(
-            MLP(), name='ema_mixed', device=cpu, mixed_precision=True
+            MLP(), name='ema_mixed', device=cpu, mixed_precision=torch.bfloat16
         )
-
         x = torch.randn(1, 1)
+
         with torch.inference_mode():
             outputs = model(TorchTuple(x))
 
@@ -218,3 +258,17 @@ class TestEMAModel:
             model(inputs)
 
         compiled_average.assert_called_once_with(inputs)
+
+
+def test_auto_device_with_accelerator(mocker) -> None:
+    """Test the current accelerator is selected with its index."""
+    mocker.patch(
+        'torch.accelerator.current_accelerator',
+        return_value=torch.device('cuda'),
+    )
+    mocker.patch('torch.accelerator.is_available', return_value=True)
+    mocker.patch('torch.accelerator.current_device_index', return_value=1)
+
+    device = _get_auto_device()
+
+    assert device == torch.device('cuda', 1)

@@ -37,67 +37,42 @@ def start_experiment_mock_event(
     mock.run_dir = tmp_path
     mock.resumed = False
     mock.tags = example_tags
-    return mock
-
-
-@pytest.fixture
-def stop_experiment_mock_event(
-    mocker, example_exp_name, example_run_id
-) -> log_events.StopExperimentEvent:
-    """Mock StopExperiment event instance."""
-    mock = mocker.create_autospec(log_events.StopExperimentEvent)
-    mock.exp_name = example_exp_name
-    mock.run_id = example_run_id
-    return mock
-
-
-@pytest.fixture
-def pause_experiment_mock_event(
-    mocker, example_exp_name, example_run_id
-) -> log_events.PauseExperimentEvent:
-    """Mock PauseExperiment event instance."""
-    mock = mocker.create_autospec(log_events.PauseExperimentEvent)
-    mock.exp_name = example_exp_name
-    mock.run_id = example_run_id
-    return mock
-
-
-@pytest.fixture
-def continue_experiment_mock_event(
-    mocker, example_exp_name, example_run_id
-) -> log_events.ContinueExperimentEvent:
-    """Mock ContinueExperiment event instance."""
-    mock = mocker.create_autospec(log_events.ContinueExperimentEvent)
-    mock.exp_name = example_exp_name
-    mock.run_id = example_run_id
+    mock.record = True
     return mock
 
 
 @pytest.fixture
 def model_registration_mock_event(
-    mocker, example_model_name, example_architecure_repr, example_model_ts
+    mocker,
+    example_model_name,
+    example_architecure_repr,
+    example_model_ts,
+    example_n_parameters,
+    example_n_trainable_parameters,
 ) -> log_events.ModelRegistrationEvent:
     """Mock ModelRegistration event instance."""
     mock = mocker.create_autospec(log_events.ModelRegistrationEvent)
     mock.model_name = example_model_name
     mock.model_ts = example_model_ts
     mock.architecture_repr = example_architecure_repr
+    mock.n_parameters = example_n_parameters
+    mock.n_trainable_parameters = example_n_trainable_parameters
     return mock
 
 
 @pytest.fixture
-def actor_registration_mock_event(
+def runner_registration_mock_event(
     mocker,
     example_source_name,
     example_source_ts,
     example_model_name,
     example_model_ts,
     example_metadata,
-) -> log_events.ActorRegistrationEvent:
+) -> log_events.RunnerRegistrationEvent:
     """Mock SourceRegistration event instance."""
-    mock = mocker.create_autospec(log_events.ActorRegistrationEvent)
-    mock.actor_name = example_source_name
-    mock.actor_ts = example_source_ts
+    mock = mocker.create_autospec(log_events.RunnerRegistrationEvent)
+    mock.runner_name = example_source_name
+    mock.runner_ts = example_source_ts
     mock.model_name = example_model_name
     mock.model_ts = example_model_ts
     mock.metadata = example_metadata
@@ -105,15 +80,21 @@ def actor_registration_mock_event(
 
 
 @pytest.fixture
-def save_model_mock_event(
-    mocker, example_model_name
-) -> log_events.SaveModelEvent:
-    """Mock SaveModel event instance."""
-    mock = mocker.create_autospec(log_events.SaveModelEvent)
+def test_registration_mock_event(
+    mocker,
+    example_source_name,
+    example_source_ts,
+    example_model_name,
+    example_model_ts,
+    example_metadata,
+) -> log_events.TestRegistrationEvent:
+    """Mock TestRegistration event instance."""
+    mock = mocker.create_autospec(log_events.TestRegistrationEvent)
+    mock.runner_name = example_source_name
+    mock.runner_ts = example_source_ts
     mock.model_name = example_model_name
-    mock.definition = 'checkpoint'
-    mock.location = '/path/to/checkpoints/model_epoch_10.pt'
-    mock.epoch = 10
+    mock.model_ts = example_model_ts
+    mock.metadata = example_metadata
     return mock
 
 
@@ -159,14 +140,13 @@ def start_epoch_mock_event(
 
 
 @pytest.fixture
-def end_epoch_mock_event(
-    mocker, example_source_name, example_model_name
-) -> log_events.EndEpochEvent:
-    """Mock EndEpoch event instance."""
-    mock = mocker.create_autospec(log_events.EndEpochEvent)
-    mock.source_name = example_source_name
+def increment_epoch_mock_event(
+    mocker, example_model_name
+) -> log_events.IncrementEpochEvent:
+    """Mock IncrementEpoch event instance."""
+    mock = mocker.create_autospec(log_events.IncrementEpochEvent)
     mock.model_name = example_model_name
-    mock.epoch = 100
+    mock.epoch = 3
     return mock
 
 
@@ -182,53 +162,6 @@ def iterate_batch_mock_event(
     mock.batch_size = 32
     mock.dataset_size = 1600
     mock.push_updates = []
-    return mock
-
-
-@pytest.fixture
-def terminated_training_mock_event(
-    mocker,
-    example_model_name,
-    example_source_name,
-) -> log_events.TerminatedTrainingEvent:
-    """Mock TerminatedTraining event instance."""
-    mock = mocker.create_autospec(log_events.TerminatedTrainingEvent)
-    mock.model_name = example_model_name
-    mock.source_name = example_source_name
-    mock.epoch = 45
-    mock.reason = 'testing termination'
-    return mock
-
-
-@pytest.fixture
-def end_training_mock_event(
-    mocker, example_source_name
-) -> log_events.EndTrainingEvent:
-    """Mock EndTraining event instance."""
-    mock = mocker.create_autospec(log_events.EndTrainingEvent)
-    mock.source_name = example_source_name
-    return mock
-
-
-@pytest.fixture
-def start_test_mock_event(
-    mocker, example_source_name, example_model_name
-) -> log_events.StartTestEvent:
-    """Mock StartTest event instance."""
-    mock = mocker.create_autospec(log_events.StartTestEvent)
-    mock.source_name = example_source_name
-    mock.model_name = example_model_name
-    return mock
-
-
-@pytest.fixture
-def end_test_mock_event(
-    mocker, example_source_name, example_model_name
-) -> log_events.EndTestEvent:
-    """Mock EndTest event instance."""
-    mock = mocker.create_autospec(log_events.EndTestEvent)
-    mock.source_name = example_source_name
-    mock.model_name = example_model_name
     return mock
 
 
@@ -258,6 +191,104 @@ def update_learning_rate_mock_event(
     mock.epoch = 5
     mock.base_lr = 0.0001
     mock.scheduler_name = 'CosineAnnealingLR'
+    return mock
+
+
+@pytest.fixture
+def save_model_mock_event(
+    mocker, example_model_name
+) -> log_events.SaveModelEvent:
+    """Mock SaveModel event instance."""
+    mock = mocker.create_autospec(log_events.SaveModelEvent)
+    mock.model_name = example_model_name
+    mock.definition = 'checkpoint'
+    mock.location = '/path/to/checkpoints/model_epoch_10.pt'
+    mock.epoch = 10
+    return mock
+
+
+@pytest.fixture
+def terminated_training_mock_event(
+    mocker,
+    example_model_name,
+    example_source_name,
+) -> log_events.TerminatedTrainingEvent:
+    """Mock TerminatedTraining event instance."""
+    mock = mocker.create_autospec(log_events.TerminatedTrainingEvent)
+    mock.model_name = example_model_name
+    mock.source_name = example_source_name
+    mock.epoch = 45
+    mock.reason = 'testing termination'
+    return mock
+
+
+@pytest.fixture
+def end_epoch_mock_event(
+    mocker, example_source_name, example_model_name
+) -> log_events.EndEpochEvent:
+    """Mock EndEpoch event instance."""
+    mock = mocker.create_autospec(log_events.EndEpochEvent)
+    mock.source_name = example_source_name
+    mock.model_name = example_model_name
+    mock.epoch = 100
+    return mock
+
+
+@pytest.fixture
+def end_training_mock_event(
+    mocker, example_source_name, example_model_name
+) -> log_events.EndTrainingEvent:
+    """Mock EndTraining event instance."""
+    mock = mocker.create_autospec(log_events.EndTrainingEvent)
+    mock.source_name = example_source_name
+    mock.model_name = example_model_name
+    return mock
+
+
+@pytest.fixture
+def test_metric_mock_event(
+    mocker, example_source_name, example_model_name, example_named_metrics
+) -> log_events.TestMetricEvent:
+    """Mock TestMetric event instance."""
+    mock = mocker.create_autospec(log_events.TestMetricEvent)
+    mock.model_name = example_model_name
+    mock.source_name = example_source_name
+    mock.epoch = 10
+    mock.metrics = example_named_metrics
+    return mock
+
+
+@pytest.fixture
+def pause_experiment_mock_event(
+    mocker, example_exp_name, example_run_id
+) -> log_events.PauseExperimentEvent:
+    """Mock PauseExperiment event instance."""
+    mock = mocker.create_autospec(log_events.PauseExperimentEvent)
+    mock.exp_name = example_exp_name
+    mock.run_id = example_run_id
+    return mock
+
+
+@pytest.fixture
+def continue_experiment_mock_event(
+    mocker, example_exp_name, example_run_id
+) -> log_events.ContinueExperimentEvent:
+    """Mock ContinueExperiment event instance."""
+    mock = mocker.create_autospec(log_events.ContinueExperimentEvent)
+    mock.exp_name = example_exp_name
+    mock.run_id = example_run_id
+    mock.record = True
+    return mock
+
+
+@pytest.fixture
+def stop_experiment_mock_event(
+    mocker, example_exp_name, example_run_id
+) -> log_events.StopExperimentEvent:
+    """Mock StopExperiment event instance."""
+    mock = mocker.create_autospec(log_events.StopExperimentEvent)
+    mock.exp_name = example_exp_name
+    mock.run_id = example_run_id
     return mock
 
 

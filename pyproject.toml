@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "drytorch"
-version = "0.1.0rc11"
+version = "0.1.0"
 authors = [{ name = "Nicolas Vercheval", email = "nicolas.vercheval@ugent.be" }]
 description = "This package helps train, document and evaluate a Pytorch model."
 keywords = ["pytorch", "logger"]
@@ -17,6 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
@@ -26,20 +27,6 @@ dependencies = [
     "torch>=2.10.0",
     "typing_extensions>=4.4.0",
 ]
-
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cpu", marker = "sys_platform != 'darwin'" },
-]
-
-[[tool.uv.index]]
-name = "default"
-url = "https://pypi.org/simple"
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
 
 [project.optional-dependencies]
 recommended = [
@@ -51,7 +38,7 @@ all_trackers = [
     "drytorch[recommended]",
     "hydra-core >= 1.3.0",
     "ipython >= 8.12.0",
-    "matplotlib >= 3.3.0",
+    "matplotlib >= 3.11.0",
     "omegaconf >= 2.3.0",
     "plotly >= 4.10.0",
     "sqlalchemy >= 2.0.12",
@@ -62,7 +49,7 @@ all_trackers = [
 support = [
     "torchmetrics >= 1.0.0",
     "torcheval",
-    "pandas == 2.3.0",
+    "pandas >= 2.3.0",
     "optuna >= 4.0.0",
     "notebook",
     "ipywidgets",
@@ -75,18 +62,19 @@ dev = [
     "pytest-cov>=2.12.1",
     "hypothesis >= 0.1.0",
     "pre-commit>=4.3.0",
-    "jupytext>=1.18.1",
+    "jupytext==1.19.6",
+    "ruff==0.17.1",
 ]
 
 docs = [
     "sphinx",
     "sphinx-rtd-theme",
     "myst-nb",
-    "sphinxcontrib-mermaid",
+    "sphinxcontrib-mermaid>=2",
 ]
 
 type = [
-    "basedpyright>=1.39.0",
+    "basedpyright==1.40.2",
     "pandas-stubs",
     "plotly-stubs",
     "types-tqdm",
@@ -120,8 +108,14 @@ log_cli = true
 log_cli_level = "WARNING"
 
 [tool.basedpyright]
-include = ["src"]
-typeCheckingMode = "basic"
+include = [
+    "src",
+    "docs/tutorials",
+    "tests/functional/contrib/test_metrics_compatibility.py",
+    "tests/integration/lib/test_protocol_implementations.py",
+    "tests/units/core/test_protocols.py",
+]
+typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
 failOnWarnings = false

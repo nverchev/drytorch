@@ -18,7 +18,7 @@ def allow_event_creation_outside_scope() -> None:
     return
 
 
-@pytest.fixture()
+@pytest.fixture
 def start_experiment_event(
     tmp_path,
     example_exp_name,
@@ -38,59 +38,35 @@ def start_experiment_event(
 
 
 @pytest.fixture
-def stop_experiment_event(
-    example_exp_name, example_run_id
-) -> log_events.StopExperimentEvent:
-    """Provides a StopExperiment event instance."""
-    return log_events.StopExperimentEvent(
-        exp_name=example_exp_name, run_id=example_run_id
-    )
-
-
-@pytest.fixture
-def pause_experiment_event(
-    example_exp_name, example_run_id
-) -> log_events.PauseExperimentEvent:
-    """Provides a PauseExperiment event instance."""
-    return log_events.PauseExperimentEvent(
-        exp_name=example_exp_name, run_id=example_run_id
-    )
-
-
-@pytest.fixture
-def continue_experiment_event(
-    example_exp_name, example_run_id
-) -> log_events.ContinueExperimentEvent:
-    """Provides a ContinueExperiment event instance."""
-    return log_events.ContinueExperimentEvent(
-        exp_name=example_exp_name, run_id=example_run_id
-    )
-
-
-@pytest.fixture
 def model_registration_event(
-    example_model_name, example_architecure_repr, example_model_ts
+    example_model_name,
+    example_architecure_repr,
+    example_model_ts,
+    example_n_parameters,
+    example_n_trainable_parameters,
 ) -> log_events.ModelRegistrationEvent:
     """Provides a ModelRegistration event instance."""
     return log_events.ModelRegistrationEvent(
         model_name=example_model_name,
         model_ts=example_model_ts,
         architecture_repr=example_architecure_repr,
+        n_parameters=example_n_parameters,
+        n_trainable_parameters=example_n_trainable_parameters,
     )
 
 
 @pytest.fixture
-def actor_registration_event(
+def runner_registration_event(
     example_source_name,
     example_source_ts,
     example_model_name,
     example_model_ts,
     example_metadata,
-) -> log_events.ActorRegistrationEvent:
+) -> log_events.RunnerRegistrationEvent:
     """Provides a SourceRegistration event instance."""
-    return log_events.ActorRegistrationEvent(
-        actor_name=example_source_name,
-        actor_ts=example_source_ts,
+    return log_events.RunnerRegistrationEvent(
+        runner_name=example_source_name,
+        runner_ts=example_source_ts,
         model_name=example_model_name,
         model_ts=example_model_ts,
         metadata=example_metadata,
@@ -98,15 +74,20 @@ def actor_registration_event(
 
 
 @pytest.fixture
-def save_model_event(
-    example_model_name, example_epoch
-) -> log_events.SaveModelEvent:
-    """Provides a SaveModel event instance."""
-    return log_events.SaveModelEvent(
+def test_registration_event(
+    example_source_name,
+    example_source_ts,
+    example_model_name,
+    example_model_ts,
+    example_metadata,
+) -> log_events.TestRegistrationEvent:
+    """Provides a TestRegistration event instance."""
+    return log_events.TestRegistrationEvent(
+        runner_name=example_source_name,
+        runner_ts=example_source_ts,
         model_name=example_model_name,
-        definition='checkpoint',
-        location=f'/path/to/checkpoints/model_epoch_{example_epoch}.pt',
-        epoch=example_epoch,
+        model_ts=example_model_ts,
+        metadata=example_metadata,
     )
 
 
@@ -150,18 +131,6 @@ def start_epoch_event(
 
 
 @pytest.fixture
-def end_epoch_event(
-    example_source_name, example_model_name, example_epoch
-) -> log_events.EndEpochEvent:
-    """Provides an EndEpoch event instance."""
-    return log_events.EndEpochEvent(
-        source_name=example_source_name,
-        model_name=example_model_name,
-        epoch=example_epoch,
-    )
-
-
-@pytest.fixture
 def iterate_batch_event(example_source_name) -> log_events.IterateBatchEvent:
     """Provides an IterateBatch event instance."""
     return log_events.IterateBatchEvent(
@@ -170,47 +139,6 @@ def iterate_batch_event(example_source_name) -> log_events.IterateBatchEvent:
         batch_size=32,
         dataset_size=1600,
         push_updates=[],
-    )
-
-
-@pytest.fixture
-def terminated_training_event(
-    example_model_name,
-    example_source_name,
-    example_epoch,
-) -> log_events.TerminatedTrainingEvent:
-    """Provides a TerminatedTraining event instance."""
-    return log_events.TerminatedTrainingEvent(
-        model_name=example_model_name,
-        source_name=example_source_name,
-        epoch=example_epoch,
-        reason='test event',
-    )
-
-
-@pytest.fixture
-def end_training_event(example_source_name) -> log_events.EndTrainingEvent:
-    """Provides an EndTraining event instance."""
-    return log_events.EndTrainingEvent(source_name=example_source_name)
-
-
-@pytest.fixture
-def start_test_event(
-    example_source_name, example_model_name
-) -> log_events.StartTestEvent:
-    """Provides a Test event instance."""
-    return log_events.StartTestEvent(
-        source_name=example_source_name, model_name=example_model_name
-    )
-
-
-@pytest.fixture
-def end_test_event(
-    example_source_name, example_model_name
-) -> log_events.EndTestEvent:
-    """Provides a Test event instance."""
-    return log_events.EndTestEvent(
-        source_name=example_source_name, model_name=example_model_name
     )
 
 
@@ -247,6 +175,103 @@ def update_learning_rate_event(
 
 
 @pytest.fixture
+def save_model_event(
+    example_model_name, example_epoch
+) -> log_events.SaveModelEvent:
+    """Provides a SaveModel event instance."""
+    return log_events.SaveModelEvent(
+        model_name=example_model_name,
+        definition='checkpoint',
+        location=f'/path/to/checkpoints/model_epoch_{example_epoch}.pt',
+        epoch=example_epoch,
+    )
+
+
+@pytest.fixture
+def terminated_training_event(
+    example_model_name,
+    example_source_name,
+    example_epoch,
+) -> log_events.TerminatedTrainingEvent:
+    """Provides a TerminatedTraining event instance."""
+    return log_events.TerminatedTrainingEvent(
+        model_name=example_model_name,
+        source_name=example_source_name,
+        epoch=example_epoch,
+        reason='test event',
+    )
+
+
+@pytest.fixture
+def end_epoch_event(
+    example_source_name, example_model_name, example_epoch
+) -> log_events.EndEpochEvent:
+    """Provides an EndEpoch event instance."""
+    return log_events.EndEpochEvent(
+        source_name=example_source_name,
+        model_name=example_model_name,
+        epoch=example_epoch,
+    )
+
+
+@pytest.fixture
+def end_training_event(
+    example_source_name, example_model_name
+) -> log_events.EndTrainingEvent:
+    """Provides an EndTraining event instance."""
+    return log_events.EndTrainingEvent(
+        source_name=example_source_name,
+        model_name=example_model_name,
+    )
+
+
+@pytest.fixture
+def test_metric_event(
+    example_source_name,
+    example_model_name,
+    example_named_metrics,
+    example_epoch,
+) -> log_events.TestMetricEvent:
+    """Provides a TestMetric event instance."""
+    return log_events.TestMetricEvent(
+        source_name=example_source_name,
+        model_name=example_model_name,
+        epoch=example_epoch,
+        metrics=example_named_metrics,
+    )
+
+
+@pytest.fixture
+def pause_experiment_event(
+    example_exp_name, example_run_id
+) -> log_events.PauseExperimentEvent:
+    """Provides a PauseExperiment event instance."""
+    return log_events.PauseExperimentEvent(
+        exp_name=example_exp_name, run_id=example_run_id
+    )
+
+
+@pytest.fixture
+def continue_experiment_event(
+    example_exp_name, example_run_id
+) -> log_events.ContinueExperimentEvent:
+    """Provides a ContinueExperiment event instance."""
+    return log_events.ContinueExperimentEvent(
+        exp_name=example_exp_name, run_id=example_run_id
+    )
+
+
+@pytest.fixture
+def stop_experiment_event(
+    example_exp_name, example_run_id
+) -> log_events.StopExperimentEvent:
+    """Provides a StopExperiment event instance."""
+    return log_events.StopExperimentEvent(
+        exp_name=example_exp_name, run_id=example_run_id
+    )
+
+
+@pytest.fixture
 def string_stream() -> Generator[io.StringIO, None, None]:
     """Provides a StringIO object for capturing progress bar output."""
     output = io.StringIO()
@@ -259,21 +284,20 @@ def string_stream() -> Generator[io.StringIO, None, None]:
 def event_workflow(
     start_experiment_event,
     model_registration_event,
+    runner_registration_event,
     load_model_event,
-    actor_registration_event,
     start_training_event,
     start_epoch_event,
     iterate_batch_event,
     metrics_event,
-    end_epoch_event,
     update_learning_rate_event,
     save_model_event,
+    terminated_training_event,
+    end_epoch_event,
+    end_training_event,
+    test_metric_event,
     pause_experiment_event,
     continue_experiment_event,
-    terminated_training_event,
-    end_training_event,
-    start_test_event,
-    end_test_event,
     stop_experiment_event,
 ) -> tuple[log_events.Event, ...]:
     """Yields events in typical order of execution."""
@@ -309,7 +333,7 @@ def event_workflow(
         end_epoch_event, epoch=end_epoch_event.epoch + 2
     )
     test_metrics_event = dataclasses.replace(
-        metrics_event, epoch=metrics_event.epoch + 2
+        test_metric_event, epoch=metrics_event.epoch + 2
     )
     terminated_training_event = dataclasses.replace(
         terminated_training_event, epoch=start_training_event.start_epoch + 2
@@ -318,8 +342,8 @@ def event_workflow(
     event_tuple = (
         start_experiment_event,
         model_registration_event,
+        runner_registration_event,
         load_model_event,
-        actor_registration_event,
         start_training_event,
         start_epoch_event,
         iterate_batch_event,
@@ -328,21 +352,19 @@ def event_workflow(
         second_start_epoch_event,
         iterate_batch_event,
         second_epoch_metrics_event,
-        second_end_epoch_event,
         update_learning_rate_event,
         save_model_event,
+        second_end_epoch_event,
         pause_experiment_event,
         continue_experiment_event,
         third_start_epoch_event,
         iterate_batch_event,
         third_epoch_metrics_event,
-        third_end_epoch_event,
         terminated_training_event,
+        third_end_epoch_event,
         end_training_event,
-        start_test_event,
         iterate_batch_event,
         test_metrics_event,
-        end_test_event,
         stop_experiment_event,
     )
     return event_tuple
@@ -473,17 +495,30 @@ def plotting_workflow(
             events.append(pause_experiment_event)
             events.append(continue_experiment_event)
 
+    events.append(
+        log_events.EndTrainingEvent(
+            source_name=train_source,
+            model_name=model_name,
+        )
+    )
+
     # Final test evaluation events
     events.append(
-        log_events.MetricEvent(
+        log_events.TestRegistrationEvent(
+            runner_name=test_source,
+            runner_ts=start_experiment_event.run_ts,
+            model_name=model_name,
+            model_ts=start_experiment_event.run_ts,
+            metadata={},
+        )
+    )
+    events.append(
+        log_events.TestMetricEvent(
             model_name=model_name,
             source_name=test_source,
             epoch=10,
             metrics={'loss': 0.69, 'accuracy': 0.83, 'f1_score': 0.81},
         )
-    )
-    events.append(
-        log_events.EndTestEvent(source_name=test_source, model_name=model_name)
     )
     events.append(stop_experiment_event)
     return tuple(events)

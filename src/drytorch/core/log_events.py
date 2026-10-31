@@ -1,4 +1,4 @@
-"""Classes containing logging event classes."""
+"""Logging event classes."""
 
 from __future__ import annotations
 
@@ -6,32 +6,33 @@ import dataclasses
 import datetime
 import pathlib
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, ClassVar
 
 from drytorch.core import exceptions
 
 
 __all__ = [
-    'ActorRegistrationEvent',
     'ContinueExperimentEvent',
     'EndEpochEvent',
-    'EndTestEvent',
     'EndTrainingEvent',
     'Event',
+    'IncrementEpochEvent',
     'IterateBatchEvent',
     'LearningRateEvent',
     'LoadModelEvent',
     'MetricEvent',
     'ModelRegistrationEvent',
     'PauseExperimentEvent',
+    'RunnerRegistrationEvent',
     'SaveModelEvent',
     'StartEpochEvent',
     'StartExperimentEvent',
-    'StartTestEvent',
     'StartTrainingEvent',
     'StopExperimentEvent',
     'TerminatedTrainingEvent',
+    'TestMetricEvent',
+    'TestRegistrationEvent',
 ]
 
 
@@ -57,81 +58,146 @@ class Event:
 
 
 @dataclasses.dataclass(frozen=True)
-class ActorRegistrationEvent(Event):
-    """Event logged when a source has been registered.
+class StartExperimentEvent(Event):
+    """Event logged when an experiment starts.
 
     Attributes:
-        actor_name: the name of the caller.
-        actor_ts: the source's timestamp.
-        model_name: the name of the model that was called.
-        model_ts: the model's timestamp.
-        metadata: additional metadata about the caller.
+        config: configuration for the experiment.
+        exp_name: the name of the experiment.
+        run_ts: run's timestamp.
+        run_id: identifier of the run.
+        resumed: this run was resumed.
+        par_dir: the parent directory for the experiment.
+        tags: descriptors for the experiment's variation (e.g., "lr=0.01").
+        record: whether trackers should record the run.
     """
 
-    actor_name: str
-    actor_ts: datetime.datetime
+    config: Any
+    exp_name: str
+    run_ts: datetime.datetime
+    run_id: str
+    resumed: bool = False
+    par_dir: pathlib.Path = pathlib.Path()
+    tags: Sequence[str] = dataclasses.field(default_factory=tuple)
+    record: bool = True
+
+
+@dataclasses.dataclass(frozen=True)
+class ModelRegistrationEvent(Event):
+    """Event logged when a model is created.
+
+    Attributes:
+        model_name: the name of the model.
+        model_ts: the model's timestamp.
+        architecture_repr: the representation of the module architecture.
+        n_parameters: the number of parameters of the module.
+        n_trainable_parameters: how many of them require a gradient.
+    """
+
     model_name: str
     model_ts: datetime.datetime
-    metadata: dict[str, Any]
+    architecture_repr: str
+    n_parameters: int
+    n_trainable_parameters: int
 
 
 @dataclasses.dataclass(frozen=True)
-class ContinueExperimentEvent(Event):
-    """Event logged when a paused experiment is continued.
+class RunnerRegistrationEvent(Event):
+    """Event logged when a runner has been registered.
 
     Attributes:
-        exp_name: the name of the experiment.
-        run_id: identifier of the run.
+        runner_name: the name of the runner.
+        runner_ts: the runner's timestamp.
+        model_name: the name of the model that was called.
+        model_ts: the model's timestamp.
+        metadata: additional metadata about the runner.
     """
 
-    exp_name: str
-    run_id: str
+    runner_name: str
+    runner_ts: datetime.datetime
+    model_name: str
+    model_ts: datetime.datetime
+    metadata: Mapping[str, Any] | str
 
 
 @dataclasses.dataclass(frozen=True)
-class EndEpochEvent(Event):
-    """Event logged when an epoch ends.
+class TestRegistrationEvent(RunnerRegistrationEvent):
+    """Event logged when a test has been registered."""
+
+
+@dataclasses.dataclass(frozen=True)
+class LoadModelEvent(Event):
+    """Event logged when a model is loaded.
+
+    Attributes:
+        model_name: the name of the model.
+        definition: specifies what was loaded.
+        location: the location where the model is loaded from.
+        epoch: the epoch at which the model was loaded.
+    """
+
+    model_name: str
+    definition: str
+    location: str
+    epoch: int
+
+
+@dataclasses.dataclass(frozen=True)
+class StartTrainingEvent(Event):
+    """Event logged when training starts.
+
+    Attributes:
+        source_name: the object that is training a model.
+        model_name: the name of the model.
+        start_epoch: the starting epoch of the training.
+        end_epoch: the ending epoch of the training.
+    """
+
+    source_name: str
+    model_name: str
+    start_epoch: int
+    end_epoch: int
+
+
+@dataclasses.dataclass(frozen=True)
+class StartEpochEvent(Event):
+    """Event logged when an epoch starts.
 
     Attributes:
         source_name: the name of the object that is training a model.
         model_name: the name of the model.
-        epoch: the epoch that was trained.
+        epoch: the epoch number.
+        end_epoch: the final epoch number for the current training session.
     """
 
     source_name: str
     model_name: str
     epoch: int
+    end_epoch: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
-class EndTestEvent(Event):
-    """Event logged when a test is ended.
+class IncrementEpochEvent(Event):
+    """Event logged when the epoch of a model is incremented.
 
     Attributes:
-        source_name: the name of the object calling the test.
         model_name: the name of the model.
+        epoch: the new epoch.
     """
 
-    source_name: str
     model_name: str
-
-
-@dataclasses.dataclass(frozen=True)
-class EndTrainingEvent(Event):
-    """Event logged when training ends.
-
-    It is not published when training was terminated before due. before due.
-
-    Attributes:
-        source_name: The name of the object that is training a model.
-    """
-
-    source_name: str
+    epoch: int
 
 
 @dataclasses.dataclass(frozen=True)
 class IterateBatchEvent(Event):
-    """Event logged to create during batch iteration.
+    """Event logged during batch iteration.
+
+    Unlike other events that serve strictly as immutable records,
+    push_updates is intentionally mutable to allow trackers to register
+    update callbacks. Trackers add their callbacks while the event is being
+    published; this works because publication is synchronous and completes
+    before the first iteration update.
 
     Attributes:
         source_name: the object calling the iteration.
@@ -158,7 +224,36 @@ class IterateBatchEvent(Event):
         """
         for update in self.push_updates:
             update(metrics, n_processes)
+
         return
+
+    def refresh(self, metrics: Mapping[str, Any]) -> None:
+        """Refresh displayed metrics without advancing iteration progress.
+
+        Args:
+            metrics: calculated values by metric name.
+        """
+        for update in self.push_updates:
+            update(metrics, 0)
+
+        return
+
+
+@dataclasses.dataclass(frozen=True)
+class MetricEvent(Event):
+    """Event logged when metrics from the dataset are aggregated.
+
+    Attributes:
+        model_name: the name of the model.
+        source_name: the name of the object that computed the metrics.
+        epoch: the number of epochs the model was trained.
+        metrics: the aggregated metrics.
+    """
+
+    model_name: str
+    source_name: str
+    epoch: int
+    metrics: Mapping[str, float]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -181,55 +276,6 @@ class LearningRateEvent(Event):
 
 
 @dataclasses.dataclass(frozen=True)
-class LoadModelEvent(Event):
-    """Event logged when a model is loaded.
-
-    Attributes:
-        model_name: the name of the model.
-        definition: specifies what was loaded.
-        location: the location where the model is loaded from.
-        epoch: the epoch at which the model was loaded.
-    """
-
-    model_name: str
-    definition: str
-    location: str
-    epoch: int
-
-
-@dataclasses.dataclass(frozen=True)
-class MetricEvent(Event):
-    """Event logged when metrics from the dataset are aggregated.
-
-    Attributes:
-        model_name: the name of the model.
-        source_name: the name of the object that computed the metrics.
-        epoch: the number of epochs the model was trained.
-        metrics: the aggregated metrics.
-    """
-
-    model_name: str
-    source_name: str
-    epoch: int
-    metrics: Mapping[str, float]
-
-
-@dataclasses.dataclass(frozen=True)
-class ModelRegistrationEvent(Event):
-    """Event logged when a model is created.
-
-    Attributes:
-        model_name: the name of the model.
-        model_ts: the model's timestamp.
-        architecture_repr: the representation of the module architecture.
-    """
-
-    model_name: str
-    model_ts: datetime.datetime
-    architecture_repr: str
-
-
-@dataclasses.dataclass(frozen=True)
 class SaveModelEvent(Event):
     """Event logged when a checkpoint is saved.
 
@@ -244,102 +290,6 @@ class SaveModelEvent(Event):
     definition: str
     location: str
     epoch: int
-
-
-@dataclasses.dataclass(frozen=True)
-class StartEpochEvent(Event):
-    """Event logged when an epoch starts.
-
-    Attributes:
-        source_name: the name of the object that is training a model.
-        model_name: the name of the model.
-        epoch: the epoch number.
-        end_epoch: the final epoch number for the current training session.
-    """
-
-    source_name: str
-    model_name: str
-    epoch: int
-    end_epoch: int | None = None
-
-
-@dataclasses.dataclass(frozen=True)
-class StartExperimentEvent(Event):
-    """Event logged when an experiment starts.
-
-    Attributes:
-        config: configuration for the experiment.
-        exp_name: the name of the experiment.
-        run_ts: run's timestamp.
-        run_id: identifier of the run.
-        resumed: this run was resumed.
-        par_dir: the parent directory for the experiment.
-        tags: descriptors for the experiment's variation (e.g., "lr=0.01").
-    """
-
-    config: Any
-    exp_name: str
-    run_ts: datetime.datetime
-    run_id: str
-    resumed: bool = False
-    par_dir: pathlib.Path = pathlib.Path()
-    tags: list[str] = dataclasses.field(default_factory=list)
-
-
-@dataclasses.dataclass(frozen=True)
-class StartTestEvent(Event):
-    """Event logged when a test is started.
-
-    Attributes:
-        source_name: the name of the object calling the test.
-        model_name: the name of the model.
-    """
-
-    source_name: str
-    model_name: str
-
-
-@dataclasses.dataclass(frozen=True)
-class StartTrainingEvent(Event):
-    """Event logged when training starts.
-
-    Attributes:
-        source_name: the object that is training a model.
-        model_name: the name of the model.
-        start_epoch: the starting epoch of the training.
-        end_epoch: the ending epoch of the training.
-    """
-
-    source_name: str
-    model_name: str
-    start_epoch: int
-    end_epoch: int
-
-
-@dataclasses.dataclass(frozen=True)
-class PauseExperimentEvent(Event):
-    """Event logged when an experiment is paused.
-
-    Attributes:
-        exp_name: the name of the experiment.
-        run_id: identifier of the run.
-    """
-
-    exp_name: str
-    run_id: str
-
-
-@dataclasses.dataclass(frozen=True)
-class StopExperimentEvent(Event):
-    """Event logged when an experiment stops.
-
-    Attributes:
-        exp_name: the name of the experiment.
-        run_id: identifier of the run.
-    """
-
-    exp_name: str
-    run_id: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -359,3 +309,79 @@ class TerminatedTrainingEvent(Event):
     model_name: str
     epoch: int
     reason: str
+
+
+@dataclasses.dataclass(frozen=True)
+class EndEpochEvent(Event):
+    """Event logged when an epoch ends.
+
+    Attributes:
+        source_name: the name of the object that is training a model.
+        model_name: the name of the model.
+        epoch: the epoch that was trained.
+    """
+
+    source_name: str
+    model_name: str
+    epoch: int
+
+
+@dataclasses.dataclass(frozen=True)
+class EndTrainingEvent(Event):
+    """Event logged when training ends.
+
+    It is not published when training was terminated before due.
+
+    Attributes:
+        source_name: the name of the object that is training a model.
+        model_name: the name of the model.
+    """
+
+    source_name: str
+    model_name: str
+
+
+@dataclasses.dataclass(frozen=True)
+class TestMetricEvent(MetricEvent):
+    """Event logged when a test aggregates its metrics."""
+
+
+@dataclasses.dataclass(frozen=True)
+class PauseExperimentEvent(Event):
+    """Event logged when an experiment is paused.
+
+    Attributes:
+        exp_name: the name of the experiment.
+        run_id: identifier of the run.
+    """
+
+    exp_name: str
+    run_id: str
+
+
+@dataclasses.dataclass(frozen=True)
+class ContinueExperimentEvent(Event):
+    """Event logged when a paused experiment is continued.
+
+    Attributes:
+        exp_name: the name of the experiment.
+        run_id: identifier of the run.
+        record: whether trackers should record the run.
+    """
+
+    exp_name: str
+    run_id: str
+    record: bool = True
+
+
+@dataclasses.dataclass(frozen=True)
+class StopExperimentEvent(Event):
+    """Event logged when an experiment stops.
+
+    Attributes:
+        exp_name: the name of the experiment.
+        run_id: identifier of the run.
+    """
+
+    exp_name: str
+    run_id: str

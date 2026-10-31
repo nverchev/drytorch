@@ -4,6 +4,8 @@ from collections.abc import Generator
 
 import pytest
 
+from drytorch import Trainer
+from drytorch.core import exceptions
 from drytorch.core.experimenting import Run
 from drytorch.lib import hooks, schedulers
 
@@ -15,75 +17,160 @@ def autorun_experiment(run) -> Generator[Run, None, None]:
     return
 
 
-def test_early_stopping(square_loss_calc, identity_trainer) -> None:
+def test_early_stopping(
+    linear_model,
+    standard_learning_schema,
+    identity_loader,
+    square_loss_calc,
+) -> None:
     """Test early stopping when monitoring training."""
-    hook = hooks.EarlyStoppingCallback(
-        square_loss_calc, patience=2, min_delta=1
+    builder = Trainer.builder(
+        linear_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
     )
-    identity_trainer.post_epoch_hooks.register(hook)
-    identity_trainer.train(4)
+    builder.add_early_stopping(
+        patience=2,
+        min_delta=1,
+        watch=builder.watch(training=True),
+    )
+    trainer = builder.build()
+    trainer.train(4)
+
     # 2 epochs of patience and terminate at 3 or 4
-    assert identity_trainer.model.epoch in {3, 4}
+    assert trainer.model.epoch in {3, 4}
 
 
 def test_early_stopping_on_val(
-    identity_loader, square_loss_calc, identity_trainer
+    linear_model,
+    standard_learning_schema,
+    identity_loader,
+    square_loss_calc,
 ) -> None:
-    """Test early stopping when monitoring validation."""
-    hook = hooks.EarlyStoppingCallback(
-        square_loss_calc, patience=2, min_delta=1
+    """Test early stopping when monitoring validation, using the builder."""
+    builder = Trainer.builder(
+        linear_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
     )
-    identity_trainer.add_validation(val_loader=identity_loader)
-    identity_trainer.post_epoch_hooks.register(hook)
-    identity_trainer.train(4)
+    builder.add_validation(val_loader=identity_loader)
+    builder.add_early_stopping(patience=2, min_delta=1)
+    trainer = builder.build()
+    trainer.train(4)
+
     # 5 epochs of patience and terminate at 3
-    assert identity_trainer.model.epoch == 3
+    assert trainer.model.epoch == 3
 
 
-def test_pruning_callback(square_loss_calc, identity_trainer) -> None:
+def test_pruning_callback(
+    linear_model,
+    standard_learning_schema,
+    identity_loader,
+    square_loss_calc,
+) -> None:
     """Test pruning based on metric thresholds."""
     pruning_thresholds = {2: 1.0, 3: 0.0}
-    identity_trainer.post_epoch_hooks.register(
-        hooks.PruneCallback(
-            thresholds=pruning_thresholds,
-            metric=square_loss_calc,
-        )
+    builder = Trainer.builder(
+        linear_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
     )
-    identity_trainer.train(4)
+    builder.add_pruning(
+        pruning_thresholds,
+        watch=builder.watch(training=True),
+    )
+    trainer = builder.build()
+    trainer.train(4)
+
     # stop at epoch 3 because the loss is always greater than 0
-    assert identity_trainer.model.epoch == 3
+    assert trainer.model.epoch == 3
 
 
-def test_reduce_lr_on_plateau(square_loss_calc, identity_trainer) -> None:
+def test_reduce_lr_on_plateau(
+    linear_model,
+    standard_learning_schema,
+    identity_loader,
+    square_loss_calc,
+) -> None:
     """Test learning rate reduction on plateau."""
     factor = 0.1
     epochs = 5
-    initial_lr = identity_trainer._model_optimizer.base_lr
-    identity_trainer.post_epoch_hooks.register(
-        hooks.ReduceLROnPlateau(
-            metric=square_loss_calc,
-            factor=factor,
-            min_delta=1,
-        )
+    builder = Trainer.builder(
+        linear_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
     )
-    identity_trainer.train(epochs)
-    final_lr = identity_trainer._model_optimizer.get_scheduled_lr(initial_lr)
+    builder.add_reduce_lr_on_plateau(
+        factor=factor,
+        min_delta=1,
+        watch=builder.watch(training=True),
+    )
+    trainer = builder.build()
+    initial_lr = trainer._model_optimizer.base_lr
+    trainer.train(epochs)
+    final_lr = trainer._model_optimizer.get_scheduled_lr(initial_lr)
 
     # Due to high min_delta, the hook is triggered every epoch except first
     assert final_lr == pytest.approx(factor ** (epochs - 1) * initial_lr)
 
 
 def test_restart_schedule_on_plateau(
-    square_loss_calc, identity_trainer
+    linear_model,
+    standard_learning_schema,
+    identity_loader,
+    square_loss_calc,
 ) -> None:
     """Test learning rate schedule restart on plateau."""
     exp_scheduler = schedulers.ExponentialScheduler()
-    initial_lr = identity_trainer._model_optimizer.base_lr
-    identity_trainer.update_learning_rate(scheduler=exp_scheduler)
-    identity_trainer.post_epoch_hooks.register(
-        hooks.RestartScheduleOnPlateau(metric=square_loss_calc)
+    builder = Trainer.builder(
+        linear_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
     )
-    identity_trainer.train(5)
+    builder.add_restart_schedule_on_plateau(
+        watch=builder.watch(training=True),
+    )
+    trainer = builder.build()
+    initial_lr = trainer._model_optimizer.base_lr
+    trainer.update_learning_rate(scheduler=exp_scheduler)
+    trainer.train(5)
+    final_lr = trainer._model_optimizer.get_scheduled_lr(initial_lr)
+
     # training should complete with schedule restarts
-    final_lr = identity_trainer._model_optimizer.get_scheduled_lr(initial_lr)
     assert not final_lr == pytest.approx(exp_scheduler(initial_lr, 4))
+
+
+def test_hook_placed_before_validation_raises(
+    linear_model,
+    standard_learning_schema,
+    identity_loader,
+    square_loss_calc,
+) -> None:
+    """Test hook placed before its validation raises SourceRunAfterHookError."""
+    builder = Trainer.builder(
+        linear_model,
+        name='MyTrainer',
+        loader=identity_loader,
+        learning_schema=standard_learning_schema,
+        loss=square_loss_calc,
+    )
+    builder.add_validation(val_loader=identity_loader, val_name='Val')
+    val_hook = builder._post_epoch_hooks.pop()
+    watch = builder.watch()
+    early_stopping = hooks.EarlyStopping(patience=2, watch=watch)
+    builder.add_post_epoch_hook(early_stopping)
+    builder.add_post_epoch_hook(val_hook)
+    trainer = builder.build()
+
+    with pytest.raises(exceptions.SourceRunAfterHookError):
+        trainer.train(2)

@@ -3,7 +3,6 @@
 import torch
 import torch.distributed as dist
 
-from ..conftest import DistributedWorker, RunningWorker
 from torch import nn
 from torch.utils import data
 from typing_extensions import override
@@ -12,7 +11,8 @@ import pytest
 
 from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
-from drytorch.lib.runners import ModelRunner
+from drytorch.lib.runners import Runner
+from tests.integration.conftest import DistributedWorker, RunningWorker
 
 
 class SimpleDataset(data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -48,6 +48,7 @@ class TestDistributedDataLoader:
             self._assert_sampler_init, world_size=world_size
         )
         exit_codes, _ = worker.process(dataset)
+
         assert all(exit_code == 0 for exit_code in exit_codes)
 
     def test_distributed_data_partitioning(self, world_size, dataset) -> None:
@@ -88,7 +89,7 @@ class TestDistributedDataLoader:
         tmp_path,
         example_run_id,
     ) -> None:
-        """Test that ModelRunner correctly sets epoch on DistributedSampler."""
+        """Test that Runner correctly sets epoch on DistributedSampler."""
         running_worker = RunningWorker(
             self._assert_runner_set_epoch, tmp_path, example_run_id
         )
@@ -133,13 +134,13 @@ class TestDistributedDataLoader:
 
     @staticmethod
     def _assert_runner_set_epoch(dataset: data.Dataset) -> None:
-        """Test ModelRunner with distributed DataLoader."""
+        """Test Runner with distributed DataLoader."""
         loader = DataLoader(dataset, batch_size=4)
         model = Model(
             nn.Linear(1, 1), name='linear', device=torch.device('cpu')
         )
-        model.epoch = 5
-        runner = ModelRunner(model, loader=loader)
+        model._epoch = 5
+        runner = Runner(model, loader=loader)
         runner()
 
         # Verify epoch was set

@@ -1,8 +1,10 @@
-"""Init file for the drytorch package.
+"""Package initialization and default tracker setup.
 
 It automatically initializes some trackers with sets of settings (modes) that
 work well together. The mode can be set as an environmental variable
 DRYTORCH_INIT_MODE before loading the package or explicitly reset after.
+The DRYTORCH_STRICT environment variable turns reproducibility warnings into
+errors when set to 1, requiring a readable commit.
 
 Available modes:
     1) standard: log to stderr, preferring tqdm over the built-in logger.
@@ -15,14 +17,15 @@ Attributes:
         If DRYTORCH_INIT_MODE is not present, it defaults to "standard".
 """
 
+import importlib.metadata
 import logging
 import os
 import sys
 import warnings
 
-from importlib.metadata import version
 from typing import Literal, TypeGuard
 
+from drytorch.core import exceptions
 from drytorch.core.exceptions import FailedOptionalImportWarning
 from drytorch.core.experimenting import Experiment
 from drytorch.core.tracking import (
@@ -30,7 +33,7 @@ from drytorch.core.tracking import (
     extend_default_trackers,
     remove_all_default_trackers,
 )
-from drytorch.lib.evaluations import Diagnostic, Test, Validation
+from drytorch.lib.evaluations import Evaluation, Test, Validation
 from drytorch.lib.learning import LearningSchema
 from drytorch.lib.loading import DataLoader
 from drytorch.lib.models import Model
@@ -40,11 +43,11 @@ from drytorch.trackers import logging as builtin_logging
 from drytorch.trackers.logging import INFO_LEVELS
 
 
-__version__ = version('drytorch')
+__version__ = importlib.metadata.version('drytorch')
 
 __all__ = [
     'DataLoader',
-    'Diagnostic',
+    'Evaluation',
     'Experiment',
     'LearningSchema',
     'Loss',
@@ -153,3 +156,10 @@ if _check_mode_is_valid(INIT_MODE):
     init_trackers(INIT_MODE)
 elif INIT_MODE != 'none':
     raise ValueError(f'DRYTORCH_INIT_MODE: {INIT_MODE} not a valid setting.')
+
+warnings.filterwarnings('ignore', category=exceptions.GitUnavailableWarning)
+_strict = os.getenv('DRYTORCH_STRICT', '0')
+if _strict == '1':
+    warnings.filterwarnings('error', category=exceptions.ReproducibilityWarning)
+elif _strict != '0':
+    raise ValueError(f'DRYTORCH_STRICT: {_strict} not a valid setting.')

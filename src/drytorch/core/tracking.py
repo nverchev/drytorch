@@ -1,4 +1,4 @@
-"""Module for coordinating logging of metadata, internal messages and metrics.
+"""Coordination of metadata, message, and metric tracking.
 
 Attributes:
     DEFAULT_TRACKERS: named trackers registered to experiments by default.
@@ -10,9 +10,12 @@ import abc
 import datetime
 import functools
 import warnings
+import weakref
 
-from abc import abstractmethod
-from typing import Any, ClassVar, Final, Self
+from collections.abc import Iterable, Mapping
+from typing import Any, ClassVar, Final, Protocol, Self, runtime_checkable
+
+import torch
 
 from drytorch.core import exceptions, log_events
 from drytorch.core import protocols as p
@@ -32,36 +35,87 @@ __all__ = [
 DEFAULT_TRACKERS: dict[str, Tracker] = {}
 
 
+@runtime_checkable
+class _CreatedAtProtocol(Protocol):
+    """Protocol for objects exposing a creation timestamp."""
+
+    @property
+    @abc.abstractmethod
+    def created_at(self) -> datetime.datetime:
+        """The creation timestamp of the object."""
+
+
 class MetadataManager:
-    """Class that handles and generates metadata.
+    """Class that handles and generates metadata."""
 
-    Attributes:
-        metadata_dict: set to keep track of already registered names.
-    """
-
-    metadata_dict: dict[str, Any]
+    _named_metadata: Final[dict[str, Any]]
 
     def __init__(self) -> None:
         """Initialize."""
         super().__init__()
-        self.metadata_dict: Final = dict[str, Any]()
+        self._named_metadata = {}
+        return
 
-    def register_actor(
-        self, actor: Any, model: p.ModelProtocol[Any, Any]
+    @property
+    def named_metadata(self) -> Mapping[str, Any]:
+        """Mapping of registered names to their metadata."""
+        return self._named_metadata
+
+    def register_runner(
+        self,
+        runner: Any,
+        model: p.ModelProtocol[Any, Any],
+        /,
     ) -> None:
-        """Record metadata of an object that acts on a model.
+        """Record metadata of an object that runs a model.
 
         Args:
-            actor: the object acting on the model.
+            runner: the object running the model.
             model: the model that is called.
+
+        Raises:
+            NameAlreadyRegisteredError: if the name is already registered.
         """
-        actor_name = getattr(actor, 'name', '') or actor.__class__.__name__
-        actor_version = self._get_ts(actor)
+        self._register_runner(runner, model, log_events.RunnerRegistrationEvent)
+        return
+
+    def register_test(
+        self,
+        test: Any,
+        model: p.ModelProtocol[Any, Any],
+        /,
+    ) -> None:
+        """Record metadata of a test that runs a model.
+
+        Args:
+            test: the test running the model.
+            model: the model that is called.
+
+        Raises:
+            NameAlreadyRegisteredError: if the name is already registered.
+        """
+        self._register_runner(test, model, log_events.TestRegistrationEvent)
+        return
+
+    def _register_runner(
+        self,
+        runner: Any,
+        model: p.ModelProtocol[Any, Any],
+        event_cls: type[log_events.RunnerRegistrationEvent],
+        /,
+    ) -> None:
+        runner_name: str
+        if isinstance(runner, p.NamedProtocol) and runner.name:
+            runner_name = runner.name
+        else:
+            runner_name = runner.__class__.__name__
+
+        runner_version = self._get_ts(runner)
         model_version = self._get_ts(model)
-        metadata = self.extract_metadata(actor)
-        self._register_metadata(actor_name, metadata)
-        log_events.ActorRegistrationEvent(
-            actor_name, actor_version, model.name, model_version, metadata
+        metadata = self.extract_metadata(runner)
+        self._register_metadata(runner_name, metadata)
+        event_cls(
+            runner_name, runner_version, model.name, model_version, metadata
         )
         return
 
@@ -70,20 +124,34 @@ class MetadataManager:
 
         Args:
             model: the model to document.
+
+        Raises:
+            NameAlreadyRegisteredError: if the name is already registered.
         """
         metadata = repr_utils.LiteralStr(repr(model.module))
         self._register_metadata(model.name, metadata)
         model_version = self._get_ts(model)
-        log_events.ModelRegistrationEvent(model.name, model_version, metadata)
+        n_parameters, n_trainable = self._count_parameters(model.module)
+        log_events.ModelRegistrationEvent(
+            model.name,
+            model_version,
+            metadata,
+            n_parameters,
+            n_trainable,
+        )
         return
 
-    def unregister_actor(self, actor: Any) -> None:
-        """Unregister an object that acts on a model.
+    def unregister_runner(self, runner: Any) -> None:
+        """Unregister an object that runs a model.
 
         Args:
-            actor: the object actin on the model.
+            runner: the object running the model.
         """
-        caller_name = getattr(actor, 'name', '') or actor.__class__.__name__
+        if isinstance(runner, p.NamedProtocol) and runner.name:
+            caller_name = runner.name
+        else:
+            caller_name = runner.__class__.__name__
+
         self._unregister_metadata(caller_name)
         return
 
@@ -97,20 +165,20 @@ class MetadataManager:
         return
 
     def _register_metadata(self, name: str, metadata: Any) -> None:
-        if name in self.metadata_dict:
+        if name in self._named_metadata:
             raise exceptions.NameAlreadyRegisteredError(name)
 
-        self.metadata_dict[name] = metadata
+        self._named_metadata[name] = metadata
         return
 
     def _unregister_metadata(self, name: str) -> None:
-        if name in self.metadata_dict:
-            del self.metadata_dict[name]
+        if name in self._named_metadata:
+            del self._named_metadata[name]
 
         return
 
     @staticmethod
-    def extract_metadata(obj: Any) -> dict[str, Any]:
+    def extract_metadata(obj: Any) -> Mapping[str, Any] | str:
         """Wrapper of recursive_repr that catches RecursionError.
 
         To change the maximum number of documented items in an obj,
@@ -121,7 +189,7 @@ class MetadataManager:
             obj: an object to document.
         """
         try:
-            metadata = repr_utils.recursive_repr(obj)
+            metadata: Mapping[str, Any] | str = repr_utils.recursive_repr(obj)
         except RecursionError:
             warnings.warn(exceptions.RecursionWarning(), stacklevel=1)
             metadata = {}
@@ -129,21 +197,32 @@ class MetadataManager:
         return metadata
 
     @staticmethod
+    def _count_parameters(module: torch.nn.Module, /) -> tuple[int, int]:
+        n_parameters = 0
+        n_trainable = 0
+        for param in module.parameters():
+            n_parameters += param.numel()
+            if param.requires_grad:
+                n_trainable += param.numel()
+
+        return n_parameters, n_trainable
+
+    @staticmethod
     def _get_ts(x: Any) -> datetime.datetime:
-        possible_version = getattr(x, 'created_at', None)
-        if isinstance(possible_version, datetime.datetime):
-            return possible_version
-        else:
-            return repr_utils.CreatedAtMixin().created_at
+        if isinstance(x, _CreatedAtProtocol):
+            if isinstance(x.created_at, datetime.datetime):
+                return x.created_at
+
+        return repr_utils.CreatedAtMixin().created_at
 
 
-class Tracker(metaclass=abc.ABCMeta):
+class Tracker(abc.ABC):
     """Abstract base class for tracking events with priority ordering."""
 
-    _current: ClassVar[Self | None] = None
+    _current: ClassVar[Tracker | None] = None
 
     @functools.singledispatchmethod
-    @abstractmethod
+    @abc.abstractmethod
     def notify(self, event: log_events.Event) -> None:
         """Notify the tracker of an event.
 
@@ -159,13 +238,6 @@ class Tracker(metaclass=abc.ABCMeta):
         return
 
     @notify.register
-    def _(self, event: log_events.StopExperimentEvent) -> None:
-        _not_used = event
-        self._reset_current()
-        self.clean_up()
-        return
-
-    @notify.register
     def _(self, event: log_events.PauseExperimentEvent) -> None:
         _not_used = event
         self._reset_current()
@@ -177,15 +249,19 @@ class Tracker(metaclass=abc.ABCMeta):
         self._set_current(self)
         return
 
+    @notify.register
+    def _(self, event: log_events.StopExperimentEvent) -> None:
+        _not_used = event
+        self._reset_current()
+        self.clean_up()
+        return
+
     def clean_up(self) -> None:
         """Override to clean up the tracker idempotently."""
         return
 
     def close(self) -> None:
-        """Release everything, including any paused state.
-
-        Called once when the process ends.
-        """
+        """Override to release the tracker resources idempotently."""
         self.clean_up()
         return
 
@@ -199,13 +275,13 @@ class Tracker(metaclass=abc.ABCMeta):
         Raises:
             TrackerNotActiveError: if the tracker is not registered.
         """
-        if cls._current is None:
+        if not isinstance(cls._current, cls):
             raise exceptions.TrackerNotUsedError(cls.__name__)
 
         return cls._current
 
     @classmethod
-    def _set_current(cls, tracker: Self) -> None:
+    def _set_current(cls, tracker: Tracker) -> None:
         cls._current = tracker
         return
 
@@ -220,11 +296,11 @@ class EventDispatcher:
 
     Attributes:
         exp_name: name of the current experiment.
-        named_trackers: a dictionary of trackers, indexed by their names.
     """
 
-    exp_name: str
-    named_trackers: dict[str, Tracker]
+    exp_name: Final[str]
+    _finalizer: Final[weakref.finalize]
+    _named_trackers: Final[dict[str, Tracker]]
 
     def __init__(self, exp_name) -> None:
         """Initialize.
@@ -232,15 +308,22 @@ class EventDispatcher:
         Args:
             exp_name: name of the current experiment.
         """
-        self.exp_name: Final = str(exp_name)
-        self.named_trackers: Final = dict[str, Tracker]()
+        self.exp_name = str(exp_name)
+        self._named_trackers = {}
+        self._finalizer = weakref.finalize(
+            self, self._close_trackers, self._named_trackers
+        )
         return
 
-    def clean_up(self) -> None:
-        """Clean up all registered trackers."""
-        for name, tracker in self.named_trackers.items():
-            self._clean_up_tracker(name, tracker)
+    @property
+    def named_trackers(self) -> Mapping[str, Tracker]:
+        """A mapping of trackers, indexed by their names."""
+        return self._named_trackers
 
+    def close_all(self) -> None:
+        """Close all registered trackers."""
+        self._finalizer.detach()
+        self._close_trackers(self._named_trackers)
         return
 
     def publish(self, event: log_events.Event) -> None:
@@ -253,8 +336,8 @@ class EventDispatcher:
             KeyboardInterrupt: if a tracker raises KeyboardInterrupt.
             SystemExit: if a tracker raises SystemExit.
         """
-        to_be_removed = list[str]()
-        for name, tracker in self.named_trackers.items():
+        to_be_removed: list[str] = []
+        for name, tracker in self._named_trackers.items():
             try:
                 tracker.notify(event)
             except (KeyboardInterrupt, SystemExit) as se:
@@ -267,36 +350,31 @@ class EventDispatcher:
                 to_be_removed.append(name)
 
         for name in to_be_removed:
-            self._clean_up_tracker(name, self.named_trackers[name])
+            self._close_tracker(name, self._named_trackers[name])
             self.remove(name)
 
         return
 
-    def _clean_up_tracker(self, name: str, tracker: Tracker) -> None:
-        try:
-            tracker._reset_current()
-            tracker.close()
-        except Exception as err:
-            warnings.warn(
-                exceptions.TrackerExceptionWarning(name, err),
-                stacklevel=2,
-            )
-        return
-
-    def _subscribe_tracker(self, name: str, tracker: Tracker) -> None:
-        """Subscribe a tracker to the dispatcher.
+    def remove(self, tracker_name: str) -> None:
+        """Remove a tracker by name from the dispatcher.
 
         Args:
-            name: the name associated with the tracker.
-            tracker: the tracker to register.
+            tracker_name: name of the tracker to remove.
 
         Raises:
-            TrackerAlreadyRegisteredError: if the tracker is already registered.
+            TrackerNotActiveError: if the tracker is not registered.
         """
-        if name in self.named_trackers:
-            raise exceptions.TrackerAlreadyRegisteredError(name, self.exp_name)
+        try:
+            self._named_trackers.pop(tracker_name)
+        except KeyError as ke:
+            raise exceptions.TrackerNotUsedError(tracker_name) from ke
+        return
 
-        self.named_trackers[name] = tracker
+    def remove_all(self) -> None:
+        """Remove all trackers from the dispatcher."""
+        for tracker_name in list(self._named_trackers):
+            self.remove(tracker_name)
+
         return
 
     def subscribe(self, *trackers: Tracker, **named_trackers: Tracker) -> None:
@@ -318,31 +396,45 @@ class EventDispatcher:
 
         return
 
-    def remove(self, tracker_name: str) -> None:
-        """Remove a tracker by name from the dispatcher.
+    def _subscribe_tracker(self, name: str, tracker: Tracker) -> None:
+        """Subscribe a tracker to the dispatcher.
 
         Args:
-            tracker_name: name of the tracker to remove.
+            name: the name associated with the tracker.
+            tracker: the tracker to register.
 
         Raises:
-            TrackerNotActiveError: if the tracker is not registered.
+            TrackerAlreadyRegisteredError: if the tracker is already registered.
         """
+        if name in self._named_trackers:
+            raise exceptions.TrackerAlreadyRegisteredError(name, self.exp_name)
+
+        self._named_trackers[name] = tracker
+        return
+
+    @staticmethod
+    def _close_tracker(name: str, tracker: Tracker) -> None:
         try:
-            self.named_trackers.pop(tracker_name)
-        except KeyError as ke:
-            raise exceptions.TrackerNotUsedError(tracker_name) from ke
-        return
-
-    def remove_all(self) -> None:
-        """Remove all trackers from the dispatcher."""
-        for tracker_name in list(self.named_trackers):
-            self.remove(tracker_name)
+            tracker._reset_current()
+            tracker.close()
+        except Exception as err:
+            warnings.warn(
+                exceptions.TrackerExceptionWarning(name, err), stacklevel=2
+            )
 
         return
 
+    @staticmethod
+    def _close_trackers(named_trackers: dict[str, Tracker]) -> None:
+        for name, tracker in named_trackers.items():
+            EventDispatcher._close_tracker(name, tracker)
 
-def extend_default_trackers(tracker_list: list[Tracker]) -> None:
-    """Add a list of trackers to the default ones."""
+        named_trackers.clear()
+        return
+
+
+def extend_default_trackers(tracker_list: Iterable[Tracker]) -> None:
+    """Add trackers to the default ones."""
     for tracker in tracker_list:
         DEFAULT_TRACKERS[tracker.__class__.__name__] = tracker
 

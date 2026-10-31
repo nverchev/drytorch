@@ -1,5 +1,9 @@
 """Support for torcheval syncing recommended for distributed training."""
 
+from __future__ import annotations
+
+from typing import Final, TypeVar
+
 import torch
 
 from torcheval import metrics
@@ -9,31 +13,47 @@ from drytorch.core import exceptions
 from drytorch.core import protocols as p
 
 
+__all__ = [
+    'from_torcheval',
+]
+
+
 _Tensor = torch.Tensor
+
+_ComputeReturn = TypeVar('_ComputeReturn', bound=_Tensor | dict[str, _Tensor])
 
 
 def from_torcheval(
-    torch_eval: metrics.Metric[_Tensor | dict[str, _Tensor]],
+    torch_eval: metrics.Metric[_ComputeReturn],
+    /,
+    *,
+    higher_is_better: bool | None = None,
     name: str | None = None,
-) -> p.ObjectiveProtocol[_Tensor, _Tensor]:
+) -> p.SyncedObjectiveProtocol[_Tensor, _Tensor]:
     """Returns a wrapper of a Metric from torcheval with a sync method.
 
     Args:
-        torch_eval: The torcheval metric to wrap.
-        name: Optional name for the metric. Defaults to the class name.
+        torch_eval: the torcheval metric to wrap.
+        higher_is_better: whether higher values are better.
+        name: optional name for the metric. Defaults to the class name.
 
     Raises:
         exceptions.ComputedMetricsTypeError: If the metric computes to an
             invalid type.
     """
 
-    class _TorchEvalWithSync(p.ObjectiveProtocol[_Tensor, _Tensor]):
-        def __init__(
-            self, _metric: metrics.Metric[_Tensor | dict[str, _Tensor]]
-        ) -> None:
+    class _TorchEvalWithSync:
+        higher_is_better: Final[bool | None]
+        metric: Final[metrics.Metric[_ComputeReturn]]
+        name: Final[str]
+        _synced_value: _ComputeReturn | None
+
+        def __init__(self, _metric: metrics.Metric[_ComputeReturn]) -> None:
+            self.higher_is_better = higher_is_better
             self.metric = _metric
-            self.name = name if name is not None else _metric.__class__.__name__
-            self._synced_value: _Tensor | dict[str, _Tensor] | None = None
+            name_str = name if name is not None else _metric.__class__.__name__
+            self.name = name_str
+            self._synced_value = None
             return
 
         def compute(self) -> dict[str, _Tensor]:

@@ -1,28 +1,34 @@
-"""Tests for the "tracking" module."""
+"""Tests for the ``tracking`` module."""
 
 import dataclasses
 import functools
+
+from collections.abc import Generator
 
 import pytest
 
 from drytorch.core import exceptions, log_events
 from drytorch.core.tracking import (
+    DEFAULT_TRACKERS,
     EventDispatcher,
     MetadataManager,
     Tracker,
+    extend_default_trackers,
     remove_all_default_trackers,
 )
 
 
 @pytest.fixture(autouse=True, scope='module')
-def remove_trackers() -> None:
+def remove_trackers() -> Generator[None, None, None]:
     """Remove trackers."""
     remove_all_default_trackers()
+    yield
+    log_events.Event.set_auto_publish(None)
     return
 
 
-class _SimpleActor:
-    """Simple actor for testing."""
+class _SimpleRunner:
+    """Simple runner for testing."""
 
     name: str = 'mock obj'
 
@@ -49,7 +55,7 @@ class _SimpleTracker(Tracker):
     @notify.register
     def _(self, event: _SimpleEvent) -> None:
         self.last_event = event
-        super().notify(event)
+        return super().notify(event)
 
     @notify.register
     def _(self, event: _UndefinedEvent) -> None:
@@ -78,47 +84,86 @@ class TestMetadataManager:
             'drytorch.core.log_events.ModelRegistrationEvent'
         )
         self.mock_caller_registration_event = mocker.patch(
-            'drytorch.core.log_events.ActorRegistrationEvent'
+            'drytorch.core.log_events.RunnerRegistrationEvent'
+        )
+        self.mock_test_registration_event = mocker.patch(
+            'drytorch.core.log_events.TestRegistrationEvent'
         )
         return
 
     @pytest.fixture()
-    def simple_actor(self) -> _SimpleActor:
-        """Set up an actor instance for testing."""
-        return _SimpleActor()
+    def simple_runner(self) -> _SimpleRunner:
+        """Set up a runner instance for testing."""
+        return _SimpleRunner()
 
     @pytest.fixture()
     def manager(self) -> MetadataManager:
         """Set up the MetadataManager for testing."""
         return MetadataManager()
 
-    def test_register_actor(self, mock_model, simple_actor, manager) -> None:
+    def test_register_runner(self, mock_model, simple_runner, manager) -> None:
         """Test recording metadata creates the event."""
-        manager.register_actor(simple_actor, mock_model)
-        assert simple_actor.name in manager.metadata_dict
+        manager.register_runner(simple_runner, mock_model)
+
+        assert simple_runner.name in manager.named_metadata
         self.mock_caller_registration_event.assert_called_once()
+        self.mock_test_registration_event.assert_not_called()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
-            manager.register_actor(simple_actor, mock_model)
+            manager.register_runner(simple_runner, mock_model)
+
+    def test_register_test(self, mock_model, simple_runner, manager) -> None:
+        """Test recording test metadata creates TestRegistrationEvent."""
+        manager.register_test(simple_runner, mock_model)
+
+        assert simple_runner.name in manager.named_metadata
+        self.mock_test_registration_event.assert_called_once()
+        self.mock_caller_registration_event.assert_not_called()
+        with pytest.raises(exceptions.NameAlreadyRegisteredError):
+            manager.register_test(simple_runner, mock_model)
 
     def test_register_model(self, mock_model, manager) -> None:
         """Test registering a model creates the event."""
         manager.register_model(mock_model)
-        assert mock_model.name in manager.metadata_dict
+
+        assert mock_model.name in manager.named_metadata
         self.mock_model_registration_event.assert_called_once()
         with pytest.raises(exceptions.NameAlreadyRegisteredError):
             manager.register_model(mock_model)
 
-    def test_unregister_actor(self, simple_actor, mock_model, manager) -> None:
-        """Test unregistering an actor removes its name from the used names."""
-        manager.register_actor(simple_actor, mock_model)
-        manager.unregister_actor(simple_actor)
-        assert simple_actor.name not in manager.metadata_dict
+    def test_register_model_counts_parameters(
+        self, mocker, mock_model, manager
+    ) -> None:
+        """Test frozen parameters count towards the total only."""
+        trainable = mocker.Mock(requires_grad=True)
+        trainable.numel.return_value = 6
+        frozen = mocker.Mock(requires_grad=False)
+        frozen.numel.return_value = 3
+        mock_model.module = mocker.Mock()
+        mock_model.module.parameters.return_value = [trainable, frozen]
+
+        manager.register_model(mock_model)
+
+        self.mock_model_registration_event.assert_called_once_with(
+            mock_model.name, mocker.ANY, mocker.ANY, 9, 6
+        )
+
+    def test_unregister_runner(
+        self, simple_runner, mock_model, manager
+    ) -> None:
+        """Test unregistering a runner removes its name from the used names."""
+        manager.register_runner(simple_runner, mock_model)
+
+        manager.unregister_runner(simple_runner)
+
+        assert simple_runner.name not in manager.named_metadata
 
     def test_unregister_model(self, mock_model, manager) -> None:
         """Test unregistering a model removes its name from the used names."""
         manager.register_model(mock_model)
-        manager.unregister_actor(mock_model)
-        assert mock_model.name not in manager.metadata_dict
+
+        manager.unregister_runner(mock_model)
+
+        assert mock_model.name not in manager.named_metadata
 
     def test_extract_metadata_recursion_error(self, mocker, manager) -> None:
         """Test extract_metadata handles RecursionError gracefully."""
@@ -130,6 +175,19 @@ class TestMetadataManager:
         )
         with pytest.warns(exceptions.RecursionWarning):
             _ = manager.extract_metadata(mock_obj)
+
+    def test_extract_metadata_empty_object(self, manager) -> None:
+        """Test extract_metadata on empty object returns class name string."""
+
+        class _Empty:
+            pass
+
+        assert manager.extract_metadata(_Empty()) == '_Empty'
+
+    def test_named_metadata_read_only(self, manager) -> None:
+        """Test that named_metadata cannot be reassigned."""
+        with pytest.raises(AttributeError):
+            manager.named_metadata = {}
 
 
 class TestTracker:
@@ -148,7 +206,9 @@ class TestTracker:
     def test_get_current(self, tracker, mocker) -> None:
         """Test that get_current returns the active tracker."""
         start_exp = mocker.create_autospec(log_events.StartExperimentEvent)
+
         tracker.notify(start_exp)
+
         assert tracker.get_current() is tracker
 
     def test_get_current_after_stop(self, tracker, mocker) -> None:
@@ -156,7 +216,9 @@ class TestTracker:
         start_exp = mocker.create_autospec(log_events.StartExperimentEvent)
         tracker.notify(start_exp)
         stop_exp = mocker.create_autospec(log_events.StopExperimentEvent)
+
         tracker.notify(stop_exp)
+
         with pytest.raises(exceptions.TrackerNotUsedError):
             tracker.get_current()
 
@@ -164,7 +226,9 @@ class TestTracker:
         """Test that clean_up removes the tracker from the active trackers."""
         clean_up = mocker.patch.object(tracker, 'clean_up')
         stop_exp = mocker.create_autospec(log_events.StopExperimentEvent)
+
         tracker.notify(stop_exp)
+
         clean_up.assert_called_once()
 
     def test_get_current_after_pause(self, tracker, mocker) -> None:
@@ -172,7 +236,9 @@ class TestTracker:
         start_exp = mocker.create_autospec(log_events.StartExperimentEvent)
         tracker.notify(start_exp)
         pause_exp = mocker.create_autospec(log_events.PauseExperimentEvent)
+
         tracker.notify(pause_exp)
+
         with pytest.raises(exceptions.TrackerNotUsedError):
             tracker.get_current()
 
@@ -180,7 +246,9 @@ class TestTracker:
         """Test that pause does not call clean_up."""
         clean_up = mocker.patch.object(tracker, 'clean_up')
         pause_exp = mocker.create_autospec(log_events.PauseExperimentEvent)
+
         tracker.notify(pause_exp)
+
         clean_up.assert_not_called()
 
 
@@ -204,41 +272,48 @@ class TestEventDispatcher:
         dispatcher.subscribe(tracker)
         return dispatcher
 
-    def test_register_tracker(self, tracker, dispatcher):
+    def test_register_tracker(self, tracker, dispatcher) -> None:
         """Test that a tracker can be registered to an experiment."""
         assert tracker.__class__.__name__ in dispatcher.named_trackers
 
-    def test_register_duplicate_tracker_raises_error(self, dispatcher):
+    def test_register_duplicate_tracker_raises_error(self, dispatcher) -> None:
         """Test that registering a duplicate tracker raises an error."""
         with pytest.raises(exceptions.TrackerAlreadyRegisteredError):
             dispatcher.subscribe(_SimpleTracker())
 
-    def test_remove_named_tracker(self, tracker, dispatcher):
+    def test_remove_named_tracker(self, tracker, dispatcher) -> None:
         """Test that a registered tracker can be removed by its name."""
         tracker_name = tracker.__class__.__name__
+
         dispatcher.remove(tracker_name)
+
         assert tracker_name not in dispatcher.named_trackers
 
-    def test_remove_nonexistent_tracker_raises_error(self, dispatcher):
+    def test_remove_nonexistent_tracker_raises_error(self, dispatcher) -> None:
         """Test that removing a non-existent tracker raises an error."""
         with pytest.raises(exceptions.TrackerNotUsedError):
             dispatcher.remove('NonexistentTracker')
 
-    def test_publish_event_calls_tracker_notify(self, tracker, dispatcher):
+    def test_publish_event_calls_tracker_notify(
+        self, tracker, dispatcher
+    ) -> None:
         """Test publishing an event notifies registered trackers."""
         _SimpleEvent.set_auto_publish(dispatcher.publish)
+
         simple_event = _SimpleEvent()
 
         assert tracker.last_event is simple_event
 
-    def test_handle_tracker_exceptions(self, dispatcher):
+    def test_handle_tracker_exceptions(self, dispatcher) -> None:
         """Test handling of tracker exceptions."""
         _UndefinedEvent.set_auto_publish(dispatcher.publish)
 
         with pytest.warns(exceptions.TrackerExceptionWarning):
             _UndefinedEvent()
 
-    def test_publish_propagates_system_exit(self, dispatcher, exit_tracker):
+    def test_publish_propagates_system_exit(
+        self, dispatcher, exit_tracker
+    ) -> None:
         """Test KeyboardInterrupt and SystemExit are not swallowed."""
         dispatcher.subscribe(exit_tracker)
         _SimpleEvent.set_auto_publish(dispatcher.publish)
@@ -249,6 +324,7 @@ class TestEventDispatcher:
     def test_subscribe_named(self, dispatcher) -> None:
         """Test subscribing with specific names."""
         tracker = _SimpleTracker()
+
         dispatcher.subscribe(custom_name=tracker)
 
         assert 'custom_name' in dispatcher.named_trackers
@@ -257,4 +333,21 @@ class TestEventDispatcher:
     def test_remove_all(self, dispatcher) -> None:
         """Test removing all trackers."""
         dispatcher.remove_all()
+
         assert not dispatcher.named_trackers
+
+    def test_named_trackers_read_only(self, dispatcher) -> None:
+        """Test that named_trackers cannot be reassigned."""
+        with pytest.raises(AttributeError):
+            dispatcher.named_trackers = {}
+
+
+def test_extend_default_trackers_iterable() -> None:
+    """Test extend_default_trackers accepts an arbitrary Iterable."""
+    tracker = _SimpleTracker()
+
+    extend_default_trackers((tracker,))
+    try:
+        assert DEFAULT_TRACKERS['_SimpleTracker'] is tracker
+    finally:
+        remove_all_default_trackers()

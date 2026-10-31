@@ -1,7 +1,8 @@
 """Functional tests for MatPlotter."""
 
+import dataclasses
 import importlib.util
-import os
+import pathlib
 
 import pytest
 
@@ -9,42 +10,164 @@ import pytest
 if not importlib.util.find_spec('matplotlib'):
     pytest.skip('matplotlib not available', allow_module_level=True)
 
-import matplotlib.pyplot as plt
-
 from drytorch.core import log_events
+from drytorch.trackers.csv import CSVDumper
 from drytorch.trackers.matplotlib import MatPlotter
 
 
 class TestMatPlotterFullCycle:
-    """Complete MatPlotter session and manual verification."""
+    """Complete ``MatPlotter`` session."""
 
-    @pytest.mark.skipif(
-        'LIVE_PLOT' not in os.environ,
-        reason='opens figure windows; run manually with LIVE_PLOT set',
-    )
-    def test_live_plotting_lifecycle(
+    def test_figures_of_the_session(
         self,
+        tmp_path: pathlib.Path,
+        example_model_name: str,
         plotting_workflow: tuple[log_events.Event, ...],
     ) -> None:
-        """Verify multi-epoch, multi-metric training with live plots."""
-        pause_epoch = 0.5
-        pause_final = 2.0
+        """A session has a figure for each metric, which saves to a file."""
         plotter = MatPlotter()
+        for event in plotting_workflow[:-1]:
+            plotter.notify(event)
 
+        figures = plotter.create_training_plots(example_model_name)
+        for metric_name, fig in figures.items():
+            fig.savefig(tmp_path / f'{metric_name}.png')
+
+        plotter.notify(plotting_workflow[-1])
+        plotter.close()
+
+        assert len(figures) == 3
+        assert len(list(tmp_path.glob('*.png'))) == 3
+
+    def test_save_plots_of_the_run(
+        self,
+        tmp_path: pathlib.Path,
+        example_model_name: str,
+        plotting_workflow: tuple[log_events.Event, ...],
+    ) -> None:
+        """The curves are saved in the run folder, and tests in test_metrics."""
+        plotter = MatPlotter()
         for event in plotting_workflow:
             plotter.notify(event)
-            if isinstance(
-                event, (log_events.EndEpochEvent, log_events.EndTestEvent)
-            ):
-                plt.pause(pause_epoch)
 
-        # 4. clean_up() should keep figures open for user inspection
-        plotter.clean_up()
-        assert len(plt.get_fignums()) == 1
-        plt.pause(pause_final)
+        saved = {
+            path.stem
+            for path in tmp_path.glob(
+                f'matplotlib/**/{example_model_name}/*.png'
+            )
+        }
+        assert len(saved) == 3
+        test_plot = (
+            tmp_path
+            / 'matplotlib'
+            / 'test_metrics'
+            / f'{example_model_name}.png'
+        )
+        assert test_plot.is_file()
 
-        # 5. close() should close all figures and clear state
-        plotter.close()
-        assert len(plt.get_fignums()) == 0
-        assert plotter._model_figure == {}
-        assert plotter._source_colors == {}
+    def test_resumed_run_with_csv_loader_saves_earlier_test_plot(
+        self,
+        tmp_path: pathlib.Path,
+        example_model_name: str,
+        start_experiment_event: log_events.StartExperimentEvent,
+        stop_experiment_event: log_events.StopExperimentEvent,
+    ) -> None:
+        """A resumed run with CSV loader still saves earlier test plot."""
+        csv_tracker = CSVDumper(par_dir=tmp_path)
+        csv_tracker.notify(start_experiment_event)
+
+        train_event = log_events.MetricEvent(
+            model_name=example_model_name,
+            source_name='train',
+            epoch=1,
+            metrics={'loss': 0.5, 'accuracy': 0.8},
+        )
+        val_event = log_events.MetricEvent(
+            model_name=example_model_name,
+            source_name='val',
+            epoch=1,
+            metrics={'loss': 0.45, 'accuracy': 0.82},
+        )
+        test_event = log_events.TestMetricEvent(
+            model_name=example_model_name,
+            source_name='test',
+            epoch=1,
+            metrics={'loss': 0.4, 'accuracy': 0.85},
+        )
+        csv_tracker.notify(train_event)
+        csv_tracker.notify(val_event)
+        csv_tracker.notify(test_event)
+        csv_tracker.notify(stop_experiment_event)
+
+        resumed_start = dataclasses.replace(
+            start_experiment_event, resumed=True
+        )
+        resumed_csv = CSVDumper(par_dir=tmp_path)
+        plotter = MatPlotter(metric_loader=resumed_csv, par_dir=tmp_path)
+        plotter.notify(resumed_start)
+        resumed_csv.notify(resumed_start)
+
+        plotter.save_plots(example_model_name)
+        plotter.notify(stop_experiment_event)
+        resumed_csv.notify(stop_experiment_event)
+
+        test_plot_file = (
+            tmp_path
+            / 'matplotlib'
+            / 'test_metrics'
+            / f'{example_model_name}.png'
+        )
+        assert test_plot_file.is_file()
+        return
+
+    def test_multiple_experiments_save_shared_test_plot(
+        self,
+        tmp_path: pathlib.Path,
+        example_model_name: str,
+        start_experiment_event: log_events.StartExperimentEvent,
+        stop_experiment_event: log_events.StopExperimentEvent,
+    ) -> None:
+        """Two experiments with CSV loader produce one shared test plot file."""
+        csv_tracker = CSVDumper(par_dir=tmp_path)
+        plotter = MatPlotter(metric_loader=csv_tracker, par_dir=tmp_path)
+
+        start_1 = dataclasses.replace(
+            start_experiment_event, exp_name='exp_1', run_id='run_1'
+        )
+        csv_tracker.notify(start_1)
+        plotter.notify(start_1)
+        test_event_1 = log_events.TestMetricEvent(
+            model_name=example_model_name,
+            source_name='test',
+            epoch=1,
+            metrics={'accuracy': 0.8},
+        )
+        csv_tracker.notify(test_event_1)
+        plotter.notify(test_event_1)
+        plotter.notify(stop_experiment_event)
+        csv_tracker.notify(stop_experiment_event)
+
+        start_2 = dataclasses.replace(
+            start_experiment_event, exp_name='exp_2', run_id='run_1'
+        )
+        csv_tracker.notify(start_2)
+        plotter.notify(start_2)
+        test_event_2 = log_events.TestMetricEvent(
+            model_name=example_model_name,
+            source_name='test',
+            epoch=1,
+            metrics={'accuracy': 0.9},
+        )
+        csv_tracker.notify(test_event_2)
+        plotter.notify(test_event_2)
+        plotter.notify(stop_experiment_event)
+        csv_tracker.notify(stop_experiment_event)
+
+        shared_plot_file = (
+            tmp_path
+            / 'matplotlib'
+            / 'test_metrics'
+            / f'{example_model_name}.png'
+        )
+        assert shared_plot_file.is_file()
+        return

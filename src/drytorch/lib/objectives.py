@@ -1,4 +1,4 @@
-"""Module containing classes to create and combine loss and metrics.
+"""Classes to create and combine loss and metrics.
 
 The interface is similar to https://github.com/Lightning-AI/torchmetrics,
 with stricter typing and simpler construction. MetricCollection and
@@ -10,11 +10,20 @@ from __future__ import annotations
 
 import abc
 import copy
+import functools
 import operator
 import warnings
 
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Final, Generic, Literal, Self, TypeVar
+from collections.abc import Callable, Mapping
+from typing import (
+    Any,
+    Final,
+    Generic,
+    Literal,
+    Self,
+    TypeVar,
+    overload,
+)
 
 import torch
 
@@ -22,107 +31,62 @@ from typing_extensions import override
 
 from drytorch.core import exceptions
 from drytorch.core import protocols as p
-from drytorch.lib import aggregators
+from drytorch.lib import accumulators
 
 
 __all__ = [
     'AverageObjective',
-    'CompositionalLoss',
     'DictLoss',
-    'JoinLossMetrics',
-    'JoinMetrics',
+    'JoinedLoss',
+    'JoinedMetrics',
     'Loss',
-    'LossBase',
+    'LossWithMetrics',
     'Metric',
     'MetricCollection',
-    'MetricTracker',
     'Objective',
     'compute_metrics',
+    'join',
 ]
 
 
-Output = TypeVar('Output', bound=p.OutputType, contravariant=True)
-Target = TypeVar('Target', bound=p.TargetType, contravariant=True)
+Output = TypeVar('Output', bound=p.OutputType)
+Target = TypeVar('Target', bound=p.TargetType)
+_Output_contra = TypeVar(
+    '_Output_contra', bound=p.OutputType, contravariant=True
+)
+_Target_contra = TypeVar(
+    '_Target_contra', bound=p.TargetType, contravariant=True
+)
 Tensor = torch.Tensor
 
+# precedence of the top-level operation in a loss formula
+_SUM: Final = 0
+_PRODUCT: Final = 1
+_NEGATION: Final = 2
+_POWER: Final = 3
+_TERM: Final = 4
+_OPERATORS: Final[dict[str, tuple[int, Callable[[Tensor, Tensor], Tensor]]]] = {
+    '+': (_SUM, operator.add),
+    '-': (_SUM, operator.sub),
+    'x': (_PRODUCT, operator.mul),
+    '/': (_PRODUCT, operator.truediv),
+}
 
-class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
+
+class Objective(Generic[_Output_contra, _Target_contra], abc.ABC):
     """Abstract base class for metrics or losses."""
+
+    _aggregator: Final[
+        accumulators.Aggregator[
+            accumulators.AbstractAccumulator[Tensor, Tensor]
+        ]
+    ]
+    _cached_values: dict[str, Tensor]
 
     def __init__(self) -> None:
         """Initialize."""
-        self._aggregator = self._get_aggregator()
-        return
-
-    @override
-    def compute(self: Self) -> dict[str, Tensor]:
-        """Return the aggregated objective value(s).
-
-        Despite the name, which follows common practice, this method caches
-        previous computed values and returns them if available.
-
-        Returns:
-            A dictionary of computed metric values.
-        """
-        if not self._aggregator:
-            warnings.warn(
-                exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
-            )
-        return self._compute()
-
-    @override
-    def update(
-        self: Self, outputs: Output, targets: Target
-    ) -> dict[str, Tensor]:
-        """Updates the objective's internal state with new outputs and targets.
-
-        Args:
-            outputs: the model outputs.
-            targets: the ground truth targets.
-
-        Returns:
-            A dictionary of the calculated metric values for the current update.
-        """
-        results = self.calculate(outputs, targets)
-        self._aggregator += results
-        return results
-
-    @override
-    def reset(self: Self) -> None:
-        """Resets the internal state of the instance."""
-        self._aggregator.clear()
-        return
-
-    @abc.abstractmethod
-    def calculate(
-        self: Self, outputs: Output, targets: Target
-    ) -> dict[str, Tensor]:
-        """Method responsible for the calculations.
-
-        Args:
-            outputs: model outputs.
-            targets: ground truth.
-
-        Returns:
-            A dictionary of calculated metric values.
-        """
-
-    def copy(self) -> Self:
-        """Create a (deep)copy of self."""
-        return copy.deepcopy(self, {})
-
-    def merge_state(self: Self, other: Self) -> None:
-        """Merge metric states.
-
-        Args:
-            other: metric to be merged with.
-        """
-        self._aggregator += other._aggregator
-        return
-
-    def sync(self: Self) -> None:
-        """Synchronize metric states across processes."""
-        self._aggregator.all_reduce()
+        self._aggregator = accumulators.Aggregator()
+        self._cached_values = {}
         return
 
     def __deepcopy__(self, memo: dict[int, Any]) -> Self:
@@ -141,27 +105,127 @@ class Objective(p.ObjectiveProtocol[Output, Target], metaclass=abc.ABCMeta):
 
         return result
 
+    def compute(self) -> dict[str, Tensor]:
+        """Return the aggregated objective value(s).
+
+        Despite the name, which follows common practice, this method caches
+        previous computed values and returns them if available.
+
+        Returns:
+            A dictionary of computed metric values.
+        """
+        if not self._aggregator:
+            warnings.warn(
+                exceptions.ComputedBeforeUpdatedWarning(self), stacklevel=1
+            )
+
+        if not self._cached_values:
+            self._cached_values = self._compute()
+
+        return dict(self._cached_values)
+
+    def update(
+        self, outputs: _Output_contra, targets: _Target_contra
+    ) -> dict[str, Tensor]:
+        """Updates the objective's internal state with new outputs and targets.
+
+        Args:
+            outputs: the model outputs.
+            targets: the ground truth targets.
+
+        Returns:
+            A dictionary of the calculated metric values for the current update.
+        """
+        results = self.calculate(outputs, targets)
+        accumulator_cls = self._get_accumulator_cls()
+        self._aggregator.merge(
+            {
+                key: accumulator_cls.from_value(value)
+                for key, value in results.items()
+            }
+        )
+        self._cached_values.clear()
+        return results
+
+    def reset(self) -> None:
+        """Resets the internal state of the instance."""
+        self._aggregator.clear()
+        self._cached_values.clear()
+        return
+
     @abc.abstractmethod
-    def _compute(self: Self) -> dict[str, Tensor]:
+    def calculate(
+        self, outputs: _Output_contra, targets: _Target_contra
+    ) -> dict[str, Tensor]:
+        """Method responsible for the calculations.
+
+        Args:
+            outputs: model outputs.
+            targets: ground truth.
+
+        Returns:
+            A dictionary of calculated metric values.
+        """
+
+    def copy(self) -> Self:
+        """Create a (deep)copy of self.
+
+        Returns:
+            A deep copy of the objective.
+        """
+        return copy.deepcopy(self, {})
+
+    def merge_state(self, other: Objective[Any, Any]) -> None:
+        """Merge metric states.
+
+        Args:
+            other: metric to be merged with.
+
+        Raises:
+            AccumulatorMismatchError: if the two objectives use different
+                accumulators.
+        """
+        accumulator_cls = self._get_accumulator_cls()
+        other_accumulator_cls = other._get_accumulator_cls()
+        if other_accumulator_cls is not accumulator_cls:
+            raise exceptions.AccumulatorMismatchError(
+                accumulator_cls, other_accumulator_cls
+            )
+
+        self._aggregator.merge(other._aggregator.accumulators)
+        self._cached_values.clear()
+        return
+
+    def sync(self) -> None:
+        """Synchronize metric states across processes."""
+        self._aggregator.sync()
+        self._cached_values.clear()
+        return
+
+    def _compute(self) -> dict[str, Tensor]:
         """Computes the objective value(s)."""
+        return {
+            key: acc.reduce()
+            for key, acc in self._aggregator.accumulators.items()
+        }
 
     @classmethod
     @abc.abstractmethod
-    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Any, Any]:
-        """Returns the aggregator class."""
+    def _get_accumulator_cls(
+        cls,
+    ) -> type[accumulators.AbstractAccumulator[Tensor, Tensor]]:
+        """Returns the accumulator class."""
 
 
-class AverageObjective(Objective[Output, Target], metaclass=abc.ABCMeta):
+class AverageObjective(Objective[_Output_contra, _Target_contra], abc.ABC):
     """Class defining the default aggregation."""
 
-    @override
-    def _compute(self: Self) -> dict[str, Tensor]:
-        """Computes the objective value(s)."""
-        return self._aggregator.reduce()
-
     @classmethod
-    def _get_aggregator(cls) -> aggregators.AbstractAggregator[Tensor, Tensor]:
-        return aggregators.TorchAverager()
+    @override
+    def _get_accumulator_cls(
+        cls,
+    ) -> type[accumulators.AbstractAccumulator[Tensor, Tensor]]:
+        return accumulators.TorchMeanAccumulator
 
 
 class MetricCollection(AverageObjective[Output, Target]):
@@ -169,7 +233,7 @@ class MetricCollection(AverageObjective[Output, Target]):
 
     Because :class:`AverageObjective` aggregates values across batches,
     the provided functions should ideally return unreduced ``(B,)`` tensors
-    (where `B` is the batch size) rather than pre-reduced scalars. This
+    (where ``B`` is the batch size) rather than pre-reduced scalars. This
     ensures the final average correctly weights each batch by its size.
 
     Attributes:
@@ -177,8 +241,8 @@ class MetricCollection(AverageObjective[Output, Target]):
         named_fn: dictionary of named functions returning a single value.
     """
 
-    fn: list[Callable[[Output, Target], dict[str, Tensor]]]
-    named_fn: dict[str, Callable[[Output, Target], Tensor]]
+    fn: Final[tuple[Callable[[Output, Target], dict[str, Tensor]], ...]]
+    named_fn: Final[Mapping[str, Callable[[Output, Target], Tensor]]]
 
     def __init__(
         self,
@@ -192,8 +256,8 @@ class MetricCollection(AverageObjective[Output, Target]):
             **named_fn: dictionary of named functions returning a single value.
         """
         super().__init__()
-        self.fn: Final = list(fn)
-        self.named_fn: Final = named_fn
+        self.fn = tuple(fn)
+        self.named_fn = named_fn
         return
 
     @override
@@ -207,7 +271,9 @@ class MetricCollection(AverageObjective[Output, Target]):
         Returns:
             A dictionary of calculated metric values.
         """
-        result = dict_apply(self.named_fn, outputs, targets)
+        result = {
+            name: fn(outputs, targets) for name, fn in self.named_fn.items()
+        }
         for f in self.fn:
             result |= f(outputs, targets)
 
@@ -228,99 +294,112 @@ class MetricCollection(AverageObjective[Output, Target]):
             A new instance containing metrics from both instances.
 
         Raises:
-            RepeatedMetricsError: if the metrics share keys.
+            RepeatedMetricsError: if a name maps to different functions.
         """
-        shared = self.named_fn.keys() & other.named_fn.keys()
-        if shared:
-            raise exceptions.RepeatedMetricsError(sorted(shared))
-
+        _check_distinct_names(self.named_fn, other.named_fn)
         return MetricCollection(
-            *self.fn, *other.fn, **self.named_fn | other.named_fn
+            *self.fn, *other.fn, **{**self.named_fn, **other.named_fn}
         )
 
 
 class Metric(MetricCollection[Output, Target]):
-    """Subclass for a single metr.
+    """A single named metric.
 
     Attributes:
-        fun: the callable that computes the metric value.
         name: identifier for the metric.
-        higher_is_better: True if higher values indicate better performance.
+        higher_is_better: ``True`` if higher values indicate better performance.
     """
 
-    fun: Callable[[Output, Target], Tensor]
-    name: str
-    higher_is_better: bool | None
+    name: Final[str]
+    higher_is_better: Final[bool | None]
 
     def __init__(
         self,
         fn: Callable[[Output, Target], Tensor],
         /,
-        name: str,
+        *,
         higher_is_better: bool | None = None,
+        name: str,
     ) -> None:
         """Initialize.
 
         Args:
             fn: the callable that computes the metric value.
+            higher_is_better: ``True`` if higher values indicate better
+                performance, ``False`` if lower values are better, ``None`` if
+                unspecified.
             name: identifier for the metric.
-            higher_is_better: True if higher values indicate better performance,
-                False if lower values are better, None if unspecified.
         """
         super().__init__(**{name: fn})
-        self.fun: Final = fn
-        self.name: Final = name
-        self.higher_is_better: Final = higher_is_better
+        self.name = name
+        self.higher_is_better = higher_is_better
         return
 
 
-class LossBase(
+class LossWithMetrics(
     MetricCollection[Output, Target],
-    p.LossProtocol[Output, Target],
-    metaclass=abc.ABCMeta,
 ):
     """Collection of metrics, one of which serves as a loss.
 
     Attributes:
         name: identifier for the loss.
-        higher_is_better: True if higher values indicate better performance.
+        higher_is_better: ``True`` if higher values indicate better performance.
         formula: string representation of the loss formula.
         criterion: logic extracting a loss value from computed value.
     """
 
-    name: str
-    higher_is_better: bool
-    formula: str
-    criterion: Callable[[dict[str, Tensor]], Tensor]
+    name: Final[str]
+    higher_is_better: Final[bool]
+    formula: Final[str]
+    criterion: Final[Callable[[dict[str, Tensor]], Tensor]]
 
     def __init__(
         self,
-        criterion: Callable[[dict[str, Tensor]], Tensor],
-        name: str,
-        higher_is_better: bool = False,
-        formula: str = '',
         *fn: Callable[[Output, Target], dict[str, Tensor]],
+        criterion: Callable[[dict[str, Tensor]], Tensor],
+        formula: str = '',
+        higher_is_better: bool = False,
+        name: str = 'Loss',
         **named_fn: Callable[[Output, Target], Tensor],
     ) -> None:
         """Initialize.
 
         Args:
-            criterion: logic extracting a loss value from computed value.
-            name: identifier for the loss.
-            higher_is_better: True if higher values indicate better performance,
-                False if lower values are better.
-            formula: string representation of the loss formula.
             *fn: functions returning multiple named metric values.
+            criterion: logic extracting a loss value from computed values.
+            formula: representation of the loss formula. Defaults to empty.
+            higher_is_better: ``True`` if higher values indicate better
+                performance. Defaults to ``False``.
+            name: the name for the loss. Defaults to ``'Loss'``.
             **named_fn: dictionary of named functions returning a single value.
         """
-        self.name: Final = name
-        self.higher_is_better: Final = higher_is_better
-        self.formula: Final = formula
+        self.name = name
+        self.higher_is_better = higher_is_better
+        self.formula = formula or f'[{name}]'
         super().__init__(*fn, **named_fn)
-        self.criterion: Final = criterion
+        self.criterion = criterion
         return
 
+    def __repr__(self):
+        """Return the class name with the formula."""
+        return f'{self.__class__.__name__}({self.formula})'
+
     @override
+    def calculate(self, outputs: Output, targets: Target) -> dict[str, Tensor]:
+        """Calculates the loss and all associated metric values.
+
+        Args:
+            outputs: the model outputs.
+            targets: the ground truth targets.
+
+        Returns:
+            A dictionary containing the calculated loss and metric values.
+        """
+        all_metrics = super().calculate(outputs, targets)
+        loss_value = self.criterion(all_metrics)
+        all_metrics.pop(self.name, None)  # the loss value wins a name clash
+        return {self.name: loss_value} | all_metrics
+
     def forward(self, outputs: Output, targets: Target) -> Tensor:
         """Performs a forward pass, updates metrics, and computes the loss.
 
@@ -334,358 +413,275 @@ class LossBase(
         metrics = self.update(outputs, targets)
         return self.criterion(metrics).mean()
 
-    def watch(self, metric: MetricCollection[Output, Target]) -> None:
-        """Include another Objective class in its metrics.
-
-        Args:
-            metric: the other Objective to watch.
-
-        """
-        self.fn.extend(metric.fn)
-        self.named_fn.update(metric.named_fn)
-        return
-
-    def _combine(
-        self,
-        other: LossBase[Output, Target] | float,
-        operation: Callable[[Tensor, Tensor], Tensor],
-        op_fmt: str,
-        requires_parentheses: bool = True,
-    ) -> CompositionalLoss[Output, Target]:
-        """Support operations between losses or a loss and a float.
-
-        Args:
-            other: the other loss or float to combine with.
-            operation: the callable operation to apply (e.g., operator.add).
-            op_fmt: the format string for the combined formula.
-            requires_parentheses: whether to wrap sub-formulas in parentheses.
+    def __neg__(self) -> LossWithMetrics[Output, Target]:
+        """Return the negated loss.
 
         Returns:
-            A new CompositionalLoss representing the combined loss.
+            The negated loss, with the opposite direction.
         """
-        if isinstance(other, LossBase):
-            fn = self.fn + other.fn
-            named_fn = self.named_fn | other.named_fn
-            str_first = self.formula
-            str_second = other.formula
-
-            # apply should combine losses that share the same direction
-            self._check_same_direction(other)
-
-            def _combined(x: dict[str, Tensor]) -> Tensor:
-                return operation(self.criterion(x), other.criterion(x))
-
-        elif isinstance(other, float | int):
-            fn = self.fn
-            named_fn = self.named_fn
-            str_first = str(other)
-            str_second = self.formula
-
-            def _combined(x: dict[str, Tensor]) -> Tensor:
-                return operation(self.criterion(x), torch.tensor(other))
-
-        else:
-            raise TypeError(f'Unsupported type for operation: {type(other)}')
-
-        if not requires_parentheses:
-            str_first = self._remove_outer_parentheses(str_first)
-            str_second = self._remove_outer_parentheses(str_second)
-
-        formula = op_fmt.format(str_first, str_second)
-
-        return CompositionalLoss(
-            *fn,
-            criterion=_combined,
-            higher_is_better=self.higher_is_better,
-            name='Combined Loss',
-            formula=formula,
-            **named_fn,
-        )
-
-    def __neg__(self) -> CompositionalLoss[Output, Target]:
-        """Constructor from an existing template.
-
-        Returns:
-            A new CompositionalLoss representing the negated loss.
-        """
-        return CompositionalLoss(
+        criterion = self.criterion
+        return LossWithMetrics(
             *self.fn,
-            criterion=lambda x: -self.criterion(x),
-            higher_is_better=not self.higher_is_better,
+            criterion=lambda x: -criterion(x),
             name='Negative ' + self.name,
-            formula=f'-{self.formula}',
+            higher_is_better=not self.higher_is_better,
+            formula='-' + _parenthesize(self.formula, _POWER),
             **self.named_fn,
         )
 
     def __add__(
         self,
-        other: LossBase[Output, Target] | float,
-    ) -> CompositionalLoss[Any, Any]:
-        """Constructor from exiting templates.
+        other: LossWithMetrics[Output, Target] | float,
+    ) -> LossWithMetrics[Any, Any]:
+        """Return the sum with another loss or a number.
 
         Args:
-            other: the other loss or float to add.
+            other: the loss or number to add.
 
         Returns:
-            A new CompositionalLoss representing the sum.
+            The sum, or this loss if ``other`` is zero.
+
+        Raises:
+            ValueError: if ``other`` is a loss with the opposite direction.
+            RepeatedMetricsError: if a metric name maps to different functions.
         """
-        if other == 0 and isinstance(self, CompositionalLoss):
+        if other == 0:
             return self
 
-        return self._combine(other, operator.add, '{} + {}', False)
+        return self._combine(other, '+')
 
-    def __radd__(self, other: float) -> CompositionalLoss[Any, Any]:
-        """Constructor from exiting templates.
+    def __radd__(self, other: float) -> LossWithMetrics[Any, Any]:
+        """Return a number plus the loss.
 
         Args:
-            other: the float to add to the loss.
+            other: the number to add.
 
         Returns:
-            A new CompositionalLoss representing the sum.
+            The sum, or this loss if ``other`` is zero.
         """
-        return self.__add__(other)
+        if other == 0:
+            return self
+
+        return self._combine(other, '+', reflected=True)
 
     def __sub__(
         self,
-        other: LossBase[Output, Target] | float,
-    ) -> CompositionalLoss[Output, Target]:
-        """Constructor from exiting templates.
+        other: LossWithMetrics[Output, Target] | float,
+    ) -> LossWithMetrics[Output, Target]:
+        """Return the difference with another loss or a number.
 
         Args:
-            other: the other loss or float to subtract.
+            other: the loss or number to subtract.
 
         Returns:
-            A new CompositionalLoss representing the difference.
-        """
-        neg_other = other.__neg__()
-        return self.__add__(neg_other)
+            The difference.
 
-    def __rsub__(self, other: float) -> CompositionalLoss[Output, Target]:
-        """Constructor from exiting templates.
+        Raises:
+            ValueError: if ``other`` is a loss with the same direction.
+            RepeatedMetricsError: if a metric name maps to different functions.
+        """
+        return self._combine(other, '-')
+
+    def __rsub__(self, other: float) -> LossWithMetrics[Output, Target]:
+        """Return a number minus the loss.
 
         Args:
-            other: the float from which to subtract the loss.
+            other: the number from which to subtract the loss.
 
         Returns:
-            A new CompositionalLoss representing the difference.
+            The difference, with the opposite direction.
         """
-        neg_self = self.__neg__()
-        return neg_self.__add__(other)
+        return self._combine(other, '-', reflected=True)
 
     def __mul__(
         self,
-        other: LossBase[Output, Target] | float,
-    ) -> CompositionalLoss[Output, Target]:
-        """Constructor from exiting templates.
+        other: LossWithMetrics[Output, Target] | float,
+    ) -> LossWithMetrics[Output, Target]:
+        """Return the product with another loss or a number.
 
         Args:
-            other: the other loss or float to multiply by.
+            other: the loss or number to multiply by.
 
         Returns:
-            A new CompositionalLoss representing the product.
+            The product, or this loss if ``other`` is one.
+
+        Raises:
+            ValueError: if ``other`` is a loss with the opposite direction.
+            RepeatedMetricsError: if a metric name maps to different functions.
         """
-        if other == 1 and isinstance(self, CompositionalLoss):
+        if other == 1:
             return self
 
-        return self._combine(other, operator.mul, '{} x {}')
+        return self._combine(other, 'x')
 
-    def __rmul__(self, other: float) -> CompositionalLoss[Output, Target]:
-        """Constructor from exiting templates.
+    def __rmul__(self, other: float) -> LossWithMetrics[Output, Target]:
+        """Return a number times the loss.
 
         Args:
-            other: the float to multiply the loss by.
+            other: the number to multiply by.
 
         Returns:
-            A new CompositionalLoss representing the product.
+            The product, or this loss if ``other`` is one.
         """
-        return self.__mul__(other)
+        if other == 1:
+            return self
+
+        return self._combine(other, 'x', reflected=True)
 
     def __truediv__(
         self,
-        other: LossBase[Output, Target] | float,
-    ) -> CompositionalLoss[Output, Target]:
-        """Constructor from exiting templates.
+        other: LossWithMetrics[Output, Target] | float,
+    ) -> LossWithMetrics[Output, Target]:
+        """Return the quotient by another loss or a number.
 
         Args:
-            other: the other loss or float to divide by.
+            other: the loss or number to divide by.
 
         Returns:
-            A new CompositionalLoss representing the quotient.
+            The quotient, or this loss if ``other`` is one.
+
+        Raises:
+            ValueError: if ``other`` is a loss with the same direction.
+            RepeatedMetricsError: if a metric name maps to different functions.
         """
-        if other == 1 and isinstance(self, CompositionalLoss):
+        if other == 1:
             return self
 
-        mul_inv_other = other.__pow__(-1)
-        return self.__mul__(mul_inv_other)
+        return self._combine(other, '/')
 
-    def __rtruediv__(self, other: float) -> CompositionalLoss[Output, Target]:
-        """Constructor from exiting templates.
-
-        Args:
-            other: the float to be divided by the loss.
-
-        Returns:
-            A new CompositionalLoss representing the quotient.
-        """
-        mul_inv_self = self.__pow__(-1)
-        return mul_inv_self.__mul__(other)
-
-    def __pow__(self, other: float) -> CompositionalLoss[Output, Target]:
-        """Constructor from exiting templates.
+    def __rtruediv__(self, other: float) -> LossWithMetrics[Output, Target]:
+        """Return a number divided by the loss.
 
         Args:
-            other: the power to raise the loss to.
+            other: the number to divide.
 
         Returns:
-            A new CompositionalLoss representing the result.
+            The quotient.
         """
+        return self._combine(other, '/', reflected=True)
 
-        def _to_floating_point(x: Tensor) -> Tensor:
-            return x if torch.is_floating_point(x) else x.float()
+    def __pow__(self, other: float) -> LossWithMetrics[Output, Target]:
+        """Return the loss raised to a power.
 
-        if other == 1 and isinstance(self, CompositionalLoss):
+        A negative exponent flips the direction. This assumes positive values:
+        for a loss that takes negative values, such as ``(-loss) ** 2``, the
+        direction can be wrong.
+
+        Args:
+            other: the exponent.
+
+        Returns:
+            The power, or this loss if ``other`` is one.
+        """
+        if other == 1:
             return self
-        elif other == -1:
-            higher_is_better = not self.higher_is_better
-            formula = f'1 / {self.formula}'
-        elif other >= 0:
-            higher_is_better = self.higher_is_better
-            formula = f'{self.formula}^{other}'
-        else:
-            higher_is_better = not self.higher_is_better
-            formula = f'1 / {self.formula}^{-other}'
 
-        return CompositionalLoss(
+        criterion = self.criterion
+
+        def _power(x: dict[str, Tensor]) -> Tensor:
+            value = criterion(x)
+            if not torch.is_floating_point(value):
+                value = value.float()
+
+            return value**other
+
+        return LossWithMetrics(
             *self.fn,
-            criterion=lambda x: _to_floating_point(self.criterion(x)) ** other,
-            higher_is_better=higher_is_better,
+            criterion=_power,
             name='Loss',
-            formula=formula,
+            higher_is_better=self.higher_is_better != (other < 0),
+            formula=f'{_parenthesize(self.formula, _TERM)}^{other}',
             **self.named_fn,
         )
 
-    def __repr__(self):
-        """Returns the string representation of the LossBase object."""
-        return f'{self.__class__.__name__}({self.formula})'
-
-    def _check_same_direction(self, other: LossBase[Output, Target]) -> None:
-        """Checks if two losses have the same optimization direction.
-
-        Args:
-            other: the other LossBase object to compare with.
-
-        Raises:
-            ValueError: If the losses have opposite directions for optimization.
-        """
-        if self.higher_is_better ^ other.higher_is_better:
-            msg = 'Losses {} and {} have opposite directions for optimizations.'
-            raise ValueError(msg.format(self, other))
-
-        return
-
-    @staticmethod
-    def _remove_outer_parentheses(formula: str) -> str:
-        """Removes outer parentheses from a formula string if present.
-
-        Args:
-            formula: the formula string.
-
-        Returns:
-            The formula string without outer parentheses.
-        """
-        if formula.startswith('(') and formula.endswith(')'):
-            return formula[1:-1]
-
-        return formula
-
-
-class CompositionalLoss(
-    LossBase[Output, Target],
-):
-    """Loss resulting from an operation between other two losses."""
-
-    def __init__(
+    def _combine(
         self,
-        *fn: Callable[[Output, Target], dict[str, Tensor]],
-        criterion: Callable[[dict[str, Tensor]], Tensor],
-        name='Loss',
-        higher_is_better: bool,
-        formula: str = '',
-        **named_fn: Callable[[Output, Target], Tensor],
-    ) -> None:
-        """Initialize.
+        other: LossWithMetrics[Output, Target] | float,
+        symbol: Literal['+', '-', 'x', '/'],
+        reflected: bool = False,
+    ) -> LossWithMetrics[Output, Target]:
+        precedence, operation = _OPERATORS[symbol]
+        inverse = symbol in ('-', '/')
+        if isinstance(other, LossWithMetrics):
+            if (self.higher_is_better == other.higher_is_better) == inverse:
+                required = 'opposite' if inverse else 'the same'
+                msg = (
+                    f'{self!r} {symbol} {other!r} needs {required} directions.'
+                )
+                raise ValueError(msg)
 
-        Args:
-            *fn: functions returning multiple named metric values.
-            criterion: function extracting a loss value from metric functions.
-            name: identifier for the loss.
-            higher_is_better: True if higher values indicate better performance,
-                False if lower values are better.
-            formula: string representation of the loss formula.
-            **named_fn: dictionary of named metric functions.
-        """
-        super().__init__(
-            criterion,
-            name,
-            higher_is_better,
-            self._format_formula(formula),
+            _check_distinct_names(self.named_fn, other.named_fn)
+            fn = self.fn + other.fn
+            named_fn = {**self.named_fn, **other.named_fn}
+            other_formula = other.formula
+            other_criterion = other.criterion
+            higher_is_better = self.higher_is_better
+        elif isinstance(other, float | int):
+            fn = self.fn
+            named_fn = self.named_fn
+            other_formula = str(other)
+            value = torch.tensor(other)
+
+            def _constant(_: dict[str, Tensor]) -> Tensor:
+                return value
+
+            other_criterion = _constant
+            flips = {
+                '+': False,
+                '-': reflected,
+                'x': other < 0,
+                '/': other > 0 if reflected else other < 0,
+            }
+            higher_is_better = self.higher_is_better != flips[symbol]
+        else:
+            raise TypeError(f'Unsupported type for operation: {type(other)}')
+
+        first_criterion, second_criterion = self.criterion, other_criterion
+        first, second = self.formula, other_formula
+        if reflected:
+            first_criterion, second_criterion = (
+                second_criterion,
+                first_criterion,
+            )
+            first, second = second, first
+
+        def _combined(x: dict[str, Tensor]) -> Tensor:
+            return operation(first_criterion(x), second_criterion(x))
+
+        # the right operand of - and / needs parentheses at equal precedence
+        second_precedence = precedence + 1 if inverse else precedence
+        formula = (
+            f'{_parenthesize(first, precedence)} {symbol} '
+            f'{_parenthesize(second, second_precedence)}'
+        )
+        return LossWithMetrics(
             *fn,
+            criterion=_combined,
+            name='Combined Loss',
+            higher_is_better=higher_is_better,
+            formula=formula,
             **named_fn,
         )
-        return
-
-    @override
-    def calculate(
-        self: Self, outputs: Output, targets: Target
-    ) -> dict[str, Tensor]:
-        """Calculates the loss and all associated metric values.
-
-        Args:
-            outputs: the model outputs.
-            targets: the ground truth targets.
-
-        Returns:
-            A dictionary containing the calculated loss and metric values.
-        """
-        all_metrics = super().calculate(outputs, targets)
-        return {self.name: self.criterion(all_metrics)} | all_metrics
-
-    @staticmethod
-    def _format_formula(formula: str) -> str:
-        """Simplifies the formula string by removing redundant characters.
-
-        Args:
-            formula: the formula string.
-
-        Returns:
-            The simplified formula string.
-        """
-        formula = formula.replace('--', '').replace('+ -', '- ')
-        if formula.startswith('(') and formula.endswith(')'):
-            return formula
-
-        if formula.startswith('[') and formula.endswith(']'):
-            return formula
-
-        return '(' + formula + ')'
 
 
-class Loss(CompositionalLoss[Output, Target]):
+class Loss(LossWithMetrics[Output, Target]):
     """Subclass for simple losses with a convenient constructor."""
 
     def __init__(
         self,
         fn: Callable[[Output, Target], Tensor],
         /,
-        name: str,
+        *,
         higher_is_better: bool = False,
+        name: str = 'Loss',
     ):
         """Initialize.
 
         Args:
             fn: the callable to calculate the loss.
-            name: the name for the loss.
-            higher_is_better: the direction for optimization.
+            higher_is_better: ``True`` if higher values indicate better
+                performance. Defaults to ``False``.
+            name: the name for the loss. Defaults to ``'Loss'``.
         """
         super().__init__(
             criterion=operator.itemgetter(name),
@@ -697,23 +693,24 @@ class Loss(CompositionalLoss[Output, Target]):
         return
 
 
-class DictLoss(CompositionalLoss[Output, Target]):
+class DictLoss(LossWithMetrics[Output, Target]):
     """Subclass for losses whose function also returns auxiliary metrics."""
 
     def __init__(
         self,
         fn: Callable[[Output, Target], dict[str, Tensor]],
         /,
-        name: str,
+        *,
         higher_is_better: bool = False,
+        name: str,
     ):
         """Initialize.
 
         Args:
-            fn: callable returning a dict of metric values; the entry keyed by
-                ``name`` is used as the loss.
+            fn: callable returning named metric values, including the loss.
+            higher_is_better: ``True`` if higher values indicate better
+                performance. Defaults to ``False``.
             name: key to extract as the loss and identifier for the loss.
-            higher_is_better: the direction for optimization.
         """
         super().__init__(
             fn,
@@ -722,101 +719,127 @@ class DictLoss(CompositionalLoss[Output, Target]):
             higher_is_better=higher_is_better,
             formula=f'[{name}]',
         )
-        self.fun: Final = fn
         return
 
 
-class JoinMetrics(p.ObjectiveProtocol[Output, Target]):
-    """Wrapper that joins two metrics.
+class JoinedMetrics(Generic[_Output_contra, _Target_contra]):
+    """Objective joining objectives of any kind.
 
-    Preferably, use :py:meth:`MetricCollection.__or__` when both classes are
-    :py:meth:`MetricCollection`.
+    Attributes:
+        objectives: the joined objectives.
     """
 
+    objectives: Final[
+        tuple[p.ObjectiveProtocol[_Output_contra, _Target_contra], ...]
+    ]
+
     def __init__(
-        self,
-        metric_a: Objective[Output, Target],
-        metric_b: Objective[Output, Target],
-        /,
+        self, *objectives: p.ObjectiveProtocol[_Output_contra, _Target_contra]
     ) -> None:
         """Initialize.
 
         Args:
-            metric_a: first objective.
-            metric_b: second objective.
+            *objectives: the objectives to join.
         """
         super().__init__()
-        self.metric_a = metric_a
-        self.metric_b = metric_b
+        self.objectives = objectives
         return
 
-    @override
-    def compute(self: Self) -> dict[str, torch.Tensor]:
-        """Return the aggregated values of both metrics.
+    def compute(self) -> dict[str, Tensor]:
+        """Return the computed values of all the objectives.
 
         Returns:
-            A dictionary merging the computed values of both metrics.
+            The computed values by name.
+
+        Raises:
+            RepeatedMetricsError: if two objectives compute the same names.
+            ComputedMetricsTypeError: if an objective computes nothing.
         """
-        return self.metric_a.compute() | self.metric_b.compute()
+        computed: dict[str, Tensor] = {}
+        for objective in self.objectives:
+            values = _named_values(objective)
+            shared = computed.keys() & values.keys()
+            if shared:
+                raise exceptions.RepeatedMetricsError(sorted(shared))
 
-    @override
+            computed.update(values)
+
+        return computed
+
     def reset(self) -> None:
-        """Reset the internal state of both metrics."""
-        self.metric_a.reset()
-        self.metric_b.reset()
+        """Reset the state of all the objectives."""
+        for objective in self.objectives:
+            objective.reset()
+
         return
 
-    def sync(self: Self) -> None:
-        """Synchronize metric states across processes."""
-        self.metric_a.sync()
-        self.metric_b.sync()
+    def sync(self) -> None:
+        """Synchronize the objectives that support it across processes."""
+        for objective in self.objectives:
+            if isinstance(objective, p.SyncProtocol):
+                objective.sync()
+            else:
+                issue = f'{objective.__class__.__name__} not synchronized'
+                recommend = 'implement a `sync` method'
+                warnings.warn(
+                    exceptions.ObjectiveSyncWarning(issue, recommend),
+                    stacklevel=2,
+                )
+
         return
 
-    @override
-    def update(
-        self: Self, outputs: Output, targets: Target
-    ) -> dict[str, torch.Tensor]:
-        """Update both metrics with new outputs and targets.
+    def update(self, outputs: _Output_contra, targets: _Target_contra) -> None:
+        """Update all the objectives with new outputs and targets.
 
         Args:
             outputs: the model outputs.
             targets: the ground truth targets.
-
-        Returns:
-            A dictionary merging the calculated values of both metrics.
         """
-        metric_a_update = self.metric_a.update(outputs, targets)
-        metric_b_update = self.metric_b.update(outputs, targets)
-        return metric_a_update | metric_b_update
+        for objective in self.objectives:
+            objective.update(outputs, targets)
+
+        return
 
 
-class JoinLossMetrics(JoinMetrics, p.LossProtocol[Output, Target]):
-    """Loss resulting from adding an extra metric to a loss.
+class JoinedLoss(
+    JoinedMetrics[_Output_contra, _Target_contra],
+):
+    """Loss joining a loss with objectives of any kind.
 
-    Preferably, use :py:meth:`LossBase.watch` when the metric is a
-    :py:meth:`MetricCollection`.
+    Attributes:
+        objectives: the joined objectives, the loss first.
+        loss: the loss to optimize.
+        name: the name of the loss, or of its class if it has none.
     """
+
+    loss: Final[p.LossProtocol[_Output_contra, _Target_contra]]
+    name: Final[str]
 
     def __init__(
         self,
-        loss: LossBase[Output, Target],
-        objective: Objective[Output, Target],
+        loss: p.LossProtocol[_Output_contra, _Target_contra],
         /,
+        *objectives: p.ObjectiveProtocol[_Output_contra, _Target_contra],
     ) -> None:
         """Initialize.
 
         Args:
-            loss: the primary loss.
-            objective: the extra metric to track alongside the loss.
+            loss: the loss to optimize.
+            *objectives: the objectives to track alongside the loss.
         """
-        super().__init__(loss, objective)
+        super().__init__(loss, *objectives)
         self.loss = loss
-        self.name = self.loss.name
+        if isinstance(loss, p.NamedProtocol) and loss.name:
+            self.name = loss.name
+        else:
+            self.name = loss.__class__.__name__
+
         return
 
-    @override
-    def forward(self, outputs: Output, targets: Target, /) -> torch.Tensor:
-        """Compute and return the loss.
+    def forward(
+        self, outputs: _Output_contra, targets: _Target_contra, /
+    ) -> Tensor:
+        """Compute the loss and update the other objectives.
 
         Args:
             outputs: the model outputs.
@@ -825,183 +848,10 @@ class JoinLossMetrics(JoinMetrics, p.LossProtocol[Output, Target]):
         Returns:
             The computed loss.
         """
+        for objective in self.objectives[1:]:
+            objective.update(outputs, targets)
+
         return self.loss.forward(outputs, targets)
-
-
-class MetricTracker(Generic[Output, Target]):
-    """Handle metric value tracking and improvement detection.
-
-    This class is responsible for storing metric history, determining
-    improvements, and managing patience countdown.
-
-    Note: this class can be used to automatically modify the training strategy.
-    Therefore, it does not follow the library conventions for a tracker.
-
-    Attributes:
-        metric_name: the name of the metric to monitor.
-        min_delta: the minimum change required to qualify as an improvement.
-        patience: number of checks to wait before triggering callback.
-        best_is: whether higher or lower values are better.
-        filter_fn: function to aggregate recent metric values.
-        history: logs of the recorded metrics.
-    """
-
-    metric_name: str | None
-    best_is: Literal['auto', 'higher', 'lower']
-    filter_fn: Callable[[Sequence[float]], float]
-    min_delta: float
-    patience: int
-    history: list[float]
-    _patience_countdown: int
-    _best_value: float | None
-
-    def __init__(
-        self,
-        metric_name: str | None = None,
-        min_delta: float = 1e-8,
-        patience: int = 0,
-        best_is: Literal['auto', 'higher', 'lower'] = 'auto',
-        filter_fn: Callable[[Sequence[float]], float] = operator.itemgetter(-1),
-    ) -> None:
-        """Initialize.
-
-        Args:
-            metric_name: name of the metric to track.
-            min_delta: minimum absolute change to qualify as an improvement.
-            patience: number of checks to wait before triggering callback.
-            best_is: whether higher or lower metric values are better.
-            filter_fn: function to aggregate recent metric values.
-        """
-        self.metric_name = metric_name
-        self.best_is = best_is
-        self.filter_fn: Final = filter_fn
-        self.min_delta: Final = min_delta
-        self._validate_patience(patience)
-        self.patience: Final = patience
-        self.history: Final = list[float]()
-        self._patience_countdown = patience
-        self._best_value = None
-        return
-
-    @property
-    def best_value(self) -> float:
-        """Get the best result observed so far.
-
-        Returns:
-            the best filtered value (according to the 'best_is' criterion).
-
-        Raises:
-            ResultNotAvailableError: if no results have been logged yet.
-        """
-        if self._best_value is None:
-            try:
-                self._best_value = self.history[0]
-            except IndexError as ie:
-                raise exceptions.ResultNotAvailableError() from ie
-
-        return self._best_value
-
-    @best_value.setter
-    def best_value(self, value: float) -> None:
-        """Set the best result value."""
-        self._best_value = value
-        return
-
-    @property
-    def filtered_value(self) -> float:
-        """Get the current value.
-
-        Returns:
-            the current value aggregated from recent ones.
-
-        Raises:
-            ResultNotAvailableError: if no results have been logged yet.
-        """
-        if not self.history:
-            raise exceptions.ResultNotAvailableError()
-
-        return self.filter_fn(self.history)
-
-    def add_value(self, value: float) -> None:
-        """Add a new metric value to the history.
-
-        Args:
-            value: the metric value to add.
-        """
-        self.history.append(value)
-        return
-
-    def is_better(self, value: float, reference: float) -> bool:
-        """Determine if the value is better than a reference value.
-
-        When best_is is in 'auto' mode, it is assumed that the given value is
-        better than the first recorded one.
-
-        Args:
-            value: the value to compare.
-            reference: the reference.
-
-        Returns:
-            True if value is a potential improvement, False otherwise.
-        """
-        if value != value:  # check for NaN
-            return False
-
-        if self.best_is == 'auto':
-            if len(self.history) < 2:
-                return True
-            if self.history[0] > self.history[1]:
-                self.best_is = 'lower'
-            else:
-                self.best_is = 'higher'
-
-            msg = 'Monitoring {} assuming {} is best.'
-            msg = msg.format(self.metric_name, self.best_is)
-            warnings.warn(msg, stacklevel=2)
-
-        if self.best_is == 'lower':
-            return reference - self.min_delta > value
-
-        return reference + self.min_delta < value
-
-    def is_improving(self) -> bool:
-        """Determine if the model performance is improving.
-
-        Returns:
-            True if there has been an improvement, False otherwise.
-
-        Side Effects:
-            If there is no improvement, the patience countdown is reduced.
-            Otherwise, it is restored to the maximum.
-        """
-        if len(self.history) <= 1:
-            return True
-
-        aggregated_value = self.filtered_value
-
-        if self.is_better(aggregated_value, self.best_value):
-            self.best_value = aggregated_value
-            self._patience_countdown = self.patience
-            return True
-
-        self._patience_countdown -= 1
-        return False
-
-    def is_patient(self) -> bool:
-        """Check whether to be patient."""
-        return self._patience_countdown > 0
-
-    def reset_patience(self) -> None:
-        """Reset patience countdown to the maximum."""
-        self._patience_countdown = self.patience
-        return
-
-    @staticmethod
-    def _validate_patience(patience: int) -> None:
-        if patience < 0:
-            raise ValueError('Patience must be a non-negative integer.')
-
-        return
 
 
 def check_device(
@@ -1010,58 +860,168 @@ def check_device(
     """Check the metrics returned by the calculator are on the given device.
 
     Args:
-        calculator: An ObjectiveProtocol instance to check.
-        device: The device to check against.
-    """
-    metrics = calculator.compute()
-    if isinstance(metrics, Mapping):
-        for name, value in metrics.items():
-            if value.device.type != device.type:
-                raise exceptions.DeviceMismatchError(name, value.device, device)
+        calculator: an objective to check.
+        device: the device to check against.
 
-    elif isinstance(metrics, Tensor) and metrics.device.type != device.type:
-        name = calculator.__class__.__name__
-        raise exceptions.DeviceMismatchError(name, metrics.device, device)
+    Raises:
+        DeviceMismatchError: if a metric is on a different device.
+        ComputedMetricsTypeError: if the objective computes nothing.
+    """
+    for name, value in _named_values(calculator).items():
+        if value.device.type != device.type:
+            raise exceptions.DeviceMismatchError(name, value.device, device)
 
     return
 
 
 def compute_metrics(
     calculator: p.ObjectiveProtocol[Any, Any],
+    /,
 ) -> Mapping[str, float]:
     """Compute and represent the metrics as a mapping of named values.
 
     Args:
-        calculator: An ObjectiveProtocol instance from which to compute metrics.
+        calculator: an objective from which to compute metrics.
 
     Returns:
         A mapping of metric names to their float values.
+
+    Raises:
+        ComputedMetricsTypeError: if the objective computes nothing.
     """
-    computed_metrics = calculator.compute()
-    if isinstance(computed_metrics, Mapping):
-        return {name: value.item() for name, value in computed_metrics.items()}
-
-    if isinstance(computed_metrics, Tensor):
-        return {calculator.__class__.__name__: computed_metrics.item()}
-
-    raise exceptions.ComputedMetricsTypeError(type(computed_metrics))
+    named_values = _named_values(calculator)
+    return {name: value.item() for name, value in named_values.items()}
 
 
-def dict_apply(
-    dict_fn: dict[str, Callable[[Output, Target], Tensor]],
-    outputs: Output,
-    targets: Target,
-) -> dict[str, Tensor]:
-    """Apply the given tensor callables to the provided outputs and targets.
+@overload
+def join(
+    objective: LossWithMetrics[Output, Target],
+    /,
+    *metrics: MetricCollection[Output, Target],
+) -> LossWithMetrics[Output, Target]: ...
+
+
+@overload
+def join(
+    objective: MetricCollection[Output, Target],
+    /,
+    *metrics: MetricCollection[Output, Target],
+) -> MetricCollection[Output, Target]: ...
+
+
+@overload
+def join(
+    objective: p.LossProtocol[Output, Target],
+    /,
+    *metrics: p.ObjectiveProtocol[Output, Target],
+) -> p.SyncedLossProtocol[Output, Target]: ...
+
+
+@overload
+def join(
+    objective: p.ObjectiveProtocol[Output, Target],
+    /,
+    *metrics: p.ObjectiveProtocol[Output, Target],
+) -> p.SyncedObjectiveProtocol[Output, Target]: ...
+
+
+def join(
+    objective: p.ObjectiveProtocol[Output, Target],
+    /,
+    *metrics: p.ObjectiveProtocol[Output, Target],
+) -> p.SyncedObjectiveProtocol[Output, Target]:
+    """Join objectives into one of the same kind as the first.
 
     Args:
-        dict_fn: a dictionary of named callables (outputs, targets) -> Tensor.
-        outputs: the outputs to apply the tensor callables to.
-        targets: the targets to apply the tensor callables to.
+        objective: the first objective.
+        *metrics: the objectives to join as metrics.
 
     Returns:
-        A dictionary containing the resulting values.
+        The joined objective.
+
+    Raises:
+        RepeatedMetricsError: if metric collections compute the same names.
     """
-    return {
-        name: function(outputs, targets) for name, function in dict_fn.items()
+    all_collections = all(isinstance(obj, MetricCollection) for obj in metrics)
+    if isinstance(objective, LossWithMetrics) and all_collections:
+        merged: MetricCollection[Output, Target] = functools.reduce(
+            operator.or_, metrics, objective
+        )
+        return LossWithMetrics(
+            *merged.fn,
+            criterion=objective.criterion,
+            name=objective.name,
+            higher_is_better=objective.higher_is_better,
+            formula=objective.formula,
+            **merged.named_fn,
+        )
+
+    if isinstance(objective, MetricCollection) and all_collections:
+        return functools.reduce(operator.or_, metrics, objective)
+
+    if isinstance(objective, p.LossProtocol):
+        return JoinedLoss(objective, *metrics)
+
+    return JoinedMetrics(objective, *metrics)
+
+
+def _check_distinct_names(
+    first: Mapping[str, Callable[..., Tensor]],
+    second: Mapping[str, Callable[..., Tensor]],
+) -> None:
+    shared = {
+        name
+        for name in first.keys() & second.keys()
+        if first[name] is not second[name]
     }
+    if shared:
+        raise exceptions.RepeatedMetricsError(sorted(shared))
+
+    return
+
+
+def _get_precedence(formula: str) -> int:
+    # the weakest operation outside brackets and parentheses
+    depth = 0
+    top_level = ''
+    for char in formula:
+        if char in '([':
+            depth += 1
+        elif char in ')]':
+            depth -= 1
+        elif not depth:
+            top_level += char
+
+    if ' + ' in top_level or ' - ' in top_level:
+        return _SUM
+
+    if ' x ' in top_level or ' / ' in top_level:
+        return _PRODUCT
+
+    if top_level.startswith('-'):
+        return _NEGATION
+
+    if '^' in top_level:
+        return _POWER
+
+    return _TERM
+
+
+def _named_values(
+    objective: p.ObjectiveProtocol[Any, Any],
+) -> Mapping[str, Tensor]:
+    computed = objective.compute()
+    if isinstance(computed, Mapping):
+        return computed
+
+    if isinstance(computed, Tensor):
+        return {objective.__class__.__name__: computed}
+
+    raise exceptions.ComputedMetricsTypeError(type(computed))
+
+
+def _parenthesize(formula: str, precedence: int) -> str:
+    if _get_precedence(formula) < precedence:
+        return f'({formula})'
+
+    return formula

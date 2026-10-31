@@ -1,4 +1,4 @@
-"""Module containing the HydraLink tracker."""
+"""HydraLink tracker for Hydra configuration integration."""
 
 import functools
 import pathlib
@@ -28,6 +28,7 @@ class HydraLink(base_classes.Dumper):
     """Link current Hydra metadata to the experiment.
 
     Attributes:
+        folder_name: name of the folder containing the hydra metadata.
         hydra_dir: the directory where hydra saves the run.
 
     Note:
@@ -41,6 +42,7 @@ class HydraLink(base_classes.Dumper):
 
     def __init__(
         self,
+        *,
         par_dir: pathlib.Path | None = None,
         copy_hydra: bool = True,
         hydra_dir: pathlib.Path | None = None,
@@ -50,14 +52,14 @@ class HydraLink(base_classes.Dumper):
         Args:
             par_dir: the parent directory for the tracker data. Default uses
                 the same of the current experiment.
-            copy_hydra: if True, copy the hydra folder content at the end of the
-                experiment's scope, replacing the link folder.
+            copy_hydra: if ``True``, copy the hydra folder content at the end
+                of the experiment's scope, replacing the link folder.
             hydra_dir: the directory where hydra saves the run.
 
         Raises:
             TrackerError: if hydra has not started (hydra_dir does not exist).
         """
-        super().__init__(par_dir)
+        super().__init__(par_dir=par_dir)
         if hydra_dir is None:
             # get hydra configuration
             try:
@@ -77,19 +79,6 @@ class HydraLink(base_classes.Dumper):
         self._copy_hydra = copy_hydra
         return
 
-    @override
-    def clean_up(self) -> None:
-        try:
-            run_dir = self._get_run_dir(mkdir=False)
-            if self._copy_hydra and run_dir.is_symlink():
-                run_dir.unlink()
-                shutil.copytree(self.hydra_dir, run_dir)
-
-        except exceptions.AccessOutsideScopeError:
-            pass
-
-        return super().clean_up()
-
     @functools.singledispatchmethod
     @override
     def notify(self, event: log_events.Event) -> None:
@@ -99,6 +88,9 @@ class HydraLink(base_classes.Dumper):
     def _(self, event: log_events.StartExperimentEvent) -> None:
         # call super method to create par_dir first
         super().notify(event)
+        if not self.record:
+            return
+
         base_id = event.run_ts.strftime(TS_FMT)  # hydra dir is per launch
         counter = 0
         while True:
@@ -113,3 +105,16 @@ class HydraLink(base_classes.Dumper):
                 break
 
         return
+
+    @override
+    def clean_up(self) -> None:
+        try:  # replace the symlink with a copy
+            run_dir = self._get_run_dir(mkdir=False)
+            if self._copy_hydra and run_dir.is_symlink():
+                run_dir.unlink()
+                shutil.copytree(self.hydra_dir, run_dir)
+
+        except exceptions.AccessOutsideScopeError:
+            pass
+
+        return super().clean_up()

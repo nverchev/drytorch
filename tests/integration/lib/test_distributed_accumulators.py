@@ -1,28 +1,22 @@
-"""Tests for DistributedTorchAverager."""
+"""Tests for ``Aggregator`` with distributed processes."""
 
 import torch
 import torch.distributed as dist
 
-from ..conftest import DistributedWorker
-
 import pytest
 
-from drytorch.lib.aggregators import TorchAverager
+from drytorch.lib.accumulators import Aggregator, TorchMeanAccumulator
+from tests.integration.conftest import DistributedWorker
 
 
 @pytest.mark.skipif(not dist.is_available(), reason='Distributed not available')
-class TestDistributedTorchAverager:
-    """Tests for DistributedTorchAverager."""
+class TestDistributedAggregator:
+    """Tests for ``Aggregator`` with distributed processes."""
 
     @pytest.fixture
     def world_size(self) -> int:
         """Number of processes to use for testing."""
         return 2
-
-    @pytest.fixture
-    def averager(self) -> TorchAverager:
-        """Fixture to create a TorchAverager instance."""
-        return TorchAverager()
 
     def test_multiprocess_aggregate_and_count(self, world_size) -> None:
         """Test actual multiprocess synchronization."""
@@ -54,26 +48,26 @@ class TestDistributedTorchAverager:
     def _run_distributed_test() -> dict[str, float | int]:
         """Helper function to run in each distributed process."""
         rank = dist.get_rank()
-        averager = TorchAverager()
+        aggregator = Aggregator[TorchMeanAccumulator]()
         tensor = torch.tensor([1.0 + rank * 2, 2.0 + rank * 2])
-        averager += {'my_metric': tensor}
-        reduced = averager.all_reduce()
-        accumulator = averager.accumulators['my_metric']
+        aggregator.merge({'my_metric': TorchMeanAccumulator.from_value(tensor)})
+        aggregator.sync()
+        accumulator = aggregator.accumulators['my_metric']
         return {
             'total': accumulator.total.item(),
             'count': accumulator.count,
-            'average': reduced['my_metric'].item(),
+            'average': accumulator.reduce().item(),
         }
 
     @staticmethod
     def _run_test_different_sizes() -> dict[str, float | int]:
         rank = dist.get_rank()
-        averager = TorchAverager()
+        aggregator = Aggregator[TorchMeanAccumulator]()
         if rank == 0:
             tensor = torch.tensor([1.0, 2.0])  # sum=3, count=2
         else:
             tensor = torch.tensor([3.0, 4.0, 5.0])  # sum=12, count=3
 
-        averager += {'test': tensor}
-        reduced = averager.all_reduce()
-        return {'average': reduced['test'].item()}
+        aggregator.merge({'test': TorchMeanAccumulator.from_value(tensor)})
+        aggregator.sync()
+        return {'average': aggregator.accumulators['test'].reduce().item()}

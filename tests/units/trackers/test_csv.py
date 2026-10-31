@@ -1,4 +1,4 @@
-"""Tests for the "csv" module."""
+"""Tests for the ``csv`` module."""
 
 import copy
 import csv
@@ -9,17 +9,16 @@ from collections.abc import Generator
 import pytest
 
 from drytorch.core import exceptions, log_events
-from drytorch.core.exceptions import TrackerError
 from drytorch.trackers.csv import CSVDumper
 
 
 class TestCsvDumper:
-    """Tests for the HydraLink tracker with actual Hydra integration."""
+    """Tests for the CSVDumper class."""
 
     @pytest.fixture
     def tracker(self, tmp_path) -> CSVDumper:
         """Set up the instance."""
-        return CSVDumper(tmp_path)
+        return CSVDumper(par_dir=tmp_path)
 
     @pytest.fixture
     def tracker_started(
@@ -53,12 +52,25 @@ class TestCsvDumper:
     ) -> None:
         """Test file is created."""
         tracker_started.notify(epoch_metrics_mock_event)
+
         csv_path = tracker_started._file_path(
             tracker_started._get_run_dir(),
             epoch_metrics_mock_event.model_name,
             epoch_metrics_mock_event.source_name,
         )
+
         assert csv_path.exists()
+
+    def test_unrecorded_run_writes_no_file(
+        self, tracker, start_experiment_mock_event, epoch_metrics_mock_event
+    ) -> None:
+        """Test an unrecorded run writes no CSV file."""
+        start_experiment_mock_event.record = False
+        tracker.notify(start_experiment_mock_event)
+
+        tracker.notify(epoch_metrics_mock_event)
+
+        assert not (tracker.par_dir / tracker.folder_name).exists()
 
     def test_resume_with_header_mismatch(
         self,
@@ -78,7 +90,7 @@ class TestCsvDumper:
             f.write('"Model","Source","Epoch","DifferentMetric"\n')
             f.write('"model","source",1,0.1\n')
 
-        with pytest.raises(TrackerError, match='Headers'):
+        with pytest.raises(exceptions.TrackerError, match='Headers'):
             tracker_started_with_resume.notify(epoch_metrics_mock_event)
 
     def test_read_csv(
@@ -93,6 +105,7 @@ class TestCsvDumper:
                 epoch_metrics_mock_event.source_name,
                 max_epoch=2,
             )
+
         assert epochs == [1, 2]
         for metric, value in metric_dict.items():
             assert example_named_metrics[metric] == value[0] == value[1]
@@ -110,8 +123,7 @@ class TestCsvDumper:
         assert source_name in tracker_started_with_resume._load_metrics(
             model_name
         )
-        with pytest.raises(TrackerError):
-            _ = tracker_started_with_resume._load_metrics('wrong_name')
+        assert tracker_started_with_resume._load_metrics('wrong_name') == {}
 
     def test_pause_stashes_and_continue_restores(
         self,
@@ -123,7 +135,10 @@ class TestCsvDumper:
         """Test that pause stashes state and continue restores it."""
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
+
         tracker.notify(continue_experiment_mock_event)
+
+        assert len(tracker._csv_stashed_state) == 0
 
     def test_pause_start_stop_continue_keeps_state(
         self,
@@ -139,7 +154,6 @@ class TestCsvDumper:
 
         start_2 = copy.copy(start_experiment_mock_event)
         start_2.run_id = 'run2'
-
         tracker.notify(start_2)
 
         stop_2 = copy.copy(stop_experiment_mock_event)
@@ -147,6 +161,8 @@ class TestCsvDumper:
         tracker.notify(stop_2)
 
         tracker.notify(continue_experiment_mock_event)
+
+        assert len(tracker._csv_stashed_state) == 0
 
     def test_continue_without_stash_raises_error(
         self, tracker, continue_experiment_mock_event
@@ -164,7 +180,9 @@ class TestCsvDumper:
         """Test that close unconditionally releases stashed resources."""
         tracker.notify(start_experiment_mock_event)
         tracker.notify(pause_experiment_mock_event)
+
         tracker.close()
+
         assert tracker._csv_stashed_state == {}
 
     def test_second_run_writes_header_after_clean_up(
@@ -197,6 +215,7 @@ class TestCsvDumper:
         )
         with csv_path.open(newline='') as f:
             header_row = next(csv.reader(f))
+
         assert header_row == [
             *tracker._base_headers,
             *epoch_metrics_mock_event.metrics,
@@ -270,7 +289,7 @@ class TestCsvDumper:
 
         # Trigger
         tracker_started.notify(event_1)
-        with pytest.raises(TrackerError) as exc_info:
+        with pytest.raises(exceptions.TrackerError) as exc_info:
             tracker_started.notify(event_2)
 
         # Assert
@@ -292,10 +311,337 @@ class TestCsvDumper:
             f.write('"model","source",1,1.0\n')
 
         # Trigger
-        with pytest.raises(TrackerError) as exc_info:
+        with pytest.raises(exceptions.TrackerError) as exc_info:
             tracker_started.read_csv(model_name, source_name)
 
         # Assert
         error_msg = str(exc_info.value)
         assert str(csv_path) in error_msg
         assert '1' in error_msg
+
+    def test_test_metric_event_writes_under_test_folder(
+        self, tracker_started, example_model_name, example_named_metrics
+    ) -> None:
+        """TestMetricEvent writes in the test folder; MetricEvent does not."""
+        metric_event = log_events.MetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='train',
+            metrics=example_named_metrics,
+        )
+        test_metric_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='test',
+            metrics=example_named_metrics,
+        )
+
+        tracker_started.notify(metric_event)
+        tracker_started.notify(test_metric_event)
+
+        run_dir = tracker_started._get_run_dir()
+        model_dir = run_dir / example_model_name
+        test_dir = model_dir / tracker_started.tests_folder_name
+        metric_file = model_dir / 'train.csv'
+        test_file = test_dir / 'test.csv'
+
+        assert metric_file.exists()
+        assert not (test_dir / 'train.csv').exists()
+        assert test_file.exists()
+        assert not (model_dir / 'test.csv').exists()
+
+    def test_resume_loads_both_kinds(
+        self,
+        tmp_path,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """After a resume, both kinds load into their respective loaders."""
+        tracker1 = CSVDumper(par_dir=tmp_path)
+        tracker1.notify(start_experiment_mock_event)
+        metric_event = log_events.MetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='train',
+            metrics=example_named_metrics,
+        )
+        test_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='eval_test',
+            metrics=example_named_metrics,
+        )
+        tracker1.notify(metric_event)
+        tracker1.notify(test_event)
+        tracker1.notify(stop_experiment_mock_event)
+
+        start_experiment_mock_event.resumed = True
+        tracker2 = CSVDumper(par_dir=tmp_path)
+        tracker2.notify(start_experiment_mock_event)
+        loaded = tracker2.load_metrics(example_model_name)
+        test_loaded = tracker2.load_test_metrics(example_model_name)
+        tracker2.notify(stop_experiment_mock_event)
+
+        assert 'train' in loaded
+        assert 'eval_test' not in loaded
+        assert 'test_exp' in test_loaded
+        assert 'eval_test' in test_loaded['test_exp']
+        assert 'train' not in test_loaded['test_exp']
+
+    def test_load_test_metrics_returns_only_test_files(
+        self,
+        tmp_path,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """load_test_metrics returns only the test metric files."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        tracker.notify(start_experiment_mock_event)
+        metric_event = log_events.MetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='train',
+            metrics=example_named_metrics,
+        )
+        test_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='eval_test',
+            metrics=example_named_metrics,
+        )
+        tracker.notify(metric_event)
+        tracker.notify(test_event)
+
+        test_metrics = tracker.load_test_metrics(example_model_name)
+        assert 'test_exp' in test_metrics
+        assert 'eval_test' in test_metrics['test_exp']
+        assert 'train' not in test_metrics['test_exp']
+        tracker.notify(stop_experiment_mock_event)
+
+    def test_load_test_metrics_loads_all_epochs(
+        self,
+        tmp_path,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """load_test_metrics loads all recorded test epochs."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        tracker.notify(start_experiment_mock_event)
+        for ep in (1, 2, 3):
+            tracker.notify(
+                log_events.TestMetricEvent(
+                    epoch=ep,
+                    model_name=example_model_name,
+                    source_name='eval_test',
+                    metrics=example_named_metrics,
+                )
+            )
+
+        test_metrics = tracker.load_test_metrics(example_model_name)
+        assert test_metrics['test_exp']['eval_test'][0] == [1, 2, 3]
+        tracker.notify(stop_experiment_mock_event)
+
+    def test_test_only_model_raises_no_sources(
+        self,
+        tracker_started,
+        example_model_name,
+        example_named_metrics,
+    ) -> None:
+        """A test-only model raises NoSourcesError and loads test metrics."""
+        test_event = log_events.TestMetricEvent(
+            epoch=1,
+            model_name=example_model_name,
+            source_name='eval_test',
+            metrics=example_named_metrics,
+        )
+        tracker_started.notify(test_event)
+
+        with pytest.raises(exceptions.NoSourcesError):
+            _ = tracker_started.load_metrics(example_model_name)
+
+        test_metrics = tracker_started.load_test_metrics(example_model_name)
+        assert test_metrics == {
+            'test_exp': {
+                'eval_test': (
+                    [1],
+                    {k: [v] for k, v in example_named_metrics.items()},
+                )
+            }
+        }
+        return
+
+    def test_load_test_metrics_multiple_experiments_last_run(
+        self,
+        tmp_path,
+        example_model_name,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """load_test_metrics returns the last run of each experiment."""
+        tracker = CSVDumper(par_dir=tmp_path)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        start_1.run_id = 'run_1'
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=example_model_name,
+                source_name='test_old',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp_1'
+        start_2.run_id = 'run_2'
+        tracker.notify(start_2)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=2,
+                model_name=example_model_name,
+                source_name='test_new',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=2,
+                model_name='other_model',
+                source_name='test_other',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_3 = copy.copy(start_experiment_mock_event)
+        start_3.exp_name = 'exp_2'
+        start_3.run_id = 'run_1'
+        tracker.notify(start_3)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=example_model_name,
+                source_name='test_exp2',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics(example_model_name)
+        assert set(results) == {'exp_1', 'exp_2'}
+        assert set(results['exp_1']) == {'test_new'}
+        assert set(results['exp_2']) == {'test_exp2'}
+        return
+
+    def test_load_test_metrics_later_run_other_model(
+        self,
+        tmp_path,
+        example_model_name,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Return earlier run tests when a later run trained another model."""
+        tracker = CSVDumper(par_dir=tmp_path)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp'
+        start_1.run_id = 'run_1'
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=example_model_name,
+                source_name='test_early',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp'
+        start_2.run_id = 'run_2'
+        tracker.notify(start_2)
+        tracker.notify(
+            log_events.MetricEvent(
+                epoch=1,
+                model_name='other_model',
+                source_name='train',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics(example_model_name)
+        assert set(results) == {'exp'}
+        assert set(results['exp']) == {'test_early'}
+
+    def test_load_test_metrics_brackets_in_model_name(
+        self,
+        tmp_path,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Load test metrics for a model whose name contains brackets."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        model_name = 'model[0]'
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=model_name,
+                source_name='test_source',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics(model_name)
+
+        assert 'test_exp' in results
+        assert 'test_source' in results['test_exp']
+
+    def test_load_test_metrics_isolates_models_in_same_run(
+        self,
+        tmp_path,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Loading one model excludes tests of other models in the same run."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name='model_a',
+                source_name='test_a',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name='model_b',
+                source_name='test_b',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results_a = tracker.load_test_metrics('model_a')
+        results_b = tracker.load_test_metrics('model_b')
+
+        assert results_a['test_exp'].keys() == {'test_a'}
+        assert results_b['test_exp'].keys() == {'test_b'}

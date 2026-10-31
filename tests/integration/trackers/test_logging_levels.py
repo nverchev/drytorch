@@ -62,7 +62,7 @@ def event_workflow(
     model_registration_event,
     load_model_event,
     start_training_event,
-    actor_registration_event,
+    runner_registration_event,
     start_epoch_event,
     iterate_batch_event,
     metrics_event,
@@ -72,8 +72,7 @@ def event_workflow(
     continue_experiment_event,
     terminated_training_event,
     end_training_event,
-    start_test_event,
-    end_test_event,
+    test_metric_event,
     save_model_event,
     stop_experiment_event,
 ) -> tuple[log_events.Event, ...]:
@@ -83,7 +82,7 @@ def event_workflow(
         model_registration_event,
         load_model_event,
         start_training_event,
-        actor_registration_event,
+        runner_registration_event,
         start_epoch_event,
         iterate_batch_event,
         metrics_event,
@@ -93,8 +92,7 @@ def event_workflow(
         continue_experiment_event,
         terminated_training_event,
         end_training_event,
-        start_test_event,
-        end_test_event,
+        test_metric_event,
         save_model_event,
         stop_experiment_event,
     )
@@ -102,13 +100,16 @@ def event_workflow(
 
 
 @pytest.mark.parametrize('info_level', dataclasses.astuple(INFO_LEVELS))
-def test_all_events(setup, event_workflow, string_stream, info_level):
+def test_all_events(setup, event_workflow, string_stream, info_level) -> None:
     """Test unformatted logs for every level."""
     set_verbosity(info_level)
     tracker = BuiltinLogger()
     for event in event_workflow:
         tracker.notify(event)
+
     with expected_path_dict[info_level].open() as file:
         expected = file.read().strip()
+
     actual = string_stream.getvalue().strip().expandtabs(4)
+
     assert actual == expected

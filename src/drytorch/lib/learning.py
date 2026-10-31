@@ -1,9 +1,10 @@
-"""Module containing classes with learning algorithm's specifications."""
+"""Classes with learning algorithm specifications."""
 
 from __future__ import annotations
 
 import dataclasses
 
+from collections.abc import Mapping
 from typing import Any
 
 import torch
@@ -22,7 +23,7 @@ _default_grad_op: p.GradientOpProtocol = gradient_ops.NoOp()
 
 
 @dataclasses.dataclass(frozen=True)
-class LearningSchema(p.LearningProtocol):
+class LearningSchema:
     """Class with specifications for the learning algorithm.
 
     Attributes:
@@ -34,26 +35,29 @@ class LearningSchema(p.LearningProtocol):
     """
 
     optimizer_cls: type[torch.optim.Optimizer]
-    base_lr: float | dict[str, float]
+    base_lr: float | Mapping[str, float]
     scheduler: p.SchedulerProtocol = _default_scheduler
-    optimizer_defaults: dict[str, Any] = dataclasses.field(default_factory=dict)
+    optimizer_defaults: Mapping[str, Any] = dataclasses.field(
+        default_factory=dict
+    )
     gradient_op: p.GradientOpProtocol = _default_grad_op
 
     @classmethod
     def adam(
         cls,
-        base_lr: float = 1e-3,
+        base_lr: float | Mapping[str, float] = 1e-3,
+        *,
         betas: tuple[float, float] = (0.9, 0.999),
-        scheduler: p.SchedulerProtocol = _default_scheduler,
         gradient_op: p.GradientOpProtocol = _default_grad_op,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
     ) -> LearningSchema:
         """Convenience method for the Adam optimizer.
 
         Args:
-            base_lr: initial learning rate.
+            base_lr: initial learning rate, or one for each named submodule.
             betas: coefficients used for computing running averages.
-            scheduler: modifies the learning rate given the current epoch.
             gradient_op: modifies parameters' after backward propagation.
+            scheduler: modifies the learning rate given the current epoch.
         """
         return cls(
             optimizer_cls=torch.optim.Adam,
@@ -66,20 +70,21 @@ class LearningSchema(p.LearningProtocol):
     @classmethod
     def adam_w(
         cls,
-        base_lr: float = 1e-3,
+        base_lr: float | Mapping[str, float] = 1e-3,
+        *,
         betas: tuple[float, float] = (0.9, 0.999),
-        weight_decay: float = 1e-2,
-        scheduler: p.SchedulerProtocol = _default_scheduler,
         gradient_op: p.GradientOpProtocol = _default_grad_op,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
+        weight_decay: float = 1e-2,
     ) -> LearningSchema:
         """Convenience method for the AdamW optimizer.
 
         Args:
-            base_lr: initial learning rate.
+            base_lr: initial learning rate, or one for each named submodule.
             betas: coefficients used for computing running averages.
-            weight_decay: weight decay (L2 penalty).
-            scheduler: modifies the learning rate given the current epoch.
             gradient_op: modifies parameters' after backward propagation.
+            scheduler: modifies the learning rate given the current epoch.
+            weight_decay: weight decay (L2 penalty).
         """
         return cls(
             optimizer_cls=torch.optim.AdamW,
@@ -90,57 +95,23 @@ class LearningSchema(p.LearningProtocol):
         )
 
     @classmethod
-    def sgd(
-        cls,
-        base_lr: float = 0.01,
-        momentum: float = 0.0,
-        weight_decay: float = 0.0,
-        dampening: float = 0.0,
-        nesterov: bool = False,
-        scheduler: p.SchedulerProtocol = _default_scheduler,
-        gradient_op: p.GradientOpProtocol = _default_grad_op,
-    ) -> LearningSchema:
-        """Convenience method for the SGD optimizer.
-
-        Args:
-            base_lr: initial learning rate.
-            momentum: momentum factor.
-            dampening:  dampening for momentum.
-            weight_decay: weight decay (L2 penalty).
-            nesterov: enables Nesterov momentum.
-            scheduler: modifies the learning rate given the current epoch.
-            gradient_op: modifies parameters' after backward propagation.
-        """
-        return cls(
-            optimizer_cls=torch.optim.SGD,
-            base_lr=base_lr,
-            scheduler=scheduler,
-            optimizer_defaults={
-                'momentum': momentum,
-                'weight_decay': weight_decay,
-                'dampening': dampening,
-                'nesterov': nesterov,
-            },
-            gradient_op=gradient_op,
-        )
-
-    @classmethod
     def r_adam(
         cls,
-        base_lr: float = 1e-3,
+        base_lr: float | Mapping[str, float] = 1e-3,
+        *,
         betas: tuple[float, float] = (0.9, 0.999),
-        weight_decay: float = 0.0,
-        scheduler: p.SchedulerProtocol = _default_scheduler,
         gradient_op: p.GradientOpProtocol = _default_grad_op,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
+        weight_decay: float = 0.0,
     ) -> LearningSchema:
         """Convenience method for the RAdam optimizer.
 
         Args:
-            base_lr: initial learning rate.
+            base_lr: initial learning rate, or one for each named submodule.
             betas: coefficients used for computing running averages.
-            weight_decay: weight decay (L2 penalty).
-            scheduler: modifies the learning rate given the current epoch.
             gradient_op: modifies parameters' after backward propagation.
+            scheduler: modifies the learning rate given the current epoch.
+            weight_decay: weight decay (L2 penalty).
         """
         wd_flag = bool(weight_decay)
         return cls(
@@ -151,6 +122,42 @@ class LearningSchema(p.LearningProtocol):
                 'betas': betas,
                 'weight_decay': weight_decay,
                 'decoupled_weight_decay': wd_flag,
+            },
+            gradient_op=gradient_op,
+        )
+
+    @classmethod
+    def sgd(
+        cls,
+        base_lr: float | Mapping[str, float] = 0.01,
+        *,
+        dampening: float = 0.0,
+        gradient_op: p.GradientOpProtocol = _default_grad_op,
+        momentum: float = 0.0,
+        nesterov: bool = False,
+        scheduler: p.SchedulerProtocol = _default_scheduler,
+        weight_decay: float = 0.0,
+    ) -> LearningSchema:
+        """Convenience method for the SGD optimizer.
+
+        Args:
+            base_lr: initial learning rate, or one for each named submodule.
+            dampening:  dampening for momentum.
+            gradient_op: modifies parameters' after backward propagation.
+            momentum: momentum factor.
+            nesterov: enables Nesterov momentum.
+            scheduler: modifies the learning rate given the current epoch.
+            weight_decay: weight decay (L2 penalty).
+        """
+        return cls(
+            optimizer_cls=torch.optim.SGD,
+            base_lr=base_lr,
+            scheduler=scheduler,
+            optimizer_defaults={
+                'dampening': dampening,
+                'momentum': momentum,
+                'nesterov': nesterov,
+                'weight_decay': weight_decay,
             },
             gradient_op=gradient_op,
         )

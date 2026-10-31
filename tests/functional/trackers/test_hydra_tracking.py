@@ -24,7 +24,7 @@ from drytorch.trackers.hydra import HydraLink
 
 
 class TestHydraLinkFullCycle:
-    """Complete HydraLink session and tests it afterward."""
+    """Complete ``HydraLink`` session and tests it afterward."""
 
     @pytest.fixture()
     def tracker(

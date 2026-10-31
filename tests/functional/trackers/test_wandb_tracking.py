@@ -21,7 +21,7 @@ from drytorch.trackers.wandb import Wandb
 
 @pytest.mark.filterwarnings('ignore::DeprecationWarning:wandb.*')
 class TestWandbFullCycle:
-    """Complete Wandb session and tests it afterward."""
+    """Complete ``Wandb`` session and tests it afterward."""
 
     @pytest.fixture(autouse=True)
     def setup(
@@ -92,7 +92,7 @@ class TestWandbFullCycle:
         tracker.notify(stop_experiment_event)
         return
 
-    def test_folder_creation(self, tmp_path, example_exp_name):
+    def test_folder_creation(self, tmp_path, example_exp_name) -> None:
         """Test that wandb creates local files and directories."""
         created_items = list((tmp_path / Wandb.folder_name).iterdir())
         assert created_items

@@ -25,8 +25,8 @@ _Tensor = torch.Tensor
 
 
 @pytest.mark.filterwarnings('ignore:.*torch.jit.script.*:FutureWarning')
-class TestFromTorchMetrics:
-    """Tests for integration with torchmetrics."""
+class TestFromTorcheval:
+    """Tests for integration with torcheval."""
 
     @pytest.fixture
     def torcheval_metric(self) -> metrics.Metric:
@@ -36,7 +36,7 @@ class TestFromTorchMetrics:
     @pytest.fixture
     def metric(self, torcheval_metric) -> p.ObjectiveProtocol[_Tensor, _Tensor]:
         """Fixture for accuracy metric."""
-        return from_torcheval(torcheval_metric)
+        return from_torcheval(torcheval_metric, higher_is_better=True)
 
     @pytest.fixture
     def mock_outputs(self) -> torch.Tensor:
@@ -48,6 +48,12 @@ class TestFromTorchMetrics:
         """Fixture for mock targets."""
         return torch.tensor([1, 0])
 
+    def test_init(self, metric, torcheval_metric) -> None:
+        """Test the wrapper stores the metric, its name and its direction."""
+        assert metric.higher_is_better is True
+        assert metric.metric is torcheval_metric
+        assert metric.name == 'BinaryAccuracy'
+
     def test_reset_update_and_compute(
         self,
         metric,
@@ -58,6 +64,7 @@ class TestFromTorchMetrics:
         metric.reset()
         metric.update(mock_outputs, mock_targets)
         result = metric.compute()
+
         assert isinstance(result, dict)
         assert 'BinaryAccuracy' in result
         assert isinstance(result['BinaryAccuracy'], torch.Tensor)

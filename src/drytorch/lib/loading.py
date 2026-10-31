@@ -1,9 +1,11 @@
-"""Module containing classes nad utilities for batching a dateset."""
+"""Classes and utilities for batching a dataset."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
-from typing import Any, Final, TypeVar, overload
+import itertools
+
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
+from typing import Any, Final, Generic, TypeVar, overload
 
 import torch
 
@@ -37,8 +39,8 @@ class Sliced(Sequence[_T]):
         slice: the slice to use.
     """
 
-    seq: Sequence[_T]
-    slice: slice
+    seq: Final[Sequence[_T]]
+    slice: Final[slice]
     _range: range
     _sliced: Sequence[_T]
 
@@ -51,9 +53,9 @@ class Sliced(Sequence[_T]):
         """
         self.seq = seq
         self.slice = slice_
-        # take advantage of range implementation
-        self._range = range(len(self.seq))[slice_]
+        self._range = range(len(self.seq))[slice_]  # using range implementation
         self._sliced = self.seq[slice_]
+        return
 
     @overload
     def __getitem__(self, idx: int) -> _T: ...
@@ -88,28 +90,29 @@ class Permutation(Sequence[int]):
     """Sliceable pseudo-random permutation.
 
     Attributes:
-        size: the length of the permutation.
         seed: seed for the random generator.
+        size: the length of the permutation.
     """
 
-    size: int
-    seed: int
+    seed: Final[int]
+    size: Final[int]
     _new_indices: list[int]
 
-    def __init__(self, size: int, seed: int | None):
+    def __init__(self, size: int, seed: int | None) -> None:
         """Initialize.
 
         Args:
             size: the length of the permutation.
             seed: seed for the random generator.
         """
-        self.size = size
         if seed is None:
-            seed = int(random.default_rng().integers(2**32))
+            seed = int(torch.randint(0, 1000000, (1,)).item())
 
         self.seed = seed
+        self.size = size
         rng = random.default_rng(self.seed)
         self._new_indices = rng.permutation(self.size).tolist()
+        return
 
     @overload
     def __getitem__(self, idx: int) -> int: ...
@@ -130,7 +133,7 @@ class Permutation(Sequence[int]):
         return f'Permutation(size={self.size}, seed={self.seed})'
 
 
-class DataLoader(p.LoaderProtocol[Data]):
+class DataLoader(Generic[Data]):
     """A data-loader class with runtime settings.
 
     This class wraps PyTorch's DataLoader with additional functionalities.
@@ -139,40 +142,41 @@ class DataLoader(p.LoaderProtocol[Data]):
         batch_size: number of samples per batch.
         dataset: the dataset to load data from.
         dataset_len: length of the dataset.
-        sampler: the sampling strategy for the dataset.
+        sampler: defines the strategy to draw samples from the dataset.
     """
 
-    batch_size: int | None
-    dataset: data.Dataset[Data]
-    dataset_len: int
-    sampler: data.Sampler | Iterable
-    _pin_memory: bool
-    _n_workers: int
+    batch_size: Final[int | None]
+    dataset: Final[data.Dataset[Data]]
+    dataset_len: Final[int]
+    sampler: Final[data.Sampler | Iterable]
     _distributed: bool
+    _n_workers: int
+    _pin_memory: bool
     _user_sampler: data.Sampler | Iterable | None
 
     def __init__(
         self,
         dataset: data.Dataset[Data],
+        *,
         batch_size: int,
+        n_workers: int = 0,
         pin_memory: bool | None = None,
         sampler: data.Sampler | Iterable[Any] | None = None,
-        n_workers: int = 0,
     ) -> None:
         """Initialize.
 
         Args:
             dataset: the dataset to load data from.
             batch_size: number of samples per batch.
+            n_workers: number of subprocesses for data loading.
             pin_memory: pin memory for faster GPU training. Defaults to true
                 when hardware acceleration is available.
             sampler: defines the strategy to draw samples from the dataset.
-            n_workers: number of subprocesses for data loading.
 
         """
-        self.batch_size: Final = batch_size
-        self.dataset: Final = dataset
-        self.dataset_len: Final = validate_dataset_length(dataset)
+        self.batch_size = batch_size
+        self.dataset = dataset
+        self.dataset_len = validate_dataset_length(dataset)
         acc_flag = torch.accelerator.is_available()
         self._pin_memory = acc_flag if pin_memory is None else pin_memory
         self._n_workers = n_workers
@@ -181,12 +185,11 @@ class DataLoader(p.LoaderProtocol[Data]):
         self.sampler = self._init_sampler() if sampler is None else sampler
         return
 
-    @override
     def __iter__(self) -> Iterator[Data]:
+        """Return an iterator over the dataset in batches."""
         inference = torch.is_inference_mode_enabled()
-        return self.get_loader(inference).__iter__()
+        return self.get_loader(inference=inference).__iter__()
 
-    @override
     def __len__(self) -> int:
         """Return the global number of batches in the dataset across all ranks.
 
@@ -201,6 +204,7 @@ class DataLoader(p.LoaderProtocol[Data]):
 
     def get_loader(
         self,
+        *,
         inference: bool,
     ) -> data.DataLoader[Data]:
         """Create a DataLoader instance with runtime settings.
@@ -239,16 +243,17 @@ class DataLoader(p.LoaderProtocol[Data]):
 
     def split(
         self,
-        split: float = 0.2,
-        shuffle: bool = True,
+        ratio: float = 0.2,
+        *,
         seed: int = 42,
+        shuffle: bool = True,
     ) -> tuple[DataLoader[Data], DataLoader[Data]]:
         """Split the loader into two.
 
         Args:
-            split: fraction of the dataset to the second output loader.
-            shuffle: whether to shuffle the data before splitting.
+            ratio: fraction of the dataset to the second output loader.
             seed: seed for shuffling.
+            shuffle: whether to shuffle the data before splitting.
 
         Returns:
             A tuple of (DataLoader, DataLoader).
@@ -258,40 +263,74 @@ class DataLoader(p.LoaderProtocol[Data]):
             original dataset, so each split loader builds its own.
 
         Raises:
-            ValueError: if split is not between 0 and 1.
+            ValueError: if ratio is not between 0 and 1.
         """
-        if split < 0 or split > 1:
-            raise ValueError('split must be between 0 and 1.')
+        if ratio < 0 or ratio > 1:
+            raise ValueError('ratio must be between 0 and 1.')
 
         dataset_size = validate_dataset_length(self.dataset)
-        second_size = int(dataset_size * split)
-        first_size = dataset_size - second_size
-        indices: Sequence[int]
-        if shuffle:
-            indices = Permutation(dataset_size, seed=seed)
-        else:
-            indices = range(dataset_size)
-
-        first_dataset = data.Subset(
-            self.dataset, Sliced(indices, slice(first_size))
+        first_size = dataset_size - int(dataset_size * ratio)
+        indices = self._get_indices(dataset_size, seed=seed, shuffle=shuffle)
+        first_loader = self._get_subset_loader(
+            Sliced(indices, slice(first_size))
         )
-        second_dataset = data.Subset(
-            self.dataset, Sliced(indices, slice(first_size, dataset_size))
-        )
-        batch_size = _validate_batch_size(self.batch_size)
-        first_loader = DataLoader(
-            first_dataset,
-            batch_size,
-            pin_memory=self._pin_memory,
-            n_workers=self._n_workers,
-        )
-        second_loader = DataLoader(
-            second_dataset,
-            batch_size,
-            pin_memory=self._pin_memory,
-            n_workers=self._n_workers,
+        second_loader = self._get_subset_loader(
+            Sliced(indices, slice(first_size, dataset_size))
         )
         return first_loader, second_loader
+
+    def fold(
+        self,
+        n_folds: int = 5,
+        *,
+        seed: int = 42,
+        shuffle: bool = True,
+    ) -> list[tuple[DataLoader[Data], DataLoader[Data]]]:
+        """Split the loader into the training and validation loaders of folds.
+
+        Each fold validates on one of ``n_folds`` disjoint parts of the
+        dataset and trains on the others, as in a k-fold cross-validation.
+
+        Args:
+            n_folds: the number of folds.
+            seed: seed for shuffling.
+            shuffle: whether to shuffle the data before splitting.
+
+        Returns:
+            For each fold, the training loader and the validation loader.
+
+        Note:
+            A user-provided sampler is not propagated, as in :meth:`split`.
+
+        Raises:
+            ValueError: if n_folds is less than 2 or more than the samples.
+        """
+        dataset_size = validate_dataset_length(self.dataset)
+        if not 2 <= n_folds <= dataset_size:
+            msg = 'n_folds must be between 2 and the number of samples.'
+            raise ValueError(msg)
+
+        indices = self._get_indices(dataset_size, seed=seed, shuffle=shuffle)
+        bounds = [fold * dataset_size // n_folds for fold in range(n_folds + 1)]
+        loaders: list[tuple[DataLoader[Data], DataLoader[Data]]] = []
+        for start, stop in itertools.pairwise(bounds):
+            before = Sliced(indices, slice(start))
+            after = Sliced(indices, slice(stop, dataset_size))
+            train_loader = self._get_subset_loader([*before, *after])
+            val_loader = self._get_subset_loader(
+                Sliced(indices, slice(start, stop))
+            )
+            loaders.append((train_loader, val_loader))
+
+        return loaders
+
+    def _get_subset_loader(self, indices: Sequence[int]) -> DataLoader[Data]:
+        return DataLoader(
+            data.Subset(self.dataset, indices),
+            batch_size=_validate_batch_size(self.batch_size),
+            n_workers=self._n_workers,
+            pin_memory=self._pin_memory,
+        )
 
     def _init_sampler(self) -> data.Sampler | Iterable:
         """Set the initial sampler for the loader."""
@@ -300,42 +339,14 @@ class DataLoader(p.LoaderProtocol[Data]):
 
         return data.RandomSampler(range(self.dataset_len))
 
+    @staticmethod
+    def _get_indices(
+        dataset_size: int, *, seed: int, shuffle: bool
+    ) -> Sequence[int]:
+        if shuffle:
+            return Permutation(dataset_size, seed=seed)
 
-def _validate_batch_size(batch_size: int | None) -> int:
-    """Checks that the batch size is a valid number.
-
-    Args:
-        batch_size: the requested number of elements in the mini-batch.
-
-    Returns:
-        The verified size.
-
-    Raises:
-        InvalidBatchError: if the batch size is invalid.
-    """
-    if batch_size is None or batch_size < 1:
-        msg = 'Batch size must be a positive integer. Got {batch_size}.'
-        raise ValueError(msg.format(batch_size=batch_size))
-
-    return batch_size
-
-
-def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
-    """Checks if a dataset has a valid length.
-
-    Args:
-        dataset: dataset to check.
-
-    Returns:
-        Length of the dataset.
-
-    Raises:
-        DatasetHasNoLengthError: if the dataset has no __len__ method.
-    """
-    if get_length := getattr(type(dataset), '__len__', None):
-        return get_length(dataset)
-
-    raise exceptions.DatasetHasNoLengthError()
+        return range(dataset_size)
 
 
 def get_n_batches(
@@ -365,22 +376,98 @@ def get_n_batches(
 
 def take_from_dataset(
     dataset: data.Dataset[Data],
-    n_samples: int = 1,
-    preserve_order: bool = True,
+    *,
+    collate_fn: Callable[[list[Data]], Data] | None = None,
     device: torch.device = _default_device,
-) -> Data:
-    """Sample a batch of elements from a dataset and transfers them to a device.
+    indices: Sequence[int] | None = None,
+    n_samples: int | None = None,
+    preserve_order: bool = True,
+) -> tuple[list[int], Data]:
+    """Take a batch of samples from a dataset and move it to a device.
 
-    Arguments:
-        dataset: the dataset where to sample from.
-        n_samples: the number of samples to take.
-        preserve_order: take samples in order or randomly otherwise.
-        device: device where to store the sample.
+    Args:
+        dataset: the dataset where to take the samples from.
+        collate_fn: function combining the samples into a batch. Defaults to
+            the one of the PyTorch DataLoader.
+        device: device where to store the batch.
+        indices: the samples to take, in this order. Defaults to taking
+            ``n_samples`` samples.
+        n_samples: the number of samples to take when ``indices`` is not
+            given. Defaults to one.
+        preserve_order: when ``indices`` is not given, take the first samples,
+            or random ones otherwise.
 
     Returns:
-        The desired number of samples in a batch.
+        The indices of the samples in the dataset, and the samples as a batch.
+
+    Raises:
+        ValueError: if ``indices`` is given with ``n_samples`` or with
+            ``preserve_order=False``.
+        IndexError: if an index is outside the dataset.
+        DatasetHasNoLengthError: if ``indices`` is not given and the dataset
+            has no length.
     """
+    if indices is not None:
+        if n_samples is not None or not preserve_order:
+            msg = 'indices set the samples and their order on their own.'
+            raise ValueError(msg)
+
+        if isinstance(dataset, Sized):
+            size = len(dataset)
+            for index in indices:
+                if not 0 <= index < size:
+                    msg = f'index {index} is outside the {size} samples.'
+                    raise IndexError(msg)
+
+        taken = list(indices)
+    else:
+        size = validate_dataset_length(dataset)
+        n_taken = min(1 if n_samples is None else n_samples, size)
+        if preserve_order:
+            taken = list(range(n_taken))
+        else:
+            taken = torch.randperm(size)[:n_taken].tolist()
+
     loader = data.DataLoader(
-        dataset, batch_size=n_samples, shuffle=not preserve_order
+        data.Subset(dataset, taken),
+        batch_size=len(taken),
+        collate_fn=collate_fn,
     )
-    return next(apply_ops.apply_to(batch, device) for batch in loader)
+    return taken, apply_ops.apply_to(next(iter(loader)), device)
+
+
+def validate_dataset_length(dataset: data.Dataset[Any]) -> int:
+    """Checks if a dataset has a valid length.
+
+    Args:
+        dataset: dataset to check.
+
+    Returns:
+        Length of the dataset.
+
+    Raises:
+        DatasetHasNoLengthError: if the dataset has no __len__ method.
+    """
+    if get_length := getattr(type(dataset), '__len__', None):
+        return get_length(dataset)
+
+    raise exceptions.DatasetHasNoLengthError()
+
+
+def _validate_batch_size(batch_size: int | None) -> int:
+    """Checks that the batch size is a valid number.
+
+    Args:
+        batch_size: the requested number of elements in the mini-batch.
+
+    Returns:
+        The verified size.
+
+    Raises:
+        InvalidBatchError: if the batch size is invalid.
+    """
+    if batch_size is None or batch_size < 1:
+        msg = 'Batch size must be a positive integer. Got {batch_size}.'
+        raise ValueError(msg.format(batch_size=batch_size))
+
+    return batch_size

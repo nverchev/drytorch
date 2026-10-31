@@ -1,11 +1,10 @@
-"""Module containing classes that run a model."""
+"""Classes to run a model."""
 
 import abc
-import copy
 import sys
 import warnings
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import (
     Any,
     ClassVar,
@@ -29,10 +28,8 @@ from drytorch.utils import apply_ops, repr_utils
 
 
 __all__ = [
-    'ModelCaller',
-    'ModelRunner',
-    'ModelRunnerWithLogs',
-    'ModelRunnerWithObjective',
+    'Runner',
+    'Source',
 ]
 
 
@@ -40,119 +37,94 @@ Input = TypeVar('Input', bound=p.InputType)
 Target = TypeVar('Target', bound=p.TargetType)
 Output = TypeVar('Output', bound=p.OutputType)
 _Objective_co = TypeVar(
-    '_Objective_co', bound=p.LossProtocol[Any, Any], covariant=True
+    '_Objective_co',
+    bound=p.ObjectiveProtocol[Any, Any],
+    covariant=True,
 )
 
 
-@runtime_checkable
-class SupportsSync(Protocol):
-    """Protocol for objects that support syncing."""
-
-    def sync(self) -> None:
-        """Sync across all processes."""
-
-
-class ModelCaller(
-    repr_utils.CreatedAtMixin, Generic[Input, Output], metaclass=abc.ABCMeta
+class Runner(
+    repr_utils.CreatedAtMixin,
+    Generic[Input, Target, Output],
+    metaclass=registering.RegisteringMeta,
 ):
-    """Base class that calls a model.
-
-    Attributes:
-        model: the wrapped model.
-    """
-
-    _name = repr_utils.DefaultName()
-
-    model: p.ModelProtocol[Input, Output]
-
-    def __init__(
-        self, model: p.ModelProtocol[Input, Output], name: str = ''
-    ) -> None:
-        """Initialize.
-
-        Args:
-            model: the wrapped model.
-            name: the name for the object for logging purposes.
-                Defaults to class name plus eventual counter.
-        """
-        super().__init__()
-        self.model: Final = model
-        self._name = name
-        return
-
-    @property
-    def name(self) -> str:
-        """The name of the model."""
-        return self._name
-
-    @abc.abstractmethod
-    def __call__(self) -> None:
-        """Document itself when the model is first called."""
-        registering.register_actor(self, self.model)
-        return
-
-    @override
-    def __repr__(self) -> str:
-        return f'{self.name}({self.model.name})'
-
-
-class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
     """Run a model on a dataset.
 
+    The runner registers as a runner of its model once created, so it must be
+    created during the run that registered the model.
+
     Attributes:
-        model: the model to run.
         loader: the loader providing inputs and targets in batches.
-        outputs_list: list of optionally stored outputs.
+        max_stored_output: maximum number of batch outputs stored in memory.
+        model: the model to run.
     """
 
     max_stored_output: ClassVar[int] = sys.maxsize
 
-    loader: p.LoaderProtocol[tuple[Input, Target]]
-    outputs_list: list[Output]
-    _cached_metrics: Mapping[str, float]
+    _name = repr_utils.DefaultName()
+
+    loader: Final[p.LoaderProtocol[tuple[Input, Target]]]
+    model: Final[p.ModelProtocol[Input, Output]]
     _is_distributed: bool
-    _world_size: int
     _max_stored_process: int
+    _outputs_list: Final[list[Output]]
+    _world_size: int
 
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         loader: p.LoaderProtocol[tuple[Input, Target]],
+        name: str = '',
     ) -> None:
         """Initialize.
 
         Args:
             model: the model to run.
+            loader: provides inputs and targets in batches.
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            loader: provides inputs and targets in batches.
 
         """
-        super().__init__(model, name)
-        self.loader: Final = loader
-        self.outputs_list: Final = list[Output]()
-        self._cached_metrics = {}
+        super().__init__()
+        self.loader = loader
+        self.model = model
+        self._name = name
         self._is_distributed = dist.is_available() and dist.is_initialized()
         self._world_size = dist.get_world_size() if self._is_distributed else 1
         self._max_stored_process = self.max_stored_output // self._world_size
+        self._outputs_list = []
         return
 
-    def __call__(self, store_outputs: bool = False) -> None:
+    def __call__(self, *, store_outputs: bool = False) -> None:
         """Single pass on the dataset.
 
+        Stored outputs are detached and moved to the CPU. Only tensors,
+        mappings, sequences, tuples and dataclasses can be stored.
+
         Args:
-            store_outputs: whether to store model outputs. Defaults to False.
+            store_outputs: whether to store model outputs.
+
+        Raises:
+            ModelDeviceMismatchError: if a metric state device does not match
+                the model device in distributed training.
         """
-        super().__call__()
         self._run_epoch(store_outputs)
         return
 
     @property
-    def computed_metrics(self) -> Mapping[str, float]:
-        """Retrieve cached metrics."""
-        return self._cached_metrics
+    def name(self) -> str:
+        """The name of the runner."""
+        return self._name
+
+    @property
+    def outputs_list(self) -> Sequence[Output]:
+        """Sequence of optionally stored outputs."""
+        return self._outputs_list
+
+    @override
+    def __repr__(self) -> str:
+        return f'{self.name}({self.model.name})'
 
     def _check_divisibility(self, n_samples: int) -> None:
         if torch.is_inference_mode_enabled() and self._is_distributed:
@@ -168,6 +140,31 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
     def _compute_metrics(self) -> Mapping[str, float]:
         return {}
+
+    def _gather_stored_outputs(self) -> None:
+        if not self._outputs_list:
+            return
+
+        rank = dist.get_rank()
+        try:
+            if rank == 0:
+                dist_outputs: list[list[Output]] = [
+                    [] for _ in range(self._world_size)
+                ]
+                dist.gather_object(self._outputs_list, dist_outputs, dst=0)
+                self._outputs_list.clear()
+                for gathered_tuple in zip(*dist_outputs, strict=True):
+                    self._outputs_list.extend(gathered_tuple)
+            else:
+                dist.gather_object(self._outputs_list, None, dst=0)
+                self._outputs_list.clear()
+
+        except Exception as err:
+            warnings.warn(
+                exceptions.DistributedStorageWarning(err), stacklevel=2
+            )
+
+        return
 
     def _get_batches(self) -> Iterator[tuple[Input, Target]]:
         if self._is_distributed:
@@ -194,7 +191,11 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
 
     def _run_epoch(self, store_outputs: bool):
         if self._is_distributed:
-            exec_module = getattr(self.model, 'exec_module', None)
+            if isinstance(self.model, _ExecModuleProtocol):
+                exec_module = self.model.exec_module
+            else:
+                exec_module = None
+
             if exec_module is not None and not isinstance(
                 exec_module, torch.nn.parallel.DistributedDataParallel
             ):
@@ -202,23 +203,23 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                     exceptions.ModuleNotDistributedWarning(), stacklevel=2
                 )
 
-        self.outputs_list.clear()
+        self._outputs_list.clear()
         n_samples = loading.validate_dataset_length(self.loader.dataset)
         self._check_divisibility(n_samples)
         n_processes = dist.get_world_size() if self._is_distributed else 1
-        pbar = log_events.IterateBatchEvent(
+        batch_event = log_events.IterateBatchEvent(
             self.name, self.loader.batch_size, len(self.loader), n_samples
         )
         for batch in self._get_batches():
             outputs = self._run_batch(batch)
             metrics = self._compute_metrics()
-            pbar.update(metrics, n_processes)
+            batch_event.update(metrics, n_processes)
             if store_outputs:
                 self._store(outputs)
 
         if self._is_distributed:
             self._sync()
-            pbar.update(self._compute_metrics(), 0)  # trigger sync
+            batch_event.refresh(self._compute_metrics())
             self._gather_stored_outputs()
 
         return
@@ -237,98 +238,99 @@ class ModelRunner(ModelCaller[Input, Output], Generic[Input, Target, Output]):
                 exceptions.CannotStoreOutputWarning(err), stacklevel=3
             )
         else:
-            if len(self.outputs_list) < self._max_stored_process:
-                self.outputs_list.append(outputs)
+            if len(self._outputs_list) < self._max_stored_process:
+                self._outputs_list.append(outputs)
 
         return
 
     def _sync(self) -> None:
-        """Synchronize objective across processes."""
         return None
 
-    def _gather_stored_outputs(self) -> None:
-        """Gather outputs from all processes to rank 0."""
-        if not self.outputs_list:
-            return
 
-        rank = dist.get_rank()
-        try:
-            if rank == 0:
-                dist_outputs: list[list[Output]] = [
-                    [] for _ in range(self._world_size)
-                ]
-                dist.gather_object(self.outputs_list, dist_outputs, dst=0)
-                self.outputs_list.clear()
-                for gathered_tuple in zip(*dist_outputs, strict=True):
-                    self.outputs_list.extend(gathered_tuple)
-            else:
-                dist.gather_object(self.outputs_list, None, dst=0)
-                self.outputs_list.clear()
-
-        except Exception as err:
-            warnings.warn(
-                exceptions.DistributedStorageWarning(err), stacklevel=2
-            )
-
-        return
-
-
-class ModelRunnerWithObjective(
-    ModelRunner[Input, Target, Output],
-    p.MonitorProtocol,
+class Source(
+    Runner[Input, Target, Output],
     Generic[Input, Target, Output, _Objective_co],
 ):
-    """Run a model on a dataset, calculating the value of an objective function.
+    """Run a model on a dataset and publish the value of an objective.
+
+    Each pass resets the objective, updates it with each batch, and leaves its
+    final state on it, emitting :class:`~drytorch.core.log_events.MetricEvent`.
 
     Attributes:
-        model: the model containing the weights to evaluate.
         loader: provides inputs and targets in batches.
+        model: the model containing the weights to evaluate.
         objective: processes the model outputs and targets.
-        outputs_list: list of optionally stored outputs.
+
+    Raises:
+        ModelDeviceMismatchError: if a metric state device does not match the
+            model device in distributed training.
     """
 
-    objective: _Objective_co
+    objective: Final[_Objective_co]
+    _cached_epoch: int | None
+    _cached_metrics: Mapping[str, float]
     _checked_metric_device: bool
 
     def __init__(
         self,
         model: p.ModelProtocol[Input, Output],
-        name: str = '',
         *,
         loader: p.LoaderProtocol[tuple[Input, Target]],
+        name: str = '',
         objective: _Objective_co,
     ) -> None:
         """Initialize.
 
         Args:
             model: the model containing the weights to evaluate.
+            loader: provides inputs and targets in batches.
             name: the name for the object for logging purposes.
                 Defaults to class name plus eventual counter.
-            loader: provides inputs and targets in batches.
             objective: processes the model outputs and targets.
 
         """
         super().__init__(model, loader=loader, name=name)
-        self.objective: Final = copy.deepcopy(objective)
+        self.objective = objective
+        self._cached_epoch = None
+        self._cached_metrics = {}
         if self._is_distributed:
-            if getattr(self.objective, 'sync_on_compute', False):
-                issue = 'sync_on_compute=True will cause overhead'
-                recommend = 'set sync_on_compute to False'
-                warnings.warn(
-                    exceptions.ObjectiveSyncWarning(issue, recommend),
-                    stacklevel=2,
-                )
-            if getattr(self.objective, 'dist_sync_on_step', False):
-                issue = 'dist_sync_on_step=True will cause overhead'
-                recommend = 'set dist_sync_on_step to False'
-                warnings.warn(
-                    exceptions.ObjectiveSyncWarning(issue, recommend),
-                    stacklevel=2,
-                )
+            if isinstance(self.objective, _SyncOnComputeProtocol):
+                if self.objective.sync_on_compute:
+                    issue = 'sync_on_compute=True will cause overhead'
+                    recommend = 'set sync_on_compute to False'
+                    warnings.warn(
+                        exceptions.ObjectiveSyncWarning(issue, recommend),
+                        stacklevel=2,
+                    )
 
-        self.objective.reset()
+            if isinstance(self.objective, _DistSyncOnStepProtocol):
+                if self.objective.dist_sync_on_step:
+                    issue = 'dist_sync_on_step=True will cause overhead'
+                    recommend = 'set dist_sync_on_step to False'
+                    warnings.warn(
+                        exceptions.ObjectiveSyncWarning(issue, recommend),
+                        stacklevel=2,
+                    )
+
         self._checked_metric_device = False
         return
+
+    @property
+    def computed_metrics(self) -> Mapping[str, float]:
+        """The metrics computed at the current epoch of the model.
+
+        Empty when the source has not run since the epoch of the model
+        changed.
+        """
+        if self._cached_epoch != self.model.epoch:
+            return {}
+
+        return self._cached_metrics
+
+    @property
+    def last_run_epoch(self) -> int:
+        """The epoch when the source last ran, or 0 if never run."""
+        return 0 if self._cached_epoch is None else self._cached_epoch
 
     def _compute_metrics(self) -> Mapping[str, float]:
         if self._is_distributed and not self._checked_metric_device:
@@ -339,13 +341,24 @@ class ModelRunnerWithObjective(
 
             self._checked_metric_device = True
 
+        self._cached_epoch = self.model.epoch
         self._cached_metrics = objectives.compute_metrics(self.objective)
         return self._cached_metrics
+
+    def _publish_metrics(self, metrics: Mapping[str, float]) -> None:
+        log_events.MetricEvent(
+            model_name=self.model.name,
+            source_name=self.name,
+            epoch=self.model.epoch,
+            metrics=metrics,
+        )
+        return
 
     @override
     def _run_epoch(self, store_outputs: bool):
         self.objective.reset()  # reset before epoch to keep last metrics
         super()._run_epoch(store_outputs)
+        self._publish_metrics(self._compute_metrics())
         return
 
     @override
@@ -356,7 +369,7 @@ class ModelRunnerWithObjective(
 
     @override
     def _sync(self) -> None:
-        if isinstance(self.objective, SupportsSync):
+        if isinstance(self.objective, p.SyncProtocol):
             self.objective.sync()
         else:
             issue = 'metrics not synchronized (averaged) across processes'
@@ -366,25 +379,39 @@ class ModelRunnerWithObjective(
                 stacklevel=2,
             )
 
-
-class ModelRunnerWithLogs(
-    ModelRunnerWithObjective[Input, Target, Output, _Objective_co]
-):
-    """Run a model on a dataset and log the value of an objective function.
-
-    Attributes:
-        model: the model containing the weights to evaluate.
-        loader: provides inputs and targets in batches.
-        objective: processes the model outputs and targets.
-        outputs_list: list of optionally stored outputs.
-    """
-
-    def _run_epoch(self, store_outputs: bool):
-        super()._run_epoch(store_outputs)
-        log_events.MetricEvent(
-            model_name=self.model.name,
-            source_name=self.name,
-            epoch=self.model.epoch,
-            metrics=self._compute_metrics(),
-        )
         return
+
+
+# ---------------------------------------------------------------------------
+# Private protocols
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class _DistSyncOnStepProtocol(Protocol):
+    """Protocol for objectives exposing a dist_sync_on_step flag."""
+
+    @property
+    @abc.abstractmethod
+    def dist_sync_on_step(self) -> bool:
+        """Flag whether to sync on step."""
+
+
+@runtime_checkable
+class _ExecModuleProtocol(Protocol):
+    """Protocol for models exposing an execution module."""
+
+    @property
+    @abc.abstractmethod
+    def exec_module(self) -> torch.nn.Module:
+        """The executed module."""
+
+
+@runtime_checkable
+class _SyncOnComputeProtocol(Protocol):
+    """Protocol for objectives exposing a sync_on_compute flag."""
+
+    @property
+    @abc.abstractmethod
+    def sync_on_compute(self) -> bool:
+        """Flag whether to sync on compute."""

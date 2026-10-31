@@ -1,4 +1,4 @@
-"""Tests LocalCheckpoint integration with the Model subclasses."""
+"""Tests ``LocalCheckpoint`` integration with the ``Model`` subclasses."""
 
 from collections.abc import Generator
 
@@ -17,7 +17,7 @@ def autorun_experiment(run) -> Generator[Run, None, None]:
     return
 
 
-def test_state_save_and_load(linear_model):
+def test_state_save_and_load(linear_model) -> None:
     """Test saving and loading the model's state."""
     param_list = [param.clone() for param in linear_model.module.parameters()]
 
@@ -47,8 +47,8 @@ def test_state_save_and_load(linear_model):
         assert param == old_param
 
 
-def test_separate_module_state_save_and_load(run):
-    """Test saving and loading SWAModel state."""
+def test_separate_module_state_save_and_load(run) -> None:
+    """Test saving and loading ``SWAModel`` state."""
     model = SWAModel(torch.nn.Linear(1, 1), start_epoch=0)
 
     # update average once so it differs
@@ -88,14 +88,14 @@ def test_separate_module_state_save_and_load(run):
         assert p == old
 
 
-def test_optimizer_save_and_load(linear_model, standard_learning_schema):
+def test_optimizer_save_and_load(linear_model) -> None:
     """Test saving and loading the model's and the optimizer's states."""
     optimizer = torch.optim.SGD(linear_model.module.parameters(), lr=0.1)
-    linear_model.checkpoint.bind_optimizer(optimizer)
+    linear_model.bind_optimizer(optimizer)
     param_list = [param.clone() for param in linear_model.module.parameters()]
     optim_groups = optimizer.param_groups[0].copy()
 
-    linear_model.checkpoint.save()
+    linear_model.save_state()
 
     # change param values
     for param in linear_model.module.parameters():
@@ -113,9 +113,10 @@ def test_optimizer_save_and_load(linear_model, standard_learning_schema):
         linear_model.module.parameters(), param_list, strict=False
     ):
         assert param != old_param
+
     assert optimizer.param_groups[0]['lr'] != optim_groups['lr']
 
-    linear_model.checkpoint.load()
+    linear_model.load_state()
 
     # check original params and epoch
     assert linear_model.epoch < incremented_epoch

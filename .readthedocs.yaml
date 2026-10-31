@@ -8,5 +8,5 @@ build:
     python: "3.12"
   commands:
       - pip install uv
-      - uv sync --all-extras
+      - UV_INDEX="pytorch-cpu=https://download.pytorch.org/whl/cpu" uv sync --all-extras
       - DRYTORCH_INIT_MODE='minimal' uv run sphinx-build -b html docs $READTHEDOCS_OUTPUT/html
