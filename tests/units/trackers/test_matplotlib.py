@@ -27,10 +27,16 @@ class TestMatPlotter:
 
     @pytest.fixture
     def tracker(
-        self, example_model_name, example_loss_name, example_source_name
+        self,
+        example_model_name,
+        example_loss_name,
+        example_source_name,
+        start_experiment_mock_event,
     ) -> MatPlotter:
         """Set up the instance with metrics in memory."""
+        start_experiment_mock_event.exp_name = 'exp_1'
         instance = MatPlotter()
+        instance.notify(start_experiment_mock_event)
         instance.model_dict[example_model_name] = {
             example_source_name: (
                 [1, 2, 3],
@@ -119,7 +125,7 @@ class TestMatPlotter:
     def test_create_test_plot_one_panel_for_each_metric(
         self, tracker, example_model_name
     ) -> None:
-        """Each test metric has its own panel, with a bar for each test."""
+        """Each test metric has its own panel, with tests on the x axis."""
         tracker.test_dict[example_model_name] = {
             'Test': ([1, 2], {'Accuracy': [0.8, 0.9], 'Loss': [0.4, 0.3]}),
             'Test_shifted': ([1], {'Accuracy': [0.7]}),
@@ -130,15 +136,59 @@ class TestMatPlotter:
         assert test_figure is not None
         panels = {ax.get_title(): ax for ax in test_figure.axes}
         assert set(panels) == {'Accuracy', 'Loss'}
-        assert len(panels['Accuracy'].patches) == 3
-        assert len(panels['Loss'].patches) == 2
+        assert len(panels['Accuracy'].patches) == 2
+        assert len(panels['Loss'].patches) == 1
         acc_ticks = [t.get_text() for t in panels['Accuracy'].get_xticklabels()]
-        assert acc_ticks == ['1', '2', '1']
+        assert acc_ticks == ['Test', 'Test_shifted']
         assert len(test_figure.legends) == 1
         legend_labels = [
             t.get_text() for t in test_figure.legends[0].get_texts()
         ]
-        assert legend_labels == ['Test', 'Test_shifted']
+        assert legend_labels == ['exp_1']
+        exp1_color = tracker._get_source_color('exp_1')
+        acc_bars = panels['Accuracy'].patches
+        assert acc_bars[0].get_facecolor() == exp1_color
+        assert acc_bars[1].get_facecolor() == exp1_color
+
+        two_exp_results = {
+            'exp_1': {
+                'Test': ([2], {'Accuracy': [0.9], 'Loss': [0.3]}),
+                'Test_shifted': ([1], {'Accuracy': [0.7]}),
+            },
+            'exp_2': {
+                'Test': ([1], {'Accuracy': [0.85], 'Loss': [0.35]}),
+            },
+        }
+        two_exp_fig = tracker._create_test_plot(
+            example_model_name, two_exp_results
+        )
+        two_panels = {ax.get_title(): ax for ax in two_exp_fig.axes}
+        assert len(two_panels['Accuracy'].patches) == 3
+        assert len(two_panels['Loss'].patches) == 2
+        two_legend = [t.get_text() for t in two_exp_fig.legends[0].get_texts()]
+        assert two_legend == ['exp_1', 'exp_2']
+        exp2_color = tracker._get_source_color('exp_2')
+        assert two_panels['Accuracy'].patches[0].get_facecolor() == exp1_color
+        assert two_panels['Accuracy'].patches[1].get_facecolor() == exp1_color
+        assert two_panels['Accuracy'].patches[2].get_facecolor() == exp2_color
+
+    def test_plot_grid_outside_run_raises(self, example_model_name) -> None:
+        """plot_grid outside a run raises AccessOutsideScopeError."""
+        tracker = MatPlotter()
+        tracker.model_dict[example_model_name] = {
+            'source_0': ([1], {'Loss': [0.5]}),
+        }
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            tracker.plot_grid(example_model_name)
+
+        tracker_tests_only = MatPlotter()
+        tracker_tests_only.test_dict[example_model_name] = {
+            'Test': ([1], {'Loss': [0.1]}),
+        }
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            tracker_tests_only.plot_grid(example_model_name)
+
+        return
 
     def test_plot_grid_shows_tests(self, tracker, example_model_name) -> None:
         """The test figure is shown with the grid of the curves."""

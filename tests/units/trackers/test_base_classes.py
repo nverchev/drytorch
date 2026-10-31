@@ -6,7 +6,7 @@ import pathlib
 import warnings
 
 from collections.abc import Generator
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -18,11 +18,11 @@ from drytorch.core import exceptions, log_events, tracking
 from drytorch.trackers.base_classes import (
     BasePlotter,
     Dumper,
+    ExperimentMetrics,
     MemoryMetrics,
     MetricLoader,
     SourcedArray,
     SourcedMetrics,
-    TestResults,
 )
 
 
@@ -58,7 +58,7 @@ class _ConcreteMetricLoader(MetricLoader):
     def __init__(
         self,
         sourced_metrics: SourcedMetrics,
-        test_metrics: SourcedMetrics | None = None,
+        test_metrics: ExperimentMetrics | None = None,
     ) -> None:
         super().__init__()
         self.sourced_metrics = sourced_metrics
@@ -72,7 +72,7 @@ class _ConcreteMetricLoader(MetricLoader):
 
         return self.sourced_metrics
 
-    def _load_test_metrics(self, model_name: str) -> SourcedMetrics:
+    def _load_test_metrics(self, model_name: str) -> ExperimentMetrics:
         if model_name == 'wrong_name':
             return {}
 
@@ -108,14 +108,17 @@ class _ConcretePlotter(BasePlotter[SourcedArray]):
         return sourced_array
 
     def _create_test_plot(
-        self, model_name: str, test_results: TestResults
-    ) -> SourcedArray:
+        self, model_name: str, results: ExperimentMetrics
+    ) -> dict[str, Any]:
         _not_used = model_name
         return {
-            source_name: np.array(
-                [v for _, metrics in entries for v in metrics.values()]
-            )
-            for source_name, entries in test_results.items()
+            exp_name: {
+                test_name: {
+                    metric: values[-1] for metric, values in metrics.items()
+                }
+                for test_name, (_, metrics) in sourced_metrics.items()
+            }
+            for exp_name, sourced_metrics in results.items()
         }
 
     def _render(self, figures: list[SourcedArray]) -> None:
@@ -128,11 +131,11 @@ class _ConcretePlotter(BasePlotter[SourcedArray]):
 
 
 @pytest.fixture
-def example_test_results() -> TestResults:
+def example_test_results() -> SourcedMetrics:
     """Example of the tests of a model."""
     return {
-        'Test': [(5, {'Accuracy': 0.9, 'Loss': 0.3})],
-        'Test_shifted': [(5, {'Accuracy': 0.7})],
+        'Test': ([5], {'Accuracy': [0.9], 'Loss': [0.3]}),
+        'Test_shifted': ([5], {'Accuracy': [0.7]}),
     }
 
 
@@ -343,9 +346,9 @@ class TestMetricLoader:
         self, example_model_name, loader_started
     ) -> None:
         """Test load_test_metrics returns test metrics."""
-        loader_started.test_metrics = {'Test': ([1], {'loss': [0.5]})}
+        loader_started.test_metrics = {'exp': {'Test': ([1], {'loss': [0.5]})}}
         assert loader_started.load_test_metrics(example_model_name) == {
-            'Test': ([1], {'loss': [0.5]}),
+            'exp': {'Test': ([1], {'loss': [0.5]})},
         }
 
 
@@ -389,10 +392,11 @@ class TestMemoryMetrics:
             assert logs[metric_name] == [value, value]
 
     def test_test_metrics_notification(
-        self, metric_loader, test_metric_mock_event
+        self, metric_loader, test_metric_mock_event, start_experiment_mock_event
     ) -> None:
         """Test metrics are stored in test_dict and not in model_dict."""
         tracker = MemoryMetrics(metric_loader=metric_loader)
+        tracker.notify(start_experiment_mock_event)
         model_name = test_metric_mock_event.model_name
         source_name = test_metric_mock_event.source_name
 
@@ -400,7 +404,8 @@ class TestMemoryMetrics:
 
         assert model_name not in tracker.model_dict
         assert model_name in tracker.test_dict
-        epochs, logs = tracker.test_dict[model_name][source_name]
+        sourced_metrics = tracker.test_dict[model_name]
+        epochs, logs = sourced_metrics[source_name]
         assert epochs == [test_metric_mock_event.epoch]
         for metric_name, value in test_metric_mock_event.metrics.items():
             assert logs[metric_name] == [value]
@@ -413,31 +418,27 @@ class TestMemoryMetrics:
         metric_loader,
     ) -> None:
         """Test notification with LoadModel event."""
-        metric_loader.test_metrics = {'Test': ([1], {'m': [0.5]})}
+        metric_loader.test_metrics = {'exp': {'Test': ([1], {'m': [0.5]})}}
         tracker = MemoryMetrics(metric_loader=metric_loader)
         tracker.notify(load_model_mock_event)
         model_name = load_model_mock_event.model_name
         source_name = set(example_sourced_metrics)
         assert model_name in tracker.model_dict
         assert source_name == set(tracker.model_dict[model_name])
-        assert tracker.test_dict[model_name] == {'Test': ([1], {'m': [0.5]})}
+        assert tracker.test_dict == {}
 
-    def test_load_model_without_sources_loads_test_metrics(
+    def test_clean_up_clears_test_dict(
         self,
-        load_model_mock_event,
+        test_metric_mock_event,
     ) -> None:
-        """A model without sources still loads its test metrics."""
-        loader = _ConcreteMetricLoader(
-            sourced_metrics={},
-            test_metrics={'Test': ([1], {'m': [0.5]})},
-        )
-        tracker = MemoryMetrics(metric_loader=loader)
-        tracker.notify(load_model_mock_event)
+        """clean_up clears test_dict."""
+        tracker = MemoryMetrics()
+        tracker.notify(test_metric_mock_event)
+        assert tracker.test_dict != {}
 
-        assert tracker.model_dict[load_model_mock_event.model_name] == {}
-        assert tracker.test_dict[load_model_mock_event.model_name] == {
-            'Test': ([1], {'m': [0.5]}),
-        }
+        tracker.clean_up()
+
+        assert tracker.test_dict == {}
 
 
 class TestBasePlotter:
@@ -445,17 +446,45 @@ class TestBasePlotter:
 
     @pytest.fixture
     def plotter(
-        self, example_model_name, example_sourced_metrics
+        self,
+        example_model_name,
+        example_sourced_metrics,
+        start_experiment_mock_event,
     ) -> _ConcretePlotter:
         """Set up the instance."""
+        start_experiment_mock_event.exp_name = 'exp'
         instance = _ConcretePlotter()
+        instance.notify(start_experiment_mock_event)
         instance.model_dict[example_model_name] = example_sourced_metrics
         return instance
 
     @pytest.fixture
-    def plotter_with_loader(self, metric_loader) -> _ConcretePlotter:
+    def plotter_with_loader(
+        self, metric_loader, start_experiment_mock_event
+    ) -> _ConcretePlotter:
         """Set up the instance with a metric loader."""
-        return _ConcretePlotter(metric_loader=metric_loader)
+        start_experiment_mock_event.exp_name = 'exp'
+        instance = _ConcretePlotter(metric_loader=metric_loader)
+        instance.notify(start_experiment_mock_event)
+        return instance
+
+    def test_create_training_plots_outside_run_raises(
+        self, example_model_name, example_sourced_metrics
+    ) -> None:
+        """Creating curves outside a run raises AccessOutsideScopeError."""
+        plotter = _ConcretePlotter()
+        plotter.model_dict[example_model_name] = example_sourced_metrics
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter.create_training_plots(example_model_name)
+
+        plotter_tests = _ConcretePlotter()
+        plotter_tests.test_dict[example_model_name] = {
+            'Test': ([1], {'Loss': [0.1]}),
+        }
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter_tests.create_training_plots(example_model_name)
+
+        return
 
     def test_create_training_plots_start_epoch_validation(
         self, example_model_name, plotter
@@ -464,10 +493,14 @@ class TestBasePlotter:
         with pytest.raises(ValueError, match='Start epoch'):
             plotter.create_training_plots(example_model_name, start_epoch=0)
 
+        return
+
     def test_create_training_plots_missing_model(self, plotter) -> None:
-        """A model without metrics raises ValueError."""
-        with pytest.raises(ValueError, match='No metric to plot'):
+        """A model without metrics raises NothingToPlotError."""
+        with pytest.raises(exceptions.NothingToPlotError):
             plotter.create_training_plots('wrong_name')
+
+        return
 
     def test_create_training_plots_load(
         self, example_model_name, plotter_with_loader
@@ -532,8 +565,8 @@ class TestBasePlotter:
     def test_create_training_plots_nothing_to_plot(
         self, example_model_name, plotter, selection
     ) -> None:
-        """A selection that leaves no metric raises ValueError."""
-        with pytest.raises(ValueError, match='No metric to plot'):
+        """A selection that leaves no metric raises NothingToPlotError."""
+        with pytest.raises(exceptions.NothingToPlotError):
             plotter.create_training_plots(example_model_name, **selection)
 
     def test_create_training_plots_does_not_render(
@@ -544,14 +577,60 @@ class TestBasePlotter:
 
         assert plotter.rendered == []
 
-    def test_plot_renders(self, example_model_name, plotter) -> None:
-        """Plotting renders the figures of all the metrics together."""
+    def test_plot_outside_run_raises(
+        self, example_model_name, example_sourced_metrics
+    ) -> None:
+        """Plotting outside a run raises AccessOutsideScopeError."""
+        plotter = _ConcretePlotter()
+        plotter.model_dict[example_model_name] = example_sourced_metrics
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter.plot(example_model_name)
+
+        plotter_tests = _ConcretePlotter()
+        plotter_tests.test_dict[example_model_name] = {
+            'Test': ([1], {'Loss': [0.1]}),
+        }
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter_tests.plot(example_model_name)
+
+        return
+
+    def test_plot_renders_without_tests(
+        self, example_model_name, plotter
+    ) -> None:
+        """Plot on a model with no tests still renders the training figures."""
         expected = plotter.create_training_plots(example_model_name)
 
         plotter.plot(example_model_name)
 
         assert len(plotter.rendered) == 1
         assert len(plotter.rendered[0]) == len(expected)
+        return
+
+    def test_plot_nothing_to_plot_raises(self, plotter) -> None:
+        """Plotting when nothing is left raises NothingToPlotError."""
+        with pytest.raises(exceptions.NothingToPlotError):
+            plotter.plot('nonexistent_model')
+
+        return
+
+    def test_save_plots_outside_run_raises(
+        self, example_model_name, example_sourced_metrics
+    ) -> None:
+        """Saving plots outside a run raises AccessOutsideScopeError."""
+        plotter = _ConcretePlotter()
+        plotter.model_dict[example_model_name] = example_sourced_metrics
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter.save_plots(example_model_name)
+
+        plotter_tests = _ConcretePlotter()
+        plotter_tests.test_dict[example_model_name] = {
+            'Test': ([1], {'Loss': [0.1]}),
+        }
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter_tests.save_plots(example_model_name)
+
+        return
 
     def test_save_plots(
         self,
@@ -577,48 +656,70 @@ class TestBasePlotter:
             for path in tmp_path.glob('**/*.txt')
         )
 
+    def test_create_test_plot_outside_run_raises(
+        self, example_model_name, example_sourced_metrics
+    ) -> None:
+        """Creating test plot outside a run raises AccessOutsideScopeError."""
+        plotter = _ConcretePlotter()
+        plotter.model_dict[example_model_name] = example_sourced_metrics
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter.create_test_plot(example_model_name)
+
+        plotter_tests = _ConcretePlotter()
+        plotter_tests.test_dict[example_model_name] = {
+            'Test': ([1], {'Loss': [0.1]}),
+        }
+        with pytest.raises(exceptions.AccessOutsideScopeError):
+            plotter_tests.create_test_plot(example_model_name)
+
+        return
+
     def test_create_test_plot_without_tests(
         self, example_model_name, plotter
     ) -> None:
-        """A model without tests has no test figure."""
-        assert plotter.create_test_plot(example_model_name) is None
+        """A model without tests raises NothingToPlotError."""
+        with pytest.raises(exceptions.NothingToPlotError):
+            plotter.create_test_plot(example_model_name)
+
+        return
+
+    @pytest.mark.parametrize(
+        'selection',
+        [
+            {'metric_names': ('wrong_name',)},
+            {'source_names': ('wrong_name',)},
+            {'exp_names': ('wrong_name',)},
+        ],
+    )
+    def test_create_test_plot_filter_all_out_raises(
+        self, example_model_name, plotter, selection
+    ) -> None:
+        """Filtering all tests out raises NothingToPlotError."""
+        plotter.test_dict[example_model_name] = {
+            'Test': ([1], {'Accuracy': [0.9]}),
+        }
+        with pytest.raises(exceptions.NothingToPlotError):
+            plotter.create_test_plot(example_model_name, **selection)
+
+        return
 
     def test_create_test_plot(
         self, example_model_name, plotter, example_test_results
     ) -> None:
         """The test figure holds the tests, filtered by source and metric."""
-        plotter.test_dict[example_model_name] = {
-            source_name: (
-                [epoch for epoch, _ in entries],
-                {
-                    m: [metrics[m] for _, metrics in entries if m in metrics]
-                    for m in {m for _, metrics in entries for m in metrics}
-                },
-            )
-            for source_name, entries in example_test_results.items()
-        }
+        plotter.test_dict[example_model_name] = example_test_results
 
-        figure = plotter.create_test_plot(
+        plot = plotter.create_test_plot(
             example_model_name,
             metric_names=('Accuracy',),
             source_names=('Test',),
         )
 
-        assert figure is not None
-        assert list(figure) == ['Test']
-        assert list(figure['Test']) == [0.9]
-
-    def test_create_test_plot_inconsistent_lengths_raises(
-        self, example_model_name, plotter
-    ) -> None:
-        """Inconsistent epochs and values in test_dict raises TrackerError."""
-        plotter.test_dict[example_model_name] = {
-            'Test': ([1, 2], {'Accuracy': [0.9]}),
-        }
-        with pytest.raises(exceptions.TrackerError) as exc_info:
-            plotter.create_test_plot(example_model_name)
-
-        assert 'logs refer to different epochs' in str(exc_info.value)
+        assert plot is not None
+        assert plotter.exp_name in plot
+        assert 'Test' in plot[plotter.exp_name]
+        assert plot[plotter.exp_name]['Test'] == {'Accuracy': 0.9}
+        return
 
     def test_test_source_appears_only_in_test_plot(
         self, example_model_name, plotter
@@ -637,71 +738,78 @@ class TestBasePlotter:
 
         test_plot = plotter.create_test_plot(example_model_name)
         assert test_plot is not None
-        assert 'Test' in test_plot
-        assert list(test_plot['Test']) == [0.7, 0.8]
+        assert plotter.exp_name in test_plot
+        assert 'Test' in test_plot[plotter.exp_name]
+        assert test_plot[plotter.exp_name]['Test'] == {'Accuracy': 0.8}
 
-    def test_test_plot_keeps_later_evaluation_at_same_epoch(
+    def test_test_plot_shows_last_epoch_when_run_at_multiple_epochs(
         self, example_model_name, plotter
     ) -> None:
-        """Keep later evaluation when a source has two at the same epoch."""
+        """When a test ran at multiple epochs, the test plot shows the last."""
         plotter.test_dict[example_model_name] = {
-            'Test': ([2, 1, 1], {'Accuracy': [0.9, 0.5, 0.6]}),
+            'Test': ([1, 2], {'Accuracy': [0.6, 0.9]}),
         }
-        test_results = plotter._get_test_results(example_model_name, (), ())
-        assert test_results['Test'] == [
-            (1, {'Accuracy': 0.6}),
-            (2, {'Accuracy': 0.9}),
-        ]
+        test_plot = plotter.create_test_plot(example_model_name)
+        assert test_plot is not None
+        assert test_plot[plotter.exp_name]['Test'] == {'Accuracy': 0.9}
 
     def test_test_plot_includes_earlier_session_test_source(
-        self, example_model_name
+        self, example_model_name, start_experiment_mock_event
     ) -> None:
         """With earlier test source from loader, test plot includes it."""
         loader = _ConcreteMetricLoader(
             sourced_metrics={
                 'train': ([1], {'Accuracy': [0.5]}),
             },
-            test_metrics={'OldTest': ([1], {'Accuracy': [0.75]})},
+            test_metrics={'exp': {'OldTest': ([1], {'Accuracy': [0.75]})}},
         )
         plotter = _ConcretePlotter(metric_loader=loader)
+        start_experiment_mock_event.exp_name = 'exp'
+        plotter.notify(start_experiment_mock_event)
         test_plot = plotter.create_test_plot(example_model_name)
         assert test_plot is not None
-        assert 'OldTest' in test_plot
-        assert list(test_plot['OldTest']) == [0.75]
+        assert 'exp' in test_plot
+        assert 'OldTest' in test_plot['exp']
+        assert test_plot['exp']['OldTest'] == {'Accuracy': 0.75}
+
+    def test_create_test_plot_session_replaces_stored_test(
+        self, example_model_name, start_experiment_mock_event
+    ) -> None:
+        """A session test result in test_dict replaces the stored test."""
+        loader = _ConcreteMetricLoader(
+            sourced_metrics={},
+            test_metrics={'exp': {'Test': ([1], {'Accuracy': [0.5]})}},
+        )
+        plotter = _ConcretePlotter(metric_loader=loader)
+        start_experiment_mock_event.exp_name = 'exp'
+        plotter.notify(start_experiment_mock_event)
+        plotter.test_dict[example_model_name] = {
+            'Test': ([2], {'Accuracy': [0.9]}),
+        }
+
+        test_plot = plotter.create_test_plot(example_model_name)
+
+        assert test_plot['exp']['Test'] == {'Accuracy': 0.9}
 
     def test_plot_renders_curves_and_tests(
         self, example_model_name, plotter, example_test_results
     ) -> None:
         """Plotting renders the test figure with the curves."""
-        plotter.test_dict[example_model_name] = {
-            source_name: (
-                [epoch for epoch, _ in entries],
-                {
-                    m: [metrics[m] for _, metrics in entries if m in metrics]
-                    for m in {m for _, metrics in entries for m in metrics}
-                },
-            )
-            for source_name, entries in example_test_results.items()
-        }
+        plotter.test_dict[example_model_name] = example_test_results
         n_curves = len(plotter.create_training_plots(example_model_name))
 
         plotter.plot(example_model_name)
 
         assert len(plotter.rendered[0]) == n_curves + 1
 
-    def test_plot_tests_only(self, example_test_results) -> None:
+    def test_plot_tests_only(
+        self, example_test_results, start_experiment_mock_event
+    ) -> None:
         """A model with only tests renders its test figure."""
         plotter = _ConcretePlotter()
-        plotter.test_dict['tested_model'] = {
-            source_name: (
-                [epoch for epoch, _ in entries],
-                {
-                    m: [metrics[m] for _, metrics in entries if m in metrics]
-                    for m in {m for _, metrics in entries for m in metrics}
-                },
-            )
-            for source_name, entries in example_test_results.items()
-        }
+        start_experiment_mock_event.exp_name = 'exp'
+        plotter.notify(start_experiment_mock_event)
+        plotter.test_dict['tested_model'] = example_test_results
 
         plotter.plot('tested_model')
 
@@ -716,31 +824,27 @@ class TestBasePlotter:
         start_experiment_mock_event,
     ) -> None:
         """The test figure is saved next to the curves."""
+        start_experiment_mock_event.exp_name = 'exp'
         plotter = _ConcretePlotter(par_dir=tmp_path)
-        plotter.model_dict[example_model_name] = dict(example_sourced_metrics)
-        plotter.test_dict[example_model_name] = {
-            source_name: (
-                [epoch for epoch, _ in entries],
-                {
-                    m: [metrics[m] for _, metrics in entries if m in metrics]
-                    for m in {m for _, metrics in entries for m in metrics}
-                },
-            )
-            for source_name, entries in example_test_results.items()
-        }
         plotter.notify(start_experiment_mock_event)
+        plotter.model_dict[example_model_name] = dict(example_sourced_metrics)
+        plotter.test_dict[example_model_name] = example_test_results
 
         plotter.save_plots(example_model_name)
 
-        saved = {
-            path.name for path in tmp_path.glob(f'**/*{plotter.file_suffix}')
-        }
-        assert f'test_metrics{plotter.file_suffix}' in saved
+        test_file = (
+            tmp_path
+            / plotter.folder_name
+            / plotter.tests_folder_name
+            / f'{example_model_name}{plotter.file_suffix}'
+        )
+        assert test_file.is_file()
 
     def test_save_plots_outside_run(self, example_model_name, plotter) -> None:
         """Saving without an active run raises AccessOutsideScopeError."""
+        unscoped_plotter = _ConcretePlotter()
         with pytest.raises(exceptions.AccessOutsideScopeError):
-            plotter.save_plots(example_model_name)
+            unscoped_plotter.save_plots(example_model_name)
 
     def test_end_epoch_does_not_plot(self, end_epoch_mock_event) -> None:
         """The end of an epoch does not render figures."""
@@ -813,7 +917,12 @@ class TestBasePlotter:
         )
         plotter.notify(event1)
 
-        test_file = next(tmp_path.glob(f'**/test_metrics{plotter.file_suffix}'))
+        test_file = (
+            tmp_path
+            / plotter.folder_name
+            / plotter.tests_folder_name
+            / f'{example_model_name}{plotter.file_suffix}'
+        )
         assert '0.85' in test_file.read_text()
 
         event2 = log_events.TestMetricEvent(
@@ -825,6 +934,40 @@ class TestBasePlotter:
         plotter.notify(event2)
 
         assert '0.95' in test_file.read_text()
+        return
+
+    @pytest.mark.parametrize('with_loader', [False, True])
+    def test_save_test_plot_file_path_with_and_without_loader(
+        self,
+        tmp_path,
+        example_model_name,
+        start_experiment_mock_event,
+        with_loader: bool,
+    ) -> None:
+        """With and without a loader, test plot is saved in the test folder."""
+        loader = (
+            _ConcreteMetricLoader(sourced_metrics={}, test_metrics={})
+            if with_loader
+            else None
+        )
+        plotter = _ConcretePlotter(metric_loader=loader, par_dir=tmp_path)
+        plotter.notify(start_experiment_mock_event)
+        event = log_events.TestMetricEvent(
+            model_name=example_model_name,
+            source_name='test',
+            epoch=1,
+            metrics={'accuracy': 0.9},
+        )
+        plotter.notify(event)
+
+        expected_path = (
+            tmp_path
+            / plotter.folder_name
+            / plotter.tests_folder_name
+            / f'{example_model_name}{plotter.file_suffix}'
+        )
+        assert expected_path.is_file()
+        return
 
     def test_test_metric_event_saves_test_plot_for_test_only_model(
         self,
@@ -848,7 +991,11 @@ class TestBasePlotter:
             warnings.simplefilter('error', exceptions.TrackerExceptionWarning)
             dispatcher.publish(event)
 
-        test_file = next(tmp_path.glob(f'**/test_metrics{plotter.file_suffix}'))
+        test_file = next(
+            tmp_path.glob(
+                f'**/test_metrics/tested_only_model{plotter.file_suffix}'
+            )
+        )
         assert '0.9' in test_file.read_text()
 
     def test_unrecorded_run_saves_nothing(
@@ -1012,9 +1159,9 @@ class TestBasePlotter:
 
     def test_create_training_plots_missing_initial_epoch_raises_tracker_error(
         self,
+        plotter,
     ) -> None:
         """Test metric appearing only from second epoch raises TrackerError."""
-        plotter = _ConcretePlotter()
         model_name = 'model_a'
         source_name = 'val'
         event_1 = log_events.MetricEvent(

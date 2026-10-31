@@ -402,11 +402,17 @@ class SQLConnection(base_classes.MetricLoader):
     @override
     def _load_test_metrics(
         self, model_name: str
-    ) -> base_classes.SourcedMetrics:
+    ) -> base_classes.ExperimentMetrics:
         test_sources = self._find_test_sources(model_name)
-        out: base_classes.SourcedMetrics = {}
-        for source_name, run_sources in test_sources.items():
-            out[source_name] = self._get_run_metrics(run_sources, max_epoch=-1)
+        out: base_classes.ExperimentMetrics = {}
+        for exp_name, sources_dict in test_sources.items():
+            exp_metrics: base_classes.SourcedMetrics = {}
+            for source_name, run_sources in sources_dict.items():
+                exp_metrics[source_name] = self._get_run_metrics(
+                    run_sources, max_epoch=-1
+                )
+
+            out[exp_name] = exp_metrics
 
         return out
 
@@ -444,21 +450,50 @@ class SQLConnection(base_classes.MetricLoader):
 
             return named_sources
 
-    def _find_test_sources(self, model_name: str) -> dict[str, list[Source]]:
+    def _find_test_sources(
+        self, model_name: str
+    ) -> dict[str, dict[str, list[Source]]]:
         with self.session_factory() as session:
-            run = session.merge(self.run)
-            query = (
-                session.query(Source)
-                .join(Source.run)
-                .join(TestSource)
-                .where(
-                    Run.run_id.is_(run.run_id),
-                    Source.model_name.is_(model_name),
+            last_run_rows = (
+                session.query(
+                    Run.experiment_id,
+                    sql.func.max(Run.row_id).label('max_row_id'),
                 )
+                .join(Source, Source.run_table_id == Run.row_id)
+                .join(TestSource, TestSource.source_id == Source.row_id)
+                .where(Source.model_name.is_(model_name))
+                .group_by(Run.experiment_id)
+                .subquery()
             )
-            named_sources: dict[str, list[Source]] = {}
-            for source in query:
-                sources = named_sources.setdefault(source.source_name, [])
+            last_run_ids = (
+                session.query(
+                    Run.experiment_id,
+                    Run.run_id,
+                )
+                .join(
+                    last_run_rows,
+                    Run.row_id == last_run_rows.c.max_row_id,
+                )
+                .subquery()
+            )
+            query = (
+                session.query(Experiment.experiment_name, Source)
+                .join(Run, Run.experiment_id == Experiment.row_id)
+                .join(
+                    last_run_ids,
+                    sql.and_(
+                        last_run_ids.c.experiment_id == Run.experiment_id,
+                        last_run_ids.c.run_id == Run.run_id,
+                    ),
+                )
+                .join(Source, Source.run_table_id == Run.row_id)
+                .join(TestSource, TestSource.source_id == Source.row_id)
+                .where(Source.model_name.is_(model_name))
+            )
+            named_sources: dict[str, dict[str, list[Source]]] = {}
+            for exp_name, source in query:
+                exp_sources = named_sources.setdefault(exp_name, {})
+                sources = exp_sources.setdefault(source.source_name, [])
                 sources.append(source)
 
             return named_sources

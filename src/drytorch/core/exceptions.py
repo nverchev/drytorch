@@ -52,6 +52,7 @@ __all__ = [
     'NoStashedStateError',
     'NoValidationWarning',
     'NotExistingRunWarning',
+    'NothingToPlotError',
     'ObjectiveSyncWarning',
     'OptimizerAlreadyBoundError',
     'OptimizerNotLoadedWarning',
@@ -685,6 +686,20 @@ class NoStashedStateError(TrackerError):
             run_id: the identifier of the run.
         """
         super().__init__(tracker, f'No stashed state found for run {run_id!r}.')
+        return
+
+
+class NothingToPlotError(TrackerError):
+    """Exception raised when no metric or test is left to plot."""
+
+    def __init__(self, tracker: Any, model_name: str) -> None:
+        """Initialize.
+
+        Args:
+            tracker: the tracker object that encountered the error.
+            model_name: the name of the model with nothing to plot.
+        """
+        super().__init__(tracker, f'Nothing to plot for model {model_name!r}.')
         return
 
 

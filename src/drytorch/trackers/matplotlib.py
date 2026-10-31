@@ -7,6 +7,7 @@ from typing import ClassVar, TypeAlias
 
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 from matplotlib import artist, axes, colors, figure, ticker
 from typing_extensions import override
@@ -72,6 +73,7 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
         metric_names: Sequence[str] = (),
         source_names: Sequence[str] = (),
         start_epoch: int = 1,
+        exp_names: Sequence[str] = (),
     ) -> None:
         """Render the metrics as subplots of one figure, and the tests apart.
 
@@ -80,20 +82,29 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
             metric_names: the names of the metrics to plot. Defaults to all.
             source_names: the names of the sources to plot. Defaults to all.
             start_epoch: the epoch from which to start plotting.
+            exp_names: the names of the experiments to plot. Defaults to all.
 
         Raises:
+            AccessOutsideScopeError: when no run is active.
+            NothingToPlotError: if nothing is left to plot.
             ValueError: if start_epoch is less than 1.
-            ValueError: if neither a metric nor a test is left to plot.
         """
         metric_arrays = self._get_metric_arrays(
             model_name, metric_names, source_names, start_epoch
         )
-        test_plot = self.create_test_plot(
-            model_name, metric_names=metric_names, source_names=source_names
+        test_results = self._get_test_results(
+            model_name,
+            metric_names=metric_names,
+            source_names=source_names,
+            exp_names=exp_names,
         )
-        if not metric_arrays and test_plot is None:
-            msg = f'No metric to plot for model {model_name}.'
-            raise ValueError(msg)
+        if test_results:
+            test_plot = self._create_test_plot(model_name, test_results)
+        else:
+            test_plot = None
+
+        if not metric_arrays and not test_results:
+            raise exceptions.NothingToPlotError(self, model_name)
 
         if metric_arrays:
             n_rows, n_cols = self._get_grid_shape(len(metric_arrays))
@@ -129,20 +140,22 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
 
     @override
     def _create_test_plot(
-        self, model_name: str, test_results: base_classes.TestResults
+        self, model_name: str, results: base_classes.ExperimentMetrics
     ) -> figure.Figure:
-        metric_names = self._get_test_metric_names(test_results)
+        metric_names = self._get_test_metric_names(results)
         n_rows, n_cols = self._get_grid_shape(len(metric_names))
         fig = figure.Figure(layout='constrained')
         fig.suptitle(f'{model_name} tests')
         for index, metric_name in enumerate(metric_names):
             ax = fig.add_subplot(n_rows, n_cols, index + 1)
-            self._draw_test_metric(ax, metric_name, test_results)
+            self._draw_test_metric(ax, metric_name, results)
 
         legend: dict[str, artist.Artist] = {}
         for ax in fig.axes:
             handles, labels = ax.get_legend_handles_labels()
-            legend |= dict(zip(labels, handles, strict=True))
+            for label, handle in zip(labels, handles, strict=True):
+                if label not in legend:
+                    legend[label] = handle
 
         fig.legend(legend.values(), legend.keys(), loc='outside lower center')
         return fig
@@ -178,28 +191,34 @@ class MatPlotter(base_classes.BasePlotter[figure.Figure]):
         self,
         ax: axes.Axes,
         metric_name: str,
-        test_results: base_classes.TestResults,
+        results: base_classes.ExperimentMetrics,
     ) -> None:
-        positions: list[int] = []
-        tick_labels: list[str] = []
-        position = 0
-        for source_name, entries in test_results.items():
+        test_names = self._get_test_names(results, metric_name)
+        x_indices = np.arange(len(test_names))
+        exp_list = list(results.keys())
+        n_exp = len(exp_list)
+        total_width = 0.8
+        bar_width = total_width / n_exp
+        for i, exp_name in enumerate(exp_list):
+            color = self._get_source_color(exp_name)
+            offset = (i - (n_exp - 1) / 2) * bar_width
             labeled = False
-            for epoch, metrics in entries:
-                if metric_name in metrics:
-                    label = source_name if not labeled else None
+            for j, test_name in enumerate(test_names):
+                value = self._get_last_value(
+                    results[exp_name], test_name, metric_name
+                )
+                if value is not None:
+                    label = exp_name if not labeled else None
                     ax.bar(
-                        position,
-                        metrics[metric_name],
-                        color=self._get_source_color(source_name),
+                        x_indices[j] + offset,
+                        value,
+                        width=bar_width,
+                        color=color,
                         label=label,
                     )
-                    positions.append(position)
-                    tick_labels.append(str(epoch))
-                    position += 1
                     labeled = True
 
-        ax.set_xticks(positions, tick_labels)
+        ax.set_xticks(x_indices, test_names)
         ax.set_title(metric_name)
         return
 

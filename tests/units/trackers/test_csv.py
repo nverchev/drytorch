@@ -386,8 +386,9 @@ class TestCsvDumper:
 
         assert 'train' in loaded
         assert 'eval_test' not in loaded
-        assert 'eval_test' in test_loaded
-        assert 'train' not in test_loaded
+        assert 'test_exp' in test_loaded
+        assert 'eval_test' in test_loaded['test_exp']
+        assert 'train' not in test_loaded['test_exp']
 
     def test_load_test_metrics_returns_only_test_files(
         self,
@@ -416,8 +417,9 @@ class TestCsvDumper:
         tracker.notify(test_event)
 
         test_metrics = tracker.load_test_metrics(example_model_name)
-        assert 'eval_test' in test_metrics
-        assert 'train' not in test_metrics
+        assert 'test_exp' in test_metrics
+        assert 'eval_test' in test_metrics['test_exp']
+        assert 'train' not in test_metrics['test_exp']
         tracker.notify(stop_experiment_mock_event)
 
     def test_load_test_metrics_loads_all_epochs(
@@ -442,7 +444,7 @@ class TestCsvDumper:
             )
 
         test_metrics = tracker.load_test_metrics(example_model_name)
-        assert test_metrics['eval_test'][0] == [1, 2, 3]
+        assert test_metrics['test_exp']['eval_test'][0] == [1, 2, 3]
         tracker.notify(stop_experiment_mock_event)
 
     def test_test_only_model_raises_no_sources(
@@ -465,8 +467,181 @@ class TestCsvDumper:
 
         test_metrics = tracker_started.load_test_metrics(example_model_name)
         assert test_metrics == {
-            'eval_test': (
-                [1],
-                {k: [v] for k, v in example_named_metrics.items()},
-            )
+            'test_exp': {
+                'eval_test': (
+                    [1],
+                    {k: [v] for k, v in example_named_metrics.items()},
+                )
+            }
         }
+        return
+
+    def test_load_test_metrics_multiple_experiments_last_run(
+        self,
+        tmp_path,
+        example_model_name,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """load_test_metrics returns the last run of each experiment."""
+        tracker = CSVDumper(par_dir=tmp_path)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        start_1.run_id = 'run_1'
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=example_model_name,
+                source_name='test_old',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp_1'
+        start_2.run_id = 'run_2'
+        tracker.notify(start_2)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=2,
+                model_name=example_model_name,
+                source_name='test_new',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=2,
+                model_name='other_model',
+                source_name='test_other',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_3 = copy.copy(start_experiment_mock_event)
+        start_3.exp_name = 'exp_2'
+        start_3.run_id = 'run_1'
+        tracker.notify(start_3)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=example_model_name,
+                source_name='test_exp2',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics(example_model_name)
+        assert set(results) == {'exp_1', 'exp_2'}
+        assert set(results['exp_1']) == {'test_new'}
+        assert set(results['exp_2']) == {'test_exp2'}
+        return
+
+    def test_load_test_metrics_later_run_other_model(
+        self,
+        tmp_path,
+        example_model_name,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Return earlier run tests when a later run trained another model."""
+        tracker = CSVDumper(par_dir=tmp_path)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp'
+        start_1.run_id = 'run_1'
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=example_model_name,
+                source_name='test_early',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp'
+        start_2.run_id = 'run_2'
+        tracker.notify(start_2)
+        tracker.notify(
+            log_events.MetricEvent(
+                epoch=1,
+                model_name='other_model',
+                source_name='train',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics(example_model_name)
+        assert set(results) == {'exp'}
+        assert set(results['exp']) == {'test_early'}
+
+    def test_load_test_metrics_brackets_in_model_name(
+        self,
+        tmp_path,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Load test metrics for a model whose name contains brackets."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        model_name = 'model[0]'
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name=model_name,
+                source_name='test_source',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics(model_name)
+
+        assert 'test_exp' in results
+        assert 'test_source' in results['test_exp']
+
+    def test_load_test_metrics_isolates_models_in_same_run(
+        self,
+        tmp_path,
+        example_named_metrics,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Loading one model excludes tests of other models in the same run."""
+        tracker = CSVDumper(par_dir=tmp_path)
+        tracker.notify(start_experiment_mock_event)
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name='model_a',
+                source_name='test_a',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                epoch=1,
+                model_name='model_b',
+                source_name='test_b',
+                metrics=example_named_metrics,
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results_a = tracker.load_test_metrics('model_a')
+        results_b = tracker.load_test_metrics('model_b')
+
+        assert results_a['test_exp'].keys() == {'test_a'}
+        assert results_b['test_exp'].keys() == {'test_b'}

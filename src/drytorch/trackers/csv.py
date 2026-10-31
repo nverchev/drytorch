@@ -159,6 +159,55 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
             if test_file_address.exists():
                 file_address = test_file_address
 
+        return self._read_csv_file(file_address, max_epoch)
+
+    def _find_sources(self, model_name: str) -> set[str]:
+        path = self._get_run_dir() / model_name
+        return {file.stem for file in path.glob('*.csv')}
+
+    def _load_metrics(
+        self, model_name: str, max_epoch: int = -1
+    ) -> base_classes.SourcedMetrics:
+        sources = self._find_sources(model_name)
+        out: base_classes.SourcedMetrics = {}
+        for source in sorted(sources):
+            out[source] = self.read_csv(model_name, source, max_epoch)
+
+        return out
+
+    @override
+    def _load_test_metrics(
+        self, model_name: str
+    ) -> base_classes.ExperimentMetrics:
+        tracker_dir = self.par_dir / self.folder_name
+        if not tracker_dir.is_dir():
+            return {}
+
+        out: base_classes.ExperimentMetrics = {}
+        for exp_dir in sorted(tracker_dir.iterdir()):
+            if not exp_dir.is_dir():
+                continue
+
+            test_dirs = sorted(
+                folder
+                for folder in exp_dir.rglob(self.tests_folder_name)
+                if folder.parent.name == model_name
+            )
+            if not test_dirs:
+                continue
+
+            test_metrics = {
+                file.stem: self._read_csv_file(file)
+                for file in sorted(test_dirs[-1].glob('*.csv'))
+            }
+            if test_metrics:
+                out[exp_dir.name] = test_metrics
+
+        return out
+
+    def _read_csv_file(
+        self, file_address: pathlib.Path, max_epoch: int = -1
+    ) -> base_classes.HistoryMetrics:
         with file_address.open(newline='') as log:
             reader = csv.reader(log, dialect=self._dialect)
             headers = next(reader)
@@ -194,36 +243,6 @@ class CSVDumper(base_classes.Dumper, base_classes.MetricLoader):
                     value_list.append(float(value))
 
             return epochs, named_metric_values
-
-    def _find_sources(self, model_name: str) -> set[str]:
-        path = self._get_run_dir() / model_name
-        return {file.stem for file in path.glob('*.csv')}
-
-    def _load_metrics(
-        self, model_name: str, max_epoch: int = -1
-    ) -> base_classes.SourcedMetrics:
-        sources = self._find_sources(model_name)
-        out: base_classes.SourcedMetrics = {}
-        for source in sorted(sources):
-            out[source] = self.read_csv(model_name, source, max_epoch)
-
-        return out
-
-    @override
-    def _load_test_metrics(
-        self, model_name: str
-    ) -> base_classes.SourcedMetrics:
-        tests_path = (
-            self._get_run_dir(mkdir=False) / model_name / self.tests_folder_name
-        )
-        if not tests_path.is_dir():
-            return {}
-
-        out: base_classes.SourcedMetrics = {}
-        for file in sorted(tests_path.glob('*.csv')):
-            out[file.stem] = self.read_csv(model_name, file.stem)
-
-        return out
 
     def _write_metrics(
         self, folder: pathlib.Path, event: log_events.MetricEvent

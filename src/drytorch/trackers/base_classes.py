@@ -21,15 +21,16 @@ from drytorch.core import exceptions, log_events, tracking
 __all__ = [
     'BasePlotter',
     'Dumper',
+    'ExperimentMetrics',
     'HistoryMetric',
     'HistoryMetrics',
     'MemoryMetrics',
     'MetricLoader',
+    'ModelMetrics',
     'NpArray',
     'SourcedArray',
     'SourcedMetric',
     'SourcedMetrics',
-    'TestResults',
 ]
 
 
@@ -37,9 +38,10 @@ HistoryMetric: TypeAlias = tuple[list[int], list[float]]
 HistoryMetrics: TypeAlias = tuple[list[int], dict[str, list[float]]]
 SourcedMetric: TypeAlias = dict[str, HistoryMetric]
 SourcedMetrics: TypeAlias = dict[str, HistoryMetrics]
+ModelMetrics: TypeAlias = dict[str, SourcedMetrics]
+ExperimentMetrics: TypeAlias = dict[str, SourcedMetrics]
 NpArray: TypeAlias = npt.NDArray[np.float64]
 SourcedArray: TypeAlias = dict[str, NpArray]
-TestResults: TypeAlias = dict[str, list[tuple[int, dict[str, float]]]]
 
 Figure = TypeVar('Figure')
 
@@ -82,7 +84,7 @@ class Dumper(tracking.Tracker):
         """Return the name of the experiment.
 
         Raises:
-            AccessOutsideScopeError: when the name id not available.
+            AccessOutsideScopeError: when the name is not available.
         """
         if self._exp_name is None:
             raise exceptions.AccessOutsideScopeError()
@@ -227,19 +229,19 @@ class MetricLoader(tracking.Tracker, abc.ABC):
         self, model_name: str, max_epoch: int = -1
     ) -> SourcedMetrics: ...
 
-    def load_test_metrics(self, model_name: str) -> SourcedMetrics:
-        """Load test metrics from the last run of the experiment.
+    def load_test_metrics(self, model_name: str) -> ExperimentMetrics:
+        """Load test metrics from the last run of each experiment.
 
         Args:
             model_name: the name of the model.
 
         Returns:
-            The epochs and named metric values of each test source.
+            The test metrics of the last run of each experiment.
         """
         return self._load_test_metrics(model_name)
 
     @abc.abstractmethod
-    def _load_test_metrics(self, model_name: str) -> SourcedMetrics: ...
+    def _load_test_metrics(self, model_name: str) -> ExperimentMetrics: ...
 
 
 class MemoryMetrics(tracking.Tracker):
@@ -250,8 +252,8 @@ class MemoryMetrics(tracking.Tracker):
         test_dict: test metrics recorded in this session.
     """
 
-    model_dict: Final[dict[str, SourcedMetrics]]
-    test_dict: Final[dict[str, SourcedMetrics]]
+    model_dict: Final[ModelMetrics]
+    test_dict: Final[ModelMetrics]
     _metric_loader: Final[MetricLoader | None]
 
     def __init__(self, *, metric_loader: MetricLoader | None = None) -> None:
@@ -279,8 +281,6 @@ class MemoryMetrics(tracking.Tracker):
         self.model_dict[event.model_name] = self._load_metrics(
             event.model_name, event.epoch
         )
-        test_metrics = self._metric_loader.load_test_metrics(event.model_name)
-        self.test_dict[event.model_name] = test_metrics
         return super().notify(event)
 
     @notify.register
@@ -292,6 +292,12 @@ class MemoryMetrics(tracking.Tracker):
     def _(self, event: log_events.TestMetricEvent) -> None:
         self._record_metric(self.test_dict, event)
         return super().notify(event)
+
+    @override
+    def clean_up(self) -> None:
+        """Remove experimental data from the tracker."""
+        self.test_dict.clear()
+        return super().clean_up()
 
     def _load_metrics(
         self, model_name: str, max_epoch: int = -1
@@ -306,10 +312,10 @@ class MemoryMetrics(tracking.Tracker):
 
     @staticmethod
     def _record_metric(
-        target_dict: dict[str, SourcedMetrics],
+        model_metrics: ModelMetrics,
         event: log_events.MetricEvent,
     ) -> None:
-        sourced_metrics = target_dict.setdefault(event.model_name, {})
+        sourced_metrics = model_metrics.setdefault(event.model_name, {})
         epochs, logs_dict = sourced_metrics.setdefault(
             event.source_name, ([], {})
         )
@@ -325,10 +331,12 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
     Attributes:
         file_suffix: the suffix of the files the figures are saved to.
+        tests_folder_name: name of the folder containing test plots.
         show: whether to render the plots when saved.
     """
 
     file_suffix: ClassVar[str]
+    tests_folder_name: ClassVar[str] = 'test_metrics'
     show: Final[bool]
 
     def __init__(
@@ -392,15 +400,15 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             The figures by metric name.
 
         Raises:
+            AccessOutsideScopeError: when no run is active.
+            NothingToPlotError: if nothing is left to plot.
             ValueError: if start_epoch is less than 1.
-            ValueError: if no metric is left to plot.
         """
         plots = self._create_training_plots(
             model_name, metric_names, source_names, start_epoch
         )
         if not plots:
-            msg = f'No metric to plot for model {model_name}.'
-            raise ValueError(msg)
+            raise exceptions.NothingToPlotError(self, model_name)
 
         return plots
 
@@ -410,25 +418,33 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         *,
         metric_names: Sequence[str] = (),
         source_names: Sequence[str] = (),
-    ) -> Figure | None:
+        exp_names: Sequence[str] = (),
+    ) -> Figure:
         """Create the figure of the tests of a model without rendering it.
 
         Args:
             model_name: the name of the model to plot.
             metric_names: the names of the metrics to plot. Defaults to all.
             source_names: the names of the tests to plot. Defaults to all.
+            exp_names: the names of the experiments to plot. Defaults to all.
 
         Returns:
-            A figure of the tests, or None if the model has no test left to
-            plot.
-        """
-        test_results = self._get_test_results(
-            model_name, metric_names, source_names
-        )
-        if not test_results:
-            return None
+            The figure of the tests of the model.
 
-        return self._create_test_plot(model_name, test_results)
+        Raises:
+            AccessOutsideScopeError: when no run is active.
+            NothingToPlotError: if nothing is left to plot.
+        """
+        results = self._get_test_results(
+            model_name,
+            metric_names=metric_names,
+            source_names=source_names,
+            exp_names=exp_names,
+        )
+        if not results:
+            raise exceptions.NothingToPlotError(self, model_name)
+
+        return self._create_test_plot(model_name, results)
 
     def plot(
         self,
@@ -437,6 +453,7 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         metric_names: Sequence[str] = (),
         source_names: Sequence[str] = (),
         start_epoch: int = 1,
+        exp_names: Sequence[str] = (),
     ) -> None:
         """Render the figures of the metrics together.
 
@@ -445,18 +462,21 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             metric_names: the names of the metrics to plot. Defaults to all.
             source_names: the names of the sources to plot. Defaults to all.
             start_epoch: the epoch from which to start plotting.
+            exp_names: the names of the experiments to plot. Defaults to all.
 
         Raises:
+            AccessOutsideScopeError: when no run is active.
+            NothingToPlotError: if nothing is left to plot.
             ValueError: if start_epoch is less than 1.
-            ValueError: if neither a metric nor a test is left to plot.
         """
-        training_plots, test_plot = self._create_plots(
-            model_name, metric_names, source_names, start_epoch
+        training_plots, test_plots = self._create_plots(
+            model_name,
+            metric_names,
+            source_names,
+            start_epoch,
+            exp_names=exp_names,
         )
-        plots = list(training_plots.values())
-        if test_plot is not None:
-            plots.append(test_plot)
-
+        plots = [*training_plots.values(), *test_plots.values()]
         self._render(plots)
         return
 
@@ -477,21 +497,23 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
             start_epoch: the epoch from which to start plotting.
 
         Raises:
-            AccessOutsideScopeError: if no run is active.
+            AccessOutsideScopeError: when no run is active.
+            NothingToPlotError: if nothing is left to plot.
             ValueError: if start_epoch is less than 1.
-            ValueError: if neither a metric nor a test is left to plot.
 
         Side Effects:
-            Writes one file for each metric, and one for the tests, in the
-            model folder, if the run is recorded.
+            Writes one file for each metric in the model folder, and one for
+            the tests in test_metrics of the plotter folder, if the run is
+            recorded.
         """
         training_plots = self._save_training_plots(
             model_name, metric_names, source_names, start_epoch
         )
-        test_plot = self._save_test_plot(model_name, metric_names, source_names)
-        if not training_plots and test_plot is None:
-            msg = f'No metric to plot for model {model_name}.'
-            raise ValueError(msg)
+        test_plots = self._save_test_plot(
+            model_name, metric_names, source_names
+        )
+        if not training_plots and not test_plots:
+            raise exceptions.NothingToPlotError(self, model_name)
 
         return
 
@@ -510,7 +532,7 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         plots = self._create_training_plots(
             model_name, metric_names, source_names, start_epoch
         )
-        if self.record:
+        if self.record and plots:
             model_dir = self._get_model_dir(model_name)
             for metric_name, plot in plots.items():
                 self._save_plot(
@@ -527,24 +549,23 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         model_name: str,
         metric_names: Sequence[str] = (),
         source_names: Sequence[str] = (),
-    ) -> Figure | None:
-        plot = self.create_test_plot(
+    ) -> dict[str, Figure]:
+        results = self._get_test_results(
             model_name, metric_names=metric_names, source_names=source_names
         )
-        if plot is None:
-            return None
+        if not results:
+            return {}
 
+        plot = self._create_test_plot(model_name, results)
         if self.record:
-            self._save_plot(
-                plot,
-                self._get_model_dir(model_name)
-                / f'test_metrics{self.file_suffix}',
-            )
+            folder = self.par_dir / self.folder_name / self.tests_folder_name
+            folder.mkdir(parents=True, exist_ok=True)
+            self._save_plot(plot, folder / f'{model_name}{self.file_suffix}')
 
         if self.show:
             self._render([plot])
 
-        return plot
+        return {model_name: plot}
 
     def _create_plots(
         self,
@@ -552,18 +573,28 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         metric_names: Sequence[str],
         source_names: Sequence[str],
         start_epoch: int,
-    ) -> tuple[dict[str, Figure], Figure | None]:
+        exp_names: Sequence[str] = (),
+    ) -> tuple[dict[str, Figure], dict[str, Figure]]:
         training_plots = self._create_training_plots(
             model_name, metric_names, source_names, start_epoch
         )
-        test_plot = self.create_test_plot(
-            model_name, metric_names=metric_names, source_names=source_names
+        test_results = self._get_test_results(
+            model_name,
+            metric_names=metric_names,
+            source_names=source_names,
+            exp_names=exp_names,
         )
-        if not training_plots and test_plot is None:
-            msg = f'No metric to plot for model {model_name}.'
-            raise ValueError(msg)
+        if test_results:
+            test_plots = {
+                model_name: self._create_test_plot(model_name, test_results)
+            }
+        else:
+            test_plots = {}
 
-        return training_plots, test_plot
+        if not training_plots and not test_plots:
+            raise exceptions.NothingToPlotError(self, model_name)
+
+        return training_plots, test_plots
 
     def _create_training_plots(
         self,
@@ -590,7 +621,7 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
     @abc.abstractmethod
     def _create_test_plot(
-        self, model_name: str, test_results: TestResults
+        self, model_name: str, results: ExperimentMetrics
     ) -> Figure:
         """Create the figure of the tests of a model, one panel per metric."""
 
@@ -601,6 +632,9 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         source_names: Sequence[str],
         start_epoch: int,
     ) -> dict[str, SourcedArray]:
+        if self._exp_name is None:
+            raise exceptions.AccessOutsideScopeError()
+
         if start_epoch < 1:
             raise ValueError('Start epoch must be positive.')
 
@@ -637,11 +671,6 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         if model_name not in self.model_dict:
             self.model_dict[model_name] = self._load_metrics(model_name)
 
-        if model_name not in self.test_dict:
-            self.test_dict[model_name] = self._metric_loader.load_test_metrics(
-                model_name
-            )
-
         return
 
     def _get_sourced_metric(
@@ -660,30 +689,69 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
 
         return out
 
-    def _get_test_results(
+    def _load_test_experiments(self, model_name: str) -> ExperimentMetrics:
+        session_metrics = self.test_dict.get(model_name, {})
+        if self._metric_loader is None:
+            return {self.exp_name: session_metrics}
+
+        experiments = self._metric_loader.load_test_metrics(model_name)
+        experiments.setdefault(self.exp_name, {}).update(session_metrics)
+        return experiments
+
+    def _filter_test_metrics(
         self,
-        model_name: str,
+        raw_experiments: ExperimentMetrics,
         metric_names: Sequence[str],
         source_names: Sequence[str],
-    ) -> TestResults:
-        self._load_missing_metrics(model_name)
-        test_metrics = self.test_dict.get(model_name, {})
-        out: TestResults = {}
-        for source_name in sorted(test_metrics):
+        exp_names: Sequence[str],
+    ) -> ExperimentMetrics:
+        results: ExperimentMetrics = {}
+        for exp, sourced_metrics in sorted(raw_experiments.items()):
+            if exp_names and exp not in exp_names:
+                continue
+
+            filtered = self._filter_sourced_metrics(
+                sourced_metrics, metric_names, source_names
+            )
+            if filtered:
+                results[exp] = filtered
+
+        return results
+
+    @staticmethod
+    def _filter_sourced_metrics(
+        sourced_metrics: SourcedMetrics,
+        metric_names: Sequence[str],
+        source_names: Sequence[str],
+    ) -> SourcedMetrics:
+        filtered: SourcedMetrics = {}
+        for source_name, (epochs, metrics_dict) in sorted(
+            sourced_metrics.items()
+        ):
             if source_names and source_name not in source_names:
                 continue
 
-            epochs, metrics_dict = test_metrics[source_name]
-            if not epochs:
-                continue
+            filtered_metrics = {
+                metric: values
+                for metric, values in metrics_dict.items()
+                if values and (not metric_names or metric in metric_names)
+            }
+            if filtered_metrics:
+                filtered[source_name] = (epochs, filtered_metrics)
 
-            evaluations = self._extract_evaluations(
-                self, source_name, epochs, metrics_dict, metric_names
-            )
-            if evaluations:
-                out[source_name] = evaluations
+        return filtered
 
-        return out
+    def _get_test_results(
+        self,
+        model_name: str,
+        metric_names: Sequence[str] = (),
+        source_names: Sequence[str] = (),
+        exp_names: Sequence[str] = (),
+    ) -> ExperimentMetrics:
+        raw_experiments = self._load_test_experiments(model_name)
+        return self._filter_test_metrics(
+            raw_experiments, metric_names, source_names, exp_names
+        )
 
     def _process_source(
         self, sourced_metrics: SourcedMetrics, metric_name: str, start: int
@@ -706,37 +774,6 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         return dict(sorted(sources.items(), key=cls._len_source))
 
     @staticmethod
-    def _extract_evaluations(
-        tracker: tracking.Tracker,
-        source_name: str,
-        epochs: list[int],
-        metrics_dict: dict[str, list[float]],
-        metric_names: Sequence[str],
-    ) -> list[tuple[int, dict[str, float]]]:
-        for name, values in metrics_dict.items():
-            if metric_names and name not in metric_names:
-                continue
-
-            if len(epochs) != len(values):
-                msg = '{} and {} logs refer to different epochs.'
-                msg = msg.format(source_name, name)
-                raise exceptions.TrackerError(tracker, msg)
-
-        evaluations: dict[int, dict[str, float]] = {}
-        for i, epoch in enumerate(epochs):
-            metrics: dict[str, float] = {}
-            for name, values in metrics_dict.items():
-                if metric_names and name not in metric_names:
-                    continue
-
-                metrics[name] = values[i]
-
-            if metrics:
-                evaluations[epoch] = metrics
-
-        return sorted(evaluations.items())
-
-    @staticmethod
     def _filter_by_epoch(
         sourced_array: SourcedArray, start: int
     ) -> SourcedArray:
@@ -752,18 +789,43 @@ class BasePlotter(MemoryMetrics, Dumper, abc.ABC, Generic[Figure]):
         return filtered
 
     @staticmethod
+    def _get_test_metric_names(
+        results: ExperimentMetrics,
+    ) -> list[str]:
+        names = (
+            set(metrics_dict)
+            for sourced_metrics in results.values()
+            for _, metrics_dict in sourced_metrics.values()
+        )
+        return sorted(set().union(*names))
+
+    @staticmethod
+    def _get_test_names(
+        results: ExperimentMetrics, metric_name: str
+    ) -> list[str]:
+        return sorted(
+            {
+                source_name
+                for sourced_metrics in results.values()
+                for source_name, (_, metrics) in sourced_metrics.items()
+                if metrics.get(metric_name)
+            }
+        )
+
+    @staticmethod
+    def _get_last_value(
+        sourced_metrics: SourcedMetrics, test_name: str, metric_name: str
+    ) -> float | None:
+        source_data = sourced_metrics.get(test_name)
+        if source_data and source_data[1].get(metric_name):
+            return source_data[1][metric_name][-1]
+
+        return None
+
+    @staticmethod
     def _get_grid_shape(n_panels: int) -> tuple[int, int]:
         n_rows = math.ceil(math.sqrt(n_panels))
         return n_rows, math.ceil(n_panels / n_rows)
-
-    @staticmethod
-    def _get_test_metric_names(test_results: TestResults) -> list[str]:
-        names = (
-            set(metrics)
-            for entries in test_results.values()
-            for _, metrics in entries
-        )
-        return sorted(set().union(*names))
 
     @staticmethod
     def _len_source(source_pair: tuple[str, HistoryMetric]) -> int:

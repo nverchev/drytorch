@@ -46,57 +46,43 @@ class PlotlyPlotter(base_classes.BasePlotter[go.Figure]):
 
     @override
     def _create_test_plot(
-        self, model_name: str, test_results: base_classes.TestResults
+        self, model_name: str, results: base_classes.ExperimentMetrics
     ) -> go.Figure:
-        metric_names = self._get_test_metric_names(test_results)
+        metric_names = self._get_test_metric_names(results)
         n_rows, n_cols = self._get_grid_shape(len(metric_names))
         figure = subplots.make_subplots(
             rows=n_rows, cols=n_cols, subplot_titles=metric_names
         )
         palette = pc.DEFAULT_PLOTLY_COLORS
         colors = {
-            source: palette[i % len(palette)]
-            for i, source in enumerate(test_results)
+            exp_name: palette[i % len(palette)]
+            for i, exp_name in enumerate(results)
         }
-        seen_sources: set[str] = set()
+        seen_experiments: set[str] = set()
         for index, metric_name in enumerate(metric_names):
             row, col = divmod(index, n_cols)
-            position = 0
-            positions: list[int] = []
-            tick_labels: list[str] = []
-            for source_name, entries in test_results.items():
-                x_vals: list[int] = []
+            test_names = self._get_test_names(results, metric_name)
+            for exp_name, sourced_metrics in results.items():
                 y_vals: list[float] = []
-                for epoch, metrics in entries:
-                    if metric_name in metrics:
-                        x_vals.append(position)
-                        y_vals.append(metrics[metric_name])
-                        positions.append(position)
-                        tick_labels.append(str(epoch))
-                        position += 1
-
-                if x_vals:
-                    show_legend = source_name not in seen_sources
-                    seen_sources.add(source_name)
-                    bar = go.Bar(
-                        x=x_vals,
-                        y=y_vals,
-                        name=source_name,
-                        legendgroup=source_name,
-                        showlegend=show_legend,
-                        marker_color=colors[source_name],
+                for test_name in test_names:
+                    value = self._get_last_value(
+                        sourced_metrics, test_name, metric_name
                     )
-                    figure.add_trace(bar, row=row + 1, col=col + 1)
+                    y_vals.append(float('nan') if value is None else value)
 
-            figure.update_xaxes(
-                tickmode='array',
-                tickvals=positions,
-                ticktext=tick_labels,
-                row=row + 1,
-                col=col + 1,
-            )
+                show_legend = exp_name not in seen_experiments
+                seen_experiments.add(exp_name)
+                bar = go.Bar(
+                    x=test_names,
+                    y=y_vals,
+                    name=exp_name,
+                    legendgroup=exp_name,
+                    showlegend=show_legend,
+                    marker_color=colors[exp_name],
+                )
+                figure.add_trace(bar, row=row + 1, col=col + 1)
 
-        figure.update_layout(title=f'{model_name} tests')
+        figure.update_layout(title=f'{model_name} tests', barmode='group')
         return figure
 
     @override

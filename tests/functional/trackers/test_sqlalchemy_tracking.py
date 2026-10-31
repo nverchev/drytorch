@@ -313,7 +313,9 @@ class TestSQLConnectionFullCycle:
         )
         resumed_tracker.notify(test_event_run1)
 
-        assert 'test_run1' in resumed_tracker.load_test_metrics(model_name)
+        exp_name = start_experiment_event.exp_name
+        test_metrics_1 = resumed_tracker.load_test_metrics(model_name)
+        assert 'test_run1' in test_metrics_1[exp_name]
 
         run2_event = dataclasses.replace(start_experiment_event, run_id='run_2')
         run2_tracker = SQLConnection(engine=resumed_tracker.engine)
@@ -323,9 +325,9 @@ class TestSQLConnectionFullCycle:
         )
         run2_tracker.notify(test_event_run2)
 
-        assert 'test_run2' in run2_tracker.load_test_metrics(model_name)
-        assert 'test_run1' not in run2_tracker.load_test_metrics(model_name)
-        assert 'test_run1' in resumed_tracker.load_test_metrics(model_name)
+        test_metrics_2 = run2_tracker.load_test_metrics(model_name)
+        assert 'test_run2' in test_metrics_2[exp_name]
+        assert 'test_run1' not in test_metrics_2[exp_name]
         run2_tracker.notify(stop_experiment_event)
 
     def test_load_test_metrics_loads_all_epochs(
@@ -348,4 +350,5 @@ class TestSQLConnectionFullCycle:
             resumed_tracker.notify(event)
 
         test_metrics = resumed_tracker.load_test_metrics(model_name)
-        assert test_metrics[source][0] == [1, 2, 3]
+        exp_name = next(iter(test_metrics))
+        assert test_metrics[exp_name][source][0] == [1, 2, 3]

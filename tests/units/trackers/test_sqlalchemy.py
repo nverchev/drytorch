@@ -365,7 +365,7 @@ class TestSQLConnection:
         tracker_started,
     ) -> None:
         """Test the _load_test_metrics method integration."""
-        mock_sources = {'test_source': [self.source]}
+        mock_sources = {'test_exp': {'test_source': [self.source]}}
         mock_metrics = ([1], {'metric1': [1.0]})
         find_test_sources = mocker.patch.object(
             tracker_started, '_find_test_sources', return_value=mock_sources
@@ -375,8 +375,9 @@ class TestSQLConnection:
         )
         result = tracker_started._load_test_metrics('test_model')
 
-        assert 'test_source' in result
-        assert result['test_source'] == mock_metrics
+        assert 'test_exp' in result
+        assert 'test_source' in result['test_exp']
+        assert result['test_exp']['test_source'] == mock_metrics
         find_test_sources.assert_called_once_with('test_model')
         get_run_metrics.assert_called_once_with([self.source], max_epoch=-1)
 
@@ -544,4 +545,192 @@ class TestSQLConnectionInMemory:
         test_metrics = tracker.load_test_metrics('tested_only_model')
         tracker.notify(stop_experiment_mock_event)
 
-        assert test_metrics == {'test_runner': ([1], {'accuracy': [0.95]})}
+        assert test_metrics == {
+            'test_exp': {'test_runner': ([1], {'accuracy': [0.95]})},
+        }
+        return
+
+    def test_load_test_metrics_multiple_experiments_last_run(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """load_test_metrics returns the last run of each experiment."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        start_1.run_id = 'run_1'
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_old',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_old',
+                epoch=1,
+                metrics={'acc': 0.8},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp_1'
+        start_2.run_id = 'run_2'
+        tracker.notify(start_2)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_new',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_new',
+                epoch=2,
+                metrics={'acc': 0.9},
+            )
+        )
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_other',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_b',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_b',
+                source_name='test_other',
+                epoch=2,
+                metrics={'acc': 0.7},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_3 = copy.copy(start_experiment_mock_event)
+        start_3.exp_name = 'exp_2'
+        start_3.run_id = 'run_1'
+        tracker.notify(start_3)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_exp2',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_exp2',
+                epoch=1,
+                metrics={'acc': 0.85},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics('model_a')
+        assert set(results) == {'exp_1', 'exp_2'}
+        assert set(results['exp_1']) == {'test_new'}
+        assert set(results['exp_2']) == {'test_exp2'}
+        return
+
+    def test_load_test_metrics_resumed_run(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Resumed runs return all tests of the run, and later run replaces."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp'
+        start_1.run_id = 'run_1'
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_early',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_early',
+                epoch=1,
+                metrics={'acc': 0.7},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp'
+        start_2.run_id = 'run_2'
+        tracker.notify(start_2)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_part_1',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_part_1',
+                epoch=1,
+                metrics={'acc': 0.8},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        continue_2 = copy.copy(start_experiment_mock_event)
+        continue_2.exp_name = 'exp'
+        continue_2.run_id = 'run_2'
+        tracker.notify(continue_2)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_part_2',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_part_2',
+                epoch=1,
+                metrics={'acc': 0.9},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        results = tracker.load_test_metrics('model_a')
+        assert set(results) == {'exp'}
+        assert set(results['exp']) == {'test_part_1', 'test_part_2'}
+        assert 'test_early' not in results['exp']
+        return
