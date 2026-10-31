@@ -55,14 +55,15 @@ DRYTorch provides built-in trackers and integrations with external libraries:
   installed).
 * [`CSVDumper`](#drytorch.trackers.csv.CSVDumper): exports training and
   validation metrics into separate CSV files for each runner, and tests into a
-  `tests/` subdirectory.
+  `test_metrics/` subdirectory.
 * [`HydraLink`](#drytorch.trackers.hydra.HydraLink): links and optionally copies Hydra output folders
   into the run directory.
 * [`MatPlotter`](#drytorch.trackers.matplotlib.MatPlotter): plots the metrics of a model with
   Matplotlib.
 * [`PlotlyPlotter`](#drytorch.trackers.plotly.PlotlyPlotter): plots the metrics of a model with Plotly.
 * [`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection): records experiment metadata, runs,
-  models, and metric history in a SQL database.
+  models, and metric history in a SQL database. One database holds the experiments of one base
+  configuration.
 * [`TensorBoard`](#drytorch.trackers.tensorboard.TensorBoard): logs scalars and metrics to TensorBoard
   event files, launching inline in notebooks or logging the command to launch a
   server otherwise.
@@ -80,7 +81,9 @@ output directory (defaulting to the experiment folder).
 Plotters ([`PlotlyPlotter`](#drytorch.trackers.plotly.PlotlyPlotter) and [`MatPlotter`](#drytorch.trackers.matplotlib.MatPlotter)) collect metrics during the session
 or load stored metrics from a [`MetricLoader`](#drytorch.trackers.base_classes.MetricLoader) (such as [`CSVDumper`](#drytorch.trackers.csv.CSVDumper) or
 [`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection)). They save the training plots when training ends and the test plot after each test.
-The `plot` and `save_plots` methods remain for doing it on demand, for example after loading old metrics.
+With a metric loader, the test plot compares the last run of every experiment. It is saved in the `test_metrics` folder of the plotter, one file for
+each model, so that the variations of a configuration appear together.
+The `plot` and `save_plots` methods do the same on demand during a run.
 
 ## Initialization modes
 DRYTorch provides initialization modes to configure which default trackers

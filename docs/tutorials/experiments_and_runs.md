@@ -346,6 +346,12 @@ these folders:
 - [`delete_experiment_data`](#drytorch.utils.local_ops.delete_experiment_data)`(par_dir, exp_name)`: removes all folders associated
   with the experiment.
 
+These utilities act on folders. A SQL database is updated separately, by
+[`clone_experiment`](#drytorch.trackers.sqlalchemy.SQLConnection.clone_experiment),
+[`rename_experiment`](#drytorch.trackers.sqlalchemy.SQLConnection.rename_experiment) and
+[`delete_experiment`](#drytorch.trackers.sqlalchemy.SQLConnection.delete_experiment) of
+[`SQLConnection`](#drytorch.trackers.sqlalchemy.SQLConnection).
+
 ```{code-cell} ipython3
 import pathlib
 

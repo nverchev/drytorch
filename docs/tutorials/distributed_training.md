@@ -105,7 +105,7 @@ from drytorch import (
     Test,
     Trainer,
 )
-from drytorch.trackers import CSVDumper
+from drytorch.trackers.csv import CSVDumper
 
 
 @dataclasses.dataclass(frozen=True)
