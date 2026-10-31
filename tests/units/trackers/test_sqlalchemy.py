@@ -23,6 +23,7 @@ from drytorch.trackers.sqlalchemy import (
     Source,
     SQLConnection,
     Tags,
+    TestSource,
 )
 
 
@@ -733,4 +734,413 @@ class TestSQLConnectionInMemory:
         assert set(results) == {'exp'}
         assert set(results['exp']) == {'test_part_1', 'test_part_2'}
         assert 'test_early' not in results['exp']
-        return
+
+    def test_rename_experiment(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Rename experiment, keep runs and tags, and update test metrics."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'old_name'
+        start_1.run_id = 'run_1'
+        start_1.tags = ['tag1', 'tag2']
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_s1',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_s1',
+                epoch=1,
+                metrics={'acc': 0.8},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'old_name'
+        start_2.run_id = 'run_2'
+        start_2.tags = ['tag2', 'tag3']
+        tracker.notify(start_2)
+        tracker.notify(stop_experiment_mock_event)
+
+        tracker.rename_experiment('old_name', 'new_name')
+
+        results = tracker.load_test_metrics('model_a')
+        with tracker.session_factory() as session:
+            old_exp = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('old_name'))
+                .first()
+            )
+            new_exp = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('new_name'))
+                .first()
+            )
+            runs = [r.run_id for r in new_exp.runs] if new_exp else []
+            tags = {t.text for t in new_exp.tags} if new_exp else set()
+
+        assert 'new_name' in results
+        assert 'old_name' not in results
+        assert old_exp is None
+        assert new_exp is not None
+        assert set(runs) == {'run_1', 'run_2'}
+        assert tags == {'tag1', 'tag2', 'tag3'}
+
+    def test_delete_experiment(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Delete an experiment and all its cascaded and uncascaded rows."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        start_1.run_id = 'run_1'
+        start_1.tags = ['tag1']
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_runner_1',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_runner_1',
+                epoch=1,
+                metrics={'acc': 0.8},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp_2'
+        start_2.run_id = 'run_2'
+        start_2.tags = ['tag2']
+        tracker.notify(start_2)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_runner_2',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_b',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_b',
+                source_name='test_runner_2',
+                epoch=1,
+                metrics={'acc': 0.9},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        tracker.delete_experiment('exp_1')
+
+        with tracker.session_factory() as session:
+            exp_1 = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('exp_1'))
+                .first()
+            )
+            exp_2 = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('exp_2'))
+                .first()
+            )
+            n_experiments = session.query(Experiment).count()
+            n_tags = session.query(Tags).count()
+            n_runs = session.query(Run).count()
+            n_sources = session.query(Source).count()
+            n_test_sources = session.query(TestSource).count()
+            n_logs = session.query(Log).count()
+
+        assert exp_1 is None
+        assert exp_2 is not None
+        assert n_experiments == 1
+        assert n_tags == 1
+        assert n_runs == 1
+        assert n_sources == 1
+        assert n_test_sources == 1
+        assert n_logs == 1
+
+    def test_delete_experiment_unknown_name_raises(self) -> None:
+        """Deleting a nonexistent experiment raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        with pytest.raises(
+            exceptions.TrackerError, match='No experiment named'
+        ):
+            tracker.delete_experiment('nonexistent')
+
+    def test_delete_experiment_active_run_raises(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Deleting an experiment while a run is active raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+        tracker.notify(start_experiment_mock_event)
+
+        with pytest.raises(exceptions.TrackerError, match='active or stashed'):
+            tracker.delete_experiment(start_experiment_mock_event.exp_name)
+
+        tracker.notify(stop_experiment_mock_event)
+
+    def test_rename_experiment_unknown_name_raises(self) -> None:
+        """Renaming a nonexistent experiment raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        with pytest.raises(
+            exceptions.TrackerError, match='No experiment named'
+        ):
+            tracker.rename_experiment('nonexistent', 'new_name')
+
+    def test_rename_experiment_existing_new_name_raises(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Renaming onto an existing experiment name raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        tracker.notify(start_1)
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp_2'
+        tracker.notify(start_2)
+        tracker.notify(stop_experiment_mock_event)
+
+        with pytest.raises(exceptions.TrackerError, match='already exists'):
+            tracker.rename_experiment('exp_1', 'exp_2')
+
+    def test_rename_experiment_active_run_raises(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Renaming an experiment while a run is active raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+        tracker.notify(start_experiment_mock_event)
+
+        with pytest.raises(exceptions.TrackerError, match='active or stashed'):
+            tracker.rename_experiment(
+                start_experiment_mock_event.exp_name, 'new_name'
+            )
+
+        tracker.notify(stop_experiment_mock_event)
+
+    def test_clone_experiment(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Clone experiment keeps runs, tags, test sources and logs."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        start_1.run_id = 'run_1'
+        start_1.tags = ['tag1', 'tag2']
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_s1',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_s1',
+                epoch=1,
+                metrics={'acc': 0.8},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        start_resumed = copy.copy(start_experiment_mock_event)
+        start_resumed.exp_name = 'exp_1'
+        start_resumed.run_id = 'run_1'
+        start_resumed.resumed = True
+        start_resumed.tags = []
+        tracker.notify(start_resumed)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_s1',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_s1',
+                epoch=2,
+                metrics={'acc': 0.9},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+
+        tracker.clone_experiment('exp_1', 'exp_clone')
+
+        results = tracker.load_test_metrics('model_a')
+        with tracker.session_factory() as session:
+            clone_exp = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('exp_clone'))
+                .first()
+            )
+            clone_runs = [r.run_id for r in clone_exp.runs] if clone_exp else []
+            clone_tags = (
+                {t.text for t in clone_exp.tags} if clone_exp else set()
+            )
+
+        assert results['exp_1'] == results['exp_clone']
+        assert clone_runs == ['run_1', 'run_1']
+        assert clone_tags == {'tag1', 'tag2'}
+
+    def test_clone_experiment_modification_leaves_original_untouched(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Modifying or deleting a clone leaves the original untouched."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        start_1.run_id = 'run_1'
+        tracker.notify(start_1)
+        tracker.notify(
+            log_events.TestRegistrationEvent(
+                runner_name='test_s1',
+                runner_ts=start_experiment_mock_event.run_ts,
+                model_name='model_a',
+                model_ts=start_experiment_mock_event.run_ts,
+                metadata='',
+            )
+        )
+        tracker.notify(
+            log_events.TestMetricEvent(
+                model_name='model_a',
+                source_name='test_s1',
+                epoch=1,
+                metrics={'acc': 0.8},
+            )
+        )
+        tracker.notify(stop_experiment_mock_event)
+        tracker.clone_experiment('exp_1', 'exp_clone')
+
+        tracker.rename_experiment('exp_clone', 'exp_clone_renamed')
+        tracker.delete_experiment('exp_clone_renamed')
+
+        results = tracker.load_test_metrics('model_a')
+        with tracker.session_factory() as session:
+            orig_exp = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('exp_1'))
+                .first()
+            )
+            clone_exp = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('exp_clone'))
+                .first()
+            )
+            renamed_exp = (
+                session.query(Experiment)
+                .where(Experiment.experiment_name.is_('exp_clone_renamed'))
+                .first()
+            )
+
+        assert 'exp_1' in results
+        assert 'exp_clone' not in results
+        assert 'exp_clone_renamed' not in results
+        assert orig_exp is not None
+        assert clone_exp is None
+        assert renamed_exp is None
+
+    def test_clone_experiment_unknown_name_raises(self) -> None:
+        """Cloning a nonexistent experiment raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        with pytest.raises(
+            exceptions.TrackerError, match='No experiment named'
+        ):
+            tracker.clone_experiment('nonexistent', 'new_name')
+
+    def test_clone_experiment_existing_new_name_raises(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Cloning onto an existing experiment name raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+
+        start_1 = copy.copy(start_experiment_mock_event)
+        start_1.exp_name = 'exp_1'
+        tracker.notify(start_1)
+        tracker.notify(stop_experiment_mock_event)
+
+        start_2 = copy.copy(start_experiment_mock_event)
+        start_2.exp_name = 'exp_2'
+        tracker.notify(start_2)
+        tracker.notify(stop_experiment_mock_event)
+
+        with pytest.raises(exceptions.TrackerError, match='already exists'):
+            tracker.clone_experiment('exp_1', 'exp_2')
+
+    def test_clone_experiment_active_run_raises(
+        self,
+        start_experiment_mock_event,
+        stop_experiment_mock_event,
+    ) -> None:
+        """Cloning an experiment while a run is active raises TrackerError."""
+        engine = sqlalchemy.create_engine('sqlite://')
+        tracker = SQLConnection(engine=engine)
+        tracker.notify(start_experiment_mock_event)
+
+        with pytest.raises(exceptions.TrackerError, match='active or stashed'):
+            tracker.clone_experiment(
+                start_experiment_mock_event.exp_name, 'new_name'
+            )
+
+        tracker.notify(stop_experiment_mock_event)

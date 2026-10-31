@@ -352,3 +352,41 @@ class TestSQLConnectionFullCycle:
         test_metrics = resumed_tracker.load_test_metrics(model_name)
         exp_name = next(iter(test_metrics))
         assert test_metrics[exp_name][source][0] == [1, 2, 3]
+
+    def test_delete_experiment_removes_from_load_test_metrics(
+        self,
+        tracker,
+        start_experiment_event,
+        test_registration_event,
+        metrics_event,
+        stop_experiment_event,
+    ) -> None:
+        """Test delete_experiment removes experiment from load_test_metrics."""
+        model_name = test_registration_event.model_name
+        exp1_name = 'exp_1'
+        exp2_name = 'exp_2'
+        for exp_name in (exp1_name, exp2_name):
+            start_event = dataclasses.replace(
+                start_experiment_event,
+                exp_name=exp_name,
+                run_id=f'{exp_name}_run',
+            )
+            tracker.notify(start_event)
+            tracker.notify(test_registration_event)
+            metric_evt = dataclasses.replace(
+                metrics_event,
+                model_name=model_name,
+                source_name=test_registration_event.runner_name,
+            )
+            tracker.notify(metric_evt)
+            tracker.notify(stop_experiment_event)
+
+        test_metrics = tracker.load_test_metrics(model_name)
+        assert exp1_name in test_metrics
+        assert exp2_name in test_metrics
+
+        tracker.delete_experiment(exp1_name)
+
+        updated_metrics = tracker.load_test_metrics(model_name)
+        assert exp1_name not in updated_metrics
+        assert exp2_name in updated_metrics

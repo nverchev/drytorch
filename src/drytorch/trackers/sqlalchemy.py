@@ -223,6 +223,10 @@ class Log:
 class SQLConnection(base_classes.MetricLoader):
     """Tracker that creates a connection to a SQL database using sqlalchemy.
 
+    Experiments cloned, deleted or renamed with :mod:`~drytorch.utils.local_ops`
+    stay in the database; :meth:`clone_experiment`, :meth:`delete_experiment`
+    and :meth:`rename_experiment` copy, remove or rename them.
+
     Attributes:
         default_url: by default, it creates a local sqlite database.
         engine: the sqlalchemy Engine for the connection.
@@ -287,11 +291,7 @@ class SQLConnection(base_classes.MetricLoader):
             return
 
         with self.session_factory() as session:
-            experiment = (
-                session.query(Experiment)
-                .where(Experiment.experiment_name.is_(event.exp_name))
-                .first()
-            )
+            experiment = self._find_experiment(session, event.exp_name)
 
             if experiment is None:
                 experiment = Experiment(experiment_name=event.exp_name)
@@ -398,6 +398,177 @@ class SQLConnection(base_classes.MetricLoader):
         self._sql_stashed_sources.clear()
         self.engine.dispose()
         return super().close()
+
+    def clone_experiment(self, exp_name: str, new_exp_name: str, /) -> None:
+        """Clone an experiment and all its data in the database.
+
+        Args:
+            exp_name: name of the experiment to clone.
+            new_exp_name: new name for the cloned experiment.
+
+        Raises:
+            TrackerError: if a run is active or stashed, if no experiment has
+                the given name, or if new_exp_name already exists.
+
+        Side Effects:
+            Creates a new experiment in the database with copies of all tags,
+            runs, sources, test sources, and logs from the original experiment.
+        """
+        if self._run is not None or self._sql_stashed_runs:
+            msg = 'Cannot clone an experiment while a run is active or stashed.'
+            raise exceptions.TrackerError(self, msg)
+
+        with self.session_factory() as session:
+            orig_exp = self._find_experiment(session, exp_name)
+            if orig_exp is None:
+                msg = f'No experiment named {exp_name!r} found.'
+                raise exceptions.TrackerError(self, msg)
+
+            if self._find_experiment(session, new_exp_name) is not None:
+                msg = f'Experiment {new_exp_name!r} already exists.'
+                raise exceptions.TrackerError(self, msg)
+
+            new_exp = Experiment(experiment_name=new_exp_name)
+            session.add(new_exp)
+
+            for tag in sorted(orig_exp.tags, key=lambda t: t.row_id):
+                session.add(Tags(text=tag.text, experiment=new_exp))
+
+            test_source_ids = {
+                test_source.source_id
+                for test_source in (
+                    session.query(TestSource)
+                    .join(Source, TestSource.source_id == Source.row_id)
+                    .join(Run, Source.run_table_id == Run.row_id)
+                    .where(Run.experiment_id == orig_exp.row_id)
+                    .all()
+                )
+            }
+
+            for orig_run in sorted(orig_exp.runs, key=lambda r: r.row_id):
+                new_run = Run(
+                    run_id=orig_run.run_id,
+                    run_ts=orig_run.run_ts,
+                    experiment=new_exp,
+                )
+                session.add(new_run)
+
+                for orig_source in sorted(
+                    orig_run.sources, key=lambda s: s.row_id
+                ):
+                    new_source = Source(
+                        model_name=orig_source.model_name,
+                        model_ts=orig_source.model_ts,
+                        source_name=orig_source.source_name,
+                        source_ts=orig_source.source_ts,
+                        run=new_run,
+                    )
+                    session.add(new_source)
+
+                    if orig_source.row_id in test_source_ids:
+                        session.add(TestSource(source=new_source))
+
+                    for orig_log in sorted(
+                        orig_source.logs, key=lambda log: log.row_id
+                    ):
+                        new_log = Log(
+                            source=new_source,
+                            epoch=orig_log.epoch,
+                            metric_name=orig_log.metric_name,
+                            value=orig_log.value,
+                        )
+                        new_log.created_at = orig_log.created_at
+                        session.add(new_log)
+
+            session.commit()
+
+        return
+
+    def delete_experiment(self, exp_name: str, /) -> None:
+        """Remove an experiment and all its data from the database.
+
+        Args:
+            exp_name: name of the experiment.
+
+        Raises:
+            TrackerError: if a run is active or stashed, or if no experiment
+                has the given name.
+
+        Side Effects:
+            Deletes the experiment and all associated tags, runs, sources,
+            test sources, and logs from the database.
+        """
+        if self._run is not None or self._sql_stashed_runs:
+            msg = (
+                'Cannot delete an experiment while a run is active or stashed.'
+            )
+            raise exceptions.TrackerError(self, msg)
+
+        with self.session_factory() as session:
+            experiment = self._find_experiment(session, exp_name)
+            if experiment is None:
+                msg = f'No experiment named {exp_name!r} found.'
+                raise exceptions.TrackerError(self, msg)
+
+            test_sources = (
+                session.query(TestSource)
+                .join(Source, TestSource.source_id == Source.row_id)
+                .join(Run, Source.run_table_id == Run.row_id)
+                .where(Run.experiment_id == experiment.row_id)
+                .all()
+            )
+            for test_source in test_sources:
+                session.delete(test_source)
+
+            session.delete(experiment)
+            session.commit()
+
+        return
+
+    def rename_experiment(self, exp_name: str, new_exp_name: str, /) -> None:
+        """Rename an experiment in the database.
+
+        Args:
+            exp_name: existing experiment name.
+            new_exp_name: new experiment name.
+
+        Raises:
+            TrackerError: if a run is active or stashed, if no experiment has
+                the given name, or if new_exp_name already exists.
+
+        Side Effects:
+            Updates the experiment name in the database.
+        """
+        if self._run is not None or self._sql_stashed_runs:
+            msg = (
+                'Cannot rename an experiment while a run is active or stashed.'
+            )
+            raise exceptions.TrackerError(self, msg)
+
+        with self.session_factory() as session:
+            experiment = self._find_experiment(session, exp_name)
+            if experiment is None:
+                msg = f'No experiment named {exp_name!r} found.'
+                raise exceptions.TrackerError(self, msg)
+
+            if self._find_experiment(session, new_exp_name) is not None:
+                msg = f'Experiment {new_exp_name!r} already exists.'
+                raise exceptions.TrackerError(self, msg)
+
+            experiment.experiment_name = new_exp_name
+            session.commit()
+
+        return
+
+    @staticmethod
+    def _find_experiment(
+        session: orm.Session, exp_name: str
+    ) -> Experiment | None:
+        return (
+            session.query(Experiment)
+            .where(Experiment.experiment_name.is_(exp_name))
+            .first()
+        )
 
     @override
     def _load_test_metrics(
