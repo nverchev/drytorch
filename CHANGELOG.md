@@ -1,4 +1,4 @@
-# [0.1.0] - 20-10-2026
+# [0.1.0] - 31-10-2026
 
 ## [BREAKING CHANGES]
 - sources use the objective they are given instead of a copy
@@ -44,11 +44,12 @@
 - `ModelOptimizer.base_lr` and `StatsCollector.active` are read-only; `ModelOptimizer.update_learning_rate` sets the learning rates
 - `Trainer` raises `ValueError` when the loss is better when higher
 - removed `MetricTracker`, `MetricExtractor` and `MetricMonitor`, replaced by `Watch`, `Monitor` and conditions in the new `lib.monitoring`
-- plotters no longer draw during training: `BasePlotter.plot` renders the figures of a model on request, and its arguments after `model_name` are keyword-only
+- plotters no longer draw during training: `BasePlotter.plot` renders the figures of a model on request, and its arguments after `model_name` are keyword-only; plotting needs an active run
 - dropped the `Grad` prefix from gradient operations: renamed `GradNormClipper`, `GradValueClipper`, `GradParamNormalizer`, and `GradZScoreNormalizer` to `NormClipper`, `ValueClipper`, `ParamNormalizer`, and `ZScoreNormalizer`
 - renamed the `metric` argument of `Watch` and `TrainerBuilder.watch` to `metric_name`
 
 ## Added
+- `SQLConnection.clone_experiment`, `rename_experiment` and `delete_experiment` keep the database in line with `local_ops`
 - strict mode via `DRYTORCH_STRICT` turns reproducibility warnings into errors
 - EndTrainingEvent.model_name
 - TestRegistrationEvent and register_test: a Test registers as a test, and SQLConnection records it in test_sources
@@ -95,7 +96,7 @@
 
 ## Changed
 - plotters save the training plots when training ends and the test plot after each test; show also displays them
-- test plots include the tests of earlier sessions: MetricLoader.load_test_metrics, and CSVDumper writes tests in a test_metrics folder
+- test plots compare the last run of each experiment of a metric loader and are saved in `test_metrics/<model>` of the plotter folder: `MetricLoader.load_test_metrics`, and `CSVDumper` writes tests in a test_metrics folder
 - plotters keep the tests of a model out of the learning curves and draw them as a bar chart of their own, one panel per metric (`BasePlotter.create_test_plot`, `MemoryMetrics.test_dict`)
 - unrecorded runs (`record=False`) write nothing: `StartExperimentEvent` and `ContinueExperimentEvent` carry `record`, and the dumpers (`Dumper.record`) and `SQLConnection` skip their files, links, writers and database rows, while the logging trackers still report the run
 - `Source` is generic in any objective, not only in a loss
