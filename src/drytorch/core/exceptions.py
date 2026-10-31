@@ -125,17 +125,19 @@ class TrackerError(DryTorchError):
     """Exception raised by tracker objects during experiment tracking."""
 
     _template = '[{}] {}'
+    _tracker_template: ClassVar[str] = '{}'
 
     tracker: Final[Any]
 
-    def __init__(self, tracker: Any, tracker_msg: str) -> None:
+    def __init__(self, tracker: Any, *args: Any) -> None:
         """Initialize.
 
         Args:
             tracker: the tracker object that encountered the error.
-            tracker_msg: the error message from the tracker.
+            *args: arguments to be formatted into the tracker template.
         """
         self.tracker = tracker
+        tracker_msg = self._tracker_template.format(*args)
         super().__init__(tracker.__class__.__name__, tracker_msg)
         return
 
@@ -664,6 +666,10 @@ class NoActiveExperimentError(DryTorchError):
 class NoSourcesError(TrackerError):
     """Exception raised when a model has no sources."""
 
+    _tracker_template = 'No sources for model {!r}.'
+
+    model_name: Final[str]
+
     def __init__(self, tracker: Any, model_name: str) -> None:
         """Initialize.
 
@@ -671,12 +677,17 @@ class NoSourcesError(TrackerError):
             tracker: the tracker object that encountered the error.
             model_name: the name of the model without sources.
         """
-        super().__init__(tracker, f'No sources for model {model_name!r}.')
+        self.model_name = model_name
+        super().__init__(tracker, model_name)
         return
 
 
 class NoStashedStateError(TrackerError):
     """Exception raised when trying to continue a run with no stashed state."""
+
+    _tracker_template = 'No stashed state found for run {!r}.'
+
+    run_id: Final[str]
 
     def __init__(self, tracker: Any, run_id: str) -> None:
         """Initialize.
@@ -685,12 +696,17 @@ class NoStashedStateError(TrackerError):
             tracker: the tracker object that encountered the error.
             run_id: the identifier of the run.
         """
-        super().__init__(tracker, f'No stashed state found for run {run_id!r}.')
+        self.run_id = run_id
+        super().__init__(tracker, run_id)
         return
 
 
 class NothingToPlotError(TrackerError):
     """Exception raised when no metric or test is left to plot."""
+
+    _tracker_template = 'Nothing to plot for model {!r}.'
+
+    model_name: Final[str]
 
     def __init__(self, tracker: Any, model_name: str) -> None:
         """Initialize.
@@ -699,7 +715,8 @@ class NothingToPlotError(TrackerError):
             tracker: the tracker object that encountered the error.
             model_name: the name of the model with nothing to plot.
         """
-        super().__init__(tracker, f'Nothing to plot for model {model_name!r}.')
+        self.model_name = model_name
+        super().__init__(tracker, model_name)
         return
 
 

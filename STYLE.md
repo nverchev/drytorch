@@ -210,7 +210,13 @@ Python requires it (dataclass fields with defaults after those without).
 - Actions that break drytorch's rules (for example, registering the same
   model twice): a `DryTorchError`.
 - Library errors and warnings live in `core/exceptions.py`, subclass
-  `DryTorchError` or `DryTorchWarning`, and use `_template`.
+  `DryTorchError` or `DryTorchWarning`, and define a `_template` string
+  formatted by `DryTorchError.__init__` or `DryTorchWarning.__init__`.
+  Subclasses of `TrackerError` declare `_tracker_template`, and `TrackerError`
+  adds the tracker's name. An exception with no arguments omits `__init__`.
+  One with arguments stores them as `Final` attributes and delegates message
+  formatting by passing format values to `super().__init__(...)` without
+  formatting the message itself.
 - Warnings: `warnings.warn(exceptions.SomeWarning(...), stacklevel=...)`.
 - Optional dependencies are imported inside `try`/`except (ImportError,
   ModuleNotFoundError)`, warning with `FailedOptionalImportWarning`.
